@@ -42,7 +42,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { errorText } from "@/lib/fetchJson";
 import { notify } from "@/lib/notify/browser";
 import { chatApi, CHAT_REFUSAL_KEYS } from "@/lib/company/chat/client";
-import { groupOf, GROUP_ORDER } from "@/lib/company/chat/rules";
+import { groupOf, GROUP_ORDER, mayMentionEveryone } from "@/lib/company/chat/rules";
+import { mentionsEveryone } from "@/lib/staff/mentions";
 import { layoutThread } from "@/lib/chat/threadLayout";
 import { announceBadgesChanged } from "@/lib/chat/badges";
 import { personTitle } from "@/lib/team/personLabel";
@@ -618,6 +619,11 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
   }
 
   const readOnly = Boolean(data.me?.readOnly);
+  // Typed "@everyone" without the office's say: the server will post it as
+  // words and tell nobody (rules.js mayMentionEveryone), so the composer
+  // says that BEFORE they send rather than letting them think the whole
+  // crew was pinged. Same detector the server parses with.
+  const everyoneIsText = Boolean(room) && room.kind !== "dm" && !mayMentionEveryone(data.me) && mentionsEveryone(text);
   const title = room ? roomName(room) : "";
   const subtitle = room
     ? room.kind === "dm"
@@ -739,7 +745,13 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
             disabled={!room}
             placeholder={t("app.companyChat.composerPlaceholder", { name: title })}
             maxLength={4000}
-            hint={actionError ? <span className="text-red-700 dark:text-red-300">{actionError}</span> : null}
+            hint={
+              actionError ? (
+                <span className="text-red-700 dark:text-red-300">{actionError}</span>
+              ) : everyoneIsText ? (
+                <span data-everyone-hint>{t("app.companyChat.everyoneOfficeOnly")}</span>
+              ) : null
+            }
           />
         </div>
       )}

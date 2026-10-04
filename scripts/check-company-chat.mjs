@@ -73,7 +73,9 @@ import {
   threadMessages,
   canWrite,
   seesAllRooms,
+  mayMentionEveryone,
 } from "@/lib/company/chat/rules";
+import { parseMentions, mentionsEveryone } from "@/lib/staff/mentions";
 import { FEATURES, featureForNavKey } from "@/lib/features/registry";
 import { NAV_REQUIREMENTS, navRowAllowed } from "@/lib/permissions/nav";
 import { PHONE_BARS, phoneBarFor } from "@/lib/nav/phoneBar";
@@ -666,6 +668,65 @@ section("12. The job page's \"Open job chat\": only for the room's members");
   ok("the job page draws Open job chat only when the id came back and team_chat is usable", /\{job\.chatRoomId && chatUsable && \(/.test(detail) && /useFeatureFlags\(\)\?\.team_chat/.test(detail));
   ok("…linking into the room through the push landing (?room=)", /href=\{`\/app\/chat\?room=\$\{encodeURIComponent\(job\.chatRoomId\)\}`\}/.test(detail));
   ok("…with its label in every language", Object.values(APP_MESSAGES).every((m) => typeof m["app.companyChat.openJobChat"] === "string" && m["app.companyChat.openJobChat"].trim()));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. @everyone is the office's: anyone else's is words, not a push");
+
+{
+  // lib/staff/mentions.js treated "@all"/"@everyone" as every member, and
+  // the company store passed every author through, so a crew member in
+  // #general could push a notification to the whole roster.
+  ok("owner, admin and supervisor (Manager/Dispatcher map here) may @everyone", ["owner", "admin", "supervisor"].every((role) => mayMentionEveryone({ role })));
+  ok("crew (employee), a viewer and nobody may not", !mayMentionEveryone({ role: "employee" }) && !mayMentionEveryone({ role: "viewer" }) && !mayMentionEveryone(null));
+
+  const room = [
+    { kind: "member", id: "mAna", name: "Ana Owner" },
+    { kind: "member", id: "mBob", name: "Bob Crew" },
+    { kind: "member", id: "mCat", name: "Cat Crew" },
+  ];
+  const keys = (body, everyone) => [...parseMentions(body, room, { everyone })].sort().join();
+  ok("detector: @everyone at the start", mentionsEveryone("@everyone lunch at noon"));
+  ok("detector: @all at the very end", mentionsEveryone("lunch at noon @all"));
+  ok("detector: any case", mentionsEveryone("heads up @EveryOne"));
+  ok("detector: an email is not a mention", !mentionsEveryone("write to crew@everyone.com") && !mentionsEveryone("x@all"));
+  ok("detector: a longer word is not it", !mentionsEveryone("@everyones") && !mentionsEveryone("@allison"));
+  ok("allowed: @everyone names the whole room", keys("@everyone lunch", true) === "member:mAna,member:mBob,member:mCat");
+  ok("refused: @everyone names nobody", keys("@everyone lunch", false) === "");
+  ok("refused: a real name beside it still counts — one mention, not the room", keys("@everyone and @Ana Owner, look", false) === "member:mAna");
+  ok("refused: two names and @all at the end — just the two", keys("@Bob Crew @Cat Crew see you @all", false) === "member:mBob,member:mCat");
+  ok("the staff chat's default is unchanged (everyone allowed)", [...parseMentions("@all", room)].length === 3);
+
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const calls = [];
+  const notify = async (args) => { calls.push(args); return { sent: 1 }; };
+
+  const crew = await postMessage({ member: BOB, roomId: general.id, body: "@everyone the truck is blocking the drive" }, { client: db, notify });
+  ok("crew's @everyone is posted", crew.ok === true);
+  ok("…with the words exactly as typed", crew.message.body === "@everyone the truck is blocking the drive");
+  ok("…mentioning nobody", crew.message.mentions.length === 0, crew.message.mentions);
+  ok("…and pushing to nobody", calls.length === 0, calls.length);
+
+  calls.length = 0;
+  const crewAll = await postMessage({ member: CAT, roomId: general.id, body: "done for today @all" }, { client: db, notify });
+  ok("crew's @all at the end is the same: no mention, no push", crewAll.message.mentions.length === 0 && calls.length === 0);
+
+  calls.length = 0;
+  const crewNamed = await postMessage({ member: BOB, roomId: general.id, body: "@everyone — @Ana Owner can you call the client?" }, { client: db, notify });
+  ok("crew naming one person beside @everyone reaches that person only", JSON.stringify(crewNamed.message.mentions) === JSON.stringify(["member:mAna"]) && calls.length === 1 && JSON.stringify(calls[0].userIds) === JSON.stringify(["uAna"]));
+
+  calls.length = 0;
+  const office = await postMessage({ member: ANA, roomId: general.id, body: "@everyone safety meeting at 7" }, { client: db, notify });
+  ok("the owner's @everyone mentions the whole room", office.message.mentions.length === 4, office.message.mentions);
+  ok("…and pushes to everyone but the owner", calls.length === 1 && JSON.stringify([...calls[0].userIds].sort()) === JSON.stringify(["uBob", "uCat", "uDan"]));
+
+  const store = decomment(read("lib/company/chat/store.js"));
+  ok("the store passes the AUTHOR's verdict to the parser", /parseMentions\(text, people, \{ everyone: mayMentionEveryone\(member\) \}\)/.test(store));
+  const screen = decomment(read("app/components/company/CompanyChat.js"));
+  ok("the composer says so before sending, with the server's own detector and rule", /mentionsEveryone\(text\)/.test(screen) && /!mayMentionEveryone\(data\.me\)/.test(screen) && /data-everyone-hint/.test(screen) && /app\.companyChat\.everyoneOfficeOnly/.test(screen));
+  ok("…not in a DM, where there is no everyone", /room\.kind !== "dm" && !mayMentionEveryone/.test(screen));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
