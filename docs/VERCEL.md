@@ -388,6 +388,10 @@ as "for development, not for production apps used by real advertisers."
   `/api/platform/ai-health`. An amber banner means the configured model is
   retired. Symptom if ignored: every AI feature returns nothing, silently, with
   no error in any log, because `provider.js` catches and degrades.
+  `/api/platform/ai-health?tools=1` also runs a one-tool loop on each tier
+  (`toolLoop.standard`, `toolLoop.best`, ~1¢): the AI employee depends on the
+  best tier's, and a plain completion passing says nothing about it — on
+  2026-10-04 the plain check was green while every employee reply failed.
 
 ---
 

@@ -453,7 +453,7 @@ test("every routing kind routing.js can write has a step", () => {
 });
 
 test("every stop reason decide.js and respond.js can write has a sentence", () => {
-  for (const r of [...SKIP_REASONS, MEDIA_CLAIM_REASON, "provider_error", "no_text", "send_failed", "dismissed_by_user"]) {
+  for (const r of [...SKIP_REASONS, MEDIA_CLAIM_REASON, "provider_error", "prompt_error", "no_text", "send_failed", "dismissed_by_user"]) {
     assert.ok(QUIET_REASONS.includes(r), `no sentence for stop reason ${r}`);
   }
 });

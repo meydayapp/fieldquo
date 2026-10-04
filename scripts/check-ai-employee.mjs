@@ -656,7 +656,8 @@ for (const role of AI_EMPLOYEE_ROLES) {
 {
   const respond = code("lib/aiEmployee/respond.js");
   ok("the responder counts what the customer actually sent", /attachmentTally/.test(respond));
-  ok("...hands that count to the prompt", /buildEmployeePrompt\([^)]*tally/s.test(respond));
+  // buildPrompt is respond.js's injectable name for buildEmployeePrompt, defaulting to it.
+  ok("...hands that count to the prompt", /buildPrompt\([^)]*tally/s.test(respond) && /buildEmployeePrompt: buildPrompt = buildEmployeePrompt/.test(respond));
   ok("...checks the finished draft against it", /mediaClaimRefusal\(/.test(respond));
   ok("...and records the refusal rather than sending", /suppressedReason:\s*mediaRefusal/.test(respond));
   // In SUGGEST mode a refused draft must not even be offered. The suggestion
@@ -705,7 +706,7 @@ for (const role of AI_EMPLOYEE_ROLES) {
   } = await import("../lib/aiEmployee/routing.js");
   const { definitionsForRole, executeFor, TOOL_RISK } = await import("../lib/aiEmployee/tools.js");
   const { switchableToolsForRole, cleanDisabledTools, ALWAYS_ON_TOOLS } = await import("../lib/aiEmployee/roles.js");
-  const { respondToMessage } = await import("../lib/aiEmployee/respond.js");
+  const { respondToMessage, PROMPT_ERROR } = await import("../lib/aiEmployee/respond.js");
 
   // ── The vocabulary ───────────────────────────────────────────────────────
   ok("four intents, closed", INTENTS.length === 4 && ["book", "price", "problem", "other"].every((i) => INTENTS.includes(i)));
@@ -940,6 +941,44 @@ for (const role of AI_EMPLOYEE_ROLES) {
     const a = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
     ok("one employee takes a price question with no front-desk call", a.replied === true && db.$store.messageThread[0].assignedEmployeeId === "R" && !h.usage.some((u) => u.feature === FRONT_DESK_FEATURE));
     ok("...and the reason says so", /only one employee/.test(db.$store.messageThread[0].routingReason));
+  }
+
+  // ── A vendor failure is FILED, and a prompt failure is not a vendor one ──
+  //
+  // 2026-10-04: every reply in production had failed with a gpt-5.5 400 that
+  // only ever reached console.error. Now it lands in PlatformErrorLog (area
+  // "ai-employee"), redacted, with the ids to find the reply — and our own
+  // prompt failing to build is its own reason, never "the AI service".
+  {
+    const db = makeDb({ aiEmployee: [employees()[0]], messageThread: [thread()], message: [inbound("m1", "Can you come Monday? my email is sam@home.ca", 0)], company: [company] });
+    const h = harness(db);
+    const filed = [];
+    h.deps.recordError = async (e) => { filed.push(e); };
+    h.deps.runToolLoop = async () => {
+      throw Object.assign(new Error("400 Function tools with reasoning_effort are not supported for gpt-5.5 in /v1/chat/completions. Key sk-proj-****abcd"), { status: 400, code: "unsupported_parameter", type: "invalid_request_error", requestID: "req_9" });
+    };
+    const r = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    const row = db.$store.aiEmployeeReply.find((x) => x.id === r.replyId);
+    ok("a vendor 400 is provider_error on the result and the reply row, nothing sent", r.reason === "provider_error" && row?.suppressedReason === "provider_error" && h.sent.length === 0, { r, row });
+    ok("...and is filed once under area ai-employee, code provider_error", filed.length === 1 && filed[0].area === "ai-employee" && filed[0].code === "provider_error" && filed[0].companyId === "C1", filed);
+    ok("...with the vendor's own words, the key fragment redacted", /reasoning_effort are not supported for gpt-5\.5/.test(filed[0]?.message) && !/abcd/.test(filed[0]?.message), filed[0]?.message);
+    const d = filed[0]?.detail || {};
+    ok("...and the ids, model and API to find it by", d.stage === "provider" && d.replyId === r.replyId && d.threadId === "th1" && d.messageId === "m1" && d.employeeId === "R" && d.model === AI_BEST_MODEL && d.api === "responses" && d.status === 400 && d.vendorCode === "unsupported_parameter" && d.requestId === "req_9", d);
+    ok("...never the homeowner's words", !JSON.stringify(filed).includes("sam@home.ca") && !JSON.stringify(filed).includes("Monday"));
+  }
+  {
+    const db = makeDb({ aiEmployee: [employees()[0]], messageThread: [thread()], message: [inbound("m1", "hello", 0)], company: [company] });
+    const h = harness(db);
+    const filed = [];
+    let modelCalls = 0;
+    h.deps.recordError = async (e) => { filed.push(e); };
+    h.deps.buildEmployeePrompt = () => { throw new TypeError("Cannot read properties of undefined (reading 'title')"); };
+    h.deps.runToolLoop = async () => { modelCalls += 1; return { text: "should not run" }; };
+    const r = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    const row = db.$store.aiEmployeeReply.find((x) => x.id === r.replyId);
+    ok("a prompt that will not build is prompt_error, not provider_error", r.reason === PROMPT_ERROR && row?.suppressedReason === PROMPT_ERROR && PROMPT_ERROR !== "provider_error", { r, row });
+    ok("...the model is never called and nothing is metered or sent", modelCalls === 0 && !h.usage.some((u) => u.feature === "ai_employee_reply") && h.sent.length === 0, { modelCalls, usage: h.usage });
+    ok("...filed as stage prompt with its own code", filed.length === 1 && filed[0].area === "ai-employee" && filed[0].code === PROMPT_ERROR && filed[0].detail?.stage === "prompt" && /reading 'title'/.test(filed[0].message), filed);
   }
 
   // ── Hand-off moves the assignee and introduces once ──────────────────────
