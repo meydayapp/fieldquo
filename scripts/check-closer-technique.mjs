@@ -263,7 +263,8 @@ ok(buildEmployeePrompt({ employee: { role: "closer" }, company: {}, sources: [] 
 
   const respond = code("lib/aiEmployee/respond.js");
   ok(/technique === true \? await closerTradesFor\(prisma, companyId\) : \[\]/.test(respond), "respond.js reads the services only for the role that carries the technique, under this companyId");
-  ok(/buildEmployeePrompt\(\{[^}]*\btrades\b[^}]*\}\)/.test(respond), "respond.js hands them to the prompt");
+  // buildPrompt is the injectable name for buildEmployeePrompt (respond.js's deps), defaulting to it.
+  ok(/buildPrompt\(\{[^}]*\btrades\b[^}]*\}\)/.test(respond) && /buildEmployeePrompt: buildPrompt = buildEmployeePrompt/.test(respond), "respond.js hands them to the prompt");
 }
 
 // ── 6. Inbound → which employee, and how it becomes a lead ─────────────────

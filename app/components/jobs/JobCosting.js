@@ -353,7 +353,16 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
           an estimate: the quote's estimate isn't stored, and recomputing it
           today against a changed price book would produce a variance that
           moves when nobody touched the job. See the API route. */}
-      {comparison.profit !== null && (
+      {/* A past job typed in with nothing recorded against it: its cost is
+          unknown, and "Left after costs" against $0 would be a 100% margin
+          nobody earned. The route sets the flag only while nothing is
+          recorded; add a receipt and the margin below comes back. */}
+      {data.costsNotRecorded && (
+        <p className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
+          {t("app.jobCosting.costsNotRecorded", "Costs weren't recorded for this past job.")}
+        </p>
+      )}
+      {comparison.profit !== null && !data.costsNotRecorded && (
         <div className="mt-4 pt-4 border-t border-border grid sm:grid-cols-3 gap-4">
           <Stat
             label={
