@@ -1,8 +1,11 @@
 // app/components/quotes/ShareWithStaffModal.js
 //
-// "Share with staff": a link to this quote's back-office page, posted into
-// the company's own crew chat — a room (#general, a job room) or a direct
-// message to one person — with an optional line from the sender.
+// "Share with staff": this quote — or, once it is a job, its work order —
+// posted into the company's own crew chat as a CARD (since 2026-10-04: ids
+// only, drawn per reader with their own access; the text links below are
+// the fallback when the server refuses the card) — to a room (#general, a
+// job room) or a direct message to one person — with an optional line from
+// the sender.
 //
 // ── Who the links open for (2026-10-03) ─────────────────────────────────────
 //
@@ -30,7 +33,7 @@ import { Share2, X, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { workOrderPath } from "@/lib/workOrder/url";
-import { shareMessageBody, shareVerdict } from "@/lib/quotes/shareWithStaff";
+import { shareMessageBody, shareVerdict, shareCard } from "@/lib/quotes/shareWithStaff";
 
 export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNumber, workOrderJobId = null, onShared }) {
   const { t } = useTranslation();
@@ -131,11 +134,25 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
           : null,
         accessNote: t("app.shareStaff.accessNote", "This link opens for people with access to quotes. The crew get the work order once the quote is a job."),
       });
-      await fetchJson(`/api/chat/rooms/${roomId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      });
+      // A CARD, not URL text (lib/quotes/shareWithStaff.js shareCard): each
+      // reader's thread draws it with their own access — the crew open the
+      // work order, the office the quote too, "Office only" for a quote the
+      // reader cannot open. The text links are the fallback if the server
+      // refuses the card (`bad_card`: the sharer cannot open the job).
+      try {
+        await fetchJson(`/api/chat/rooms/${roomId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: message.trim(), card: shareCard({ quoteId, workOrderJobId }) }),
+        });
+      } catch (err) {
+        if (err?.code !== "bad_card") throw err;
+        await fetchJson(`/api/chat/rooms/${roomId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        });
+      }
       onShared?.(roomId);
       onClose();
     } catch (err) {

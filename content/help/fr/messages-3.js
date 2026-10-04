@@ -4,6 +4,142 @@
 // messages.js). Même structure que content/help/en/messages-3.js — sections,
 // blocs et FAQ dans le même ordre, vérifiés par scripts/check-help-centre.mjs.
 export const ARTICLES = {
+  // 2026-10-04 — phases 3 et 4 du clavardage d'équipe (voir la version anglaise).
+  "photos-and-files-in-team-chat": {
+    title: "Photos, fichiers et chantiers partagés dans le clavardage",
+    summary: "Envoyez des photos prises avec votre téléphone, des PDF et des documents dans toute conversation. Ils restent privés à la conversation, et une photo peut être enregistrée dans les photos d'un chantier.",
+    updated: "2026-10-04",
+    intro: [
+      "Dans Clavardage, les boutons sous la zone de texte envoient plus que des mots : l'**appareil photo** prend ou choisit une photo, le **trombone** joint des photos ou des documents, et la **mallette** partage un de vos chantiers sous forme de carte.",
+    ],
+    sections: [
+      {
+        id: "what-you-can-send",
+        heading: "Ce que vous pouvez envoyer",
+        blocks: [
+          {
+            bullets: [
+              "Des photos (JPEG, PNG, HEIC et les autres formats courants des téléphones). Une photo est réduite sur votre téléphone avant l'envoi, et sa position est retirée.",
+              "Des PDF et des documents Word, Excel, PowerPoint et texte, jusqu'à 25 Mo chacun.",
+              "Jusqu'à 10 fichiers par message, avec ou sans texte.",
+              "Les vidéos ne peuvent pas être envoyées dans le clavardage.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "who-can-open-them",
+        heading: "Qui peut les ouvrir",
+        blocks: [
+          {
+            p: "Seulement les personnes de la conversation. Les fichiers sont stockés de façon privée, pas à une adresse web publique. Chaque photo ou fichier à l'écran s'ouvre par un lien qui ne fonctionne que pour vous et cesse de fonctionner après une heure; rouvrir la conversation donne de nouveaux liens. Une personne qui quitte la conversation, ou qui en est retirée, ne peut plus ouvrir ses fichiers. Le fichier d'un message retiré ne peut être ouvert par personne.",
+          },
+        ],
+      },
+      {
+        id: "save-to-job-photos",
+        heading: "Enregistrer une photo dans un chantier",
+        blocks: [
+          {
+            p: "Touchez une photo pour la voir en grand, puis **Enregistrer dans les photos du chantier**. Dans le salon d'un chantier, elle va dans ce chantier; ailleurs, vous choisissez le chantier parmi ceux que vous voyez. L'équipe peut enregistrer dans les chantiers où elle travaille.",
+          },
+          {
+            p: "La photo est copiée dans les photos du chantier comme photo d'avancement. Elle n'est pas mise sur votre site web : la mise en vedette reste aux personnes qui gèrent les photos des chantiers. La copie dans le clavardage reste privée.",
+          },
+        ],
+      },
+      {
+        id: "shared-jobs",
+        heading: "Chantiers, bons de travail et soumissions partagés",
+        blocks: [
+          {
+            p: "Un chantier, un bon de travail ou une soumission partagé s'affiche comme une carte. Chacun voit ce que son propre accès permet : une personne sur le chantier peut l'ouvrir ainsi que son bon de travail, une personne qui ouvre les soumissions voit le numéro et le client, et les autres voient **Réservé au bureau** ou **Pour les personnes sur ce chantier**. Une carte n'affiche jamais de prix. **Partager avec l'équipe** sur une soumission publie une carte de la même façon.",
+          },
+        ],
+      },
+      {
+        id: "no-signal",
+        heading: "Sans réseau",
+        blocks: [
+          {
+            p: "Le texte envoyé sans réseau attend dans la conversation avec **Envoi…** et part tout seul quand votre téléphone retrouve le réseau. Il est envoyé une seule fois, même si la connexion coupe en route. Les photos et fichiers ont besoin d'une connexion; votre texte reste dans la zone.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Le propriétaire peut-il ouvrir les photos d'un canal privé dont il ne fait pas partie?",
+        a: "Non. Les fichiers suivent la conversation : seuls ses membres peuvent les ouvrir.",
+      },
+      {
+        q: "Pourquoi une photo est-elle devenue grise?",
+        a: "Son lien a expiré après une heure. La conversation recharge de nouveaux liens d'elle-même; sinon, rouvrez la conversation.",
+      },
+    ],
+  },
+  "reply-pin-edit-and-search-in-team-chat": {
+    title: "Répondre, épingler, modifier, retirer et rechercher dans le clavardage",
+    summary: "Répondez à un message, épinglez ceux dont l'équipe a besoin, corrigez un message pendant 15 minutes, retirez-le pour tout le monde et cherchez dans toutes vos conversations.",
+    updated: "2026-10-04",
+    intro: [
+      "Pointez un message à l'ordinateur, ou touchez **⋯** dessous sur un téléphone, pour voir ce que vous pouvez en faire.",
+    ],
+    sections: [
+      {
+        id: "reply",
+        heading: "Répondre",
+        blocks: [
+          {
+            p: "**Répondre** place une petite citation du message au-dessus du vôtre. Touchez la citation pour aller à l'original. Les réponses sont sur un seul niveau — pas de fils parallèles à manquer.",
+          },
+        ],
+      },
+      {
+        id: "pins",
+        heading: "Épingler",
+        blocks: [
+          {
+            p: "Un message épinglé apparaît dans la barre sous le nom de la conversation, le plus récent d'abord; touchez la barre pour la liste. Le bureau peut épingler dans toute conversation dont il fait partie, le gestionnaire d'un canal ou d'un groupe dans le sien, et tout le monde dans un message direct ou un groupe. Une ligne dans la conversation indique qui a épinglé.",
+          },
+        ],
+      },
+      {
+        id: "edit-and-remove",
+        heading: "Modifier et retirer",
+        blocks: [
+          {
+            bullets: [
+              "**Modifiez** votre propre message pendant 15 minutes après l'envoi. Il affiche ensuite **(modifié)**.",
+              "**Retirez** votre propre message en tout temps. Tout le monde dans la conversation voit **Message retiré** à sa place — personne ne peut plus le lire, le propriétaire compris.",
+              "Le propriétaire et les administrateurs, ainsi que le gestionnaire d'un canal, peuvent retirer le message de quelqu'un d'autre dans un canal. Le journal d'activité indique qui l'a retiré, pas ce qu'il disait.",
+              "Dans les messages directs, les groupes, #general et les salons de chantier, personne ne peut retirer le message d'une autre personne.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "search",
+        heading: "Rechercher",
+        blocks: [
+          {
+            p: "La loupe en haut de la liste cherche dans toutes vos conversations; celle d'une conversation cherche dans celle-ci, avec un choix pour chercher partout. Tapez au moins deux lettres. Touchez un résultat pour ouvrir la conversation à ce message. Les canaux privés dont vous ne faites pas partie et les messages retirés ne sont jamais parcourus.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Puis-je modifier un message après 15 minutes?",
+        a: "Non. Retirez-le et envoyez-le de nouveau.",
+      },
+      {
+        q: "Retirer un message le supprime-t-il?",
+        a: "Il est retiré de tous les écrans pour tout le monde. FieldQuo en garde la trace, mais personne ne peut en lire le texte.",
+      },
+    ],
+  },
+
   "fetch-older-facebook-and-instagram-history": {
     title: "Récupérer l'historique Facebook et Instagram plus ancien",
     summary:

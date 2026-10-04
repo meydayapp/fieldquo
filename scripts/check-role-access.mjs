@@ -728,5 +728,152 @@ seedChat();
   ok("crew: the room list and Browse never name the private channel", list.status === 200 && !textHas(list.json, "ch_off"), `status ${list.status}`);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("Team chat phases 3–4 (2026-10-04) — files, cards, edit, remove, search, through the routes");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's decisions, executed through app/api/chat/** as each role:
+// chat photos are PRIVATE (a link that is the reader's, that expires, that a
+// non-member cannot open); a removed message's words are in no response —
+// the owner's and a support session's included; the crew never see a price
+// on a card; the 15-minute edit window is the server's; search never reaches
+// into a private room the searcher is not in. The full matrix runs against
+// the store in scripts/check-company-chat.mjs §26–36.
+process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET || "role-access-chat-secret-0123456789";
+process.env.CLOUDINARY_CLOUD_NAME = "democloud";
+process.env.CLOUDINARY_API_KEY = "test-key";
+process.env.CLOUDINARY_API_SECRET = "test-secret";
+const { cloudinary: CLD } = await import("@/lib/cloudinary");
+CLD.config({ cloud_name: "democloud", api_key: "test-key", api_secret: "test-secret", secure: true });
+const { fileLinkFor } = await import("@/lib/company/chat/fileLinks");
+const CHAT_FILES = await import("../app/api/chat/files/[messageId]/[index]/route.js");
+const CHAT_MESSAGE = await import("../app/api/chat/messages/[id]/route.js");
+const CHAT_SEARCH = await import("../app/api/chat/search/route.js");
+// A read-only support session holds no member row; added to MEMBERS only
+// AFTER each seed (seed() builds a user per member).
+const SUPPORT_MEMBER = { id: null, userId: null, companyId: "co1", role: "viewer", impersonation: true, impersonationMode: "read_only", platformAdminId: "pa1", permissions: null };
+
+const PHOTO_ID = "fieldquo/companies/co1/chat/00000000-0000-4000-8000-000000000001";
+const photo = { type: "photo", url: `https://res.cloudinary.com/democloud/image/authenticated/v17/${PHOTO_ID}.jpg`, publicId: PHOTO_ID, mimeType: "image/jpeg", filename: "ladder.jpg", bytes: 900000, width: 2560, height: 1920 };
+function seedChatFiles() {
+  delete MEMBERS.support;
+  seedChat();
+  MEMBERS.support = SUPPORT_MEMBER;
+  const person = (m) => ({ id: m.id, userId: m.userId, role: m.role, active: true, user: { name: `${m.id.slice(2)} person`, email: `${m.id}@example.test`, language: null } });
+  const row = (m, roomId, extra = {}) => ({
+    id: `cm_${roomId}_${m.id}`, companyId: "co1", roomId, memberId: m.id, open: true, role: "member", notify: "default",
+    mutedUntil: null, lastOpenedAt: null, lastSeenAt: null, hiddenAt: null, starredAt: null, member: person(m), ...extra,
+  });
+  const minsAgo = (n) => new Date(Date.now() - n * 60 * 1000);
+  // #site: everyone may post; owner, manager and crew are in it.
+  const siteMembers = [row(MEMBERS.owner, "ch_site"), row(MEMBERS.manager, "ch_site", { role: "manager" }), row(MEMBERS.crew, "ch_site")];
+  // #office: PRIVATE, the manager only — with a photo and a money word.
+  const offMembers = [row(MEMBERS.manager, "ch_office", { role: "manager" })];
+  const msg = (id, roomId, author, extra = {}) => ({
+    id, companyId: "co1", roomId, kind: "message", body: "", mentions: [], meta: null, attachments: null, card: null,
+    replyToId: null, replyTo: null, editedAt: null, deletedAt: null, deletedByMemberId: null, pinnedAt: null, pinnedByMemberId: null,
+    createdAt: minsAgo(30), authorMemberId: author.id, author: person(author), ...extra,
+  });
+  const site = { id: "ch_site", companyId: "co1", kind: "channel", key: "channel:site", name: "site", jobId: null, topic: null, private: false, postingPolicy: "everyone", autoJoin: false, archivedAt: null, createdByMemberId: "m_mgr", lastMessageAt: null, members: siteMembers, job: null };
+  const office = { id: "ch_office", companyId: "co1", kind: "channel", key: "channel:office", name: "office", jobId: null, topic: null, private: true, postingPolicy: "everyone", autoJoin: false, archivedAt: null, createdByMemberId: "m_mgr", lastMessageAt: null, members: offMembers, job: null };
+  const siteMsgs = [
+    msg("m_quote", "ch_site", MEMBERS.manager, { card: { type: "quote", id: "q1" }, createdAt: minsAgo(40) }),
+    msg("m_wo", "ch_site", MEMBERS.manager, { card: { type: "work_order", id: "j1" }, body: "Tomorrow", createdAt: minsAgo(39) }),
+    msg("m_gone", "ch_site", MEMBERS.crew, { body: "the gate code is zulu", attachments: [photo], deletedAt: minsAgo(5), deletedByMemberId: "m_crew", createdAt: minsAgo(20) }),
+    msg("m_old", "ch_site", MEMBERS.crew, { body: "Van at 7", createdAt: minsAgo(16) }),
+    msg("m_new", "ch_site", MEMBERS.crew, { body: "Van at 8", createdAt: minsAgo(1) }),
+    msg("m_pic", "ch_site", MEMBERS.crew, { body: "ladder", attachments: [photo], createdAt: minsAgo(2) }),
+  ];
+  const offMsgs = [msg("m_priv", "ch_office", MEMBERS.manager, { body: "Tremblay deposit cleared — payroll", attachments: [photo] })];
+  site.messages = siteMsgs;
+  office.messages = offMsgs;
+  for (const m of siteMsgs) m.room = site;
+  for (const m of offMsgs) m.room = office;
+  tables.companyChatRoom = [site, office];
+  tables.companyChatMember = [...siteMembers, ...offMembers];
+  tables.companyChatMessage = [...siteMsgs, ...offMsgs];
+  tables.offlineSyncItem = [];
+  tables.member = Object.values(MEMBERS).filter((m) => m.id).map((m) => ({ ...m, active: true }));
+}
+async function openFile(as, messageId, index, variant, { link } = {}) {
+  session.member = { ...MEMBERS[as] };
+  const href = link || fileLinkFor(MEMBERS[as], messageId, index, variant);
+  const res = await CHAT_FILES.GET(new Request(`http://test.local${href}`), { params: Promise.resolve({ messageId, index: String(index) }) });
+  let json = null;
+  try { json = await res.clone().json(); } catch { json = null; }
+  return { status: res.status, json, location: res.headers.get("location") };
+}
+
+seedChatFiles();
+{
+  const member = await openFile("crew", "m_pic", 0, "full");
+  ok("crew (a member): the file opens — 302 to a Cloudinary link that EXPIRES", member.status === 302 && /expires_at=\d+/.test(member.location || "") && /api\.cloudinary\.com/.test(member.location || ""), `status ${member.status} ${member.location}`);
+  ok("…and the stored URL is never what the browser is sent", !(member.location || "").includes("/image/authenticated/v17/"));
+  for (const role of ["crew", "estimator", "owner"]) {
+    const r = await openFile(role, "m_priv", 0, "full");
+    ok(`${role}: a file in a private channel they are not in → 404, with a link signed for them — the owner included`, r.status === 404 && r.json?.code === "no_file", `status ${r.status}`);
+  }
+  const mgrLink = fileLinkFor(MEMBERS.manager, "m_priv", 0, "full");
+  const stolen = await openFile("crew", "m_priv", 0, "full", { link: mgrLink });
+  ok("crew holding the MANAGER's link to it → 404 (a link is its reader's)", stolen.status === 404, `status ${stolen.status}`);
+  const expired = fileLinkFor(MEMBERS.crew, "m_pic", 0, "full", { now: Date.now() - 3 * 3600 * 1000 });
+  const old = await openFile("crew", "m_pic", 0, "full", { link: expired });
+  ok("an EXPIRED link is refused (410 link_expired) even for a member", old.status === 410 && old.json?.code === "link_expired", `status ${old.status}`);
+  const gone = await openFile("owner", "m_gone", 0, "full");
+  ok("a removed message's photo → 404 for everybody, the owner included", gone.status === 404, `status ${gone.status}`);
+  const sup = await openFile("support", "m_gone", 0, "full");
+  ok("…and for a read-only support session", sup.status === 404, `status ${sup.status}`);
+  session.member = null;
+  const anon = await CHAT_FILES.GET(new Request(`http://test.local${fileLinkFor(MEMBERS.crew, "m_pic", 0, "full")}`), { params: Promise.resolve({ messageId: "m_pic", index: "0" }) });
+  ok("no session → 401, link or not", anon.status === 401);
+}
+seedChatFiles();
+{
+  const asCrew = await call(CHAT_ROOM, "GET", { as: "crew", params: { id: "ch_site" } });
+  const card = (t, id) => (t.json?.messages || []).find((m) => m.id === id)?.card;
+  ok("crew: the quote card reads 'Office only' — no number, no client", asCrew.status === 200 && card(asCrew, "m_quote")?.open === false && card(asCrew, "m_quote")?.restricted === "office" && !textHas(card(asCrew, "m_quote"), "Q-0042") && !textHas(card(asCrew, "m_quote"), "Marie"), JSON.stringify(card(asCrew, "m_quote")));
+  ok("crew on the job: the work-order card opens the work order, with no quote link", card(asCrew, "m_wo")?.open === true && card(asCrew, "m_wo")?.href === "/app/jobs/j1/work-order" && card(asCrew, "m_wo")?.quoteHref === null, JSON.stringify(card(asCrew, "m_wo")));
+  ok("crew: NO money key anywhere in the thread (cards included)", moneyIn(asCrew.json).length === 0, moneyIn(asCrew.json).join(", "));
+  // Cards only: the payload's file-link signatures are hex, and "9000" can
+  // turn up in one by chance.
+  ok("crew: the quote's total (9000) is in no card", !JSON.stringify((asCrew.json?.messages || []).map((m) => m.card)).includes("9000"));
+  const asOwner = await call(CHAT_ROOM, "GET", { as: "owner", params: { id: "ch_site" } });
+  ok("owner: the quote card carries number and client — and still no money key", card(asOwner, "m_quote")?.number === "Q-0042" && moneyIn(asOwner.json).length === 0, JSON.stringify(card(asOwner, "m_quote")));
+  const asSupport = await call(CHAT_ROOM, "GET", { as: "support", params: { id: "ch_site" } });
+  for (const [label, r] of [["crew (its author)", asCrew], ["owner", asOwner], ["read-only support session", asSupport]]) {
+    const row = (r.json?.messages || []).find((m) => m.id === "m_gone");
+    ok(`${label}: the removed message is there as 'removed' with NO words and NO files`, r.status === 200 && row?.deleted === true && row.body === "" && row.attachments.length === 0 && !JSON.stringify(r.json).includes("zulu"), `status ${r.status}`);
+  }
+  ok("no payload carries a storage URL or public id", ![asCrew, asOwner, asSupport].some((r) => JSON.stringify(r.json).includes("res.cloudinary.com") || JSON.stringify(r.json).includes(PHOTO_ID)));
+}
+seedChatFiles();
+{
+  const late = await call(CHAT_MESSAGE, "PATCH", { as: "crew", params: { id: "m_old" }, body: { body: "Van at 7:30" } });
+  ok("crew: editing their 16-minute-old message → 403 too_late (the server's clock)", late.status === 403 && late.json?.code === "too_late", `status ${late.status}`);
+  ok("…nothing written", !writes.some((w) => w.model === "companyChatMessage" && w.action === "update"));
+  const fresh = await call(CHAT_MESSAGE, "PATCH", { as: "crew", params: { id: "m_new" }, body: { body: "Van at 8:15" } });
+  ok("crew: editing their 1-minute-old message → 200, editedAt stamped", fresh.status === 200 && writes.some((w) => w.model === "companyChatMessage" && w.action === "update" && w.args.data.editedAt instanceof Date && w.args.data.body === "Van at 8:15"), `status ${fresh.status}`);
+  const theirs = await call(CHAT_MESSAGE, "PATCH", { as: "owner", params: { id: "m_new" }, body: { body: "owner rewrites crew" } });
+  ok("owner: cannot edit the crew's words (403 not_author)", theirs.status === 403 && theirs.json?.code === "not_author", `status ${theirs.status}`);
+  const sup = await call(CHAT_MESSAGE, "PATCH", { as: "support", params: { id: "m_new" }, body: { body: "x" } });
+  ok("support session: cannot edit (403)", sup.status === 403, `status ${sup.status}`);
+  const del = await call(CHAT_MESSAGE, "DELETE", { as: "owner", params: { id: "m_new" } });
+  ok("owner (in the channel): may remove a crew message — owner/admin moderate any channel they are in", del.status === 200, `status ${del.status}`);
+  const crewDel = await call(CHAT_MESSAGE, "DELETE", { as: "estimator", params: { id: "m_pic" } });
+  ok("estimator (not in the room): removing → 404", crewDel.status === 404, `status ${crewDel.status}`);
+  ok("a removal is an UPDATE (deletedAt), never a delete", !writes.some((w) => w.model === "companyChatMessage" && /delete/i.test(w.action)) && writes.some((w) => w.model === "companyChatMessage" && w.action === "update" && w.args.data.deletedAt instanceof Date));
+}
+seedChatFiles();
+{
+  const crew = await call(CHAT_SEARCH, "GET", { as: "crew", url: "http://test.local/api/chat/search?q=tremblay" });
+  ok("crew: search answers (200) and never returns the private channel's words", crew.status === 200 && !JSON.stringify(crew.json).includes("deposit") && !JSON.stringify(crew.json).includes("ch_office"), `status ${crew.status}`);
+  const mgr = await call(CHAT_SEARCH, "GET", { as: "manager", url: "http://test.local/api/chat/search?q=tremblay" });
+  ok("manager (a member of it): finds it", mgr.status === 200 && (mgr.json?.results || []).some((r) => r.id === "m_priv"), `status ${mgr.status}`);
+  const into = await call(CHAT_SEARCH, "GET", { as: "crew", url: "http://test.local/api/chat/search?q=tremblay&room=ch_office" });
+  ok("crew: searching INSIDE the private channel → 404", into.status === 404, `status ${into.status}`);
+  const removed = await call(CHAT_SEARCH, "GET", { as: "owner", url: "http://test.local/api/chat/search?q=gate" });
+  ok("owner: a removed message is never a search result", removed.status === 200 && !(removed.json?.results || []).some((r) => r.id === "m_gone"), `status ${removed.status}`);
+}
+
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;

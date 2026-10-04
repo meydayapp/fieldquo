@@ -33,6 +33,13 @@ const SHAPE = {
     // check proves the row exists rather than that a stub was called.
     "notificationEvent",
     "notificationDelivery",
+    // Phase 3–4 (2026-10-04): a quote a card names, the client its card
+    // prints, the job photo "Save to job photos" files, and the offline
+    // ledger an outbox replay is answered from.
+    "client",
+    "quote",
+    "jobPhoto",
+    "offlineSyncItem",
   ],
   /** Relations, per table: name → { table, kind, localKey | foreignKey }. */
   relations: {
@@ -57,6 +64,11 @@ const SHAPE = {
     },
     companyChatMessage: {
       author: { table: "member", kind: "one", localKey: "authorMemberId" },
+      room: { table: "companyChatRoom", kind: "one", localKey: "roomId" },
+      replyTo: { table: "companyChatMessage", kind: "one", localKey: "replyToId" },
+    },
+    quote: {
+      client: { table: "client", kind: "one", localKey: "clientId" },
     },
     notificationDelivery: {
       event: { table: "notificationEvent", kind: "one", localKey: "eventId" },
@@ -68,6 +80,7 @@ const SHAPE = {
     companyChatMember: [["roomId", "memberId"]],
     member: [["userId", "companyId"]],
     notificationDelivery: [["eventId", "memberId"]],
+    offlineSyncItem: [["companyId", "clientKey"]],
   },
   // The column defaults Postgres gives a row (prisma/schema.prisma), so a
   // row the store creates without naming a column reads as the database
@@ -85,7 +98,20 @@ const SHAPE = {
       starredAt: null,
       addedByMemberId: null,
     },
-    companyChatMessage: { kind: "message", mentions: [], meta: null },
+    companyChatMessage: {
+      kind: "message",
+      mentions: [],
+      meta: null,
+      attachments: null,
+      card: null,
+      replyToId: null,
+      editedAt: null,
+      deletedAt: null,
+      deletedByMemberId: null,
+      pinnedAt: null,
+      pinnedByMemberId: null,
+    },
+    jobPhoto: { stage: "progress", featured: false, caption: null },
     companyChatRoom: {
       name: null,
       jobId: null,

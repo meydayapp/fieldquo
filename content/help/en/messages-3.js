@@ -5,7 +5,8 @@
 // fetch-older-facebook-and-instagram-history,
 // photos-and-videos-from-facebook-and-instagram,
 // facebook-leads-checked-against-your-records,
-// channels-and-group-chats, chat-notifications-and-mute, seen-by-in-team-chat
+// channels-and-group-chats, chat-notifications-and-mute, seen-by-in-team-chat,
+// photos-and-files-in-team-chat, reply-pin-edit-and-search-in-team-chat
 // (2026-10-04: lib/company/chat/rules.js and store.js, the screen in
 // app/components/company/CompanyChat.js and app/components/company/chat/).
 //
@@ -18,6 +19,145 @@
 // lib/leads/messageReview.js and lib/leads/qualifiers.js (ASKED_BY_SOURCE).
 // Labels are the `en` block of app/i18n/appMessages.js.
 export const ARTICLES = {
+  // 2026-10-04 — phases 3 and 4 of team chat: lib/company/chat/attachments.js,
+  // fileLinks.js, cards.js, outbox.js, store.js (postMessage, editMessage,
+  // removeMessage, pinMessage, searchMessages, saveToJob), the screen in
+  // app/components/company/CompanyChat.js and chat/MessageParts.js.
+  "photos-and-files-in-team-chat": {
+    title: "Photos, files and shared jobs in team chat",
+    summary: "Send photos from your phone's camera, PDFs and office documents in any conversation. They are private to the conversation, and a photo can be saved to a job's photos.",
+    updated: "2026-10-04",
+    intro: [
+      "In Chat, the buttons under the message box send more than words: the **camera** takes or picks a photo, the **paperclip** attaches photos or documents, and the **briefcase** shares one of your jobs as a card.",
+    ],
+    sections: [
+      {
+        id: "what-you-can-send",
+        heading: "What you can send",
+        blocks: [
+          {
+            bullets: [
+              "Photos (JPEG, PNG, HEIC and the other common phone formats). A photo is made smaller on your phone before it is sent, and its location is removed.",
+              "PDFs and Word, Excel, PowerPoint and text documents, up to 25 MB each.",
+              "Up to 10 files in one message, with or without words.",
+              "Videos cannot be sent in chat.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "who-can-open-them",
+        heading: "Who can open them",
+        blocks: [
+          {
+            p: "Only the people in the conversation. Files are stored privately, not at a public web address. Every photo or file on your screen opens through a link that only works for you and stops working after an hour; opening the conversation again gives fresh links. Somebody who leaves the conversation, or is taken out of it, can no longer open its files. A file from a removed message cannot be opened by anybody.",
+          },
+        ],
+      },
+      {
+        id: "save-to-job-photos",
+        heading: "Save a photo to a job",
+        blocks: [
+          {
+            p: "Tap a photo to see it full size, then **Save to job photos**. In a job's room it goes on that job; anywhere else you pick the job from the jobs you can see. The crew can save to the jobs they are on.",
+          },
+          {
+            p: "The photo is copied into the job's photos as a progress photo. It is not put on your website: featuring a photo stays with the people who curate job photos. The copy in chat stays private.",
+          },
+        ],
+      },
+      {
+        id: "shared-jobs",
+        heading: "Shared jobs, work orders and quotes",
+        blocks: [
+          {
+            p: "A shared job, work order or quote shows as a card. Each person sees what their own access allows: somebody on the job can open it and its work order, somebody who can open quotes sees the quote's number and client, and everybody else sees **Office only** or **For the people on this job**. A card never shows a price. **Share with staff** on a quote posts a card the same way.",
+          },
+        ],
+      },
+      {
+        id: "no-signal",
+        heading: "With no signal",
+        blocks: [
+          {
+            p: "Words you send with no signal wait in the conversation as **Sending…** and go by themselves when your phone is back online. They are sent once, even if the connection drops halfway. Photos and files need a connection to send; your words stay in the box.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Can the owner open photos in a private channel they are not in?",
+        a: "No. Files follow the conversation: only its members can open them.",
+      },
+      {
+        q: "Why did a photo turn grey?",
+        a: "Its link ran out after an hour. The conversation reloads fresh links by itself; if it does not, open the conversation again.",
+      },
+    ],
+  },
+  "reply-pin-edit-and-search-in-team-chat": {
+    title: "Reply, pin, edit, remove and search in team chat",
+    summary: "Reply to one message, pin the ones people need, fix a message for 15 minutes, remove it for everyone, and search every conversation you are in.",
+    updated: "2026-10-04",
+    intro: [
+      "Point at a message on a computer, or tap **⋯** under it on a phone, for what you can do with it.",
+    ],
+    sections: [
+      {
+        id: "reply",
+        heading: "Reply",
+        blocks: [
+          {
+            p: "**Reply** puts a small quote of the message above yours. Tap the quote to jump to the original. Replies are one level — there are no side threads to miss.",
+          },
+        ],
+      },
+      {
+        id: "pins",
+        heading: "Pin",
+        blocks: [
+          {
+            p: "A pinned message sits in the bar under the conversation's name, with the newest pin first; tap the bar for the list. The office can pin in any conversation they are in, a channel's or group's manager in theirs, and anybody in a direct message or group. A line in the conversation says who pinned.",
+          },
+        ],
+      },
+      {
+        id: "edit-and-remove",
+        heading: "Edit and remove",
+        blocks: [
+          {
+            bullets: [
+              "**Edit** your own message for 15 minutes after you send it. It then shows **(edited)**.",
+              "**Remove** your own message at any time. Everybody in the conversation sees **Message removed** in its place — nobody can read it any more, the owner included.",
+              "The owner and admins, and a channel's manager, can remove somebody else's message in a channel. The activity log records who removed it, not what it said.",
+              "In direct messages, groups, #general and job rooms nobody can remove another person's message.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "search",
+        heading: "Search",
+        blocks: [
+          {
+            p: "The magnifying glass at the top of the list searches every conversation you are in; the one in a conversation searches that conversation, with a switch to search everywhere. Type at least two letters. Tap a result to open the conversation at that message. Private channels you are not in, and removed messages, are never searched.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Can I edit a message after 15 minutes?",
+        a: "No. Remove it and send it again.",
+      },
+      {
+        q: "Does removing a message delete it?",
+        a: "It is removed from every screen for everybody. FieldQuo keeps its record, but nobody can open its words.",
+      },
+    ],
+  },
+
   "fetch-older-facebook-and-instagram-history": {
     title: "Fetch older Facebook and Instagram history",
     summary:

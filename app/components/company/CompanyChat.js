@@ -54,9 +54,22 @@
 // (?after= the last message on screen — a quiet room's poll is an empty
 // list), backing off to 15 seconds after two minutes with nothing new and
 // nothing typed; the list every 15 seconds; both at once when the tab comes
-// back. Push carries the out-of-tab half.
+// back. Push carries the out-of-tab half. The delta also carries what was
+// EDITED or REMOVED since the last poll (`changed`, from the previous
+// payload's changesCursor) and the room's pinned list, so an edit, a removal
+// or a pin reaches every open screen within a poll.
+//
+// ══ Photos, files, cards, replies (phases 3–4, 2026-10-04) ════════════════
+//
+// The camera and paperclip upload through uploadFile(file, { purpose:
+// "chat" }) — sign → Cloudinary → verify, PRIVATE storage — and the message
+// carries the verified entries; every file on screen is a reader-bound link
+// that expires (lib/company/chat/fileLinks.js). Cards, reply quotes, pins,
+// "(edited)" and "Message removed" are drawn by ./chat/MessageParts.js from
+// what the server sent. Text typed with no signal waits in an outbox
+// (lib/company/chat/outbox.js) and goes when the phone is back online, once.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BellOff, Briefcase, Hash, Loader2, Pencil, Plus, Search, Settings, Star, Users } from "lucide-react";
+import { ArrowLeft, BellOff, Briefcase, Camera, Hash, Loader2, Paperclip, Pencil, Plus, Search, Settings, Star, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -64,7 +77,19 @@ import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { usesCrewShell } from "@/lib/nav/crewShell";
 import { notify } from "@/lib/notify/browser";
 import { chatApi } from "@/lib/company/chat/client";
-import { groupOf, groupOrderFor, mayMentionEveryone, FOLDED_GROUPS } from "@/lib/company/chat/rules";
+import {
+  groupOf,
+  groupOrderFor,
+  mayMentionEveryone,
+  FOLDED_GROUPS,
+  CHAT_ATTACHMENTS_MAX,
+  CHAT_PHOTO_ACCEPT,
+  CHAT_FILE_ACCEPT,
+  EDIT_WINDOW_MS,
+  chatFileVerdict,
+} from "@/lib/company/chat/rules";
+import { uploadFile } from "@/lib/media/uploadClient";
+import { loadOutbox, saveOutbox, outboxItem, isOfflineError } from "@/lib/company/chat/outbox";
 import { mentionsEveryone } from "@/lib/staff/mentions";
 import { layoutThread } from "@/lib/chat/threadLayout";
 import { announceBadgesChanged } from "@/lib/chat/badges";
@@ -82,6 +107,20 @@ import {
 import { personLine, useSay } from "./chat/parts";
 import { NewMessageModal, NewChannelModal, BrowseChannelsModal, AddPeopleModal, SeenByModal, ChannelGlyph } from "./chat/ChatDialogs";
 import RoomSettings from "./chat/RoomSettings";
+import {
+  MessageBody,
+  messageActions,
+  ActionButtons,
+  MoreButton,
+  ActionSheet,
+  RemoveConfirm,
+  PinnedBar,
+  Lightbox,
+  JobPickerModal,
+  SearchPanel,
+  PendingFiles,
+  ReplyStrip,
+} from "./chat/MessageParts";
 
 const LIST_POLL_MS = 15000;
 const ROOM_POLL_FAST_MS = 4000;
@@ -150,6 +189,10 @@ function useSystemLine() {
           return t("app.companyChat.system.archived", { name: who });
         case "unarchived":
           return t("app.companyChat.system.unarchived", { name: who });
+        case "pinned":
+          return t("app.companyChat.system.pinned", { name: who });
+        case "unpinned":
+          return t("app.companyChat.system.unpinned", { name: who });
         default:
           return m?.body || "";
       }
@@ -205,19 +248,37 @@ function MentionPopup({ rows, loading, cursor, onHover, onPick }) {
   );
 }
 
-/** Merge a delta read into the thread on screen: new messages appended once each, the room's columns replaced. */
+/**
+ * Merge a delta read into the thread on screen: new messages appended once
+ * each; messages already on screen that were edited or removed since the
+ * last poll REPLACED by id (`changed` — a removed one arrives with no words
+ * and replaces the words on screen); the room's columns and its pinned list
+ * replaced; the changes cursor carried forward.
+ */
 function mergeDelta(prev, next) {
   if (!prev || prev.id !== next.id) return next;
+  const changed = new Map((next.changed || []).map((m) => [m.id, m]));
   const have = new Set((prev.messages || []).map((m) => m.id));
   const added = (next.messages || []).filter((m) => !have.has(m.id));
+  const kept = changed.size ? prev.messages.map((m) => changed.get(m.id) || m) : prev.messages;
   return {
     ...prev,
     ...next,
     members: prev.members,
     membersTruncated: prev.membersTruncated,
-    messages: added.length ? [...prev.messages, ...added] : prev.messages,
+    messages: added.length ? [...kept, ...added] : kept,
   };
 }
+
+/** Did a flush send every line it set out with? (If it stopped early for
+ *  want of signal, a second pass now would only fail the same way.) */
+function sentEverything(queued, sent) {
+  return queued.every((x) => sent.includes(x.key));
+}
+
+/** One picked file in the composer, before and after its upload. */
+let pickSeq = 0;
+const nextPickId = () => `pick${++pickSeq}`;
 
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -261,6 +322,25 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
   const [actionError, setActionError] = useState("");
   const [peopleKey, setPeopleKey] = useState(0);
   const [focusMessageId, setFocusMessageId] = useState(null);
+  // Phase 3–4: the next message's files, the message being replied to or
+  // edited, the outbox, and the overlays that act on one message.
+  const [files, setFiles] = useState([]);
+  const [replyTo, setReplyTo] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [outbox, setOutbox] = useState([]);
+  const [pinsOpen, setPinsOpen] = useState(false);
+  const [viewer, setViewer] = useState(null); // { messageId, index }
+  const [sheetFor, setSheetFor] = useState(null); // the message whose phone menu is open
+  const [removing, setRemoving] = useState(null); // the message whose removal is being confirmed
+  const [busyAction, setBusyAction] = useState(false);
+  const [picker, setPicker] = useState(null); // { mode: "save", messageId, index } | { mode: "share" }
+  const [notice, setNotice] = useState(null); // { text, href }
+  const [online, setOnline] = useState(true);
+  const cameraInput = useRef(null);
+  const fileInput = useRef(null);
+  const composerBox = useRef(null);
+  const outboxRef = useRef([]);
+  const memberIdRef = useRef(null);
   const lastSeenRef = useRef(null);
   const roomRef = useRef(null);
   roomRef.current = room;
@@ -352,9 +432,9 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
       const last = current.messages?.length ? current.messages[current.messages.length - 1].at : null;
       const after = last || new Date(0).toISOString();
       try {
-        const next = await chatApi.room(id, { after });
+        const next = await chatApi.room(id, { after, changed: current.changesCursor || null });
         if ((next.messages || []).length >= DELTA_LIMIT) return loadRoom(id);
-        if ((next.messages || []).length) lastActivity.current = Date.now();
+        if ((next.messages || []).length || (next.changed || []).length) lastActivity.current = Date.now();
         setRoom((prev) => mergeDelta(prev, next));
         setRoomError("");
         return (next.messages || []).length > 0;
@@ -377,6 +457,91 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
     announceBadgesChanged();
   }, [loadList]);
 
+  // ── The outbox (text typed with no signal) ─────────────────────────────
+  //
+  // lib/company/chat/outbox.js. The ref is the source of truth so a send can
+  // add a line and flush it in the same tick; the state is what is drawn.
+  const updateOutbox = useCallback((fn) => {
+    const next = fn(outboxRef.current);
+    outboxRef.current = next;
+    saveOutbox(memberIdRef.current, next);
+    setOutbox(next);
+  }, []);
+  const flushing = useRef(false);
+  // A line added while a flush is running is picked up by a second pass as
+  // soon as the first ends, not left for the next poll.
+  const flushAgain = useRef(false);
+  const flushOutbox = useCallback(async () => {
+    if (flushing.current) {
+      flushAgain.current = true;
+      return;
+    }
+    flushAgain.current = false;
+    const queued = outboxRef.current.filter((x) => x.status === "queued");
+    if (!queued.length) return;
+    flushing.current = true;
+    // Lines the server now has. They leave the outbox AFTER the room is
+    // re-read, so the waiting row is replaced by the real one rather than
+    // vanishing for a poll; a tab closed in between replays them, and the
+    // server answers that replay from its ledger — still one message.
+    const sent = [];
+    try {
+      for (const item of queued) {
+        try {
+          await chatApi.send(item.roomId, { body: item.body, ...(item.replyToId ? { replyToId: item.replyToId } : {}) }, { offlineKey: item.key });
+          sent.push(item.key);
+        } catch (err) {
+          // Still no signal: leave it and the rest queued, try again later.
+          if (isOfflineError(err)) break;
+          // A refusal the phone cannot fix (the room was archived, they were
+          // removed): said on the row, with Retry putting the words back.
+          updateOutbox((list) => list.map((x) => (x.key === item.key ? { ...x, status: "failed", error: say(err, "app.companyChat.refusal.notSent") } : x)));
+        }
+      }
+      if (sent.length) {
+        if (roomRef.current) await pollRoom(roomRef.current.id);
+        updateOutbox((list) => list.filter((x) => !sent.includes(x.key)));
+        afterSeen();
+      }
+    } finally {
+      flushing.current = false;
+    }
+    if (flushAgain.current && sentEverything(queued, sent)) flushOutboxRef.current?.();
+  }, [updateOutbox, say, pollRoom, afterSeen]);
+  const flushOutboxRef = useRef(null);
+  useEffect(() => {
+    flushOutboxRef.current = flushOutbox;
+  }, [flushOutbox]);
+
+  // Load THIS member's outbox once their id is known, and send what waits.
+  const memberIdKnown = data?.me?.id || null;
+  useEffect(() => {
+    if (!memberIdKnown || memberIdRef.current === memberIdKnown) return;
+    memberIdRef.current = memberIdKnown;
+    const list = loadOutbox(memberIdKnown).map((x) => (x.status === "failed" ? x : { ...x, status: "queued" }));
+    outboxRef.current = list;
+    setOutbox(list);
+    flushOutbox();
+  }, [memberIdKnown, flushOutbox]);
+
+  // Back online: send what waited. The tab's own online/offline flag only
+  // decides the words under a waiting line — the send itself is the test.
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    setOnline(typeof navigator === "undefined" ? true : navigator.onLine !== false);
+    const up = () => {
+      setOnline(true);
+      flushOutbox();
+    };
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, [flushOutbox]);
+
   // The first read seeds #general, the job rooms and the auto-join
   // channels; the polls after it only read.
   useEffect(() => {
@@ -386,6 +551,13 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
   useEffect(() => {
     if (!openId) return;
     setRoom(null);
+    // Files picked, a reply or an edit belong to the room they were started
+    // in; carrying them into the next one would post them there.
+    setFiles([]);
+    setReplyTo(null);
+    setEditing(null);
+    setPinsOpen(false);
+    setViewer(null);
     lastActivity.current = Date.now();
     loadRoom(openId).then((ok) => {
       if (ok) afterSeen();
@@ -413,6 +585,7 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
       if (typeof document === "undefined" || !document.hidden) {
         const fresh = await pollRoom(openId);
         if (fresh) afterSeen();
+        if (outboxRef.current.some((x) => x.status === "queued")) flushOutbox();
       }
       if (!alive) return;
       const idle = Date.now() - lastActivity.current > ROOM_IDLE_MS;
@@ -423,7 +596,7 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
       alive = false;
       clearTimeout(timer);
     };
-  }, [openId, pollRoom, afterSeen]);
+  }, [openId, pollRoom, afterSeen, flushOutbox]);
 
   // Coming back to the tab. The polls skip while the tab is hidden, so a
   // room left open overnight has not been marked seen since the tab went to
@@ -435,6 +608,7 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
     const wake = () => {
       if (document.hidden) return;
       lastActivity.current = Date.now();
+      flushOutbox();
       if (openId) {
         pollRoom(openId).then(() => {
           loadList({ sync: true });
@@ -450,7 +624,7 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
     };
-  }, [openId, pollRoom, loadList]);
+  }, [openId, pollRoom, loadList, flushOutbox]);
 
   // Typing is activity: keep the fast poll while somebody is writing.
   useEffect(() => {
@@ -470,8 +644,9 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
       const g = groupOf(r, { unreadOnTop: true });
       if (!buckets[g]) continue;
       const name = roomName(r);
-      const preview = r.lastBody
-        ? `${r.lastWasMine ? t("app.companyChat.youPrefix") : r.lastWho ? `${r.lastWho}:` : ""} ${r.lastBody}`.trim()
+      const said = r.lastBody || (r.lastFiles > 0 ? t("app.companyChat.attachmentCount", { count: r.lastFiles }) : r.lastCard ? t("app.companyChat.sharedCard") : "");
+      const preview = said
+        ? `${r.lastWasMine ? t("app.companyChat.youPrefix") : r.lastWho ? `${r.lastWho}:` : ""} ${said}`.trim()
         : r.kind === "dm" || r.kind === "group"
           ? t("app.companyChat.noMessages")
           : r.kind === "job"
@@ -587,26 +762,231 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
   );
 
   // ── Sending ────────────────────────────────────────────────────────────
+  //
+  // Three shapes:
+  //   editing   PATCH the message (the server holds the 15-minute window)
+  //   files     the uploaded entries ride with the words — straight to the
+  //             server, because the bytes already needed the connection
+  //   words     through the outbox: drawn at once as "Sending…", sent now,
+  //             and if there is no signal they WAIT and go when it is back
+  const uploading = files.some((f) => f.status === "uploading");
+  const readyFiles = useMemo(() => files.filter((f) => f.status === "done" && f.entry), [files]);
   const send = useCallback(async () => {
     const body = text.trim();
-    if (!body || !openId || sending) return;
-    setSending(true);
+    if (!openId || sending) return;
     setActionError("");
-    try {
-      await chatApi.send(openId, body);
-      setText("");
-      lastActivity.current = Date.now();
-      // The delta brings the message back with its id and time — no
-      // second copy drawn ahead of the server's.
-      await pollRoom(openId);
-      // Saying something is seeing it: the list and the digit follow.
-      afterSeen();
-    } catch (err) {
-      setActionError(say(err, "app.companyChat.refusal.notSent"));
-    } finally {
-      setSending(false);
+    setNotice(null);
+    if (editing) {
+      setSending(true);
+      try {
+        await chatApi.editMessage(editing.id, body);
+        setEditing(null);
+        setText("");
+        await pollRoom(openId);
+      } catch (err) {
+        setActionError(say(err, "app.companyChat.refusal.notSent"));
+      } finally {
+        setSending(false);
+      }
+      return;
     }
-  }, [text, openId, sending, pollRoom, afterSeen, say]);
+    if (uploading) return;
+    if (readyFiles.length) {
+      setSending(true);
+      try {
+        await chatApi.send(openId, {
+          body,
+          attachments: readyFiles.map((f) => f.entry),
+          ...(replyTo ? { replyToId: replyTo.id } : {}),
+        });
+        setText("");
+        setFiles([]);
+        setReplyTo(null);
+        lastActivity.current = Date.now();
+        await pollRoom(openId);
+        afterSeen();
+      } catch (err) {
+        setActionError(isOfflineError(err) ? tRef.current("app.companyChat.filesNeedSignal") : say(err, "app.companyChat.refusal.notSent"));
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+    if (!body) return;
+    const item = outboxItem({ roomId: openId, body, replyToId: replyTo?.id || null });
+    updateOutbox((list) => [...list, item]);
+    setText("");
+    setReplyTo(null);
+    lastActivity.current = Date.now();
+    // The delta brings the message back with its id and time, and the
+    // waiting row leaves the outbox in the same pass.
+    await flushOutbox();
+  }, [text, openId, sending, editing, uploading, readyFiles, replyTo, pollRoom, afterSeen, say, updateOutbox, flushOutbox]);
+
+  // ── Files ──────────────────────────────────────────────────────────────
+  //
+  // Each picked file goes up at once (uploadFile — sign → Cloudinary →
+  // verify, purpose "chat": private), drawn as a chip with its progress.
+  // Send is held while any is still uploading. Videos are refused before a
+  // byte is sent (not something chat stores), as is a document over 25 MB.
+  const pickFiles = useCallback(
+    (list) => {
+      const picked = Array.from(list || []);
+      if (!picked.length) return;
+      setActionError("");
+      setNotice(null);
+      const space = CHAT_ATTACHMENTS_MAX - files.length;
+      if (picked.length > space) setActionError(tRef.current("app.companyChat.tooManyFiles", { count: CHAT_ATTACHMENTS_MAX }));
+      for (const file of picked.slice(0, Math.max(0, space))) {
+        const verdict = chatFileVerdict(file);
+        if (!verdict.ok) {
+          setActionError(tRef.current(verdict.code === "no_video" ? "app.companyChat.noVideo" : "app.companyChat.fileTooLarge"));
+          continue;
+        }
+        const id = nextPickId();
+        setFiles((fs) => [...fs, { id, name: file.name || "", kind: verdict.kind, status: "uploading", progress: 0 }]);
+        uploadFile(file, {
+          purpose: "chat",
+          onProgress: (loaded, total) => setFiles((fs) => fs.map((f) => (f.id === id ? { ...f, progress: total ? loaded / total : 0 } : f))),
+        })
+          .then((entry) =>
+            setFiles((fs) =>
+              fs.map((f) =>
+                f.id === id
+                  ? { ...f, status: "done", entry: { url: entry.url, publicId: entry.publicId, kind: entry.kind, filename: entry.filename, bytes: entry.bytes } }
+                  : f,
+              ),
+            ),
+          )
+          .catch((err) =>
+            setFiles((fs) => fs.map((f) => (f.id === id ? { ...f, status: "failed", error: err?.message || tRef.current("app.companyChat.uploadFailed") } : f))),
+          );
+      }
+    },
+    [files.length],
+  );
+
+  // ── Acting on one message ──────────────────────────────────────────────
+  const jumpTo = useCallback((messageId) => {
+    setPinsOpen(false);
+    setFocusMessageId(messageId);
+  }, []);
+
+  // A file link that has run out (410) draws a broken tile; re-read the
+  // thread for fresh links — at most once a minute, so a file that is
+  // genuinely gone cannot start a loop.
+  const lastLinkReload = useRef(0);
+  const onLinkExpired = useCallback(() => {
+    if (!openId || Date.now() - lastLinkReload.current < 60000) return;
+    lastLinkReload.current = Date.now();
+    loadRoom(openId);
+  }, [openId, loadRoom]);
+
+  const saveToJob = useCallback(
+    async (m, index, jobId = null) => {
+      if (!jobId && roomRef.current?.kind !== "job") {
+        setPicker({ mode: "save", messageId: m.id, index });
+        return;
+      }
+      setBusyAction(true);
+      setActionError("");
+      try {
+        const res = await chatApi.saveToJob(m.id, index, jobId);
+        setPicker(null);
+        setViewer(null);
+        setNotice({ text: tRef.current(res.already ? "app.companyChat.savedAlready" : "app.companyChat.saved"), href: `/app/jobs/${encodeURIComponent(res.jobId)}` });
+      } catch (err) {
+        setPicker(null);
+        setActionError(say(err, "app.companyChat.saveFailed"));
+      } finally {
+        setBusyAction(false);
+      }
+    },
+    [say],
+  );
+
+  const onAction = useCallback(
+    async (action, m) => {
+      setSheetFor(null);
+      setActionError("");
+      setNotice(null);
+      if (action === "reply") {
+        setEditing(null);
+        setReplyTo(m);
+        composerBox.current?.querySelector("textarea")?.focus();
+        return;
+      }
+      if (action === "edit") {
+        setReplyTo(null);
+        setFiles([]);
+        setEditing(m);
+        setText(m.body || "");
+        composerBox.current?.querySelector("textarea")?.focus();
+        return;
+      }
+      if (action === "remove") {
+        setRemoving(m);
+        return;
+      }
+      if (action === "save") {
+        const photo = (m.attachments || []).find((a) => a.type === "photo");
+        if (photo) saveToJob(m, photo.index);
+        return;
+      }
+      if (action === "pin" || action === "unpin") {
+        try {
+          if (action === "pin") await chatApi.pin(m.id);
+          else await chatApi.unpin(m.id);
+          if (openId) await pollRoom(openId);
+        } catch (err) {
+          setActionError(say(err, "app.companyChat.refusal.notAllowed"));
+        }
+      }
+    },
+    [openId, pollRoom, say, saveToJob],
+  );
+
+  const confirmRemove = useCallback(async () => {
+    if (!removing) return;
+    setBusyAction(true);
+    try {
+      await chatApi.removeMessage(removing.id);
+      if (editing?.id === removing.id) {
+        setEditing(null);
+        setText("");
+      }
+      if (replyTo?.id === removing.id) setReplyTo(null);
+      setRemoving(null);
+      if (openId) await pollRoom(openId);
+    } catch (err) {
+      setRemoving(null);
+      setActionError(say(err, "app.companyChat.refusal.notAllowed"));
+    } finally {
+      setBusyAction(false);
+    }
+  }, [removing, editing, replyTo, openId, pollRoom, say]);
+
+  const shareJob = useCallback(
+    async (job) => {
+      if (!openId) return;
+      setBusyAction(true);
+      setActionError("");
+      try {
+        await chatApi.send(openId, { body: text.trim(), card: { type: "job", id: job.id }, ...(replyTo ? { replyToId: replyTo.id } : {}) });
+        setPicker(null);
+        setText("");
+        setReplyTo(null);
+        await pollRoom(openId);
+        afterSeen();
+      } catch (err) {
+        setPicker(null);
+        setActionError(say(err, "app.companyChat.refusal.notSent"));
+      } finally {
+        setBusyAction(false);
+      }
+    },
+    [openId, text, replyTo, pollRoom, afterSeen, say],
+  );
 
   // ── @ popup ────────────────────────────────────────────────────────────
   //
@@ -657,6 +1037,13 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
   // Capture-phase, so the kit's own Enter-sends handler never sees a key the
   // popup consumed.
   const onComposerKeyDownCapture = (e) => {
+    if (!mentionOpen && e.key === "Escape" && (editing || replyTo)) {
+      e.preventDefault();
+      if (editing) setText("");
+      setEditing(null);
+      setReplyTo(null);
+      return;
+    }
     if (!mentionOpen) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -680,6 +1067,7 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
   // ── The thread rows ────────────────────────────────────────────────────
   const rows = useMemo(() => {
     if (!room) return [];
+    const byId = new Map((room.messages || []).map((m) => [m.id, m]));
     const items = (room.messages || []).map((m) => ({
       id: m.id,
       direction: m.direction,
@@ -692,48 +1080,126 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
       kind: m.kind === "system" ? "system" : "message",
       who: m.who || t("app.companyChat.someoneWhoLeft"),
       meta: m.meta,
+      // Phase 3–4, as the server sent them (a removed message: no words,
+      // no files, no card — rules.js threadMessages).
+      deleted: Boolean(m.deleted),
+      edited: Boolean(m.edited),
+      pinned: Boolean(m.pinned),
+      replyTo: m.replyTo || null,
+      attachments: m.attachments || [],
+      card: m.card || null,
     }));
+    // Words waiting in the outbox for THIS room: drawn now, as "Sending…",
+    // or failed with Retry. They become real rows when the server has them.
+    for (const x of outbox) {
+      if (x.roomId !== room.id) continue;
+      const quoted = x.replyToId ? byId.get(x.replyToId) : null;
+      items.push({
+        id: `out:${x.key}`,
+        outboxKey: x.key,
+        direction: "out",
+        mine: true,
+        body: x.body,
+        mentionsMe: false,
+        at: x.at,
+        kind: "message",
+        who: null,
+        status: x.status === "failed" ? "failed" : "pending",
+        error: x.error || null,
+        waiting: x.status === "queued",
+        replyTo: quoted ? { id: quoted.id, who: quoted.who, body: quoted.deleted ? "" : quoted.body, deleted: Boolean(quoted.deleted), attachments: (quoted.attachments || []).length } : null,
+        attachments: [],
+        card: null,
+      });
+    }
     return layoutThread(items, { lastReadAt: lastSeenRef.current });
-  }, [room, t]);
+  }, [room, t, outbox]);
 
-  // ── "Seen by" ──────────────────────────────────────────────────────────
+  // ── "Seen by" and the message menu ─────────────────────────────────────
   //
   // Under the reader's OWN last message: "Seen by 3" (a DM: "Seen"), and the
   // list on tap. Any earlier message of theirs has "Seen by" in its hover
   // bar. Room members only — `room.seen` is null for anybody else, and the
   // route behind the list says 404 to them.
+  //
+  // The menu (reply, edit, pin, save to job photos, remove) is the hover
+  // toolbar on a computer and a "⋯" under the message on a phone, where
+  // nothing hovers. What it offers is messageActions — a courtesy; the
+  // server decides each one again.
   const isMember = Boolean(room?.mine);
+  const roomCan = room?.can || {};
+  const actionsFor = useCallback(
+    (m) => ((isMember || roomCan.moderate) && !room?.archived ? messageActions(m, roomCan, { editWindowMs: EDIT_WINDOW_MS }) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isMember, room],
+  );
   const renderFooter = useCallback(
     (m) => {
-      if (!room?.seen || !m.mine || m.id !== room.seen.messageId || m.kind !== "message") return null;
-      const n = Number(room.seen.count) || 0;
-      if (n <= 0) return null;
+      if (m.outboxKey) {
+        return m.waiting && !online ? (
+          <span className="text-[11px] text-muted-foreground" data-outbox-waiting>
+            {t("app.companyChat.waitingForSignal")}
+          </span>
+        ) : null;
+      }
+      const seen =
+        room?.seen && m.mine && m.id === room.seen.messageId && m.kind === "message" && Number(room.seen.count) > 0 ? (
+          <button
+            type="button"
+            onClick={() => setModal({ seen: m.id })}
+            className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+            data-seen-by={Number(room.seen.count)}
+          >
+            {room.kind === "dm" ? t("app.companyChat.seen") : t("app.companyChat.seenBy", { count: Number(room.seen.count) })}
+          </button>
+        ) : null;
+      const acts = m.kind === "message" ? actionsFor(m) : [];
+      const more = acts.length || (isMember && m.mine && m.kind === "message" && !m.deleted) ? <MoreButton onClick={() => setSheetFor(m)} /> : null;
+      if (!seen && !more) return null;
       return (
-        <button
-          type="button"
-          onClick={() => setModal({ seen: m.id })}
-          className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-          data-seen-by={n}
-        >
-          {room.kind === "dm" ? t("app.companyChat.seen") : t("app.companyChat.seenBy", { count: n })}
-        </button>
+        <span className="flex items-center gap-2">
+          {seen}
+          {more}
+        </span>
       );
     },
-    [room, t],
+    [room, t, online, actionsFor, isMember],
   );
   const hoverActions = useCallback(
+    (m) => {
+      if (m.outboxKey || m.kind !== "message" || !m.id) return null;
+      const acts = actionsFor(m);
+      const seenBy =
+        isMember && m.mine && !m.deleted ? (
+          <button
+            type="button"
+            onClick={() => setModal({ seen: m.id })}
+            className="min-h-[28px] rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            data-seen-action
+          >
+            {t("app.companyChat.seenByAction")}
+          </button>
+        ) : null;
+      if (!acts.length && !seenBy) return null;
+      return <ActionButtons actions={acts} onAction={(a) => onAction(a, m)} extra={seenBy} />;
+    },
+    [isMember, t, actionsFor, onAction],
+  );
+  const renderBody = useCallback(
     (m) =>
-      isMember && m.mine && m.kind === "message" && m.id ? (
-        <button
-          type="button"
-          onClick={() => setModal({ seen: m.id })}
-          className="min-h-[28px] rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          data-seen-action
-        >
-          {t("app.companyChat.seenByAction")}
-        </button>
+      m.kind === "message" ? (
+        <MessageBody m={m} onJump={jumpTo} onOpenPhoto={(msg, index) => setViewer({ messageId: msg.id, index })} onExpired={onLinkExpired} />
       ) : null,
-    [isMember, t],
+    [jumpTo, onLinkExpired],
+  );
+  // A failed outbox line: the words go back in the box, the line goes.
+  const onRetry = useCallback(
+    (m) => {
+      if (!m.outboxKey) return;
+      updateOutbox((list) => list.filter((x) => x.key !== m.outboxKey));
+      setText((cur) => (cur ? cur : m.body || ""));
+    },
+    [updateOutbox],
   );
 
   // ── Starting conversations ─────────────────────────────────────────────
@@ -854,6 +1320,27 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
     setContext((c) => (c === "settings" ? null : "settings"));
     setPane(PANE_CONTEXT);
   };
+  const openSearch = () => {
+    setContext((c) => (c === "search" ? null : "search"));
+    setPane(PANE_CONTEXT);
+  };
+
+  // A search result's room, named the way the list names it — the list row
+  // when the reader has it, else from what the result carries.
+  const searchRoomName = (r) => {
+    const row = (data.rooms || []).find((x) => x.id === r.roomId);
+    if (row) return roomName(row);
+    if (r.roomKind === "general") return `#${t("app.companyChat.general")}`;
+    if (r.roomKind === "channel") return `#${r.roomName || ""}`;
+    if (r.roomKind === "job") return r.roomName || t("app.companyChat.untitledJob");
+    if (r.roomKind === "group") return r.roomName || t("app.companyChat.untitledGroup");
+    return t("app.companyChat.directHint");
+  };
+  const openResult = (r) => {
+    setFocusMessageId(r.id);
+    if (r.roomId !== openId) setOpenId(r.roomId);
+    setPane(PANE_THREAD);
+  };
 
   const list = (
     <RoomList
@@ -868,6 +1355,16 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
         <div className="border-b border-border">
           <div className="relative flex items-center gap-2 px-3 py-2">
             <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{heading}</h1>
+            <button
+              type="button"
+              onClick={openSearch}
+              aria-label={t("app.companyChat.search")}
+              title={t("app.companyChat.search")}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border text-foreground hover:bg-muted"
+              data-search-button
+            >
+              <Search size={15} aria-hidden="true" />
+            </button>
             {!readOnly && !large ? (
               <button
                 type="button"
@@ -963,6 +1460,19 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
         {room ? (
           <button
             type="button"
+            onClick={openSearch}
+            aria-pressed={context === "search"}
+            aria-label={t("app.companyChat.searchRoom")}
+            title={t("app.companyChat.searchRoom")}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border text-foreground hover:bg-muted"
+            data-room-search-button
+          >
+            <Search size={15} aria-hidden="true" />
+          </button>
+        ) : null}
+        {room ? (
+          <button
+            type="button"
             onClick={openSettings}
             aria-pressed={context === "settings"}
             data-members-button
@@ -986,6 +1496,17 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
         ) : null}
       </header>
 
+      {room ? (
+        <PinnedBar
+          pinned={room.pinned || []}
+          open={pinsOpen}
+          onToggle={() => setPinsOpen((o) => !o)}
+          onJump={jumpTo}
+          canUnpin={Boolean(can.pin)}
+          onUnpin={(id) => onAction("unpin", { id })}
+        />
+      ) : null}
+
       {roomError ? <p className="px-3 py-2 text-sm text-red-700 dark:text-red-300">{roomError}</p> : null}
 
       <Thread
@@ -994,8 +1515,10 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
         loading={!room && !roomError}
         initialsFor={(m) => initialsOf(m.who || title)}
         renderSystem={systemLine}
+        renderBody={renderBody}
         renderFooter={renderFooter}
         hoverActions={hoverActions}
+        onRetry={onRetry}
         ariaLabel={title}
       />
 
@@ -1004,18 +1527,129 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
           {t(composerNote.key)}
         </p>
       ) : (
-        <div className="relative" onKeyDownCapture={onComposerKeyDownCapture}>
+        <div className="relative" onKeyDownCapture={onComposerKeyDownCapture} ref={composerBox}>
           {mentionOpen ? (
             <MentionPopup rows={mentionRows} loading={Boolean(room?.membersTruncated && remoteMentions.loading)} cursor={mentionCursor} onHover={setMentionCursor} onPick={insertMention} />
           ) : null}
+          {notice ? (
+            <p className="flex items-center gap-2 border-t border-border bg-card px-3 py-2 text-sm text-foreground" data-chat-notice role="status">
+              <span className="min-w-0 flex-1">{notice.text}</span>
+              {notice.href ? (
+                <Link href={notice.href} className="shrink-0 text-sm font-medium text-primary underline-offset-2 hover:underline">
+                  {t("app.companyChat.openJob")}
+                </Link>
+              ) : null}
+              <button type="button" onClick={() => setNotice(null)} aria-label={t("app.chat.close")} className="grid h-8 w-8 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted">
+                <X size={14} aria-hidden="true" />
+              </button>
+            </p>
+          ) : null}
+          {editing || replyTo ? (
+            <div className="flex items-center gap-2 border-t border-border bg-card px-3 pt-2" data-composer-mode={editing ? "edit" : "reply"}>
+              <div className="min-w-0 flex-1">
+                {editing ? (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    <Pencil size={12} aria-hidden="true" /> {t("app.companyChat.editingNote")}
+                  </p>
+                ) : (
+                  <ReplyStrip reply={{ id: replyTo.id, who: replyTo.who, body: replyTo.body, deleted: false, attachments: (replyTo.attachments || []).length }} onJump={jumpTo} />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (editing) setText("");
+                  setEditing(null);
+                  setReplyTo(null);
+                }}
+                aria-label={t("app.companyChat.cancel")}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
+          {files.length ? (
+            <div className="border-t border-border bg-card">
+              <PendingFiles files={files} onRemove={(id) => setFiles((fs) => fs.filter((f) => f.id !== id))} />
+            </div>
+          ) : null}
+          {/* Hidden pickers. The camera one asks a phone for its camera
+              (capture); on a computer it is the ordinary file dialog. */}
+          <input
+            ref={cameraInput}
+            type="file"
+            accept={CHAT_PHOTO_ACCEPT}
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              pickFiles(e.target.files);
+              e.target.value = "";
+            }}
+            data-camera-input
+          />
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            accept={CHAT_FILE_ACCEPT}
+            className="hidden"
+            onChange={(e) => {
+              pickFiles(e.target.files);
+              e.target.value = "";
+            }}
+            data-file-input
+          />
           <Composer
             value={text}
             onChange={setText}
             onSend={send}
-            busy={sending}
+            busy={sending || uploading}
             disabled={!room}
+            allowEmpty={!editing && readyFiles.length > 0}
+            sendLabel={editing ? t("app.companyChat.saveEdit") : ""}
             placeholder={t("app.companyChat.composerPlaceholder", { name: title })}
             maxLength={4000}
+            actions={
+              can.attach && !editing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => cameraInput.current?.click()}
+                    aria-label={t("app.companyChat.takePhoto")}
+                    title={t("app.companyChat.takePhoto")}
+                    disabled={files.length >= CHAT_ATTACHMENTS_MAX}
+                    className={`grid shrink-0 place-items-center rounded-lg text-foreground hover:bg-muted disabled:opacity-50 ${large ? "h-12 w-12 border border-border" : "h-9 w-9"}`}
+                    data-camera-button
+                  >
+                    <Camera size={large ? 22 : 17} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInput.current?.click()}
+                    aria-label={t("app.companyChat.attachFile")}
+                    title={t("app.companyChat.attachFile")}
+                    disabled={files.length >= CHAT_ATTACHMENTS_MAX}
+                    className={`grid shrink-0 place-items-center rounded-lg text-foreground hover:bg-muted disabled:opacity-50 ${large ? "h-12 w-12" : "h-9 w-9"}`}
+                    data-attach-button
+                  >
+                    <Paperclip size={large ? 20 : 16} aria-hidden="true" />
+                  </button>
+                  {can.saveToJob ? (
+                    <button
+                      type="button"
+                      onClick={() => setPicker({ mode: "share" })}
+                      aria-label={t("app.companyChat.shareJob")}
+                      title={t("app.companyChat.shareJob")}
+                      className={`grid shrink-0 place-items-center rounded-lg text-foreground hover:bg-muted ${large ? "h-12 w-12" : "h-9 w-9"}`}
+                      data-share-job-button
+                    >
+                      <Briefcase size={large ? 20 : 16} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </>
+              ) : null
+            }
             hint={
               actionError ? (
                 <span className="text-red-700 dark:text-red-300">{actionError}</span>
@@ -1043,7 +1677,19 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
         }}
         height={height}
         context={
-          context === "settings" && openId && room ? (
+          context === "search" ? (
+            <SearchPanel
+              key={openId || "all"}
+              roomId={openId && room ? room.id : null}
+              roomTitle={title}
+              roomNameFor={searchRoomName}
+              onOpen={openResult}
+              onClose={() => {
+                setContext(null);
+                setPane(openId ? PANE_THREAD : PANE_LIST);
+              }}
+            />
+          ) : context === "settings" && openId && room ? (
             <RoomSettings
               room={room}
               roomName={title}
@@ -1085,6 +1731,61 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, in
         />
       ) : null}
       {seenId && room ? <SeenByModal roomId={room.id} messageId={seenId} onClose={() => setModal(null)} /> : null}
+
+      {viewer && room ? (
+        <Lightbox
+          message={(room.messages || []).find((m) => m.id === viewer.messageId) || null}
+          index={viewer.index}
+          canSave={Boolean(can.saveToJob)}
+          saving={busyAction}
+          onSave={(index) => {
+            const m = (room.messages || []).find((x) => x.id === viewer.messageId);
+            if (m) saveToJob(m, index);
+          }}
+          onStep={(index) => setViewer((v) => (v ? { ...v, index } : v))}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
+      {sheetFor ? (
+        <ActionSheet
+          actions={actionsFor(sheetFor)}
+          onAction={(a) => onAction(a, sheetFor)}
+          onClose={() => setSheetFor(null)}
+          seenBy={
+            isMember && sheetFor.mine && !sheetFor.deleted ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = sheetFor.id;
+                  setSheetFor(null);
+                  setModal({ seen: id });
+                }}
+                className="flex min-h-[52px] items-center gap-3 px-1 text-left text-base text-foreground"
+              >
+                <Users size={18} aria-hidden="true" /> {t("app.companyChat.seenByAction")}
+              </button>
+            ) : null
+          }
+        />
+      ) : null}
+      {removing ? (
+        <RemoveConfirm busy={busyAction} theirs={!removing.mine} onConfirm={confirmRemove} onClose={() => setRemoving(null)} />
+      ) : null}
+      {picker ? (
+        <JobPickerModal
+          title={picker.mode === "save" ? t("app.companyChat.saveToJobTitle") : t("app.companyChat.shareJob")}
+          busy={busyAction}
+          onClose={() => setPicker(null)}
+          onPick={(job) => {
+            if (picker.mode === "share") {
+              shareJob(job);
+              return;
+            }
+            const m = (room?.messages || []).find((x) => x.id === picker.messageId);
+            if (m) saveToJob(m, picker.index, job.id);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

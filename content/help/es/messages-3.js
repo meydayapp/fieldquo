@@ -5,6 +5,142 @@
 // secciones, bloques y preguntas en el mismo orden, comprobados por
 // scripts/check-help-centre.mjs.
 export const ARTICLES = {
+  // 2026-10-04 — fases 3 y 4 del chat del equipo (vea la versión en inglés).
+  "photos-and-files-in-team-chat": {
+    title: "Fotos, archivos y trabajos compartidos en el chat del equipo",
+    summary: "Envíe fotos de la cámara del teléfono, PDF y documentos en cualquier conversación. Son privados de la conversación, y una foto se puede guardar en las fotos de un trabajo.",
+    updated: "2026-10-04",
+    intro: [
+      "En Chat, los botones bajo el cuadro de mensaje envían más que palabras: la **cámara** toma o elige una foto, el **clip** adjunta fotos o documentos y el **maletín** comparte uno de sus trabajos como tarjeta.",
+    ],
+    sections: [
+      {
+        id: "what-you-can-send",
+        heading: "Qué puede enviar",
+        blocks: [
+          {
+            bullets: [
+              "Fotos (JPEG, PNG, HEIC y los demás formatos habituales de los teléfonos). La foto se reduce en su teléfono antes de enviarse y se le quita la ubicación.",
+              "PDF y documentos de Word, Excel, PowerPoint y texto, de hasta 25 MB cada uno.",
+              "Hasta 10 archivos por mensaje, con o sin texto.",
+              "No se pueden enviar videos en el chat.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "who-can-open-them",
+        heading: "Quién puede abrirlos",
+        blocks: [
+          {
+            p: "Solo las personas de la conversación. Los archivos se guardan de forma privada, no en una dirección web pública. Cada foto o archivo en su pantalla se abre con un enlace que solo funciona para usted y deja de funcionar después de una hora; al volver a abrir la conversación recibe enlaces nuevos. Quien sale de la conversación, o es retirado de ella, ya no puede abrir sus archivos. El archivo de un mensaje eliminado no lo puede abrir nadie.",
+          },
+        ],
+      },
+      {
+        id: "save-to-job-photos",
+        heading: "Guardar una foto en un trabajo",
+        blocks: [
+          {
+            p: "Toque una foto para verla en grande y luego **Guardar en las fotos del trabajo**. En la sala de un trabajo se guarda en ese trabajo; en otro lugar elige el trabajo entre los que puede ver. El equipo puede guardar en los trabajos en los que está.",
+          },
+          {
+            p: "La foto se copia en las fotos del trabajo como foto de avance. No se publica en su sitio web: destacarla sigue siendo decisión de quienes gestionan las fotos de los trabajos. La copia del chat sigue siendo privada.",
+          },
+        ],
+      },
+      {
+        id: "shared-jobs",
+        heading: "Trabajos, órdenes de trabajo y presupuestos compartidos",
+        blocks: [
+          {
+            p: "Un trabajo, una orden de trabajo o un presupuesto compartido se muestra como una tarjeta. Cada persona ve lo que su propio acceso permite: quien está en el trabajo puede abrirlo junto con su orden de trabajo, quien puede abrir presupuestos ve el número y el cliente, y los demás ven **Solo para la oficina** o **Para las personas de este trabajo**. Una tarjeta nunca muestra un precio. **Compartir con el personal** en un presupuesto publica una tarjeta de la misma manera.",
+          },
+        ],
+      },
+      {
+        id: "no-signal",
+        heading: "Sin señal",
+        blocks: [
+          {
+            p: "El texto que envía sin señal espera en la conversación como **Enviando…** y se envía solo cuando el teléfono recupera la conexión. Se envía una sola vez, aunque la conexión se corte a mitad. Las fotos y los archivos necesitan conexión; su texto se queda en el cuadro.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "¿El propietario puede abrir las fotos de un canal privado en el que no está?",
+        a: "No. Los archivos siguen a la conversación: solo sus miembros pueden abrirlos.",
+      },
+      {
+        q: "¿Por qué una foto se volvió gris?",
+        a: "Su enlace caducó después de una hora. La conversación carga enlaces nuevos por sí sola; si no, vuelva a abrir la conversación.",
+      },
+    ],
+  },
+  "reply-pin-edit-and-search-in-team-chat": {
+    title: "Responder, fijar, editar, eliminar y buscar en el chat del equipo",
+    summary: "Responda a un mensaje, fije los que el equipo necesita, corrija un mensaje durante 15 minutos, elimínelo para todos y busque en todas sus conversaciones.",
+    updated: "2026-10-04",
+    intro: [
+      "Señale un mensaje en la computadora, o toque **⋯** debajo en el teléfono, para ver qué puede hacer con él.",
+    ],
+    sections: [
+      {
+        id: "reply",
+        heading: "Responder",
+        blocks: [
+          {
+            p: "**Responder** pone una pequeña cita del mensaje encima del suyo. Toque la cita para ir al original. Las respuestas son de un solo nivel — no hay hilos aparte que perderse.",
+          },
+        ],
+      },
+      {
+        id: "pins",
+        heading: "Fijar",
+        blocks: [
+          {
+            p: "Un mensaje fijado aparece en la barra bajo el nombre de la conversación, el más reciente primero; toque la barra para ver la lista. La oficina puede fijar en cualquier conversación en la que esté, el responsable de un canal o grupo en el suyo, y cualquiera en un mensaje directo o un grupo. Una línea en la conversación indica quién lo fijó.",
+          },
+        ],
+      },
+      {
+        id: "edit-and-remove",
+        heading: "Editar y eliminar",
+        blocks: [
+          {
+            bullets: [
+              "**Edite** su propio mensaje durante 15 minutos después de enviarlo. Luego muestra **(editado)**.",
+              "**Elimine** su propio mensaje en cualquier momento. Todos en la conversación ven **Mensaje eliminado** en su lugar — nadie puede leerlo ya, tampoco el propietario.",
+              "El propietario y los administradores, y el responsable de un canal, pueden eliminar el mensaje de otra persona en un canal. El registro de actividad anota quién lo eliminó, no lo que decía.",
+              "En mensajes directos, grupos, #general y salas de trabajo nadie puede eliminar el mensaje de otra persona.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "search",
+        heading: "Buscar",
+        blocks: [
+          {
+            p: "La lupa en la parte superior de la lista busca en todas sus conversaciones; la de una conversación busca en ella, con una opción para buscar en todas. Escriba al menos dos letras. Toque un resultado para abrir la conversación en ese mensaje. Nunca se busca en canales privados en los que no está ni en mensajes eliminados.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "¿Puedo editar un mensaje después de 15 minutos?",
+        a: "No. Elimínelo y envíelo de nuevo.",
+      },
+      {
+        q: "¿Eliminar un mensaje lo borra?",
+        a: "Se quita de todas las pantallas para todos. FieldQuo conserva su registro, pero nadie puede leer su texto.",
+      },
+    ],
+  },
+
   "fetch-older-facebook-and-instagram-history": {
     title: "Traer el historial anterior de Facebook e Instagram",
     summary:

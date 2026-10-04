@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
 Last updated: 4 October 2026 (team chat channels and group chats — phases 1 and 2 of the channels plan: the office makes channels (public/private, office-only posting, include everyone, archive), anybody starts a group chat with no size limit, per-room notifications and mute, "Seen by", and @mentions in the bell. Schema is additive and NOT yet applied — the SQL is in "Team chat: channels and group chats" below)
 Last updated: 4 October 2026 (the live crew test, owner + Joe on the Crew preset at TrueFinish Cabinets — eleven gaps closed, one commit each: a PUBLISHED SHIFT on a job now grants the job like a visit (assignedJobWhere is visit OR published shift, from publication to 14 days after it ends; drafts/open/other people's shifts grant nothing) across the job page and routes, work order, job chat membership, clock picker, receipts and photo mentions, and My schedule links the job and its work order; My schedule shows the person's job visits from the same read as My day (GET /api/me/visits); Share with staff sends a crew DM the work order only and puts the crew's line first in rooms; the work order carries quantities and units, cabinet door/drawer counts, colour/sheen/coats, what's included, the options the client chose, the materials list, checklist, visit notes and hours (the quote's labour estimate as fallback) — still no money; the crew job page gets job wording on the upload box, the website star/tags/stage words and controls for curators only, and no client preparation guide (GET refuses crew); Jennifer's launcher steps aside on /app/chat and /app/messages; /app/scheduler reads "My shifts" for people who can't assign them; Add visit clears an error when its field changes; with no leave policies crew can still request UNPAID time off (LeavePolicy.systemUnpaid, additive — SQL in the commit, not applied); the correction form always offers a job picker scoped to their jobs; /app/timesheets is an alias. docs/ROLE-ACCESS.md has the table; open decisions 5–6 there: the shift window, and unpaid-with-no-policies.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
@@ -322,13 +323,104 @@ the schedule.
 - **Checks** — `check:company-chat` §15–25 (447 passed),
   `check:role-access` (+28, the shipped routes per role),
   `check:chat-kit`, `check:notifications` (35 types).
-- **Left for phases 3–4** — photos and files (Cloudinary `chat` upload
-  purpose, Save to job photos — a cost increase, needs the owner's yes, and
-  the public-vs-signed decision), work-order / quote / job cards resolved
-  per reader, offline sends; reply-quote, pins, edit within 15 minutes,
-  soft removal (body hidden from everyone incl. the owner — decided), search.
-  The columns for all of these already exist. The screenshot set in
+- **Phases 3–4 — built 4 October**, next section. The screenshot set in
   `docs/screens/company-chat` predates channels and should be re-captured.
+
+## Team chat: photos, files, cards, reply, pins, edit, remove, search (4 October 2026)
+
+Phases 3 and 4 of the channels plan, on the owner's decisions of 4 October:
+chat photos use **private signed links like HR documents**; a removed
+message is hidden from **everybody, the owner included** (soft — the row
+and its words stay in the database, never deleted, never served).
+
+**No schema change.** Every column was added with phases 1–2 (its SQL is
+applied in production) and is now written AND read: `attachments`, `card`,
+`replyToId`, `editedAt`, `deletedAt`, `deletedByMemberId`, `pinnedAt`,
+`pinnedByMemberId`. The offline outbox uses the existing `OfflineSyncItem`
+ledger (kind `"chat"`).
+
+- **Photos and files** — the camera (big on the crew's phone shell) and the
+  paperclip upload through `uploadFile(file, { purpose: "chat" })` — sign →
+  Cloudinary → verify. `chat` is a PRIVATE purpose
+  (`lib/media/directUpload.js` PRIVATE_MEMBER_PURPOSES, like `hr`): signed
+  `type=authenticated`, so Cloudinary refuses the plain URL. Photos (shrunk
+  to 2,560 px, GPS stripped, in the browser), PDF / Word / Excel /
+  PowerPoint / text up to 25 MB, at most 10 per message, no video. The post
+  re-checks every entry is one of OUR cloud's authenticated files inside THIS
+  company's chat folder (`lib/company/chat/attachments.js`); a foreign or
+  public file refuses the whole message (`bad_attachment`).
+- **Opening a file** — the thread never carries a storage URL or public id.
+  Each file is `/api/chat/files/<message>/<n>?v=thumb|full&exp&sig`: an HMAC
+  over (reader, message, file, size, expiry) with `BETTER_AUTH_SECRET`, valid
+  1 hour, for THAT reader only (`lib/company/chat/fileLinks.js`). The route
+  checks the link (expired → 410 `link_expired`, the screen re-reads the
+  thread for fresh links; someone else's link → 404), then re-reads room
+  membership (non-member, private channel, other company, removed message
+  → 404), then: `full` → 302 to Cloudinary's download link that expires in
+  5 minutes (the HR signer); `thumb` → a 640 px JPEG fetched server-side from
+  a signed transformation URL that never leaves the server, streamed with
+  `private, max-age=3600`.
+- **Save to job photos** — from the photo viewer or the message menu; in a
+  job room to that job, elsewhere pick from the jobs you can see. The same
+  door as POST /api/jobs/[id]/photos: jobs `view_only` + `assignedJobWhere`
+  (crew on the job can; not on it → `no_job`). Saved as a progress photo,
+  **never featured** (the website stays a curation decision). The private
+  chat file is COPIED to the company's public jobs folder
+  (`chat-<message>-<n>`, so saving twice is one photo).
+- **Cards** — `card` stores `{ type, id }` only (job | work_order | quote);
+  every reader's thread resolves it with their own access
+  (`lib/company/chat/cards.js`): crew on the job open the job / work order,
+  others see "For the people on this job"; a quote card shows number and
+  client to people who can open quotes and "Office only" to everybody else.
+  No card carries a price for anybody. The poster must be able to open what
+  they share (`bad_card`). Share with staff now posts a work-order card (or
+  a quote card before there is a job), with the text links as the fallback
+  if the card is refused; the composer's briefcase shares one of your jobs.
+- **Reply-quote** (one level, same room only — `bad_reply` otherwise; a
+  removed original quotes "Message removed" with no words).
+- **Pins** — office in any room they are in, a channel's or group's manager
+  in theirs, anybody in a DM or group; max 50 per room; a system line says
+  who; the pinned bar under the header lists them.
+- **Edit** — your own, within 15 minutes, on the SERVER's clock
+  (`too_late`), "(edited)" from then on; mentions re-parsed, nobody pushed
+  again.
+- **Remove** — your own any time; somebody else's only in a channel you
+  manage (owner/admin in any channel they are in), logged as moderation
+  without the words; nobody removes another's words in DMs, groups,
+  #general or job rooms. Soft: `deletedAt` + `deletedByMemberId`; the body
+  is dropped in `rules.js threadMessages` — the one door every thread
+  payload goes through — and excluded from the list preview, unread counts,
+  search, the pinned bar, reply quotes and the file route, for everybody
+  including the owner and a support session.
+- **Search** — `GET /api/chat/search?q=[&room=]`, server-side ILIKE scoped by
+  company then OPEN membership (support session: every room, read-only),
+  never removed messages or system lines, newest 50, at least 2 letters.
+- **Refresh** — the 4-second delta also returns `changed` (messages edited
+  or removed since the previous payload's `changesCursor`, 5 s overlap) and
+  the room's `pinned` list on every read (so an unpin is seen as an
+  absence).
+- **Offline** — text typed with no signal waits in a per-member outbox
+  (`lib/company/chat/outbox.js`, localStorage keyed by member id), is drawn
+  as "Sending…" / "Waiting for a connection", and is sent on `online`, on
+  return to the tab and on every poll, with `X-Offline-Key` — a replay is
+  ONE message (`withOfflineKey`, kind `chat`), pushed once. Photos need a
+  connection (the bytes go straight to Cloudinary) and the composer says so.
+- **Cost (Cloudinary, named for the owner)** — a typical 5–15 person company
+  sending 200–600 chat photos a month at ~0.5–1 MB each (after the 2,560 px
+  shrink) adds ~0.1–0.6 GB of storage a month, cumulative; thumbnails are one
+  derived image per photo plus bandwidth per view. Roughly 0.5–1 Cloudinary
+  credit in month one, growing ~0.3–0.6 credit a month as storage
+  accumulates — about **$0.20–0.50 a month per company at first, ~$2–4 a
+  month after a year** at paid-plan credit prices (~$0.40–0.90/credit).
+  Save to job photos copies a photo (double storage for saved ones only).
+- **Checks** — `check:company-chat` §26–36 (589 passed): private scope,
+  hostile attachment lists, link expiry and binding, no storage URL in any
+  payload, cards per reader with no money key, reply, edit window, removal
+  absent from every response (owner, author, support, delta, list, search,
+  file route), pins, search scope, outbox replay = one message, Save to job
+  photos; `check:role-access` (+31, 286 in all, through the routes per role).
+  `scripts/fixtures/memoryPrisma.mjs`'s interactive `$transaction` now hands
+  the callback the client with models (it handed a bare object).
 
 ## Team chat: seven live bugs fixed (3 October 2026)
 
