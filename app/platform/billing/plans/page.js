@@ -32,6 +32,7 @@ import {
   ArchiveRestore,
 } from "lucide-react";
 import { count } from "@/app/components/platform/MetricCard";
+import { tokensToCents, DEFAULT_TRIAL_CAP } from "@/lib/ai/allowanceMath";
 import { fetchJson } from "@/lib/fetchJson";
 // planMoney lives in the ladder beside currencyLabel: one place decides how a
 // price is written, and it is executable by check:platform-truth there.
@@ -55,6 +56,9 @@ const BLANK = {
   maxUsers: "",
   maxQuotesPerMonth: "",
   aiCopilotEnabled: false,
+  // US dollars as typed ("12.50"); blank = not set, the plan keeps its token
+  // cap. Sent as whole cents — see aiAllowancePayload.
+  aiMonthlyAllowance: "",
   // ── Private by default, and that is not the cautious choice — it is the
   //    only correct one for THIS form ──────────────────────────────────────
   //
@@ -79,6 +83,41 @@ const BLANK = {
   isPublic: false,
 };
 
+// "12.50" → 1250; "" → null (not set); anything unreadable → NaN, which the
+// server refuses with its own sentence rather than this page guessing.
+function aiAllowancePayload(value) {
+  const v = String(value ?? "").trim();
+  if (v === "") return null;
+  const dollars = Number(v.replace(/^\$/, ""));
+  return Number.isFinite(dollars) ? Math.round(dollars * 100) : Number.NaN;
+}
+
+const usd = (cents) =>
+  cents === null || cents === undefined || !Number.isFinite(Number(cents))
+    ? "—"
+    : `US$${(Number(cents) / 100).toFixed(2)}`;
+
+/**
+ * What a company on this plan gets from FieldQuo AI each month, in words —
+ * the same order lib/ai/usage.js resolveAiCap applies (a dollar allowance,
+ * else the token cap, else the default). The token figures carry their
+ * dollar equivalent at the MEASURED blended rate of the last 30 days, so the
+ * dollar allowance a superadmin types can be set equal to what the plan
+ * gives today. No usage to measure → no conversion, never an invented one.
+ */
+function aiAllowanceLine(p, blended) {
+  const rate = blended?.microsPerMillion ?? null;
+  const cents = p?.aiMonthlyAllowanceCents;
+  if (cents !== null && cents !== undefined) {
+    return Number(cents) === 0 ? "AI: off on this plan" : `AI: ${usd(cents)}/mo allowance`;
+  }
+  const tokens = p?.aiMonthlyTokenCap ?? null;
+  const shown = tokens === null ? DEFAULT_TRIAL_CAP : tokens;
+  const label = tokens === null ? `AI: default ${count(shown)} tokens/mo` : `AI: ${count(shown)} tokens/mo`;
+  const eq = tokensToCents(shown, rate);
+  return eq === null ? `${label} (no usage yet to convert to dollars)` : `${label} ≈ ${usd(eq)} at the 30-day blended rate`;
+}
+
 export default function PlatformPlansPage() {
   // null, not []. On a failed load an empty array claimed "No plans yet. The
   // public pricing page shows its empty state until you add one" — a statement
@@ -87,6 +126,10 @@ export default function PlatformPlansPage() {
   const [plans, setPlans] = useState(null);
   const [usage, setUsage] = useState({});
   const [usageError, setUsageError] = useState("");
+  // The measured blended AI rate (GET /api/platform/ai-usage `blended`). Null
+  // until it loads, and null for good if it fails — the cards then print the
+  // token figures without a dollar equivalent rather than a made-up one.
+  const [blended, setBlended] = useState(null);
   const [draft, setDraft] = useState(null); // null = form closed
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -144,6 +187,12 @@ export default function PlatformPlansPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    fetchJson("/api/platform/ai-usage")
+      .then((d) => setBlended(d?.blended || null))
+      .catch(() => setBlended(null));
+  }, []);
+
   // Ladder rows first, then everything else. The legacy per-headcount plans and
   // the bespoke "Custom (N employees)" rows are real and still billing people,
   // so they are shown — but they are not the menu, and mixing them into one
@@ -198,6 +247,12 @@ export default function PlatformPlansPage() {
             ? null
             : Number(draft.maxQuotesPerMonth),
         aiCopilotEnabled: !!draft.aiCopilotEnabled,
+        // Only when it changed, so an admin (who may edit the plan but not
+        // its AI allowance — superadmin only, see the route) can still save
+        // the rest of the form.
+        ...(String(draft.aiMonthlyAllowance ?? "") !== String(draft.aiMonthlyAllowanceOriginal ?? "")
+          ? { aiMonthlyAllowanceCents: aiAllowancePayload(draft.aiMonthlyAllowance) }
+          : {}),
         // Always sent, never conditional. parsePlanFields only writes the
         // column when the KEY is present, so omitting it on a create silently
         // takes the schema default and omitting it on an edit silently keeps
@@ -279,6 +334,15 @@ export default function PlatformPlansPage() {
       maxUsers: p.maxUsers ?? "",
       maxQuotesPerMonth: p.maxQuotesPerMonth ?? "",
       aiCopilotEnabled: p.aiCopilotEnabled,
+      aiMonthlyAllowance:
+        p.aiMonthlyAllowanceCents === null || p.aiMonthlyAllowanceCents === undefined
+          ? ""
+          : (p.aiMonthlyAllowanceCents / 100).toFixed(2),
+      aiMonthlyAllowanceOriginal:
+        p.aiMonthlyAllowanceCents === null || p.aiMonthlyAllowanceCents === undefined
+          ? ""
+          : (p.aiMonthlyAllowanceCents / 100).toFixed(2),
+      aiMonthlyTokenCap: p.aiMonthlyTokenCap ?? null,
       // The row's OWN value, not the create-time default. An edit that
       // silently re-published a plan somebody had deliberately made private
       // would be worse than the bug this fixes. `!== false` rather than
@@ -522,6 +586,29 @@ export default function PlatformPlansPage() {
                 Included in this plan
               </label>
             </Field>
+
+            {/* ── The AI allowance in dollars (owner-approved 2026-10-03) ──
+                Read by lib/ai/usage.js resolveAiCap: set, it replaces this
+                plan's token cap and is measured against what the calls
+                actually cost. Blank keeps the token cap, so nothing changes
+                for anyone until a figure is typed. Superadmin only — it is
+                FieldQuo's own spend. */}
+            <Field
+              label="AI allowance (US$ / month)"
+              hint={`Blank = keep today's limit: ${aiAllowanceLine({ aiMonthlyTokenCap: draft.aiMonthlyTokenCap ?? null }, blended).replace(/^AI: /, "")}. 0 = no AI on this plan.${isSuperadmin ? "" : " Only a superadmin can change this."}`}
+            >
+              <input
+                type="text"
+                inputMode="decimal"
+                value={draft.aiMonthlyAllowance ?? ""}
+                disabled={!isSuperadmin}
+                onChange={(e) =>
+                  setDraft({ ...draft, aiMonthlyAllowance: e.target.value })
+                }
+                placeholder="e.g. 5.00"
+                className={inputClass}
+              />
+            </Field>
           </div>
 
           {/* Full width, below the grid, because this is the only field on the
@@ -602,6 +689,7 @@ export default function PlatformPlansPage() {
             plans={ladder}
             usage={usage}
             usageKnown={!usageError}
+            blended={blended}
             canManage={canManage}
             canRetire={canRetire}
             busy={busy}
@@ -624,6 +712,7 @@ export default function PlatformPlansPage() {
             plans={custom}
             usage={usage}
             usageKnown={!usageError}
+            blended={blended}
             canManage={canManage}
             canRetire={canRetire}
             busy={busy}
@@ -638,6 +727,7 @@ export default function PlatformPlansPage() {
             plans={legacy}
             usage={usage}
             usageKnown={!usageError}
+            blended={blended}
             canManage={canManage}
             canRetire={canRetire}
             busy={busy}
@@ -652,7 +742,7 @@ export default function PlatformPlansPage() {
   );
 }
 
-function Group({ title, note, plans, usage, usageKnown, canManage, canRetire, busy, onEdit, onRemove, onRetire, empty }) {
+function Group({ title, note, plans, usage, usageKnown, blended, canManage, canRetire, busy, onEdit, onRemove, onRetire, empty }) {
   return (
     <section>
       <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
@@ -669,6 +759,7 @@ function Group({ title, note, plans, usage, usageKnown, canManage, canRetire, bu
               plan={p}
               subscribers={usage[p.id] || 0}
               usageKnown={usageKnown}
+              blended={blended}
               canManage={canManage}
               canRetire={canRetire}
               busy={busy}
@@ -683,7 +774,7 @@ function Group({ title, note, plans, usage, usageKnown, canManage, canRetire, bu
   );
 }
 
-function PlanCard({ plan: p, subscribers, usageKnown, canManage, canRetire, busy, onEdit, onRemove, onRetire }) {
+function PlanCard({ plan: p, subscribers, usageKnown, blended, canManage, canRetire, busy, onEdit, onRemove, onRetire }) {
   const status = planStatus(p);
   // The badge is derived from the same predicate the sell paths refuse on,
   // not from a second reading of the column.
@@ -744,6 +835,7 @@ function PlanCard({ plan: p, subscribers, usageKnown, canManage, canRetire, busy
             ? `${count(p.maxQuotesPerMonth)} quotes/mo`
             : "Unlimited quotes"}
         </div>
+        <div data-ai-allowance>{aiAllowanceLine(p, blended)}</div>
         <div className={subscribers > 0 ? "text-foreground font-medium" : ""}>
           {usageKnown
             ? `${count(subscribers)} ${subscribers === 1 ? "company" : "companies"}`

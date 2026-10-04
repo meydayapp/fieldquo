@@ -1050,9 +1050,20 @@ model Plan {
   maxUsers          Int?
   maxQuotesPerMonth Int?
   aiCopilotEnabled  Boolean  @default(false)
-  // Monthly AI token allowance for companies on this plan. Null = unlimited,
-  // which should be used sparingly: FieldQuo pays for every token.
+  // Monthly AI token allowance for companies on this plan. Null does NOT mean
+  // unlimited (this comment used to say it did): lib/ai/usage.js resolveAiCap
+  // falls through to DEFAULT_TRIAL_CAP, 750,000 tokens. Superseded by
+  // aiMonthlyAllowanceCents below whenever that is set.
   aiMonthlyTokenCap Int?
+  /// The plan's monthly AI allowance in US CENTS of FieldQuo's model cost
+  /// (owner-approved 2026-10-03). Compared against AiUsage.costMicros, so a
+  /// best-model token spends more of it than a mini one — which a token cap
+  /// could not say. Null = not set: the plan keeps its token cap (or the
+  /// default), exactly as before. 0 = no AI on this plan. USD whatever the
+  /// plan's own currency, because it is a ceiling on what OpenAI bills
+  /// FieldQuo, never a price a company pays. Set on /platform/billing/plans;
+  /// read by resolveAiCap.
+  aiMonthlyAllowanceCents Int?
   features          Json?
 
   /// Is this plan on the menu, or was it negotiated for one company?

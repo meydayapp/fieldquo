@@ -92,6 +92,18 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 - Measured (`check:shrink-image`, sharp standing in for the canvas): a detailed 4032×3024 q92 photo 2.75 MB → 2560×1920 0.82 MB (−70%); a smooth one 0.63 → 0.16 MB (−74%).
 - Help: integrations › "Photos and files (Cloudinary)", Overview (en/fr/es).
 
+### 2. The AI allowance in dollars per plan — shipped (column NOT applied)
+
+- `Plan.aiMonthlyAllowanceCents` (US cents of FieldQuo's model cost). `lib/ai/usage.js` `resolveAiCap` is the one place the unit is decided: Company.aiMonthlyTokenCap (override, tokens) → **Plan.aiMonthlyAllowanceCents (dollars)** → Plan.aiMonthlyTokenCap (tokens) → DEFAULT_TRIAL_CAP 750,000 tokens. `allowanceVerdict` measures `costMicros` against a dollar cap and tokens against a token cap; `used`/`cap` always share a unit. Cost is `estimateCostMicros` with the real PRICING table, cached input at 10%.
+- **No change for anyone until a plan row gets a dollar figure.** Found while doing it: a plan with a NULL token cap has never meant unlimited (the schema comment said so; the code gave the 750,000 default) — kept as it was, comment corrected. Making null unlimited would raise spend, so it is the owner's call.
+- The copilot's fair-use ceiling (FieldQuo's ledger) follows the same unit, from `PlatformAiUsage.costMicros`.
+- `/platform/billing/plans`: "AI allowance (US$ / month)" field (superadmin only — the routes refuse an admin's change), and every plan card prints its AI line: "US$5.00/mo allowance", or "250,000 tokens/mo ≈ US$0.05 at the 30-day blended rate" (measured: `/api/platform/ai-usage` now returns `blended`, sum of costMicros ÷ tokens over 30 days). `/platform/ai-usage` resolves caps with the same function and shows a dollar cap in dollars.
+- Company side: `GET /api/ai/allowance` → Settings › Account & Billing card "FieldQuo AI this month — US$1.20 of US$5.00 AI used this month" (tools line + the assistant's own line); the copilot shows the same line under its subtitle. The quote/invoice review and call-draft routes ship the same `allowanceDisplay` shape (they sent tokens beside a cap that can now be micros).
+- Conversion for the owner (no live plan rows were read — a production read was refused; the plans screen shows the real conversion per row). Blended at the typical 94% prompt / 6% completion mix, no cache: gpt-5-mini US$0.18/M tokens, gpt-5.4 US$3.28/M, gpt-5.5 US$6.56/M. 100k tokens ≈ $0.02 / $0.33 / $0.66; 250k ≈ $0.05 / $0.82 / $1.64; 750k (default) ≈ $0.14 / $2.46 / $4.92; 2M ≈ $0.37 / $6.56 / $13.13.
+- SQL (additive, not applied): `ALTER TABLE "Plan" ADD COLUMN "aiMonthlyAllowanceCents" INTEGER;`
+- Checks: `check:ai-dollar-allowance` (68), `check:ai-allowance` updated for the unit. Help: Getting started › FieldQuo AI › "The monthly allowance" (en/fr/es). Strings: `app.aiAllowance.*` in all nine languages.
+- **Owed — owner:** dollar figures per plan (type them on /platform/billing/plans after the column is added); whether a NULL plan should mean unlimited.
+
 ## Audit loose ends (3 October 2026)
 
 A read-only audit against origin/main found ten loose ends; each is its own commit.

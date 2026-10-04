@@ -43,6 +43,23 @@ export async function PATCH(request, { params }) {
   const { data, error } = parsePlanFields(body, { partial: true });
   if (error) return NextResponse.json({ error }, { status: 400 });
 
+  // ── The AI allowance is FieldQuo's money, so superadmin only ────────────
+  //
+  // The same bar /api/platform/ai-usage's PATCH sets for a company's cap:
+  // raising it raises what FieldQuo pays OpenAI for every company on the
+  // plan. An admin may still edit the plan's other fields; only a CHANGE to
+  // this one is refused.
+  if (
+    "aiMonthlyAllowanceCents" in data &&
+    data.aiMonthlyAllowanceCents !== (existing.aiMonthlyAllowanceCents ?? null) &&
+    admin.role !== "superadmin"
+  ) {
+    return NextResponse.json(
+      { error: "Only superadmins can change a plan's AI allowance." },
+      { status: 403 },
+    );
+  }
+
   const plan = await db.plan.update({ where: { id }, data });
 
   await db.platformAuditLog.create({
@@ -69,6 +86,9 @@ export async function PATCH(request, { params }) {
         newSeats: plan.seats,
         previousCrewSeats: existing.crewSeats,
         newCrewSeats: plan.crewSeats,
+        // What FieldQuo will spend on AI for every company on this plan.
+        previousAiAllowanceCents: existing.aiMonthlyAllowanceCents ?? null,
+        newAiAllowanceCents: plan.aiMonthlyAllowanceCents ?? null,
       },
     },
   });
