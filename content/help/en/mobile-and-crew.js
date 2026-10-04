@@ -65,7 +65,7 @@ export const ARTICLES = {
             head: ["What you need to do", "Where", "Notes"],
             rows: [
               ["Clock in and out, switch job", "**Time clock**", "Your phone is asked where it is once, at the tap — never in the background."],
-              ["See your shifts and visits", "**Assign shifts**, **Calendar**, **Jobs**", "Only what is published, and only what you are on."],
+              ["See your shifts and visits", "**My shifts**, **Calendar**, **Jobs**", "Only what is published, and only what you are on."],
               ["Add photos to a job", "The job page, **Job photos**", "From the camera or the camera roll; or text them in without opening anything."],
               ["Talk to the office", "**Chat**", "A room per job, #general for everyone, direct messages."],
               ["Ask for time off", "**Time Off**", "Balances and your requests on one screen."],
@@ -266,7 +266,7 @@ export const ARTICLES = {
               ["**Calendar**", "Appointments assigned to you, unassigned appointments, and visits on your jobs."],
               ["**To-do**", "Tasks assigned to you, tasks you created, and unassigned ones anyone can claim."],
               ["**Chat**", "#general, a room per job you are on, direct messages."],
-              ["**Assign shifts**", "Your own published shifts — the title is the manager's; you see your week, read-only."],
+              ["**My shifts**", "Your own published shifts, read-only. (Managers see the same screen as **Assign shifts**.)"],
               ["**Time clock**", "Your punch, your job, your hours today."],
               ["**Time Off**", "Your balances and requests."],
               ["**Safety**", "Report an incident; see the ones you filed."],
@@ -401,7 +401,7 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Your schedule on your phone",
     summary:
-      "Where a crew member's day lives: published shifts under Assign shifts, appointments on the Calendar, visits on the job, and to-dos.",
+      "Where a crew member's day lives: published shifts under My shifts, appointments on the Calendar, visits on the job, and to-dos.",
     updated: "2026-10-04",
     intro: [
       "Your day is in three places on purpose, because they are three different things: a **shift** is the hours your manager published for you, a **visit** is a booked block of work on a job, and a **to-do** is a task with your name on it. All three show only what is yours, and none of them shows a draft the office has not published.",
@@ -431,7 +431,7 @@ export const ARTICLES = {
           { table: {
             head: ["Row", "What it shows", "What you can do"],
             rows: [
-              ["**Assign shifts**", "Your published shifts, a week at a time, Sunday to Saturday, today outlined", "Read them. The line at the bottom says: These are the shifts your manager has published. Check back for changes."],
+              ["**My shifts**", "Your published shifts, a week at a time, Sunday to Saturday, today outlined", "Read them. The line at the bottom says: These are the shifts your manager has published. Check back for changes."],
               ["**Calendar**", "Appointments assigned to you, unassigned ones, and visits on your jobs", "Open the job; on your own visit, On my way and Mark complete."],
               ["**Jobs**", "The jobs you have a visit on, with each visit's date and time", "Tick the checklist, add photos, write the daily log."],
               ["**To-do**", "Tasks assigned to you, ones you created, and unassigned ones", "Claim an unassigned task; complete yours."],
@@ -445,7 +445,7 @@ export const ARTICLES = {
         blocks: [
           { p: "A manager drafts the week on the Scheduling screen and presses **Publish week**; until then a shift is a **Draft** the crew cannot see. Once published, your shift shows its start and end, the job, and any note the manager typed — where to be, what to bring. If a shift was placed outside the hours you said you were available, the shift itself says **Outside stated availability**, with who did it and why, so you learn it here rather than on the morning." },
           { figure: "harness:scheduler", caption: "Scheduling as a manager sees it — the week as day cards, Add shift and Publish week. A crew member sees the same cards with only their own published shifts, and no buttons." },
-          { note: "The screen's row is titled **Assign shifts** for everyone because the title is the manager's. You are not assigning anything; you are reading what was assigned to you." },
+          { note: "The row is called **Assign shifts** only for people who can change everyone's schedule. For you it reads **My shifts** — you are not assigning anything, you are reading what was assigned to you. A supervisor who can see the team's week but not change it sees **Team shifts**." },
         ],
       },
       {

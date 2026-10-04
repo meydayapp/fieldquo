@@ -137,7 +137,7 @@ function Tile({ group, meta = {}, onNavigate, compact = false }) {
                       : "text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
                   }`}
                 >
-                  {t(item.key)}
+                  {t(item.labelKey || item.key)}
                 </Link>
               </li>
             );
@@ -179,7 +179,7 @@ function PhoneMenuTiles({ onNavigate }) {
             return (
               <Link key={item.href} href={item.href} onClick={onNavigate} data-nav-row aria-current={active ? "page" : undefined} className={`${rowCls} ${active ? "font-semibold" : ""}`}>
                 <RowIcon size={16} className="shrink-0 text-muted-foreground" />
-                <span className="truncate">{t(item.key)}</span>
+                <span className="truncate">{t(item.labelKey || item.key)}</span>
               </Link>
             );
           })}
@@ -198,7 +198,7 @@ function PhoneMenuTiles({ onNavigate }) {
                 <span key={item.href}>
                   {i > 0 ? " · " : ""}
                   <Link href={item.href} onClick={onNavigate} data-nav-row className="hover:text-foreground hover:underline underline-offset-2 inline-block min-h-[20px]">
-                    {t(item.key)}
+                    {t(item.labelKey || item.key)}
                   </Link>
                 </span>
               ))}
@@ -218,7 +218,7 @@ function PhoneMenuTiles({ onNavigate }) {
               <span key={item.href}>
                 {j > 0 ? " · " : ""}
                 <Link href={item.href} onClick={onNavigate} data-nav-row className="hover:text-foreground hover:underline underline-offset-2 inline-block min-h-[20px]">
-                  {t(item.key)}
+                  {t(item.labelKey || item.key)}
                 </Link>
               </span>
             ))}

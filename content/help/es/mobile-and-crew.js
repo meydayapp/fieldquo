@@ -63,7 +63,7 @@ export const ARTICLES = {
             head: ["Lo que necesita hacer", "Dónde", "Notas"],
             rows: [
               ["Registrar entrada y salida, cambiar de trabajo", "**Reloj de tiempo**", "A su teléfono se le pregunta dónde está una vez, al tocar — nunca en segundo plano."],
-              ["Ver sus turnos y visitas", "**Asignar turnos**, **Calendario**, **Trabajos**", "Solo lo publicado, y solo aquello en lo que usted está."],
+              ["Ver sus turnos y visitas", "**Mis turnos**, **Calendario**, **Trabajos**", "Solo lo publicado, y solo aquello en lo que usted está."],
               ["Agregar fotos a un trabajo", "La página del trabajo, **Fotos del trabajo**", "Desde la cámara o el carrete; o envíelas por mensaje de texto sin abrir nada."],
               ["Hablar con la oficina", "**Chat**", "Una sala por trabajo, #general para todos, mensajes directos."],
               ["Pedir tiempo libre", "**Ausencias**", "Los saldos y sus solicitudes en una sola pantalla."],
@@ -264,7 +264,7 @@ export const ARTICLES = {
               ["**Calendario**", "Citas asignadas a usted, citas sin asignar, y visitas en sus trabajos."],
               ["**Tareas**", "Tareas asignadas a usted, tareas que creó, y las sin asignar que cualquiera puede tomar."],
               ["**Chat**", "#general, una sala por trabajo en el que está, mensajes directos."],
-              ["**Asignar turnos**", "Sus propios turnos publicados — el título es el del gerente; usted ve su semana, solo lectura."],
+              ["**Mis turnos**", "Sus propios turnos publicados, solo lectura. (Los gerentes ven la misma pantalla como **Asignar turnos**.)"],
               ["**Reloj de tiempo**", "Su marcación, su trabajo, sus horas de hoy."],
               ["**Ausencias**", "Sus saldos y solicitudes."],
               ["**Seguridad**", "Reportar un incidente; ver los que usted presentó."],
@@ -399,7 +399,7 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Su horario en su teléfono",
     summary:
-      "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Asignar turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
+      "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Mis turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
     updated: "2026-10-04",
     intro: [
       "Su día está en tres lugares a propósito, porque son tres cosas distintas: un **turno** son las horas que su gerente publicó para usted, una **visita** es un bloque de trabajo reservado en un trabajo, y una **tarea** es un pendiente con su nombre. Los tres muestran solo lo suyo, y ninguno muestra un borrador que la oficina no haya publicado.",
@@ -429,7 +429,7 @@ export const ARTICLES = {
           { table: {
             head: ["Fila", "Qué muestra", "Qué puede hacer"],
             rows: [
-              ["**Asignar turnos**", "Sus turnos publicados, una semana a la vez, de domingo a sábado, con hoy enmarcado", "Leerlos. La línea al pie dice: Estos son los turnos que publicó tu gerente. Vuelve para ver cambios."],
+              ["**Mis turnos**", "Sus turnos publicados, una semana a la vez, de domingo a sábado, con hoy enmarcado", "Leerlos. La línea al pie dice: Estos son los turnos que publicó tu gerente. Vuelve para ver cambios."],
               ["**Calendario**", "Citas asignadas a usted, citas sin asignar, y visitas en sus trabajos", "Abrir el trabajo; en su propia visita, Voy en camino y Marcar como completada."],
               ["**Trabajos**", "Los trabajos en los que tiene una visita, con la fecha y hora de cada visita", "Marcar la lista de verificación, agregar fotos, escribir el parte diario."],
               ["**Tareas**", "Tareas asignadas a usted, las que creó, y las sin asignar", "Tomar una tarea sin asignar; completar las suyas."],
@@ -443,7 +443,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Un gerente prepara la semana en la pantalla Programación y presiona **Publicar semana**; hasta entonces, un turno es un **Borrador** que la cuadrilla no puede ver. Una vez publicado, su turno muestra su inicio y su fin, el trabajo, y cualquier nota que el gerente haya escrito — dónde estar, qué llevar. Si un turno se colocó fuera de las horas en que dijo estar disponible, el turno mismo dice **Fuera de la disponibilidad declarada**, con quién lo hizo y por qué, para que se entere aquí y no esa mañana." },
           { figure: "harness:scheduler", caption: "La programación como la ve un gerente — la semana como tarjetas por día, Agregar turno y Publicar semana. Un miembro de la cuadrilla ve las mismas tarjetas con solo sus propios turnos publicados, y sin botones." },
-          { note: "La fila de la pantalla se titula **Asignar turnos** para todos porque el título es el del gerente. Usted no asigna nada; lee lo que se le asignó." },
+          { note: "La fila se llama **Asignar turnos** solo para quienes pueden cambiar el horario de todos. Para usted se llama **Mis turnos** — usted no asigna nada, lee lo que se le asignó. Un supervisor que ve la semana del equipo sin poder cambiarla ve **Turnos del equipo**." },
         ],
       },
       {

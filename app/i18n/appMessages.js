@@ -7921,6 +7921,8 @@ const en = {
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Assign shifts",
+  "app.nav.schedulerOwn": "My shifts",
+  "app.nav.schedulerView": "Team shifts",
   "app.scheduler.title": "Scheduling",
   "app.scheduler.thisWeek": "This week",
   "app.scheduler.prevWeek": "Previous week",
@@ -25072,6 +25074,8 @@ const fr = {
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Attribuer les quarts",
+  "app.nav.schedulerOwn": "Mes quarts",
+  "app.nav.schedulerView": "Quarts de l'équipe",
   "app.scheduler.title": "Horaire",
   "app.scheduler.thisWeek": "Cette semaine",
   "app.scheduler.prevWeek": "Semaine précédente",
@@ -41000,6 +41004,8 @@ const es = {
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Asignar turnos",
+  "app.nav.schedulerOwn": "Mis turnos",
+  "app.nav.schedulerView": "Turnos del equipo",
   "app.scheduler.title": "Programación",
   "app.scheduler.thisWeek": "Esta semana",
   "app.scheduler.prevWeek": "Semana anterior",
@@ -59418,6 +59424,8 @@ const uk = {
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Призначити зміни",
+  "app.nav.schedulerOwn": "Мої зміни",
+  "app.nav.schedulerView": "Зміни команди",
   "app.scheduler.title": "Планування",
   "app.scheduler.thisWeek": "Цей тиждень",
   "app.scheduler.prevWeek": "Попередній тиждень",
@@ -76183,6 +76191,8 @@ const pa = {
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "ਸ਼ਿਫਟਾਂ ਸੌਂਪੋ",
+  "app.nav.schedulerOwn": "ਮੇਰੀਆਂ ਸ਼ਿਫਟਾਂ",
+  "app.nav.schedulerView": "ਟੀਮ ਦੀਆਂ ਸ਼ਿਫਟਾਂ",
   "app.scheduler.title": "ਸਮਾਂ-ਸਾਰਣੀ",
   "app.scheduler.thisWeek": "ਇਸ ਹਫ਼ਤੇ",
   "app.scheduler.prevWeek": "ਪਿਛਲਾ ਹਫ਼ਤਾ",
@@ -92944,6 +92954,8 @@ const tl = {
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Magtalaga ng shift",
+  "app.nav.schedulerOwn": "Mga shift ko",
+  "app.nav.schedulerView": "Mga shift ng team",
   "app.scheduler.title": "Iskedyul",
   "app.scheduler.thisWeek": "Ngayong linggo",
   "app.scheduler.prevWeek": "Nakaraang linggo",
@@ -109505,6 +109517,8 @@ const de = {
   "app.clock.switchAction": "Auftrag wechseln",
   "app.clock.switchNote": "Ihre bisherigen Stunden bleiben, wo sie sind. Ein neuer Eintrag beginnt ab jetzt.",
   "app.nav.scheduler": "Schichten planen",
+  "app.nav.schedulerOwn": "Meine Schichten",
+  "app.nav.schedulerView": "Team-Schichten",
   "app.scheduler.title": "Einsatzplanung",
   "app.scheduler.thisWeek": "Diese Woche",
   "app.scheduler.prevWeek": "Vorherige Woche",
@@ -126196,6 +126210,8 @@ const zh = {
   "app.clock.switchAction": "切换工程",
   "app.clock.switchNote": "已经记下的工时留在原处。新的一条从现在开始算。",
   "app.nav.scheduler": "排班",
+  "app.nav.schedulerOwn": "我的班次",
+  "app.nav.schedulerView": "团队班次",
   "app.scheduler.title": "排班",
   "app.scheduler.thisWeek": "本周",
   "app.scheduler.prevWeek": "上一周",
@@ -142948,6 +142964,8 @@ const it = {
 
   // ── Assegnazione turni ──────────────────────────────────────────────────
   "app.nav.scheduler": "Assegna turni",
+  "app.nav.schedulerOwn": "I miei turni",
+  "app.nav.schedulerView": "Turni del team",
   "app.scheduler.title": "Pianificazione",
   "app.scheduler.thisWeek": "Questa settimana",
   "app.scheduler.prevWeek": "Settimana precedente",

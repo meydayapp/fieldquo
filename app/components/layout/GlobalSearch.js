@@ -92,7 +92,7 @@ export default function GlobalSearch() {
     const q = query.trim();
     if (!q) return [];
     const nav = filterGroups(navGroups, q, label).flatMap((g) =>
-      g.items.map((i) => ({ kind: "page", href: i.href, key: i.key, group: g.key, icon: i.icon })),
+      g.items.map((i) => ({ kind: "page", href: i.href, key: i.labelKey || i.key, group: g.key, icon: i.icon })),
     );
     const settings = filterGroups(settingsGroups, q, label).flatMap((g) =>
       g.items.map((i) => ({ kind: "settings", href: i.href, key: i.key, group: g.key, icon: i.icon })),

@@ -63,7 +63,7 @@ export const ARTICLES = {
             head: ["Ce que vous devez faire", "Où", "Notes"],
             rows: [
               ["Pointer l'entrée et la sortie, changer de chantier", "**Pointeuse**", "Votre téléphone est interrogé sur sa position une fois, au tapotement — jamais en arrière-plan."],
-              ["Voir vos quarts et vos visites", "**Attribuer les quarts**, **Calendrier**, **Chantiers**", "Seulement ce qui est publié, et seulement ce où vous êtes assigné."],
+              ["Voir vos quarts et vos visites", "**Mes quarts**, **Calendrier**, **Chantiers**", "Seulement ce qui est publié, et seulement ce où vous êtes assigné."],
               ["Ajouter des photos à un chantier", "La page du chantier, **Photos du chantier**", "Depuis l'appareil photo ou la pellicule; ou textez-les sans rien ouvrir."],
               ["Parler au bureau", "**Clavardage**", "Un salon par chantier, #general pour tout le monde, des messages directs."],
               ["Demander un congé", "**Congés**", "Les soldes et vos demandes sur un seul écran."],
@@ -264,7 +264,7 @@ export const ARTICLES = {
               ["**Calendrier**", "Les rendez-vous qui vous sont assignés, les rendez-vous non assignés, et les visites sur vos chantiers."],
               ["**À faire**", "Les tâches qui vous sont assignées, celles que vous avez créées, et les non assignées que n'importe qui peut prendre."],
               ["**Clavardage**", "#general, un salon par chantier où vous êtes, les messages directs."],
-              ["**Attribuer les quarts**", "Vos propres quarts publiés — le titre est celui du gestionnaire; vous voyez votre semaine, en lecture seule."],
+              ["**Mes quarts**", "Vos propres quarts publiés, en lecture seule. (Les gestionnaires voient le même écran sous **Attribuer les quarts**.)"],
               ["**Pointeuse**", "Votre pointage, votre chantier, vos heures d'aujourd'hui."],
               ["**Congés**", "Vos soldes et vos demandes."],
               ["**Sécurité**", "Signaler un incident; voir ceux que vous avez signalés."],
@@ -399,7 +399,7 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Votre horaire sur votre téléphone",
     summary:
-      "Où vit la journée d'un équipier : les quarts publiés sous Attribuer les quarts, les rendez-vous dans le Calendrier, les visites sur le chantier, et les tâches à faire.",
+      "Où vit la journée d'un équipier : les quarts publiés sous Mes quarts, les rendez-vous dans le Calendrier, les visites sur le chantier, et les tâches à faire.",
     updated: "2026-10-04",
     intro: [
       "Votre journée est à trois endroits, exprès, parce que ce sont trois choses différentes : un **quart**, ce sont les heures que votre gestionnaire a publiées pour vous; une **visite**, c'est un bloc de travail réservé sur un chantier; une **tâche à faire**, c'est une tâche à votre nom. Les trois ne montrent que ce qui est à vous, et aucun ne montre un brouillon que le bureau n'a pas publié.",
@@ -429,7 +429,7 @@ export const ARTICLES = {
           { table: {
             head: ["Ligne", "Ce qu'elle montre", "Ce que vous pouvez faire"],
             rows: [
-              ["**Attribuer les quarts**", "Vos quarts publiés, une semaine à la fois, du dimanche au samedi, aujourd'hui encadré", "Les lire. La ligne du bas dit : Voici les quarts publiés par votre gestionnaire. Revenez pour les changements."],
+              ["**Mes quarts**", "Vos quarts publiés, une semaine à la fois, du dimanche au samedi, aujourd'hui encadré", "Les lire. La ligne du bas dit : Voici les quarts publiés par votre gestionnaire. Revenez pour les changements."],
               ["**Calendrier**", "Les rendez-vous qui vous sont assignés, les non assignés, et les visites sur vos chantiers", "Ouvrir le chantier; sur votre propre visite, En route et Marquer comme terminée."],
               ["**Chantiers**", "Les chantiers où vous avez une visite, avec la date et l'heure de chaque visite", "Cocher la liste de vérification, ajouter des photos, rédiger le journal de chantier."],
               ["**À faire**", "Les tâches qui vous sont assignées, celles que vous avez créées, et les non assignées", "Prendre une tâche non assignée; terminer les vôtres."],
@@ -443,7 +443,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Un gestionnaire prépare la semaine sur l'écran Horaire et appuie sur **Publier la semaine**; jusque-là, un quart est un **Brouillon** que l'équipe ne peut pas voir. Une fois publié, votre quart montre son début et sa fin, le chantier, et toute note que le gestionnaire a tapée — où être, quoi apporter. Si un quart a été placé en dehors des heures où vous avez dit être disponible, le quart lui-même affiche **En dehors des disponibilités déclarées**, avec qui l'a fait et pourquoi, pour que vous l'appreniez ici plutôt que le matin même." },
           { figure: "harness:scheduler", caption: "L'horaire tel qu'un gestionnaire le voit — la semaine en cartes par jour, Ajouter un quart et Publier la semaine. Un équipier voit les mêmes cartes avec seulement ses propres quarts publiés, et aucun bouton." },
-          { note: "La ligne de l'écran s'intitule **Attribuer les quarts** pour tout le monde parce que le titre est celui du gestionnaire. Vous n'attribuez rien; vous lisez ce qui vous a été attribué." },
+          { note: "La ligne s'appelle **Attribuer les quarts** seulement pour les personnes qui peuvent modifier l'horaire de tout le monde. Pour vous, elle s'appelle **Mes quarts** — vous n'attribuez rien, vous lisez ce qui vous a été attribué. Un superviseur qui voit la semaine de l'équipe sans pouvoir la modifier voit **Quarts de l'équipe**." },
         ],
       },
       {
