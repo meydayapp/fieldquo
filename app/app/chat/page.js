@@ -24,7 +24,11 @@ function ChatScreen() {
   const { t } = useTranslation();
   const params = useSearchParams();
   const initialRoomId = params?.get("room") || null;
-  return <CompanyChat heading={t("app.companyChat.heading")} initialRoomId={initialRoomId} />;
+  // `?with=<memberId>` opens (or makes) the DM with that person — the
+  // "Message {name}" button on /app/me/team. The server's openDirect decides
+  // whether they may, exactly as for the New message picker.
+  const initialWithId = initialRoomId ? null : params?.get("with") || null;
+  return <CompanyChat heading={t("app.companyChat.heading")} initialRoomId={initialRoomId} initialWithId={initialWithId} />;
 }
 
 export default function ChatPage() {

@@ -61,6 +61,8 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { activeMeTab, meTabsFor } from "@/lib/me/tabs";
 import { usesCrewShell } from "@/lib/nav/crewShell";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
+import { useChatUnread } from "@/app/hooks/useChatUnread";
+import NavUnreadBadge from "@/app/components/chat/NavUnreadBadge";
 
 const ICONS = {
   home: Home,
@@ -91,6 +93,10 @@ export function useMeTabs() {
 export function MeTabBar() {
   const { t } = useTranslation();
   const { tabs, active } = useMeTabs();
+  // Messages is /app/chat; it carries the same digit as the main bar's Chat
+  // tab (one shared poll — app/hooks/useChatUnread.js).
+  const chatFlag = useFeatureFlags()?.team_chat;
+  const chatUnread = useChatUnread(tabs.some((tab) => tab.href === "/app/chat") && (!chatFlag || chatFlag.usable !== false));
   return (
     <nav
       data-me-tabs="bottom"
@@ -114,7 +120,10 @@ export function MeTabBar() {
                     : "text-sidebar-muted-foreground"
                 }`}
               >
-                <Icon size={20} className="shrink-0" />
+                <span className="relative">
+                  <Icon size={20} className="shrink-0" />
+                  {tab.href === "/app/chat" ? <NavUnreadBadge counts={chatUnread} placement="corner" /> : null}
+                </span>
                 <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
                   {t(tab.key)}
                 </span>

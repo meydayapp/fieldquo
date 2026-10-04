@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import { canOpenQuote, shareMessageBody, shareVerdict } from "@/lib/quotes/shareWithStaff";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import { roomListRow } from "@/lib/company/chat/rules";
 
 let pass = 0;
 const failures = [];
@@ -75,6 +76,18 @@ ok("…links the work order by the one URL helper", /workOrderPath\(workOrderJob
 ok("…and marks people who can't open quotes in the picker", /p\.canOpenQuote === false/.test(modal));
 ok("the quote page hands it the job", /workOrderJobId=\{quote\.jobs\?\.\[0\]\?\.id \|\| null\}/.test(code("app/app/quotes/[id]/page.js")));
 ok("the builder hands it the job", /workOrderJobId=\{workOrderJobId\}/.test(code("app/components/quotes/builder/DocumentBuilder.js")));
+{
+  // The picker labels the rows /api/chat/rooms returns — roomListRow's
+  // shape. It read `name`, which that row does not carry, so every job room
+  // was "#job" and every DM "Direct message". Run the real row builder and
+  // assert the field the modal reads is the field the row has.
+  const row = roomListRow({ id: "r1", kind: "job", name: "Nguyen kitchen", members: [{ memberId: "m1", open: true }] }, "m1");
+  const dm = roomListRow({ id: "r2", kind: "dm", members: [{ memberId: "m1", open: true }, { memberId: "m2", open: true, member: { user: { name: "Ana Côté" } } }] }, "m1");
+  ok("a listed job room carries its name as `title`, and no `name`", row.title === "Nguyen kitchen" && !("name" in row), row);
+  ok("a listed DM carries the other person as `title`", dm.title === "Ana Côté", dm.title);
+  const label = modal.slice(modal.indexOf("const roomLabel"), modal.indexOf("\n", modal.indexOf("const roomLabel")));
+  ok("the picker labels rooms by `title`", /r\.title/.test(label) && !/r\.name/.test(label), label);
+}
 const page = code("app/app/quotes/[id]/page.js");
 ok("the quote page tells a 403 apart from a 404", /setRefused\(r\.status === 403\)/.test(page) && /app\.quoteDetail\.noAccess/.test(page));
 

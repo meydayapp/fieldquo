@@ -42,7 +42,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { errorText } from "@/lib/fetchJson";
 import { notify } from "@/lib/notify/browser";
 import { chatApi, CHAT_REFUSAL_KEYS } from "@/lib/company/chat/client";
-import { groupOf, GROUP_ORDER } from "@/lib/company/chat/rules";
+import { groupOf, GROUP_ORDER, mayMentionEveryone } from "@/lib/company/chat/rules";
+import { mentionsEveryone } from "@/lib/staff/mentions";
 import { layoutThread } from "@/lib/chat/threadLayout";
 import { announceBadgesChanged } from "@/lib/chat/badges";
 import { personTitle } from "@/lib/team/personLabel";
@@ -269,10 +270,15 @@ function MentionPopup({ members, query, cursor, onHover, onPick }) {
  * @param heading   the list's title
  * @param initialRoomId  a room to open on first paint (from ?room=, the
  *                  URL a push notification lands on)
+ * @param initialWithId  a MEMBER to open the direct room with on arrival
+ *                  (from ?with=, the "Message {name}" button on
+ *                  /app/me/team). Opened through the same openDirect the
+ *                  New message picker uses, so who may message whom stays
+ *                  the server's one rule, re-checked against the roster.
  * @param height    the frame's height class — the page knows what chrome
  *                  sits above it; this component does not
  */
-export default function CompanyChat({ heading = "Chat", initialRoomId = null, height = "h-[calc(100vh-9rem)]" }) {
+export default function CompanyChat({ heading = "Chat", initialRoomId = null, initialWithId = null, height = "h-[calc(100vh-9rem)]" }) {
   const { t } = useTranslation();
   const roomName = useRoomName();
   const [data, setData] = useState(null);
@@ -552,13 +558,10 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
       id: m.id,
       direction: m.direction,
       mine: m.direction === "out",
-      body: m.mentionsMe ? (
-        <span className="-mx-1 block rounded bg-amber-100 px-1 dark:bg-amber-950/40" data-mentions-me>
-          {m.body}
-        </span>
-      ) : (
-        m.body
-      ),
+      // Text only — the kit tints a row that names the reader from the flag
+      // (Thread.js `mentionsMe`). A node here drew "[object Object]".
+      body: m.body,
+      mentionsMe: Boolean(m.mentionsMe),
       at: m.at,
       kind: m.kind === "system" ? "system" : "message",
       who: m.who || t("app.companyChat.someoneWhoLeft"),
@@ -576,12 +579,34 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
         await loadList();
         setOpenId(res.roomId);
         setPane(PANE_THREAD);
+        return res.roomId;
       } catch (err) {
         setActionError(say(err, "app.companyChat.roomLoadError"));
+        return null;
       }
     },
     [loadList, say],
   );
+
+  // ── ?with=<memberId>: arrive IN the conversation ──────────────────────
+  //
+  // "Message Ana" on the team directory used to land on the list, a search
+  // and a tap short of what the button said. Opened once, after the first
+  // list read; a read-only support session opens nothing (the server would
+  // refuse the write, and the list is what it came to read). The URL then
+  // becomes ?room=, so a reload reopens this room instead of re-running the
+  // open after the person has moved on to another.
+  const openedWith = useRef(false);
+  useEffect(() => {
+    if (!initialWithId || openedWith.current || !data) return;
+    openedWith.current = true;
+    if (data.me?.readOnly) return;
+    startDirect({ id: initialWithId }).then((roomId) => {
+      if (roomId && typeof window !== "undefined") {
+        window.history.replaceState(null, "", `${window.location.pathname}?room=${encodeURIComponent(roomId)}`);
+      }
+    });
+  }, [initialWithId, data, startDirect]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   if (error && !data) return <p className="text-sm text-muted-foreground">{error}</p>;
@@ -594,6 +619,11 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
   }
 
   const readOnly = Boolean(data.me?.readOnly);
+  // Typed "@everyone" without the office's say: the server will post it as
+  // words and tell nobody (rules.js mayMentionEveryone), so the composer
+  // says that BEFORE they send rather than letting them think the whole
+  // crew was pinged. Same detector the server parses with.
+  const everyoneIsText = Boolean(room) && room.kind !== "dm" && !mayMentionEveryone(data.me) && mentionsEveryone(text);
   const title = room ? roomName(room) : "";
   const subtitle = room
     ? room.kind === "dm"
@@ -635,6 +665,12 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
   const thread = !openId ? (
     <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
       <p className="max-w-sm text-sm text-muted-foreground">{t("app.companyChat.intro")}</p>
+      {/* A refused ?with= open has no composer to carry its error. */}
+      {actionError ? (
+        <p className="mt-3 max-w-sm text-sm text-red-700 dark:text-red-300" data-action-error>
+          {actionError}
+        </p>
+      ) : null}
     </div>
   ) : (
     <>
@@ -709,7 +745,13 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
             disabled={!room}
             placeholder={t("app.companyChat.composerPlaceholder", { name: title })}
             maxLength={4000}
-            hint={actionError ? <span className="text-red-700 dark:text-red-300">{actionError}</span> : null}
+            hint={
+              actionError ? (
+                <span className="text-red-700 dark:text-red-300">{actionError}</span>
+              ) : everyoneIsText ? (
+                <span data-everyone-hint>{t("app.companyChat.everyoneOfficeOnly")}</span>
+              ) : null
+            }
           />
         </div>
       )}

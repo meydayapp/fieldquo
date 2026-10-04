@@ -59,7 +59,9 @@ import {
   Archive,
   ClipboardList,
   ScanLine,
+  MessagesSquare,
 } from "lucide-react";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { formatAddress } from "@/lib/format/address";
 import { formatDistanceM } from "@/lib/geo/distance";
 import DirectionsButtons from "@/app/components/jobs/DirectionsButtons";
@@ -152,6 +154,12 @@ export default function JobDetail({ jobId }) {
   // POST /api/tasks requires task:create (supervisor and up). An unresolved
   // provider falls open, as everywhere else on this page.
   const canCreateTasks = !caller || can(caller.role, "task:create");
+  // The job's crew-chat room: the GET hands back its id only to a member of
+  // the room (lib/company/chat/store.js jobRoomIdFor — the office, and the
+  // crew booked on the visits), so the id's presence IS the permission. Off
+  // with the team_chat feature, whose page would refuse the link anyway.
+  const chatFlag = useFeatureFlags()?.team_chat;
+  const chatUsable = !chatFlag || chatFlag.usable !== false;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -376,6 +384,16 @@ export default function JobDetail({ jobId }) {
             >
               <ClipboardList size={13} />
               {t("app.workOrder.link", "Work order")}
+            </Link>
+          )}
+          {job.chatRoomId && chatUsable && (
+            <Link
+              href={`/app/chat?room=${encodeURIComponent(job.chatRoomId)}`}
+              data-open-job-chat
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
+            >
+              <MessagesSquare size={13} />
+              {t("app.companyChat.openJobChat")}
             </Link>
           )}
           {canEditJob && (

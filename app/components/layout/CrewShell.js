@@ -48,6 +48,8 @@ import {
 } from "@/lib/nav/crewShell";
 import Logo from "@/app/components/Logo";
 import NotificationBell from "@/app/components/layout/NotificationBell";
+import { useChatUnread } from "@/app/hooks/useChatUnread";
+import NavUnreadBadge from "@/app/components/chat/NavUnreadBadge";
 
 const ICONS = {
   today: MapPin,
@@ -104,10 +106,13 @@ export default function CrewShell({ companyName = null, logoUrl = null }) {
   const crew = usesCrewShell(caller, flags);
   const clockOn = crew && clockOffered(caller);
   const answer = useClockAnswer(clockOn, pathname);
+  // The big Chat button's digit. crewButtonsFor already applies the
+  // team_chat flag, so the poll runs only when the button is drawn.
+  const buttons = crew ? crewButtonsFor(caller, flags) : [];
+  const chatUnread = useChatUnread(buttons.some((row) => row.href === "/app/chat"));
 
   if (!crew) return null;
 
-  const buttons = crewButtonsFor(caller, flags);
   const state = crewClockState(answer);
   const since = answer?.open?.clockIn ? formatTimeOfDay(new Date(answer.open.clockIn), language) : null;
   const clockWord =
@@ -207,6 +212,7 @@ export default function CrewShell({ companyName = null, logoUrl = null }) {
               >
                 <Icon size={24} className="shrink-0" aria-hidden="true" />
                 <span className="truncate">{t(row.label || row.key)}</span>
+                {row.href === "/app/chat" ? <NavUnreadBadge counts={chatUnread} placement="inline" /> : null}
               </Link>
             );
           })}

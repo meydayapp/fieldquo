@@ -132,7 +132,11 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
     }
   }
 
-  const roomLabel = (r) => (r.kind === "general" ? "#general" : r.kind === "job" ? `#${r.name || t("app.shareStaff.jobRoom", "job")}` : r.name || t("app.shareStaff.direct", "Direct message"));
+  // `title`, not `name`: /api/chat/rooms returns list rows
+  // (lib/company/chat/rules.js roomListRow), which carry the job's or the
+  // other person's name as `title` and no `name` at all — reading `name`
+  // printed every job room as "#job" and every DM as "Direct message".
+  const roomLabel = (r) => (r.kind === "general" ? "#general" : r.kind === "job" ? `#${r.title || t("app.shareStaff.jobRoom", "job")}` : r.title || t("app.shareStaff.direct", "Direct message"));
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true" onClick={busy ? undefined : onClose}>

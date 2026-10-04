@@ -32,6 +32,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { AlertTriangle, ArrowDown, Loader2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { ROW_DAY, ROW_UNREAD, dayLabelKind, displayBody } from "@/lib/chat/threadLayout";
+import { linkParts } from "@/lib/chat/linkify";
 import Avatar, { initialsOf } from "./Avatar";
 
 const TIME = { hour: "numeric", minute: "2-digit" };
@@ -53,6 +54,38 @@ export function dayLabel(dayKey, t, now = new Date()) {
     day: "numeric",
     ...(kind.sameYear ? {} : { year: "numeric" }),
   });
+}
+
+/**
+ * A message's words, with its http(s) links tappable.
+ *
+ * lib/chat/linkify.js decides which runs are links and checks each href's
+ * scheme on the parsed URL; this only draws them. Everything else is a React
+ * text node, so HTML in a body is shown as the characters it is. A new tab
+ * with noopener noreferrer: a chat is where people paste links from
+ * anywhere, and the opened page must get neither a handle on this window
+ * nor the room's URL as its referrer. The colour is inherited — the link is
+ * the same ink as the words around it, whatever the row's wash (amber
+ * mention, our bubble, a failed red), so no new contrast pairing is
+ * introduced; the underline is what marks it.
+ */
+export function ChatText({ text }) {
+  return linkParts(displayBody(text)).map((part, i) =>
+    part.href ? (
+      <a
+        key={i}
+        href={part.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-chat-link
+        className="underline decoration-1 underline-offset-2 break-all hover:decoration-2"
+      >
+        {part.text}
+      </a>
+    ) : (
+      part.text
+    ),
+  );
 }
 
 /** The pill on the rule. Exported so a sticky copy and the inline one match. */
@@ -307,7 +340,7 @@ export default function Thread({
                       className={`rounded-2xl px-3 py-2 ${inbound ? "rounded-bl-md" : "rounded-br-md"} ${tone} ${pending ? "opacity-70" : ""}`}
                     >
                       {(renderBody ? renderBody({ ...m, bubble: true }) : null) ?? (
-                        <p className="whitespace-pre-wrap break-words text-sm">{displayBody(m.body)}</p>
+                        <p className="whitespace-pre-wrap break-words text-sm"><ChatText text={m.body} /></p>
                       )}
                     </div>
                     <p className="mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums">
@@ -392,13 +425,20 @@ export default function Thread({
                     </p>
                   ) : null}
 
+                  {/* `mentionsMe` tints the words, the way Rocket.Chat tints
+                      a row that names the reader. A FLAG on the item, never
+                      a node in `body`: body is text (displayBody String()s
+                      it), and a <span> handed in as the body drew
+                      "[object Object]" on every message that named the
+                      reader from 2026-09-19 until this was moved here. */}
                   {(renderBody ? renderBody(m) : null) ?? (
                     <p
+                      data-mentions-me={m.mentionsMe ? "true" : undefined}
                       className={`whitespace-pre-wrap break-words text-sm ${
                         failed ? "text-red-900 dark:text-red-200" : pending ? "text-muted-foreground" : "text-foreground"
-                      }`}
+                      }${m.mentionsMe ? " -mx-1 rounded bg-amber-100 px-1 dark:bg-amber-950/40" : ""}`}
                     >
-                      {displayBody(m.body)}
+                      <ChatText text={m.body} />
                     </p>
                   )}
 
