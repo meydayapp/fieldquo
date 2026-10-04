@@ -60,6 +60,8 @@ const PERMISSION_WORDS = {
     "read any staff conversation and any rep's texts and emails with a prospect, read-only — every look is logged, and the people in a staff conversation are told",
   "porting:handle":
     "open a Canadian number-port package (the carrier account number, PIN and bill) and record that it was filed, rejected or given a date — every open is logged",
+  "storage:test":
+    "test FieldQuo's own video-archive storage keys (Cloudflare R2) from the costs page — one read, nothing written",
 };
 
 function describe(permissions) {

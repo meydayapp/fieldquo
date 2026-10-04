@@ -81,6 +81,8 @@ export default function PlatformCostsPage() {
   const [error, setError] = useState("");
   const [pulling, setPulling] = useState("");
   const [pullNote, setPullNote] = useState("");
+  const [r2Testing, setR2Testing] = useState(false);
+  const [r2Test, setR2Test] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -126,6 +128,22 @@ export default function PlatformCostsPage() {
       setPullNote(err?.message || "The pull failed.");
     } finally {
       setPulling("");
+    }
+  }
+
+  // "Test the connection" for the video archive. The route answers 200 with a
+  // result for anything R2 said (lib/media/r2ConnectionTest.js) — including
+  // "keys rejected" — so the catch below is only "the test did not run", and
+  // says so rather than leaving the last answer on screen.
+  async function testR2() {
+    setR2Testing(true);
+    setR2Test(null);
+    try {
+      setR2Test(await fetchJson("/api/platform/costs/r2-test", { method: "POST" }));
+    } catch (err) {
+      setR2Test({ ok: false, requestFailed: true, message: `The test did not run: ${err?.message || "the request failed"}. Nothing is known about the keys yet.` });
+    } finally {
+      setR2Testing(false);
     }
   }
 
@@ -603,6 +621,24 @@ export default function PlatformCostsPage() {
                 )}
               </p>
             ) : null}
+            {/* Superadmin-only on the server (storage:test); one read-only
+                list against the bucket, so a wrong key shows up today rather
+                than when the first video turns 30 days old. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" className={`${BTN} border border-border`} onClick={testR2} disabled={r2Testing} data-r2-test>
+                {r2Testing ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />} Test the connection
+              </button>
+              {r2Test ? (
+                <p
+                  role="status"
+                  className={`text-xs break-words min-w-0 flex-1 ${r2Test.ok ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}
+                  data-r2-test-result={r2Test.requestFailed ? "request_failed" : r2Test.result}
+                >
+                  {r2Test.message}
+                  {r2Test.checkedAt ? <span className="text-muted-foreground"> · {when(r2Test.checkedAt)}</span> : null}
+                </p>
+              ) : null}
+            </div>
           </section>
 
           {/* ── Phone unit prices vs our charge (the 2× rule) ───────────── */}

@@ -19,6 +19,9 @@
 //      server — streaming, Content-Length enforcement, ETag verification
 //   8. Restore — refusals, the claim, a Cloudinary failure leaves it archived
 //   9. Wiring — cron, gates on every publish route, strings in every language
+//  10. "Test the connection" (lib/media/r2ConnectionTest.js) — every R2
+//      answer and hostile ones classified, no value ever echoed, and every
+//      request it makes is a GET
 //
 // Runs with @/lib/db stubbed (db-stub-loader): nothing here can reach a
 // database, and every store is an in-memory fake.
@@ -620,6 +623,193 @@ for (const lang of ["en", "fr", "es"]) {
 }
 ok("the help tree lists the article", /A\("archived-videos"/.test(read("lib/help/tree.js")));
 ok("/platform/costs prints the archive line, 'not configured' with the names", /data-video-archive-status/.test(read("app/platform/costs/page.js")) && /videoArchiveStatus\(\)/.test(read("app/api/platform/costs/route.js")));
+
+// ══ 10 ══════════════════════════════════════════════════════════════════════
+section("10. Test the connection — classification, no echo, GET only");
+{
+  const ct = await import("../lib/media/r2ConnectionTest.js");
+  const { canPlatform, SUPERADMIN_ONLY_PERMISSIONS } = await import("../lib/platform/permissions.js");
+  const xmlErr = (code, message = "x") => `<?xml version="1.0" encoding="UTF-8"?><Error><Code>${code}</Code><Message>${message}</Message></Error>`;
+  const listing = (n) => `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>fieldquo-video-archive</Name><KeyCount>${n}</KeyCount><MaxKeys>1</MaxKeys>${n ? "<Contents><Key>video-posts/co1/p.mp4</Key></Contents>" : ""}</ListBucketResult>`;
+  const c = (o) => ct.classifyR2Probe(o);
+
+  // The answers R2 gives.
+  ok("200 + ListBucketResult, KeyCount 0 → connected, empty", c({ status: 200, body: listing(0) }).result === "connected" && c({ status: 200, body: listing(0) }).objects === "none");
+  ok("200 + ListBucketResult, KeyCount 1 → connected, has objects", c({ status: 200, body: listing(1) }).objects === "some");
+  ok("200 + ListBucketResult with no KeyCount → connected, objects unknown (null, not 'none')", c({ status: 200, body: "<ListBucketResult></ListBucketResult>" }).objects === null);
+  ok("403 InvalidAccessKeyId → keys_rejected, R2_ACCESS_KEY_ID", (({ result, likely }) => result === "keys_rejected" && likely === "R2_ACCESS_KEY_ID")(c({ status: 403, body: xmlErr("InvalidAccessKeyId") })));
+  ok("403 SignatureDoesNotMatch → keys_rejected, R2_SECRET_ACCESS_KEY", (({ result, likely }) => result === "keys_rejected" && likely === "R2_SECRET_ACCESS_KEY")(c({ status: 403, body: xmlErr("SignatureDoesNotMatch") })));
+  ok("401 Unauthorized → keys_rejected, which value not claimed", (({ result, likely }) => result === "keys_rejected" && likely === null)(c({ status: 401, body: xmlErr("Unauthorized") })));
+  ok("400 InvalidArgument 'Credential access key has length 20' → keys_rejected, R2_ACCESS_KEY_ID", c({ status: 400, body: xmlErr("InvalidArgument", "Credential access key has length 20, should be 32") }).likely === "R2_ACCESS_KEY_ID");
+  ok("400 InvalidArgument about anything else → unexpected", c({ status: 400, body: xmlErr("InvalidArgument", "max-keys must be positive") }).result === "unexpected");
+  ok("403 AccessDenied → access_denied (keys fine, token not on this bucket)", c({ status: 403, body: xmlErr("AccessDenied") }).result === "access_denied");
+  ok("404 NoSuchBucket → bucket_not_found, R2_BUCKET", (({ result, likely }) => result === "bucket_not_found" && likely === "R2_BUCKET")(c({ status: 404, body: xmlErr("NoSuchBucket") })));
+
+  // Hostile and unrecognised answers: never "connected", never a guessed cause.
+  const hostile = [
+    ["403 with an empty body", { status: 403, body: "" }],
+    ["404 with an empty body (no code — not assumed to be the bucket)", { status: 404, body: "" }],
+    ["403 Cloudflare HTML error page", { status: 403, body: "<!DOCTYPE html><html><head><title>Attention Required!</title></head><body><Code>InvalidAccessKeyId</Code></body></html>" }],
+    ["200 HTML (a captive portal)", { status: 200, body: "<html><body>Welcome to the hotel wifi</body></html>" }],
+    ["200 with an empty body", { status: 200, body: "" }],
+    ["500 InternalError", { status: 500, body: xmlErr("InternalError") }],
+    ["an unknown code", { status: 403, body: xmlErr("SomethingNew") }],
+    ["a code that is markup", { status: 403, body: "<Error><Code><img src=x onerror=alert(1)></Code></Error>" }],
+    ["a 70-character code", { status: 403, body: xmlErr("A".repeat(70)) }],
+    ["body null", { status: 403, body: null }],
+    ["body a number", { status: 403, body: 42 }],
+    ["status missing", { body: "" }],
+    ["status a string", { status: "200", body: listing(0) }],
+    ["301 redirect (not followed)", { status: 301, body: "" }],
+    ["nothing at all", undefined],
+  ];
+  for (const [name, input] of hostile) {
+    const r = c(input);
+    ok(`${name} → unexpected, likely null`, r.result === "unexpected" && r.likely === null, JSON.stringify(r));
+  }
+  ok("a code that is markup is not carried (code null)", c({ status: 403, body: "<Error><Code><b>x</b></Code></Error>" }).code === null);
+  ok("an over-long code is not carried", c({ status: 403, body: xmlErr("A".repeat(70)) }).code === null);
+  ok("the HTML page's <Code> is ignored (not an <Error> document)", c(hostile[2][1]).code === null);
+
+  // Network failures, in the shapes undici actually throws.
+  const fetchFailed = (code) => Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error(`getaddrinfo ${code}`), { code }) });
+  ok("ENOTFOUND → account_not_found, R2_ACCOUNT_ID", (({ result, likely }) => result === "account_not_found" && likely === "R2_ACCOUNT_ID")(c({ error: fetchFailed("ENOTFOUND") })));
+  ok("EAI_AGAIN → account_not_found (and the sentence says try again)", c({ error: fetchFailed("EAI_AGAIN") }).result === "account_not_found" && /try again/.test(ct.describeR2Test(c({ error: fetchFailed("EAI_AGAIN") }))));
+  ok("ECONNRESET → unreachable", c({ error: fetchFailed("ECONNRESET") }).result === "unreachable");
+  ok("TimeoutError → timeout", c({ error: new DOMException("timed out", "TimeoutError") }).result === "timeout");
+  ok("a thrown string → unreachable, no code", (({ result, code }) => result === "unreachable" && code === null)(c({ error: "boom" })));
+  ok("a hostile network code is not carried", c({ error: fetchFailed("rm -rf /; <script>") }).code === null);
+
+  // Every result has its own sentence, and only "connected" says connected.
+  for (const result of ct.R2_TEST_RESULTS) {
+    const msg = ct.describeR2Test({ result, likely: null, code: null, status: null, missing: ["R2_BUCKET"], malformed: [] });
+    ok(`"${result}" has a sentence`, typeof msg === "string" && msg.length > 20);
+    if (result !== "connected") ok(`"${result}" never says Connected`, !/^Connected/.test(msg));
+  }
+
+  // The real wire: the probe against a local S3-shaped server, every method recorded.
+  const methods = [];
+  let reply = { status: 200, body: listing(0) };
+  const server = http.createServer((req, res) => {
+    methods.push({ method: req.method, url: req.url, auth: req.headers.authorization || "" });
+    if (reply.hang) return; // never answers — the timeout case
+    res.statusCode = reply.status;
+    res.end(reply.body);
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const config = { ok: true, accessKeyId: "AKIDPROBE", secretAccessKey: "probe-secret", bucket: "archive", endpoint: base };
+  const scenarios = [
+    [{ status: 200, body: listing(0) }, "connected"],
+    [{ status: 200, body: listing(1) }, "connected"],
+    [{ status: 403, body: xmlErr("InvalidAccessKeyId") }, "keys_rejected"],
+    [{ status: 403, body: xmlErr("SignatureDoesNotMatch") + "<AWSAccessKeyId>AKIDPROBE</AWSAccessKeyId>" }, "keys_rejected"],
+    [{ status: 403, body: xmlErr("AccessDenied") }, "access_denied"],
+    [{ status: 404, body: xmlErr("NoSuchBucket") }, "bucket_not_found"],
+    [{ status: 403, body: "<html>nope</html>" }, "unexpected"],
+    [{ status: 500, body: "" }, "unexpected"],
+  ];
+  for (const [answer, expected] of scenarios) {
+    reply = answer;
+    const got = c(await r2.listObjectsProbe(config));
+    ok(`wire: HTTP ${answer.status} ${ct.s3ErrorCode(answer.body) || "(no code)"} → ${expected}`, got.result === expected, JSON.stringify(got));
+  }
+  reply = { hang: true };
+  {
+    let got;
+    try {
+      got = c(await r2.listObjectsProbe(config, { timeoutMs: 200 }));
+    } catch (error) {
+      got = c({ error });
+    }
+    ok("wire: a server that never answers → timeout", got.result === "timeout", JSON.stringify(got));
+  }
+  ok("wire: every request the probe made was a GET", methods.length === scenarios.length + 1 && methods.every((m) => m.method === "GET"), JSON.stringify(methods.map((m) => m.method)));
+  ok("wire: …for ONE key of the bucket: /archive?list-type=2&max-keys=1", methods.every((m) => m.url === "/archive?list-type=2&max-keys=1"), methods[0]?.url);
+  ok("wire: …SigV4-signed, region auto, service s3", methods.every((m) => /^AWS4-HMAC-SHA256 Credential=AKIDPROBE\/\d{8}\/auto\/s3\/aws4_request/.test(m.auth)));
+  server.closeAllConnections?.();
+  server.close();
+
+  // A host that cannot resolve (.invalid never does): the error undici really throws.
+  {
+    let got;
+    try {
+      got = c(await r2.listObjectsProbe({ ...config, endpoint: "http://0123456789abcdef0123456789abcdef.r2.invalid" }, { timeoutMs: 10_000 }));
+    } catch (error) {
+      got = c({ error });
+    }
+    ok("wire: an unresolvable account host → account_not_found (real DNS failure shape)", got.result === "account_not_found", JSON.stringify(got));
+  }
+
+  // testR2Connection end to end with a spying fetch: the method of every call,
+  // and no value of any variable anywhere in what the route would send.
+  const secretEnv = { R2_ACCOUNT_ID: "fedcba9876543210fedcba9876543210", R2_ACCESS_KEY_ID: "ACCESSKEYIDVALUE0123456789abcdef", R2_SECRET_ACCESS_KEY: "SECRETVALUE-do-not-print-9f8e7d", R2_BUCKET: "fieldquo-video-archive" };
+  const spyCalls = [];
+  const spyFetch = (body, status) => async (url, init) => {
+    spyCalls.push({ url: String(url), method: init?.method });
+    return new Response(body, { status });
+  };
+  const leaky = xmlErr("SignatureDoesNotMatch", `The request signature we calculated does not match. AWSAccessKeyId ${secretEnv.R2_ACCESS_KEY_ID} secret ${secretEnv.R2_SECRET_ACCESS_KEY}`) + `<AWSAccessKeyId>${secretEnv.R2_ACCESS_KEY_ID}</AWSAccessKeyId><StringToSign>${secretEnv.R2_ACCOUNT_ID}</StringToSign>`;
+  const runs = [
+    [listing(0), 200],
+    [leaky, 403],
+    [xmlErr("InvalidAccessKeyId", secretEnv.R2_ACCESS_KEY_ID), 403],
+    [xmlErr("NoSuchBucket", secretEnv.R2_BUCKET), 404],
+    [`<html>${secretEnv.R2_SECRET_ACCESS_KEY}</html>`, 502],
+  ];
+  for (const [body, status] of runs) {
+    const out = await ct.testR2Connection({ env: secretEnv, fetchImpl: spyFetch(body, status) });
+    const json = JSON.stringify(out);
+    const leaked = Object.entries(secretEnv).filter(([, v]) => json.includes(v)).map(([k]) => k);
+    ok(`end to end HTTP ${status} ${out.result}: no variable's value in the answer`, leaked.length === 0, leaked.join(", "));
+    ok(`…message present, ok ${out.ok}`, typeof out.message === "string" && out.ok === (out.result === "connected") && typeof out.checkedAt === "string");
+  }
+  {
+    const out = await ct.testR2Connection({ env: secretEnv, fetchImpl: async () => { throw fetchFailed("ENOTFOUND"); } });
+    ok("end to end: fetch throws ENOTFOUND → account_not_found, no value echoed", out.result === "account_not_found" && !Object.values(secretEnv).some((v) => JSON.stringify(out).includes(v)));
+  }
+  ok("end to end: every call testR2Connection made was a GET to the bucket listing", spyCalls.length === runs.length && spyCalls.every((x) => x.method === "GET" && x.url === `https://${secretEnv.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${secretEnv.R2_BUCKET}?list-type=2&max-keys=1`), JSON.stringify(spyCalls.map((x) => x.method)));
+
+  // Not configured: names only, and nothing is sent.
+  spyCalls.length = 0;
+  const partial = await ct.testR2Connection({ env: { R2_ACCOUNT_ID: "not-hex", R2_ACCESS_KEY_ID: "  ", R2_BUCKET: "fieldquo-video-archive" }, fetchImpl: spyFetch(listing(0), 200) });
+  ok("not configured → no request at all", spyCalls.length === 0 && partial.result === "not_configured" && partial.ok === false);
+  ok("…blank and absent are 'missing'; set-but-wrong-shape is 'malformed'", JSON.stringify(partial.missing) === JSON.stringify(["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]) && JSON.stringify(partial.malformed) === JSON.stringify(["R2_ACCOUNT_ID"]), JSON.stringify(partial));
+  ok("…the sentence names the variables, not the malformed value", /R2_ACCOUNT_ID/.test(partial.message) && !partial.message.includes("not-hex"));
+  {
+    const both = await ct.testR2Connection({ env: { ...secretEnv, R2_ACCOUNT_ID: "my-account", R2_BUCKET: "Video_Archive" }, fetchImpl: spyFetch(listing(0), 200) });
+    ok("all four set, account id AND bucket in the wrong shape → both named malformed (r2Config stops at the first), nothing sent", spyCalls.length === 0 && both.missing.length === 0 && JSON.stringify(both.malformed) === JSON.stringify(["R2_ACCOUNT_ID", "R2_BUCKET"]), JSON.stringify(both));
+    ok("…and no value in the answer", !["my-account", "Video_Archive", secretEnv.R2_ACCESS_KEY_ID, secretEnv.R2_SECRET_ACCESS_KEY].some((v) => JSON.stringify(both).includes(v)));
+  }
+  ok("nothing set → all four missing", (await ct.testR2Connection({ env: {}, fetchImpl: spyFetch("", 200) })).missing.length === 4 && spyCalls.length === 0);
+
+  // Read-only by construction — the source, not just the behaviour.
+  const ctSrc = read("lib/media/r2ConnectionTest.js").replace(/^\s*\/\/.*$/gm, "");
+  ok("r2ConnectionTest imports nothing that writes (no putObjectStream, no r2Store)", !/putObjectStream|r2Store|videoArchiveServer/.test(ctSrc));
+  ok("r2ConnectionTest names no write method", !/["'](PUT|POST|DELETE|PATCH)["']/.test(ctSrc));
+  const r2Src = read("lib/media/r2.js");
+  const probeSrc = r2Src.slice(r2Src.indexOf("export async function listObjectsProbe"), r2Src.indexOf("export async function presignGetUrl"));
+  ok("listObjectsProbe hard-codes GET (signed and sent) and nothing else", (probeSrc.match(/method: "GET"/g) || []).length === 2 && !/method: "(PUT|POST|DELETE|PATCH|HEAD)"/.test(probeSrc) && !/method[,:]\s*[a-z]/i.test(probeSrc.replace(/method: "GET"/g, "")));
+  ok("listObjectsProbe does not follow redirects", /redirect: "manual"/.test(probeSrc));
+
+  // The route: the gate is on the server.
+  const route = read("app/api/platform/costs/r2-test/route.js");
+  ok("route exports POST only", /export async function POST/.test(route) && !/export async function (GET|PUT|PATCH|DELETE)/.test(route));
+  ok("route: platform admin, then requirePlatformPermission(…, \"storage:test\"), then the support-session refusal, then the test", (() => {
+    const a = route.indexOf("getCurrentPlatformAdmin(request)"), b = route.indexOf('requirePlatformPermission(admin.role, "storage:test")'), i = route.indexOf("verifyImpersonationToken(request.cookies.get(IMPERSONATION_COOKIE)"), t = route.indexOf("await testR2Connection()");
+    return a > 0 && a < b && b < i && i < t;
+  })());
+  ok("route never returns an error's own message", !/err(or)?\??\.message/.test(route.replace(/^\s*\/\/.*$/gm, "")));
+  ok("storage:test is superadmin-only, declared", SUPERADMIN_ONLY_PERMISSIONS.includes("storage:test") && canPlatform("superadmin", "storage:test") && !canPlatform("admin", "storage:test") && !canPlatform("support", "storage:test"));
+  ok("/platform/team describes storage:test in words", /"storage:test":/.test(read("app/platform/team/page.js")));
+
+  // The button: fetchJson, a catch that says the test did not run, the result inline.
+  const costsPage = read("app/platform/costs/page.js");
+  ok("the button posts to the route through fetchJson", /fetchJson\("\/api\/platform\/costs\/r2-test", \{ method: "POST" \}\)/.test(costsPage) && /data-r2-test\b/.test(costsPage));
+  ok("…a failed request is shown, not swallowed (catch → requestFailed)", /catch \(err\) \{\s*setR2Test\(\{ ok: false, requestFailed: true/.test(costsPage));
+  ok("…the result renders inline", /data-r2-test-result=/.test(costsPage) && /\{r2Test\.message\}/.test(costsPage));
+  ok("docs/VERCEL.md's R2 row mentions the button", /Test the connection/.test(vercelDoc));
+}
 
 console.log(`\n${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

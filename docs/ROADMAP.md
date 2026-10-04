@@ -1076,6 +1076,21 @@ flow continues — it counts as one of this month's videos (said on screen).
 `check:video-archive`. Post permalinks are not stored today (only platform
 ids), so the archived view lists where and when, not links.
 
+**The four R2 values are set in Vercel production (3 October 2026).** Being
+Sensitive, they cannot be tried locally, and the first real PUT is ~30 days
+after the first video post — so `/platform/costs` now has **Test the
+connection** beside the archive line (superadmin-only, `storage:test` in
+`SUPERADMIN_ONLY_PERMISSIONS`; refused during a support session).
+`POST /api/platform/costs/r2-test` → `lib/media/r2ConnectionTest.js` makes
+ONE signed ListObjectsV2 with `max-keys=1` (`listObjectsProbe` in r2.js, GET
+hard-coded — the call an Object Read & Write token is documented to allow;
+HeadBucket is a bucket-level call it may be refused) and answers connected /
+keys rejected (InvalidAccessKeyId → R2_ACCESS_KEY_ID, SignatureDoesNotMatch →
+R2_SECRET_ACCESS_KEY) / access denied (token not on this bucket) / bucket not
+found / account host did not resolve / not configured (missing vs set but
+malformed). No value and no R2 message text is ever returned — only the code.
+**Owner to do after the deploy: press it once.** check:video-archive §10.
+
 ### Checks
 
 `check:video-posts` (230) — per-platform limits on hostile input, 9:16
