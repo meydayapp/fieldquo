@@ -37,6 +37,9 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import Logo from "@/app/components/Logo";
 import NotificationBell from "@/app/components/layout/NotificationBell";
 import { useNavShell } from "@/app/components/layout/NavShell";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
+import { usesCrewShell } from "@/lib/nav/crewShell";
 import GlobalSearch, { useSlashToSearch } from "@/app/components/layout/GlobalSearch";
 import { CreateButton, CreateFab } from "@/app/components/layout/CreateMenu";
 import AccountMenu, { Avatar } from "@/app/components/layout/AccountMenu";
@@ -143,10 +146,15 @@ export default function TopBar() {
   const { t } = useTranslation();
   const shell = useNavShell();
   useSlashToSearch();
+  // Crew: CrewShell.js is their top from `lg` up, and there is no drawer for
+  // the hamburger to open (lib/nav/crewShell.js). The overlays at the end —
+  // search on `/`, the floating + — stay theirs.
+  const crew = usesCrewShell(usePermissions(), useFeatureFlags());
 
   return (
     <>
       {/* ── Desktop ── */}
+      {!crew && (
       <header
         className="hidden lg:flex sticky top-0 z-30 h-[52px] items-center gap-3 px-4 bg-card/90 supports-[backdrop-filter]:bg-card/75 backdrop-blur-xl border-b border-border"
         data-top-bar="desktop"
@@ -181,13 +189,15 @@ export default function TopBar() {
           <AvatarMenu />
         </div>
       </header>
+      )}
 
       {/* ── Phone ── */}
       <div
         className="lg:hidden sticky top-0 z-40 pt-[env(safe-area-inset-top)] text-sidebar-foreground border-b border-sidebar-border/60 bg-sidebar/80 supports-[backdrop-filter]:bg-sidebar/65 backdrop-blur-xl backdrop-saturate-150"
         data-top-bar="phone"
       >
-        <div className="h-[52px] flex items-center gap-1 px-2">
+        <div className={`h-[52px] flex items-center gap-1 ${crew ? "px-3" : "px-2"}`}>
+          {!crew && (
           <button
             type="button"
             onClick={() => shell.open("drawer")}
@@ -201,6 +211,7 @@ export default function TopBar() {
           >
             <Menu size={20} />
           </button>
+          )}
           <Logo variant="horizontal" href="/app" height={22} onDark priority />
           <div className="ml-auto flex items-center">
             <button

@@ -13,6 +13,8 @@ import { requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { resolveWallClock } from "@/lib/time/wallClock";
 import { recordActivity } from "@/lib/activity/log";
+import { isCrewHome } from "@/lib/dashboard/crewHome";
+import { CREW_SELF_EDIT_REFUSAL } from "@/lib/timeclock/corrections";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -76,6 +78,36 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { clockOut, status } = body;
+
+  // ── Crew change their own hours by ASKING (2026-10-03) ──────────────────
+  //
+  // Crew hold timeTracking:view_record_edit_own, which let them PATCH their
+  // own clock-out here directly — the entry went back to pending, but the
+  // hours changed the moment they sent it. Since the owner's correction rule
+  // ("crew can fix their own hours, but only as a request a manager
+  // approves"), the way in is Time clock › Time log › Request a correction
+  // (POST /api/time-entries/corrections), which changes NOTHING until a
+  // manager approves it. No screen sends a crew member here: the timesheet
+  // editor is behind user:manage (app/app/settings/team/timesheets/page.js)
+  // and ManagerHome's approve button is the manager set's — and the clock's
+  // own clock-out is POST /api/time-clock, not this route. So this closes a
+  // door only a hand-made request could still open.
+  //
+  // "Crew" is the same decision that gives them My day and the crew bar
+  // (isCrewHome). Narrow on purpose: an Estimator keeps editing their own
+  // pending entry (check:rbac-redaction C6 holds that), a supervisor seat
+  // fixing their own manual entry on the timesheet keeps working, and a
+  // manager or owner editing SOMEBODY ELSE's entry never reaches this branch.
+  // Status-only requests are untouched: the gates above and below decide
+  // those, and they change no hours.
+  if (
+    clockOut !== undefined &&
+    existing.worker?.userId === member.userId &&
+    !["owner", "admin", "supervisor"].includes(member.role) &&
+    isCrewHome(full)
+  ) {
+    return NextResponse.json({ error: CREW_SELF_EDIT_REFUSAL, code: "use_correction_request" }, { status: 403 });
+  }
 
   // Approving/rejecting requires a manager — editing your own open entry (clocking
   // out) doesn't
@@ -163,10 +195,10 @@ export async function PATCH(request, { params }) {
 
   // ── A corrected timesheet goes back in the queue ─────────────────────────
   //
-  // Crew now hold timeTracking:view_record_edit_own — they fix their own
-  // forgotten clock-out rather than asking someone to do it for them. What
-  // must not happen is the fix inheriting the sign-off of the figure it
-  // replaced: an entry that was reviewed at 6.5h and is now 9h has not been
+  // Members at timeTracking:view_record_edit_own fix their own entries here
+  // (an Estimator; crew ask instead since 2026-10-03 — see the refusal
+  // above). What must not happen is the fix inheriting the sign-off of the
+  // figure it replaced: an entry that was reviewed at 6.5h and is now 9h has not been
   // reviewed at all, and `hours` is what a pay run multiplies by a rate.
   //
   // Only when the person editing is the person whose hours these are, and only
