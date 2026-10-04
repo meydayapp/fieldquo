@@ -94917,7 +94917,7 @@ const tl = {
   "app.mySchedule.withNames": "Kasama si {names}",
   "app.mySchedule.clockIn": "Mag-clock in",
   "app.mySchedule.openJob": "Buksan ang trabaho",
-  "app.mySchedule.workOrder": "Work order",
+  "app.mySchedule.workOrder": "Order ng trabaho",
   "app.setLeave.limits.title": "Mga limitasyon sa time off",
   "app.setLeave.limits.intro": "Higit sa balanse ng anumang policy: mga petsang hindi maaaring i-book, pinakamaraming taong pwedeng mag-off nang sabay, at ang holiday calendar na sinusunod ng bilang.",
   "app.setLeave.limits.blackouts": "Mga petsang bawal mag-leave",
