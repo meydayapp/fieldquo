@@ -1975,6 +1975,7 @@ model Company {
   designTemplates       DesignTemplate[]
   socialPublishes       SocialPublish[]
   documentTemplates     DocumentTemplate[]
+  templateTranslations  TemplateTranslation[]
   expenses              Expense[]
   expenseImportBatches  ExpenseImportBatch[]
   receipts              Receipt[]
@@ -5253,8 +5254,20 @@ model DocumentTemplate {
   // reads an English copy), and `isDefault` is "Use this": the builder reads
   // the copy only while it is true, else the original. The original lives in
   // code and is never written.
+  //
+  // On an ordinary email template (documentKind null) `language` is the
+  // language the company AUTHORED it in (2026-10-03): set at creation from
+  // Company.defaultLanguage, changeable in the editor, and what the
+  // Translations panel translates FROM (lib/email/templateTranslation.js).
+  // Null on rows from before — read as the company's default language. The
+  // unique index below is not involved: Postgres treats the null
+  // documentKind of every ordinary template as distinct.
   documentKind String?
   language     String?
+
+  // A version of this template in another language, for clients who read
+  // that one — drafted once, reviewed by a person. See TemplateTranslation.
+  translations TemplateTranslation[]
 
   // ── Blocks or canvas ─────────────────────────────────────────────────────
   //
@@ -5272,6 +5285,71 @@ model DocumentTemplate {
   marketingCampaigns MarketingCampaign[]
 
   @@unique([companyId, documentKind, language])
+}
+
+/// A company's email template in ONE other language — for clients who read
+/// that language (lib/email/templateTranslation.js, 2026-10-03).
+///
+/// Drafted by the model once per template VERSION per language, when a person
+/// presses Translate or Regenerate in the template's Translations panel —
+/// never at send time, never silently. A draft is not used until a person
+/// approves it (`status` "approved"); an approved translation stops being used
+/// the moment the template's words change (`sourceHash` no longer matches),
+/// and that client gets the original until it is updated and re-approved. A
+/// send is never held up for a translation.
+model TemplateTranslation {
+  id         String           @id @default(cuid())
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templateId String
+  template   DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  /// The language this row is IN.
+  language       String
+  /// The language the template was written in when this was drafted.
+  sourceLanguage String
+  /// templateSourceHash() of the template version this row translates.
+  sourceHash     String
+
+  /// { "<path>": { src, text, edited? } } — one entry per translatable string
+  /// (lib/email/templateTranslation.js extractStrings). `src` is the source
+  /// string it was made from, so a later draft re-translates only what moved.
+  strings Json
+  /// The strings of the previous draft, kept when Regenerate replaces them —
+  /// a person's reviewed wording is never destroyed by a button.
+  previousStrings Json?
+
+  /// "draft" (needs a person's review) | "approved" (used for sends).
+  status String @default("draft")
+  /// Strings the model's reply was REFUSED for — [{ path, reason }]: a token
+  /// dropped, altered, doubled or added. Their text is left empty for a
+  /// person to write; a row with problems cannot be approved.
+  problems Json?
+
+  /// The last draft, measured from the provider's own token counts.
+  model            String?
+  promptTokens     Int     @default(0)
+  completionTokens Int     @default(0)
+  cachedTokens     Int     @default(0)
+  /// Millionths of a dollar — the last draft's vendor cost (cached prompt at
+  /// the cached rate), and every draft of this row together.
+  costMicros      Int     @default(0)
+  totalCostMicros Int     @default(0)
+  /// Who paid the last draft: "wallet" (the company's AI credit) or
+  /// "fieldquo" — and what the AI credit was charged for it, in cents.
+  billing      String?
+  chargedCents Int     @default(0)
+  drafts       Int     @default(0)
+
+  draftedAt    DateTime?
+  draftedById  String?
+  approvedAt   DateTime?
+  approvedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([templateId, language])
+  @@index([companyId])
 }
 
 // A company-configured automation rule: "N days/hours after <triggerEvent>,

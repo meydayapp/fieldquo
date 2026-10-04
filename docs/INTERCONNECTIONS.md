@@ -284,7 +284,7 @@ tenancy, so it carries no information.
 | `DemoBooking` | PlatformAdmin | — |
 | `DemoHostAvailability` | PlatformAdmin | — |
 | `DocumentSignature` | CompanyDocument | — |
-| `DocumentTemplate` | — | FollowUpRule, MarketingCampaign |
+| `DocumentTemplate` | — | FollowUpRule, MarketingCampaign, TemplateTranslation |
 | `EmailMessage` | MailboxConnection, Message | Message |
 | `EventType` | — | Booking |
 | `Expense` | Asset, ExpenseImportBatch, Material, Receipt | MaterialPriceEntry |
@@ -458,6 +458,7 @@ tenancy, so it carries no information.
 | `Task` | ChangeOrder, Client, Invoice, Job, Quote, WorkArea | ChangeOrder, JobPhoto, TaskDependency, TimeEntry |
 | `TaskDependency` | Task | — |
 | `TaxFormSubmission` | Worker | — |
+| `TemplateTranslation` | DocumentTemplate | — |
 | `TikTokPublish` | MarketingDesign, VideoPost | — |
 | `TimeEntry` | Invoice, Job, Task, Worker | LocationStamp, TimeEntryBreak, TimeEntryCorrection |
 | `TimeEntryBreak` | TimeEntry | — |

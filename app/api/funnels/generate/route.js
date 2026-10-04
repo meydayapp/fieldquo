@@ -34,7 +34,7 @@ export async function POST(request) {
   const [company, enabled] = await Promise.all([
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { name: true, currency: true },
+      select: { name: true, currency: true, defaultLanguage: true },
     }),
     db.companyServiceCategory.findMany({
       where: { companyId: member.companyId, enabled: true },

@@ -195,7 +195,9 @@ console.log("\nThe mode is recorded; switching keeps both bodies\n");
   ok("a copy's mode switch never clears the other body either", !/canvas: null/.test(copies) && !/sections: \[\]/.test(copies));
   const editor = code(read("app/app/settings/email-templates/[id]/page.js"));
   ok("the editor's preview renders the mode that would be sent", /sentMode === "canvas"[\s\S]*compileCanvasEmail\(canvas/.test(editor));
-  ok("the editor saves both bodies and the mode", /JSON\.stringify\(\{ name, subject, sections, theme, sentMode, canvas \}\)/.test(editor));
+  // `language` since 2026-10-03: the language the email is written in
+  // (lib/email/templateTranslation.js) rides with every save.
+  ok("the editor saves both bodies and the mode", /JSON\.stringify\(\{ name, subject, sections, theme, sentMode, canvas(?:, language: authoredLanguage)? \}\)/.test(editor));
   ok("the editor says the other body is kept", /app\.emailModes\.canvasKept/.test(editor) && /app\.emailModes\.blocksKept/.test(editor));
   ok("the canvas editor is the designer's canvas, not a third editor", /DesignerLoader/.test(read("app/components/emailCanvas/EmailCanvasEditor.js")) && !/new fabric/.test(read("app/components/emailCanvas/EmailCanvasEditor.js")));
   ok("the schema records sentMode with blocks as the default", /sentMode String @default\("blocks"\)/.test(read("prisma/schema.prisma")));
@@ -422,7 +424,9 @@ console.log("\nThe tokens and the blocks' own words follow the document\n");
   ok("an enquiry chase is written in the language the form was filled in (uk)", lead.language === "uk");
   const cron = code(read("app/api/cron/follow-ups/route.js"));
   ok("…and the cron's lead finder carries LeadRequest.language into the client slot", /language: lead\.language/.test(cron));
-  ok("the cron hands the resolved language to the blocks", /templateBody\(rule\.template, mergeData, \{[\s\S]{0,300}?language,/.test(cron));
+  // Rendered from localizeTemplate's answer since 2026-10-03 — the rule's
+  // template, or its approved translation into that same language.
+  ok("the cron hands the resolved language to the blocks", /localizeTemplate\(\s*rule\.template[\s\S]{0,600}?templateBody\(template, mergeData, \{[\s\S]{0,300}?language,/.test(cron));
   ok("the cron has no money formatter of its own any more", !/function money\(/.test(cron) && !/`\$\$\{/.test(cron));
 
   // ── 6. The unsubscribe line (campaigns, job-completed chases) ───────────
@@ -430,7 +434,7 @@ console.log("\nThe tokens and the blocks' own words follow the document\n");
   ok("the unsubscribe line is French on a French email", unsub("fr").includes("Se désabonner") && !unsub("fr").includes("Unsubscribe"), unsub("fr").slice(-200));
   ok("the unsubscribe line stays English on an English email", unsub("en").includes("Unsubscribe") && unsub("en").includes("customer of Acme"));
   const campaign = code(read("app/api/marketing/campaigns/[id]/send/route.js"));
-  ok("the campaign send resolves each recipient's language and passes it", /resolveClientLanguage\(/.test(campaign) && /templateBody\(campaign\.template, mergeData, \{[\s\S]{0,200}?language:/.test(campaign));
+  ok("the campaign send resolves each recipient's language and passes it", /resolveClientLanguage\(/.test(campaign) && /localizeTemplate\(campaign\.template, translations, language/.test(campaign) && /templateBody\(template, mergeData, \{[\s\S]{0,200}?language/.test(campaign));
   const canvasFr = plain(templateBody({ sentMode: "canvas", canvas: { objects: [ws, text({ text: "Bonjour" })] } }, {}, { company: { name: "Acme" }, language: "fr", unsubscribe: { token: "tok" } }));
   ok("a canvas email's unsubscribe line follows the same language", canvasFr.includes("Se désabonner"), canvasFr.slice(-200));
 

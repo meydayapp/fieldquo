@@ -541,6 +541,21 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "translations",
+        heading: "Emails in your client's language",
+        blocks: [
+          { p: "You write each template once, in your own language — the **Written in** box under the **Subject line** says which. New templates and **Add default templates** start in your company's language." },
+          { p: "The **Translations** card under **Send a test** lists every other language, with how many of your clients read it. **Translate** drafts that language with FieldQuo AI; **Review / Edit** shows each line beside the original, with a preview, and nothing goes out in that language until you press **Approve & use**. **Write it yourself** opens an empty translation to type, at no cost." },
+          { bullets: [
+            "A client whose language has an approved, up-to-date translation gets it. Everyone else gets the email as you wrote it — a send is never held up waiting for a translation.",
+            "A follow-up about a quote or an invoice goes out in that document's language; a campaign goes out in the client's own language.",
+            "Edit the template and its translations show **Out of date — the original is sent** until you press **Update** (only the lines you changed are redrafted) and approve again.",
+            "Merge fields such as {{clientName}} are protected. A drafted line that drops or changes one is refused and left empty for you to write, and a translation with an empty line cannot be approved.",
+          ] },
+          { note: "Each translation shows what its AI cost — usually a fraction of a cent. If you have AI credit it is charged there; without credit, FieldQuo covers translations of 5¢ or less, up to $1.00 a month for your company." },
+        ],
+      },
+      {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
@@ -549,6 +564,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
+      { q: "Does FieldQuo translate my email by itself when it sends?", a: "No. A translation is drafted only when you press Translate, Update or Regenerate, and it is used only after you approve it. Sending never waits for the AI and never calls it." },
       { q: "I made a Quote email template Active and my quote email looks the same. Why?", a: "Because the quote email is not rendered from a template today. Its wording comes from the quote and from Services & Pricing; the optional sections from Quote Email." },
       { q: "Do templates keep my logo and colour?", a: "Yes. A new template starts as Using your branding, from Settings → Branding, until you customise its look." },
       { q: "Where do I choose which template a follow-up uses?", a: "On the follow-up rule itself, under Settings → Follow-ups. Only Follow-up, Marketing and Custom templates are offered." },

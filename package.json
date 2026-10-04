@@ -229,6 +229,7 @@
     "check:drilldown": "node scripts/check-drill-down.mjs",
     "check:demo-slots": "node --import ./scripts/alias-loader.mjs scripts/check-demo-slots.mjs",
     "check:template-kind": "node --import ./scripts/alias-loader.mjs scripts/check-template-kind.mjs",
+    "check:email-template-translation": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-email-template-translation.mjs",
     "check:instant-exits": "node --import ./scripts/alias-loader.mjs scripts/check-instant-quote-exits.mjs",
     "check:stairs-from-steps": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-stairs-from-steps.mjs",
     "check:room-presets": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-room-presets.mjs",
