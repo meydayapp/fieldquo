@@ -270,6 +270,24 @@ function delegate(model) {
       if (args._count) out._count = list.length;
       return out;
     },
+    // One row per distinct `by` tuple, with _sum / _count over its rows — the
+    // shape GET /api/leave's accrual records read (check:role-access §11).
+    async groupBy(args = {}) {
+      reads.push({ model, action: "groupBy", args });
+      const by = Array.isArray(args.by) ? args.by : [args.by];
+      const groups = new Map();
+      for (const r of find({ where: args.where })) {
+        const k = JSON.stringify(by.map((f) => r[f] ?? null));
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r);
+      }
+      return [...groups.values()].map((rows) => {
+        const out = Object.fromEntries(by.map((f) => [f, rows[0][f] ?? null]));
+        if (args._sum) out._sum = Object.fromEntries(Object.keys(args._sum).map((f) => [f, rows.reduce((s, r) => s + Number(r[f] || 0), 0)]));
+        if (args._count) out._count = typeof args._count === "object" ? Object.fromEntries(Object.keys(args._count).map((f) => [f, rows.length])) : rows.length;
+        return out;
+      });
+    },
   };
   for (const action of ["findUniqueOrThrow", "findFirstOrThrow"]) {
     api[action] = async (args) => {

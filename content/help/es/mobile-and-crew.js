@@ -719,7 +719,7 @@ export const ARTICLES = {
     title: "Pedir tiempo libre desde su teléfono",
     summary:
       "Solicite un día libre, vea cuánto le queda, retire una solicitud, y sepa de quién está esperando.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Ausencias** es una sola pantalla con dos funciones: lo que le queda, y sus solicitudes. Una solicitud va a la persona a quien usted reporta; algunos tipos se aprueban automáticamente en el momento en que la envía; y hasta que se toma, puede retirarla usted mismo.",
     ],
@@ -729,6 +729,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Arriba, una tarjeta por tipo de ausencia que su empresa configuró — vacaciones, días por enfermedad, día personal, como lo haya llamado el propietario — con **Acumulado**, **Tomado**, lo que está pendiente de aprobación, y los días **Restante**. Debajo, **Tus solicitudes** con el botón **Solicitar tiempo libre**, cada solicitud con su etiqueta de estado y, mientras está pendiente, una línea que dice de quién está esperando. Si todavía no existen políticas de ausencias, la pantalla lo dice y nombra la página de configuración que un propietario usa para agregarlas." },
+          { note: "Si su empresa todavía no configuró ningún tipo de ausencia, la pantalla lo dice — y aun así puede pedir tiempo libre **sin goce de sueldo**: las fechas y un motivo. Va a quien aprueba las ausencias, como cualquier solicitud, y no usa ningún saldo. Los tipos pagados aparecen en cuanto el propietario los configura en Ajustes → Políticas de tiempo libre." },
           { figure: "harness:mobile-time-off", caption: "Ausencias en un teléfono — las tarjetas de saldo Vacaciones y Día personal, Solicitar tiempo libre, y una solicitud pendiente con su botón Withdraw." },
         ],
       },

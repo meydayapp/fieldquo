@@ -719,7 +719,7 @@ export const ARTICLES = {
     title: "Demander un congé depuis votre téléphone",
     summary:
       "Demander une journée de congé, voir ce qu'il vous reste, retirer une demande, et savoir qui la fait attendre.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Congés** est un seul écran avec deux fonctions : ce qu'il vous reste, et vos demandes. Une demande va à la personne à qui vous rendez des comptes; certains types sont approuvés automatiquement dès que vous soumettez; et tant qu'elle n'est pas prise, vous pouvez la retirer vous-même.",
     ],
@@ -729,6 +729,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "En haut, une carte par type de congé que votre entreprise a configuré — vacances, jours de maladie, journée personnelle, peu importe comment le propriétaire l'a nommé — avec **Accumulé**, **Pris**, ce qui est en attente d'approbation, et les jours **Restant**. Dessous, **Vos demandes** avec le bouton **Demander un congé**, chaque demande avec sa pastille d'état et, tant qu'elle est en attente, une ligne disant qui la fait attendre. Si aucune politique de congé n'existe encore, l'écran le dit et nomme la page de paramètres qu'un propriétaire utilise pour en ajouter." },
+          { note: "Si votre entreprise n'a encore configuré aucun type de congé, l'écran le dit — et vous pouvez quand même demander un congé **sans solde** : les dates et une raison. La demande va à la personne qui approuve les congés, comme toute demande, et ne touche à aucun solde. Les types payés apparaissent dès que le propriétaire les configure dans Réglages → Politiques de congé." },
           { figure: "harness:mobile-time-off", caption: "Les congés sur un téléphone — les cartes de solde Vacances et Journée personnelle, Demander un congé, et une demande en attente avec son bouton Withdraw." },
         ],
       },

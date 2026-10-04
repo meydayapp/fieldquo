@@ -9955,6 +9955,19 @@ model LeavePolicy {
   // year, which is what the opening balance needs).
   accrualRateHistory    Json?
 
+  /// True only on the "Unpaid time off" policy FieldQuo creates the first
+  /// time somebody asks for time off in a company that has set up NO leave
+  /// policies (2026-10-04). Before it, crew in such a company read "No leave
+  /// policies have been set up yet" and could not ask for a day at all — the
+  /// office heard about it by text, off the record. lib/leave/unpaidFallback.js
+  /// owns the rule: unpaid, no balance, needs approval, routed exactly like
+  /// any request. It is left OUT of every "which policies has the company set
+  /// up" reader — the owner's note stays until they set their own, the
+  /// settings list and its starter templates behave as if it were not there,
+  /// and once a real policy exists the request form offers those instead.
+  /// Requests filed under it keep pointing at it, so their history reads.
+  systemUnpaid Boolean @default(false)
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

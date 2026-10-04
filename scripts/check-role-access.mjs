@@ -587,5 +587,56 @@ seed();
   ok("screen: the safety report's photo box has its own words too", /hint=\{t\("app\.safety\.photos\.hint"/.test(src("app/app/safety/page.js")));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Time off with no leave policies — crew can still ask for unpaid days");
+//
+// The live test (2026-10-04): with no policies set up, crew read "No leave
+// policies have been set up yet" and could not ask for anything.
+// lib/leave/unpaidFallback.js: unpaid only, approval required, created on the
+// first ask; the owner's "set up policies" note stays.
+const LEAVE = await import("../app/api/leave/route.js");
+function seedLeave(policies = []) {
+  seed();
+  tables.leavePolicy = policies;
+  for (const m of ["leaveBalance", "leaveRequest", "leaveOpeningBalance", "leaveAccrualOverride", "workingHours", "leaveBlackout", "notification", "notificationDelivery", "pushSubscription", "orgReport"]) tables[m] ||= [];
+  tables.workingHours = [1, 2, 3, 4, 5].map((d) => ({ userId: "u_crew", dayOfWeek: d }));
+  tables.company[0].defaultLanguage = "fr";
+}
+seedLeave();
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("crew GET: no policies → the unpaid fallback is offered, named in the company's language", g.status === 200 && g.json?.policies?.length === 0 && g.json?.unpaidFallback?.name === "Congé sans solde", JSON.stringify(g.json?.unpaidFallback) + ` status ${g.status} ${g.json?.error || ""}`);
+  ok("…and GET wrote nothing (looking creates no policy)", !writes.some((w) => w.model === "leavePolicy"));
+  const p = await call(LEAVE, "POST", { as: "crew", body: { unpaid: true, startDate: "2026-11-16", endDate: "2026-11-17", reason: "Moving house" } });
+  ok("crew POST unpaid: accepted", p.status === 200 || p.status === 201, `status ${p.status} ${JSON.stringify(p.json)}`);
+  const made = writes.find((w) => w.model === "leavePolicy" && (w.action === "upsert" || w.action === "create"));
+  const policyData = made?.args?.create || made?.args?.data;
+  ok("…the fallback policy is unpaid, needs approval, flagged systemUnpaid", policyData?.paid === false && policyData?.requiresApproval === true && policyData?.systemUnpaid === true && policyData?.kind === "unpaid");
+  const req = writes.find((w) => w.model === "leaveRequest" && w.action === "create")?.args?.data;
+  ok("…the request is PENDING (routed to approvers), with the dates and the reason", req?.status === "pending" && req?.reason === "Moving house" && String(req?.days) === "2", JSON.stringify(req));
+  ok("…and no balance was consumed", !writes.some((w) => w.model === "leaveBalance"));
+}
+seedLeave([{ id: "lp1", companyId: "co1", name: "Vacation", kind: "vacation", paid: true, accrualMethod: "annual_allotment", annualDays: 10, requiresApproval: true, active: true, systemUnpaid: false }]);
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("with a policy set up: no fallback offered", g.json?.unpaidFallback === null && g.json?.policies?.length === 1);
+  const p = await call(LEAVE, "POST", { as: "crew", body: { unpaid: true, startDate: "2026-11-16", endDate: "2026-11-16" } });
+  ok("…and 'unpaid' without a policy is refused (400) — the company's own types apply", p.status === 400, `status ${p.status}`);
+}
+seedLeave([{ id: "lpx", companyId: "co1", name: "Unpaid time off", kind: "unpaid", paid: false, requiresApproval: true, active: true, systemUnpaid: true }]);
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("the fallback row, once made, is NOT a 'policy the company set up' — note and fallback stay", g.json?.policies?.length === 0 && Boolean(g.json?.unpaidFallback));
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  ok("the settings list leaves the fallback out (starter templates still offered)", /where: \{ companyId: member\.companyId, systemUnpaid: false \}/.test(src("app/api/settings/leave-policies/route.js")));
+  ok("accrual refresh leaves it out (no balance card for it)", /systemUnpaid: false/.test(src("lib/leave/balances.js")));
+  const page = src("app/app/time-off/page.js");
+  ok("the page keeps the owner's note AND offers the request", /data-unpaid-fallback/.test(page) && /app\.timeOff\.noPolicies/.test(page) && /unpaidFallback=\{unpaidFallback\}/.test(page));
+  ok("the form posts unpaid:true in place of a policy", /unpaid: true/.test(src("app/app/time-off/RequestForm.js")));
+}
+
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;

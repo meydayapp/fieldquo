@@ -721,7 +721,7 @@ export const ARTICLES = {
     title: "Ask for time off from your phone",
     summary:
       "Request a day off, see what you have left, withdraw a request, and know who it is waiting on.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Time Off** is one screen with two jobs: what you have left, and your requests. A request goes to the person you report to; some types are approved automatically the moment you submit; and until it is taken you can withdraw it yourself.",
     ],
@@ -731,6 +731,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "At the top, a card per leave type your company set up — Vacation, Sick days, Personal day, whatever the owner named — with **Accrued**, **Taken**, what is awaiting approval, and days **Left**. Under it, **Your requests** with the **Request time off** button, each request with its status pill and, while it is pending, a line saying who it is waiting on. If no leave policies exist yet, the screen says so and names the settings page an owner uses to add them." },
+          { note: "If your company has not set up any leave types yet, the screen says so — and you can still ask for **unpaid** time off: the dates and a reason. It goes to whoever approves time off, like any request, and it uses no balance. Paid types appear once the owner sets them up in Settings → Time off policies." },
           { figure: "harness:mobile-time-off", caption: "Time off on a phone — the Vacation and Personal day balance cards, Request time off, and a pending request with its Withdraw button." },
         ],
       },
