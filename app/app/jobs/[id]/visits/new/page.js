@@ -29,6 +29,11 @@ import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, ClipboardList } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
+import { can } from "@/lib/permissions";
+import { useSession } from "@/lib/auth-client";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import {
   normalizeChecklistItems,
   PHASE_LABELS,
@@ -43,6 +48,16 @@ export default function NewVisitPage() {
   const { t } = useTranslation();
   const { id: jobId } = useParams();
   const router = useRouter();
+  // POST /api/jobs/[id]/visits asks two questions: "Edit their own schedule"
+  // or better to book a visit at all, and job:assign to book one for
+  // somebody else. The form asks them first, so it never collects a visit
+  // the route will refuse — and the picker offers only the people this
+  // member may actually put on it. An unresolved provider falls open.
+  const caller = usePermissions();
+  const { data: session } = useSession();
+  const canBook = !caller || hasLevel(caller, "schedule", "edit_own");
+  const canAssignOthers = !caller || can(caller.role, "job:assign");
+  const myUserId = session?.user?.id || null;
 
   const [job, setJob] = useState(null);
   const [members, setMembers] = useState([]);
@@ -188,6 +203,8 @@ export default function NewVisitPage() {
     }
   }
 
+  if (!canBook) return <NoAccessPanel capability="accessLevel" />;
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4 animate-pulse">
@@ -248,7 +265,9 @@ export default function NewVisitPage() {
                 className={inputClass}
               >
                 <option value="">{t("app.visitNew.unassigned", "Not assigned yet")}</option>
-                {members.map((m) => (
+                {members
+                  .filter((m) => canAssignOthers || (myUserId && (m.user?.id || m.userId) === myUserId))
+                  .map((m) => (
                   <option key={m.id} value={m.user?.id || m.userId}>
                     {personOptionLabel(m, m.user?.name || m.user?.email)}
                   </option>

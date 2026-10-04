@@ -25,6 +25,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { ratesForCompany } from "@/lib/kitchen/rates";
+import { canSeeMoney, hasLevel } from "@/lib/permissions/enforce";
 import { kitchenLineItems, getKitchenBreakdown } from "@/lib/kitchen/pricing";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { attachUsTaxRate } from "@/lib/tax/usRates";
@@ -49,7 +50,7 @@ export async function GET(request, { params }) {
 
   // A kitchen design IS the quote's scope, and this hands back its share token
   // as well — the credential-free public page showing the price.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "quotes",
     "view_only",
@@ -70,7 +71,10 @@ export async function GET(request, { params }) {
     );
   }
 
-  const rates = await ratesForCompany(member.companyId);
+  // The cabinet rate card is the price list, and the share token opens the
+  // priced public page — the two things redactQuote withholds from a reader
+  // without showPricing / below quote editing. Same rules here.
+  const rates = canSeeMoney(full) ? await ratesForCompany(member.companyId) : null;
 
   return NextResponse.json({
     quoteId: quote.id,
@@ -88,7 +92,8 @@ export async function GET(request, { params }) {
     // The share link only exists once the quote has a token — it's minted when
     // the quote is sent. Null here means "not shareable yet", which the page
     // says rather than rendering a link to nowhere.
-    shareToken: quote.shareToken,
+    ...(hasLevel(full, "quotes", "view_create_edit") && { shareToken: quote.shareToken }),
+    ...(rates === null && { pricingHidden: true }),
   });
 }
 

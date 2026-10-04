@@ -50,7 +50,7 @@ const panel = code("app/components/jobs/JobCosting.js");
 ok("the panel knows the job's status and review date", /export default function JobCosting\(\{ jobId, jobStatus, costReviewedAt, autoOpenReview = false, onReviewed, refreshKey = 0 \}\)/.test(panel));
 ok("a completed job shows a review date OR a prompt — never neither", /jobStatus === "completed" && \(\s*costReviewedAt \? \(/.test(panel));
 ok("a completed job with nothing recorded still renders (that is the job that needs asking)", /!hasUnattributed && !needsReview\)/.test(panel));
-ok("the modal reloads the panel after adding an expense", /onChanged=\{\(\) => setReloadKey\(\(k\) => k \+ 1\)\}/.test(panel) && /\}, \[jobId, reloadKey, refreshKey\]\);/.test(panel));
+ok("the modal reloads the panel after adding an expense", /onChanged=\{\(\) => setReloadKey\(\(k\) => k \+ 1\)\}/.test(panel) && /\}, \[jobId, reloadKey, refreshKey(, mayCost)?\]\);/.test(panel));
 
 const modal = code("app/components/jobs/CostReview.js");
 ok("the modal adds expenses through the one expense API, tagged to the job", /fetch\("\/api\/expenses"/.test(modal) && /projectId: jobId/.test(modal));

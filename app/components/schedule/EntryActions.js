@@ -35,6 +35,8 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { showToast } from "@/lib/toast";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { visitActions, visitActionLabel } from "@/lib/jobs/visitStatus";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 import { appointmentActions } from "@/lib/appointments/statusLabels";
 import { captureStamp } from "@/lib/location/capture";
 import { languageMeta } from "@/app/i18n/languages";
@@ -77,8 +79,17 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
   const all = kind === "visit" ? visitActions(status) : appointmentActions(status);
   // The calendar is not the van: "on my way" is a crew member's move, texts a
   // stranger, and wants the phone's position. Only the job page offers it.
-  const actions = all.filter((a) => crew || a.office);
-  const canMove = !["completed", "cancelled", "canceled"].includes(status);
+  //
+  // Moving or cancelling a VISIT is "Edit their own schedule" and up — the
+  // visit route refuses it below that (mayRescheduleVisit in
+  // lib/jobs/visitStatus.js), so a crew member on "View and complete" is not
+  // offered a Reschedule or Cancel that would 403. Whoever renders this has
+  // already decided they may work the visit at all (mayMoveVisit).
+  const caller = usePermissions();
+  const mayReschedule = kind !== "visit" || hasLevel(caller, "schedule", "edit_own");
+  const uncancels = (a) => a.to === "scheduled" && ["cancelled", "canceled"].includes(status);
+  const actions = all.filter((a) => (crew || a.office) && (mayReschedule || !(a.cancels || uncancels(a))));
+  const canMove = mayReschedule && !["completed", "cancelled", "canceled"].includes(status);
 
   const url = endpointFor({ kind, id, jobId });
 

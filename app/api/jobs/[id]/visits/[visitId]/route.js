@@ -12,7 +12,9 @@ import { maySms } from "@/lib/sms/optOut";
 import { clientSmsFrom } from "@/lib/sms/clientLine";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, hasLevel, assignedJobWhere } from "@/lib/permissions/enforce";
+import { mayRescheduleVisit } from "@/lib/jobs/visitStatus";
+import { recordActivity } from "@/lib/activity/log";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 import { recordStampIfPresent } from "@/lib/location/stamps";
 import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
@@ -45,11 +47,18 @@ export async function PATCH(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Loaded before the visit now, because WHICH visits a member may touch
+  // depends on it. The job lookup carries assignedJobWhere — the same scope
+  // every other job route has — so an unassigned visit on a job a crew
+  // member is not on is "Not found" to them, not claimable (the 2026-10-03
+  // role-access audit: this was the one job route scoped by company only).
+  const full = await loadEnforceableMember(db, member.id);
+
   const visit = await db.jobVisit.findFirst({
     where: {
       id: _params.visitId,
       jobId: _params.id,
-      job: { companyId: member.companyId },
+      job: { companyId: member.companyId, ...assignedJobWhere(full) },
     },
     include: {
       job: {
@@ -77,7 +86,6 @@ export async function PATCH(request, { params }) {
   // to answer a different question. Unassigned stays editable — an unclaimed
   // visit that nobody can complete is a visit that nobody does, which is the
   // reasoning the appointments list already carries.
-  const full = await loadEnforceableMember(db, member.id);
   const mine = !!member.userId && visit.assignedToId === member.userId;
   if (!mine && visit.assignedToId !== null && !hasLevel(full, "schedule", "edit_all")) {
     return NextResponse.json(
@@ -92,6 +100,37 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { status, checklistItems, photos, notes, scheduledAt, returnReason, returnNotes, stamp } = body;
+
+  // ── Working a visit is not moving it ─────────────────────────────────────
+  //
+  // "View and complete their own schedule" (Crew, Estimator) may mark the
+  // visit on its way, started and done, tick the checklist and leave the
+  // note. Moving the date or cancelling it — both of which text and email the
+  // client by default — is "Edit their own schedule" and up. See
+  // mayRescheduleVisit; EntryActions asks the same question before offering
+  // Reschedule or Cancel.
+  const wantsMove =
+    scheduledAt !== undefined ||
+    status === "cancelled" ||
+    (status === "scheduled" && ["cancelled", "canceled"].includes(visit.status));
+  if (
+    wantsMove &&
+    !mayRescheduleVisit({
+      assignedToId: visit.assignedToId,
+      userId: member.userId,
+      hasEditOwn: hasLevel(full, "schedule", "edit_own"),
+      hasEditAll: hasLevel(full, "schedule", "edit_all"),
+    })
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "You can complete this visit, but moving or cancelling it is up to " +
+          "whoever runs the schedule. Ask them to change it.",
+      },
+      { status: 403 },
+    );
+  }
 
   // ── Moving it: the booking page's arithmetic, with an office override ────
   //
@@ -348,6 +387,28 @@ export async function PATCH(request, { params }) {
       alreadyCancelled: !plan && ["cancelled", "canceled"].includes(visit.status),
     });
     notice.texted = texted.texted;
+  }
+
+  // ── Logged under the person who did it ─────────────────────────────────
+  //
+  // The owner asked that work done in the field be on the record under the
+  // name of whoever did it. A status change, a note, the checklist or photos
+  // — one line per PATCH, naming what changed. recordActivity never throws.
+  const changed = [
+    status !== undefined && status !== visit.status ? `status → ${status}` : null,
+    plan ? "rescheduled" : null,
+    notes !== undefined && notes !== visit.notes ? "notes" : null,
+    items !== undefined ? "checklist" : null,
+    photos !== undefined ? "photos" : null,
+  ].filter(Boolean);
+  if (changed.length) {
+    await recordActivity(member, {
+      action: status === "completed" && visit.status !== "completed" ? "visit.completed" : "visit.updated",
+      entityType: "job",
+      entityId: _params.id,
+      summary: `Visit on ${visit.job.title || "a job"}: ${changed.join(", ")}`,
+      metadata: { visitId: visit.id },
+    });
   }
 
   return NextResponse.json({ ...updated, notice });

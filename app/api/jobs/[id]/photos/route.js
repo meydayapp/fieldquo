@@ -24,6 +24,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { deleteAsset } from "@/lib/cloudinary";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
@@ -204,6 +205,14 @@ export async function POST(request, { params }) {
     where: { jobId: id, companyId: member.companyId },
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
     select: PHOTO_SELECT,
+  });
+  // On the record under whoever did it — the owner asked that field work be
+  // logged by name (2026-10-03). recordActivity never throws.
+  await recordActivity(member, {
+    action: "job.photosAdded",
+    entityType: "job",
+    entityId: id,
+    summary: `Added ${rows.length} photo${rows.length === 1 ? "" : "s"} to a job`,
   });
   return NextResponse.json({ added: rows.length, photos: photos.map(flattenTags) });
 }
