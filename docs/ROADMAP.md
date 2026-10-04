@@ -167,6 +167,57 @@ saving a card under terms). The panel and the audit row say so; the company
 switches it back on itself. Numbers the rent run already released are not
 restored (gone from the carrier). Say if top-up should be re-armed.
 
+### 3. View as company hides its edits
+
+The server always refused a support session's writes; the screen still drew
+every Save, Send, Delete and switch. Instead of editing ~400 write sites, the
+browser now gets the server's own rule at the three seams every control goes
+through (`lib/impersonation/viewOnly.js`, `app/providers/ViewOnlyProvider.js`,
+mounted by `app/app/layout.js` only when the resolved member is a READ-ONLY
+impersonation — a demo sandbox still writes):
+
+- **The request.** `window.fetch`, `XMLHttpRequest` and `navigator.sendBeacon`
+  are wrapped for the session. A request middleware would refuse
+  (`isBlockedRequest` — the same `isReadOnlyMethod` / `isWriteShapedGet`,
+  moved import-free to `lib/platform/readOnlyRequests.js` and re-exported
+  from `impersonationToken.js`, so middleware's imports are unchanged; staff
+  surfaces and cross-origin left alone) never leaves the browser; the caller
+  gets middleware's 403 marked `viewOnly`, and the person gets one "View
+  only" toast (only after a press — a page that posts on mount is refused
+  silently, as before). `reportResponseError` stays quiet for that answer.
+- **The control.** Write-by-nature controls inside the page and its dialogs
+  (submit buttons, switches, file pickers, editable regions, form fields,
+  anything with `data-write`) are drawn off from the first paint (CSS under
+  `[data-view-only]`), get `aria-disabled` and a "View only" title, and a
+  press on one is stopped before its handler runs. Any other control whose
+  press turns out to be a write is marked the same way the moment the guard
+  stops it. `SendConfirmModal` draws Send disabled with a View only note.
+- **Personal pages.** `/app/me/availability`, `/app/settings/availability`,
+  `/app/me/earnings`, `/app/me/more` (me/home) and `/app/time-off` show
+  "Personal page — not shown in View as company" instead of the owner's own
+  data (one gate in the shell, `PERSONAL_PAGES`; the page never mounts, so its
+  "my" endpoint is never asked). The notification bell is inert with
+  "Notifications are personal" — the live bell and its poll (which also
+  announced the owner's notifications on the auditor's machine) never mount.
+
+Strings `app.viewOnly.*` in nine languages. `check:view-only` (new, in
+check:all, 88 assertions): a static scan of the whole client import graph
+(698 "use client" files, 1,401 modules, 675 non-GET requests — 372 in
+app/app) places every one inside fetch / fetchJson / a local wrapper that
+calls fetch / uploadFile's fetch, with no other HTTP client, server action,
+native form post or captured fetch; the guard on a fake window agrees with
+middleware on 216 method × path pairs and never calls the real fetch for a
+refused one (mutation-tested); SendConfirmModal and the bell render
+byte-identical markup to HEAD outside a session (pinned md5) and under
+`viewOnly={false}`; every CSS rule is under `[data-view-only]`; the personal
+gate rendered at each path through Next's own PathnameContext.
+
+Honest limit: a write control that is none of the by-nature kinds (a plain
+"Mark as paid" button, say) still draws normally until it is first pressed —
+then nothing is sent, the toast says View only, and it reads as off from then
+on. Hiding those before a press needs the control to say what it does
+(`data-write`), which is the per-file edit this change avoided.
+
 ### 4. Google "Book" button — owners and admins only
 
 `POST`/`DELETE /api/reviews/google/book-button` now refuse anyone but an

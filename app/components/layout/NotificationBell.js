@@ -67,6 +67,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { noteKeysFor } from "@/lib/notifications/render";
 import { notify } from "@/lib/notify/browser";
+import { useViewOnly } from "@/app/providers/ViewOnlyProvider";
 
 const POLL_MS = 60000;
 
@@ -101,7 +102,37 @@ const BELL_TONE = {
   bar: "text-muted-foreground hover:bg-muted hover:text-foreground",
 };
 
-export default function NotificationBell({ className = "", tone = "rail" }) {
+// ── "View as company" (2026-10-03) ──────────────────────────────────────
+//
+// /api/notifications answers for the SIGNED-IN person; in a support session
+// that is the company's owner, so the bell would list — and announce as
+// browser notifications on the auditor's own machine — the owner's personal
+// notifications. In that session the bell is drawn, inert, and says why; the
+// live bell (and its poll) never mounts. Everyone else gets the live bell,
+// unchanged.
+export default function NotificationBell(props) {
+  const viewOnly = useViewOnly();
+  const { t } = useTranslation();
+  if (!viewOnly) return <NotificationBellLive {...props} />;
+  const tone = props.tone || "rail";
+  return (
+    <div className={`relative ${props.className || ""}`}>
+      <button
+        type="button"
+        disabled
+        aria-disabled="true"
+        title={t("app.viewOnly.bell")}
+        aria-label={t("app.viewOnly.bell")}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-lg opacity-50 cursor-not-allowed ${BELL_TONE[tone] || BELL_TONE.rail}`}
+        data-view-only-bell
+      >
+        <Bell size={20} />
+      </button>
+    </div>
+  );
+}
+
+function NotificationBellLive({ className = "", tone = "rail" }) {
   const { t } = useTranslation();
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
