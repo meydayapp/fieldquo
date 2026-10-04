@@ -281,6 +281,9 @@ export async function GET(request) {
       // caller below to exclude it from that rate's denominator; a warranty
       // return isn't "new work" being measured for whether it needed a return.
       originalJobId: true,
+      // A past job typed in after the fact — the margin roll-up leaves one
+      // with no recorded costs out rather than pricing it at $0 cost.
+      historicalImportedAt: true,
       client: { select: { id: true, name: true } },
       quote: {
         select: {
@@ -539,6 +542,7 @@ export async function GET(request) {
     revenue: revenueByJob.has(job.id) ? revenueByJob.get(job.id) : null,
     expenses: expensesByJob.get(job.id) || [],
     timeEntries: entriesByJob.get(job.id) || [],
+    historical: Boolean(job.historicalImportedAt),
   }));
 
   const throughputJobs = completedJobs.map((job) => ({ id: job.id, quote: job.quote }));

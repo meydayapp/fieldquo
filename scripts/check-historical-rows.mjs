@@ -37,15 +37,38 @@ const md5 = (v) => createHash("md5").update(JSON.stringify(v)).digest("hex");
 
 // `@/lib/db` → whatever fake the current section installed.
 globalThis.__FQ_DB = null;
+// The job costing route (section 4) also needs its session, gate and the
+// three loaders that are not under test answered; everything that decides
+// the payload — actualJobCost, compareJobCost, contractValue, the costing
+// route itself — is the shipped file.
+globalThis.__FQ_ROUTE = { member: null, full: null, overhead: null, subcontracts: [] };
 const HOOKS = `
+const STUBS = {
+  "@/lib/db": "fq-stub:db",
+  "next/server": "fq-stub:next",
+  "@/lib/apiMember": "fq-stub:member",
+  "@/lib/permissions/apiGate": "fq-stub:gate",
+  "@/lib/analytics/minimumPrice": "fq-stub:min-price",
+  "@/lib/costing/quoteCostEstimate": "fq-stub:quoted-cost",
+  "@/lib/costing/unattributedHours": "fq-stub:unattributed",
+  "@/lib/costing/jobCostInputs": "fq-stub:subs",
+};
+const SOURCES = {
+  "fq-stub:db": "export const db = new Proxy({}, { get: (_t, p) => globalThis.__FQ_DB[p] });",
+  "fq-stub:next": "export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };",
+  "fq-stub:member": "export async function memberOrRefusal() { return { member: globalThis.__FQ_ROUTE.member }; }",
+  "fq-stub:gate": "export async function levelOrRefusal() { return { full: globalThis.__FQ_ROUTE.full }; }",
+  "fq-stub:min-price": "export async function calculateMinimumPrice() { return globalThis.__FQ_ROUTE.overhead == null ? null : { costPerJob: globalThis.__FQ_ROUTE.overhead }; }",
+  "fq-stub:quoted-cost": "export async function quotedCostFor() { return null; }",
+  "fq-stub:unattributed": "export async function unattributedLabourForJob() { return null; }",
+  "fq-stub:subs": "export async function loadJobSubcontracts() { return globalThis.__FQ_ROUTE.subcontracts; }",
+};
 export async function resolve(specifier, context, nextResolve) {
-  if (specifier === "@/lib/db") return { url: "fq-stub:db", shortCircuit: true };
+  if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
   return nextResolve(specifier, context);
 }
 export async function load(url, context, nextLoad) {
-  if (url === "fq-stub:db") {
-    return { format: "module", shortCircuit: true, source: "export const db = new Proxy({}, { get: (_t, p) => globalThis.__FQ_DB[p] });" };
-  }
+  if (SOURCES[url]) return { format: "module", shortCircuit: true, source: SOURCES[url] };
   return nextLoad(url, context);
 }
 `;
@@ -174,6 +197,106 @@ console.log("\n3. app/app/page.js — the \"Recent quotes\" card\n");
   ok("...and no import", shown.every((q) => !q.historicalImportedAt));
   const bare = apiList(LIVE_QUOTES);
   ok("a company with no historical rows sees the same five it always did (md5 vs slice(0, 5))", md5(cardList({ data: bare })) === md5(bare.slice(0, 5)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n4a. lib/analytics/kpis.js — margin and labour-% leave out past jobs with no costs\n");
+{
+  const { buildMarginRollup } = await import("@/lib/analytics/kpis");
+  // Five live jobs, costed. Gross margins 60/50/40/30/20 → median 40.
+  const live = [0.4, 0.5, 0.6, 0.7, 0.8].map((costShare, i) => ({
+    id: `j${i}`,
+    revenue: 1000,
+    expenses: [{ amount: costShare * 1000 - 100, category: "materials" }],
+    timeEntries: [{ hours: 2, status: "approved", worker: { hourlyRate: 50 } }],
+    historical: false,
+  }));
+  // Six past jobs typed in: paid, nothing recorded against them.
+  const past = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, revenue: 3200, expenses: [], timeEntries: [], historical: true }));
+  // One past job whose costs WERE entered afterwards — measured like any job.
+  const pastCosted = { id: "pc", revenue: 2000, expenses: [{ amount: 1500, category: "materials" }], timeEntries: [], historical: true };
+
+  const r = buildMarginRollup({ jobs: [...live, ...past], overheadPerJob: null, materialsTrap: { triggered: false } });
+  const bare = buildMarginRollup({ jobs: live, overheadPerJob: null, materialsTrap: { triggered: false } });
+  ok("gross margin is the live jobs' median, not dragged toward 100%", r.grossMarginPct.value === bare.grossMarginPct.value && bare.grossMarginPct.value === 40, [r.grossMarginPct.value, bare.grossMarginPct.value]);
+  ok("labour-% is the live jobs' figure", r.labourCostPctOfRevenue.value === bare.labourCostPctOfRevenue.value, [r.labourCostPctOfRevenue.value, bare.labourCostPctOfRevenue.value]);
+  ok("...on a sample of five", r.grossMarginPct.sampleSize === 5 && r.labourCostPctOfRevenue.sampleSize === 5);
+  ok("the six are counted, not dropped silently", r.labourCostPctOfRevenue.raw.excludedCostsNotRecorded === 6 && r.grossMarginPct.raw.excludedCostsNotRecorded === 6, r.labourCostPctOfRevenue.raw);
+  ok("...and do not count as 'no revenue'", r.grossMarginPct.raw.excludedNoRevenue === 0);
+  ok("a company with no historical rows gets an identical roll-up (md5, no new key)", !("excludedCostsNotRecorded" in bare.grossMarginPct.raw) && md5(bare) === md5(buildMarginRollup({ jobs: live.map(({ historical, ...j }) => j), overheadPerJob: null, materialsTrap: { triggered: false } })));
+  const withCosted = buildMarginRollup({ jobs: [...live, ...past, pastCosted], overheadPerJob: null, materialsTrap: { triggered: false } });
+  ok("a past job with costs recorded IS measured", withCosted.grossMarginPct.sampleSize === 6, withCosted.grossMarginPct.sampleSize);
+  const onlyPast = buildMarginRollup({ jobs: past, overheadPerJob: null, materialsTrap: { triggered: false } });
+  ok("only uncosted past jobs: no margin at all (not 100%), and the count says why", onlyPast.grossMarginPct.value === null && onlyPast.grossMarginPct.reason === "no_priced_jobs" && onlyPast.labourCostPctOfRevenue.raw.excludedCostsNotRecorded === 6);
+  const trapped = buildMarginRollup({ jobs: [...live, ...past], overheadPerJob: null, materialsTrap: { triggered: true, buyListTotal: 5000, expenseTotal: 0 } });
+  ok("...the count survives the materials-trap branch too", trapped.labourCostPctOfRevenue.raw.excludedCostsNotRecorded === 6);
+
+  // The route hands `historical` over, and selects the column it is read from.
+  const route = readFileSync(new URL("../app/api/analytics/kpis/route.js", import.meta.url), "utf8");
+  const completedSel = route.slice(route.indexOf("const completedJobs = await db.job.findMany"), route.indexOf("const completedJobs = await db.job.findMany") + 1200);
+  ok("the KPI route selects historicalImportedAt on the completed jobs", /historicalImportedAt: true/.test(completedSel));
+  const marginJobs = route.slice(route.indexOf("const marginJobs"), route.indexOf("const marginJobs") + 400);
+  ok("...and passes it to the margin roll-up as `historical`", /historical: Boolean\(job\.historicalImportedAt\)/.test(marginJobs));
+  const page = readFileSync(new URL("../app/app/analytics/kpis/page.js", import.meta.url), "utf8");
+  ok("the KPI page says how many were left out", /excludedCostsNotRecorded > 0/.test(page) && /"app\.kpis\.costsNotRecorded"/.test(page));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n4b. GET /api/jobs/[id]/costing — a past job with no costs shows no margin\n");
+{
+  const { GET } = await import("@/app/api/jobs/[id]/costing/route.js");
+  globalThis.__FQ_ROUTE.member = { id: "m1", userId: "u1", companyId: "c1", role: "owner" };
+  globalThis.__FQ_ROUTE.full = { id: "m1", userId: "u1", companyId: "c1", role: "owner", permissions: null };
+  globalThis.__FQ_ROUTE.overhead = 150;
+  const job = (patch) => ({
+    id: "job1", companyId: "c1", status: "completed",
+    quote: { id: "qq", total: 3200 }, changeOrders: [],
+    costRevisionDecision: null, costRevisionDecidedAt: null,
+    company: { currency: "CAD", costRevisionThresholdPct: null },
+    historicalImportedAt: null,
+    ...patch,
+  });
+  const call = async (seed, subs = []) => {
+    globalThis.__FQ_ROUTE.subcontracts = subs;
+    const { result, writes } = await withDb(seed, () => GET(new Request("http://x/api/jobs/job1/costing"), { params: Promise.resolve({ id: "job1" }) }), {
+      relations: { timeEntry: { worker: ["worker", "workerId"] } },
+    });
+    return { ...result, writes };
+  };
+  const empty = { expense: [], timeEntry: [], assetUseLog: [], worker: [] };
+
+  const pastBare = await call({ ...empty, job: [job({ historicalImportedAt: IMPORTED })] });
+  ok("a past job with nothing recorded is flagged costsNotRecorded", pastBare.status === 200 && pastBare.body.costsNotRecorded === true, pastBare.body);
+  ok("...even though overhead alone puts a figure on it (overhead is not a recorded cost)", pastBare.body.actual.total === 150);
+  ok("the route writes nothing", pastBare.writes.length === 0);
+
+  const liveBare = await call({ ...empty, job: [job({})] });
+  ok("a LIVE job with nothing recorded is not flagged (it is just early)", !("costsNotRecorded" in liveBare.body));
+
+  const costed = {
+    ...empty,
+    expense: [{ id: "e1", companyId: "c1", projectId: "job1", category: "materials", amount: 900 }],
+  };
+  const pastCosted = await call({ ...costed, job: [job({ historicalImportedAt: IMPORTED })] });
+  const liveCosted = await call({ ...costed, job: [job({})] });
+  ok("a past job with a receipt recorded gets its margin back", !("costsNotRecorded" in pastCosted.body) && pastCosted.body.comparison.marginPct !== null);
+  ok("...identical (md5) to the same job never imported", md5(pastCosted.body) === md5(liveCosted.body));
+  const pastWithSub = await call({ ...empty, job: [job({ historicalImportedAt: IMPORTED })] }, [{ id: "s1", agreedAmount: 800, status: "agreed" }]);
+  ok("...and so does one with a subcontractor on it", !("costsNotRecorded" in pastWithSub.body));
+
+  const panel = readFileSync(new URL("../app/components/jobs/JobCosting.js", import.meta.url), "utf8");
+  ok("the job panel prints the sentence when flagged", /data\.costsNotRecorded && \(/.test(panel) && /"app\.jobCosting\.costsNotRecorded"/.test(panel));
+  ok("...and draws no margin block when flagged", /comparison\.profit !== null && !data\.costsNotRecorded/.test(panel));
+  const review = readFileSync(new URL("../app/components/jobs/CostReview.js", import.meta.url), "utf8");
+  ok("the close-out modal's verdict says the same instead of 'Margin 100%'", /data\?\.costsNotRecorded\s*\?\s*t\("app\.jobCosting\.costsNotRecorded"/.test(review));
+
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages");
+  for (const key of ["app.jobCosting.costsNotRecorded", "app.kpis.costsNotRecorded"]) {
+    const missing = Object.entries(APP_MESSAGES).filter(([, m]) => typeof m[key] !== "string" || !m[key].trim()).map(([l]) => l);
+    ok(`${key} exists in every language`, missing.length === 0, missing);
+  }
+  const noCount = Object.entries(APP_MESSAGES).filter(([, m]) => !String(m["app.kpis.costsNotRecorded"]).includes("{count}")).map(([l]) => l);
+  ok("...and the KPI sentence keeps its {count} in every language", noCount.length === 0, noCount);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
