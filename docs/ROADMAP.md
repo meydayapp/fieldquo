@@ -83,6 +83,38 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Imported past jobs no longer count as this month's work (4 October 2026)
+
+A Past jobs import creates its quotes and jobs TODAY with last year's dates.
+Six places read them as current activity; each fixed in its own commit:
+
+- **Dashboard / monthly summary / AI digest** (`lib/analytics/overview.js`) —
+  quotes sent are counted by `sentAt` (not `createdAt`) in the company's
+  timezone month, and every quote count skips `historicalImportedAt`. "18 sent,
+  1 of 18" → "2 sent, 1 of 2". Money filters keep the server month (they are
+  UTC-midnight days).
+- **Home "Your focus"** (`lib/dashboard/homeData.js`) — won this month skips
+  imports like its sent denominator.
+- **Home "Recent quotes"** (`app/app/page.js`) — imports filtered before the
+  five are taken.
+- **Margin** — KPI margin and labour-% leave out past jobs with no recorded
+  costs and say how many; the job page shows "Costs weren't recorded for this
+  past job" instead of a 100% margin (`costsNotRecorded` from
+  `/api/jobs/[id]/costing`).
+- **FieldQuo AI** (`lib/ai/copilotTools.js`) — conversion, profit by category
+  and average quote value use win-loss's date rule
+  (`quoteDatedInWhere` in `lib/analytics/winLoss.js`); cash flow uses `paidDate`.
+- **Plan limit** (`lib/platform/planLimits.js`) — imports don't use the monthly
+  quote allowance.
+
+Check: `npm run check:historical-rows` executes all six against an in-memory DB
+that evaluates the where clause (`scripts/fixtures/countingFakeDb.mjs`), with
+md5 proof that a company with no imports sees identical output.
+`check:dashboard-rank` had 2 failures on main (its window classifier read every
+bounded month as "prior"); fixed alongside.
+
+---
+
 ## Four cost savers, owner-approved (3 October 2026)
 
 ### 1. Photos shrink before they upload — shipped
