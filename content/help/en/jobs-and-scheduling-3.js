@@ -21,7 +21,7 @@ export const ARTICLES = {
     title: "Timesheets: review and approve hours",
     summary:
       "Where the office reviews every clock-in, sees where the phone was when it happened, approves the hours a pay run may use, and logs a punch somebody forgot.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "The crew clock in and out on **Time clock**; the office reviews the result on **Timesheets**. Nothing reaches a pay run until somebody presses **Approve** on it, and nothing on this screen is hidden from the person who worked the hours — the same entry they see on their phone is the row you see here.",
       "This article covers what each row shows, what the position chips mean and do not mean, how to add a missed punch, and who is allowed to approve, edit or delete an entry.",
@@ -40,6 +40,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Timesheets sits in the sidebar under **People**, next to **Time clock** and **Time Off**. The heading reads **Timesheets — Log, review and approve hours.** Below it is one row per punch, newest first, for everyone in the company — not a week view, and not filtered by person." },
+          { tip: "Typing **/app/timesheets** in the address bar opens this screen too. For someone who cannot approve hours, the same address opens their own **Time log** on the clock instead." },
           { p: "An entry is **pending** from the moment it is clocked out until somebody approves it; a row still on the clock reads **In progress** instead of a number of hours. Only approved hours are counted by [[payroll-runs|a payroll run]] and by [[job-costing|job costing]]; pending hours are reported beside them as left out, never silently added." },
         ],
       },

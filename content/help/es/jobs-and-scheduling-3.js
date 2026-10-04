@@ -20,7 +20,7 @@ export const ARTICLES = {
     title: "Hojas de horas: revisar y aprobar horas",
     summary:
       "La pantalla donde la oficina revisa cada fichaje, ve dónde estaba el teléfono en ese momento, aprueba las horas que una nómina puede usar y registra un fichaje que alguien olvidó.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "La cuadrilla marca entrada y salida en el **Reloj de tiempo**; la oficina revisa el resultado en **Hojas de horas**. Nada llega a una nómina hasta que alguien presiona **Aprobar**, y nada en esta pantalla se le oculta a la persona que trabajó las horas: el registro que ve en su teléfono es la fila que usted ve aquí.",
       "Este artículo explica qué muestra cada fila, qué significan y qué no significan las etiquetas de posición, cómo agregar un fichaje olvidado y quién puede aprobar, editar o eliminar un registro.",
@@ -39,6 +39,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Hojas de horas está en la barra lateral bajo **Personas**, junto a **Reloj de tiempo** y **Ausencias**. El encabezado dice **Hojas de horas — Revisa y aprueba las horas registradas.** Debajo hay una fila por fichaje, del más reciente al más antiguo, de toda la empresa: no es una vista semanal y no se filtra por persona." },
+          { tip: "Escribir **/app/timesheets** en la barra de direcciones también abre esta pantalla. Para quien no puede aprobar horas, la misma dirección abre su propio **Registro** en el reloj." },
           { p: "Un registro queda pendiente («pending» en pantalla) desde que se marca la salida hasta que alguien lo aprueba; una fila todavía en turno muestra **En curso** en lugar de un número de horas. Solo las horas aprobadas las cuentan [[payroll-runs|una nómina]] y [[job-costing|el costeo del trabajo]]; las horas pendientes se indican al lado como no contadas, nunca se suman en silencio." },
         ],
       },
