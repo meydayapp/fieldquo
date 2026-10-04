@@ -260,7 +260,7 @@ console.log("\nWiring");
   for (const key of ["yourPhone", "yourEmail", "phoneAndEmail"]) {
     ok(`copy: missing.${key} in ${INSTANT_QUOTE_LANGUAGES.join("/")}`, INSTANT_QUOTE_LANGUAGES.every((l) => typeof INSTANT_QUOTE_COPY[l].missing[key] === "string"));
   }
-  ok("copy: the three languages say different things", new Set(INSTANT_QUOTE_LANGUAGES.map((l) => INSTANT_QUOTE_COPY[l].missingPhotos)).size === 3);
+  ok(`copy: the ${INSTANT_QUOTE_LANGUAGES.length} languages say different things`, new Set(INSTANT_QUOTE_LANGUAGES.map((l) => INSTANT_QUOTE_COPY[l].missingPhotos)).size === INSTANT_QUOTE_LANGUAGES.length);
   const schema = read("prisma/schema.prisma");
   ok("schema: Company.publicFormAppearance Json? exists", /publicFormAppearance Json\?/.test(schema));
 }

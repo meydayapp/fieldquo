@@ -1,7 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 3 October 2026 (phone usage at cost × 2 — the owner's rule. Every crew text and every business-number text and call is charged its FLOOR at once (2¢/segment, 5¢/photo, 5¢/call-minute — lib/phoneUsage/pricing.js now owns these; crew and business-number meters re-export them) and queued (PhoneUsageCharge); the hourly /api/cron/business-numbers reads Twilio's price off the message / call (all legs) and debits the difference to max(floor, price × 2) under `<ref>:settle`, once. Each settled price is an observation per class (sms/mms in/out per CA/US/INTL, call_forward, call_bridge); a new unit price seen 5× in a class that already had one is a change → PlatformErrorLog "twilio_price_change", and if it RAISES what companies pay, a PhonePriceChange → an owners/admins-only banner (our new price + date, never the carrier/cost/multiple; not demos, not crew; dismissed per user). /platform/costs shows "Phone costs vs what we charge" with anything under 2× in red. Companies never see the multiple: Settings → Business number, the crew-rate lines and the help articles say only our minimum prices ("Texts from 2¢ each, photos from 5¢, calls from 5¢ a minute. Some carriers are priced higher."), and check:phone-usage scans every catalogue, help module and those screens for ×2 / cost / Twilio / markup / double; "× 2" appears only on /platform. Tables applied by SQL: PhoneUsageCharge, PhoneCostTier, PhonePriceChange — scripts/check-phone-usage.mjs)
-Last updated: 3 October 2026 (researched market defaults for the exterior door / window frame / trim boards / shutters, a stain-finish add-on on cabinet refinishing, cabinets COUNTED for a painter without the cabinet trade, Siding & trim and Trim boards exclusive per area, drywall repairs as fixed-price items from the now-live repair book, "Wall area" on the legacy room box, and ceilings by area on the instant room picker — see "Researched defaults, counted cabinets, trim once, drywall repairs, wall area" below)
+Last updated: 3 October 2026 (drywall REPAIRS no longer ask square footage or ceiling height; gel vs liquid stain on cabinets and stairs (gel $20/piece researched default); stripping to bare wood as its own labour line at Company.labourSellRate with researched chemical/sanding hours, liquid stain premium 45 → 10 so the stripping is not billed twice; the hourly price floor warned in the quote builder (ForecastSettings.billableHoursPerMonth — SQL owed); the instant quote in all eight product languages, chosen per company, unset still en/fr/es — see "Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages" below)
 
 Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
 
@@ -200,6 +200,39 @@ once, drywall repairs, wall area" (below).
 - Checks: new `check:hourly-floor` (81, in check:all); `check:settings-access`
   lists the new route beside minimum-price (dark to a support session for the
   same reason).
+
+### 5. The instant quote in all eight languages, chosen per company
+
+- `INSTANT_QUOTE_LANGUAGES` = the eight product languages (en fr es uk pa tl de
+  it, LANGUAGES order — en/fr/es keep their pills' places). zh (interface-only)
+  and ko/pt/ru (marketing-only) are not document languages and are not offered.
+- **Nothing changes until a company opts in:** unset still offers exactly en,
+  fr, es (`INSTANT_QUOTE_DEFAULT_LANGUAGES`); the settings card (Settings →
+  Instant Quotes → Languages on your instant estimate) lists all eight and says
+  so (`app.setInstantQuotes.languages.unsetThree`, nine catalogues; the old
+  "all of them are offered" key removed). The PUT accepts any of the eight,
+  refuses [] and junk; the homeowner sees only the ticked ones.
+- Hand-written uk/pa/tl/de/it for every string the public flow shows or sends:
+  `instantQuoteCopy.js` (16 trades, 16 blurbs, 35 junk items, 5 job types, the
+  page), `lawnEstimateCopy`, `gutterEstimateCopy`, `estimateReportCopy`,
+  `measureDocCopy`, `tradeQuestions`, `serviceArea`, the estimate email,
+  budget bands, financing label, lawn "Includes:"; locale table uk-UA, pa-IN,
+  fil-PH, de-DE, it-IT; browser `fil` → tl.
+- The measure route now resolves the language through
+  `resolveInstantLanguage` (it accepted a switched-off or non-instant language).
+- The marketing roofing walk-through stays on en/fr/es
+  (`SHOWCASE_DOCUMENT_LANGUAGES`) — its step-1 note says so in every marketing
+  language; widening it means rewording that note.
+- Still English: company-entered lawn program text (stored en/fr/es only),
+  estimator breakdown/assumption lines (already English for fr/es), and the
+  booking page a German report links to (`BOOKING_LANGUAGES` is en/fr/es).
+- Help: instant-quotes-on-your-website and the-instant-estimate-page (en/fr/es)
+  rewritten — they still said "English and French only".
+- Checks: `check:instant-quote-copy` 500 (every key in 8 languages × 7 tables,
+  no English left standing, unset = en/fr/es, a crafted ?lang never escapes the
+  offered list), plus form-look, booking-language, estimate-report, lawn-care,
+  service-area, gutter-instant, booking-questions, roofing-example, lead-language,
+  public-payload, translations — all passing.
 
 ---
 

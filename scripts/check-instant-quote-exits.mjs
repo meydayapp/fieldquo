@@ -93,11 +93,11 @@ const exitAt = flowSrc.indexOf("function RequestQuoteLink(");
 const exitComponent = balancedAfter(flowSrc, flowSrc.indexOf(") {", exitAt));
 ok("...renders an anchor to /quote/<slug>", /<a\s[\s\S]*href=\{`\/quote\/\$\{companySlug\}`\}/.test(exitComponent || ""));
 ok("...the route it points at exists on disk", existsSync(QUOTE_PAGE));
-// The text comes from the three-language table now (lib/i18n/
-// instantQuoteCopy.js `requestQuoteInstead`), so the anchor is checked for
-// the key and the table for the sentence in every language.
+// The text comes from the language table now (lib/i18n/instantQuoteCopy.js
+// `requestQuoteInstead`, eight languages), so the anchor is checked for the
+// key and the table for the sentence in every language.
 ok("...and the anchor carries visible text", /\{t\.requestQuoteInstead\}/.test(exitComponent || ""));
-ok("...in English, French and Spanish", ["en", "fr", "es"].every((c) => /→/.test(INSTANT_QUOTE_COPY[c].requestQuoteInstead)));
+ok("...in every language the form can be read in", Object.values(INSTANT_QUOTE_COPY).length === 8 && Object.values(INSTANT_QUOTE_COPY).every((c) => /→/.test(c.requestQuoteInstead)));
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\nEvery failure branch in the flow renders a route out");

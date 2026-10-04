@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BOOKING_LANGUAGES, bookingLanguage, bookingLangStorageKey } from "@/lib/i18n/bookingLanguages";
-import { INSTANT_QUOTE_LANGUAGES } from "@/lib/i18n/instantQuoteCopy";
+import { INSTANT_QUOTE_DEFAULT_LANGUAGES } from "@/lib/i18n/instantQuoteCopy";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { CLIENT_DOC_COPY } from "@/lib/i18n/clientDocCopy";
 
@@ -31,7 +31,10 @@ function ok(name, cond, got) {
   }
 }
 
-ok("the pills are the three the instant estimate offers", JSON.stringify(BOOKING_LANGUAGES) === JSON.stringify(INSTANT_QUOTE_LANGUAGES));
+// The instant estimate can be read in all eight languages since 2026-10-03,
+// but a company that never chose still offers these three there — the
+// booking page's pills stay the same three until it gets its own choice.
+ok("the pills are the three an instant estimate offers by default", JSON.stringify(BOOKING_LANGUAGES) === JSON.stringify(INSTANT_QUOTE_DEFAULT_LANGUAGES));
 ok("…and every one has a hand-written letter", BOOKING_LANGUAGES.every((l) => CLIENT_DOC_COPY[l]?.visit));
 ok("bookingLanguage accepts fr-CA, FR, es and refuses de, xx, null", bookingLanguage("fr-CA") === "fr" && bookingLanguage("FR") === "fr" && bookingLanguage("es") === "es" && bookingLanguage("de") === null && bookingLanguage("xx") === null && bookingLanguage(null) === null);
 ok("the storage key is per company", bookingLangStorageKey("acme") !== bookingLangStorageKey("zed"));

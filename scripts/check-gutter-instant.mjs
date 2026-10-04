@@ -145,7 +145,7 @@ console.log("\n6. Public shape: never a rate, and the refusal is a sentence\n");
   ok(es.assumptions.includes(gutterEstimateCopy("es").notAContract), "…and Spanish");
   ok(gutterEstimateCopy("xx") === gutterEstimateCopy("en") && gutterEstimateCopy(null) === gutterEstimateCopy("en"), "unknown language falls back to English");
   ok(gutterEstimateCopy("fr-CA") === gutterEstimateCopy("fr"), "fr-CA is French");
-  for (const lang of ["en", "fr", "es"]) {
+  for (const lang of ["en", "fr", "es", "uk", "pa", "tl", "de", "it"]) {
     const c = GUTTER_ESTIMATE_COPY[lang];
     ok(
       typeof c.measuredFrom === "function" && typeof c.gutterLine === "function" && c.flatRoof && c.storeysUnknown && c.notAContract && c.needsSiteVisit,

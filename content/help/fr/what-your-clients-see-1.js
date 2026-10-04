@@ -701,7 +701,7 @@ export const ARTICLES = {
     title: "La page d'estimation instantanée",
     summary:
       "Ce qu'un client voit sur votre lien d'estimation instantanée : les questions par métier, les photos exigées, la fourchette affichée — ou volontairement non affichée — le courriel qu'il reçoit, et la révision que votre équipe fait avant que quoi que ce soit devienne une soumission.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Votre lien d'estimation instantanée ouvre une page intitulée « Get an instant estimate » : un formulaire à gauche, un panneau **Votre estimation** à droite. Le client choisit un métier, décrit les travaux, ajoute des photos et ses coordonnées, et — selon ce que vous avez choisi pour ce métier — voit une fourchette estimée à mesure qu'il tape, après l'envoi, ou pas du tout. Chaque envoi atterrit sur votre écran **Révision des estimations** et ne peut pas être envoyé comme soumission tant qu'une personne n'a pas confirmé le prix.",
       "Deux choses ne sont jamais sur cette page : une grille de tarifs, et un chiffre unique. Le point d'accès public renvoie vos services et leurs questions, jamais vos tarifs ; ce que le client voit est une fourchette calculée sur le serveur à partir de vos propres chiffres.",
@@ -713,7 +713,7 @@ export const ARTICLES = {
         blocks: [
           { p: "La page porte votre logo, votre nom et votre couleur, et — contrairement à un lien de soumission ou de portail — n'est pas cachée des moteurs de recherche. Par l'extrait à intégrer de **Paramètres → Soumissions instantanées**, elle se place aussi dans n'importe quel site web que vous avez déjà. Un métier n'y apparaît que si sa carte est **Activé** et que FieldQuo peut vraiment produire un chiffre à partir des tarifs que vous avez enregistrés." },
           { figure: "harness:client-instant-estimate", caption: "L'estimation instantanée telle qu'un client la voit — le logo de l'entreprise, le titre « Get an instant estimate », le choix du métier, les questions sur la propriété, les tranches de budget, l'adresse des travaux, les coordonnées, et le panneau d'estimation qui attend à droite." },
-          { note: "La page et son courriel existent en anglais et en français seulement, selon la langue par défaut de votre entreprise ; en français, les questions du formulaire restent en anglais et seuls le panneau, les messages et le courriel sont traduits. Une entreprise dont la langue par défaut est l'espagnol obtient la page anglaise." },
+          { note: "La page, son courriel et le rapport se lisent en anglais, français, espagnol, ukrainien, pendjabi, tagalog, allemand et italien. Le propriétaire choisit en haut du formulaire parmi les langues que **vous** offrez — **Paramètres → Soumissions instantanées → Langues de votre estimation instantanée**. Tant que vous n'avez pas choisi, l'anglais, le français et l'espagnol sont offerts, comme toujours ; cochez les autres langues dans lesquelles vous pouvez répondre et enregistrez. Une langue que vous n'offrez pas n'est jamais servie, quoi que demande le lien ou le navigateur." },
         ],
       },
       {
@@ -798,7 +798,7 @@ export const ARTICLES = {
       { q: "Un client peut-il voir mes tarifs ?", a: "Non. La page reçoit les services, les questions, les noms de matériaux et les tranches de budget ; chaque chiffre est calculé sur le serveur à partir de tarifs qui n'en sortent jamais." },
       { q: "Pourquoi un métier n'apparaît-il pas sur la page ?", a: "Sa carte est Désactivé, ou ses tarifs ne peuvent pas encore produire de chiffre — la carte dit ce qui manque — ou, pour la peinture, ni Peinture intérieure ni Peinture extérieure n'est activée sous Services et tarifs." },
       { q: "La fourchette est-elle une soumission ?", a: "Non. C'est un brouillon marqué À réviser ; une personne confirme le prix dans Révision des estimations avant qu'elle puisse être envoyée, et la page comme le courriel le disent au client." },
-      { q: "Pourquoi la page est-elle en anglais pour mon entreprise francophone ?", a: "Elle suit la langue par défaut de votre entreprise, et existe en anglais et en français. Réglez le défaut sur le français sous Paramètres → Langue et le panneau, les messages et le courriel passent au français ; les questions du formulaire restent en anglais." },
+      { q: "Dans quelles langues un propriétaire peut-il lire la page ?", a: "Celles que vous cochez sous Paramètres → Soumissions instantanées → Langues de votre estimation instantanée, parmi huit : anglais, français, espagnol, ukrainien, pendjabi, tagalog, allemand et italien. Tant que vous n'avez pas enregistré de choix, l'anglais, le français et l'espagnol sont offerts. La page s'ouvre dans la langue du navigateur du visiteur si vous l'offrez, sinon dans la langue par défaut de votre entreprise, sinon dans la première langue offerte — et le brouillon, le courriel et le rapport sont rédigés dans la langue utilisée." },
     ],
   },
 };

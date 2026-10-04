@@ -23,7 +23,8 @@ import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
-import { instantQuoteCopy, instantQuoteLanguage, instantTradeLabel } from "@/lib/i18n/instantQuoteCopy";
+import { instantQuoteCopy, instantTradeLabel } from "@/lib/i18n/instantQuoteCopy";
+import { resolveInstantLanguage } from "@/lib/estimate/instantQuoteLanguages";
 import { INSTANT_ESTIMATE_TRADES } from "@/lib/estimate/instantEstimate";
 import { isPolygonMeasure } from "@/lib/estimate/tracedArea";
 
@@ -31,7 +32,7 @@ export async function POST(request, { params }) {
   const { companySlug } = await params;
   const company = await db.company.findUnique({
     where: { slug: companySlug },
-    select: { id: true, financing: true, defaultLanguage: true },
+    select: { id: true, financing: true, defaultLanguage: true, instantQuoteLanguages: true },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -43,10 +44,14 @@ export async function POST(request, { params }) {
   }
 
   const { trade, address, polygon, intake } = body || {};
-  // The form's language, validated to the three the page offers; the
-  // sentences below (a refusal, the gutter notes, the lawn size) are read
-  // beside the form, so they follow it rather than the company.
-  const language = instantQuoteLanguage(body?.language) || company.defaultLanguage || "en";
+  // The form's language, held to the ones THIS company offers — the same
+  // resolution the payload and /request use (lib/estimate/instantQuoteLanguages.js).
+  // The sentences below (a refusal, the gutter notes, the lawn size) are read
+  // beside the form, so they follow it rather than the company. It used to be
+  // `instantQuoteLanguage(...) || company.defaultLanguage`, which accepted a
+  // language the company switched off and passed a non-instant default
+  // (zh, or anything not in the eight) straight through.
+  const language = resolveInstantLanguage(company, body?.language);
   const t = instantQuoteCopy(language);
   if (!trade) return NextResponse.json({ error: t.pickServiceFirst }, { status: 400 });
 
