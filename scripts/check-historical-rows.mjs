@@ -300,6 +300,80 @@ console.log("\n4b. GET /api/jobs/[id]/costing — a past job with no costs shows
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n5. lib/ai/copilotTools.js — the AI's conversion, cash flow, category and average-quote tools\n");
+{
+  const tools = await import("@/lib/ai/copilotTools");
+  const { quoteDatedInWhere, toOpportunities } = await import("@/lib/analytics/winLoss");
+  // These tools read the real clock, so the fixture is built around it.
+  const now = Date.now();
+  const ago = (days) => new Date(now - days * 86400000);
+  const thisMonthStart = new Date(Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1));
+  const inThisMonth = new Date(Math.max(thisMonthStart.getTime(), now - 86400000));
+  const q = (id, patch) => ({ id, companyId: "c1", status: "sent", total: 1000, createdAt: ago(1), sentAt: ago(1), acceptedAt: null, declinedAt: null, archivedAt: null, historicalImportedAt: null, ...patch });
+  const liveQuotes = [
+    q("a1", { status: "accepted", total: 2400, createdAt: inThisMonth, sentAt: inThisMonth, acceptedAt: inThisMonth }),
+    q("a2", { status: "sent", total: 1600, createdAt: inThisMonth, sentAt: inThisMonth }),
+    q("a3", { status: "declined", total: 800, createdAt: inThisMonth, sentAt: inThisMonth, declinedAt: inThisMonth }),
+    q("a4", { status: "draft", total: 5000, createdAt: inThisMonth, sentAt: null }),
+  ];
+  // Imported today, accepted over a year ago — the whole bug.
+  const imports = Array.from({ length: 12 }, (_, i) =>
+    q(`h${i}`, { status: "accepted", total: 3000 + i, createdAt: new Date(now), sentAt: null, acceptedAt: ago(400 + i * 7), historicalImportedAt: new Date(now) }));
+  const seed = {
+    quote: [...liveQuotes, ...imports],
+    invoice: [
+      // Paid ten days ago.
+      { id: "i1", companyId: "c1", status: "paid", total: 2000, paidDate: ago(10), updatedAt: ago(10) },
+      // Paid two years ago, its PDF reprinted today.
+      { id: "i2", companyId: "c1", status: "paid", total: 7777, paidDate: ago(730), updatedAt: new Date(now) },
+    ],
+    expense: [{ id: "e1", companyId: "c1", amount: 500, date: ago(5) }],
+    serviceCategory: [{ id: "cat1", label: "Painting" }, { id: "cat2", label: "Flooring" }],
+    quoteScopeGroup: [
+      { id: "g1", quoteId: "a1", categoryId: "cat1", subtotal: 2400 },
+      ...imports.map((h, i) => ({ id: `gh${i}`, quoteId: h.id, categoryId: "cat2", subtotal: 3000 })),
+    ],
+  };
+  const relations = { quoteScopeGroup: { quote: ["quote", "quoteId"], category: ["serviceCategory", "categoryId"] } };
+  const runAll = async (s) => ({
+    conversion: (await withDb(s, () => tools.getConversionRate({ companyId: "c1", months: 3 }), { relations })).result,
+    cash: (await withDb(s, () => tools.getCashFlow({ companyId: "c1", months: 3 }), { relations })).result,
+    categories: (await withDb(s, () => tools.getProfitByCategory({ companyId: "c1", months: 3 }), { relations })).result,
+    average: (await withDb(s, () => tools.getAverageQuoteValue({ companyId: "c1", period: "this_month" }), { relations })).result,
+  });
+  const r = await runAll(seed);
+  ok("conversion: 3 sent, 1 accepted — not 15 and 13", r.conversion.quotesSent === 3 && r.conversion.quotesAccepted === 1, r.conversion);
+  ok("cash flow: paid in the window by paidDate — the reprinted 2024 invoice is not this quarter's cash", r.cash.revenue === 2000 && r.cash.net === 1500, r.cash);
+  ok("profit by category: only the live accepted quote's category", JSON.stringify(r.categories) === JSON.stringify([{ label: "Painting", total: 2400 }]), r.categories);
+  ok("average quote value: the three issued this month, drafts out, imports out", r.average.quoteCount === 3 && r.average.acceptedCount === 1 && r.average.totalQuoted === 4800, r.average);
+  const bareSeed = withoutHistory(seed);
+  bareSeed.quoteScopeGroup = seed.quoteScopeGroup.filter((g) => !g.id.startsWith("gh"));
+  const bare = await runAll(bareSeed);
+  ok("with the imports deleted the four answers are identical (md5)", md5(r) === md5(bare), [r, bare]);
+
+  // A past job accepted INSIDE the window is a real win in that window — the
+  // same answer the win-loss report gives, because it is the same rule.
+  const recent = q("h-recent", { status: "accepted", createdAt: new Date(now), sentAt: null, acceptedAt: ago(20), historicalImportedAt: new Date(now) });
+  const withRecent = (await withDb({ quote: [...liveQuotes, ...imports, recent] }, () => tools.getConversionRate({ companyId: "c1", months: 3 }))).result;
+  ok("an import accepted 20 days ago counts, dated by its acceptance (win-loss's rule)", withRecent.quotesSent === 4 && withRecent.quotesAccepted === 2, withRecent);
+
+  // The helper and the builder agree row for row: the where fragment admits
+  // exactly the quotes toOpportunities dates inside the range.
+  const range = { gte: ago(90), lte: new Date(now) };
+  const all = [...liveQuotes, ...imports, recent].filter((x) => x.status !== "draft");
+  const admitted = (await withDb({ quote: all }, (db) => db.quote.findMany({ where: { companyId: "c1", ...quoteDatedInWhere(range) } }))).result.map((x) => x.id).sort();
+  const dated = toOpportunities(all).filter((o) => o.datedAt && o.datedAt >= range.gte && o.datedAt <= range.lte).map((o) => o.id).sort();
+  ok("quoteDatedInWhere admits exactly what toOpportunities dates in the window", JSON.stringify(admitted) === JSON.stringify(dated), [admitted, dated]);
+
+  // Pins on the source, for the parts a fixture cannot reach.
+  const src = readFileSync(new URL("../lib/ai/copilotTools.js", import.meta.url), "utf8")
+    .split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  ok("no quote tool windows by createdAt any more (getConversionRate / ProfitByCategory / AverageQuoteValue)",
+    !/status: \{ in: \["sent", "accepted", "declined"\] \},\s*createdAt/.test(src) && !/status: "accepted", createdAt/.test(src) && !/archivedAt: null, createdAt/.test(src));
+  ok("getCashFlow filters paid invoices by paidDate, never updatedAt", /status: "paid", paidDate: \{ gte: since \}/.test(src) && !/status: "paid", updatedAt/.test(src));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 if (failures.length) {
   console.error(`\n✗ ${failures.length} failed, ${pass} passed\n`);
   for (const f of failures) console.error(`  ✗ ${f}`);
