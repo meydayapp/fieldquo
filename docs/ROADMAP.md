@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
 Last updated: 3 October 2026 (email templates in the client's language — the owner: "starter email templates … in various language that matches the client's language … if each email created costs more than 5 cents for translation … we might charge the company". (1) Starters are hand-written in all eight document languages and created in the COMPANY's language: the six starter emails + subjects + new-block placeholders (lib/i18n/emailStarterCopy.js; English byte-identical, md5-pinned) and the four starter funnels, the blank funnel and the AI funnel generator (lib/i18n/funnelStarterCopy.js, written in funnelPageLanguage; budget figures grouped per language). DocumentTemplate.language now records the language an ordinary email template is WRITTEN in ("Written in" in the editor). (2) A company's own follow-up/campaign template gets a "Translations" panel: per language Translate / Review-Edit / Update / Regenerate / Write it yourself; drafted once per template version per language via lib/ai/provider.js (only changed lines on Update), stored in the new TemplateTranslation table, never used until a person presses Approve & use, never redrafted at send time. Sends (campaign route, follow-up cron) use the approved, current translation for the reader's language (document language first, non-negotiable 6) else the original — never held up. {{tokens}}, HTML, links, emails and amounts are hidden behind ⟦n⟧ markers before the model sees the text; a reply that drops/doubles/alters/adds one is refused line by line and left empty. (3) Money: lib/ai/emailTranslationMeter.js — AI credit when the company has it (cost × 2, ≥ 1¢, kind email_translation), otherwise FieldQuo absorbs while a version's estimate ≤ 5¢ and the company's absorbed month ≤ $1.00 (MONTHLY_ABSORB_CAP_MICROS), else "needs AI credit"; measured cost (cached prompt at 10%) stored on the row and shown in the panel; /platform/ai-billing switch "email_translation". Estimated 0.09–0.18¢ per 150–300-word email per language on the standard model. NOT YET LIVE until the TemplateTranslation SQL is applied — until then the panel hides itself (GET answers ready:false) and sends go out in the original (translationsForSend never throws); the starters in the company language work without it. check:email-template-translation (196 checks).)
 Last updated: 3 October 2026 (role access confirmed per role — `check:role-access` runs the real routes as Owner/Admin/Manager/Dispatcher/Estimator/Crew; 40 leaks fixed, see docs/ROLE-ACCESS.md and "Who sees what" below)
 Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per currency and never summed — owner decision; the sales funnel counts a started card-free trial as "signup completed"; "End trial now" explains itself on a card-free trial; WhatsApp names Meta's App Review as the blocker; the signup help article matches /welcome; the dashboard counts "viewed, no answer"; Presentation's Google reviews link is gated; the handyman new-services release — see "Audit loose ends" below)
@@ -81,6 +82,44 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Team chat: seven live bugs fixed (3 October 2026)
+
+Phase 0 of the channels plan — what was broken in the crew chat, fixed
+before any new feature. No schema change.
+
+- **"[object Object]" on every message that @mentions you** — CompanyChat
+  and StaffChat passed a `<span>` as the row's `body`; since d7aebe9a6 the
+  kit's `displayBody` String()s it. The tint is now a `mentionsMe` flag the
+  kit's Thread draws; `body` stays text. New `check:chat-render` renders the
+  real Thread (esbuild) with both chats' rows.
+- **Share with staff mislabelled rooms** — the picker read `r.name`;
+  `/api/chat/rooms` rows carry `title`. Every job room was "#job".
+- **"Message {name}" on /app/me/team** opens the DM: `/app/chat?with=<member>`
+  → `openDirect`, the New-message picker's own rule; the URL becomes `?room=`.
+- **Links are tappable** — `lib/chat/linkify.js` returns runs (data, not
+  HTML); http/https only, checked on the parsed URL, no `user:pass@`, trailing
+  sentence punctuation left out; anchors `target=_blank rel="noopener
+  noreferrer"`, colour inherited. The work-order link Share to team posts for
+  the crew is now a link.
+- **"Open job chat" on the job page** — GET /api/jobs/[id] carries
+  `chatRoomId` (store `jobRoomIdFor`) only for a member of the room, after
+  the `assignedJobWhere` read, so crew see it for exactly their booked jobs.
+- **@everyone is the office's** — `parseMentions(…, { everyone })`; the
+  company store passes `mayMentionEveryone(author)` (owner / admin /
+  supervisor, which Manager and Dispatcher map to). Anyone else's
+  "@everyone" posts as words, mentions and pushes nobody, and the composer
+  says so first. The FieldQuo staff chat is unchanged.
+- **The Chat tab shows its unread number** — GET /api/chat/unread
+  (`unreadTotalsFor`, the room list's counts summed), one shared 60 s poll
+  (`app/hooks/useChatUnread.js`) that also re-reads on the existing
+  `fieldquo:badges` event; a red pill on the phone bars, the rail row and the
+  crew's Chat button.
+- **Checks** — `check:company-chat` §11–14, `check:chat-kit` (linkify with
+  hostile input), `check:chat-render` (new), `check:share-staff`.
+- **Not done** — Phase 1 (channels, groups) waits for the owner's decisions
+  in the plan; the screenshot `docs/screens/app-guide/en/13-chat.png` still
+  shows "[object Object]" until it is re-captured.
 
 ## Facebook / Instagram history, attachments, fair scoring, and the FB lead check (3 October 2026)
 
