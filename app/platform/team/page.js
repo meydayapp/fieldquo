@@ -62,6 +62,8 @@ const PERMISSION_WORDS = {
     "open a Canadian number-port package (the carrier account number, PIN and bill) and record that it was filed, rejected or given a date — every open is logged",
   "storage:test":
     "test FieldQuo's own video-archive storage keys (Cloudflare R2) from the costs page — one read, nothing written",
+  "company:unlock":
+    "unlock a company FieldQuo locked or ended from the cancel panel — with a reason, logged; never touches Stripe",
 };
 
 function describe(permissions) {

@@ -9,6 +9,7 @@ import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { diagnoseNumber } from "@/lib/voice/diagnose";
 import { companyStanding } from "@/lib/platform/companyStanding";
 import { cancelOptions } from "@/lib/platform/cancelOptions";
+import { unlockPlan } from "@/lib/platform/unlock";
 import { trialAccessFor } from "@/lib/billing/access";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { callBackFor, needsChecklistRead } from "@/lib/platform/callBack";
@@ -116,7 +117,12 @@ export async function GET(request, { params }) {
     ? await getOnboardingStatus(id, { readOnly: true }).catch(() => null)
     : null;
   const callBack = callBackFor({ company, onboarding: checklist, ownerPhone: owner?.user?.phone || null });
-  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel, callBack });
+  // "Unlock company" — what FieldQuo locked, if anything, and what Unlock
+  // would give back and leave alone. The same pure function the unlock route
+  // decides with; the write set (`data`) stays on the server.
+  const unlock = unlockPlan({ company, subscription: company.subscription ?? null });
+  delete unlock.data;
+  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel, unlock, callBack });
 }
 
 export async function PATCH(request, { params }) {

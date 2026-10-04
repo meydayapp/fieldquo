@@ -1233,7 +1233,8 @@ model Subscription {
   /// FIRST: a company locked for its conduct gets no thirty-day read-only
   /// window (that window exists for people who chose to leave), and the
   /// locked screen says why in one sentence rather than "your subscription
-  /// was cancelled". Null on every ordinary row.
+  /// was cancelled". Null on every ordinary row. Cleared only by "Unlock
+  /// company" (lib/platform/unlock.js), which leaves Stripe cancelled.
   accessLockedAt     DateTime?
   accessLockedReason String?
 
@@ -1716,7 +1717,8 @@ model Company {
   /// they also close checkout and Resume (a trial FieldQuo ended cannot buy
   /// its way back — lib/billing/access.js fieldquoEndRefusal) and every
   /// trial letter (reminders, next steps, signup recovery). Null on every
-  /// ordinary row. Nothing clears them: there is no reinstate control yet.
+  /// ordinary row. Cleared only by "Unlock company" (superadmin, with a
+  /// reason — app/api/platform/companies/[id]/unlock, lib/platform/unlock.js).
   platformEndsAt         DateTime?
   platformEndMode        String?
   platformEndReason      String?

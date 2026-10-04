@@ -80,6 +80,37 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 Four decisions, four commits.
 
+### 2. Unlock company
+
+`POST /api/platform/companies/[id]/unlock { reason }` and an "Unlock company"
+block in Support actions, drawn only when FieldQuo locked or ended the
+company. Superadmin only (`company:unlock`, added to
+`SUPERADMIN_ONLY_PERMISSIONS`, worded on /platform/team), refused while the
+caller holds a live View as company session, reason required, one
+transaction with a `company_unlocked_by_platform` audit row (who, why, the
+values cleared, what was left off). `lib/platform/unlock.js` decides from the
+rows: only the two locks FieldQuo writes are reversible —
+`Company.platformEnd*` (no-Stripe ending, any mode → all three columns back
+to null; `trialEndsAt` was never touched, so the access verdict is exactly
+the pre-lock one) and `Subscription.accessLockedAt/Reason` (the Stripe-path
+terms lock → back to null). An expired trial, a failed card or a plan the
+company cancelled itself is refused (409) — not FieldQuo's lock. Stripe is
+never called (not imported): a Stripe-path unlock leaves the subscription
+cancelled, so the company reads as a cancelled plan and can start one again
+from Billing. The cancel panel and extend-trial now point at Unlock instead
+of "no reinstate control yet". `check:platform-unlock` (new, in check:all,
+75 assertions: every lock source and non-lock, lock → unlock round trips
+through the real cancel route with the access verdict compared at three
+moments, every gate with nothing written, the audit row, wiring).
+
+**Owner decision owed:** Unlock does NOT re-enable automatic phone-credit
+top-up that a terms lock switched off (`disabledReason "terms_lock"`) — that
+would re-arm an off-session card charge from the console, and
+`lib/voice/autoTopup.js` keeps one path to `enabled: true` (the company
+saving a card under terms). The panel and the audit row say so; the company
+switches it back on itself. Numbers the rent run already released are not
+restored (gone from the carrier). Say if top-up should be re-armed.
+
 ### 4. Google "Book" button — owners and admins only
 
 `POST`/`DELETE /api/reviews/google/book-button` now refuse anyone but an

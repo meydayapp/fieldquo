@@ -750,6 +750,7 @@ export default function CompanyDetail({ companyId }) {
         companyName={company.name}
         trialEndsAt={company.trialEndsAt}
         cancelOptions={company.cancelOptions}
+        unlock={company.unlock}
         onDone={load}
       />
 
