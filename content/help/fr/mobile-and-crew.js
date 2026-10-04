@@ -637,7 +637,7 @@ export const ARTICLES = {
     title: "Clavarder sur votre téléphone",
     summary:
       "Le clavardage de l'entreprise depuis le téléphone d'un équipier : #general, un salon pour chaque chantier où vous êtes, les messages directs, les mentions, et ce qu'un message peut ou non transporter.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Clavardage**, c'est votre entreprise qui se parle à elle-même. #general, c'est toute l'équipe; chaque chantier au calendrier a son propre salon pour l'équipe qui y est réservée et le bureau; un message direct, c'est entre vous deux. Rien ne sort de l'entreprise, et c'est le seul onglet que tous les niveaux d'accès gardent dans la barre d'onglets du téléphone.",
     ],
@@ -646,7 +646,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "La liste regroupe les salons en **Non lus**, **Entreprise**, **Travaux**, **Messages directs** et **Travaux terminés**. Ouvrez-en un et vous obtenez le fil avec un séparateur **Messages non lus** là où vous vous étiez arrêté, le panneau **Membres**, un lien **Ouvrir le travail** sur un salon de chantier, et la zone de rédaction en bas. La liste se rafraîchit d'elle-même toutes les 15 secondes tant que l'écran est ouvert." },
+          { p: "La liste regroupe les salons en **Non lus**, **Mes chantiers**, **Canaux**, **Messages directs** et **Travaux terminés**, en grandes rangées. Ouvrez-en un et vous obtenez le fil avec un séparateur **Messages non lus** là où vous vous étiez arrêté, le panneau **Membres**, un lien **Ouvrir le travail** sur un salon de chantier, et la zone de rédaction en bas. La liste se rafraîchit d'elle-même toutes les 15 secondes tant que l'écran est ouvert." },
           { figure: "harness:mobile-chat", caption: "Un salon de chantier sur un téléphone — le séparateur des non-lus, un message mis en évidence qui mentionne deux personnes, la zone de rédaction avec son compteur de caractères, et Envoyer." },
         ],
       },
@@ -660,6 +660,8 @@ export const ARTICLES = {
               ["**#general**", "Toute l'équipe", "Dès que votre invitation est acceptée; vous en sortez quand votre compte est désactivé"],
               ["Un salon de chantier", "Quiconque est réservé sur une des visites du chantier, plus le propriétaire, les administrateurs et les gestionnaires", "Être réservé sur une visite"],
               ["Un message direct", "Seulement vous deux — personne d'autre ne peut le lire", "**Nouveau message**, puis un nom"],
+              ["Un canal", "Ceux qui l'ont rejoint ou y ont été ajoutés — un canal privé est caché pour tous les autres", "**Parcourir les canaux**, puis **Rejoindre** — ou le bureau vous ajoute"],
+              ["Une discussion de groupe", "Les personnes choisies — elles seules peuvent la lire", "**Nouveau message**, puis deux noms ou plus"],
               ["**Travaux terminés**", "Les mêmes personnes, en lecture pour les archives", "Le chantier est terminé; le salon est conservé"],
             ],
           } },
@@ -671,7 +673,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Tapotez **Clavardage** dans la barre d'onglets.",
-            "Ouvrez le salon — ou **Nouveau message** pour commencer un message direct avec quelqu'un de l'équipe.",
+            "Ouvrez le salon — ou **Nouveau message** pour écrire à une personne, ou à deux ou plus en groupe.",
             "Tapez dans la zone de rédaction. Jusqu'à 4 000 caractères; le compteur s'affiche sous la boîte.",
             "Pour adresser un message à quelqu'un, tapez @ et choisissez la personne dans la liste. Seules les personnes du salon peuvent être mentionnées.",
             "Tapotez **Envoyer**. En cas d'échec, le message se lit **Non envoyé.** avec **Remettre dans la boîte** — vos mots ne sont pas perdus.",
@@ -682,8 +684,8 @@ export const ARTICLES = {
         id: "mentions-and-alerts",
         heading: "Les mentions, et qui est averti",
         blocks: [
-          { p: "Un message direct avertit l'autre personne; une mention avertit les personnes nommées. Jamais l'auteur, jamais tout le salon. La cloche compte vos salons non lus, et si la personne a activé les notifications du navigateur, un message direct ou une mention lui parvient aussi en notification — **Nouveau message de …** ou **… vous a mentionné dans #general**." },
-          { note: "Il n'y a ni accusé de lecture ni indicateur de saisie. Ouvrir un salon le marque lu pour vous; personne d'autre ne le voit." },
+          { p: "Un message direct ou une discussion de groupe avertit tout le monde qui s'y trouve; dans #general, un canal ou un salon de chantier, seule une mention le fait — et une mention arrive aussi dans la cloche des notifications. Jamais l'auteur, et jamais quelqu'un qui a le salon ouvert. L'onglet **Clavardage** indique combien de messages attendent, et si la personne a activé les notifications du navigateur, un message lui parvient en notification — **Nouveau message de …** ou **… vous a mentionné dans #general**. Chaque salon peut être mis en sourdine : voir [[chat-notifications-and-mute|Notifications du clavardage et sourdine]]." },
+          { note: "Il n'y a pas d'indicateur de saisie. Sous votre propre dernier message, **Vu par 3** indique combien de personnes du salon l'ont eu à l'écran — touchez-le pour les noms; voir [[seen-by-in-team-chat|Vu par dans le clavardage]]." },
         ],
       },
       {

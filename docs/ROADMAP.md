@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (team chat channels and group chats — phases 1 and 2 of the channels plan: the office makes channels (public/private, office-only posting, include everyone, archive), anybody starts a group chat with no size limit, per-room notifications and mute, "Seen by", and @mentions in the bell. Schema is additive and NOT yet applied — the SQL is in "Team chat: channels and group chats" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
 Last updated: 3 October 2026 (email templates in the client's language — the owner: "starter email templates … in various language that matches the client's language … if each email created costs more than 5 cents for translation … we might charge the company". (1) Starters are hand-written in all eight document languages and created in the COMPANY's language: the six starter emails + subjects + new-block placeholders (lib/i18n/emailStarterCopy.js; English byte-identical, md5-pinned) and the four starter funnels, the blank funnel and the AI funnel generator (lib/i18n/funnelStarterCopy.js, written in funnelPageLanguage; budget figures grouped per language). DocumentTemplate.language now records the language an ordinary email template is WRITTEN in ("Written in" in the editor). (2) A company's own follow-up/campaign template gets a "Translations" panel: per language Translate / Review-Edit / Update / Regenerate / Write it yourself; drafted once per template version per language via lib/ai/provider.js (only changed lines on Update), stored in the new TemplateTranslation table, never used until a person presses Approve & use, never redrafted at send time. Sends (campaign route, follow-up cron) use the approved, current translation for the reader's language (document language first, non-negotiable 6) else the original — never held up. {{tokens}}, HTML, links, emails and amounts are hidden behind ⟦n⟧ markers before the model sees the text; a reply that drops/doubles/alters/adds one is refused line by line and left empty. (3) Money: lib/ai/emailTranslationMeter.js — AI credit when the company has it (cost × 2, ≥ 1¢, kind email_translation), otherwise FieldQuo absorbs while a version's estimate ≤ 5¢ and the company's absorbed month ≤ $1.00 (MONTHLY_ABSORB_CAP_MICROS), else "needs AI credit"; measured cost (cached prompt at 10%) stored on the row and shown in the panel; /platform/ai-billing switch "email_translation". Estimated 0.09–0.18¢ per 150–300-word email per language on the standard model. NOT YET LIVE until the TemplateTranslation SQL is applied — until then the panel hides itself (GET answers ready:false) and sends go out in the original (translationsForSend never throws); the starters in the company language work without it. check:email-template-translation (196 checks).)
 Last updated: 3 October 2026 (role access confirmed per role — `check:role-access` runs the real routes as Owner/Admin/Manager/Dispatcher/Estimator/Crew; 40 leaks fixed, see docs/ROLE-ACCESS.md and "Who sees what" below)
@@ -135,6 +136,105 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 **Deploy order:** the SQL in items 2 and 4 is applied in production, so the code can deploy (every Plan read selects `aiMonthlyAllowanceCents`, and the gate selects the Company columns).
 
 ---
+## Team chat: channels and group chats (4 October 2026)
+
+Phases 1 and 2 of the channels plan, on the owner's decisions of 4 October:
+channels and group chats yes; only the office (owner, admin, supervisor —
+Manager and Dispatcher map to supervisor) creates, renames and archives
+channels; anybody starts a group chat, no maximum size; "Seen by" yes, room
+members only; @everyone stays the office's; an @mention also lands in the
+notification bell. #general and job rooms stay derived from the roster and
+the schedule.
+
+- **Schema (additive — apply by hand, then `prisma db push` should say "in
+  sync"; never `--accept-data-loss`).** CompanyChatRoom: topic, private,
+  postingPolicy, autoJoin, createdByMemberId, archivedAt,
+  archivedByMemberId. CompanyChatMember: role, notify, mutedUntil,
+  lastOpenedAt, hiddenAt, starredAt, addedByMemberId. CompanyChatMessage:
+  attachments, card, replyToId, editedAt, deletedAt, deletedByMemberId,
+  pinnedAt, pinnedByMemberId — **reserved for phases 3–4, written and read by
+  nothing yet**. Channel keys are `channel:<slug>` on the existing unique
+  (companyId, key) — no new unique index. SQL:
+
+  ```sql
+  ALTER TABLE "CompanyChatRoom" ADD COLUMN "archivedAt" TIMESTAMP(3),
+  ADD COLUMN "archivedByMemberId" TEXT,
+  ADD COLUMN "autoJoin" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "createdByMemberId" TEXT,
+  ADD COLUMN "postingPolicy" TEXT NOT NULL DEFAULT 'everyone',
+  ADD COLUMN "private" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "topic" TEXT;
+  ALTER TABLE "CompanyChatMember" ADD COLUMN "addedByMemberId" TEXT,
+  ADD COLUMN "hiddenAt" TIMESTAMP(3),
+  ADD COLUMN "lastOpenedAt" TIMESTAMP(3),
+  ADD COLUMN "mutedUntil" TIMESTAMP(3),
+  ADD COLUMN "notify" TEXT NOT NULL DEFAULT 'default',
+  ADD COLUMN "role" TEXT NOT NULL DEFAULT 'member',
+  ADD COLUMN "starredAt" TIMESTAMP(3);
+  ALTER TABLE "CompanyChatMessage" ADD COLUMN "attachments" JSONB,
+  ADD COLUMN "card" JSONB,
+  ADD COLUMN "deletedAt" TIMESTAMP(3),
+  ADD COLUMN "deletedByMemberId" TEXT,
+  ADD COLUMN "editedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedByMemberId" TEXT,
+  ADD COLUMN "replyToId" TEXT;
+  CREATE INDEX "CompanyChatRoom_companyId_kind_private_archivedAt_idx" ON "CompanyChatRoom"("companyId", "kind", "private", "archivedAt");
+  CREATE INDEX "CompanyChatMember_roomId_open_lastSeenAt_idx" ON "CompanyChatMember"("roomId", "open", "lastSeenAt");
+  CREATE INDEX "CompanyChatMessage_roomId_pinnedAt_idx" ON "CompanyChatMessage"("roomId", "pinnedAt");
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_createdByMemberId_fkey" FOREIGN KEY ("createdByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_archivedByMemberId_fkey" FOREIGN KEY ("archivedByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatMessage" ADD CONSTRAINT "CompanyChatMessage_replyToId_fkey" FOREIGN KEY ("replyToId") REFERENCES "CompanyChatMessage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ```
+
+  **Until it is applied, the deployed chat errors**: the list and thread
+  queries select the new columns. Ship the SQL with (or before) this code.
+- **Rules** (`lib/company/chat/rules.js`, pure): the role matrix
+  (canCreateChannel, canManage, canRename, canAddMembers, canRemoveMembers,
+  canArchive, canLeave, canPost, isJoinable); the notify table — DMs and
+  groups push every message, #general / channels / job rooms only mentions;
+  "none" silences everything; a snooze lets mentions through; nobody is
+  pushed while looking at the room (lastOpenedAt < 30 s) or about their own
+  words. "Seen by" is derived from each member's existing `lastSeenAt` (one
+  indexed count), not a row per message per reader. The channel-name rule
+  is shared with the staff chat in `lib/chat/channelName.js` (Unicode slugs
+  for the company chat, the staff chat's ASCII slugs byte-identical).
+- **Store and routes** — create channel / group (one pick = the DM), rename,
+  topic, private, office-only, include-everyone, archive/unarchive (kept,
+  read-only), join (public only; a private channel is a 404 to non-members,
+  the owner included), leave and remove (rows closed, never deleted), add
+  (closed rows reopen), your settings (notify, snooze, hide, star), Seen by,
+  locate-a-message; a system line and an activity-log row for every change.
+  Big groups: 4 members per listed room plus the viewer's own row and a
+  grouped head-count; members 50 a page with a name search; ≤ 200 members
+  inline in a thread; pushes in slices of 500; seeding on open, not every
+  poll. Realtime stays polling: the open room is a `?after=` delta every
+  4 s (15 s after two quiet minutes), the list every 15 s.
+- **Bell** — catalog type `chat.mention` (entity `chatMessage` →
+  `/app/chat?message=<id>`), written by `notifyEvent` with the new
+  `push: false` so the chat's own push is the only one; never for a DM or a
+  room set to "none"; the row stores who and where, not the words.
+- **Screen** — Channels / Jobs / Direct messages (groups with DMs), crew
+  order My jobs first with 64 px rows and one big New message; "+" and
+  Browse channels; New channel; the settings panel (name, topic, public /
+  private, office-only, include everyone, your notifications, mute 1 h /
+  until 7 AM, star, hide, people paged with Add / Remove, Archive, Leave);
+  "Seen by n" under your last message; office-only and archived notes in
+  place of the composer. 121 keys in all nine languages. Help: three new
+  articles (channels-and-group-chats, chat-notifications-and-mute,
+  seen-by-in-team-chat) and team-chat / chat-on-your-phone brought up to
+  date, en/fr/es.
+- **Checks** — `check:company-chat` §15–25 (447 passed),
+  `check:role-access` (+28, the shipped routes per role),
+  `check:chat-kit`, `check:notifications` (35 types).
+- **Left for phases 3–4** — photos and files (Cloudinary `chat` upload
+  purpose, Save to job photos — a cost increase, needs the owner's yes, and
+  the public-vs-signed decision), work-order / quote / job cards resolved
+  per reader, offline sends; reply-quote, pins, edit within 15 minutes,
+  soft removal (body hidden from everyone incl. the owner — decided), search.
+  The columns for all of these already exist. The screenshot set in
+  `docs/screens/company-chat` predates channels and should be re-captured.
+
 ## Team chat: seven live bugs fixed (3 October 2026)
 
 Phase 0 of the channels plan — what was broken in the crew chat, fixed

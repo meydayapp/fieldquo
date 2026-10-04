@@ -649,7 +649,7 @@ export const ARTICLES = {
     title: "Team chat",
     summary:
       "The company talking to itself: #general for everyone, a room per active job for the crew booked on it and the office, direct messages, @mentions that reach a phone — and nothing that leaves the company.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Chat** is the company's own conversation, inside FieldQuo. Everyone on the roster is in **#general**; every job on the calendar has a room for the crew booked on it and the office; and any two people can message each other directly. Mentions notify the person named, and on a phone Chat is the crew's own tab at the bottom of the screen.",
       "Nothing here reaches a client, and nothing reaches FieldQuo — the support team's read-only session can see the rooms and cannot post in them.",
@@ -659,7 +659,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The screen is the same chat kit as **Messages**: the conversation list down the left, the thread in the middle with day dividers and an unread line, the room's **Members** on the right, and the composer at the bottom. Unread rooms rise to the top of the list, because the list exists to answer “who is waiting on me”. Rooms are made and kept in step by FieldQuo from your roster and your schedule — nobody adds or removes anybody by hand, which is why the list can never drift from who is actually on a job." },
+          { p: "The screen is the same chat kit as **Messages**: the conversation list down the left, the thread in the middle with day dividers and an unread line, the room's **Members** on the right, and the composer at the bottom. Unread rooms rise to the top of the list, because the list exists to answer “who is waiting on me”. #general and the job rooms are made and kept in step by FieldQuo from your roster and your schedule — nobody adds anybody to them by hand, which is why they can never drift from who is actually on a job. Channels and group chats are the rooms people make: see [[channels-and-group-chats|Channels and group chats]]." },
         ],
       },
       {
@@ -668,12 +668,12 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Unread** — any room with something you have not seen, mentions counted separately.",
-            "**Company** — **#general**, “Everyone on the team”.",
+            "**Channels** — **#general** (“Everyone on the team”) first, then the channels you are in, with **Browse channels** under them.",
             "**Jobs** — one room per scheduled or in-progress job, named after it, “The crew booked on this job, and the office”, with **Open job** in its header.",
-            "**Direct messages** — “Just the two of you. Nobody else can read this.”",
+            "**Direct messages** — conversations between two people (“Just the two of you. Nobody else can read this.”) and group chats, newest first.",
             "**Finished jobs** — rooms of completed or cancelled jobs, kept with their history: “This job is finished. The room is kept for the record.”",
           ] },
-          { p: "**New message** at the top opens a direct message: search the team by name or email and pick one person. The composer reads **Message #general** or **Message Ana**; typing **@** opens **Mention somebody** with the people in that room — ↑↓ to choose, Tab to insert." },
+          { p: "**New message** at the top opens a conversation: search the team by name or email and pick one person for a direct message, or two or more for a group chat. The composer reads **Message #general** or **Message Ana**; typing **@** opens **Mention somebody** with the people in that room — ↑↓ to choose, Tab to insert." },
         ],
       },
       {
@@ -713,14 +713,14 @@ export const ARTICLES = {
             "To reach one person privately, press **New message**, search their name and send.",
             "When the job is finished its room moves under **Finished jobs** — “what did we agree about the Nguyen kitchen” is still answerable in March.",
           ] },
-          { figure: "harness:chat", caption: "Chat — the rooms grouped Unread, Company, Jobs, Direct messages and Finished jobs, a job room's thread, and its Members." },
+          { figure: "harness:chat", caption: "Chat — the rooms grouped Unread, Channels, Jobs, Direct messages and Finished jobs, a job room's thread, and its Members." },
         ],
       },
       {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "Everyone on the roster, including Crew logins — the chat is the crew's own screen and has no access level of its own. What a person sees is the rooms they are in: #general, the jobs they are booked on, and their direct messages. The owner, administrators and managers are in every job room." },
+          { p: "Everyone on the roster, including Crew logins — the chat is the crew's own screen and has no access level of its own. What a person sees is the rooms they are in: #general, the jobs they are booked on, the channels they joined or were added to, and their direct messages and group chats. A private channel is invisible to everybody not in it, the owner included. The owner, administrators and managers are in every job room." },
         ],
       },
       {

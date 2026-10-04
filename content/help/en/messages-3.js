@@ -4,7 +4,10 @@
 // messages.js). Slugs assigned to this part (lib/help/tree.js):
 // fetch-older-facebook-and-instagram-history,
 // photos-and-videos-from-facebook-and-instagram,
-// facebook-leads-checked-against-your-records.
+// facebook-leads-checked-against-your-records,
+// channels-and-group-chats, chat-notifications-and-mute, seen-by-in-team-chat
+// (2026-10-04: lib/company/chat/rules.js and store.js, the screen in
+// app/components/company/CompanyChat.js and app/components/company/chat/).
 //
 // Every sentence below was read off the code on 2026-10-03:
 // lib/meta/historyBackfill.js, lib/messaging/ingest.js (`history`),
@@ -179,6 +182,284 @@ export const ARTICLES = {
         blocks: [
           { p: "A missing budget or timing only counts against a lead when the form actually asked. Facebook forms, conversations and leads typed in by hand are scored on what they can capture, and the reasons say **Budget unknown** or **Timing unknown — not counted**." },
         ],
+      },
+    ],
+  },
+
+  "channels-and-group-chats": {
+    title: "Channels and group chats",
+    summary: "Channels are places the office makes — #estimating, #crew-north, #announcements; group chats are conversations anybody starts. Who can make, change, join and leave each.",
+    updated: "2026-10-04",
+    intro: [
+      "Besides **#general**, the job rooms and direct messages, Chat has two kinds of room people make by hand. A **channel** is a place: it has a name like **#estimating**, an optional topic, and it outlives the people in it. A **group chat** is a conversation between the people picked — three people sorting out tomorrow's van. #general and the job rooms are still kept by FieldQuo from your roster and your schedule.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          {
+            p: "Channels sit under **Channels** in the list, after **#general**; group chats sit with your direct messages. A **public** channel can be found and joined by anyone at the company from **Browse channels**; a **private** channel is hidden from everybody who was not added — the owner included — and opening its link answers as if it did not exist. A channel can be set so that **Only the office can post**: owners, admins and supervisors post, everyone reads. That is how an **#announcements** channel works.",
+          },
+        ],
+      },
+      {
+        id: "who-can-do-what",
+        heading: "Who can do what",
+        blocks: [
+          {
+            table: {
+              head: [
+                "Action",
+                "Owner and admin",
+                "Manager and Dispatcher",
+                "Estimator and Crew",
+              ],
+              rows: [
+                [
+                  "Make a channel",
+                  "Yes",
+                  "Yes",
+                  "No",
+                ],
+                [
+                  "Start a group chat",
+                  "Yes",
+                  "Yes",
+                  "Yes",
+                ],
+                [
+                  "Join a public channel",
+                  "Yes",
+                  "Yes",
+                  "Yes",
+                ],
+                [
+                  "Rename a channel, set its topic, make it private, office-only posting, archive it",
+                  "Any channel they are in",
+                  "Channels they manage (the ones they made)",
+                  "No",
+                ],
+                [
+                  "Add or remove people in a channel",
+                  "Any channel they are in",
+                  "Channels they manage",
+                  "No",
+                ],
+                [
+                  "Rename a group chat or add people to it",
+                  "Anybody in the group",
+                  "Anybody in the group",
+                  "Anybody in the group",
+                ],
+                [
+                  "Remove people from a group chat",
+                  "Yes, when they are in it",
+                  "If they started it",
+                  "If they started it",
+                ],
+              ],
+            },
+          },
+          {
+            note: "These are checked by the server on every change, not just hidden on the screen. A read-only support session can open every room and change none of them.",
+          },
+        ],
+      },
+      {
+        id: "make-a-channel",
+        heading: "Make a channel",
+        blocks: [
+          {
+            steps: [
+              "In **Chat**, press **+** beside **Channels** (or **Browse channels**, then **New channel**).",
+              "Type a name. It is stored in lowercase with dashes — **It will be #crew-north** shows what you will get.",
+              "Add a **Topic** if it helps people know what the channel is for.",
+              "Choose **Public** or **Private**. A private channel needs the people you want in it.",
+              "Turn on **Only the office can post** for announcements, and **Include everyone** to add the whole team now and every new person when they join.",
+              "Press **Create channel**.",
+            ],
+          },
+          {
+            note: "Anyone at the company can read a public channel, crew included. Keep client details in the job's room.",
+          },
+        ],
+      },
+      {
+        id: "start-a-group",
+        heading: "Start a group chat",
+        blocks: [
+          {
+            steps: [
+              "Press **New message**.",
+              "Pick two or more people. Picking one person opens your direct message with them instead.",
+              "Give the group a name if you like — otherwise it is called by the people in it.",
+              "Press **Start group**.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "archive-and-leave",
+        heading: "Archive, leave and remove",
+        blocks: [
+          {
+            bullets: [
+              "**Archive channel** keeps every message and makes the channel read-only; it moves under **Archived**. **Unarchive channel** brings it back. Nothing is deleted.",
+              "**Leave channel** or **Leave group** takes you out; your messages stay, and someone can add you back.",
+              "You cannot leave #general, a job room, a direct message, or a channel set to **Include everyone** — mute it instead.",
+              "**Remove** takes somebody out of a channel or group. Their messages stay where they were.",
+            ],
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Can the owner read a private channel?",
+        a: "Only if they are in it. A private channel is hidden from everybody who was not added, owners and admins included.",
+      },
+      {
+        q: "How big can a group chat be?",
+        a: "There is no limit. The people list loads fifty at a time, and typing @ searches everybody in the group.",
+      },
+      {
+        q: "Can crew make a channel?",
+        a: "No. Crew and estimators start group chats; channels are made by owners, admins, managers and dispatchers.",
+      },
+    ],
+  },
+
+  "chat-notifications-and-mute": {
+    title: "Chat notifications and mute",
+    summary: "What each kind of room tells you about by default, how to change it or mute a room for a while, and why a mention also lands in the bell.",
+    updated: "2026-10-04",
+    intro: [
+      "Every room in Chat has your own notification setting. Nobody else sees it, and nobody else's setting changes what you get. Open a room and press the gear (or the people count) to find **Your notifications**.",
+    ],
+    sections: [
+      {
+        id: "defaults",
+        heading: "What you are told about by default",
+        blocks: [
+          {
+            table: {
+              head: [
+                "Room",
+                "You are told about",
+              ],
+              rows: [
+                [
+                  "A direct message",
+                  "Every message",
+                ],
+                [
+                  "A group chat",
+                  "Every message",
+                ],
+                [
+                  "#general, a channel, a job room",
+                  "Only when you are mentioned",
+                ],
+              ],
+            },
+          },
+          {
+            p: "You are never told about your own messages, and you are not pushed a message while you have that room open on your screen.",
+          },
+        ],
+      },
+      {
+        id: "change-it",
+        heading: "Change it for one room",
+        blocks: [
+          {
+            steps: [
+              "Open the room and press the gear.",
+              "Under **Your notifications**, pick **Every message**, **Only when I'm mentioned**, or **Nothing (mute until I turn it back on)**. **Default** goes back to the table above.",
+              "To mute for a while, press **1 hour** or **Until tomorrow 7 AM**. **Unmute** ends it early.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "what-mute-does",
+        heading: "What muting does",
+        blocks: [
+          {
+            bullets: [
+              "A muted room is drawn grey with a crossed-out bell, and its count is grey. The words are still there; nothing is hidden.",
+              "While a room is muted for a while, a mention still reaches you, and only mentions count on the **Chat** tab.",
+              "**Nothing** silences the room completely — mentions too — and leaves it out of the **Chat** tab's number.",
+              "**Hide from my list** (direct messages and group chats) takes a conversation off your list until somebody writes in it again.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "mentions-in-the-bell",
+        heading: "Mentions in the bell",
+        blocks: [
+          {
+            p: "When somebody mentions you with @ in a group chat, a channel, #general or a job room, it also lands in the notification bell — **Ana mentioned you in #estimating** — and tapping it opens the chat at that message. The bell row keeps who and where, not the words of the message. A direct message does not add a bell row (it already notifies you), and a room set to **Nothing** adds none.",
+          },
+          {
+            note: "Only the office's **@everyone** notifies the whole room. Anyone else's @everyone is sent as plain text, and the composer says so before you send.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Why did I not get a notification while I was in the room?",
+        a: "Because you were looking at it. FieldQuo does not push a message that is already on your screen.",
+      },
+      {
+        q: "Does muting tell anybody?",
+        a: "No. Your notification settings are yours alone.",
+      },
+    ],
+  },
+
+  "seen-by-in-team-chat": {
+    title: "Seen by in team chat",
+    summary: "Under your last message, Seen by 3 says how many people in the conversation have had it on their screen — tap it for the names. Only the conversation's members see it.",
+    updated: "2026-10-04",
+    intro: [
+      "In Chat, the line under your own last message says who has seen it: **Seen by 3** in a group, a channel or a job room, and **Seen** in a direct message. Tap it for the list of names. On any earlier message of yours, **Seen by** is in the bar that appears when you point at the message.",
+    ],
+    sections: [
+      {
+        id: "what-it-means",
+        heading: "What it means",
+        blocks: [
+          {
+            bullets: [
+              "**Seen** means the message was on that person's screen in this conversation — they opened the room, or it arrived while they had it open.",
+              "It does not mean they read it carefully, and there is no typing indicator.",
+              "It counts the people in the conversation now. Somebody added later counts once they open it.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "who-sees-it",
+        heading: "Who can see it",
+        blocks: [
+          {
+            p: "Only the people in the conversation. The screen offers it on your own messages. Somebody outside a private channel cannot see it, and FieldQuo's read-only support session does not see it either.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Can I turn it off?",
+        a: "No. Seen by is part of team chat for everyone in a conversation, the way the unread line is.",
+      },
+      {
+        q: "Does the owner see who has read what?",
+        a: "Only in conversations the owner is in, like anybody else.",
       },
     ],
   },

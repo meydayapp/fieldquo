@@ -639,7 +639,7 @@ export const ARTICLES = {
     title: "Chat on your phone",
     summary:
       "The company chat from a crew member's phone: #general, a room for every job you are on, direct messages, mentions, and what a message can and cannot carry.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Chat** is your company talking to itself. #general is everyone on the team; every job on the calendar has its own room for the crew booked on it and the office; a direct message is between the two of you. Nothing leaves the company, and it is the one tab every access level keeps in the phone's tab bar.",
     ],
@@ -648,7 +648,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The list groups rooms as **Unread**, **Company**, **Jobs**, **Direct messages** and **Finished jobs**. Open one and you get the thread with an **Unread messages** divider where you left off, the **Members** panel, an **Open job** link on a job room, and the composer at the bottom. The list refreshes itself every 15 seconds while the screen is open." },
+          { p: "The list groups rooms as **Unread**, **My jobs**, **Channels**, **Direct messages** and **Finished jobs**, in big rows. Open one and you get the thread with an **Unread messages** divider where you left off, the **Members** panel, an **Open job** link on a job room, and the composer at the bottom. The list refreshes itself every 15 seconds while the screen is open." },
           { figure: "harness:mobile-chat", caption: "A job room on a phone — the unread divider, a highlighted message that mentions two people, the composer with its character count, and Send." },
         ],
       },
@@ -662,6 +662,8 @@ export const ARTICLES = {
               ["**#general**", "Everyone on the team", "The moment your invitation is accepted; you leave when your account is deactivated"],
               ["A job room", "Whoever is booked on one of the job's visits, plus the owner, admins and managers", "Being booked on a visit"],
               ["A direct message", "Just the two of you — nobody else can read it", "**New message**, then a name"],
+              ["A channel", "Whoever joined it or was added — a private one is hidden from everybody else", "**Browse channels**, then **Join** — or the office adds you"],
+              ["A group chat", "The people who were picked — only they can read it", "**New message**, then two or more names"],
               ["**Finished jobs**", "The same people, read for the record", "The job is finished; the room is kept"],
             ],
           } },
@@ -673,7 +675,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Tap **Chat** in the tab bar.",
-            "Open the room — or **New message** to start a direct message with somebody on the team.",
+            "Open the room — or **New message** to write to one person, or to two or more as a group.",
             "Type in the composer. Up to 4,000 characters; the count shows under the box.",
             "To point a message at somebody, type @ and pick them from the list. Only people in the room can be mentioned.",
             "Tap **Send**. If it fails, the message reads **Not sent.** with **Put it back in the box** — your words are not lost.",
@@ -684,8 +686,8 @@ export const ARTICLES = {
         id: "mentions-and-alerts",
         heading: "Mentions, and who is told",
         blocks: [
-          { p: "A direct message tells the other person; a mention tells the people named. Never the author, never the whole room. The bell counts your unread rooms, and if the person has turned browser notifications on, a direct message or a mention also reaches them as a notification — **New message from …** or **… mentioned you in #general**." },
-          { note: "There is no read receipt and no typing indicator. Opening a room marks it read for you; nobody else sees that." },
+          { p: "A direct message or a group chat tells everybody in it; in #general, a channel or a job room only a mention does — and a mention also lands in the notification bell. Never the author, and never somebody who has the room open. The **Chat** tab shows how many messages are waiting, and if the person has turned browser notifications on, a message reaches them as a notification — **New message from …** or **… mentioned you in #general**. Each room can be muted: see [[chat-notifications-and-mute|Chat notifications and mute]]." },
+          { note: "There is no typing indicator. Under your own last message, **Seen by 3** says how many people in the room have had it on screen — tap it for the names; see [[seen-by-in-team-chat|Seen by in team chat]]." },
         ],
       },
       {

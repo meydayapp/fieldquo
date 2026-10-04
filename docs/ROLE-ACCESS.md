@@ -110,6 +110,42 @@ includes everyone booked on it.
 
 ---
 
+## Team chat: channels and group chats (4 October 2026)
+
+Owner decisions: only the office makes, renames and archives channels;
+anybody starts a group chat. Checked by the server on every change
+(`lib/company/chat/rules.js`), executed per role by `check:role-access`
+("Team chat channels and groups") and `check:company-chat` §15–25.
+
+| Action | Owner / Admin | Manager / Dispatcher | Estimator / Crew |
+|---|---|---|---|
+| Make a channel | Yes | Yes | **No** (403 `not_allowed`, nothing written) |
+| Start a group chat (no size limit) | Yes | Yes | Yes |
+| Join a public channel | Yes | Yes | Yes |
+| Rename, topic, public/private, office-only posting, include everyone, archive | Any channel they are in | Only channels they manage (made) | **No** |
+| Add / remove people in a channel | Any channel they are in | Channels they manage | **No** |
+| Rename a group, add people to it | Anybody in the group | Anybody in the group | Anybody in the group |
+| Remove people from a group | Yes, when in it | If they started it | If they started it |
+| Post in an office-only channel (#announcements) | Yes | Yes | **No** — reads only (403 `office_only`) |
+| Post in an archived channel | No | No | No — archived is read-only |
+| See a private channel they are not in | **No — 404**, owner included | No — 404 | No — 404 |
+| "Seen by" on a message | Room members only | Room members only | Room members only |
+
+- A private channel is invisible to anybody not in it: not listed, not in
+  Browse channels, its thread, members, Seen by and bell link all answer
+  404 — the same as a room that does not exist.
+- "Manage" is re-read from the session's role each time: a supervisor
+  demoted to Crew stops managing the channels they made.
+- A read-only support session sees every room and changes nothing (403
+  `read_only` on every write); it gets no Seen by and no unread digit.
+- Crew see: their job rooms, #general, the channels they are in (and public
+  ones in Browse), their DMs and groups. Nothing else is listed.
+- Anyone at the company can read a public channel, crew included — the
+  create dialog says so. Free text cannot be policed; client details belong
+  in the job's room.
+
+---
+
 ## Leaks found and fixed
 
 Each row is one or more failing checks in `check:role-access` before today, and

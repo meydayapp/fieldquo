@@ -637,7 +637,7 @@ export const ARTICLES = {
     title: "Chat en su teléfono",
     summary:
       "El chat de la empresa desde el teléfono de un miembro de la cuadrilla: #general, una sala por cada trabajo en el que está, mensajes directos, menciones, y qué puede y qué no puede llevar un mensaje.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Chat** es su empresa hablando consigo misma. #general es todo el equipo; cada trabajo en el calendario tiene su propia sala para la cuadrilla reservada en él y la oficina; un mensaje directo es entre ustedes dos. Nada sale de la empresa, y es la única pestaña que todos los niveles de acceso conservan en la barra de pestañas del teléfono.",
     ],
@@ -646,7 +646,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La lista agrupa las salas en **Sin leer**, **Empresa**, **Trabajos**, **Mensajes directos** y **Trabajos terminados**. Abra una y obtiene el hilo con un separador **Mensajes sin leer** donde se quedó, el panel **Miembros**, un enlace **Abrir trabajo** en una sala de trabajo, y el cuadro de redacción abajo. La lista se actualiza sola cada 15 segundos mientras la pantalla está abierta." },
+          { p: "La lista agrupa las salas en **Sin leer**, **Mis trabajos**, **Canales**, **Mensajes directos** y **Trabajos terminados**, en filas grandes. Abra una y obtiene el hilo con un separador **Mensajes sin leer** donde se quedó, el panel **Miembros**, un enlace **Abrir trabajo** en una sala de trabajo, y el cuadro de redacción abajo. La lista se actualiza sola cada 15 segundos mientras la pantalla está abierta." },
           { figure: "harness:mobile-chat", caption: "Una sala de trabajo en un teléfono — el separador de no leídos, un mensaje resaltado que menciona a dos personas, el cuadro de redacción con su contador de caracteres, y Enviar." },
         ],
       },
@@ -660,6 +660,8 @@ export const ARTICLES = {
               ["**#general**", "Todo el equipo", "En el momento en que se acepta su invitación; sale cuando su cuenta se desactiva"],
               ["Una sala de trabajo", "Quien esté reservado en una de las visitas del trabajo, más el propietario, los administradores y los gerentes", "Estar reservado en una visita"],
               ["Un mensaje directo", "Solo ustedes dos — nadie más puede leerlo", "**Nuevo mensaje**, luego un nombre"],
+              ["Un canal", "Quien se unió o fue agregado — uno privado está oculto para todos los demás", "**Explorar canales**, luego **Unirme** — o la oficina lo agrega"],
+              ["Un chat de grupo", "Las personas elegidas — solo ellas pueden leerlo", "**Nuevo mensaje**, luego dos nombres o más"],
               ["**Trabajos terminados**", "Las mismas personas, en lectura para el registro", "El trabajo está terminado; la sala se conserva"],
             ],
           } },
@@ -671,7 +673,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Toque **Chat** en la barra de pestañas.",
-            "Abra la sala — o **Nuevo mensaje** para empezar un mensaje directo con alguien del equipo.",
+            "Abra la sala — o **Nuevo mensaje** para escribirle a una persona, o a dos o más como grupo.",
             "Escriba en el cuadro de redacción. Hasta 4,000 caracteres; el conteo se muestra bajo el cuadro.",
             "Para dirigir un mensaje a alguien, escriba @ y elíjalo de la lista. Solo las personas de la sala pueden ser mencionadas.",
             "Toque **Enviar**. Si falla, el mensaje dice **No se envió.** con **Volver a ponerlo en el cuadro** — sus palabras no se pierden.",
@@ -682,8 +684,8 @@ export const ARTICLES = {
         id: "mentions-and-alerts",
         heading: "Las menciones, y a quién se le avisa",
         blocks: [
-          { p: "Un mensaje directo le avisa a la otra persona; una mención les avisa a las personas nombradas. Nunca al autor, nunca a toda la sala. La campana cuenta sus salas sin leer, y si la persona activó las notificaciones del navegador, un mensaje directo o una mención también le llega como notificación — **Nuevo mensaje de …** o **… te mencionó en #general**." },
-          { note: "No hay confirmación de lectura ni indicador de escritura. Abrir una sala la marca como leída para usted; nadie más lo ve." },
+          { p: "Un mensaje directo o un chat de grupo les avisa a todos los que están en él; en #general, un canal o una sala de trabajo, solo lo hace una mención — y una mención también llega a la campana de notificaciones. Nunca al autor, y nunca a quien tiene la sala abierta. La pestaña **Chat** muestra cuántos mensajes esperan, y si la persona activó las notificaciones del navegador, el mensaje le llega como notificación — **Nuevo mensaje de …** o **… te mencionó en #general**. Cada sala se puede silenciar: vea [[chat-notifications-and-mute|Notificaciones del chat y silenciar]]." },
+          { note: "No hay indicador de escritura. Debajo de su propio último mensaje, **Visto por 3** dice cuántas personas de la sala lo tuvieron en pantalla — tóquelo para ver los nombres; vea [[seen-by-in-team-chat|Visto por en el chat del equipo]]." },
         ],
       },
       {
