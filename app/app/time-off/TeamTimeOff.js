@@ -29,6 +29,7 @@ import Avatar, { initialsOf } from "@/app/components/chat/Avatar";
 import { personTitle } from "@/lib/team/personLabel";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 import RequestForm from "./RequestForm";
+import TeamBalances from "./TeamBalances";
 
 const KIND_LABEL = { vacation: "Vacation", sick: "Sick", personal: "Personal", unpaid: "Unpaid", other: "Other" };
 
@@ -179,6 +180,8 @@ export default function TeamTimeOff({ data, reload }) {
           </section>
 
           <HoursApproved data={data} t={t} />
+
+          <TeamBalances data={data} reload={reload} t={t} />
         </div>
 
         {/* ── Right column ────────────────────────────────────────────── */}

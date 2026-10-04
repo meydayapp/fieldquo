@@ -2072,6 +2072,8 @@ model Company {
   workingHours          WorkingHours[]
   leavePolicies         LeavePolicy[]
   leaveRequests         LeaveRequest[]
+  leaveOpeningBalances   LeaveOpeningBalance[]
+  leaveAccrualOverrides  LeaveAccrualOverride[]
 
   postalCode   String?
   country      String?  @default("CA")
@@ -8131,6 +8133,8 @@ model Worker {
   salaryComponents WorkerSalaryComponent[]
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]
+  leaveOpeningBalances    LeaveOpeningBalance[]
+  leaveAccrualOverrides   LeaveAccrualOverride[]
   safetyIncidentsInvolved SafetyIncident[]
   shiftAttendance  ShiftAttendance[]
   // The person's HR file — see the HR & compliance block at the end of the file.
@@ -9651,12 +9655,49 @@ model LeavePolicy {
   // Whether a request needs approving. Some companies auto-approve sick days.
   requiresApproval Boolean @default(true)
 
+  // ── per_hours_worked: leave EARNED from hours actually worked ───────────
+  //
+  // The owner (2026-10-03): "we should be calculating the time earned for
+  // vacation and sick leave as that is based on time worked". One rule
+  // shape covers both ways the law states it: "earn X hours per Y hours
+  // worked". 4% of hours is 4 per 100; California's sick rule is 1 per 30.
+  // Two columns rather than a single ratio so "1 per 30" stays exactly that
+  // on screen instead of 0.0333…, which nobody recognises from a statute.
+  // Read and written only for accrualMethod "per_hours_worked" (the route
+  // nulls them otherwise, the same as annualDays/percentOfGross). The maths
+  // is lib/leave/hourAccrual.js.
+  accrualHoursEarned    Decimal? @db.Decimal(8, 4)
+  accrualPerHoursWorked Decimal? @db.Decimal(8, 2)
+  // Most hours that can be earned in one calendar year. Null = no cap —
+  // NOT zero, which would mean nothing is ever earned.
+  accrualYearlyCapHours Decimal? @db.Decimal(8, 2)
+  // How many hours one day off is worth under this policy, as the company
+  // states it. Requests are counted in working days, so earned hours have
+  // to become days somewhere; the person's own WorkingHours win when they
+  // exist, and this is the stated fallback. Required for per_hours_worked —
+  // never an invented 8.
+  hoursPerDay           Decimal? @db.Decimal(5, 2)
+  // Which cited rule (lib/leave/hourAccrual.js ACCRUAL_PRESETS) the rate was
+  // taken from, so the screen can name the statute it came from. Cleared by
+  // the route as soon as the rate is edited away from that rule — a label
+  // naming a law the numbers no longer match would be worse than none.
+  accrualPreset         String?
+  // Every rate this policy has had: [{ from: "YYYY-MM-DD", hoursEarned,
+  // perHoursWorked }], oldest first. A rate change applies from the day it
+  // is made; hours worked before it keep the rate they were earned under.
+  // Recomputing the whole year at the new rate would quietly take earned
+  // leave away from everyone the day an owner lowered it. The first entry
+  // reaches back to 1 January (the company is stating its rule for the
+  // year, which is what the opening balance needs).
+  accrualRateHistory    Json?
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balances LeaveBalance[]
-  requests LeaveRequest[]
+  balances         LeaveBalance[]
+  requests         LeaveRequest[]
+  accrualOverrides LeaveAccrualOverride[]
 
   @@unique([companyId, name])
 }
@@ -9682,9 +9723,93 @@ model LeaveBalance {
   accruedAmount Decimal @default(0) @db.Decimal(12, 2)
   usedAmount    Decimal @default(0) @db.Decimal(12, 2)
 
+  // per_hours_worked: the hours earned this year (accruedDays is the same
+  // figure in days). SET by refreshAccruals, never incremented.
+  accruedHours    Decimal @default(0) @db.Decimal(10, 2)
+  // Leave taken this year BEFORE the company used FieldQuo, from the newest
+  // LeaveOpeningBalance. Kept apart from usedDays — which approvals own —
+  // so a corrected opening balance replaces the old figure instead of
+  // stacking on it. SET by refreshAccruals; remainingBalance subtracts both.
+  openingUsedDays Decimal @default(0) @db.Decimal(8, 2)
+  // How the earned figure was reached, for the "How it's calculated" line:
+  // hours counted, the rate(s) applied, the opening balance, the cap, the
+  // hours-per-day conversion. Written by refreshAccruals beside the numbers
+  // it explains, so the explanation can never describe a different run.
+  accrualBasis    Json?
+
   updatedAt DateTime @updatedAt
 
   @@unique([policyId, workerId, year])
+}
+
+// Hours a person worked, and leave they took, between 1 January and the day
+// their company started tracking in FieldQuo — so somebody added in October
+// is not shown a balance built from three months.
+//
+// APPEND-ONLY. An edit is a new row; the newest row for (worker, year) is the
+// one in force and the older rows are the audit trail ("entered by Sam on
+// 3 Oct, changed by Dana on 5 Oct"). Nothing deletes them. Clearing an
+// opening balance is a new row of zeros, entered by somebody.
+//
+// Never a TimeEntry and never a pay-run input: these hours were paid by
+// whatever the company used before, and putting them on a timesheet would
+// pay them twice. They feed ONE thing — per_hours_worked accrual
+// (lib/leave/balances.js refreshAccruals).
+model LeaveOpeningBalance {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  year      Int
+
+  // Hours worked from 1 January to `throughDate` inclusive, before FieldQuo.
+  hoursWorked Decimal  @default(0) @db.Decimal(8, 2)
+  // Last day those hours cover (midnight UTC, a calendar day like
+  // LeaveRequest.startDate). FieldQuo time entries on or before it are left
+  // out of accrual, so an hour cannot be counted twice.
+  throughDate DateTime
+  // Leave already taken this year before FieldQuo: [{ policyId, days }].
+  // Paid and unpaid alike — unpaid is a record, paid also comes off the
+  // balance (LeaveBalance.openingUsedDays).
+  taken       Json?
+  note        String?
+
+  // Who entered it. The name is copied at write time so the trail still
+  // says who when that login is gone.
+  enteredById   String
+  enteredByName String?
+  createdAt     DateTime @default(now())
+
+  @@index([workerId, year, createdAt])
+  @@index([companyId, year])
+}
+
+// One person's own accrual rate under one per_hours_worked policy, from a
+// date — the 6% that starts on a fifth anniversary, the crew lead on a
+// better sick rule. APPEND-ONLY, like LeaveOpeningBalance: the newest row
+// with effectiveFrom on or before a day decides that day's rate. A row with
+// both rate columns null means "back to the company policy from this date"
+// — which is how an override ends without deleting the record that it was
+// ever there.
+model LeaveAccrualOverride {
+  id             String      @id @default(cuid())
+  companyId      String
+  company        Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId       String
+  worker         Worker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  policyId       String
+  policy         LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  effectiveFrom  DateTime
+  hoursEarned    Decimal?    @db.Decimal(8, 4)
+  perHoursWorked Decimal?    @db.Decimal(8, 2)
+  note           String?
+  enteredById    String
+  enteredByName  String?
+  createdAt      DateTime    @default(now())
+
+  @@index([workerId, policyId, effectiveFrom])
+  @@index([companyId])
 }
 
 model LeaveRequest {
