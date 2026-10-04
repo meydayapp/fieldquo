@@ -552,13 +552,10 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
       id: m.id,
       direction: m.direction,
       mine: m.direction === "out",
-      body: m.mentionsMe ? (
-        <span className="-mx-1 block rounded bg-amber-100 px-1 dark:bg-amber-950/40" data-mentions-me>
-          {m.body}
-        </span>
-      ) : (
-        m.body
-      ),
+      // Text only — the kit tints a row that names the reader from the flag
+      // (Thread.js `mentionsMe`). A node here drew "[object Object]".
+      body: m.body,
+      mentionsMe: Boolean(m.mentionsMe),
       at: m.at,
       kind: m.kind === "system" ? "system" : "message",
       who: m.who || t("app.companyChat.someoneWhoLeft"),

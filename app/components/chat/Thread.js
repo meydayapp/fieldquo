@@ -392,11 +392,18 @@ export default function Thread({
                     </p>
                   ) : null}
 
+                  {/* `mentionsMe` tints the words, the way Rocket.Chat tints
+                      a row that names the reader. A FLAG on the item, never
+                      a node in `body`: body is text (displayBody String()s
+                      it), and a <span> handed in as the body drew
+                      "[object Object]" on every message that named the
+                      reader from 2026-09-19 until this was moved here. */}
                   {(renderBody ? renderBody(m) : null) ?? (
                     <p
+                      data-mentions-me={m.mentionsMe ? "true" : undefined}
                       className={`whitespace-pre-wrap break-words text-sm ${
                         failed ? "text-red-900 dark:text-red-200" : pending ? "text-muted-foreground" : "text-foreground"
-                      }`}
+                      }${m.mentionsMe ? " -mx-1 rounded bg-amber-100 px-1 dark:bg-amber-950/40" : ""}`}
                     >
                       {displayBody(m.body)}
                     </p>

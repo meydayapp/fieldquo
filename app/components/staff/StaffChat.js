@@ -686,14 +686,11 @@ export default function StaffChat({ heading = "Team", height = "h-[calc(100vh-9r
       direction: m.direction,
       mine: m.direction === "out",
       // A message that says the reader's name is tinted, the way Rocket.Chat
-      // tints a mention row. The kit draws whatever node `body` is.
-      body: m.mentionsMe ? (
-        <span className="-mx-1 block rounded bg-amber-100 px-1 dark:bg-amber-950/40" data-mentions-me>
-          {m.body}
-        </span>
-      ) : (
-        m.body
-      ),
+      // tints a mention row — by the kit, from the flag (Thread.js
+      // `mentionsMe`). `body` is text: the kit String()s it, and the <span>
+      // that used to ride here drew "[object Object]".
+      body: m.body,
+      mentionsMe: Boolean(m.mentionsMe),
       at: m.at,
       kind: m.kind === "system" ? "system" : "message",
       who: m.who,
