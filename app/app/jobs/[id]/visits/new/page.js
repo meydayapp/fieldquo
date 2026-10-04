@@ -40,6 +40,7 @@ import {
   phaseLabelKey,
 } from "@/lib/jobs/checklistItems";
 import { CALLBACK_REASONS, CALLBACK_REASON_LABEL_KEYS } from "@/lib/jobs/callbackReasons";
+import { fieldError, afterFieldChange } from "@/lib/forms/fieldError";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -75,7 +76,11 @@ export default function NewVisitPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  // { message, fields } — lib/forms/fieldError.js. The fields are what the
+  // error was about, so changing one of them takes it away rather than
+  // leaving "Say why you're going back" under an unticked box.
+  const [error, setError] = useState(null);
+  const touched = (field) => setError((current) => afterFieldChange(current, field));
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +97,7 @@ export default function NewVisitPage() {
       if (cancelled) return;
 
       if (!jobRes?.ok) {
-        setError(t("app.job.loadError"));
+        setError(fieldError(t("app.job.loadError")));
         setLoading(false);
         return;
       }
@@ -159,13 +164,15 @@ export default function NewVisitPage() {
 
   async function submit(e) {
     e.preventDefault();
-    setError("");
+    setError(null);
     if (!scheduledAt) {
-      setError(t("app.visitNew.pickDateTime"));
+      setError(fieldError(t("app.visitNew.pickDateTime"), "scheduledAt"));
       return;
     }
     if (isReturn && !returnReason) {
-      setError(t("app.job.returnReasonRequired", "Say why you're going back."));
+      // About the reason AND the box that asked for it: unticking the box
+      // answers it as surely as picking a reason does.
+      setError(fieldError(t("app.job.returnReasonRequired", "Say why you're going back."), "returnReason", "isReturn"));
       return;
     }
 
@@ -191,13 +198,13 @@ export default function NewVisitPage() {
           res,
           t("app.visitNew.scheduleError"),
         );
-        setError(message || t("app.visitNew.scheduleError"));
+        setError(fieldError(message || t("app.visitNew.scheduleError")));
         return;
       }
       router.push(`/app/jobs/${jobId}`);
       router.refresh();
     } catch {
-      setError(t("app.visitNew.scheduleErrorNetwork"));
+      setError(fieldError(t("app.visitNew.scheduleErrorNetwork")));
     } finally {
       setSaving(false);
     }
@@ -236,7 +243,7 @@ export default function NewVisitPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
+          {error.message}
         </div>
       )}
 
@@ -250,7 +257,10 @@ export default function NewVisitPage() {
               <input
                 type="datetime-local"
                 value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
+                onChange={(e) => {
+                  setScheduledAt(e.target.value);
+                  touched("scheduledAt");
+                }}
                 className={inputClass}
                 required
               />
@@ -297,6 +307,7 @@ export default function NewVisitPage() {
                 onChange={(e) => {
                   setIsReturn(e.target.checked);
                   if (!e.target.checked) setReturnReason("");
+                  touched("isReturn");
                 }}
               />
               {t("app.job.isReturnVisit", "This is a return to fix or check something from earlier on this job")}
@@ -309,7 +320,10 @@ export default function NewVisitPage() {
                   </label>
                   <select
                     value={returnReason}
-                    onChange={(e) => setReturnReason(e.target.value)}
+                    onChange={(e) => {
+                      setReturnReason(e.target.value);
+                      touched("returnReason");
+                    }}
                     className={inputClass}
                   >
                     <option value="">{t("app.jobNew.selectReason", "Select a reason")}</option>
