@@ -76,6 +76,32 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages (3 October 2026)
+
+The owner's five decisions after "Researched defaults, counted cabinets, trim
+once, drywall repairs, wall area" (below).
+
+### 1. Drywall repairs ask no room
+
+- Plain `drywall` (the repair quote type) no longer asks **Square Footage** or
+  **Ceiling Height** — in the builder, on the public self-quote form (which now
+  shows the finish level only), and in the call-to-quote draft's field list
+  (`lib/pricing/offerings.js` reads the same definition). `drywall_install`
+  keeps Square Footage: it is the hang and finishing quantity there. It never
+  asked a ceiling height, and none is added — nothing would price from it.
+- Verified before removing: a repair line is the book's rate × 1 whatever the
+  room; the repair book bills no board, so `drywallQuantity()` writes no line
+  from square feet; no cost recipe, production rate or costing path reads
+  either key for drywall; nothing anywhere read `ceilingHeight` on a drywall
+  group. md5 of the drywall payloads (new group, resize sync, every repair item,
+  the saved payload; `drywall_install` too) identical to origin/main b75c8639.
+- A stored group keeps its answers in `intakeValues`; the box just stops being
+  asked. A company template line keyed to `squareFootage` added into a NEW
+  drywall repair group now asks for its quantity instead of filling it.
+- Checks: `check:drywall-finish-levels` section K (1573 passed).
+
+---
+
 ## Privacy policy: the Google user data section (3 October 2026)
 
 For Google OAuth verification. `/privacy` Section 9 "Google user data" says,

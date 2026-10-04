@@ -763,7 +763,7 @@ export const ARTICLES = {
     title: "Types de soumission et relevés",
     summary:
       "Réglages → Services et tarifs : les types de soumission que vous activez, les quatre façons dont un type chiffre — relevé, grille d'unités, forfaits ou questions — la grille tarifaire derrière chacun, et les types personnalisés.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Un **type de soumission** est ce que représente une tuile de service dans le générateur : un genre de travail, les questions qu'il pose et la grille tarifaire d'où il tire ses prix. **Réglages → Services et tarifs** est l'endroit où vous activez et désactivez les types, fixez les tarifs et écrivez ce que la soumission dit de chacun. Les tuiles de **Nouvelle soumission** sont exactement les types activés ici.",
       "Certains types chiffrent à partir d'un **relevé** — un formulaire structuré qui mesure le travail et écrit les lignes pour vous. D'autres chiffrent à l'unité, à partir d'un menu de forfaits, ou d'une courte série de questions et d'un tarif forfaitaire.",
@@ -863,6 +863,7 @@ export const ARTICLES = {
       { q: "Un client peut-il voir mes tarifs ?", a: "Jamais. Le formulaire public ne renvoie que les services et les questions ; le relevé, la formule et la grille tarifaire ne sont envoyés à aucune page destinée au client." },
       { q: "Quelle est la différence entre la grille tarifaire et Produits et services ?", a: "La grille tarifaire chiffre la portée principale d'un métier — par porte, par carré, par pied — et écrit les lignes de base. Produits et services contient les extras ponctuels que vous déposez sur n'importe quelle soumission. Voir [[lines-from-your-price-book|Des lignes tirées de votre catalogue de prix]]." },
       { q: "Pourquoi mon métier n'a-t-il pas de grille tarifaire ?", a: "Seuls seize métiers sont livrés avec une grille complète. Les autres prennent ici un seul Tarif par unité et chiffrent leurs lignes à la main ou depuis le catalogue de prix." },
+      { q: "Pourquoi une soumission de gypse ne demande-t-elle ni la superficie ni la hauteur du plafond ?", a: "**Drywall** est le type de soumission pour les réparations : chaque réparation est un article à prix fixe du panneau **Repairs** — petite, moyenne ou grande retouche, remplacement d'une feuille — chiffré depuis votre grille tarifaire, quelle que soit la taille de la pièce. Ces deux questions ne changeaient aucun prix de réparation ; elles ont été retirées (3 octobre 2026). **Drywall Installation** demande toujours la superficie, car les lignes de pose et de finition sont facturées au pied carré." },
     ],
   },
 

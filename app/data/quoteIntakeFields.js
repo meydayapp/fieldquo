@@ -225,9 +225,20 @@ export const INTAKE_FIELDS = {
   // the level on the client's document (lib/documents/serviceContent.js) and
   // puts that level's finishing line on the quote when the price book has a
   // rate for it (lib/quotes/drywallFinishLine.js).
+  //
+  // Plain `drywall` is the REPAIR quote type (owner, 2026-10-03): repairs are
+  // fixed-price items from the repair book — small patch to full sheet,
+  // lib/quotes/drywallRepairs.js — so it no longer asks Square Footage or
+  // Ceiling Height. Neither moved a repair price: a repair line is the book's
+  // rate × 1 whatever the room (check:estimate-kind-routing pins it), the
+  // repair book bills no board so drywallQuantity() writes no line from the
+  // square feet (bookBillsBoard), no cost recipe or production rate reads
+  // either key for this trade, and nothing anywhere read ceilingHeight on a
+  // drywall group. A stored group that answered them keeps its answers in
+  // intakeValues (still read as a measurement by a template line keyed to
+  // squareFootage); the builder just stops asking. drywall_install — where
+  // the square feet ARE the hang and finishing quantity — keeps its box.
   drywall: [
-    { key: "squareFootage", label: "Square Footage", type: "number" },
-    { key: "ceilingHeight", label: "Ceiling Height (ft)", type: "number" },
     FINISH_LEVEL_FIELD,
     { key: "demoExisting", label: "Demo Existing Drywall", type: "boolean" },
   ],

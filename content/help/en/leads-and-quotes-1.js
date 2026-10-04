@@ -767,7 +767,7 @@ export const ARTICLES = {
     title: "Quote types and takeoffs",
     summary:
       "Settings → Services & Pricing: the quote types you turn on, the four ways a type prices — takeoff, unit grid, tiers or questions — the rate card behind each, and custom types.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "A **quote type** is what a service tile in the builder stands for: a kind of work, the questions it asks, and the rate card it prices from. **Settings → Services & Pricing** is where you turn types on and off, set the rates, and write what the quote says about each one. The tiles on **New Quote** are exactly the types that are on here.",
       "Some types price from a **takeoff** — a structured form that measures the job and writes the lines for you. Others price per unit, from a menu of tiers, or from a short set of questions and a flat rate.",
@@ -867,6 +867,7 @@ export const ARTICLES = {
       { q: "Can a client see my rates?", a: "Never. The public form returns services and questions only; the takeoff, the formula and the rate card are not sent to any client-facing page." },
       { q: "What is the difference between a rate card and Products & Services?", a: "The rate card prices the main scope of a trade — per door, per square, per foot — and writes the core lines. Products & Services holds one-off extras you drop on any quote. See [[lines-from-your-price-book|Lines from your price book]]." },
       { q: "Why does my trade have no Rate card?", a: "Only sixteen trades ship a full card. The others take one Rate per unit here and price their lines by hand or from the price book." },
+      { q: "Why does a Drywall quote not ask the square footage or ceiling height?", a: "**Drywall** is the repair quote type: each repair is a fixed-price item from the **Repairs** panel — small patch, medium patch, large patch, sheet replacement — priced from your rate card whatever the size of the room. The two room questions changed no repair price, so they were taken off (3 October 2026). **Drywall Installation** still asks the square footage, because the hang and finishing lines bill by it." },
     ],
   },
 
