@@ -448,5 +448,64 @@ seed();
   ok("owner: reads it", o.status === 200);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. A published SHIFT on a job puts the crew member on it — a draft does not");
+//
+// The live test, 2026-10-04: the scheduler's "Job (optional)" sent Joe to a
+// job on My schedule, and the job page told him it did not exist. A
+// published shift on a job now grants the same access a visit does, from
+// publication until SHIFT_ACCESS_DAYS_AFTER days after it ends
+// (lib/permissions/enforce.js shiftAssignmentWhere). j2 is the job the crew
+// member has NO visit on; each case below puts a different shift on it.
+const DAY = 86400000;
+function seedShift(over = {}) {
+  seed();
+  const job2 = tables.job.find((j) => j.id === "j2");
+  const shift = {
+    id: "s1", companyId: "co1", workerId: "w_crew", jobId: "j2", published: true,
+    start: new Date(Date.now() + 2 * DAY), end: new Date(Date.now() + 2 * DAY + 8 * 3600000),
+    worker: tables.worker[0], ...over,
+  };
+  job2.shifts = [shift];
+  tables.shift = [{ ...shift, job: job2 }];
+  return shift;
+}
+seedShift();
+{
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
+  ok("crew: a published shift on j2 opens the job page (200)", page.status === 200, `status ${page.status}`);
+  ok("…with no money and no contact details, exactly as via a visit", moneyIn(page.json).length === 0 && contactIn(page.json).length === 0, [...moneyIn(page.json), ...contactIn(page.json)].join(", "));
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
+  ok("crew: …and its work order (200), with no money key", wo.status === 200 && wo.json?.workOrder && findWorkOrderMoneyKey(wo.json.workOrder) === null, `status ${wo.status}`);
+  const list = await call(JOBS, "GET", { as: "crew", url: "http://test.local/api/jobs" });
+  ok("crew: the job list now holds both jobs", (list.json || []).map((j) => j.id).sort().join(",") === "j1,j2");
+  const cl = await call(CLIENT, "GET", { as: "crew", params: { id: "c2" } });
+  ok("crew: the shift job's household opens — name and address, no contact", cl.status === 200 && cl.json?.name === "Jean Roy" && contactIn(cl.json).length === 0);
+  const t = await call(TIME, "POST", { as: "crew", body: { workerId: "w_crew", jobId: "j2" } });
+  ok("crew: hours may be booked to it (not 404)", t.status !== 404, `status ${t.status}`);
+  const e = await call(EXPENSES, "POST", { as: "crew", body: { category: "materials", amount: 40, projectId: "j2" } });
+  ok("crew: a receipt may be filed on it", e.status === 200 || e.status === 201, `status ${e.status}`);
+  const quote = await call(QUOTE, "GET", { as: "crew", params: { id: "q1" } });
+  ok("crew: the shift opens the job, never the quote (still 403)", quote.status === 403);
+}
+for (const [label, over] of [
+  ["an UNPUBLISHED draft shift", { published: false }],
+  ["somebody else's shift", { workerId: "w_other", worker: { id: "w_other", companyId: "co1", userId: "u_other", name: "other" } }],
+  ["an open shift (nobody on it)", { workerId: null, worker: null }],
+  ["a shift that ended 15 days ago", { start: new Date(Date.now() - 15 * DAY - 8 * 3600000), end: new Date(Date.now() - 15 * DAY) }],
+]) {
+  seedShift(over);
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
+  ok(`crew: ${label} grants nothing — job is Not found (404)`, page.status === 404, `status ${page.status}`);
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
+  ok(`crew: ${label} — work order Not found too`, wo.status === 404, `status ${wo.status}`);
+  const t = await call(TIME, "POST", { as: "crew", body: { workerId: "w_crew", jobId: "j2" } });
+  ok(`crew: ${label} — no hours on it (404)`, t.status === 404, `status ${t.status}`);
+}
+seedShift({ start: new Date(Date.now() - 13 * DAY - 8 * 3600000), end: new Date(Date.now() - 13 * DAY) });
+ok("crew: a shift that ended 13 days ago still opens the job (late receipts, corrections)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+seedShift({ start: new Date(Date.now() + 30 * DAY), end: new Date(Date.now() + 30 * DAY + 8 * 3600000) });
+ok("crew: a shift published for a month out opens the job now (My schedule links it)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;

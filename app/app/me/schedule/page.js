@@ -21,7 +21,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CalendarPlus, Clock, Loader2, MapPin, TreePalm } from "lucide-react";
+import { AlertTriangle, CalendarPlus, ClipboardList, Clock, ExternalLink, Loader2, MapPin, TreePalm } from "lucide-react";
 import MeShell from "@/app/components/me/MeShell";
 import Avatar, { initialsOf } from "@/app/components/chat/Avatar";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -31,6 +31,7 @@ import { formatTimeOfDay, formatWeekdayDayMonth } from "@/lib/format/localeDate"
 import { localYmd } from "@/lib/shifts/coverage";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { clockOffered } from "@/lib/timeclock/access";
+import { workOrderPath } from "@/lib/workOrder/url";
 
 const DAYS = 14;
 
@@ -250,6 +251,27 @@ function ShiftCard({ shift, coworkers, isToday, now, language, t }) {
             {shift.availabilityOverrideNote ? ` — ${shift.availabilityOverrideNote}` : ""}
           </span>
         </p>
+      )}
+      {/* The job and its work order. Both open for the person on this shift:
+          a published shift on a job grants the job (assignedJobWhere in
+          lib/permissions/enforce.js), from publication until two weeks after
+          it ends — and this screen lists only today onward, so every link it
+          draws is inside that window. */}
+      {shift.job?.id && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Link
+            href={`/app/jobs/${encodeURIComponent(shift.job.id)}`}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <ExternalLink size={15} /> {t("app.mySchedule.openJob")}
+          </Link>
+          <Link
+            href={workOrderPath(shift.job.id)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <ClipboardList size={15} /> {t("app.mySchedule.workOrder")}
+          </Link>
+        </div>
       )}
       {clockOn && isToday && !ended && (
         <Link

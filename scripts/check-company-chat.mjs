@@ -264,6 +264,37 @@ section("2. Job rooms: one per ACTIVE job, membership follows the visits");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("2b. A published SHIFT on a job puts its worker in the room — a draft does not");
+//
+// The live test, 2026-10-04: a shift linked to a job sent the crew member
+// there on My schedule while the job's chat left them out. The room now
+// follows the same two facts assignedJobWhere reads: a visit, or a published
+// shift inside its window (lib/permissions/enforce.js shiftWindowWhere).
+{
+  const DAY = 86400000;
+  const db = seed();
+  db.tables.worker.push({ id: "wCat", companyId: "A", userId: "uCat", name: "Cat Crew" });
+  const shift = { id: "s1", companyId: "A", workerId: "wCat", jobId: "j1", published: false, start: new Date(Date.now() + DAY), end: new Date(Date.now() + DAY + 8 * 3600000) };
+  db.tables.shift.push(shift);
+  await ensureCompanyRooms("A", { client: db });
+  const j1 = roomOf(db, jobRoomKey("j1"));
+  ok("a DRAFT shift does not put Cat in the job room", !memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open));
+  shift.published = true;
+  await syncJobRoom("A", "j1", { client: db });
+  ok("published, it does — Cat is in the room", memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open));
+  ok("…and sees it in her list", JSON.stringify(kinds(await roomsFor(CAT, { client: db }))) === JSON.stringify(["general", "job"]));
+  ok("…and Bob (on the visit) is still in it", memberRows(db, j1.id).some((m) => m.memberId === "mBob" && m.open));
+  shift.start = new Date(Date.now() - 15 * DAY - 8 * 3600000);
+  shift.end = new Date(Date.now() - 15 * DAY);
+  await ensureCompanyRooms("A", { client: db });
+  ok("a shift that ended 15 days ago no longer holds her in it (closed, row kept)", memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open === false));
+  shift.end = new Date(Date.now() + DAY);
+  shift.workerId = null;
+  await ensureCompanyRooms("A", { client: db });
+  ok("an OPEN shift (no worker) puts nobody in", !memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("3. Tenant isolation, executed: company B cannot reach company A");
 
 {
@@ -513,6 +544,7 @@ section("7. The pure rules, driven directly");
   ok("jobRoomMemberIds: office + booked crew, each once, nobody unbooked", JSON.stringify(jobRoomMemberIds({ visits: [{ assignedToId: "ue2" }, { assignedToId: "ue2" }, { assignedToId: null }] }, roster)) === JSON.stringify(["o", "s", "e2"]));
   ok("jobRoomMemberIds with no visits is the office alone", JSON.stringify(jobRoomMemberIds({ visits: [] }, roster)) === JSON.stringify(["o", "s"]));
   ok("jobRoomMemberIds ignores a booked user who is not on the roster", !jobRoomMemberIds({ visits: [{ assignedToId: "stranger" }] }, roster).includes("stranger"));
+  ok("jobRoomMemberIds counts a shift's worker as booked", JSON.stringify(jobRoomMemberIds({ visits: [], shifts: [{ worker: { userId: "ue1" } }, { worker: null }] }, roster)) === JSON.stringify(["o", "s", "e1"]));
   const delta = membershipDelta(["a", "b", "c"], [{ memberId: "a", open: true }, { memberId: "b", open: false }, { memberId: "d", open: true }, { memberId: "e", open: false }]);
   ok("membershipDelta: create the new, reopen the closed, close the departed, leave the rest", JSON.stringify(delta) === JSON.stringify({ create: ["c"], reopen: ["b"], close: ["d"] }), delta);
   const msgs = [
