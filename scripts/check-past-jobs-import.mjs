@@ -27,6 +27,8 @@ import {
   pastJobsCsvTemplate,
   parseYesNo,
   isoDay,
+  recordedFiguresProblems,
+  recordedMarker,
 } from "../lib/jobs/pastJobImport.js";
 
 let passed = 0;
@@ -145,6 +147,54 @@ ok("...while the company's own old numbering is kept", norm({ quoteNumber: "2024
     ok("a CSV with a quoted comma keeps one field",
       quoted.rows?.[0]?.clientName === "Tremblay, Marie", quoted.error || quoted.rows?.[0]?.clientName);
   }
+}
+
+// ── Recorded figures (a past job carried over from another system) ─────────
+//
+// The figures are the source's, never recomputed — so the only defence
+// against a bad source row is this consistency check. Executed against
+// hostile payloads: each must be refused with the code that names it.
+{
+  const day = (s) => new Date(`${s}T00:00:00.000Z`);
+  const lines = (amts) => amts.map((a) => ({ description: "Line", quantity: 1, rate: a, amount: a }));
+  const doc = { lineItems: lines([4200, 0]), subtotal: 4200, discount: 250, tax: 513.5, total: 4463.5, taxEnabled: true };
+  const GOOD_REC = {
+    sourceRef: "truefinish:quote:abc",
+    acceptedAt: day("2026-04-28"),
+    quote: doc,
+    invoice: { ...doc, dueDate: day("2026-05-28") },
+    payments: [
+      { amount: 463.5, method: "cheque", date: day("2026-05-02"), sourceRef: "truefinish:payment:p1" },
+      { amount: 4310, method: "cash", date: day("2026-06-18") },
+    ],
+  };
+  const codes = (r) => recordedFiguresProblems(r, { today: TODAY }).map((p) => `${p.field}:${p.code}`);
+  ok("a consistent recorded payload passes (overpaid, deposit before the job — both as recorded)", codes(GOOD_REC).length === 0, codes(GOOD_REC));
+  ok("an open invoice (no payments) is a valid recorded payload", codes({ ...GOOD_REC, payments: [] }).length === 0);
+  const refused = [
+    ["no payload", null, "recorded:required"],
+    ["a ref with a bracket (would break the marker)", { ...GOOD_REC, sourceRef: "a]b" }, "sourceRef:bad_ref"],
+    ["a blank ref", { ...GOOD_REC, sourceRef: " " }, "sourceRef:bad_ref"],
+    ["a total that is not subtotal − discount + tax", { ...GOOD_REC, invoice: { ...GOOD_REC.invoice, total: 4463.6 } }, "invoice:total_disagrees"],
+    ["lines that do not sum to the subtotal", { ...GOOD_REC, quote: { ...doc, lineItems: lines([4100]) } }, "quote:lines_disagree_with_subtotal"],
+    ["tax charged with tax switched off", { ...GOOD_REC, quote: { ...doc, taxEnabled: false } }, "quote:tax_without_tax_enabled"],
+    ["an unparseable amount", { ...GOOD_REC, quote: { ...doc, subtotal: "abc" } }, "quote:bad_amount"],
+    ["a document with no lines", { ...GOOD_REC, quote: { ...doc, lineItems: [] } }, "quote:no_lines"],
+    ["a payment in the future", { ...GOOD_REC, payments: [{ amount: 1, method: "cash", date: day("2027-01-01") }] }, "payments[0]:future"],
+    ["a zero payment", { ...GOOD_REC, payments: [{ amount: 0, method: "cash", date: day("2026-01-01") }] }, "payments[0]:not_positive"],
+    ["a Stripe payment (FieldQuo never took it)", { ...GOOD_REC, payments: [{ amount: 1, method: "stripe", date: day("2026-01-01") }] }, "payments[0]:unknown_method"],
+    ["a payment dated by a string", { ...GOOD_REC, payments: [{ amount: 1, method: "cash", date: "2026-01-01" }] }, "payments[0]:bad_date"],
+    ["no acceptance date", { ...GOOD_REC, acceptedAt: null }, "acceptedAt:bad_date"],
+  ];
+  for (const [label, payload, code] of refused) ok(`a recorded payload with ${label} is refused`, codes(payload).includes(code), codes(payload));
+  ok("the marker is the bracketed ref", recordedMarker("truefinish:quote:abc") === "[truefinish:quote:abc]");
+
+  const writer = code("lib/jobs/importPastJob.js");
+  ok("the writer checks a recorded payload before opening its transaction",
+    writer.indexOf("recordedFiguresProblems(recorded") > -1 && writer.indexOf("recordedFiguresProblems(recorded") < writer.indexOf("db.$transaction"));
+  ok("...skips a recorded job whose source marker is already on file, under the lock",
+    /costReviewNote: \{ contains: recordedMarker\(recorded\.sourceRef\) \}/.test(writer) && writer.indexOf("recordedMarker(recorded.sourceRef) }") > writer.indexOf("pg_advisory_xact_lock"));
+  ok("...and never resolves tax for one", /const rate = recorded\s*\?\s*0/.test(writer));
 }
 
 // ── Nothing in the writer can send ─────────────────────────────────────────
