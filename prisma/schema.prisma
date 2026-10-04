@@ -19906,16 +19906,19 @@ model AiEmployeeProposal {
 /// Resource material the contractor uploads: the policy, the troubleshooting
 /// guide, the tool manual.
 ///
-/// ── extractedText is the whole record, and that is deliberate ─────────────
+/// ── Two shapes of row, and neither is a promise ──────────────────────────
 ///
-/// There is no `storageKey` pointing at a file we then re-read. FieldQuo has no
-/// PDF or DOCX reader (no dependency in package.json provides one), so the only
-/// formats accepted are ones whose bytes ARE their text — see
-/// lib/aiEmployee/sources.js, which refuses everything else BY NAME rather than
-/// storing a file it cannot read and calling the source "ready". A row here is
-/// therefore text that has actually been read, never a promise to read it
-/// later. `storageKey` exists for the day a real extractor arrives; it is null
-/// on every row written today and nothing reads it, which is why it says so.
+/// A TEXT source (.txt .md .csv, or pasted) keeps its words in extractedText,
+/// read once at upload — the bytes are the text.
+///
+/// A REFERENCE-LIBRARY file (a PDF manual, an .xlsx code list — since
+/// 2026-10-04) is stored privately in Cloudinary (storageKey, purpose
+/// "reference", delivery type "authenticated") and read by unpdf, the same
+/// extractor the drawings deep read uses (lib/planRead/ingest.js). A PDF's
+/// words live one row per page in AiEmployeeSourcePage, so every answer can
+/// cite "p.15"; a page with no text layer (a scan) is stored as UNREAD, never
+/// padded, and the screen says "Read 41 of 42 pages". lib/aiEmployee/sources.js
+/// still refuses by name everything nothing here can read (.doc, .pages, …).
 model AiEmployeeSource {
   id         String     @id @default(cuid())
   companyId  String
@@ -19938,8 +19941,37 @@ model AiEmployeeSource {
   /// showing a row with nothing on it.
   bytes            Int     @default(0)
 
-  /// Reserved. Always null today — see the model header.
+  /// The private Cloudinary URL of a reference-library file (PDF, .xlsx) —
+  /// written by POST /api/ai-employee/sources and read back only through
+  /// lib/planRead/ingest.js fetchOwnPrivateFile (a five-minute signed download
+  /// link) when error codes are extracted. Null for a text source, whose
+  /// bytes were its text and were not kept.
   storageKey String?
+
+  /// SHA-256 of the stored file. "Read scanned pages with AI" renders the
+  /// pages in the browser from the person's own copy, and this is how the
+  /// server knows the file they picked again is the one it read.
+  fileHash String?
+
+  /// Tags the retrieval scores on BEFORE keywords (lib/aiEmployee/sources.js
+  /// selectChunks): the manual for the brand on this client's equipment
+  /// first. Free text the company typed; null means "not tagged", never
+  /// "applies to everything".
+  trade        String?
+  brand        String?
+  /// A model number or the start of one ("WF45", "GM9S96"). Matched as a
+  /// case-insensitive prefix against ClientEquipment.modelNumber.
+  modelPattern String?
+  /// What kind of equipment it covers — "furnace", "washer", "water heater".
+  category     String?
+
+  /// A PDF's page count, and how many pages have text (from the PDF's own
+  /// text layer or read by AI). Null for a text source.
+  pageCount Int?
+  pagesRead Int?
+  /// [n, …] — the page numbers with no text yet (scanned images). Empty or
+  /// null when every page was read.
+  unreadPages Json?
 
   /// The text the model may actually be given. Null when status is not
   /// "ready", and null is never padded with the filename or a placeholder: a
@@ -19951,10 +19983,12 @@ model AiEmployeeSource {
   /// context it fills" line. An estimate, and labelled as one.
   tokenCount Int @default(0)
 
-  /// "processing" | "ready" | "failed". Extraction is synchronous today, so a
-  /// row is written already ready or already failed; "processing" exists
-  /// because the honest answer to "did this work?" must never be inferred
-  /// from the absence of text.
+  /// "processing" | "ready" | "partial" | "failed". Extraction is synchronous,
+  /// so a row is written already ready, partial or failed; "processing"
+  /// exists because the honest answer to "did this work?" must never be
+  /// inferred from the absence of text. "partial" is a PDF with some pages
+  /// read and some not (scans) — the read pages are used, and the screen
+  /// says how many.
   status String @default("processing")
 
   /// A KEY from lib/aiEmployee/sources.js, not a sentence — the screen
@@ -19964,8 +19998,90 @@ model AiEmployeeSource {
 
   createdAt DateTime @default(now())
 
+  pages AiEmployeeSourcePage[]
+  codes ReferenceCode[]
+
   @@index([companyId, employeeId])
   @@index([employeeId, status])
+}
+
+/// One page of a reference-library PDF (AiEmployeeSource), so an answer can
+/// cite the page it came from.
+///
+/// `text` null with `method` null is a page that has NOT been read — a scan
+/// with no text layer. It is never filled with a placeholder; "Read scanned
+/// pages with AI" (app/api/ai-employee/sources/[id]/ocr, metered to the
+/// company's AI credit) is the only thing that fills it, with method "ocr".
+///
+/// companyId is a plain, indexed String — the tenant fence every read puts in
+/// its WHERE — rather than a relation onto the busy Company model.
+model AiEmployeeSourcePage {
+  id        String           @id @default(cuid())
+  companyId String
+  sourceId  String
+  source    AiEmployeeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// 1-based, the PDF's own page order.
+  page      Int
+  text      String?          @db.Text
+  /// "text" (the PDF's own text layer) | "ocr" (read by AI from the page
+  /// image) | null (not read).
+  method    String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([sourceId, page])
+  @@index([companyId, sourceId])
+}
+
+/// An error code a company's OWN manual explains — extracted by "Extract
+/// error codes" (app/api/ai-employee/sources/[id]/codes, metered to the
+/// company's AI credit) from a reference-library PDF, with the page it came
+/// from.
+///
+/// FieldQuo's own curated codes are NOT rows here: they are code, versioned
+/// and checked (lib/aiEmployee/knowledge/codes/fieldquo.js). A company's row
+/// for the same brand and code wins over FieldQuo's in look_up_error_code.
+///
+/// reviewedAt null is "extracted — unreviewed": the assistant may use it only
+/// while naming the manual and page out loud. rejectedAt set means the owner
+/// said "don't use this one"; it is kept (no data deletion), never read by
+/// the lookup.
+model ReferenceCode {
+  id        String           @id @default(cuid())
+  companyId String
+  sourceId  String
+  source    AiEmployeeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  page      Int?
+
+  trade       String?
+  category    String?
+  brand       String
+  /// lib/aiEmployee/errorCodes.js brandKey(brand) — lowercase letters and
+  /// digits only — so "Bradford-White" and "bradford white" are one brand.
+  brandKey    String
+  modelFamily String?
+  /// The code as the manual prints it ("E1 / E2", "4 flashes").
+  code        String
+  /// Every spelling a homeowner might type, normalised by codeKey(): upper
+  /// case, no spaces, dashes or dots. Matched with hasSome.
+  codeKeys    String[]
+  meaning     String
+  /// string[] — what a homeowner may safely do. Never behind a panel.
+  safeSteps   Json?
+  /// string[] — when to stop and hand off.
+  stopSigns   Json?
+  /// "emergency" | "urgent" | "routine"
+  urgency     String           @default("routine")
+  language    String?
+
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+  rejectedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([companyId, brandKey])
+  @@index([sourceId])
 }
 
 /// Every reply the employee wrote, sent or not, with what it cost.

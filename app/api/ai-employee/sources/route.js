@@ -14,15 +14,30 @@
 // and a file we would then have to fetch back and parse on every reply.
 //
 // The formats FieldQuo can honestly read are the ones whose bytes are their
-// text — lib/aiEmployee/sources.js draws that line and says why. A PDF is
-// REFUSED BY NAME, with the reason stored on the row and printed on the
-// screen, rather than accepted and quietly not read.
+// text — lib/aiEmployee/sources.js draws that line and says why.
+//
+// ══ …and, since 2026-10-04, the REFERENCE LIBRARY ═════════════════════════
+//
+// A PDF manual or an .xlsx code list is the one case where a stored file IS
+// the right shape: it is read page by page, it has pages to cite, and
+// "Extract error codes" and "Read scanned pages with AI" come back to it. So
+// it does NOT come through this route's body (Vercel refuses a body over
+// ~4.5 MB, and a manual is often bigger): the browser uploads it straight to
+// private storage (lib/media/uploadClient.js, purpose "reference") and then
+// POSTs { file: { url, … }, title, kind, tags } here. This route reads it
+// back through a five-minute signed link, extracts every page with the
+// drawing read's own reader (lib/aiEmployee/reference.js →
+// lib/planRead/ingest.js), and writes the source and its pages together.
+// A page it could not read is stored UNREAD and counted on the screen.
 export const runtime = "nodejs";
+// A 400-page manual is read page by page in this request.
+export const maxDuration = 120;
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { cloudinary } from "@/lib/cloudinary";
 import {
   MAX_SOURCE_BYTES,
   SOURCE_KINDS,
@@ -30,6 +45,20 @@ import {
   estimateTokens,
   extractText,
 } from "@/lib/aiEmployee/sources";
+import {
+  referenceKindFor,
+  isOwnReferenceUrl,
+  readReferenceFile,
+  cleanTags,
+  sha256,
+  ocrEstimateCents,
+  codeExtractEstimateCents,
+  codeTableCandidates,
+  REFERENCE_FOLDER,
+} from "@/lib/aiEmployee/reference";
+import { unreadOf } from "@/lib/aiEmployee/referencePages";
+import { fetchOwnPrivateFile } from "@/lib/planRead/ingest";
+import { PLAN_DOCUMENT_MAX_BYTES } from "@/lib/media/validate";
 
 async function admin(request, { allowSupportToLook = false } = {}) {
   const { member, response } = await memberOrRefusal(request);
@@ -51,9 +80,13 @@ async function admin(request, { allowSupportToLook = false } = {}) {
   return { member };
 }
 
-/** Never returns extractedText. A settings list does not need the document,
- *  and shipping a whole manual into a browser to render a row is waste. */
-function publicSource(row) {
+/** Never returns extractedText, the pages or the stored URL. A settings list
+ *  does not need the document, and shipping a whole manual into a browser
+ *  to render a row is waste. `extras` carries what only the list knows: the
+ *  prices of the two paid actions, computed here so the button shows the
+ *  same number the server will hold itself to. */
+function publicSource(row, extras = {}) {
+  const unread = unreadOf(row);
   return {
     id: row.id,
     kind: row.kind,
@@ -65,8 +98,27 @@ function publicSource(row) {
     // An i18n KEY, translated by the screen — see the schema note.
     failureReason: row.failureReason,
     createdAt: row.createdAt,
+    // The reference library (null on a text source).
+    stored: Boolean(row.storageKey),
+    // The hash of the company's own file — the browser checks a re-picked
+    // PDF against it before rendering a single page for "Read scanned pages".
+    fileHash: row.fileHash || null,
+    pageCount: row.pageCount ?? null,
+    pagesRead: row.pagesRead ?? null,
+    unreadPages: unread,
+    tags: { trade: row.trade || null, brand: row.brand || null, modelPattern: row.modelPattern || null, category: row.category || null },
+    ocrEstimateCents: unread.length ? ocrEstimateCents(unread.length) : 0,
+    codeExtractEstimateCents: extras.codeExtractEstimateCents ?? 0,
+    codeCount: extras.codeCount ?? 0,
   };
 }
+
+/** The columns publicSource reads — the list never selects the text. */
+const LIST_SELECT = {
+  id: true, kind: true, title: true, originalFilename: true, bytes: true, tokenCount: true, status: true,
+  failureReason: true, createdAt: true, storageKey: true, fileHash: true, pageCount: true, pagesRead: true, unreadPages: true,
+  trade: true, brand: true, modelPattern: true, category: true,
+};
 
 /**
  * The row material is filed under. A company may have several employees now
@@ -91,9 +143,132 @@ export async function GET(request) {
     // creates the default row the POST will file under.
     where: { companyId: member.companyId },
     orderBy: { createdAt: "desc" },
+    select: LIST_SELECT,
   });
 
-  return NextResponse.json({ sources: rows.map(publicSource) });
+  // The extraction price is computed from the SAME candidate pages the
+  // extraction will read (lib/aiEmployee/errorCodes.js codeTableCandidates),
+  // so the button and the charge cannot disagree. PDFs only.
+  const pdfIds = rows.filter((r) => Number(r.pageCount) > 0).map((r) => r.id);
+  const [pages, counts] = await Promise.all([
+    pdfIds.length
+      ? db.aiEmployeeSourcePage.findMany({
+          where: { companyId: member.companyId, sourceId: { in: pdfIds }, text: { not: null } },
+          select: { sourceId: true, page: true, text: true },
+        })
+      : [],
+    pdfIds.length
+      ? db.referenceCode.groupBy({ by: ["sourceId"], where: { companyId: member.companyId, sourceId: { in: pdfIds }, rejectedAt: null }, _count: { _all: true } })
+      : [],
+  ]);
+  const bySource = new Map();
+  for (const p of pages) {
+    if (!bySource.has(p.sourceId)) bySource.set(p.sourceId, []);
+    bySource.get(p.sourceId).push(p);
+  }
+  const codeCount = new Map(counts.map((c) => [c.sourceId, c._count?._all || 0]));
+
+  return NextResponse.json({
+    sources: rows.map((r) =>
+      publicSource(r, {
+        codeExtractEstimateCents: bySource.has(r.id) ? codeExtractEstimateCents(codeTableCandidates(bySource.get(r.id))) : 0,
+        codeCount: codeCount.get(r.id) || 0,
+      }),
+    ),
+  });
+}
+
+/**
+ * A reference-library file the browser already put in private storage:
+ * read it back, extract it, write the source and its pages together.
+ */
+async function addReferenceFile({ member, employee, body }) {
+  const file = body?.file && typeof body.file === "object" ? body.file : {};
+  const url = typeof file.url === "string" ? file.url : "";
+  const filename = typeof file.filename === "string" ? file.filename.slice(0, 200) : null;
+  const mimeType = typeof file.mimeType === "string" ? file.mimeType.slice(0, 120) : null;
+  const kindOfFile = referenceKindFor(mimeType, filename || url);
+  // The tenant fence for a URL a browser relayed: this company's private
+  // reference folder, or nothing.
+  if (!kindOfFile || !isOwnReferenceUrl(url, { companyId: member.companyId })) {
+    return NextResponse.json({ error: "That file hasn't been uploaded yet. Pick it again — files are stored through FieldQuo's own uploader." }, { status: 400 });
+  }
+  const title = (String(body?.title || "").trim() || filename || "Manual").slice(0, 200);
+  const kind = SOURCE_KINDS.includes(body?.kind) ? body.kind : kindOfFile === "pdf" ? "manual" : "other";
+  const tags = cleanTags(body?.tags || {});
+  const base = {
+    companyId: member.companyId,
+    employeeId: employee.id,
+    kind,
+    title,
+    originalFilename: filename,
+    mimeType,
+    bytes: Math.max(0, Math.min(2_000_000_000, Math.round(Number(file.bytes) || 0))),
+    storageKey: url,
+    ...tags,
+  };
+
+  const configured = Boolean(process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+  const fetched = await fetchOwnPrivateFile(url, {
+    companyId: member.companyId,
+    folder: REFERENCE_FOLDER,
+    maxBytes: PLAN_DOCUMENT_MAX_BYTES,
+    sign: configured ? (publicId, format, options) => cloudinary.utils.private_download_url(publicId, format, options) : null,
+  });
+  if (!fetched.ok) {
+    // RECORDED, like every refusal on this screen: the upload arrived and
+    // could not be read back, and the row says so.
+    const row = await db.aiEmployeeSource.create({
+      data: { ...base, status: "failed", failureReason: fetched.reason === "too_large" ? "app.aiEmployee.source.failed.fileTooLarge" : "app.aiEmployee.source.failed.storage" },
+      select: LIST_SELECT,
+    });
+    return NextResponse.json({ source: publicSource(row) }, { status: 201 });
+  }
+
+  const read = await readReferenceFile(fetched.buffer, kindOfFile);
+  const fileHash = sha256(fetched.buffer);
+  if (!read.ok) {
+    const row = await db.aiEmployeeSource.create({
+      data: { ...base, fileHash, status: "failed", failureReason: read.reason },
+      select: LIST_SELECT,
+    });
+    return NextResponse.json({ source: publicSource(row) }, { status: 201 });
+  }
+
+  if (read.kind !== "pdf") {
+    const row = await db.aiEmployeeSource.create({
+      data: { ...base, fileHash, status: "ready", extractedText: read.text, tokenCount: read.tokenCount },
+      select: LIST_SELECT,
+    });
+    return NextResponse.json({ source: publicSource(row) }, { status: 201 });
+  }
+
+  const { summary } = read;
+  const textChars = read.pages.reduce((n, p) => n + (p.text ? p.text.length : 0), 0);
+  // The source and every page in ONE transaction: a manual is never
+  // half-written, and never "ready" with no pages behind it.
+  const row = await db.$transaction(async (tx) => {
+    const created = await tx.aiEmployeeSource.create({
+      data: {
+        ...base,
+        fileHash,
+        status: summary.status,
+        failureReason: summary.failureReason,
+        pageCount: summary.pageCount,
+        pagesRead: summary.pagesRead,
+        unreadPages: summary.unreadPages,
+        // The same chars/4 estimate a text source carries (sources.js
+        // estimateTokens) — of the pages that were READ, so a scan adds none.
+        tokenCount: Math.ceil(textChars / 4),
+      },
+      select: LIST_SELECT,
+    });
+    await tx.aiEmployeeSourcePage.createMany({
+      data: read.pages.map((p) => ({ companyId: member.companyId, sourceId: created.id, page: p.page, text: p.text, method: p.method })),
+    });
+    return created;
+  }, { timeout: 60_000 });
+  return NextResponse.json({ source: publicSource(row), skippedPages: summary.skippedPages }, { status: 201 });
 }
 
 export async function POST(request) {
@@ -148,6 +323,8 @@ export async function POST(request) {
     raw = new Uint8Array(await file.arrayBuffer());
   } else {
     const body = await request.json().catch(() => ({}));
+    // A file the browser put in private storage — the reference library.
+    if (body?.file) return addReferenceFile({ member, employee, body });
     const text = typeof body.text === "string" ? body.text : "";
     if (!text.trim()) {
       return NextResponse.json({ error: "Paste something first." }, { status: 400 });

@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 344; “Only in FieldQuo”: 34._
+_Generated 2026-10-04 — 347 articles in the tree; written: en 347, fr 347, es 347; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -318,7 +318,7 @@ _Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 
 | `influencer-programme` — Influencer programme | ✓ | ✓ | ✓ | influencer | referrals |  |
 | `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
-### messages (21)
+### messages (24)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -343,6 +343,9 @@ _Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 
 | `fetch-older-facebook-and-instagram-history` — Fetch older Facebook and Instagram history | ✓ | ✓ | ✓ |  | page_messaging |  |
 | `photos-and-videos-from-facebook-and-instagram` — Photos and videos from Facebook and Instagram | ✓ | ✓ | ✓ |  | page_messaging |  |
 | `facebook-leads-checked-against-your-records` — Facebook leads checked against your records | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `ai-employee-reference-library` — The AI employee's reference library: the manuals it reads | ✓ | ✓ | ✓ |  | ai_employee |  |
+| `ai-employee-error-codes` — Error codes: what the AI employee says when a display shows one | ✓ | ✓ | ✓ |  | ai_employee |  |
+| `how-ai-employee-troubleshooting-works` — How AI troubleshooting works: from a code to a callback | ✓ | ✓ | ✓ |  | ai_employee |  |
 
 ### mobile-and-crew (17)
 

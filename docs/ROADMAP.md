@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive, NOT applied — apply the SQL there BEFORE deploying.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
 Last updated: 3 October 2026 (email templates in the client's language — the owner: "starter email templates … in various language that matches the client's language … if each email created costs more than 5 cents for translation … we might charge the company". (1) Starters are hand-written in all eight document languages and created in the COMPANY's language: the six starter emails + subjects + new-block placeholders (lib/i18n/emailStarterCopy.js; English byte-identical, md5-pinned) and the four starter funnels, the blank funnel and the AI funnel generator (lib/i18n/funnelStarterCopy.js, written in funnelPageLanguage; budget figures grouped per language). DocumentTemplate.language now records the language an ordinary email template is WRITTEN in ("Written in" in the editor). (2) A company's own follow-up/campaign template gets a "Translations" panel: per language Translate / Review-Edit / Update / Regenerate / Write it yourself; drafted once per template version per language via lib/ai/provider.js (only changed lines on Update), stored in the new TemplateTranslation table, never used until a person presses Approve & use, never redrafted at send time. Sends (campaign route, follow-up cron) use the approved, current translation for the reader's language (document language first, non-negotiable 6) else the original — never held up. {{tokens}}, HTML, links, emails and amounts are hidden behind ⟦n⟧ markers before the model sees the text; a reply that drops/doubles/alters/adds one is refused line by line and left empty. (3) Money: lib/ai/emailTranslationMeter.js — AI credit when the company has it (cost × 2, ≥ 1¢, kind email_translation), otherwise FieldQuo absorbs while a version's estimate ≤ 5¢ and the company's absorbed month ≤ $1.00 (MONTHLY_ABSORB_CAP_MICROS), else "needs AI credit"; measured cost (cached prompt at 10%) stored on the row and shown in the panel; /platform/ai-billing switch "email_translation". Estimated 0.09–0.18¢ per 150–300-word email per language on the standard model. NOT YET LIVE until the TemplateTranslation SQL is applied — until then the panel hides itself (GET answers ready:false) and sends go out in the original (translationsForSend never throws); the starters in the company language work without it. check:email-template-translation (196 checks).)
@@ -83,6 +84,143 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## AI employee knowledge, phase 1 (4 October 2026)
+
+The owner approved the direction in the research plan (AI employee knowledge +
+urgent escalation, 2026-10-04): phase 1 + the reference library + the
+error-code lookup. **Not built, waiting on owner decisions:** the urgent-SMS
+escalation (on-call list, texting — cost-increasing), any change to the
+emergency rule (`lib/ai/crisisRule.js`, untouched: water ≠ 911, leave-first
+for gas/CO), whether the troubleshooter may walk someone through a vetted
+first action during a leak (its SAFETY line is unchanged, so an URGENT code is
+a hand-off, not a walk-through), web-chat client matching by typed phone
+(only threads already tied to a client get the card), the per-trade knowledge
+packs, and the FieldQuo default manual library (counsel's one-line review).
+
+### What shipped (not deployed — unpushed branch)
+
+- **Quick fixes.** `book_callback` sets `LeadRequest.callbackRequestedAt` (the
+  column the board's Callback badge reads — AI callbacks had no badge) and an
+  `urgency` (routine/urgent) stored in `intake.callbackUrgency`; the badge says
+  "Call back requested through your AI assistant", red with **Urgent** when
+  urgent. On a thread tied to a known client (`MessageThread.clientId`) it
+  opens a **ClientTicket** instead of a lead, through the one creator
+  (`openTicket`, which gained a server-only `priority`): type warranty when the
+  record's warranty date hasn't passed, else repair; linked to the install
+  job; the note carries what was tried. Name/phone are no longer required — a
+  known client's come from the record, an SMS thread's number from the thread.
+  Approved proposals now carry their thread too. The stale "no PDF reader"
+  header in `lib/aiEmployee/sources.js` (and the schema comment) is rewritten.
+- **The playbook** — `lib/aiEmployee/playbook.js`, ~470 tokens in FieldQuo's
+  own words, in every role's prompt after WHAT YOU NEVER DO and before the
+  first per-thread block (cached prefix). `check:closer-technique` pins
+  re-taken deliberately: closer and custom still equal the old pins with the
+  playbook removed; receptionist and troubleshooter re-pinned (their
+  instructions were rewritten).
+- **Reference library** (Settings › AI employee — the card is now "Reference
+  library"; `app/components/aiEmployee/ReferenceLibrary.js`). PDFs and .xlsx go
+  browser → Cloudinary PRIVATE (purpose `reference`, "authenticated"), read
+  back by the server through a 5-minute signed link
+  (`lib/planRead/ingest.js fetchOwnPrivateFile`) and extracted with the SAME
+  unpdf opener the drawing read uses (`openPdf` → `pdfSheets` /
+  `pdfPageTexts`). One `AiEmployeeSourcePage` row per page; unread (scanned)
+  pages stored unread and named ("Couldn't read pages 12–14 (scanned)");
+  status ready / partial / failed-by-name (scanned, password, unreadable); 400
+  pages max. "Read scanned pages with AI — about N credits": pages rendered in
+  the browser from the person's own copy (SHA-256 checked), posted 4 at a time,
+  read on the standard model via `complete()` (new `imageData` input — inline
+  JPEG/PNG, same image cap), metered `reference_ocr` to the company's AI
+  credit. Tags (brand, model pattern, equipment, trade) — retrieval order:
+  manual for this client's equipment → company uploads named by the message →
+  (FieldQuo's codes via the tool); same 8,000-char budget; chunks carry their
+  page and the prompt cites "p.15". "Open the file" signs a 5-minute link.
+- **Error codes** — `look_up_error_code` (troubleshooter + receptionist): the
+  company's extracted rows (reviewed, then unreviewed with the page said out
+  loud) before FieldQuo's own table (`lib/aiEmployee/knowledge/codes/
+  fieldquo.js`, 34 rows / 10 brands from the research sample, paraphrased,
+  every row cited; InSinkErator left out — a symptom, not a code). Brand from
+  the client's equipment when unsaid; 0 rows → "not in our references", never a
+  guess. "Extract error codes — about 3 credits" (`reference_code_extract`,
+  needs the brand tag) writes UNREVIEWED rows with pages; the owner marks them
+  Looks right / Edit / Don't use (kept) / Use again.
+- **Installed-equipment card** (`lib/aiEmployee/clientContext.js`) —
+  troubleshooter only, threads tied to a client: make, model, serial (marked
+  never to be said), install date, warranty (null = "not on file"), last two
+  services, install job, last completed job. Explicit selects; never money.
+- **Close the loop** — after a turn that logged a routine attempt
+  (`log_troubleshooting`, the record lives on `AiEmployeeReply.toolsUsed`) the
+  responder appends "If the problem persists, send us another message and
+  we'll book a call with one of our techs" in the client's language (9).
+  When they write back on a thread at its cap, ONE more reply is allowed and
+  it may only book the callback or hand off (`decide.js`; cap 0 still wins).
+- Help: `ai-employee-reference-library`, `ai-employee-error-codes`,
+  `how-ai-employee-troubleshooting-works` (en/fr/es); the two existing AI
+  employee articles corrected (they quoted "we cannot read a PDF yet").
+
+### Costs (cost-increasing items are all opt-in, priced before the click)
+
+- Playbook: ~470 input tokens per model round on gpt-5.5 — $0.0024 uncached,
+  $0.00024 cached; × the company's ×2 wallet multiplier.
+- Error-code lookup: ≤ 3 rows (~300 tokens) only on a turn that mentions a code.
+- Text PDFs: free (unpdf in code; 7 real manuals read in 0.02–0.8 s each).
+- Scanned pages: about 2 credits for 1 page, 28 for 60, 133 for 300 (ceiling
+  incl. 25% headroom; standard model, high detail). Code extraction: ~3 credits
+  per manual. Storage: private Cloudinary raw files, 1–6 MB per manual.
+
+### Schema (additive — NOT applied; apply BEFORE deploying: the reply path and
+### the settings list select the new columns)
+
+```sql
+ALTER TABLE "AiEmployeeSource" ADD COLUMN "brand" TEXT, ADD COLUMN "category" TEXT,
+  ADD COLUMN "fileHash" TEXT, ADD COLUMN "modelPattern" TEXT, ADD COLUMN "pageCount" INTEGER,
+  ADD COLUMN "pagesRead" INTEGER, ADD COLUMN "trade" TEXT, ADD COLUMN "unreadPages" JSONB;
+CREATE TABLE "AiEmployeeSourcePage" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL,
+  "sourceId" TEXT NOT NULL, "page" INTEGER NOT NULL, "text" TEXT, "method" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "AiEmployeeSourcePage_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ReferenceCode" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "sourceId" TEXT NOT NULL,
+  "page" INTEGER, "trade" TEXT, "category" TEXT, "brand" TEXT NOT NULL, "brandKey" TEXT NOT NULL,
+  "modelFamily" TEXT, "code" TEXT NOT NULL, "codeKeys" TEXT[], "meaning" TEXT NOT NULL,
+  "safeSteps" JSONB, "stopSigns" JSONB, "urgency" TEXT NOT NULL DEFAULT 'routine', "language" TEXT,
+  "reviewedAt" TIMESTAMP(3), "reviewedByUserId" TEXT, "rejectedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "ReferenceCode_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "AiEmployeeSourcePage_companyId_sourceId_idx" ON "AiEmployeeSourcePage"("companyId", "sourceId");
+CREATE UNIQUE INDEX "AiEmployeeSourcePage_sourceId_page_key" ON "AiEmployeeSourcePage"("sourceId", "page");
+CREATE INDEX "ReferenceCode_companyId_brandKey_idx" ON "ReferenceCode"("companyId", "brandKey");
+CREATE INDEX "ReferenceCode_sourceId_idx" ON "ReferenceCode"("sourceId");
+ALTER TABLE "AiEmployeeSourcePage" ADD CONSTRAINT "AiEmployeeSourcePage_sourceId_fkey" FOREIGN KEY ("sourceId") REFERENCES "AiEmployeeSource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReferenceCode" ADD CONSTRAINT "ReferenceCode_sourceId_fkey" FOREIGN KEY ("sourceId") REFERENCES "AiEmployeeSource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+### Checks
+
+`check:ai-employee` (the whole flow executed through the real responder:
+card, lookup from the record's brand, close-the-loop in Spanish, one reply past
+the cap with only callback/hand-off, a warranty ticket linked to the install
+job, a third message silenced), `check:reference-library` (byte-built PDFs:
+text, scanned, half-scanned, 300 and 450 pages, password-protected, garbage;
+private-URL fence; OCR batch validation and a scripted paid run; retrieval
+order and budget; the card never carries money or another tenant's rows; nine
+languages), `check:error-codes` (every row sourced and panel-free; codes typed
+every way; OE Samsung ≠ OE LG; unknown brand; company rows win, rejected never
+used, tenant fence; extraction junk; scripted paid run), plus the re-pinned
+`check:closer-technique`, `check:handling-timeline`, `check:direct-upload`,
+`check:app-catalogue`, `check:help-centre`, `check:interconnections`.
+
+### Owed
+
+- Apply the SQL above, then deploy. Then, on a real company: upload one text
+  PDF and one scanned PDF, press "Read scanned pages with AI" once (confirms
+  Cloudinary's private download link answers a server GET, and the vendor
+  accepts inline page images), and "Extract error codes" once.
+- Owner decisions listed at the top of this section.
+- A trade technician's review of the 34 FieldQuo code rows, and their
+  translation (English only today; the tool says "FieldQuo reference").
+- Re-running "Extract error codes" re-reads the same top pages (max 20 /
+  40,000 characters); a long code manual (Rinnai: 19 candidate pages) fits, a
+  longer one would need a "next pages" pass.
 
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 

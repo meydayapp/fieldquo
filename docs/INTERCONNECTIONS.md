@@ -206,7 +206,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 328 models.
+it cannot drift from the code. 330 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -241,14 +241,15 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>328 models — expand</summary>
+<details><summary>330 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
 | `AiCreditBundle` | — | Company |
 | `AiEmployee` | — | AiEmployeeProposal, AiEmployeeSource |
 | `AiEmployeeProposal` | AiEmployee | — |
-| `AiEmployeeSource` | AiEmployee | — |
+| `AiEmployeeSource` | AiEmployee | AiEmployeeSourcePage, ReferenceCode |
+| `AiEmployeeSourcePage` | AiEmployeeSource | — |
 | `Appointment` | Booking, Client, Invoice, Job, Quote | Booking |
 | `Asset` | Debt | AssetDocument, AssetUseLog, Expense |
 | `AssetDocument` | Asset | — |
@@ -389,6 +390,7 @@ tenancy, so it carries no information.
 | `QuotePlanOffer` | Quote, ServicePlanTemplate | — |
 | `QuoteScopeGroup` | Quote, ServiceCategory | — |
 | `Receipt` | — | Expense |
+| `ReferenceCode` | AiEmployeeSource | — |
 | `ReferralLink` | Client | — |
 | `SafetyIncident` | Job, Member, Worker | JobPhoto |
 | `Salary` | Worker | — |
