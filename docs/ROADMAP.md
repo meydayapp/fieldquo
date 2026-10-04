@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per currency and never summed — owner decision; the sales funnel counts a started card-free trial as "signup completed"; "End trial now" explains itself on a card-free trial; WhatsApp names Meta's App Review as the blocker; the signup help article matches /welcome; the dashboard counts "viewed, no answer"; Presentation's Google reviews link is gated; the handyman new-services release — see "Audit loose ends" below)
 Last updated: 3 October 2026 (phone usage at cost × 2 — the owner's rule. Every crew text and every business-number text and call is charged its FLOOR at once (2¢/segment, 5¢/photo, 5¢/call-minute — lib/phoneUsage/pricing.js now owns these; crew and business-number meters re-export them) and queued (PhoneUsageCharge); the hourly /api/cron/business-numbers reads Twilio's price off the message / call (all legs) and debits the difference to max(floor, price × 2) under `<ref>:settle`, once. Each settled price is an observation per class (sms/mms in/out per CA/US/INTL, call_forward, call_bridge); a new unit price seen 5× in a class that already had one is a change → PlatformErrorLog "twilio_price_change", and if it RAISES what companies pay, a PhonePriceChange → an owners/admins-only banner (our new price + date, never the carrier/cost/multiple; not demos, not crew; dismissed per user). /platform/costs shows "Phone costs vs what we charge" with anything under 2× in red. Companies never see the multiple: Settings → Business number, the crew-rate lines and the help articles say only our minimum prices ("Texts from 2¢ each, photos from 5¢, calls from 5¢ a minute. Some carriers are priced higher."), and check:phone-usage scans every catalogue, help module and those screens for ×2 / cost / Twilio / markup / double; "× 2" appears only on /platform. Tables applied by SQL: PhoneUsageCharge, PhoneCostTier, PhonePriceChange — scripts/check-phone-usage.mjs)
 Last updated: 3 October 2026 (researched market defaults for the exterior door / window frame / trim boards / shutters, a stain-finish add-on on cabinet refinishing, cabinets COUNTED for a painter without the cabinet trade, Siding & trim and Trim boards exclusive per area, drywall repairs as fixed-price items from the now-live repair book, "Wall area" on the legacy room box, and ceilings by area on the instant room picker — see "Researched defaults, counted cabinets, trim once, drywall repairs, wall area" below)
 
@@ -75,6 +76,26 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Audit loose ends (3 October 2026)
+
+A read-only audit against origin/main found ten loose ends; each is its own commit.
+
+- **/platform revenue, per currency** (owner decision 2026-10-03: "relevant based on the stripe currency set by the company"). `lib/platform/metricFormat.js` closes the open question it carried: one company's figure is written in its own currency (`moneyIn`, `money(v, { currency })`), a total across companies is `sumByCurrency` → `moneyByCurrency` ("USD 468.00 · CAD 268.00"), never one number; no converted figure is printed (if one is ever added it must say converted and show the ExchangeRate date). `buildRevenueOutlook` returns `byCurrency`; its whole-book scalars are null once the book holds two currencies. Home tiles, the blocked banner, /platform/billing/subscriptions, company detail/history, the tenant board's trade table, the company comparison (money median only against same-currency companies) and the CSV reports follow; the overview's unread mixed sums (totalBilled/quotedValue/invoicedValue) are gone, and the companies CSV's "Monthly" (which exported NaN — price never selected) now has its price and a Currency column. `check:platform-truth` has a mixed CAD/USD/AUD section.
+- **Sales funnel**: "Signup completed" is `hasFinishedSignup()` — a Subscription row OR the card-free trial — so rep signups stop reading as abandoned; firstPayment and retained still key on the real subscription. Label "Signup completed (trial started)", quota bar "Trials started this month", nine languages.
+- **/platform/companies/[id]**: "End trial now" shows a sentence instead of a form when there is no Stripe subscription (card-free trial) or it is cancelled — the route's two 409s.
+- **WhatsApp**: the card, the manual-connect refusal and four help articles name the real blocker — App Review advanced access to the two WhatsApp permissions (FieldQuo is a verified Tech Provider since 2026-09-14) — and promise only what happens: the Connect WhatsApp button appears.
+- **Help, "Start your free trial"** (en/fr/es): the one-screen signup and the seven /welcome questions, named as on screen.
+- **Dashboard "viewed, no answer"**: counted (`VIEWED_TRACKED = true`) — `Quote.viewedAt` is stamped by the client's page through `POST /api/public/quotes/[token]/viewed`. A sent, unanswered, unexpired, unsuperseded quote the client opened, with nothing sent since the open.
+- **Meta leads**: comments no longer say `leads_retrieval` is unapproved (real leads since 2026-09-28).
+- **Settings › Presentation**: "Connect Google reviews" only when `googleBusinessAvailable()`.
+- **New-services notice**: release `service-seeds-2026-09-25-handyman` announces the 12 handyman rows (computed as the seed keys added since the 09-24 release commit). A company told on 09-24 hears only those; a company never told hears everything the button would add. **Owner:** dry run, then `--send`, as before (`scripts/notify-new-service-seeds.mjs`).
+- **Signup leftovers**: `app/components/auth/SignupSteps.js` (no importer) removed; QuoteSample's comment no longer names the deleted sample route. The `app.signup.steps.*` catalogue keys are now unreferenced.
+
+### Owed
+
+- `/platform/voice-economics`, `/platform/ai-billing` and `/platform/costs` still print a bare "$" (FieldQuo's own costs and voice/AI top-ups) — not revenue/MRR, so outside this decision; worth confirming which currency each is in.
+- The sales funnel's firstPayment benchmark (First Page Sage, 48.8%) is for card-required trials; FieldQuo's trial is card-free, so it is now labelled as a ceiling on the console, not replaced.
 
 ## Privacy policy: the Google user data section (3 October 2026)
 
@@ -1109,7 +1130,7 @@ The owner-approved home design, desktop and phone. Nothing that worked was remov
 
 - **Work panel** (top; `app/components/dashboard/WorkPanel.js`, rules in `lib/dashboard/workPanel.js`, data from `GET /api/dashboard/home` → `lib/dashboard/homeData.js`). Tabs Requests · Quotes · Jobs · Invoices, each badged ONLY with what waits on a person, hidden at zero; a tab the member may not see is not drawn (its reads are not even made). One action per row.
   - Requests: lead `status "new"` with no quote (the follow-up cron's own rule) → Reply; instant estimate `autoEstimated && needsReview` → Review; a booked visit `needs_supervisor` with nobody assigned, still ahead → Review.
-  - Quotes: sent, unanswered, not expired/superseded (`quoteChaseBlocker`), and nothing sent to the client — send, manual or automated follow-up — for 3 days → Follow up; or expiring within 7 days → Follow up. **"Viewed, no answer" is not counted: FieldQuo does not record a client opening a quote** (`VIEWED_TRACKED = false`).
+  - Quotes: sent, unanswered, not expired/superseded (`quoteChaseBlocker`), and nothing sent to the client — send, manual or automated follow-up — for 3 days → Follow up; or expiring within 7 days → Follow up. ~~"Viewed, no answer" is not counted~~ — counted since 3 October 2026 (`Quote.viewedAt`; see "Audit loose ends").
   - Jobs: `unscheduled` → Schedule (new visit); a visit today/tomorrow by the COMPANY's timezone → Open.
   - Invoices: owed and overdue → Chase (inline, the same request-payment POST; disabled under a support session); owed, no due date, issued 14+ days ago → Chase; draft → Send.
 - **Your focus** (`FocusSection.js`, `lib/dashboard/focus.js`): driven by `signupPriority` + every `signupFocus` key. All 19 focus keys map to real cards (metric / status / shortcut); a feature never set up becomes its set-up step, offered only to someone who can take it; no data, no card. Companies without a priority get a one-time picker (owner/admin; "Not now" stored per person in `/api/ui-state`) saving through the new idempotent `PATCH /api/dashboard/focus` (two columns only; refuses impersonation and non-admins), plus "Change focus".
@@ -1126,7 +1147,7 @@ The owner-approved home design, desktop and phone. Nothing that worked was remov
 ### Owed
 
 - Product: the brief named a "get paid faster" priority; the signup columns hold `professional / control / win_more / exploring`, so those are the four versions (paid-faster is the focus `invoices_paid_faster` under control).
-- Product: "viewed, no answer" needs a quote-opened event (e.g. a `Quote.viewedAt` stamped by `/q/[token]`) before it can be counted.
+- ~~Product: "viewed, no answer" needs a quote-opened event~~ — done 3 October 2026.
 - Not verified in a browser this session (no local login); needs a look on a phone and a desktop.
 
 ---
