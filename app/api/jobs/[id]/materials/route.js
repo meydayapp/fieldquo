@@ -16,7 +16,9 @@ import {
   hasToggle,
   hasLevel,
   assignedJobWhere,
+  personallyOnJobWhere,
 } from "@/lib/permissions/enforce";
+import { recordActivity } from "@/lib/activity/log";
 import { requireCost } from "@/app/api/invoices/costingWrite";
 import {
   regenerateSourcingList,
@@ -89,7 +91,7 @@ function stripCosts(shaped) {
   });
 }
 
-async function listFor(jobId, member) {
+async function listFor(jobId, member, { tick = null } = {}) {
   const [materials, job] = await Promise.all([
     db.jobMaterial.findMany({
       // Excluded rows stay in the table (the next build reads them) and out of
@@ -108,6 +110,13 @@ async function listFor(jobId, member) {
     }),
   ]);
   const shaped = materials.map(shape);
+  // Who may untick what, decided here from the raw rows (purchasedById is not
+  // in the shape) so the panel draws a live box only where PATCH will accept.
+  if (tick === "own") {
+    shaped.forEach((m, i) => {
+      m.untickable = ownTickUndoable(materials[i], member?.userId);
+    });
+  }
 
   // ── On hand, summed from movements ────────────────────────────────────────
   //
@@ -199,6 +208,42 @@ async function ownJob(jobId, companyId, member) {
   });
 }
 
+// ── Ticking a line bought: the office, and the person on the job ──────────
+//
+// The owner, 2026-10-04: "crew can tick materials as bought on their own
+// jobs". Until then every write here needed jobs:view_create_edit, so the
+// person standing at the trade counter read the list and could not tick it.
+//
+// "edit" — jobs:view_create_edit: everything below, as before.
+// "own"  — jobs:view_only AND personally on THIS job (a visit assigned to
+//          them, or a published shift of theirs — personallyOnJobWhere). An
+//          Estimator at view_only sees every job and is on only some, so the
+//          board being visible is not the test; being on the job is.
+// null   — read only.
+//
+// "own" is a TICK, nothing more: no price (actualCost already needs the cost
+// toggle), no supplier, no quantity, and untick only a line they ticked
+// themselves with no receipt on it. Unticking clears the receipt fields (see
+// PATCH), so letting crew untick the office's purchase would destroy a cost
+// somebody typed — a destructive act wearing a checkbox.
+async function tickAccess(full, jobId, companyId) {
+  if (hasLevel(full, "jobs", "view_create_edit")) return "edit";
+  if (!hasLevel(full, "jobs", "view_only")) return null;
+  const on = await db.job.findFirst({
+    where: { id: jobId, companyId, ...personallyOnJobWhere(full) },
+    select: { id: true },
+  });
+  return on ? "own" : null;
+}
+
+/** May a member with "own" tick access untick this line? Pure. */
+function ownTickUndoable(line, userId) {
+  return Boolean(line?.purchasedAt) && Boolean(userId) && line.purchasedById === userId && line.actualCost == null;
+}
+
+/** The body keys an "own" tick may carry. Anything else is office work. */
+const OWN_TICK_KEYS = new Set(["materialId", "purchased"]);
+
 export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
@@ -223,11 +268,12 @@ export async function GET(request, { params }) {
   // wallet through the API either. null is what the panel already reads as
   // "no verdict".
   const canBuild = hasLevel(full, "jobs", "view_create_edit");
+  const tick = await tickAccess(full, id, member.companyId);
   const [list, spend] = await Promise.all([
-    listFor(id, full),
+    listFor(id, full, { tick }),
     canBuild ? spendFor(member.companyId) : null,
   ]);
-  return NextResponse.json({ ...list, spend });
+  return NextResponse.json({ ...list, spend, tick });
 }
 
 // Rebuild from the quote, or add one line by hand.
@@ -313,16 +359,30 @@ export async function PATCH(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  let full = null;
-  try {
-    full = await loadEnforceableMember(db, member.id);
-    requireLevel(full, "jobs", "view_create_edit", "change a job's materials");
-  } catch (err) {
-    const { body, status } = permissionErrorResponse(err);
-    return NextResponse.json(body, { status });
+  const full = await loadEnforceableMember(db, member.id);
+  const tick = await tickAccess(full, id, member.companyId);
+  if (!tick) {
+    // A job they cannot see is Not found, as on every verb here. One they can
+    // see but are not on (an Estimator reading the board) is a refusal that
+    // says who ticks it.
+    if (!(await ownJob(id, member.companyId, full)))
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Only the people booked on this job, or the office, can tick its materials.", code: "not_on_job" },
+      { status: 403 },
+    );
   }
 
   const body = await request.json().catch(() => ({}));
+  if (tick === "own") {
+    const extra = Object.keys(body || {}).filter((k) => !OWN_TICK_KEYS.has(k));
+    if (body?.purchased === undefined || extra.length) {
+      return NextResponse.json(
+        { error: "You can tick a line as bought. Prices, suppliers and quantities are recorded by the office.", code: "tick_only" },
+        { status: 403 },
+      );
+    }
+  }
   const line = await db.jobMaterial.findFirst({
     where: {
       id: String(body.materialId || ""),
@@ -346,6 +406,20 @@ export async function PATCH(request, { params }) {
   // ago. Absence of `purchased` is not "unbought".
   const isTick = body.purchased !== undefined;
   const purchased = isTick ? body.purchased !== false : Boolean(line.purchasedAt);
+
+  if (tick === "own" && !purchased && line.purchasedAt && !ownTickUndoable(line, member.userId)) {
+    return NextResponse.json(
+      { error: "Only the office can untick a line someone else bought or that has a receipt on it.", code: "untick_not_yours" },
+      { status: 403 },
+    );
+  }
+  // Ticking a line that is already bought would rewrite it below — the
+  // purchaser, and the receipt blanked because a tick carries none. For the
+  // office that is "record it again"; from a tick it is a second tap, and it
+  // changes nothing.
+  if (tick === "own" && purchased && line.purchasedAt) {
+    return NextResponse.json({ ...(await listFor(id, full, { tick })), tick });
+  }
 
   // Same rule as POST, and it matters more here: `actualCost` on the tick
   // transition is written into the COMPANY's price history by
@@ -459,8 +533,21 @@ export async function PATCH(request, { params }) {
     });
   }
 
+  // On the record under whoever ticked it — crew work is logged under the
+  // person's own name (docs/ROLE-ACCESS.md). Only a change of state; a
+  // used-quantity note on a bought line is not a purchase. Never throws.
+  if (isTick && purchased !== Boolean(line.purchasedAt)) {
+    await recordActivity(member, {
+      action: purchased ? "job.materialBought" : "job.materialUnbought",
+      entityType: "job",
+      entityId: id,
+      summary: `${purchased ? "Ticked" : "Unticked"} ${updated.name} as bought`,
+      metadata: { materialId: line.id },
+    });
+  }
+
   await taskForJobMaterials(id);
-  return NextResponse.json(await listFor(id, full));
+  return NextResponse.json({ ...(await listFor(id, full, { tick })), tick });
 }
 
 export async function DELETE(request, { params }) {

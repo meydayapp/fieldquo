@@ -80,6 +80,11 @@ export default function JobMaterials({ jobId }) {
   // Reading the list is deliberately NOT gated beyond seeing the job: a crew
   // member who can open the job should be able to see what was meant to be
   // bought for it.
+  //
+  // Since 2026-10-04 a crew member on THIS job may also tick a line bought.
+  // Whether they are on it is the route's question (it answers `tick: "own"`
+  // in the GET), because "booked on this job" is a visit or a shift the grid
+  // alone cannot see. See app/api/jobs/[id]/materials/route.js tickAccess.
   const caller = usePermissions();
   const canEdit = hasLevel(caller, "jobs", "view_create_edit");
   // Putting lines on a purchase order is purchasing, and the shopping-list
@@ -155,7 +160,7 @@ export default function JobMaterials({ jobId }) {
     }
     const next = await res.json();
     // A write answers with the list and no wallet verdict; keep the one we have.
-    setData((d) => ({ ...next, spend: next.spend || d?.spend || null }));
+    setData((d) => ({ ...next, spend: next.spend || d?.spend || null, tick: next.tick ?? d?.tick ?? null }));
     return next;
   }
 
@@ -215,6 +220,18 @@ export default function JobMaterials({ jobId }) {
   function open(m) {
     setDraft({ ...EMPTY_DRAFT, actualQty: String(m.qty ?? "") });
     setExpanded(m.id);
+  }
+
+  // A crew member's tick (data.tick === "own", decided by the route): bought
+  // or not, nothing else — no cost, supplier or quantity, which stay the
+  // office's. The route refuses anything more, so nothing more is drawn.
+  async function ownTick(m) {
+    setBusyId(m.id);
+    try {
+      await send("PATCH", { materialId: m.id, purchased: !m.purchasedAt });
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function toggle(m) {
@@ -392,6 +409,8 @@ export default function JobMaterials({ jobId }) {
                     t={t}
                     money={money}
                     canEdit={canEdit}
+                    ownTickMode={!canEdit && data?.tick === "own"}
+                    onOwnTick={() => ownTick(m)}
                     canOrder={canOrder}
                     busy={busyId === m.id}
                     isOpen={expanded === m.id}
@@ -594,7 +613,7 @@ function StatusPill({ m, t }) {
 }
 
 function MaterialRow({
-  m, t, money, canEdit, canOrder, busy, isOpen, draft, setDraft, usedEdit, setUsedEdit,
+  m, t, money, canEdit, ownTickMode = false, onOwnTick, canOrder, busy, isOpen, draft, setDraft, usedEdit, setUsedEdit,
   qtyEdit, setQtyEdit, scanning, setScanning, onOpen, onToggle, onCancel, onSaveUsed,
   onSaveQty, onRemove, onShop, ordering,
 }) {
@@ -608,6 +627,26 @@ function MaterialRow({
             type="button"
             disabled={busy}
             onClick={() => (bought || isOpen ? onToggle() : onOpen())}
+            aria-label={
+              bought
+                ? t("app.jobMaterials.markNotBought", "Mark {name} as not bought", { name: m.name })
+                : t("app.jobMaterials.markBought", "Mark {name} as bought", { name: m.name })
+            }
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+              bought
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-border hover:border-foreground/40"
+            } disabled:opacity-50`}
+          >
+            {bought && <Check size={13} strokeWidth={3} />}
+          </button>
+        ) : ownTickMode && (!bought || m.untickable) ? (
+          // Crew on this job: a plain tick, and an untick only of their own
+          // tick with no receipt on it (m.untickable, from the route).
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onOwnTick}
             aria-label={
               bought
                 ? t("app.jobMaterials.markNotBought", "Mark {name} as not bought", { name: m.name })

@@ -123,6 +123,30 @@ for (const key of Object.keys(PERMISSION_CATEGORIES))
 for (const key of Object.keys(PERMISSION_TOGGLES))
   t(`${key} starts off`, empty[key], false);
 
+console.log("\nClient phone on their own jobs (owner, 2026-10-04)");
+{
+  const { toggleValue } = await import("@/lib/permissions");
+  const { actorHoldsToggle, clampPermissions } = await import("@/lib/permissions/roleManagement");
+  const crew = { ...PERMISSION_PRESETS.worker.values };
+  t("Crew holds it by default", crew.clientPhoneOnOwnJobs, true);
+  const legacy = { ...crew };
+  delete legacy.clientPhoneOnOwnJobs;
+  t("a Crew grid saved before the switch existed is still Crew, not Custom", presetForValues(legacy, "employee"), "worker");
+  t("…and the editor shows the switch ON (hasToggle reads absent as on)", toggleValue(legacy, "clientPhoneOnOwnJobs"), true);
+  t("switched OFF for one person: still Crew (an off switch)", presetForValues({ ...crew, clientPhoneOnOwnJobs: false }, "employee"), "worker");
+  t("…and shown off", toggleValue({ ...crew, clientPhoneOnOwnJobs: false }, "clientPhoneOnOwnJobs"), false);
+  t("an absent legacy toggle (showPricing) is NOT read as on by the editor", toggleValue({}, "showPricing"), false);
+  const legacyDispatcher = { ...PERMISSION_PRESETS.dispatcher.values };
+  delete legacyDispatcher.clientPhoneOnOwnJobs;
+  t("a Dispatcher saved before the switch existed may grant it", actorHoldsToggle(legacyDispatcher, "clientPhoneOnOwnJobs"), true);
+  t("…and the invite keeps it on", clampPermissions("supervisor", legacyDispatcher, crew).clientPhoneOnOwnJobs, true);
+  t("a supervisor who turned it OFF for themselves cannot grant it", clampPermissions("supervisor", { ...legacyDispatcher, clientPhoneOnOwnJobs: false }, crew).clientPhoneOnOwnJobs, false);
+  t("absent-as-on applies only to the new switch (jobCosting is not granted by absence)", actorHoldsToggle(legacyDispatcher, "jobCosting"), false);
+  t("no grid at all grants nothing to delegate", actorHoldsToggle(null, "clientPhoneOnOwnJobs"), false);
+  t("the fixed Crew panel offers the switch", /changeValue\("clientPhoneOnOwnJobs", e\.target\.checked\)/.test(EDITOR));
+  t("the editor's toggle boxes show the effective value", /checked=\{toggleValue\(values, key\)\}/.test(EDITOR));
+}
+
 console.log("\nHostile input");
 t("no values", presetForValues(null), null);
 t("junk", presetForValues("nope"), null);

@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
-import { sheetScope } from "@/lib/dailySheets/access";
+import { sheetScope, seesUpsells } from "@/lib/dailySheets/access";
 import { ownWorker, companyTimezone } from "@/lib/dailySheets/load";
 import { weekStartKey, weekKeys, dateKeyToColumn, dayInstants, columnToDateKey, todayKey } from "@/lib/dailySheets/day";
 import { weeklySummary } from "@/lib/dailySheets/weekly";
@@ -59,5 +59,13 @@ export async function GET(request) {
     dayKeys: keys,
     dayKeyOf,
   });
+  // Upsell amounts only for someone who sells (owner, 2026-10-04) — see
+  // lib/dailySheets/access.js seesUpsells. The bonus total stays: it is the
+  // person's own pay.
+  if (!seesUpsells(full)) {
+    for (const d of summary.days || []) delete d.upsellCents;
+    if (summary.totals) delete summary.totals.upsellCents;
+    return NextResponse.json({ worker, weekOf: monday, ...summary, upsellsHidden: true });
+  }
   return NextResponse.json({ worker, weekOf: monday, ...summary });
 }

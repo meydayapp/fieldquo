@@ -176,6 +176,8 @@ const en = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Time clock",
   "app.setTeamNew.timeClockDesc": "Clock in and out, and their own time log. Untick to switch the clock off for this person — it leaves their menu and its pages refuse them.",
+  "app.setTeamNew.clientPhone": "Client's phone on their jobs",
+  "app.setTeamNew.clientPhoneDesc": "Shows the client's phone number on the jobs this person is booked on — and nowhere else. Email and private notes stay hidden, and the client list stays names and addresses. Untick to hide it.",
   "app.invoiceNew.labourNotOnSite": "{count} driving or supply-run entries count toward this job's cost, not the client's invoice.",
   "app.ownRate.payroll": "Pay me through payroll",
   "app.ownRate.payrollOn": "Pay runs include your approved hours at this rate.",
@@ -9856,6 +9858,7 @@ const en = {
   "app.activity.intro": "A record of important actions in your account — quotes sent, payments recorded, hours added and approved, expenses, client and team changes, pricing and settings.",
   "app.activity.someone": "Someone",
   "app.activity.supportSession": "support session",
+  "app.activity.payHidden": "Pay runs, payroll settings, pay rates, commissions and the company's FieldQuo billing are left out — they're for the owner and admins.",
   "app.kpis.sampleSize": countedNoun("en", {"one":"job/quote","other":"jobs/quotes"}),
   "app.kpis.weeksBooked": countedNoun("en", {"one":"week","other":"weeks"}),
 
@@ -15997,6 +16000,7 @@ const en = {
   "app.dailySheet.bonus.perObjective": "{count} objectives done",
   "app.dailySheet.bonus.allDone": "Every objective done",
   "app.dailySheet.bonus.upsell": "{pct}% of {base} in upsells",
+  "app.dailySheet.bonus.upsellNoBase": "Upsells credited to you",
   "app.dailySheet.bonus.belowMin": "Score {score} is below the minimum of {min}",
   "app.dailySheet.bonusTotal": "Bonus",
   "app.dailySheet.toPayRun": "Goes to the next pay run as a bonus line; it's reviewed there.",
@@ -17640,6 +17644,8 @@ const fr = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Pointeuse",
   "app.setTeamNew.timeClockDesc": "Pointer l'entrée et la sortie, et son propre journal. Décochez pour désactiver la pointeuse pour cette personne — elle disparaît de son menu et ses pages la refusent.",
+  "app.setTeamNew.clientPhone": "Téléphone du client sur ses chantiers",
+  "app.setTeamNew.clientPhoneDesc": "Affiche le numéro de téléphone du client sur les chantiers où cette personne est réservée — et nulle part ailleurs. Le courriel et les notes privées restent cachés, et la liste des clients reste limitée aux noms et adresses. Décochez pour le masquer.",
   "app.invoiceNew.labourNotOnSite": "{count} entrées de route ou de matériel comptent dans le coût de ce chantier, pas dans la facture du client.",
   "app.ownRate.payroll": "Me payer par la paie",
   "app.ownRate.payrollOn": "Les paies incluent vos heures approuvées à ce taux.",
@@ -26868,6 +26874,7 @@ const fr = {
   "app.activity.intro": "Un registre des actions importantes de votre compte — soumissions envoyées, paiements enregistrés, heures ajoutées et approuvées, dépenses, changements de clients et d'équipe, tarifs et réglages.",
   "app.activity.someone": "Quelqu'un",
   "app.activity.supportSession": "session d'assistance",
+  "app.activity.payHidden": "Les paies, les réglages de paie, les taux de rémunération, les commissions et la facturation FieldQuo de l'entreprise sont exclus — ils sont réservés au propriétaire et aux administrateurs.",
   "app.kpis.sampleSize": countedNoun("fr", {"one":"chantier/soumission","many":"chantiers/soumissions","other":"chantiers/soumissions"}),
   "app.kpis.weeksBooked": countedNoun("fr", {"one":"semaine","many":"semaines","other":"semaines"}),
 
@@ -32994,6 +33001,7 @@ const fr = {
   "app.dailySheet.bonus.perObjective": "{count} objectifs atteints",
   "app.dailySheet.bonus.allDone": "Tous les objectifs atteints",
   "app.dailySheet.bonus.upsell": "{pct} % de {base} de ventes additionnelles",
+  "app.dailySheet.bonus.upsellNoBase": "Ventes additionnelles qui vous sont créditées",
   "app.dailySheet.bonus.belowMin": "La note {score} est sous le minimum de {min}",
   "app.dailySheet.bonusTotal": "Prime",
   "app.dailySheet.toPayRun": "Part sur la prochaine paie comme ligne de prime ; elle y est vérifiée.",
@@ -34633,6 +34641,8 @@ const es = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Reloj de tiempo",
   "app.setTeamNew.timeClockDesc": "Registrar entrada y salida, y su propio registro de horas. Desmárcalo para apagar el reloj para esta persona: desaparece de su menú y sus páginas la rechazan.",
+  "app.setTeamNew.clientPhone": "Teléfono del cliente en sus trabajos",
+  "app.setTeamNew.clientPhoneDesc": "Muestra el teléfono del cliente en los trabajos a los que esta persona está asignada, y en ningún otro lugar. El correo y las notas privadas siguen ocultos, y la lista de clientes sigue mostrando solo nombres y direcciones. Desmárcalo para ocultarlo.",
   "app.invoiceNew.labourNotOnSite": "{count} entradas de manejo o de compra de materiales cuentan en el costo de este trabajo, no en la factura del cliente.",
   "app.ownRate.payroll": "Pagarme por nómina",
   "app.ownRate.payrollOn": "Las nóminas incluyen tus horas aprobadas a esta tarifa.",
@@ -41925,6 +41935,7 @@ const es = {
   "app.activity.intro": "Un registro de las acciones importantes de tu cuenta — presupuestos enviados, pagos registrados, horas añadidas y aprobadas, gastos, cambios de clientes y de equipo, tarifas y ajustes.",
   "app.activity.someone": "Alguien",
   "app.activity.supportSession": "sesión de soporte",
+  "app.activity.payHidden": "Las nóminas, los ajustes de nómina, las tarifas de pago, las comisiones y la facturación de FieldQuo de la empresa no aparecen: son para el propietario y los administradores.",
   "app.kpis.sampleSize": countedNoun("es", {"one":"trabajo/presupuesto","many":"trabajos/presupuestos","other":"trabajos/presupuestos"}),
   "app.kpis.weeksBooked": countedNoun("es", {"one":"semana","many":"semanas","other":"semanas"}),
   // ── Planes de servicio ───────────────────────────────────────────────────
@@ -50343,6 +50354,7 @@ const es = {
   "app.dailySheet.bonus.perObjective": "{count} objetivos cumplidos",
   "app.dailySheet.bonus.allDone": "Todos los objetivos cumplidos",
   "app.dailySheet.bonus.upsell": "{pct}% de {base} en ventas adicionales",
+  "app.dailySheet.bonus.upsellNoBase": "Ventas adicionales acreditadas a ti",
   "app.dailySheet.bonus.belowMin": "La puntuación {score} está por debajo del mínimo de {min}",
   "app.dailySheet.bonusTotal": "Bonificación",
   "app.dailySheet.toPayRun": "Va a la siguiente nómina como línea de bonificación; allí se revisa.",
@@ -51981,6 +51993,8 @@ const uk = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Облік часу",
   "app.setTeamNew.timeClockDesc": "Відмітки приходу й виходу та власний журнал. Зніміть позначку, щоб вимкнути облік для цієї людини — він зникне з її меню, а сторінки її не пустять.",
+  "app.setTeamNew.clientPhone": "Телефон клієнта на їхніх роботах",
+  "app.setTeamNew.clientPhoneDesc": "Показує номер телефону клієнта на роботах, де ця людина призначена, — і більше ніде. Електронна пошта й приватні нотатки лишаються прихованими, а список клієнтів — лише імена й адреси. Зніміть позначку, щоб приховати.",
   "app.invoiceNew.labourNotOnSite": "{count} записів дороги чи закупівлі входять у собівартість цієї роботи, а не в рахунок клієнта.",
   "app.ownRate.payroll": "Платити мені через зарплату",
   "app.ownRate.payrollOn": "Нарахування зарплати включають ваші затверджені години за цією ставкою.",
@@ -60426,6 +60440,7 @@ const uk = {
   "app.activity.intro": "Запис важливих дій у вашому обліковому записі — надіслані кошториси, зафіксовані платежі, додані та затверджені години, витрати, зміни клієнтів і команди, ціни та налаштування.",
   "app.activity.someone": "Хтось",
   "app.activity.supportSession": "сеанс підтримки",
+  "app.activity.payHidden": "Виплати зарплати, налаштування зарплати, ставки оплати, комісії та рахунки компанії від FieldQuo не показано — вони для власника й адміністраторів.",
   "app.kpis.sampleSize": countedNoun("uk", {"one":"об'єкт/кошторис","few":"об'єкти/кошториси","many":"об'єктів/кошторисів","other":"об'єкта/кошторису"}),
   "app.kpis.weeksBooked": countedNoun("uk", {"one":"тиждень","few":"тижні","many":"тижнів","other":"тижня"}),
 
@@ -67170,6 +67185,7 @@ const uk = {
   "app.dailySheet.bonus.perObjective": "Виконано цілей: {count}",
   "app.dailySheet.bonus.allDone": "Виконано всі цілі",
   "app.dailySheet.bonus.upsell": "{pct}% від {base} додаткових продажів",
+  "app.dailySheet.bonus.upsellNoBase": "Додаткові продажі, зараховані вам",
   "app.dailySheet.bonus.belowMin": "Оцінка {score} нижча за мінімум {min}",
   "app.dailySheet.bonusTotal": "Премія",
   "app.dailySheet.toPayRun": "Потрапить до наступної відомості рядком премії; там її перевірять.",
@@ -68808,6 +68824,8 @@ const pa = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "ਟਾਈਮ ਕਲੌਕ",
   "app.setTeamNew.timeClockDesc": "ਕਲੌਕ ਇਨ ਅਤੇ ਆਉਟ, ਅਤੇ ਆਪਣਾ ਸਮਾਂ ਲੌਗ। ਇਸ ਵਿਅਕਤੀ ਲਈ ਘੜੀ ਬੰਦ ਕਰਨ ਲਈ ਨਿਸ਼ਾਨ ਹਟਾਓ — ਇਹ ਉਨ੍ਹਾਂ ਦੇ ਮੀਨੂ ਵਿੱਚੋਂ ਹਟ ਜਾਂਦੀ ਹੈ ਅਤੇ ਇਸ ਦੇ ਪੰਨੇ ਉਨ੍ਹਾਂ ਨੂੰ ਮਨ੍ਹਾ ਕਰਦੇ ਹਨ।",
+  "app.setTeamNew.clientPhone": "ਉਨ੍ਹਾਂ ਦੇ ਕੰਮਾਂ 'ਤੇ ਗਾਹਕ ਦਾ ਫ਼ੋਨ",
+  "app.setTeamNew.clientPhoneDesc": "ਗਾਹਕ ਦਾ ਫ਼ੋਨ ਨੰਬਰ ਸਿਰਫ਼ ਉਨ੍ਹਾਂ ਕੰਮਾਂ 'ਤੇ ਦਿਖਾਉਂਦਾ ਹੈ ਜਿਨ੍ਹਾਂ 'ਤੇ ਇਹ ਵਿਅਕਤੀ ਬੁੱਕ ਹੈ — ਹੋਰ ਕਿਤੇ ਨਹੀਂ। ਈਮੇਲ ਅਤੇ ਨਿੱਜੀ ਨੋਟ ਲੁਕੇ ਰਹਿੰਦੇ ਹਨ, ਅਤੇ ਗਾਹਕ ਸੂਚੀ ਸਿਰਫ਼ ਨਾਮ ਅਤੇ ਪਤੇ ਹੀ ਰਹਿੰਦੀ ਹੈ। ਲੁਕਾਉਣ ਲਈ ਨਿਸ਼ਾਨ ਹਟਾਓ।",
   "app.invoiceNew.labourNotOnSite": "{count} ਡਰਾਈਵਿੰਗ ਜਾਂ ਸਮਾਨ ਵਾਲੀਆਂ ਐਂਟਰੀਆਂ ਇਸ ਕੰਮ ਦੀ ਲਾਗਤ ਵਿੱਚ ਗਿਣੀਆਂ ਜਾਂਦੀਆਂ ਹਨ, ਗਾਹਕ ਦੇ ਇਨਵੌਇਸ ਵਿੱਚ ਨਹੀਂ।",
   "app.ownRate.payroll": "ਮੈਨੂੰ ਪੇਰੋਲ ਰਾਹੀਂ ਭੁਗਤਾਨ ਕਰੋ",
   "app.ownRate.payrollOn": "ਪੇ ਰਨ ਇਸ ਦਰ ਉੱਤੇ ਤੁਹਾਡੇ ਮਨਜ਼ੂਰ ਘੰਟੇ ਸ਼ਾਮਲ ਕਰਦੇ ਹਨ।",
@@ -77198,6 +77216,7 @@ const pa = {
   "app.activity.intro": "ਤੁਹਾਡੇ ਖਾਤੇ ਦੀਆਂ ਅਹਿਮ ਕਾਰਵਾਈਆਂ ਦਾ ਰਿਕਾਰਡ — ਭੇਜੇ ਕੋਟ, ਦਰਜ ਭੁਗਤਾਨ, ਜੋੜੇ ਤੇ ਮਨਜ਼ੂਰ ਘੰਟੇ, ਖਰਚੇ, ਗਾਹਕ ਤੇ ਟੀਮ ਦੀਆਂ ਤਬਦੀਲੀਆਂ, ਕੀਮਤਾਂ ਤੇ ਸੈਟਿੰਗਾਂ।",
   "app.activity.someone": "ਕੋਈ",
   "app.activity.supportSession": "ਸਹਾਇਤਾ ਸੈਸ਼ਨ",
+  "app.activity.payHidden": "ਤਨਖਾਹ ਦੇ ਦੌਰ, ਪੇਰੋਲ ਸੈਟਿੰਗਾਂ, ਤਨਖਾਹ ਦਰਾਂ, ਕਮਿਸ਼ਨ ਅਤੇ ਕੰਪਨੀ ਦੀ FieldQuo ਬਿਲਿੰਗ ਇੱਥੇ ਨਹੀਂ ਹਨ — ਇਹ ਮਾਲਕ ਅਤੇ ਐਡਮਿਨਾਂ ਲਈ ਹਨ।",
   "app.kpis.sampleSize": countedNoun("pa", {"one":"ਕੰਮ/ਕੋਟ","other":"ਕੰਮ/ਕੋਟ"}),
   "app.kpis.weeksBooked": countedNoun("pa", {"one":"ਹਫ਼ਤਾ","other":"ਹਫ਼ਤੇ"}),
 
@@ -83927,6 +83946,7 @@ const pa = {
   "app.dailySheet.bonus.perObjective": "{count} ਟੀਚੇ ਪੂਰੇ",
   "app.dailySheet.bonus.allDone": "ਹਰ ਟੀਚਾ ਪੂਰਾ",
   "app.dailySheet.bonus.upsell": "{base} ਵਾਧੂ ਵਿਕਰੀ ਦਾ {pct}%",
+  "app.dailySheet.bonus.upsellNoBase": "ਤੁਹਾਡੇ ਨਾਮ ਲੱਗੀਆਂ ਵਾਧੂ ਵਿਕਰੀਆਂ",
   "app.dailySheet.bonus.belowMin": "ਸਕੋਰ {score} ਘੱਟੋ-ਘੱਟ {min} ਤੋਂ ਹੇਠਾਂ ਹੈ",
   "app.dailySheet.bonusTotal": "ਬੋਨਸ",
   "app.dailySheet.toPayRun": "ਅਗਲੇ ਪੇਅ ਰਨ ਵਿੱਚ ਬੋਨਸ ਲਾਈਨ ਵਜੋਂ ਜਾਂਦਾ ਹੈ; ਉੱਥੇ ਜਾਂਚਿਆ ਜਾਂਦਾ ਹੈ।",
@@ -85565,6 +85585,8 @@ const tl = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Orasan ng oras",
   "app.setTeamNew.timeClockDesc": "Pag-clock in at out, at ang sarili nilang log ng oras. Alisin ang check para i-off ang orasan para sa taong ito — mawawala ito sa menu nila at tatanggihan sila ng mga pahina nito.",
+  "app.setTeamNew.clientPhone": "Telepono ng kliyente sa mga trabaho nila",
+  "app.setTeamNew.clientPhoneDesc": "Ipinapakita ang numero ng telepono ng kliyente sa mga trabahong naka-book ang taong ito — at wala nang iba. Nananatiling nakatago ang email at mga pribadong tala, at mga pangalan at address lang ang listahan ng kliyente. Alisin ang check para itago ito.",
   "app.invoiceNew.labourNotOnSite": "{count} entry ng pagmamaneho o pagbili ng supplies ang binibilang sa gastos ng trabahong ito, hindi sa invoice ng kliyente.",
   "app.ownRate.payroll": "Bayaran ako sa payroll",
   "app.ownRate.payrollOn": "Kasama sa mga pay run ang mga aprubadong oras mo sa rate na ito.",
@@ -93965,6 +93987,7 @@ const tl = {
   "app.activity.intro": "Talaan ng mahahalagang aksyon sa iyong account — mga quote na ipinadala, bayad na naitala, oras na naidagdag at naaprubahan, gastos, pagbabago sa kliyente at koponan, presyo at settings.",
   "app.activity.someone": "May isang tao",
   "app.activity.supportSession": "sesyon ng suporta",
+  "app.activity.payHidden": "Hindi kasama ang mga pay run, setting ng payroll, rate ng sahod, komisyon at ang FieldQuo billing ng kumpanya — para sa may-ari at mga admin ang mga iyon.",
   "app.kpis.sampleSize": countedNoun("tl", {"one":"trabaho/quote","other":"trabaho/quote"}),
   "app.kpis.weeksBooked": countedNoun("tl", {"one":"linggo","other":"linggo"}),
 
@@ -100694,6 +100717,7 @@ const tl = {
   "app.dailySheet.bonus.perObjective": "{count} layunin ang natapos",
   "app.dailySheet.bonus.allDone": "Natapos ang bawat layunin",
   "app.dailySheet.bonus.upsell": "{pct}% ng {base} na upsell",
+  "app.dailySheet.bonus.upsellNoBase": "Mga upsell na naitala sa iyo",
   "app.dailySheet.bonus.belowMin": "Ang score na {score} ay mas mababa sa minimum na {min}",
   "app.dailySheet.bonusTotal": "Bonus",
   "app.dailySheet.toPayRun": "Pupunta sa susunod na pay run bilang linya ng bonus; doon ito sinusuri.",
@@ -102332,6 +102356,8 @@ const de = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Stempeluhr",
   "app.setTeamNew.timeClockDesc": "Ein- und ausstempeln und das eigene Zeitprotokoll. Haken entfernen, um die Stempeluhr für diese Person auszuschalten — sie verschwindet aus dem Menü und ihre Seiten verweigern den Zugriff.",
+  "app.setTeamNew.clientPhone": "Telefon des Kunden bei ihren Aufträgen",
+  "app.setTeamNew.clientPhoneDesc": "Zeigt die Telefonnummer des Kunden bei den Aufträgen, für die diese Person eingeteilt ist — und nirgends sonst. E-Mail und private Notizen bleiben verborgen, die Kundenliste bleibt bei Namen und Adressen. Haken entfernen, um sie auszublenden.",
   "app.invoiceNew.labourNotOnSite": "{count} Fahrt- oder Materialeinträge zählen zu den Kosten dieses Auftrags, nicht zur Rechnung des Kunden.",
   "app.ownRate.payroll": "Über die Lohnabrechnung bezahlen",
   "app.ownRate.payrollOn": "Lohnläufe enthalten Ihre genehmigten Stunden zu diesem Satz.",
@@ -111156,6 +111182,7 @@ const de = {
   "app.activity.intro": "Ein Protokoll wichtiger Vorgänge in Ihrem Konto — gesendete Angebote, erfasste Zahlungen, hinzugefügte und genehmigte Stunden, Ausgaben, Kunden- und Teamänderungen, Preise und Einstellungen.",
   "app.activity.someone": "Jemand",
   "app.activity.supportSession": "Support-Sitzung",
+  "app.activity.payHidden": "Lohnläufe, Lohneinstellungen, Stundensätze, Provisionen und die FieldQuo-Abrechnung des Unternehmens sind ausgelassen — sie sind für den Inhaber und die Admins.",
   "app.kpis.sampleSize": countedNoun("de", {"one":"Auftrag/Angebot","other":"Aufträge/Angebote"}),
   "app.kpis.weeksBooked": countedNoun("de", {"one":"Woche","other":"Wochen"}),
 
@@ -117347,6 +117374,7 @@ const de = {
   "app.dailySheet.bonus.perObjective": "{count} Ziele erledigt",
   "app.dailySheet.bonus.allDone": "Jedes Ziel erledigt",
   "app.dailySheet.bonus.upsell": "{pct} % von {base} an Zusatzverkäufen",
+  "app.dailySheet.bonus.upsellNoBase": "Ihnen gutgeschriebene Zusatzverkäufe",
   "app.dailySheet.bonus.belowMin": "Bewertung {score} liegt unter dem Minimum von {min}",
   "app.dailySheet.bonusTotal": "Prämie",
   "app.dailySheet.toPayRun": "Geht als Prämienzeile in den nächsten Lohnlauf; dort wird sie geprüft.",
@@ -118985,6 +119013,8 @@ const zh = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "打卡钟",
   "app.setTeamNew.timeClockDesc": "上下班打卡以及本人的时间日志。取消勾选即可为此人关闭打卡钟——它会从其菜单中消失，相关页面也会拒绝访问。",
+  "app.setTeamNew.clientPhone": "其负责工作的客户电话",
+  "app.setTeamNew.clientPhoneDesc": "仅在此人被安排的工作中显示客户电话号码，其他地方不显示。电子邮件和私人备注仍然隐藏，客户列表仍只显示姓名和地址。取消勾选即可隐藏。",
   "app.invoiceNew.labourNotOnSite": "{count} 条驾驶或采购物料记录计入此工单的成本，不计入客户发票。",
   "app.ownRate.payroll": "通过工资发放支付我",
   "app.ownRate.payrollOn": "工资发放会按此费率包含您已批准的工时。",
@@ -127854,6 +127884,7 @@ const zh = {
   "app.activity.intro": "账户内重要操作的记录 — 已发出的报价单、已登记的付款、已添加并批准的工时、开支、客户与团队变更、价格与设置。",
   "app.activity.someone": "某人",
   "app.activity.supportSession": "支持会话",
+  "app.activity.payHidden": "工资发放、工资设置、工资费率、佣金以及公司的 FieldQuo 账单不在此显示——这些仅供所有者和管理员查看。",
   "app.kpis.sampleSize": countedNoun("zh", {"other":"个工程/报价单"}),
   "app.kpis.weeksBooked": countedNoun("zh", {"other":"周"}),
 
@@ -133992,6 +134023,7 @@ const zh = {
   "app.dailySheet.bonus.perObjective": "完成 {count} 个目标",
   "app.dailySheet.bonus.allDone": "全部目标完成",
   "app.dailySheet.bonus.upsell": "追加销售 {base} 的 {pct}%",
+  "app.dailySheet.bonus.upsellNoBase": "记入您名下的追加销售",
   "app.dailySheet.bonus.belowMin": "评分 {score} 低于最低分 {min}",
   "app.dailySheet.bonusTotal": "奖金",
   "app.dailySheet.toPayRun": "作为奖金行进入下一次工资单；在那里审核。",
@@ -135630,6 +135662,8 @@ const it = {
   // ── Clock switch, corrections, on-site labour, owner payroll (2026-10-03) ──
   "app.setTeamNew.timeClock": "Marcatempo",
   "app.setTeamNew.timeClockDesc": "Timbrare entrata e uscita, e il proprio registro ore. Togli la spunta per spegnere il marcatempo per questa persona: sparisce dal suo menu e le sue pagine la rifiutano.",
+  "app.setTeamNew.clientPhone": "Telefono del cliente sui suoi lavori",
+  "app.setTeamNew.clientPhoneDesc": "Mostra il numero di telefono del cliente sui lavori a cui questa persona è assegnata — e da nessun'altra parte. Email e note private restano nascoste, e l'elenco clienti resta solo nomi e indirizzi. Togli la spunta per nasconderlo.",
   "app.invoiceNew.labourNotOnSite": "{count} voci di guida o acquisto materiali contano nel costo di questo lavoro, non nella fattura del cliente.",
   "app.ownRate.payroll": "Pagami tramite le buste paga",
   "app.ownRate.payrollOn": "Le buste paga includono le tue ore approvate a questa tariffa.",
@@ -144748,6 +144782,7 @@ const it = {
   "app.activity.intro": "Un registro delle azioni importanti nel tuo account — preventivi inviati, pagamenti registrati, ore aggiunte e approvate, spese, modifiche a clienti e team, prezzi e impostazioni.",
   "app.activity.someone": "Qualcuno",
   "app.activity.supportSession": "sessione di assistenza",
+  "app.activity.payHidden": "Buste paga, impostazioni paghe, tariffe orarie, commissioni e la fatturazione FieldQuo dell'azienda sono escluse — sono per il titolare e gli amministratori.",
   "app.kpis.sampleSize": countedNoun("it", {"one":"lavoro/preventivo","other":"lavori/preventivi"}),
   "app.kpis.weeksBooked": countedNoun("it", {"one":"settimana","other":"settimane"}),
 
@@ -150939,6 +150974,7 @@ const it = {
   "app.dailySheet.bonus.perObjective": "{count} obiettivi raggiunti",
   "app.dailySheet.bonus.allDone": "Tutti gli obiettivi raggiunti",
   "app.dailySheet.bonus.upsell": "{pct}% di {base} in vendite aggiuntive",
+  "app.dailySheet.bonus.upsellNoBase": "Vendite aggiuntive accreditate a te",
   "app.dailySheet.bonus.belowMin": "Il punteggio {score} è sotto il minimo di {min}",
   "app.dailySheet.bonusTotal": "Premio",
   "app.dailySheet.toPayRun": "Va nella prossima busta paga come riga di premio; lì viene rivisto.",

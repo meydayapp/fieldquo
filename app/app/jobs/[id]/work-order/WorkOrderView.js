@@ -2,9 +2,10 @@
 //
 // The crew work order on a screen: per area, what was sold and how long it
 // should take, the estimator's crew note, a tick and photos. No prices — the
-// model never carries one (lib/workOrder/build.js) — and no client phone
-// number for a member whose access level hides it (redactClient, the same
-// rule the job page follows).
+// model never carries one (lib/workOrder/build.js) — and the client's phone
+// only when the member's access gives it (redactClient: the full client
+// record, or Crew's "phone on their jobs" switch — the same rule the job page
+// follows).
 //
 // ── Two readers, one page ───────────────────────────────────────────────────
 //

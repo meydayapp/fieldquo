@@ -88,7 +88,9 @@ function WeekScreen() {
                 <th className="text-left px-3 py-2">{t("app.dailySheet.day")}</th>
                 <th className="text-right px-3 py-2">{t("app.dailySheet.hours")}</th>
                 <th className="text-right px-3 py-2">{t("app.dailySheet.objectivesDone")}</th>
-                <th className="text-right px-3 py-2">{t("app.dailySheet.upsells")}</th>
+                {/* Upsell amounts only for someone who sells (owner, 2026-10-04):
+                    the route leaves them out and says upsellsHidden. */}
+                {!data.upsellsHidden && <th className="text-right px-3 py-2">{t("app.dailySheet.upsells")}</th>}
                 <th className="text-right px-3 py-2">{t("app.dailySheet.score")}</th>
                 <th className="text-right px-3 py-2">{t("app.dailySheet.bonus")}</th>
               </tr>
@@ -101,7 +103,7 @@ function WeekScreen() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{d.hours ? `${d.hours} h` : "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{d.objectives ? `${d.done} / ${d.objectives}` : "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{d.upsellCents ? money(d.upsellCents / 100) : "—"}</td>
+                  {!data.upsellsHidden && <td className="px-3 py-2 text-right tabular-nums">{d.upsellCents ? money(d.upsellCents / 100) : "—"}</td>}
                   <td className="px-3 py-2 text-right tabular-nums">{d.score != null ? `${d.score} / 5` : "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{d.bonusCents != null ? money(d.bonusCents / 100) : "—"}</td>
                 </tr>
@@ -110,7 +112,7 @@ function WeekScreen() {
                 <td className="px-3 py-2">{t("app.dailySheet.weekTotal")}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{data.totals.hours} h</td>
                 <td className="px-3 py-2 text-right tabular-nums">{data.totals.objectives ? `${data.totals.done} / ${data.totals.objectives}` : "—"}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{data.totals.upsellCents ? money(data.totals.upsellCents / 100) : "—"}</td>
+                {!data.upsellsHidden && <td className="px-3 py-2 text-right tabular-nums">{data.totals.upsellCents ? money(data.totals.upsellCents / 100) : "—"}</td>}
                 <td className="px-3 py-2 text-right tabular-nums">{data.totals.avgScore != null ? `${data.totals.avgScore} / 5` : "—"}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{data.totals.bonusCents != null ? money(data.totals.bonusCents / 100) : "—"}</td>
               </tr>

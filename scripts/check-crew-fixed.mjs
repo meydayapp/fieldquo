@@ -80,6 +80,12 @@ ok("reading every quote is a SEAT, not free", isBillableSeat(crewPlus({ quotes: 
 
 console.log("\nEvery toggle is an escalation too");
 for (const toggle of Object.keys(PERMISSION_TOGGLES)) {
+  // A toggle Crew itself holds is not an escalation — the client's phone on
+  // their own jobs (owner, 2026-10-04) is part of the free tier.
+  if (CREW[toggle] === true) {
+    ok(`${toggle} is Crew's own — on stays FREE, off stays free`, isBillableSeat(crewPlus({ [toggle]: true })) === false && isBillableSeat(crewPlus({ [toggle]: false })) === false);
+    continue;
+  }
   ok(`${toggle} turned on is a SEAT`, isBillableSeat(crewPlus({ [toggle]: true })) === true);
 }
 

@@ -836,7 +836,7 @@ export const ARTICLES = {
     "summary": "Une feuille par équipier et par jour : les objectifs (du plan de chantier ou saisis), les photos avant et après, les pointages, les ventes additionnelles réalisées, l'évaluation du coordonnateur, et la prime que produit la règle de l'entreprise — ou la phrase disant qu'il n'y a pas de règle.",
     "intro": [
       "Les feuilles de temps disent quand quelqu'un était sur le chantier. Les **feuilles de journée** (Équipe → Feuilles de journée) disent ce qu'il devait faire, si c'est fait, et ce qu'il a vendu sur place — ce dont un coordonnateur a besoin pour évaluer une journée, et ce sur quoi une prime de rendement, si l'entreprise en verse une, est calculée.",
-      "Un coordonnateur, un administrateur ou un propriétaire voit la feuille de chaque équipier et écrit l'évaluation. Un équipier voit sa propre feuille sur son téléphone, remplit les résultats, les photos et les ventes additionnelles, et lit l'évaluation une fois écrite."
+      "Un coordonnateur, un administrateur ou un propriétaire voit la feuille de chaque équipier et écrit l'évaluation. Un équipier voit sa propre feuille sur son téléphone, remplit les résultats et les photos, et lit l'évaluation une fois écrite. **Les ventes additionnelles sont pour ceux qui vendent** — estimateurs et plus : la feuille et la semaine d'un Équipier n'affichent ni ventes additionnelles ni montants, et sa propre prime montre la part des ventes comme une ligne sans le chiffre dont elle est tirée."
     ],
     "sections": [
       {
@@ -883,7 +883,7 @@ export const ARTICLES = {
       },
       {
         "q": "Un équipier peut-il ajouter une vente additionnelle avec un montant ?",
-        "a": "Oui, comme ligne saisie. Elle crédite la feuille ; le coordonnateur la voit avant d'évaluer, et la paie est vérifiée avant d'être enregistrée."
+        "a": "Non. Les équipiers ne vendent pas, donc ils ne voient ni n'écrivent de montants de ventes additionnelles. Un coordonnateur qui voit les prix inscrit la vente sur la feuille de la personne, et un équipier qui enregistre ensuite ses objectifs la laisse en place."
       }
     ],
     "updated": "2026-09-21"

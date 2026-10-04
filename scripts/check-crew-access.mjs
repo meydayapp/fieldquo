@@ -1044,15 +1044,20 @@ ok(
   "the linked quote comes back as a number and a status, never a total",
   mine.body?.quote?.quoteNumber === "Q-1001" && mine.body.quote.total === undefined,
 );
-// The client's private notes and phone are a different restriction on the same
+// The client's private notes are a different restriction on the same
 // payload, and they were leaking here before redactClient was wired in. Crew
 // hold clientsProperties: name_address_only, which is also the second half of
 // what makes them scoped, so it is asserted where it can be seen.
+//
+// The PHONE is the exception since 2026-10-04 (owner: crew see a client's
+// phone only for jobs they're on — clientPhoneOnOwnJobs, on for Crew): it
+// follows the switch, and only the switch. Asserted both ways.
 ok(
-  "…and the client comes back name-only, marked as restricted",
+  "…and the client comes back name and address (+ the phone the switch allows), marked as restricted",
   mine.body?.client?.name === "Ana Ruiz" &&
-    mine.body.client.phone === undefined &&
+    (mine.body.client.phone === undefined) === (crew.permissions?.clientPhoneOnOwnJobs === false) &&
     mine.body.client.notes === undefined &&
+    mine.body.client.email === undefined &&
     mine.body.client.restricted === true,
 );
 

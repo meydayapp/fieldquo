@@ -620,7 +620,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Le propriétaire et les administrateurs seulement. La ligne n'est pas dessinée pour un Gestionnaire, un Répartiteur, un Estimateur ou un Équipier, et la page répond **Only an owner or admin can view the activity log.** (un refus du serveur, en anglais) à quiconque d'autre atteint son adresse. Une session d'assistance FieldQuo peut le lire, et ses propres actions y sont marquées comme telles." },
+          { p: "Le propriétaire, les administrateurs et les Gestionnaires — un Gestionnaire sans les lignes de paie (paies, réglages de paie, taux de rémunération, commissions, facturation FieldQuo de l'entreprise), que la page dit exclues. La ligne n'est pas dessinée pour un Répartiteur, un Estimateur ou un Équipier, et la page répond **Only the owner, an admin or a manager can view the activity log.** (un refus du serveur, en anglais) à quiconque d'autre atteint son adresse. Une session d'assistance FieldQuo peut le lire, et ses propres actions y sont marquées comme telles." },
         ],
       },
     ],

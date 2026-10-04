@@ -1,8 +1,10 @@
 // app/api/activity/route.js
 //
 // The company's own view of its activity trail — who did what inside their
-// account. Owner/admin only: it exposes actions across every user (payments,
-// deletions, price changes), which isn't line-staff's to browse.
+// account. Owner/admin, and since 2026-10-04 a Manager (a supervisor holding
+// jobCosting) without the pay rows: it exposes actions across every user
+// (payments, deletions, price changes), which isn't line-staff's to browse.
+// The rule and why: lib/activity/access.js.
 //
 // Optional ?entityType & ?entityId narrow it to one record's history — the
 // "what happened to THIS quote" view.
@@ -11,6 +13,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { canReadActivityLog, activityVisibilityWhere, seesPayActivity } from "@/lib/activity/access";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -23,9 +27,10 @@ export async function GET(request) {
   // this line the console got the 403 below. There is no write on this route to
   // let through: the log is appended by recordActivity from other routes, and
   // an impersonated session's own actions are stamped viaImpersonation.
-  if (!member.impersonation && member.role !== "owner" && member.role !== "admin") {
+  const full = member.impersonation ? null : await loadEnforceableMember(db, member.id);
+  if (!member.impersonation && !canReadActivityLog(full)) {
     return NextResponse.json(
-      { error: "Only an owner or admin can view the activity log." },
+      { error: "Only the owner, an admin or a manager can view the activity log." },
       { status: 403 },
     );
   }
@@ -35,7 +40,9 @@ export async function GET(request) {
   const entityId = searchParams.get("entityId");
   const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit")) || 100));
 
-  const where = { companyId: member.companyId };
+  // A Manager reads everything but pay (lib/activity/access.js). A support
+  // session reads it all, as before.
+  const where = { companyId: member.companyId, ...(member.impersonation ? {} : activityVisibilityWhere(full)) };
   if (entityType) where.entityType = entityType;
   if (entityId) where.entityId = entityId;
 
@@ -72,6 +79,9 @@ export async function GET(request) {
   // neither field and renders its stored English summary, which is what it has
   // always said and what it will keep saying.
   return NextResponse.json({
+    // Said, so the screen can tell a Manager the pay rows are left out rather
+    // than let a missing pay run read as one that never happened.
+    payHidden: !member.impersonation && !seesPayActivity(full),
     entries: entries.map(({ metadata, ...entry }) => {
       const i18n = metadata && typeof metadata === "object" ? metadata.i18n : null;
       return {

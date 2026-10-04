@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every currency's companies; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (the live crew test, owner + Joe on the Crew preset at TrueFinish Cabinets — eleven gaps closed, one commit each: a PUBLISHED SHIFT on a job now grants the job like a visit (assignedJobWhere is visit OR published shift, from publication to 14 days after it ends; drafts/open/other people's shifts grant nothing) across the job page and routes, work order, job chat membership, clock picker, receipts and photo mentions, and My schedule links the job and its work order; My schedule shows the person's job visits from the same read as My day (GET /api/me/visits); Share with staff sends a crew DM the work order only and puts the crew's line first in rooms; the work order carries quantities and units, cabinet door/drawer counts, colour/sheen/coats, what's included, the options the client chose, the materials list, checklist, visit notes and hours (the quote's labour estimate as fallback) — still no money; the crew job page gets job wording on the upload box, the website star/tags/stage words and controls for curators only, and no client preparation guide (GET refuses crew); Jennifer's launcher steps aside on /app/chat and /app/messages; /app/scheduler reads "My shifts" for people who can't assign them; Add visit clears an error when its field changes; with no leave policies crew can still request UNPAID time off (LeavePolicy.systemUnpaid, additive — SQL in the commit, not applied); the correction form always offers a job picker scoped to their jobs; /app/timesheets is an alias. docs/ROLE-ACCESS.md has the table; open decisions 5–6 there: the shift window, and unpaid-with-no-policies.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
@@ -84,6 +85,42 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Owner decisions 4 October 2026 (evening)
+
+### 1. Crew access — the four "Owed" decisions in docs/ROLE-ACCESS.md
+
+- **(a) Client phone on their own jobs** — `clientPhoneOnOwnJobs`, a new grid
+  switch, on for Crew (and held by the paid presets so they can grant it).
+  `redactClient(member, client, { onOwnJob: true })` keeps the phone only
+  where the caller vouches the job was read through `assignedJobWhere`
+  (`redactJob`, the work order loader); the client page, list and search stay
+  name and address; email and notes never. A grid saved before the switch has
+  no key and reads as on (hasToggle always did) — `TOGGLES_ON_WHEN_ABSENT`
+  makes the editor and the preset matcher agree, so existing crew still read
+  as Crew. Off switch on the fixed Crew panel (`PRESET_OFF_SWITCHES`), still
+  free. Supervisors saved before the switch can still grant it
+  (`actorHoldsToggle`).
+- **(b) Crew tick materials bought** on a job they are booked on (visit or
+  published shift — `personallyOnJobWhere`): tick only, no price / supplier /
+  quantity (403 `tick_only`), untick only their own tick with no receipt
+  (403 `untick_not_yours`), a second tick on a bought line rewrites nothing,
+  logged `job.materialBought`. An Estimator who sees the job but is not on it
+  gets 403 `not_on_job`.
+- **(c) No upsell amounts for crew** — `seesUpsells` = showPricing + any
+  quotes level. `/api/daily-sheets/upsells` 403s; the day's sheets, the week
+  and the evaluate reply strip upsells (`upsellsHidden`) and the bonus line's
+  base/pct (their pay stays); a crew save cannot write upsells and keeps a
+  coordinator's.
+- **(d) Managers read the activity log** — owner, admin, or a supervisor with
+  jobCosting (the Manager, not the Dispatcher), without pay rows (payroll,
+  own rates, commissions, FieldQuo billing — `lib/activity/access.js`); the
+  page says they are left out; the settings row follows the same rule.
+
+Checks: `check:role-access` 227 → 277 (§12 materials, §13 upsells, §8
+activity, §1/§3/§9 phone), `check:access-editor`, `check:crew-fixed`,
+`check:crew-access`, `check:work-order`. Help en/fr/es: Crew access, the
+activity log (two articles), daily sheets.
 
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 

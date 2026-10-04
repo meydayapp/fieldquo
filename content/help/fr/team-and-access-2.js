@@ -954,7 +954,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Propriétaires et administrateurs seulement. La ligne est masquée pour tous les autres niveaux et le serveur répond « Only an owner or admin can view the activity log. » à quiconque d'autre — le journal nomme des actions sur chaque utilisateur, y compris les paiements, les changements de taux de paie et qui a désactivé qui, ce qu'un Manager n'a pas à lire." },
+          { p: "Propriétaires, administrateurs et **Managers**. Un Manager lit chaque ligne sauf la paie — les paies, les réglages de paie, les taux de rémunération, les commissions et la facturation FieldQuo de l'entreprise — et la page dit qu'elles sont exclues. Les Répartiteurs, Estimateurs et Équipiers ne voient pas la ligne, et le serveur répond « Only the owner, an admin or a manager can view the activity log. » à quiconque d'autre. (Ce qui fait d'une personne un Manager ici, c'est l'interrupteur **Job costing**, qu'un Répartiteur n'a pas.)" },
           { note: "La consignation ne fait jamais échouer ni annuler l'action qu'elle décrit. Si l'écriture au journal elle-même a échoué, l'action a quand même eu lieu et la ligne manque — un compromis délibéré, pour que la soumission d'un client ne soit jamais perdue parce qu'une ligne de vérification n'a pas pu être écrite." },
         ],
       },

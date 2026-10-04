@@ -8,7 +8,8 @@
 //
 // Who sees what is decided by the route (lib/dailySheets/access.js): a
 // coordinator gets every crew member and the evaluation box; a crew member
-// gets their own sheet, may fill in results, photos and upsells, and reads
+// gets their own sheet, may fill in results and photos (upsells only for
+// someone who sells — owner, 2026-10-04; `sellsUpsells`), and reads
 // the evaluation. This page draws what the route returned and never widens
 // it — `coordinator` in the payload only decides whether the score box is
 // an input or a sentence.
@@ -107,13 +108,13 @@ function DailySheetsScreen() {
       )}
       {data &&
         data.rows.map((row) => (
-          <SheetCard key={row.worker.id} row={row} date={data.date} dayLabel={dayLabel} coordinator={data.coordinator} hasRule={data.hasRule} onSaved={load} />
+          <SheetCard key={row.worker.id} row={row} date={data.date} dayLabel={dayLabel} coordinator={data.coordinator} sellsUpsells={data.sellsUpsells !== false} hasRule={data.hasRule} onSaved={load} />
         ))}
     </div>
   );
 }
 
-function SheetCard({ row, date, dayLabel, coordinator, hasRule, onSaved }) {
+function SheetCard({ row, date, dayLabel, coordinator, sellsUpsells = true, hasRule, onSaved }) {
   const { t } = useTranslation();
   const money = useCompanyMoney();
   const sheet = row.sheet;
@@ -168,7 +169,8 @@ function SheetCard({ row, date, dayLabel, coordinator, hasRule, onSaved }) {
       await fetchJson("/api/daily-sheets", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workerId: row.worker.id, date, jobId: jobId || null, objectives, upsells }),
+        // A non-seller sends no upsells; the route keeps the ones on file.
+        body: JSON.stringify({ workerId: row.worker.id, date, jobId: jobId || null, objectives, ...(sellsUpsells ? { upsells } : {}) }),
       });
       setDirty(false);
       showToast({ message: t("app.dailySheet.saved"), tone: "success" });
@@ -304,7 +306,10 @@ function SheetCard({ row, date, dayLabel, coordinator, hasRule, onSaved }) {
         )}
       </div>
 
-      {/* Upsells */}
+      {/* Upsells — selling, so only for someone who sells (owner,
+          2026-10-04: crew do not see upsell amounts at all). The route strips
+          them for everyone else; this draws nothing in their place. */}
+      {sellsUpsells && (
       <div className="space-y-2">
         <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("app.dailySheet.upsells")}</div>
         {upsells.length === 0 && <p className="text-xs text-muted-foreground">{t("app.dailySheet.noUpsells")}</p>}
@@ -368,6 +373,7 @@ function SheetCard({ row, date, dayLabel, coordinator, hasRule, onSaved }) {
           </div>
         )}
       </div>
+      )}
 
       {!frozen && (
         <div className="flex items-center gap-2">
@@ -428,7 +434,10 @@ function SheetCard({ row, date, dayLabel, coordinator, hasRule, onSaved }) {
                   <span>
                     {l.key === "per_objective" && t("app.dailySheet.bonus.perObjective", { count: l.count })}
                     {l.key === "all_done" && t("app.dailySheet.bonus.allDone")}
-                    {l.key === "upsell" && t("app.dailySheet.bonus.upsell", { pct: l.pct, base: money((l.base || 0) / 100) })}
+                    {l.key === "upsell" &&
+                      (l.base == null
+                        ? t("app.dailySheet.bonus.upsellNoBase", "Upsells credited to you")
+                        : t("app.dailySheet.bonus.upsell", { pct: l.pct, base: money((l.base || 0) / 100) }))}
                     {l.key === "below_min_score" && t("app.dailySheet.bonus.belowMin", { score: l.score, min: l.minScore })}
                   </span>
                   <span className="tabular-nums font-medium">+{money(l.cents / 100)}</span>

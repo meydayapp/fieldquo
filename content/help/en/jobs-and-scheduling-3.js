@@ -838,7 +838,7 @@ export const ARTICLES = {
     "summary": "One sheet per crew member per day: the objectives (from the job plan or typed), before and after photos, the clock stamps, the upsells they sold, the coordinator's evaluation, and the bonus the company's rule yields — or the sentence saying there is no rule.",
     "intro": [
       "Timesheets say when somebody was on site. **Daily sheets** (Team → Daily sheets) say what they were meant to do, whether it got done, and what they sold while there — which is what a coordinator needs to evaluate a day, and what a performance bonus, if the company pays one, is paid on.",
-      "A coordinator, administrator or owner sees every crew member's sheet and writes the evaluation. A crew member sees their own sheet on their phone, fills in results, photos and upsells, and reads the evaluation once it is written."
+      "A coordinator, administrator or owner sees every crew member's sheet and writes the evaluation. A crew member sees their own sheet on their phone, fills in results and photos, and reads the evaluation once it is written. **Upsells are for the people who sell** — estimators and up: a Crew member's sheet and week show no upsells and no upsell amounts, and their own bonus shows the upsell share as a line without the figure it was worked out from."
     ],
     "sections": [
       {
@@ -885,7 +885,7 @@ export const ARTICLES = {
       },
       {
         "q": "Can a crew member add an upsell with an amount?",
-        "a": "Yes, as a typed line. It credits the sheet; the coordinator sees it before evaluating, and the pay run is reviewed before it is saved."
+        "a": "No. Crew do not sell, so they do not see or write upsell amounts. A coordinator who can see prices records an upsell on the person's sheet, and a crew member saving their own objectives afterwards leaves it in place."
       }
     ],
     "updated": "2026-09-21"

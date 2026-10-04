@@ -201,6 +201,11 @@ const MONEY_KEY = /\.(total|subtotal|tax|discount|amount|amountCents|amountPaid|
 const moneyIn = (payload) => keyPaths(payload).filter((p) => MONEY_KEY.test(p));
 const CONTACT_KEY = /\.(email|phone|contactName|portalToken|sentToEmail)$/;
 const contactIn = (payload) => keyPaths(payload).filter((p) => CONTACT_KEY.test(p));
+// Contact details OTHER than the phone — the owner's 2026-10-04 decision gives
+// crew the client's phone on the jobs they are on (clientPhoneOnOwnJobs) and
+// nothing else of the contact record.
+const NON_PHONE_CONTACT = /\.(email|contactName|portalToken|sentToEmail)$/;
+const contactExceptPhoneIn = (payload) => keyPaths(payload).filter((p) => NON_PHONE_CONTACT.test(p));
 const textHas = (payload, needle) => JSON.stringify(payload).includes(needle);
 
 const JOB = await import("../app/api/jobs/[id]/route.js");
@@ -238,7 +243,10 @@ for (const role of ROLES) {
     ok("crew: no payment schedule (the deposit)", json.paymentStages === undefined && json.pricingHidden === true);
     ok("crew: the change order's SCOPE survives, its price does not", json.changeOrders?.[0]?.description === "Add the hallway" && json.changeOrders[0].priceDelta === undefined);
     ok("crew: no invoice reference on the change order", json.changeOrders[0].invoice === undefined && json.changeOrders[0].invoiceId === undefined);
-    ok("crew: no client email / phone / notes / portal token", contactIn(json).length === 0 && json.client.notes === undefined, contactIn(json).join(", "));
+    // 2026-10-04: the phone on a job they are on (clientPhoneOnOwnJobs, on for
+    // Crew); never the email, the contact name, the notes or the portal link.
+    ok("crew: the client's PHONE on their own job (clientPhoneOnOwnJobs, Crew default)", json.client.phone === "819-555-0100");
+    ok("crew: …and no email / contact name / notes / portal token", contactExceptPhoneIn(json).length === 0 && json.client.notes === undefined, contactExceptPhoneIn(json).join(", "));
     ok("crew: no cost-review note (jobCosting)", json.costReviewNote === undefined && !textHas(json, "$400 over"));
   } else {
     ok(`${role}: sees the deposit schedule`, json?.paymentStages?.[0]?.amountCents === 450000);
@@ -281,7 +289,32 @@ for (const role of ROLES) {
   ok(`${role}: no money key anywhere in it`, json?.workOrder && findWorkOrderMoneyKey(json.workOrder) === null);
   ok(`${role}: the scope lines are there ("Prime and paint walls", 3 room)`, json?.workOrder?.areas?.[0]?.lines?.[0]?.label === "Prime and paint walls" && json.workOrder.areas[0].lines[0].quantity === 3);
   ok(`${role}: the site address is there`, /Saint-Louis/.test(json?.workOrder?.job?.siteAddress || ""));
-  ok(`${role}: client phone ${role === "crew" ? "withheld" : "shown"}`, (json?.workOrder?.client?.phone === "819-555-0100") === (role !== "crew"));
+  // Everyone, crew included since 2026-10-04: the work order is always of a
+  // job the reader is on, and Crew holds clientPhoneOnOwnJobs by default.
+  ok(`${role}: client phone shown`, json?.workOrder?.client?.phone === "819-555-0100");
+}
+// Crew with the switch OFF — the per-person off switch on the fixed Crew panel.
+{
+  seed();
+  const saved = MEMBERS.crew.permissions;
+  MEMBERS.crew.permissions = { ...saved, clientPhoneOnOwnJobs: false };
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j1" } });
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j1" } });
+  MEMBERS.crew.permissions = saved;
+  ok("crew with 'phone on their jobs' OFF: no phone on the work order", wo.status === 200 && wo.json?.workOrder?.client?.phone == null);
+  ok("crew with 'phone on their jobs' OFF: no phone on the job page either", page.status === 200 && contactIn(page.json).length === 0, contactIn(page.json).join(", "));
+}
+// A grid saved before the switch existed (no key) reads as ON — hasToggle's
+// rule, and the editor's (TOGGLES_ON_WHEN_ABSENT).
+{
+  seed();
+  const saved = MEMBERS.crew.permissions;
+  const legacy = { ...saved };
+  delete legacy.clientPhoneOnOwnJobs;
+  MEMBERS.crew.permissions = legacy;
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j1" } });
+  MEMBERS.crew.permissions = saved;
+  ok("crew saved before the switch existed: phone shown (absent = on, the owner's default)", page.json?.client?.phone === "819-555-0100");
 }
 seed();
 ok("crew: the work order of a job they are not on is Not found", (await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } })).status === 404);
@@ -368,7 +401,9 @@ seed();
   ok("crew: their job's client opens — name and address", own.status === 200 && own.json?.name === "Marie Tremblay" && own.json?.address === "755 Rue Saint-Louis");
   ok("crew: …with no quotes or invoices list (dials at none), declared hidden", own.json?.quotes === undefined && own.json?.invoices === undefined && own.json?.documentsHidden?.includes("quotes"));
   ok("crew: …only their own job listed", (own.json?.jobs || []).map((j) => j.id).join(",") === "j1");
-  ok("crew: …no contact details, no money", contactIn(own.json).length === 0 && moneyIn(own.json).length === 0, [...contactIn(own.json), ...moneyIn(own.json)].join(", "));
+  // The client PAGE is the client book, not a job: no phone there, even with
+  // clientPhoneOnOwnJobs on — it is kept only on the job and its work order.
+  ok("crew: …no contact details (not even the phone — the client page is not a job), no money", contactIn(own.json).length === 0 && moneyIn(own.json).length === 0, [...contactIn(own.json), ...moneyIn(own.json)].join(", "));
   ok("crew: a client they have no job for is Not found", (await call(CLIENT, "GET", { as: "crew", params: { id: "c2" } })).status === 404);
   const est = await call(CLIENT, "GET", { as: "estimator", params: { id: "c1" } });
   ok("estimator: the client opens with quotes (priced) and invoices", est.json?.quotes?.[0]?.total === 9000 && est.json?.invoices?.[0]?.invoiceNumber === "INV-0007");
@@ -481,12 +516,30 @@ seed();
 }
 seed();
 {
+  // 2026-10-04: managers read it (owner's decision 1d), without the pay rows.
+  tables.activityLog = [
+    { id: "al1", companyId: "co1", action: "payment.recorded", entityType: "invoice", entityId: "i1", summary: "Recorded a card payment of 4500 on invoice INV-0007", actorName: "owner person", actorRole: "owner", viaImpersonation: false, createdAt: new Date("2026-10-01"), metadata: null },
+    { id: "al2", companyId: "co1", action: "payroll.run_created", entityType: "payrun", entityId: "pr1", summary: "Created a draft pay run (3 people, 4210.55 net)", actorName: "owner person", actorRole: "owner", viaImpersonation: false, createdAt: new Date("2026-10-02"), metadata: null },
+    { id: "al3", companyId: "co1", action: "worker.ownRateSet", entityType: "worker", entityId: "w_crew", summary: "Set their own hourly rate", actorName: "crew person", actorRole: "employee", viaImpersonation: false, createdAt: new Date("2026-10-02"), metadata: null },
+    { id: "al4", companyId: "co1", action: "billing.cancelled", entityType: "settings", entityId: null, summary: "Cancelled the FieldQuo plan", actorName: "owner person", actorRole: "owner", viaImpersonation: false, createdAt: new Date("2026-10-03"), metadata: null },
+  ];
   const r = await call(ACTIVITY, "GET", { as: "crew", url: "http://test.local/api/activity" });
-  ok("crew: cannot read the activity log (owner/admin only)", r.status === 403);
+  ok("crew: cannot read the activity log", r.status === 403);
+  for (const role of ["estimator", "dispatcher"]) {
+    const x = await call(ACTIVITY, "GET", { as: role, url: "http://test.local/api/activity" });
+    ok(`${role}: cannot read it (no jobCosting — a Dispatcher shares the Manager's role, not its grant)`, x.status === 403, `status ${x.status}`);
+  }
   const m = await call(ACTIVITY, "GET", { as: "manager", url: "http://test.local/api/activity" });
-  ok("manager: cannot either — the log is owner/admin (documented, not a leak)", m.status === 403);
+  ok("manager: READS it now (owner, 2026-10-04)", m.status === 200, `status ${m.status} ${JSON.stringify(m.json)}`);
+  const mIds = (m.json?.entries || []).map((e) => e.id).sort().join(",");
+  ok("manager: …the payment row, and NOT the pay run, the own-rate or the FieldQuo billing rows", mIds === "al1", mIds);
+  ok("manager: …and is told the pay rows are left out", m.json?.payHidden === true);
   const o = await call(ACTIVITY, "GET", { as: "owner", url: "http://test.local/api/activity" });
-  ok("owner: reads it", o.status === 200);
+  ok("owner: reads every row, pay included", o.status === 200 && (o.json?.entries || []).length === 4 && o.json?.payHidden === false);
+  const { canSeeSettingsRow } = await import("@/lib/permissions/settingsAccess");
+  ok("settings sidebar: the Activity Log row is drawn for the manager", canSeeSettingsRow({ role: MEMBERS.manager.role }, "app.settings.activity", MEMBERS.manager));
+  ok("settings sidebar: …and not for the dispatcher (same role)", !canSeeSettingsRow({ role: MEMBERS.dispatcher.role }, "app.settings.activity", MEMBERS.dispatcher));
+  ok("settings sidebar: …nor for crew", !canSeeSettingsRow({ role: MEMBERS.crew.role }, "app.settings.activity", MEMBERS.crew));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -515,7 +568,7 @@ seedShift();
 {
   const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
   ok("crew: a published shift on j2 opens the job page (200)", page.status === 200, `status ${page.status}`);
-  ok("…with no money and no contact details, exactly as via a visit", moneyIn(page.json).length === 0 && contactIn(page.json).length === 0, [...moneyIn(page.json), ...contactIn(page.json)].join(", "));
+  ok("…with no money, and the phone but no other contact detail, exactly as via a visit", moneyIn(page.json).length === 0 && contactExceptPhoneIn(page.json).length === 0 && page.json?.client?.phone === "819-555-0199", [...moneyIn(page.json), ...contactExceptPhoneIn(page.json)].join(", "));
   const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
   ok("crew: …and its work order (200), with no money key", wo.status === 200 && wo.json?.workOrder && findWorkOrderMoneyKey(wo.json.workOrder) === null, `status ${wo.status}`);
   const list = await call(JOBS, "GET", { as: "crew", url: "http://test.local/api/jobs" });
@@ -636,6 +689,143 @@ seedLeave([{ id: "lpx", companyId: "co1", name: "Unpaid time off", kind: "unpaid
   const page = src("app/app/time-off/page.js");
   ok("the page keeps the owner's note AND offers the request", /data-unpaid-fallback/.test(page) && /app\.timeOff\.noPolicies/.test(page) && /unpaidFallback=\{unpaidFallback\}/.test(page));
   ok("the form posts unpaid:true in place of a policy", /unpaid: true/.test(src("app/app/time-off/RequestForm.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. Crew tick materials bought — on their own jobs only (owner, 2026-10-04)");
+//
+// app/api/jobs/[id]/materials/route.js tickAccess: "edit" for jobs editors,
+// "own" for a view-only member personally on the job (visit or published
+// shift), nothing for anyone else. "own" is a tick: no cost, supplier or
+// quantity, and an untick only of their own tick with no receipt on it.
+const MATERIALS = await import("../app/api/jobs/[id]/materials/route.js");
+function seedMaterials() {
+  seed();
+  for (const m of ["material", "stockMovement", "voiceCreditEntry", "platformFeature", "companyFeatureOverride", "materialPriceEntry"]) tables[m] ||= [];
+  tables.jobMaterial = [
+    { id: "mat1", jobId: "j1", name: "Cabinet enamel", qty: 3, unit: "gal", estUnitCost: 89, actualCost: null, purchasedAt: null, purchasedById: null, supplier: null, excludedAt: null, addedByHand: false, source: "takeoff", sortOrder: 0, createdAt: new Date() },
+    { id: "mat2", jobId: "j1", name: "Primer", qty: 2, unit: "gal", estUnitCost: 40, actualCost: 82, purchasedAt: new Date("2026-10-01"), purchasedById: "u_mgr", supplier: "Sherwin", excludedAt: null, addedByHand: false, source: "takeoff", sortOrder: 1, createdAt: new Date() },
+    { id: "mat3", jobId: "j2", name: "Deck stain", qty: 4, unit: "gal", estUnitCost: 50, actualCost: null, purchasedAt: null, purchasedById: null, supplier: null, excludedAt: null, addedByHand: false, source: "takeoff", sortOrder: 0, createdAt: new Date() },
+  ];
+  const job1 = tables.job.find((j) => j.id === "j1");
+  job1.materials = tables.jobMaterial.filter((m) => m.jobId === "j1");
+  for (const m of tables.jobMaterial) m.job = tables.job.find((j) => j.id === m.jobId);
+}
+const matWrites = () => writes.filter((w) => w.model === "jobMaterial" && (w.action === "update" || w.action === "updateMany"));
+seedMaterials();
+{
+  const g = await call(MATERIALS, "GET", { as: "crew", params: { id: "j1" } });
+  ok("crew GET on their job: tick mode 'own'", g.status === 200 && g.json?.tick === "own", `status ${g.status} tick ${g.json?.tick}`);
+  ok("…and still no cost on any line", moneyIn(g.json?.materials).length === 0, moneyIn(g.json?.materials).join(", "));
+  ok("…the office's bought line is not theirs to untick", g.json?.materials?.find((m) => m.id === "mat2")?.untickable === false);
+  const t = await call(MATERIALS, "PATCH", { as: "crew", params: { id: "j1" }, body: { materialId: "mat1", purchased: true } });
+  ok("crew ticks a line bought on their job (200)", t.status === 200, `status ${t.status} ${JSON.stringify(t.json)}`);
+  const w = matWrites().at(-1)?.args?.data;
+  ok("…written as bought by them, no cost, no supplier", w?.purchasedById === "u_crew" && w?.purchasedAt instanceof Date && w?.actualCost === null && w?.supplier === null, JSON.stringify(w));
+  ok("…logged under their name", activityRows().some((a) => a.action === "job.materialBought" && a.actorUserId === "u_crew"));
+}
+seedMaterials();
+{
+  for (const [label, body] of [
+    ["a price", { materialId: "mat1", purchased: true, actualCost: 40 }],
+    ["a supplier", { materialId: "mat1", purchased: true, supplier: "Home Depot" }],
+    ["a quantity", { materialId: "mat1", qty: 9 }],
+    ["a used quantity", { materialId: "mat1", purchased: true, actualQty: 2 }],
+  ]) {
+    const r = await call(MATERIALS, "PATCH", { as: "crew", params: { id: "j1" }, body });
+    ok(`crew: a tick carrying ${label} is refused (403 tick_only)`, r.status === 403 && r.json?.code === "tick_only", `status ${r.status}`);
+  }
+  ok("…and nothing was written", matWrites().length === 0);
+  const un = await call(MATERIALS, "PATCH", { as: "crew", params: { id: "j1" }, body: { materialId: "mat2", purchased: false } });
+  ok("crew cannot untick the office's purchase with a receipt (403) — it would blank the cost", un.status === 403 && un.json?.code === "untick_not_yours");
+  const again = await call(MATERIALS, "PATCH", { as: "crew", params: { id: "j1" }, body: { materialId: "mat2", purchased: true } });
+  ok("crew ticking an already-bought line changes nothing (no rewrite of its receipt)", again.status === 200 && matWrites().length === 0);
+  const other = await call(MATERIALS, "PATCH", { as: "crew", params: { id: "j2" }, body: { materialId: "mat3", purchased: true } });
+  ok("crew cannot tick a line on a job they are not on (404)", other.status === 404, `status ${other.status}`);
+  ok("…and still nothing was written", matWrites().length === 0);
+}
+seedMaterials();
+{
+  const line = tables.jobMaterial.find((m) => m.id === "mat1");
+  Object.assign(line, { purchasedAt: new Date(), purchasedById: "u_crew" });
+  const g = await call(MATERIALS, "GET", { as: "crew", params: { id: "j1" } });
+  ok("crew: their own tick (no receipt) is untickable", g.json?.materials?.find((m) => m.id === "mat1")?.untickable === true);
+  const un = await call(MATERIALS, "PATCH", { as: "crew", params: { id: "j1" }, body: { materialId: "mat1", purchased: false } });
+  ok("crew unticks their own tick (200)", un.status === 200 && matWrites().at(-1)?.args?.data?.purchasedAt === null);
+}
+seedMaterials();
+{
+  const est = await call(MATERIALS, "GET", { as: "estimator", params: { id: "j1" } });
+  ok("estimator (view-only, NOT on the job): reads the list, no tick", est.status === 200 && est.json?.tick === null);
+  const r = await call(MATERIALS, "PATCH", { as: "estimator", params: { id: "j1" }, body: { materialId: "mat1", purchased: true } });
+  ok("estimator: cannot tick a job they can see but are not on (403 not_on_job)", r.status === 403 && r.json?.code === "not_on_job" && matWrites().length === 0, `status ${r.status}`);
+  const mgr = await call(MATERIALS, "GET", { as: "manager", params: { id: "j1" } });
+  ok("manager: tick mode 'edit' (the office, as before)", mgr.json?.tick === "edit");
+  const full = await call(MATERIALS, "PATCH", { as: "manager", params: { id: "j1" }, body: { materialId: "mat1", purchased: true, actualCost: 260, supplier: "Sherwin" } });
+  ok("manager: records the receipt with the tick (200)", full.status === 200 && matWrites().at(-1)?.args?.data?.actualCost === 260);
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const ui = readFileSync(new URL("../app/components/jobs/JobMaterials.js", import.meta.url), "utf8");
+  ok("screen: the crew box is drawn from the route's answer (tick === 'own')", /ownTickMode=\{!canEdit && data\?\.tick === "own"\}/.test(ui));
+  ok("screen: the crew tick posts purchased only", /send\("PATCH", \{ materialId: m\.id, purchased: !m\.purchasedAt \}\)/.test(ui));
+  ok("screen: untick only where the route says so (m.untickable)", /ownTickMode && \(!bought \|\| m\.untickable\)/.test(ui));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. Upsell amounts — estimators and up, never crew (owner, 2026-10-04)");
+//
+// Crew do not sell (lib/dailySheets/access.js seesUpsells). The amounts used
+// to reach them on the daily sheet as their bonus base.
+const SHEETS = await import("../app/api/daily-sheets/route.js");
+const SHEET_UPSELLS = await import("../app/api/daily-sheets/upsells/route.js");
+const SHEET_WEEK = await import("../app/api/daily-sheets/week/route.js");
+function seedSheets() {
+  seed();
+  for (const m of ["timeEntry", "task", "dailyObjectiveSheet"]) tables[m] = [];
+  tables.worker[0].active = true;
+  tables.company[0].performancePayRule = { perObjectiveCents: 0, allDoneCents: 0, upsellPct: 5 };
+  const job1 = tables.job.find((j) => j.id === "j1");
+  job1.quote = { ...job1.quote, addOns: [{ id: "a2", description: "Two-Tone Finish", amount: 900, selected: true }] };
+  job1.changeOrders = job1.changeOrders.map((c) => ({ ...c }));
+  tables.dailyObjectiveSheet = [{
+    id: "ds1", companyId: "co1", workerId: "w_crew", date: new Date("2026-10-06T00:00:00Z"), jobId: "j1",
+    objectives: [{ id: "o1", text: "Cut in", status: "done" }],
+    upsells: [{ id: "u1", description: "Two-Tone Finish", amountCents: 90000, quoteAddOnId: "a2", changeOrderId: null }],
+    evaluationScore: 4, bonusCents: 4500, bonusBreakdown: [{ key: "upsell", cents: 4500, pct: 5, base: 90000 }], payRunId: null,
+    job: { id: "j1", title: "Tremblay interior" }, evaluatedBy: null, worker: tables.worker[0],
+  }];
+}
+seedSheets();
+{
+  const o = await call(SHEET_UPSELLS, "GET", { as: "crew", url: "http://test.local/api/daily-sheets/upsells?jobId=j1" });
+  ok("crew: the upsell options (amounts) are refused (403)", o.status === 403 && !textHas(o.json, "900"), `status ${o.status}`);
+  const e = await call(SHEET_UPSELLS, "GET", { as: "estimator", url: "http://test.local/api/daily-sheets/upsells?jobId=j1" });
+  ok("estimator: reads them, with amounts", e.status === 200 && e.json?.options?.some((x) => x.amountCents === 90000), `status ${e.status} ${JSON.stringify(e.json)}`);
+  const d = await call(SHEETS, "GET", { as: "crew", url: "http://test.local/api/daily-sheets?date=2026-10-06" });
+  const sheet = d.json?.rows?.[0]?.sheet;
+  ok("crew: their day's sheet opens (200), sellsUpsells false", d.status === 200 && d.json?.sellsUpsells === false, `status ${d.status} ${JSON.stringify(d.json)}`);
+  ok("…with NO upsells on it, and says so", sheet && sheet.upsells === undefined && sheet.upsellsHidden === true);
+  ok("…the bonus's upsell line keeps their pay (cents) but not the base or the percentage", sheet?.bonusBreakdown?.[0]?.cents === 4500 && sheet.bonusBreakdown[0].base === undefined && sheet.bonusBreakdown[0].pct === undefined);
+  ok("…no 900 / 90000 anywhere in the payload", !/\b(900|90000)\b/.test(JSON.stringify(d.json)));
+  const w = await call(SHEET_WEEK, "GET", { as: "crew", url: "http://test.local/api/daily-sheets/week?weekOf=2026-10-06" });
+  ok("crew: the week has no upsell column (upsellsHidden), bonus total kept", w.status === 200 && w.json?.upsellsHidden === true && w.json?.totals?.upsellCents === undefined && (w.json?.days || []).every((x) => x.upsellCents === undefined), `status ${w.status}`);
+  const put = await call(SHEETS, "PUT", { as: "crew", body: { workerId: "w_crew", date: "2026-10-06", jobId: "j1", objectives: [{ id: "o1", text: "Cut in", status: "done" }], upsells: [{ description: "Sold a ceiling", amountCents: 50000 }] } });
+  ok("crew: a save carrying upsells is refused (403), not dropped", put.status === 403 && put.json?.code === "upsells_hidden");
+  const save = await call(SHEETS, "PUT", { as: "crew", body: { workerId: "w_crew", date: "2026-10-06", jobId: "j1", objectives: [{ id: "o1", text: "Cut in", status: "done" }] } });
+  const written = writes.filter((x) => x.model === "dailyObjectiveSheet" && x.action === "upsert").at(-1)?.args;
+  ok("crew: their objectives save (200)", save.status === 200, `status ${save.status} ${JSON.stringify(save.json)}`);
+  ok("…and the upsell a coordinator credited is KEPT, not wiped", written?.update?.upsells?.[0]?.amountCents === 90000);
+  ok("…and the reply carries no upsells", save.json && save.json.upsells === undefined);
+  const mgr = await call(SHEETS, "GET", { as: "manager", url: "http://test.local/api/daily-sheets?date=2026-10-06" });
+  ok("manager: sees the upsells and their amounts", mgr.json?.sellsUpsells === true && mgr.json?.rows?.find((r) => r.sheet)?.sheet?.upsells?.[0]?.amountCents === 90000);
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const page = readFileSync(new URL("../app/app/daily-sheets/page.js", import.meta.url), "utf8");
+  ok("screen: the upsell section is drawn only for sellers", /\{sellsUpsells && \(\s*<div className="space-y-2">/.test(page));
+  ok("screen: a non-seller's save sends no upsells", /\.\.\.\(sellsUpsells \? \{ upsells \} : \{\}\)/.test(page));
+  ok("screen: the week's upsell column follows upsellsHidden", /!data\.upsellsHidden && <th/.test(readFileSync(new URL("../app/app/daily-sheets/week/page.js", import.meta.url), "utf8")));
 }
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
