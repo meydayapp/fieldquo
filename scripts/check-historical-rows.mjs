@@ -134,6 +134,23 @@ console.log("\n1. lib/analytics/overview.js — the dashboard tiles, the monthly
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n2. lib/dashboard/homeData.js — \"Your focus\": won this month over sent this month\n");
+{
+  const { loadHomeData } = await import("@/lib/dashboard/homeData");
+  const seed = { company: [COMPANY], quote: [...LIVE_QUOTES, ...importedQuotes()] };
+  const ownerFull = { id: "m1", userId: "u1", role: "owner", permissions: null, companyId: "c1" };
+  const run = (s) =>
+    withDb(s, (db) => loadHomeData(db, { member: { companyId: "c1", userId: "u1", role: "owner" }, full: ownerFull, now: NOW }));
+  const { result: h, writes } = await run(seed);
+  ok("sent this month: the two live sends", h.facts.quotesSentThisMonth === 2, h.facts.quotesSentThisMonth);
+  ok("won this month: the one live acceptance — not the import dated the 1st", h.facts.quotesAcceptedThisMonth === 1, h.facts.quotesAcceptedThisMonth);
+  ok("...so won can never exceed sent on imports alone", h.facts.quotesAcceptedThisMonth <= h.facts.quotesSentThisMonth);
+  ok("the home loader writes nothing", writes.length === 0);
+  const { result: bare } = await run(withoutHistory(seed));
+  ok("a company with no historical rows sees identical focus facts (md5)", md5(h.facts) === md5(bare.facts), [h.facts, bare.facts]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 if (failures.length) {
   console.error(`\n✗ ${failures.length} failed, ${pass} passed\n`);
   for (const f of failures) console.error(`  ✗ ${f}`);
