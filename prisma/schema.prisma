@@ -20909,19 +20909,20 @@ model CompanyChatMessage {
   /// the reader's language. `body` keeps an English sentence for logs.
   meta Json?
 
-  // ── Reserved for phases 3–4 of the channels plan (2026-10-04) ───────────
+  // ── Phases 3–4 of the channels plan (2026-10-04) ────────────────────────
   //
-  // Added now, with the channels columns, so photos, cards, replies, pins,
-  // edits and removal need no second migration. NOTHING writes them yet and
-  // nothing draws them: the store's postMessage takes `body` only, and the
-  // screen offers no control for any of them. When a phase lands, its writer
-  // and its reader land together (AGENTS.md failure class 1).
+  // Added with the channels columns so photos, cards, replies, pins, edits
+  // and removal needed no second migration; written and read since phases
+  // 3–4 landed (lib/company/chat/store.js postMessage, editMessage,
+  // removeMessage, pinMessage; rules.js threadMessages draws them).
 
-  /// Phase 3. Verified Cloudinary entries:
-  /// [{ type: "photo"|"document", url, publicId, mimeType, filename, bytes, width?, height? }].
+  /// Phase 3. Verified PRIVATE (Cloudinary "authenticated") entries in this
+  /// company's chat folder: [{ type: "photo"|"document", url, publicId,
+  /// mimeType, filename, bytes, width?, height? }]. `url` never leaves the
+  /// server — readers get a short-lived link (lib/company/chat/fileLinks.js).
   attachments Json?
-  /// Phase 3. { type: "work_order"|"quote"|"job"|"invoice", id } — ids only,
-  /// never text or money; resolved per reader on read.
+  /// Phase 3. { type: "work_order"|"quote"|"job", id } — ids only, never
+  /// text or money; resolved per reader on read (lib/company/chat/cards.js).
   card        Json?
   /// Phase 4. A reply-quote of another message in the same room.
   replyToId   String?

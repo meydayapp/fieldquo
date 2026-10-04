@@ -28,6 +28,13 @@
 // None of those can be established by reading the source with any
 // confidence, which is the habit AGENTS.md says produced the bugs.
 //
+// Sections 26–36 (2026-10-04, phases 3–4) run the same way: private chat
+// files and the reader-bound, expiring link that opens them; cards resolved
+// per reader with no money key for anybody; reply, the 15-minute edit window
+// on the server's clock, soft removal absent from EVERY response (the owner's
+// and a support session's included), pins, search scoped by membership, the
+// outbox replay that stays one message, and Save to job photos.
+//
 // Sections 7–9 read source DECOMMENTED, for the boundary this file discusses
 // at length and would otherwise match in its own prose: the company tables
 // are not the staff tables, the routes reach the database only through the
@@ -554,7 +561,7 @@ section("10. Unread is a COUNT, the thread is the NEWEST, and seen is the last m
   // message IN THE PAYLOAD.
   const route = decomment(read("app/api/chat/rooms/[id]/route.js"));
   const storeSrc = decomment(read("lib/company/chat/store.js"));
-  ok("the thread route marks seen up to the last message IN ITS PAYLOAD", /readThread\(member, id, \{ after \}\)/.test(route) && /markRoomSeen\(member, room\.id, \{ upTo: seenUpTo\(room\.messages, "createdAt"\), client \}\)/.test(storeSrc));
+  ok("the thread route marks seen up to the last message IN ITS PAYLOAD", /readThread\(member, id, \{ after, changedSince \}\)/.test(route) && /markRoomSeen\(member, room\.id, \{ upTo: seenUpTo\(room\.messages, "createdAt"\), client \}\)/.test(storeSrc));
   const store = decomment(read("lib/company/chat/store.js"));
   ok("the store's list include is ONE preview row, not a slice of 200", /take: 1,/.test(store) && !/take: 200/.test(store));
   ok("…the thread reads newest-first and reverses", /orderBy: \{ createdAt: "desc" \}, take: THREAD_TAKE/.test(store) && /\.reverse\(\)/.test(store));
@@ -1326,9 +1333,9 @@ section("23. The 4-second poll is a DELTA, and reading marks 'looking'");
   ok("…and moved Pia's read boundary to it", new Date(pia.lastSeenAt).getTime() === new Date(delta.messages[0].at).getTime());
   ok("reading stamps lastOpenedAt — the 'looking' clock the push reads", pia.lastOpenedAt instanceof Date && Date.now() - pia.lastOpenedAt.getTime() < 5000);
   const route = decomment(read("app/api/chat/rooms/[id]/route.js"));
-  ok("the route reads ?after= and hands it to readThread", /searchParams\.get\("after"\)/.test(route));
+  ok("the route reads ?after= and ?changed= and hands both to readThread", /sp\.get\("after"\)/.test(route) && /sp\.get\("changed"\)/.test(route) && /readThread\(member, id, \{ after, changedSince \}\)/.test(route));
   const screen = decomment(read("app/components/company/CompanyChat.js"));
-  ok("the screen polls the open room every 4 s, 15 s after two quiet minutes, with ?after=", /ROOM_POLL_FAST_MS = 4000/.test(screen) && /ROOM_POLL_SLOW_MS = 15000/.test(screen) && /ROOM_IDLE_MS = 2 \* 60 \* 1000/.test(screen) && /chatApi\.room\(id, \{ after \}\)/.test(screen));
+  ok("the screen polls the open room every 4 s, 15 s after two quiet minutes, with ?after=", /ROOM_POLL_FAST_MS = 4000/.test(screen) && /ROOM_POLL_SLOW_MS = 15000/.test(screen) && /ROOM_IDLE_MS = 2 \* 60 \* 1000/.test(screen) && /chatApi\.room\(id, \{ after, changed: current\.changesCursor \|\| null \}\)/.test(screen));
   ok("the list seeds rooms on open and on return, never on the 15-second poll", /loadList\(\{ sync: true \}\)/.test(screen) && /searchParams\.get\("sync"\) === "1"/.test(decomment(read("app/api/chat/rooms/route.js"))));
 }
 
@@ -1375,6 +1382,381 @@ section("25. Every hand-made change is in the activity log");
   const actions = logged.map((l) => l.action);
   ok("created, updated, members added, member removed, archived, group created — each logged once", JSON.stringify(actions) === JSON.stringify(["chat.channel_created", "chat.room_updated", "chat.members_added", "chat.member_removed", "chat.channel_archived", "chat.group_created"]), actions);
   ok("…attributed to who did it, against the room, with an English summary", logged.every((l) => l.entityType === "chat_room" && l.entityId && typeof l.summary === "string" && l.summary.length > 5) && logged[0].by === "mMgr" && logged[5].by === "mTom");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phases 3–4 (2026-10-04): photos and files, cards, reply, edit, remove,
+// pins, search, the outbox, Save to job photos — EXECUTED against the store.
+// ═══════════════════════════════════════════════════════════════════════════
+const P34 = await import("@/lib/company/chat/store");
+const R34 = await import("@/lib/company/chat/rules");
+const { parseChatAttachments, chatFileLocation } = await import("@/lib/company/chat/attachments");
+const { fileLinkFor, verifyFileLink, FILE_LINK_TTL_SECONDS } = await import("@/lib/company/chat/fileLinks");
+const DU = await import("@/lib/media/directUpload");
+const { shareCard } = await import("@/lib/quotes/shareWithStaff");
+
+process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET || "check-company-chat-secret-0123456789";
+const CLOUD = "democloud";
+const uuid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+const chatPhoto = (n, companyId = "A") => {
+  const publicId = `fieldquo/companies/${companyId}/chat/${uuid(n)}`;
+  return { url: `https://res.cloudinary.com/${CLOUD}/image/authenticated/v1700000000/${publicId}.jpg`, publicId, kind: "photo", filename: `site-${n}.jpg`, bytes: 812345 };
+};
+const chatPdf = (n, companyId = "A") => {
+  const publicId = `fieldquo/companies/${companyId}/chat/${uuid(n)}.pdf`;
+  return { url: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1700000000/${publicId}`, publicId, kind: "document", filename: `spec-${n}.pdf`, bytes: 120000 };
+};
+const MONEY = /\.(total|subtotal|tax|discount|amount|amountCents|amountPaid|amountDue|price|rate|unitPrice|cost|margin|markup|acceptedTotal|quoteTotal|invoiceTotal)$/i;
+function keyPaths(value, path = "", out = []) {
+  if (Array.isArray(value)) value.forEach((v, i) => keyPaths(v, `${path}[${i}]`, out));
+  else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) { out.push(`${path}.${k}`); keyPaths(v, `${path}.${k}`, out); }
+  return out;
+}
+const opts = { cloudName: CLOUD, notify: async () => ({}), bell: async () => ({}) };
+
+/** seedTeam plus two jobs (Tom is booked on j1 only), a quote with a client, and company B's job. */
+function seedWork() {
+  const db = seedTeam();
+  db.tables.client.push({ id: "c1", companyId: "A", name: "Marie Tremblay" }, { id: "cB", companyId: "B", name: "B client" });
+  db.tables.quote.push({ id: "q1", companyId: "A", clientId: "c1", quoteNumber: "Q-0042", status: "accepted", total: 9000, subtotal: 8000 });
+  db.tables.job.push(
+    { id: "j1", companyId: "A", title: "Tremblay kitchen", status: "scheduled", archivedAt: null, quoteId: "q1", createdAt: new Date() },
+    { id: "j2", companyId: "A", title: "Roy deck", status: "scheduled", archivedAt: null, quoteId: null, createdAt: new Date() },
+    { id: "jB", companyId: "B", title: "B's job", status: "scheduled", archivedAt: null, quoteId: null, createdAt: new Date() },
+  );
+  db.tables.jobVisit.push({ id: "v1", jobId: "j1", assignedToId: "uTom", scheduledAt: new Date(Date.now() + 86400000) });
+  return db;
+}
+
+section("26. Chat files are PRIVATE: the upload scope, and what a message may carry");
+{
+  const scope = DU.uploadScope("member", { companyId: "A", purpose: "chat" });
+  ok("the chat purpose files under the company's own chat folder", scope.ok && scope.folder === "fieldquo/companies/A/chat");
+  ok("…as Cloudinary type `authenticated` — the plain URL is refused by Cloudinary itself", scope.deliveryType === "authenticated" && DU.PRIVATE_MEMBER_PURPOSES.includes("chat"));
+  ok("…PDF, Word, Excel, PowerPoint and text accepted, at a 25 MB document ceiling", scope.allowMessagingDocuments === true && scope.documentMaxBytes === 25 * 1024 * 1024);
+  ok("the two 25 MB constants agree (upload scope and chat rules)", DU.CHAT_DOCUMENT_MAX_BYTES === R34.CHAT_DOCUMENT_MAX_BYTES);
+  const signedPhoto = DU.planUpload({ type: "image/jpeg", size: 3_000_000 }, scope, { randomId: () => uuid(1) });
+  ok("a photo's signature includes type=authenticated (the browser cannot drop it)", signedPhoto.ok && signedPhoto.params.type === "authenticated");
+  const bigPdf = DU.planUpload({ type: "application/pdf", size: 30 * 1024 * 1024 }, scope);
+  ok("a 30 MB PDF is refused before a byte is sent (too_large)", !bigPdf.ok && bigPdf.code === "too_large");
+  const docx = DU.planUpload({ type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 200_000 }, scope, { randomId: () => uuid(2) });
+  ok("a .docx is accepted and minted with its extension", docx.ok && /\.docx$/.test(docx.publicId));
+  ok("the messaging scope keeps Meta's 100 MB (unchanged by chat)", DU.ourCap("document", { allowMessagingDocuments: true }) === 100 * 1024 * 1024);
+  ok("the HR scope is unchanged (private, PDF-only documents)", DU.uploadScope("member", { companyId: "A", purpose: "hr" }).deliveryType === "authenticated" && DU.uploadScope("member", { companyId: "A", purpose: "hr" }).allowMessagingDocuments === false);
+  ok("the composer refuses a video before uploading", R34.chatFileVerdict({ type: "video/mp4", name: "a.mp4", size: 10 }).code === "no_video" && R34.chatFileVerdict({ type: "", name: "clip.MOV", size: 10 }).code === "no_video");
+
+  const good = parseChatAttachments([chatPhoto(1), chatPdf(2)], { companyId: "A", cloudName: CLOUD });
+  ok("a verified photo and PDF of this company's chat folder are accepted", good.ok && good.attachments.length === 2 && good.attachments[0].type === "photo" && good.attachments[1].type === "document");
+  ok("…the stored URL is rebuilt from our cloud, never the browser's string", good.attachments[0].url === chatPhoto(1).url);
+  const hostile = [
+    ["another company's chat file", [chatPhoto(3, "B")]],
+    ["a PUBLIC (upload-type) URL", [{ ...chatPhoto(4), url: chatPhoto(4).url.replace("/authenticated/", "/upload/") }]],
+    ["a job-photo folder file", [{ ...chatPhoto(5), publicId: `fieldquo/companies/A/jobs/${uuid(5)}`, url: `https://res.cloudinary.com/${CLOUD}/image/authenticated/v1/fieldquo/companies/A/jobs/${uuid(5)}.jpg` }]],
+    ["a URL and publicId that disagree", [{ ...chatPhoto(6), publicId: chatPhoto(7).publicId }]],
+    ["another Cloudinary account", [{ ...chatPhoto(8), url: chatPhoto(8).url.replace(CLOUD, "evilcloud") }]],
+    ["a path with ..", [{ ...chatPhoto(9), url: `https://res.cloudinary.com/${CLOUD}/image/authenticated/v1/fieldquo/companies/A/chat/../B/${uuid(9)}.jpg` }]],
+    ["a video", [{ url: `https://res.cloudinary.com/${CLOUD}/video/authenticated/v1/fieldquo/companies/A/chat/${uuid(10)}.mp4`, publicId: `fieldquo/companies/A/chat/${uuid(10)}` }]],
+    ["a data: URL", [{ url: "data:image/png;base64,AAAA", publicId: "x" }]],
+    ["eleven files", Array.from({ length: 11 }, (_, i) => chatPhoto(20 + i))],
+    ["not a list", "https://res.cloudinary.com/x"],
+  ];
+  for (const [label, list] of hostile) {
+    const r = parseChatAttachments(list, { companyId: "A", cloudName: CLOUD });
+    ok(`refused: ${label} (bad_attachment)`, r.ok === false && r.code === "bad_attachment", r);
+  }
+  ok("a stored row naming another company's file is never signed (chatFileLocation → null)", chatFileLocation({ url: chatPhoto(3, "B").url }, { companyId: "A", cloudName: CLOUD }) === null);
+}
+
+section("27. A file link is the reader's, and it EXPIRES");
+{
+  const now = Date.now();
+  const link = fileLinkFor(TOM, "msg1", 0, "full", { now });
+  const q = new URL(`https://x.test${link}`);
+  const args = { messageId: "msg1", index: "0", variant: "full", exp: q.searchParams.get("exp"), sig: q.searchParams.get("sig") };
+  ok("the link is our route, never Cloudinary", link.startsWith("/api/chat/files/msg1/0?") && !link.includes("cloudinary"));
+  ok("valid for its reader, now", verifyFileLink(TOM, args, { now }).ok === true);
+  ok(`an EXPIRED link is refused (${FILE_LINK_TTL_SECONDS}s later) — "expired"`, verifyFileLink(TOM, args, { now: now + (FILE_LINK_TTL_SECONDS + 5) * 1000 }).code === "expired");
+  ok("another member's session cannot use it — even in the same room (bad_link)", verifyFileLink(PIA, args, { now }).code === "bad_link");
+  ok("…and an expired link for somebody else says bad_link, not expired", verifyFileLink(PIA, args, { now: now + 10 * 3600 * 1000 }).code === "bad_link");
+  ok("a changed file index, size or expiry breaks the signature", verifyFileLink(TOM, { ...args, index: "1" }, { now }).code === "bad_link" && verifyFileLink(TOM, { ...args, variant: "thumb" }, { now }).code === "bad_link" && verifyFileLink(TOM, { ...args, exp: String(Number(args.exp) + 9999) }, { now }).code === "bad_link");
+  ok("no secret configured → nothing signs, nothing opens", fileLinkFor(TOM, "m", 0, "full", { secret: "" }) === null && verifyFileLink(TOM, args, { secret: "short" }).code === "unavailable");
+  ok("a support session's links are bound to the platform admin", Boolean(fileLinkFor(SUPPORT_A, "m", 0, "thumb")) && verifyFileLink(TOM, { ...args }, { now }).ok);
+  const route = decomment(read("app/api/chat/files/[messageId]/[index]/route.js"));
+  ok("the file route checks the link BEFORE it looks for the file, and 410s an expired one", route.indexOf("verifyFileLink(") > 0 && route.indexOf("verifyFileLink(") < route.indexOf("chatFileFor(") && /answer\(410, "link_expired"/.test(route));
+  ok("…redirects to the five-minute HR signer, and streams thumbnails (the signed delivery URL never leaves)", /expiringFileLink\(file\.location\)/.test(route) && /new Response\(upstream\.body/.test(route) && /private, no-store/.test(route));
+}
+
+section("28. A message with photos: stored verified, served as links — no storage URL in any payload");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const { roomId } = await createChannel(OWN, { name: "site-photos", isPrivate: true, memberIds: ["mTom"] }, { client: db, log: silent.log });
+  const sent = await postMessage({ member: TOM, roomId, body: "", attachments: [chatPhoto(40), chatPdf(41)] }, { client: db, ...opts });
+  ok("a photo-only message (no words) posts", sent.ok === true, sent);
+  const row = db.tables.companyChatMessage.find((m) => m.id === sent.message.id);
+  ok("…stored with the verified entries (type, url, publicId, size)", Array.isArray(row.attachments) && row.attachments.length === 2 && row.attachments[0].publicId === chatPhoto(40).publicId);
+  const t = await readThread(OWN, roomId, { client: db });
+  const msg = t.messages.find((m) => m.id === sent.message.id);
+  ok("the thread carries a thumb + full link per photo, a full link per document", msg.attachments[0].thumb?.startsWith("/api/chat/files/") && msg.attachments[0].full?.startsWith("/api/chat/files/") && msg.attachments[1].thumb === null && msg.attachments[1].full);
+  const json = JSON.stringify(t);
+  ok("NO stored URL, public id, or 'cloudinary' anywhere in the payload", !json.includes("res.cloudinary.com") && !json.includes(chatPhoto(40).publicId) && !/cloudinary/i.test(json));
+  ok("the member can open it: chatFileFor finds the file", Boolean(await P34.chatFileFor(TOM, sent.message.id, 0, { client: db, cloudName: CLOUD })));
+  ok("a NON-MEMBER of the private channel gets 404 (null) — the owner of the company included", (await P34.chatFileFor(PIA, sent.message.id, 0, { client: db, cloudName: CLOUD })) === null && (await P34.chatFileFor(MGR, sent.message.id, 0, { client: db, cloudName: CLOUD })) === null);
+  ok("company B gets 404", (await P34.chatFileFor(ZOE, sent.message.id, 0, { client: db, cloudName: CLOUD })) === null);
+  ok("an index that is not there is 404", (await P34.chatFileFor(TOM, sent.message.id, 2, { client: db, cloudName: CLOUD })) === null);
+  ok("a read-only support session may open it (it reads every room)", Boolean(await P34.chatFileFor(SUPPORT_A, sent.message.id, 0, { client: db, cloudName: CLOUD })));
+  const before = db.tables.companyChatMessage.length;
+  const bad = await postMessage({ member: TOM, roomId, body: "x", attachments: [chatPhoto(42, "B")] }, { client: db, ...opts });
+  ok("a foreign file refuses the WHOLE message (bad_attachment) and writes nothing", bad.ok === false && bad.code === "bad_attachment" && db.tables.companyChatMessage.length === before);
+  const list = await roomsFor(TOM, { client: db });
+  const listed = roomList(list, "mTom").find((r) => r.id === roomId);
+  ok("the list previews it as what it carried — a count, never a file name", listed.lastBody === null && listed.lastFiles === 2);
+}
+
+section("29. Cards: ids stored, resolved per reader — the crew never see a price");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const wo = await postMessage({ member: OWN, roomId: general.id, body: "Tomorrow's start", card: shareCard({ quoteId: "q1", workOrderJobId: "j1" }) }, { client: db, ...opts });
+  const qc = await postMessage({ member: OWN, roomId: general.id, body: "", card: { type: "quote", id: "q1" } }, { client: db, ...opts });
+  ok("the office posts a work-order card and a quote card", wo.ok && qc.ok);
+  const stored = db.tables.companyChatMessage.find((m) => m.id === wo.message.id).card;
+  ok("the stored card is { type, id } and nothing else", JSON.stringify(stored) === JSON.stringify({ type: "work_order", id: "j1" }));
+  const asTom = await readThread(TOM, general.id, { client: db });
+  const asPia = await readThread(PIA, general.id, { client: db });
+  const asOwn = await readThread(OWN, general.id, { client: db });
+  const card = (t, id) => t.messages.find((m) => m.id === id).card;
+  ok("crew ON the job: the work order opens, with NO quote link", card(asTom, wo.message.id).open === true && card(asTom, wo.message.id).href === "/app/jobs/j1/work-order" && card(asTom, wo.message.id).quoteHref === null);
+  ok("crew NOT on the job: 'for the people on this job', no title", card(asPia, wo.message.id).open === false && card(asPia, wo.message.id).restricted === "job_crew" && !("title" in card(asPia, wo.message.id)));
+  ok("crew on a quote card: 'Office only', no number, no client", card(asTom, qc.message.id).open === false && card(asTom, qc.message.id).restricted === "office" && !JSON.stringify(card(asTom, qc.message.id)).includes("Q-0042") && !JSON.stringify(card(asTom, qc.message.id)).includes("Marie"));
+  ok("the office: the work order AND the quote's button; the quote card's number and client", card(asOwn, wo.message.id).quoteHref === "/app/quotes/q1" && card(asOwn, qc.message.id).number === "Q-0042" && card(asOwn, qc.message.id).clientName === "Marie Tremblay");
+  const moneyPaths = [asTom, asPia, asOwn].flatMap((t) => keyPaths(t.messages.map((m) => m.card)).filter((p) => MONEY.test(p)));
+  ok("NO money key in any card, for any reader (the quote row has a total; no card carries it)", moneyPaths.length === 0, moneyPaths);
+  // Cards only: file-link signatures in the payload are hex, and "9000" can
+  // turn up in one by chance.
+  ok("…and the quote's total (9000) appears in no card", ![asTom, asPia, asOwn].some((t) => JSON.stringify(t.messages.map((m) => m.card)).includes("9000")));
+  for (const [label, member, c] of [
+    ["crew sharing a quote they cannot open", TOM, { type: "quote", id: "q1" }],
+    ["crew sharing a job they are not on", TOM, { type: "job", id: "j2" }],
+    ["the office sharing company B's job", OWN, { type: "job", id: "jB" }],
+    ["a made-up card type", OWN, { type: "invoice_total", id: "q1" }],
+    ["an id with a path in it", OWN, { type: "job", id: "../j1" }],
+  ]) {
+    const r = await postMessage({ member, roomId: general.id, body: "look", card: c }, { client: db, ...opts });
+    ok(`refused: ${label} (bad_card)`, r.ok === false && r.code === "bad_card", r);
+  }
+  const crewJob = await postMessage({ member: TOM, roomId: general.id, body: "", card: { type: "job", id: "j1" } }, { client: db, ...opts });
+  ok("crew may share THEIR job as a card", crewJob.ok === true);
+  ok("Share with staff: a work-order card once it is a job, a quote card before", JSON.stringify(shareCard({ quoteId: "q1", workOrderJobId: "j1" })) === JSON.stringify({ type: "work_order", id: "j1" }) && JSON.stringify(shareCard({ quoteId: "q1" })) === JSON.stringify({ type: "quote", id: "q1" }));
+  const modal = decomment(read("app/components/quotes/ShareWithStaffModal.js"));
+  ok("…the modal posts the card, with the text links only as the bad_card fallback", /card: shareCard\(\{ quoteId, workOrderJobId \}\)/.test(modal) && /err\?\.code !== "bad_card"/.test(modal));
+}
+
+section("30. Reply-quote: one level, same room, and a removed original quotes nothing");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const { roomId: other } = await createGroup(TOM, { memberIds: ["mPia", "mEst"] }, { client: db, log: silent.log });
+  const orig = await postMessage({ member: PIA, roomId: general.id, body: "Bring the shim pack to the Tremblay job" }, { client: db, ...opts });
+  const reply = await postMessage({ member: TOM, roomId: general.id, body: "On it", replyToId: orig.message.id }, { client: db, ...opts });
+  ok("a reply to a message in the same room posts", reply.ok === true);
+  const t = await readThread(OWN, general.id, { client: db });
+  const r = t.messages.find((m) => m.id === reply.message.id).replyTo;
+  ok("the reply carries the quoted words and who said them", r && r.id === orig.message.id && r.body.startsWith("Bring the shim") && r.who === "Pia Crew");
+  const cross = await postMessage({ member: TOM, roomId: other, body: "x", replyToId: orig.message.id }, { client: db, ...opts });
+  ok("replying to a message of ANOTHER room is refused (bad_reply)", cross.ok === false && cross.code === "bad_reply");
+  await P34.removeMessage(PIA, orig.message.id, { client: db, log: silent.log });
+  const t2 = await readThread(OWN, general.id, { client: db });
+  const r2 = t2.messages.find((m) => m.id === reply.message.id).replyTo;
+  ok("once the original is removed, the quote says removed and carries NO words", r2.deleted === true && r2.body === "" && !JSON.stringify(t2).includes("shim pack"));
+  const late = await postMessage({ member: TOM, roomId: general.id, body: "x", replyToId: orig.message.id }, { client: db, ...opts });
+  ok("…and a new reply to the removed message is refused", late.ok === false && late.code === "bad_reply");
+}
+
+section("31. Edit: your own, inside 15 minutes — the SERVER's clock — and the poll carries it");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const m = await postMessage({ member: TOM, roomId: general.id, body: "Van 2 at 7" }, { client: db, ...opts });
+  const first = await readThread(PIA, general.id, { client: db });
+  const cursor = first.changesCursor;
+  await new Promise((r) => setTimeout(r, 10));
+  const e = await P34.editMessage(TOM, m.message.id, "Van 2 at 7:30", { client: db });
+  ok("the author edits within the window", e.ok === true && db.tables.companyChatMessage.find((x) => x.id === m.message.id).editedAt instanceof Date);
+  ok("somebody else cannot edit it (403 not_author)", (await P34.editMessage(PIA, m.message.id, "hacked", { client: db })).code === "not_author");
+  ok("the owner cannot edit somebody else's words either", (await P34.editMessage(OWN, m.message.id, "hacked", { client: db })).code === "not_author");
+  const later = new Date(Date.now() + R34.EDIT_WINDOW_MS + 60_000);
+  const tooLate = await P34.editMessage(TOM, m.message.id, "Van 2 at 8", { client: db, now: later });
+  ok("16 minutes later the server refuses (403 too_late) — whatever the browser's clock says", tooLate.ok === false && tooLate.status === 403 && tooLate.code === "too_late");
+  ok("the pure window agrees at 14:59 and 15:01", R34.canEditMessage({ authorMemberId: "mTom", createdAt: new Date(0) }, TOM, new Date(R34.EDIT_WINDOW_MS - 1000)).ok && R34.canEditMessage({ authorMemberId: "mTom", createdAt: new Date(0) }, TOM, new Date(R34.EDIT_WINDOW_MS + 1000)).code === "too_late");
+  ok("a support session cannot edit (read_only)", (await P34.editMessage(SUPPORT_A, m.message.id, "x", { client: db })).code === "read_only");
+  const lastAt = first.messages.at(-1).at;
+  const delta = await readThread(PIA, general.id, { client: db, after: lastAt, changedSince: cursor });
+  const changed = delta.changed.find((x) => x.id === m.message.id);
+  ok("the 4-second delta carries the edit to a reader who already had the message", changed && changed.body === "Van 2 at 7:30" && changed.edited === true && delta.messages.length === 0);
+}
+
+section("32. Remove: soft, and the words are in NO response — the owner and a support session included");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  // Letters outside hex on purpose: file-link signatures are hex, and a
+  // digits-only secret could turn up inside one by chance.
+  const SECRET = "the gate code is zulu";
+  const keep = await postMessage({ member: PIA, roomId: general.id, body: "first" }, { client: db, ...opts });
+  const m = await postMessage({ member: TOM, roomId: general.id, body: SECRET, attachments: [chatPhoto(60)] }, { client: db, ...opts });
+  const reply = await postMessage({ member: PIA, roomId: general.id, body: "thanks", replyToId: m.message.id }, { client: db, ...opts });
+  await P34.pinMessage(OWN, m.message.id, {}, { client: db });
+  // A screen that already HAS the message, open in another tab.
+  const first = await readThread(PIA, general.id, { client: db });
+  ok("before removal, the reader's screen holds the words (so the next check means something)", JSON.stringify(first).includes("zulu"));
+  await new Promise((r) => setTimeout(r, 10));
+  ok("crew cannot remove somebody else's message in #general (not_allowed)", (await P34.removeMessage(PIA, m.message.id, { client: db, log: silent.log })).code === "not_allowed");
+  const done = await P34.removeMessage(TOM, m.message.id, { client: db, log: silent.log });
+  ok("the author removes their own", done.ok === true);
+  const row = db.tables.companyChatMessage.find((x) => x.id === m.message.id);
+  ok("SOFT: the row and its words stay in the database (never delete data)", row && row.body === SECRET && row.deletedAt instanceof Date && row.deletedByMemberId === "mTom");
+  ok("…and its pin went with it", row.pinnedAt === null);
+  const lastAt = first.messages.at(-1).at;
+  const payloads = {
+    "the owner's thread": await readThread(OWN, general.id, { client: db }),
+    "the author's own thread": await readThread(TOM, general.id, { client: db }),
+    "a support session's thread": await readThread(SUPPORT_A, general.id, { client: db }),
+    "the 4-second delta's `changed`": await readThread(PIA, general.id, { client: db, after: lastAt, changedSince: first.changesCursor }),
+    "the room list": roomList(await roomsFor(OWN, { client: db }), "mOwn"),
+    // `.results`: the reply echoes the words SEARCHED for, which is the
+    // searcher's own input, not the message.
+    "the owner's search": (await P34.searchMessages(OWN, { q: "gate code" }, { client: db })).results,
+    "a support session's search": (await P34.searchMessages(SUPPORT_A, { q: "zulu" }, { client: db })).results,
+    "the file route's lookup": await P34.chatFileFor(OWN, m.message.id, 0, { client: db, cloudName: CLOUD }),
+  };
+  for (const [label, payload] of Object.entries(payloads)) {
+    ok(`absent from ${label}`, !JSON.stringify(payload ?? null).includes("zulu") && !JSON.stringify(payload ?? null).includes(chatPhoto(60).publicId));
+  }
+  const ownRow = payloads["the owner's thread"].messages.find((x) => x.id === m.message.id);
+  ok("the row is still THERE, drawn as 'Message removed' (deleted, no body, no files)", ownRow.deleted === true && ownRow.body === "" && ownRow.attachments.length === 0 && ownRow.card === null);
+  ok("the delta tells an open screen it was removed", payloads["the 4-second delta's `changed`"].changed.some((x) => x.id === m.message.id && x.deleted === true));
+  ok("the reply quoting it now quotes 'removed'", payloads["the owner's thread"].messages.find((x) => x.id === reply.message.id).replyTo.deleted === true);
+  ok("the pinned bar no longer has it", !payloads["the owner's thread"].pinned.some((p) => p.id === m.message.id));
+  ok("a removed message is not unread for anybody", (await unreadTotalsFor(EST, { client: db })).unread === 2 /* "first" and "thanks" */);
+  ok("removing twice is a no-op", (await P34.removeMessage(TOM, m.message.id, { client: db, log: silent.log })).unchanged === true);
+  // Moderation: a channel's manager may remove others' messages there, and
+  // the log says who removed whose — never what it said.
+  const logged = [];
+  const { roomId: chan } = await createChannel(MGR, { name: "crew-north", memberIds: ["mTom", "mPia"] }, { client: db, log: silent.log });
+  const crewMsg = await postMessage({ member: TOM, roomId: chan, body: "rude words here" }, { client: db, ...opts });
+  ok("crew cannot moderate a channel (not_allowed)", (await P34.removeMessage(PIA, crewMsg.message.id, { client: db, log: silent.log })).code === "not_allowed");
+  const mod = await P34.removeMessage(MGR, crewMsg.message.id, { client: db, log: async (mm, ev) => logged.push(ev) });
+  ok("the channel's manager removes somebody else's message there", mod.ok === true);
+  ok("…logged as moderation, without the words", logged.length === 1 && logged[0].action === "chat.message_removed" && !JSON.stringify(logged).includes("rude"));
+  const { roomId: grp } = await createGroup(TOM, { memberIds: ["mPia", "mOwn"] }, { client: db, log: silent.log });
+  const g = await postMessage({ member: PIA, roomId: grp, body: "in a group" }, { client: db, ...opts });
+  ok("in a GROUP nobody removes another's words — not its maker, not the owner", (await P34.removeMessage(TOM, g.message.id, { client: db, log: silent.log })).code === "not_allowed" && (await P34.removeMessage(OWN, g.message.id, { client: db, log: silent.log })).code === "not_allowed");
+  const dm = await openDirect(TOM, "mPia", { client: db });
+  const d = await postMessage({ member: TOM, roomId: dm.roomId, body: "private" }, { client: db, ...opts });
+  ok("the owner cannot even find a DM between two others (no_message 404)", (await P34.removeMessage(OWN, d.message.id, { client: db, log: silent.log })).status === 404);
+  ok("a support session removes nothing (read_only)", (await P34.removeMessage(SUPPORT_A, keep.message.id, { client: db, log: silent.log })).code === "read_only");
+}
+
+section("33. Pins: the office and room managers; anybody in a DM or group; seen by the poll");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const m = await postMessage({ member: TOM, roomId: general.id, body: "Van 2 key is in the lockbox" }, { client: db, ...opts });
+  ok("crew cannot pin in #general (not_allowed)", (await P34.pinMessage(TOM, m.message.id, {}, { client: db })).code === "not_allowed");
+  ok("a manager (supervisor) can", (await P34.pinMessage(MGR, m.message.id, {}, { client: db })).ok === true);
+  const first = await readThread(PIA, general.id, { client: db });
+  ok("the pinned bar carries it, and the row says pinned", first.pinned.length === 1 && first.pinned[0].id === m.message.id && first.messages.find((x) => x.id === m.message.id).pinned === true);
+  ok("a system line says who pinned", db.tables.companyChatMessage.some((x) => x.kind === "system" && x.meta?.system === "pinned" && x.authorMemberId === "mMgr"));
+  ok("crew are told they may not pin here (can.pin false); the office may", first.can.pin === false && (await readThread(MGR, general.id, { client: db })).can.pin === true);
+  await P34.pinMessage(MGR, m.message.id, { pin: false }, { client: db });
+  const delta = await readThread(PIA, general.id, { client: db, after: first.messages.at(-1).at, changedSince: first.changesCursor });
+  ok("an UNPIN is seen by the next delta as an absence from the pinned list", delta.delta === true && delta.pinned.length === 0);
+  const { roomId: grp } = await createGroup(PIA, { memberIds: ["mTom", "mEst"] }, { client: db, log: silent.log });
+  const g = await postMessage({ member: EST, roomId: grp, body: "punch list" }, { client: db, ...opts });
+  ok("crew can pin in a group they are in", (await P34.pinMessage(TOM, g.message.id, {}, { client: db })).ok === true);
+  ok("the pure rule: crew in a job room no; crew manager of their group yes", R34.canPin({ kind: "job" }, TOM, { open: true, role: "member" }) === false && R34.canPin({ kind: "group" }, TOM, { open: true, role: "manager" }) === true && R34.canPin({ kind: "channel", archivedAt: new Date() }, OWN, { open: true }) === false);
+  ok("a support session pins nothing", (await P34.pinMessage(SUPPORT_A, g.message.id, {}, { client: db })).code === "read_only");
+}
+
+section("34. Search: server-side, every room you can read — never a private room you are not in");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const { roomId: priv } = await createChannel(OWN, { name: "payroll", isPrivate: true, memberIds: ["mAdm"] }, { client: db, log: silent.log });
+  await postMessage({ member: OWN, roomId: priv, body: "Tremblay deposit cleared" }, { client: db, ...opts });
+  await postMessage({ member: PIA, roomId: general.id, body: "Tremblay kitchen tomorrow" }, { client: db, ...opts });
+  const crew = await P34.searchMessages(TOM, { q: "tremblay" }, { client: db });
+  ok("crew find the #general line, case-blind", crew.results.some((r) => r.body.includes("kitchen tomorrow")));
+  ok("…and NOT the private channel's line, not even its room name", !JSON.stringify(crew).includes("deposit") && !JSON.stringify(crew).includes("payroll"));
+  ok("the owner, a member of it, finds both", (await P34.searchMessages(OWN, { q: "tremblay" }, { client: db })).results.length === 2);
+  ok("search IN the private room as a non-member is a 404 (null)", (await P34.searchMessages(TOM, { q: "tremblay", roomId: priv }, { client: db })) === null);
+  ok("company B finds nothing of company A", (await P34.searchMessages(ZOE, { q: "tremblay" }, { client: db })).results.length === 0);
+  ok("one letter searches nothing (no full-table scan for 'a')", (await P34.searchMessages(OWN, { q: "a" }, { client: db })).results.length === 0);
+  ok("system lines are not searched", !(await P34.searchMessages(OWN, { q: "created" }, { client: db })).results.length);
+  ok("a support session searches the rooms it can read — all of them, read-only", (await P34.searchMessages(SUPPORT_A, { q: "tremblay" }, { client: db })).results.length === 2);
+}
+
+section("35. The outbox: the same send replayed is ONE message, and pushes once");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const dm = await openDirect(TOM, "mPia", { client: db });
+  const pushes = [];
+  const push = async (args) => pushes.push(args);
+  const key = "qOUTBOX0123456789abcdef";
+  const a = await postMessage({ member: TOM, roomId: dm.roomId, body: "in the basement", offlineKey: key }, { client: db, ...opts, notify: push });
+  const b = await postMessage({ member: TOM, roomId: dm.roomId, body: "in the basement", offlineKey: key }, { client: db, ...opts, notify: push });
+  ok("first send posts; the replay answers from the ledger (replayed)", a.ok && !a.replayed && b.ok && b.replayed === true && b.message.id === a.message.id);
+  ok("ONE message in the room", db.tables.companyChatMessage.filter((m) => m.roomId === dm.roomId && m.body === "in the basement").length === 1);
+  ok("ONE push", pushes.length === 1);
+  ok("the ledger row is kind 'chat'", db.tables.offlineSyncItem.some((x) => x.clientKey === key && x.kind === "chat" && x.entityId === a.message.id));
+  const screen = decomment(read("app/components/company/CompanyChat.js"));
+  const outbox = decomment(read("lib/company/chat/outbox.js"));
+  ok("the screen sends words through the outbox with the key, and flushes on 'online'", /chatApi\.send\(item\.roomId,[\s\S]{0,200}\{ offlineKey: item\.key \}\)/.test(screen) && /addEventListener\("online", up\)/.test(screen));
+  ok("the outbox is kept per MEMBER (a shared computer never replays another person's words)", /PREFIX \+ memberId/.test(outbox));
+  const route = decomment(read("app/api/chat/rooms/[id]/route.js"));
+  ok("the room route reads X-Offline-Key", /offlineKey: readOfflineKey\(request\)/.test(route));
+}
+
+section("36. Save to job photos: the job-photo door, a copy, never featured");
+{
+  const db = seedWork();
+  await ensureCompanyRooms("A", { client: db });
+  const jobRoom = roomOf(db, "job:j1");
+  const copies = [];
+  const copy = async (location, { publicId }) => {
+    copies.push({ location, publicId });
+    return `https://res.cloudinary.com/${CLOUD}/image/upload/v2/${publicId}.jpg`;
+  };
+  const m = await postMessage({ member: TOM, roomId: jobRoom.id, body: "", attachments: [chatPhoto(70), chatPdf(71)] }, { client: db, ...opts });
+  const saved = await P34.saveToJob(TOM, m.message.id, { index: 0 }, { client: db, cloudName: CLOUD, copy, log: silent.log });
+  ok("crew on the job save a photo from the job room to the job's photos", saved.ok === true && saved.jobId === "j1");
+  const photo = db.tables.jobPhoto.find((p) => p.id === saved.photoId);
+  ok("…a progress photo, NOT featured (the website stays a curation decision)", photo.stage === "progress" && photo.featured === false && photo.companyId === "A");
+  ok("…a COPY into the company's jobs folder; the chat file stays private", copies.length === 1 && copies[0].publicId === `fieldquo/companies/A/jobs/chat-${m.message.id}-0` && copies[0].location.deliveryType === "authenticated");
+  const again = await P34.saveToJob(TOM, m.message.id, { index: 0 }, { client: db, cloudName: CLOUD, copy, log: silent.log });
+  ok("saving it again is the same photo, not a second one", again.ok && again.already === true && db.tables.jobPhoto.length === 1 && copies.length === 1);
+  ok("a document cannot be saved as a job photo (not_photo)", (await P34.saveToJob(TOM, m.message.id, { index: 1 }, { client: db, cloudName: CLOUD, copy, log: silent.log })).code === "not_photo");
+  ok("crew cannot file it on a job they are not on (no_job)", (await P34.saveToJob(TOM, m.message.id, { index: 0, jobId: "j2" }, { client: db, cloudName: CLOUD, copy, log: silent.log })).code === "no_job");
+  ok("nobody files it on company B's job", (await P34.saveToJob(OWN, m.message.id, { index: 0, jobId: "jB" }, { client: db, cloudName: CLOUD, copy, log: silent.log })).code === "no_job");
+  ok("a support session saves nothing (read_only)", (await P34.saveToJob(SUPPORT_A, m.message.id, { index: 0 }, { client: db, cloudName: CLOUD, copy })).code === "read_only");
+  const general = roomOf(db, "general");
+  const g = await postMessage({ member: OWN, roomId: general.id, body: "", attachments: [chatPhoto(72)] }, { client: db, ...opts });
+  ok("outside a job room a job must be picked (no_job)", (await P34.saveToJob(OWN, g.message.id, { index: 0 }, { client: db, cloudName: CLOUD, copy, log: silent.log })).code === "no_job");
+  ok("…the office may pick any of the company's jobs", (await P34.saveToJob(OWN, g.message.id, { index: 0, jobId: "j2" }, { client: db, cloudName: CLOUD, copy, log: silent.log })).ok === true);
+  const pick = await P34.jobsForChat(TOM, {}, { client: db });
+  ok("the crew's job picker lists THEIR job only, ids and titles", pick.length === 1 && pick[0].id === "j1" && JSON.stringify(Object.keys(pick[0]).sort()) === JSON.stringify(["id", "status", "title"]));
+  ok("the office's lists the company's open jobs, not company B's", (await P34.jobsForChat(OWN, {}, { client: db })).map((j) => j.id).sort().join() === "j1,j2");
+  const t = await readThread(TOM, jobRoom.id, { client: db });
+  ok("the thread tells the crew they may save to a job (jobs: view_only) and attach", t.can.saveToJob === true && t.can.attach === true);
+  ok("no copier configured → 503 unavailable, nothing written", (await P34.saveToJob(OWN, g.message.id, { index: 0, jobId: "j1" }, { client: db, cloudName: CLOUD, copy: null, log: silent.log })).code === "unavailable");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
