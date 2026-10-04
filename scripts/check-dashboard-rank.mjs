@@ -359,16 +359,20 @@ const startOfMonthNow = new Date(NOW.getFullYear(), NOW.getMonth(), 1);
 const startOfLastMonthNow = new Date(NOW.getFullYear(), NOW.getMonth() - 1, 1);
 
 // Which window a query is asking about, decided by the SHAPE of the where —
-// a prior window is the only one with an upper bound. Matching on exact dates
-// would make this check fail at midnight on the 1st for reasons that have
-// nothing to do with the code.
+// a prior window is the only one whose upper bound is already in the past.
+// ("The only one with an upper bound" stopped being true when every
+// current-month filter gained `lt: startOfNextMonth`, and from then on this
+// read the current month as last month.) Matching on exact dates would make
+// this check fail at midnight on the 1st for reasons that have nothing to do
+// with the code.
 const windowOf = (where = {}) => {
   // paidDate first: since 2026-09-06 the overview dates paid revenue by the
   // date it was PAID (Invoice.paidDate) and accepted quotes by acceptedAt,
   // not by updatedAt, which moved on any edit. acceptedAt is listed for the
-  // same reason.
-  const range = where.paidDate || where.acceptedAt || where.updatedAt || where.createdAt || where.date || {};
-  if (range.lt) return "prior";
+  // same reason, and sentAt because SENT quotes are counted by when they
+  // were sent (not created) since the historical-rows fix.
+  const range = where.paidDate || where.acceptedAt || where.sentAt || where.updatedAt || where.createdAt || where.date || {};
+  if (range.lt && range.lt <= NOW) return "prior";
   if (range.gte && range.gte.getMonth() === 0 && range.gte.getDate() === 1 &&
       range.gte < startOfMonthNow) return "ytd";
   return "current";
