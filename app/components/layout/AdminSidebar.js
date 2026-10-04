@@ -75,6 +75,8 @@ import { filterNavGroupsByTrade } from "@/lib/settings/tradeGateNav";
 import { railPinsClock } from "@/lib/nav/phoneBar";
 import { usesCrewShell } from "@/lib/nav/crewShell";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
+import { useChatUnread } from "@/app/hooks/useChatUnread";
+import NavUnreadBadge from "@/app/components/chat/NavUnreadBadge";
 import { useNavShell, isSettingsPath } from "@/app/components/layout/NavShell";
 import { SettingsPanel } from "@/app/components/layout/SettingsSidebar";
 import { useRovingRows } from "@/app/components/layout/rovingRows";
@@ -482,6 +484,13 @@ export default function AdminSidebar() {
   const bottomItems = useNavItems(BOTTOM_ITEMS);
   const settingsItem = bottomItems.find((i) => i.key === "app.nav.settings") || null;
   const moreCount = moreGroups.reduce((n, g) => n + g.items.length, 0);
+  // The Chat row's digit — polled only when the rail actually draws a Chat
+  // row (useNavGroups has already applied the team_chat flag), and never for
+  // crew, whose Chat is CrewShell's button with the same shared poll.
+  const chatInRail =
+    !crewShell &&
+    (railPins.some((i) => i.href === "/app/chat") || navGroups.some((g) => (g.items || []).some((i) => i.href === "/app/chat")));
+  const chatUnread = useChatUnread(chatInRail);
 
   // Persist the expanded/contracted preference across visits.
   useEffect(() => {
@@ -550,7 +559,7 @@ export default function AdminSidebar() {
       label={t(item.key)}
       featureFlags={featureFlags}
       onNavigate={onNavigate}
-      trailing={trailing}
+      trailing={trailing ?? (item.href === "/app/chat" ? <NavUnreadBadge counts={chatUnread} placement="end" /> : null)}
     />
   );
 

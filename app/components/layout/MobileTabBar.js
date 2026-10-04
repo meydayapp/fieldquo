@@ -66,6 +66,8 @@ import { isMePath } from "@/lib/me/tabs";
 import { PHONE_BARS, phoneBarFor, phoneMoreActive, phoneTabActive } from "@/lib/nav/phoneBar";
 import { MeTabBar } from "@/app/components/me/MeShell";
 import { useNavShell } from "@/app/components/layout/NavShell";
+import { useChatUnread } from "@/app/hooks/useChatUnread";
+import NavUnreadBadge from "@/app/components/chat/NavUnreadBadge";
 
 // lib/nav/phoneBar.js names icons; this maps them. One table of rows, one of
 // pictures, so the decision stays pure and executable by the check.
@@ -119,6 +121,10 @@ export default function MobileTabBar() {
   // screens, so for them the crew bar IS the section's bar — its More is
   // /app/me/more.
   const bar = phoneBarFor(caller, featureFlags);
+  // The Chat tab's digit — only polled when this bar draws a Chat tab, which
+  // phoneBarFor already decided through the team_chat flag. Called before
+  // the MeTabBar return below, so the hook order never changes.
+  const chatUnread = useChatUnread(bar.tabs.some((row) => row.href === "/app/chat"));
   if (isMePath(pathname) && bar.set !== "crew") {
     return <MeTabBar />;
   }
@@ -184,7 +190,10 @@ export default function MobileTabBar() {
                     : "text-sidebar-muted-foreground"
                 }`}
               >
-                <Icon size={20} className="shrink-0" />
+                <span className="relative">
+                  <Icon size={20} className="shrink-0" />
+                  {item.href === "/app/chat" ? <NavUnreadBadge counts={chatUnread} placement="corner" /> : null}
+                </span>
                 <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
                   {t(item.label || item.key)}
                 </span>

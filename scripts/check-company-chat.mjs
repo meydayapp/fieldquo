@@ -48,6 +48,7 @@ import {
   postMessage,
   markRoomSeen,
   jobRoomIdFor,
+  unreadTotalsFor,
   THREAD_TAKE,
 } from "@/lib/company/chat/store";
 import { seenUpTo } from "@/lib/chat/unreadQuery";
@@ -561,6 +562,7 @@ section("8. The boundary, in the source (decommented)");
     "app/api/chat/rooms/[id]/route.js",
     "app/api/chat/rooms/[id]/members/route.js",
     "app/api/chat/directory/route.js",
+    "app/api/chat/unread/route.js",
   ]) {
     const src = decomment(read(route));
     ok(`${route} reaches the database only through the store (no db. call of its own)`, !/\bdb\s*\./.test(src) && !/@\/lib\/db/.test(src));
@@ -727,6 +729,68 @@ section("13. @everyone is the office's: anyone else's is words, not a push");
   const screen = decomment(read("app/components/company/CompanyChat.js"));
   ok("the composer says so before sending, with the server's own detector and rule", /mentionsEveryone\(text\)/.test(screen) && /!mayMentionEveryone\(data\.me\)/.test(screen) && /data-everyone-hint/.test(screen) && /app\.companyChat\.everyoneOfficeOnly/.test(screen));
   ok("…not in a DM, where there is no everyone", /room\.kind !== "dm" && !mayMentionEveryone/.test(screen));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. The Chat tab's digit is the room list's counts, summed");
+
+{
+  // lib/chat/badges.js said it: "The /app chrome carries no chat digit
+  // today". GET /api/chat/unread → unreadTotalsFor now feeds one shared poll
+  // (app/hooks/useChatUnread.js) drawn on every Chat entry in the chrome.
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  await ensureCompanyRooms("B", { client: db });
+  const general = roomOf(db, "general");
+  const j1 = roomOf(db, jobRoomKey("j1"));
+  const quiet = async () => ({});
+  await postMessage({ member: ANA, roomId: general.id, body: "morning all" }, { client: db, notify: quiet });
+  await postMessage({ member: ANA, roomId: j1.id, body: "@Bob Crew bring the sander" }, { client: db, notify: quiet });
+  await postMessage({ member: DAN, roomId: j1.id, body: "and the ladder" }, { client: db, notify: quiet });
+  await postMessage({ member: ZED, roomId: roomOf(db, "general", "B").id, body: "B's news" }, { client: db, notify: quiet });
+
+  const sumOf = (rows) => rows.reduce((s, r) => ({ unread: s.unread + r.unread, mentions: s.mentions + r.mentions }), { unread: 0, mentions: 0 });
+  const bobTotals = await unreadTotalsFor(BOB, { client: db });
+  const bobList = sumOf(roomList(await roomsFor(BOB, { client: db }), "mBob"));
+  ok("Bob's tab equals his room list, summed", JSON.stringify(bobTotals) === JSON.stringify(bobList), [bobTotals, bobList]);
+  ok("…3 unread (one in #general, two in the job room), 1 of them naming him", bobTotals.unread === 3 && bobTotals.mentions === 1, bobTotals);
+  const catTotals = await unreadTotalsFor(CAT, { client: db });
+  ok("Cat (not on the job) counts #general only", catTotals.unread === 1 && catTotals.mentions === 0, catTotals);
+  ok("the author's own words never count for them", (await unreadTotalsFor(ANA, { client: db })).unread === 1);
+  ok("company B's message counts for nobody in A", (await unreadTotalsFor(CAT, { client: db })).unread === 1 && (await unreadTotalsFor(ZED, { client: db })).unread === 0);
+  ok("a read-only support session gets zero, not the company's history", JSON.stringify(await unreadTotalsFor(SUPPORT, { client: db })) === JSON.stringify({ unread: 0, mentions: 0 }));
+  const thread = await roomFor(BOB, j1.id, { client: db });
+  await markRoomSeen(BOB, j1.id, { client: db, upTo: seenUpTo(thread.messages, "createdAt") });
+  const after = await unreadTotalsFor(BOB, { client: db });
+  ok("opening the job room takes its two off the tab", after.unread === 1 && after.mentions === 0, after);
+
+  const route = decomment(read("app/api/chat/unread/route.js"));
+  ok("the route seeds nothing — no ensureCompanyRooms on a poll", !/ensureCompanyRooms/.test(route) && /unreadTotalsFor\(member\)/.test(route));
+  ok("the browser reaches it through chatApi.unread", /unread: \(\) => fetchJson\("\/api\/chat\/unread"\)/.test(read("lib/company/chat/client.js")));
+  const hook = decomment(read("app/hooks/useChatUnread.js"));
+  ok("one poll for the chrome: module-level, started by the first subscriber, stopped by the last", /listeners\.size === 1\) stopPoll = startPoll\(\)/.test(hook) && /listeners\.size === 0 && stopPoll/.test(hook));
+  ok("…re-read when a chat screen announces lastSeenAt moved", /onBadgesChanged\(read\)/.test(hook));
+  ok("…skipped while the tab is hidden", /document\.hidden\) return/.test(hook));
+  for (const [file, place] of [
+    ["app/components/layout/MobileTabBar.js", "corner"],
+    ["app/components/me/MeShell.js", "corner"],
+    ["app/components/layout/CrewShell.js", "inline"],
+    ["app/components/layout/AdminSidebar.js", "end"],
+  ]) {
+    const src = decomment(read(file));
+    ok(`${file} draws the digit on its /app/chat entry`, /useChatUnread\(/.test(src) && new RegExp(`href === "/app/chat" \\? <NavUnreadBadge counts=\\{chatUnread\\} placement="${place}" />`).test(src));
+  }
+  const badge = decomment(read("app/components/chat/NavUnreadBadge.js"));
+  ok("the badge says its number to a screen reader, translated", /app\.chat\.unreadCountSr/.test(badge) && Object.values(APP_MESSAGES).every((m) => typeof m["app.chat.unreadCountSr"] === "string"));
+  ok("…and draws nothing for zero or unknown", /if \(!n\) return null/.test(badge));
+  // White on red-600, measured: the pill carries its own fill so the bar's
+  // colour (navy, or a brand) never decides whether it can be read.
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (1 + 0.05) / (lum("#dc2626") + 0.05);
+  ok(`white on red-600 clears 4.5:1 (${ratio.toFixed(2)}:1)`, ratio >= 4.5 && /bg-red-600/.test(badge) && /text-white/.test(badge));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
