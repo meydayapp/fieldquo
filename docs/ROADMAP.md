@@ -80,6 +80,28 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## "Create custom item" in the Add service dialog (3 October 2026)
+
+Owner decision 2026-10-03: "custom item should be based on the current estimate so they pick one service and based on what we have the custom line item makes sense." The button the owner's reference window had, held back until it had a real add behind it, is now in the quote builder's **Add service** dialog (under the search) and inline picker.
+
+### What shipped
+
+- **`lib/quotes/customItem.js`** (pure): `customItemTargets` (the estimate's own scope groups — never an imported sub cost), `customItemUnits` (the group's measured units from `TRADE_MEASUREMENTS` — per door / drawer on cabinets, wall / ceiling / floor sq ft and trim linear ft on painting by estimate type, treads / risers / balusters / posts / handrail on stairs, board on drywall … — each with the figure THIS group's calculator holds (`groupMeasurements`), then the company's unit for the service, then each / hour / lump sum; the cabinet base line's `unit/door/drawer` is never offered plainly, so `billedUnitsOf` cannot misread a custom line as more faces), `buildCustomLine` (the boundary: description required and capped, unit must be one of the group's, quantity > 0 and ≤ 1,000,000, price ≥ 0 and ≤ 10M, line ≤ $99,999,999.99, cost optional, details through the rich-text sanitiser; no price or cost without showPricing), `tierSelectedLines`, `priceBookBody`.
+- **The line is an ordinary line** in the group's typed lines (description, detail, quantity, unit, rate, amount, unitCost, productId) plus office-only `meta.customItem` (no money). Saved, printed (PDF/email/client page via `toGroups`), mirrored onto the invoice, costed (`lineItemCost`) and commissioned (`productId`) like a price-book line; beside — never inside — the calculator's derived lines, so it is counted once and a save → reload → save is a fixed point. No tax flag: a quote taxes as a whole.
+- **Double counting**: a unit the group's calculator already bills (`keysPricedByGroup` — treads on a stair takeoff, trim on a painted room, doors on cabinets, board on a drywall book) is not refused (a second coat on the doors is real work) but the dialog and the line table say it is charged on top.
+- **Tiered packages**: picking a tier used to REPLACE the group's lines; it now keeps custom items (`tierSelectedLines`; a group without one gets the identical single line). Good/Better/Best variants are separate quotes, each with its own lines.
+- **Save to price book**: `POST /api/products` (the route Settings uses) under the service's quote type, at the typed price/cost/unit; offered to owner/admin only (the route's rule), on quotes in the company's own language, price > 0; a failed save adds nothing. The new row is offered in the same session.
+- `CustomItemDialog.js` (StepDialog / BottomSheet like the picker); `AddServicePicker` `CustomItemEntry` (disabled with "Add a service first" when the estimate has no service; never on an invoice); `DocumentBuilder` unfolds the chosen service; strings in all nine app languages; help "Lines from your price book" › "A custom item, written on the spot" (en/fr/es).
+
+### Checks
+
+`check:custom-item` (new, 143: units per trade, hostile inputs incl. negative/huge/NaN quantity, empty description, unit mismatch, tiered and G/B/B quotes, `ensureInvoiceForQuote` executed with a custom line, costing, md5 `4dc8be0f9121266407ec707bbb57dd44` of no-custom-item payloads — `builderPayload.js` untouched), `check:service-picker` (the entry drawn only with an add behind it, disabled state, never on an invoice), plus quote-builder, doc-builder, invoice-builder, quote-text-blocks, service-template-lines, help-centre.
+
+### Owed
+
+- The invoice builder has no custom item (not asked; its line table already takes typed lines).
+- Not exercised in a browser this session (no local login).
+
 ## Audit loose ends (3 October 2026)
 
 A read-only audit against origin/main found ten loose ends; each is its own commit.

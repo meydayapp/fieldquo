@@ -65,11 +65,17 @@
 // not immediate, kept because it is the tile's own load-bearing behaviour
 // (ServiceTiles.js explains why); the press adds exactly what it did.
 //
-// "Create custom item" from the reference is NOT here: a quote's section
-// must belong to a quote type (QuoteScopeGroup.categoryId is required) and
-// the builder has no quote-level custom item to hand this control — the
-// custom item lives in each service's "Add line item" library. Drawing the
-// button without a real add behind it is the dead control AGENTS.md forbids.
+// "Create custom item" from the reference waited until it had a real add
+// behind it: a quote's section must belong to a quote type
+// (QuoteScopeGroup.categoryId is required), so a line cannot float free of
+// one. The owner's answer (2026-10-03): "custom item should be based on the
+// current estimate so they pick one service and based on what we have the
+// custom line item makes sense." So it is here now, on a QUOTE only — the
+// builder hands `picker.customItem` (an invoice hands none, and draws none):
+// the press opens CustomItemDialog.js, which asks which service on the
+// estimate the item is part of and offers that service's units
+// (lib/quotes/customItem.js). With no service on the estimate yet there is
+// nothing to write it into, so the control says that instead of opening.
 //
 // ── Nothing it adds is decided here ────────────────────────────────────────
 //
@@ -90,6 +96,7 @@ import { Plus, Search, Settings2 } from "lucide-react";
 import StepDialog from "@/app/components/dashboard/StepDialog";
 import BottomSheet from "@/app/components/mobile/BottomSheet";
 import ServiceTiles from "./ServiceTiles";
+import CustomItemDialog from "./CustomItemDialog";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { getSectionPresets } from "@/app/data/sectionPresets";
 import { serviceTextIn } from "@/lib/quotes/serviceTemplateLines";
@@ -144,6 +151,10 @@ function textsOf(p, language, companyLanguage) {
 export default function AddServicePicker({ picker, documentLanguage }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const custom = picker?.kind === "invoice" ? null : picker?.customItem || null;
+  const customDialog =
+    custom && customOpen ? <CustomItemDialog customItem={custom} onClose={() => setCustomOpen(false)} /> : null;
   const invoice = picker?.kind === "invoice";
   const groups = useMemo(
     () =>
@@ -178,7 +189,18 @@ export default function AddServicePicker({ picker, documentLanguage }) {
   }
 
   if (shape === "inline") {
-    return <InlinePicker picker={picker} groups={groups} invoice={invoice} documentLanguage={documentLanguage} />;
+    return (
+      <>
+        <InlinePicker
+          picker={picker}
+          groups={groups}
+          invoice={invoice}
+          documentLanguage={documentLanguage}
+          onCustom={custom ? () => setCustomOpen(true) : null}
+        />
+        {customDialog}
+      </>
+    );
   }
 
   return (
@@ -219,15 +241,57 @@ export default function AddServicePicker({ picker, documentLanguage }) {
           invoice={invoice}
           documentLanguage={documentLanguage}
           onClose={() => setOpen(false)}
+          onCustom={
+            custom
+              ? () => {
+                  setOpen(false);
+                  setCustomOpen(true);
+                }
+              : null
+          }
         />
       )}
+      {customDialog}
+    </div>
+  );
+}
+
+/**
+ * "Create custom item" — the entry to CustomItemDialog. With no service on
+ * the estimate there is nothing to write the item into, so the button is
+ * drawn disabled with the reason beside it rather than opening onto nothing.
+ */
+export function CustomItemEntry({ picker, onCustom, className = "" }) {
+  const { t } = useTranslation();
+  if (!onCustom || !picker?.customItem) return null;
+  const targets = Array.isArray(picker.customItem.targets) ? picker.customItem.targets : [];
+  const none = targets.length === 0;
+  return (
+    <div className={className} data-custom-item-entry={none ? "none" : "ready"}>
+      <button
+        type="button"
+        onClick={onCustom}
+        disabled={none}
+        aria-describedby={none ? "custom-item-none" : undefined}
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-picker-nav
+        data-custom-item-open
+      >
+        <Plus size={14} aria-hidden="true" />
+        {t("app.servicePicker.customItem", "Create custom item")}
+      </button>
+      {none ? (
+        <p id="custom-item-none" className="mt-1 text-xs text-muted-foreground" data-custom-item-none>
+          {t("app.servicePicker.customItemNeedsService", "Add a service first — a custom item is written inside one, in its units.")}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 // ── Inline: the old quick path, for a handful ───────────────────────────────
 
-function InlinePicker({ picker, groups, invoice, documentLanguage }) {
+function InlinePicker({ picker, groups, invoice, documentLanguage, onCustom = null }) {
   const { t } = useTranslation();
   const lang = picker.language;
   const rows = groups.flatMap((g) => g.services.map((p) => ({ g, p })));
@@ -270,6 +334,7 @@ function InlinePicker({ picker, groups, invoice, documentLanguage }) {
           })}
         </div>
       )}
+      <CustomItemEntry picker={picker} onCustom={onCustom} />
       <Link href={SERVICES_HREF} className="inline-flex min-h-9 items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
         {t("app.servicePicker.manage", "Manage services")}
       </Link>
@@ -292,7 +357,7 @@ export function runPickerEntry(picker, entry) {
   return picker.addLine(entry.category, entry.product);
 }
 
-function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClose }) {
+function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClose, onCustom = null }) {
   const { t } = useTranslation();
   const wide = useWide();
   const searchRef = useRef(null);
@@ -325,6 +390,7 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
       stickyClass={wide ? "-top-4 pt-4 -mt-4" : "-top-3 pt-3 -mt-3"}
       onAdd={addNow}
       showManage={!wide}
+      onCustom={onCustom}
     />
   );
 
@@ -417,6 +483,7 @@ export function ServicePickerList({
   showManage = false,
   initialQuery = "",
   initialPresetsFor = null,
+  onCustom = null,
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery);
@@ -491,6 +558,10 @@ export function ServicePickerList({
             data-service-picker-search
           />
         </label>
+        {/* The reference window's "Create custom item", under the search —
+            a line written on the spot into a service already on the
+            estimate (CustomItemDialog.js). */}
+        <CustomItemEntry picker={picker} onCustom={onCustom} className="mt-2" />
       </div>
 
       {shown.length === 0 ? (
