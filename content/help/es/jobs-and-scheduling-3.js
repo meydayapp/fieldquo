@@ -124,7 +124,7 @@ export const ARTICLES = {
     title: "Solicitudes de corrección: arreglar horas registradas",
     summary:
       "Cómo un miembro de la cuadrilla pide corregir uno de sus propios registros de tiempo, cómo un supervisor la aprueba o la rechaza en Hojas de horas, y qué cambia —y qué se conserva— al aprobarla.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "Nadie de la cuadrilla cambia sus propias horas directamente. En el **Registro** presiona **Pedir una corrección** junto a uno de sus registros, indica lo que debería decir y por qué, y el registro queda exactamente como estaba hasta que alguien que revisa las hojas de horas aprueba la solicitud.",
       "Este artículo cubre los dos lados: enviar una solicitud desde el teléfono y decidirla en **Hojas de horas**. Nada se elimina en ninguno de los dos — una aprobación guarda constancia de lo que el registro decía antes.",
@@ -145,7 +145,7 @@ export const ARTICLES = {
           { steps: [
             "Abra el **Reloj de tiempo** y pase a la pestaña **Registro**. Use la flecha hacia atrás (**Día anterior**) para volver al día del registro.",
             "Bajo su día aparecen sus registros, cada uno con su actividad y sus horas. Presione **Pedir una corrección** junto al que está mal.",
-            "Fije **Inicio** y **Fin** — siempre los dos, en la zona horaria de su empresa — y la **Actividad**. Para una actividad que lleva trabajo aparece **¿Qué trabajo?**: **En obra** necesita uno; **Manejando** y **Materiales** pueden tener uno o **Ningún trabajo**.",
+            "Fije **Inicio** y **Fin** — siempre los dos, en la zona horaria de su empresa — y la **Actividad**. **¿Qué trabajo?** siempre aparece, con los trabajos a los que puede cargar tiempo (en los que tiene una visita o un turno publicado): **En obra** necesita uno; **Manejando** y **Materiales** pueden tener uno o **Ningún trabajo**; y elegir un trabajo en una entrada **General** u **Oficina** cambia la actividad a **En obra**, porque el tiempo en un trabajo es tiempo en la obra.",
             "En **Por qué**, cuente lo que pasó, por ejemplo «Olvidé registrar la salida al dejar la obra a las 4:30.» La solicitud no se puede enviar sin un motivo.",
             "Presione **Enviar solicitud**. El registro ahora dice **Corrección pedida**.",
           ] },

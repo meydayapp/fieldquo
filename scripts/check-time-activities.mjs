@@ -747,6 +747,45 @@ section("11. Crew correct their own hours only as a REQUEST a manager approves")
   const page = readFileSync("app/app/clock/TimeLog.js", "utf8");
   ok("…and the screen posts to the request route, not the entry", /fetch\("\/api\/time-entries\/corrections"/.test(page) && !/\/api\/time-entries\/\$\{/.test(page));
   ok("Timesheets shows the queue to managers", /<CorrectionRequests/.test(readFileSync("app/app/settings/team/timesheets/page.js", "utf8")));
+
+  // ── 11b. The correction names a job (live test, 2026-10-04) ──────────────
+  //
+  // The form had start, end, activity and reason, and no job: a "General"
+  // entry's activity takes none, so the picker was never drawn. It is always
+  // offered now; picking a job under such an activity moves the request to
+  // on site (activityForJob), and the job must be one the person may book
+  // time to — including one granted by a PUBLISHED SHIFT (item 1).
+  const { activityForJob } = await import("@/lib/timeclock/corrections");
+  const acts = [
+    { key: "visit", job: "required", enabled: true },
+    { key: "driving", job: "optional", enabled: true },
+    { key: "general", job: "none", enabled: true },
+    { key: "break", job: "none", enabled: true, isBreak: true },
+  ];
+  ok("picking a job on a General entry moves it to On site", activityForJob({ activity: "general", jobId: "j1", activities: acts }) === "visit");
+  ok("…an activity that takes a job keeps its own", activityForJob({ activity: "driving", jobId: "j1", activities: acts }) === "driving");
+  ok("…no job picked changes nothing", activityForJob({ activity: "general", jobId: "", activities: acts }) === "general");
+  ok("…and with On site switched off, nothing is invented", activityForJob({ activity: "general", jobId: "j1", activities: acts.filter((a) => a.key !== "visit") }) === "general");
+
+  seed({
+    member: CREW,
+    jobs: [job("j_shift"), job("j_none")],
+    entries: [{ id: "e1", workerId: "wrk_crew", clockIn: new Date(inst("07:00")), clockOut: new Date(inst("12:00")), hours: 5, activity: "general", jobId: null, paid: true, status: "pending" }],
+  });
+  rows.shift = [{ id: "s1", companyId: OURS, workerId: "wrk_crew", jobId: "j_shift", published: true, start: new Date(Date.now() - 3 * 86400000), end: new Date(Date.now() - 3 * 86400000 + 8 * 3600000) }];
+  const viaShift = await call(corrPOST, req({ timeEntryId: "e1", clockIn: wall("07:00"), clockOut: wall("12:00"), activity: "visit", jobId: "j_shift", reason: "That was the Côté kitchen" }));
+  ok("a correction naming a job granted by a published shift is accepted", viaShift.status === 201 && rows.timeEntryCorrection[0]?.jobId === "j_shift", viaShift);
+  seed({
+    member: CREW,
+    jobs: [job("j_shift"), job("j_none")],
+    entries: [{ id: "e1", workerId: "wrk_crew", clockIn: new Date(inst("07:00")), clockOut: new Date(inst("12:00")), hours: 5, activity: "general", jobId: null, paid: true, status: "pending" }],
+  });
+  const notMine = await call(corrPOST, req({ timeEntryId: "e1", clockIn: wall("07:00"), clockOut: wall("12:00"), activity: "visit", jobId: "j_none", reason: "x" }));
+  ok("…a job they are not on (no visit, no shift) is refused", notMine.status === 400 && rows.timeEntryCorrection.length === 0, notMine.status);
+  const sheet = readFileSync("app/app/clock/TimeLog.js", "utf8");
+  ok("the correction sheet always draws the job picker, wired through activityForJob",
+    /\{work\.length > 0 \? \(/.test(sheet) && /setActivity\(\(current\) => activityForJob\(\{ activity: current, jobId: next, activities: work \}\)\)/.test(sheet));
+  ok("…from the clock's own scoped job list", /fetchList\("\/api\/time-clock"\)/.test(sheet));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -123,7 +123,7 @@ export const ARTICLES = {
     title: "Demandes de correction : corriger des heures pointées",
     summary:
       "Comment un équipier demande qu'une de ses propres entrées de temps soit corrigée, comment un superviseur l'approuve ou la refuse dans les feuilles de temps, et ce que l'approbation change — et conserve.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "Personne dans l'équipe ne modifie ses propres heures directement. Dans le **Journal**, l'équipier appuie sur **Demander une correction** à côté d'une de ses entrées, indique ce qu'elle devrait dire et pourquoi, et l'entrée reste exactement telle quelle jusqu'à ce qu'une personne qui révise les feuilles de temps approuve la demande.",
       "Cet article couvre les deux côtés : envoyer une demande depuis le téléphone, et la trancher dans **Feuilles de temps**. Rien n'est supprimé d'un côté comme de l'autre — une approbation garde la trace de ce que l'entrée disait avant.",
@@ -144,7 +144,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez la **Pointeuse** et passez à l'onglet **Journal**. Utilisez la flèche de retour (**Jour précédent**) pour revenir au jour de l'entrée.",
             "Sous votre journée, chacune de vos entrées est listée avec son activité et ses heures. Appuyez sur **Demander une correction** à côté de celle qui est fausse.",
-            "Réglez **Début** et **Fin** — toujours les deux, dans le fuseau horaire de votre entreprise — et l'**Activité**. Pour une activité qui prend un chantier, **Quel chantier?** apparaît : **Sur le chantier** en exige un, **Route** et **Matériel** peuvent en avoir un ou **Aucun chantier**.",
+            "Réglez **Début** et **Fin** — toujours les deux, dans le fuseau horaire de votre entreprise — et l'**Activité**. **Quel chantier?** est toujours là, avec les chantiers où vous pouvez inscrire du temps (ceux où vous avez une visite ou un quart publié) : **Sur le chantier** en exige un, **Route** et **Matériel** peuvent en avoir un ou **Aucun chantier**, et choisir un chantier sur une entrée **Général** ou **Bureau** fait passer l'activité à **Sur le chantier**, puisque du temps à un chantier est du temps sur place.",
             "Sous **Pourquoi**, expliquez ce qui s'est passé, par exemple « J'ai oublié de pointer la sortie en quittant le chantier à 16 h 30. » La demande ne peut pas partir sans raison.",
             "Appuyez sur **Envoyer la demande**. L'entrée affiche maintenant **Correction demandée**.",
           ] },
