@@ -400,7 +400,7 @@ export const ARTICLES = {
     title: "Your schedule on your phone",
     summary:
       "Where a crew member's day lives: published shifts under Assign shifts, appointments on the Calendar, visits on the job, and to-dos.",
-    updated: "2026-09-13",
+    updated: "2026-10-04",
     intro: [
       "Your day is in three places on purpose, because they are three different things: a **shift** is the hours your manager published for you, a **visit** is a booked block of work on a job, and a **to-do** is a task with your name on it. All three show only what is yours, and none of them shows a draft the office has not published.",
     ],
@@ -410,6 +410,7 @@ export const ARTICLES = {
         heading: 'My schedule',
         blocks: [
           { p: "**My schedule** in the menu (and the Schedule tab on the phone's bottom bar) is your own next two weeks, one card per day, sized for a thumb: **Tomorrow, Tuesday Sep 15**, then the hours large — **8:00 AM – 4:00 PM** — the client and site address, who else is on that job that day as initials, your lunch and breaks, and the manager's note quoted. On today's card a green **Clock in** button opens the time clock. A shift placed outside the hours you said you were available says so, with who did it." },
+          { p: "Your **job visits** are on the same cards, in time order with your shifts and marked **Visit**: the time, the client and job, the site address, and the note on the visit — the same visits **My day** shows. A visit, and a shift the office put on a job, each carry **Open job** and **Work order** buttons; both open for you, because being booked on a job is what opens it." },
           { p: "**Add to calendar** downloads your published shifts as an .ics file your phone's calendar opens; download it again next week and the events update rather than doubling. **Request time off** goes to the Time off screen. Only published shifts appear — a draft your manager has not committed to never reaches your phone." },
           { note: "When a manager publishes, moves, re-jobs or cancels one of your shifts you get a notification in the bell and, if you turned them on, a push: **Your schedule is out: Mon 14 Sep, 8:00 – 16:00 at Sophie Dubois, 12 rue Principale, and 4 more**. Tapping it opens this screen." },
         ],

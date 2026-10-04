@@ -398,7 +398,7 @@ export const ARTICLES = {
     title: "Su horario en su teléfono",
     summary:
       "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Asignar turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
-    updated: "2026-09-13",
+    updated: "2026-10-04",
     intro: [
       "Su día está en tres lugares a propósito, porque son tres cosas distintas: un **turno** son las horas que su gerente publicó para usted, una **visita** es un bloque de trabajo reservado en un trabajo, y una **tarea** es un pendiente con su nombre. Los tres muestran solo lo suyo, y ninguno muestra un borrador que la oficina no haya publicado.",
     ],
@@ -408,6 +408,7 @@ export const ARTICLES = {
         heading: 'Mi horario',
         blocks: [
           { p: "**Mi horario** en el menú (y la pestaña Horario de la barra inferior del teléfono) son tus próximas dos semanas, una tarjeta por día, hecha para el pulgar: **Mañana, martes 15 sep**, luego las horas en grande — **8:00 – 16:00** — el cliente y la dirección del sitio, quién más está en ese trabajo ese día como iniciales, tu comida y descansos, y la nota del responsable citada. En la tarjeta de hoy un botón verde **Fichar** abre el reloj. Un turno puesto fuera de las horas en que dijiste estar disponible lo indica, con quién lo hizo." },
+          { p: "Tus **visitas de trabajo** están en las mismas tarjetas, en orden con tus turnos y marcadas **Visita**: la hora, el cliente y el trabajo, la dirección del sitio y la nota de la visita — las mismas visitas que muestra **Mi día**. Una visita, y un turno que la oficina puso en un trabajo, llevan los botones **Abrir trabajo** y **Orden de trabajo**; ambos se abren para ti, porque estar asignado al trabajo es lo que te lo abre." },
           { p: "**Añadir al calendario** descarga tus turnos publicados como un archivo .ics que el calendario del teléfono abre; descárgalo de nuevo la semana siguiente y los eventos se actualizan en lugar de duplicarse. **Pedir tiempo libre** lleva a la pantalla de Ausencias. Solo aparecen turnos publicados — un borrador que tu responsable no ha confirmado nunca llega a tu teléfono." },
           { note: "Cuando un responsable publica, mueve, cambia de trabajo o cancela uno de tus turnos recibes una notificación en la campana y, si las activaste, un push: **Tu horario está publicado: lun 14 sep, 8:00 – 16:00 en Sophie Dubois, 12 rue Principale, y 4 más**. Tocarlo abre esta pantalla." },
         ],
