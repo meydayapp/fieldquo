@@ -874,7 +874,7 @@ export const ARTICLES = {
     title: "Lines from your price book",
     summary:
       "Settings → Products & Services: the items you can drop onto any quote with their price already on them, how to add and import them, and how they appear in the builder.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Products & Services** is your price book: the extras and one-off items — handles, hinges, a rush fee, a disposal charge — that you drop onto a quote in one tap, with the price you set. A line picked from here is priced by you, so the number the homeowner sees is the one you decided on.",
       "It is separate from the rate card on **Settings → Services & Pricing**, which prices the main scope of a trade. The two answer different questions: a rate says what a unit of work costs; a product says what else went on the job.",
@@ -943,6 +943,27 @@ export const ARTICLES = {
             "Change the quantity or the rate on that quote if the job needs it. The item in the price book is unchanged.",
           ] },
           { p: "A line from the price book is an ordinary line once it is on the quote: the client sees a description and an amount, the same as a line you typed." },
+        ],
+      },
+      {
+        id: "custom-item",
+        heading: "A custom item, written on the spot",
+        blocks: [
+          { p: "When the job needs something that is not in your price book, press **Add service** at the foot of the quote and then **Create custom item**. A custom item always belongs to one of the services already on the quote, and it uses that service's units — per door on cabinets, per square foot of wall or linear foot of trim on an interior, per tread on stairs — or each, hour or lump sum." },
+          { steps: [
+            "Press **Add service**, then **Create custom item**. With no service on the quote yet the button is greyed out and says **Add a service first**.",
+            "If the quote has more than one service, pick the one the item is part of.",
+            "Write the **Description** the client reads, and **Details** if they need more.",
+            "Pick the **Unit**. When the service has already measured it — 32 doors, 412 sq ft of wall — the **Quantity** opens on that figure and says where it came from; change it if the item covers only part.",
+            "Enter the **Unit price** and, if you want it in your margin, the **Unit cost**. The client never sees the cost.",
+            "Tick **Save to price book** to keep it for next time, then press **Add to** the service.",
+          ] },
+          { p: "The line lands inside that service, beside the lines its calculator writes, and from there it is an ordinary line: saved with the quote, on the PDF, the client's page and the email, taxed with the rest of the quote, carried to the invoice when the quote is accepted, and counted once in **Cost & margin**." },
+          { note: "If the unit you pick is one the service's calculator already prices — treads on a stair takeoff, trim on a painted room — the dialog says so. The custom line is charged on top of the calculator's line, so use it for extra work (crown moulding, a second coat on the doors), not the same work twice." },
+          { bullets: [
+            "**Save to price book** adds a Products & Services item under that service's quote type, at the unit price, cost and unit you typed. It is offered to owners and administrators, on quotes written in your company's own language, and only with a price above zero. If the save fails, nothing is added to the quote — untick it to add the line alone.",
+            "On a package quote type (junk removal loads, detailing packages), choosing or changing the package keeps the custom items you already added.",
+          ] },
         ],
       },
       {

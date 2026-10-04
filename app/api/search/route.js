@@ -28,7 +28,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import {
+  loadEnforceableMember,
+  hasLevel,
+  assignedJobWhere,
+  assignedClientWhere,
+} from "@/lib/permissions/enforce";
 
 const PER_TYPE = 5;
 const MAX_QUERY = 80;
@@ -60,12 +65,23 @@ export async function GET(request) {
   const may = searchableTypes(full);
   const companyId = member.companyId;
   const ci = { contains: q, mode: "insensitive" };
+  // The 2026-10-03 role-access audit: this box handed a crew member (on
+  // "name and address only") every matching client's EMAIL as the subtitle,
+  // matched on email and phone they may not see, and searched every job in
+  // the company although their job list is the assigned ones. Contact fields
+  // are searched and shown only to whoever may read them, and the client and
+  // job halves carry the same scope as GET /api/clients and GET /api/jobs.
+  const seesContact = hasLevel(full, "clientsProperties", "full_view");
 
   const [clients, quotes, jobs, invoices] = await Promise.all([
     may.client
       ? db.client.findMany({
-          where: { companyId, OR: [{ name: ci }, { email: ci }, { phone: { contains: q } }] },
-          select: { id: true, name: true, email: true },
+          where: {
+            companyId,
+            ...assignedClientWhere(full),
+            OR: [{ name: ci }, ...(seesContact ? [{ email: ci }, { phone: { contains: q } }] : [])],
+          },
+          select: { id: true, name: true, ...(seesContact && { email: true }) },
           orderBy: { createdAt: "desc" },
           take: PER_TYPE,
         })
@@ -80,7 +96,7 @@ export async function GET(request) {
       : [],
     may.job
       ? db.job.findMany({
-          where: { companyId, OR: [{ title: ci }, { client: { name: ci } }] },
+          where: { companyId, ...assignedJobWhere(full), OR: [{ title: ci }, { client: { name: ci } }] },
           select: { id: true, title: true, status: true, client: { select: { name: true } } },
           orderBy: { updatedAt: "desc" },
           take: PER_TYPE,

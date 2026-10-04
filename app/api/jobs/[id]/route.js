@@ -10,7 +10,7 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
-  redactClient,
+  redactJob,
   assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import {
@@ -196,14 +196,22 @@ export async function GET(request, { params }) {
   // GET /api/jobs (the list) selects { id, name } and was never exposed. The
   // detail route is the one that had no `select` at all, which is the same
   // shape as the /api/clients leak this redactor was written for.
-  return NextResponse.json({
-    ...job,
-    client: redactClient(full, job.client),
-    // Labelled (CO-1, CO-2) and redacted — the signature PNG and the share
-    // token stay on the server. See lib/jobs/changeOrderPresent.js.
-    changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders)),
-    quotedCrew,
-  });
+  //
+  // The client was the first thing redacted here and, for a long time, the
+  // only one: the payment schedule (deposit amounts), every change order's
+  // price and invoice, and the cost-review note all went to Crew as-is.
+  // redactJob is now the one rule for a job payload — see its header in
+  // lib/permissions/enforce.js for what each dial withholds.
+  return NextResponse.json(
+    redactJob(full, {
+      ...job,
+      // Labelled (CO-1, CO-2) and redacted — the signature PNG and the share
+      // token stay on the server, the price and the invoice by the reader's
+      // grid. See lib/jobs/changeOrderPresent.js.
+      changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders, full)),
+      quotedCrew,
+    }),
+  );
 }
 
 export async function PATCH(request, { params }) {
@@ -524,10 +532,7 @@ export async function PATCH(request, { params }) {
   // Same redaction as the GET above. An unredacted PATCH reply hands back
   // every field the GET just hid — renaming a job would have restored the
   // client's phone number to the browser.
-  return NextResponse.json({
-    ...updated,
-    client: redactClient(full, updated.client),
-  });
+  return NextResponse.json(redactJob(full, updated));
 }
 
 export async function DELETE(request, { params }) {

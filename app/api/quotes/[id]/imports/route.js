@@ -99,8 +99,24 @@ export async function GET(request, { params }) {
   //
   // The source half stays open: it carries no price by construction, and it is
   // how a subcontractor sees whether their own bid was taken up.
+  //
+  // ── …and the price is not the cost ───────────────────────────────────────
+  //
+  // showPricing lets a member see what the CLIENT is charged. What the sub
+  // charges US and the markup on top are the cost and the margin — the
+  // jobCosting dial's numbers, which the job page already hides behind it
+  // (subcontractors, materials, costing). Here they went to every Estimator
+  // and Dispatcher (the 2026-10-03 role-access audit). Below jobCosting the
+  // row keeps its label, status and client price, and says the rest is
+  // withheld (`costHidden`) rather than reading as a sub with no cost.
+  const mayCost = hasToggle(full, "jobCosting");
   const asImporter = hasToggle(full, "showPricing")
-    ? asImporterRows.map((r) => importerView(r, { commitStatus: importerStatus }))
+    ? asImporterRows.map((r) => {
+        const row = importerView(r, { commitStatus: importerStatus });
+        if (mayCost) return row;
+        const { costAmount: _c, markupPercent: _m, ...rest } = row;
+        return { ...rest, costHidden: true };
+      })
     : [];
 
   return NextResponse.json({

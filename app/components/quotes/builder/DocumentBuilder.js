@@ -1434,6 +1434,19 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                       addType: addAndOpen((category, label) => b.addScopeGroup(category, label)),
                       addTemplate: addAndOpen(b.servicePicker.addTemplate),
                       addLine: addAndOpen(b.servicePicker.addLine),
+                      // A custom item goes INTO a service already here; that
+                      // service is the one unfolded, not the last.
+                      ...(b.servicePicker.customItem
+                        ? {
+                            customItem: {
+                              ...b.servicePicker.customItem,
+                              add: (tempId, line) => {
+                                b.servicePicker.customItem.add(tempId, line);
+                                setOpenGroup(tempId);
+                              },
+                            },
+                          }
+                        : {}),
                     }}
                     documentLanguage={b.quoteLanguage}
                   />

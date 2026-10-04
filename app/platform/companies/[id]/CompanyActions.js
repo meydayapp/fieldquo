@@ -20,12 +20,12 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Gift, ShieldAlert, RefreshCw, Ban } from "lucide-react";
+import { Loader2, Gift, ShieldAlert, RefreshCw, Ban, LockOpen } from "lucide-react";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
 
-export default function CompanyActions({ companyId, companyName, trialEndsAt, subscription, cancelOptions, onDone }) {
+export default function CompanyActions({ companyId, companyName, trialEndsAt, subscription, cancelOptions, unlock, onDone }) {
   const [days, setDays] = useState(30);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -199,6 +199,43 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, su
       setCancelError(e.message);
     } finally {
       setCancelBusy(false);
+    }
+  }
+
+  // ── Unlock company (2026-10-03) ────────────────────────────────────────
+  //
+  // The reversal the cancel panel never had. Drawn only when the company
+  // route says FieldQuo locked or ended this company (lib/platform/unlock.js
+  // reads the rows) — a trial that ran out or a failed card is not ours to
+  // unlock, and a button that answered "nothing to unlock" would be a dead
+  // control. What Unlock gives back, and what it leaves off (auto top-up,
+  // released numbers, Stripe), is printed before the press, not after.
+  const [unlockReason, setUnlockReason] = useState("");
+  const [unlockBusy, setUnlockBusy] = useState(false);
+  const [unlockResult, setUnlockResult] = useState(null);
+  const [unlockError, setUnlockError] = useState("");
+  const canUnlock = can("company:unlock");
+
+  async function unlockCompany() {
+    if (!window.confirm(`Unlock ${companyName}? ${unlock?.after || ""}`)) return;
+    setUnlockBusy(true);
+    setUnlockError("");
+    setUnlockResult(null);
+    try {
+      const res = await fetch(`/api/platform/companies/${companyId}/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: unlockReason }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      setUnlockResult(json);
+      setUnlockReason("");
+      onDone?.();
+    } catch (e) {
+      setUnlockError(e.message);
+    } finally {
+      setUnlockBusy(false);
     }
   }
 
@@ -466,6 +503,67 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, su
           </p>
         )}
       </div>
+
+      {(unlock?.locked || unlockResult) && (
+        <div className="rounded-lg border border-border p-4 mt-3" data-unlock-company>
+          <div className="flex items-center gap-2 mb-3">
+            <LockOpen size={15} className="text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">Unlock company</span>
+            <span className="text-xs text-muted-foreground">· reverses FieldQuo&apos;s lock or ending, nothing else</span>
+          </div>
+          {unlock?.locked && (
+            <>
+              <p className="text-xs text-foreground break-words">{unlock.summary}</p>
+              <p className="text-xs text-muted-foreground mt-1 break-words">{unlock.after}</p>
+              {unlock.notRestored?.length > 0 && (
+                <ul className="mt-1 list-disc pl-5 text-xs text-amber-800 dark:text-amber-300 space-y-0.5">
+                  {unlock.notRestored.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-3">
+                <PlatformWriteGate
+                  status={roleStatus}
+                  allowed={canUnlock}
+                  error={roleError}
+                  action="Unlocking a company"
+                  who="superadmin"
+                >
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <label className="flex flex-col gap-1 flex-1 min-w-[12rem]">
+                      <span className="text-[11px] text-muted-foreground">Reason (required) — goes in the audit log</span>
+                      <input
+                        value={unlockReason}
+                        onChange={(e) => setUnlockReason(e.target.value)}
+                        placeholder="e.g. Locked the wrong company; or: put things right after the warning"
+                        className="w-full min-h-[44px] lg:min-h-0 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+                      />
+                    </label>
+                    <button
+                      onClick={unlockCompany}
+                      disabled={unlockBusy || unlockReason.trim().length < 3}
+                      className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 border border-border text-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+                    >
+                      {unlockBusy ? <Loader2 size={13} className="animate-spin" /> : <LockOpen size={13} />}
+                      Unlock company
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Refused while you are in a View as company session — end it first.
+                  </p>
+                </PlatformWriteGate>
+              </div>
+            </>
+          )}
+          {unlockError && <p className="mt-2 text-xs text-red-700 dark:text-red-300 break-words">{unlockError}</p>}
+          {unlockResult && (
+            <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300 break-words">
+              Unlocked — {unlockResult.after}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -33,9 +33,11 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { canEditTask } from "@/lib/tasks/completion";
+import { loadEnforceableMember, claimableTaskWhere } from "@/lib/permissions/enforce";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -47,7 +49,7 @@ export async function POST(request, { params }) {
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (!canEditTask(member, task) && !can(member.role, "task:create")) {
+  if (!(await mayActOnTask(member, task)) && !can(member.role, "task:create")) {
     return NextResponse.json(
       {
         error:
@@ -122,5 +124,36 @@ export async function POST(request, { params }) {
     select: { id: true, url: true, stage: true, caption: true, createdAt: true },
   });
 
+  // On the record under whoever did it — the owner asked that field work be
+  // logged by name (2026-10-03). recordActivity never throws.
+  await recordActivity(member, {
+    action: "task.photosAdded",
+    entityType: "job",
+    entityId: task.jobId,
+    summary: `Added ${rows.length} photo${rows.length === 1 ? "" : "s"} to "${task.title || "a to-do"}"`,
+    metadata: { taskId: task.id },
+  });
+
   return NextResponse.json({ added: rows.length, photos, photoCount: photos.length });
+}
+
+// ── Mine, or an orphan this member may claim ────────────────────────────────
+//
+// canEditTask answers "mine or unassigned". The unassigned half was every
+// orphan in the company, including the office's auto-created invoice chases
+// and quote follow-ups, which a crew member could then tick off as done
+// (the 2026-10-03 role-access audit). An orphan is claimable here only when
+// GET /api/tasks would list it to this member — the same claimableTaskWhere,
+// asked of the database, so the list and the write cannot disagree.
+async function mayActOnTask(member, task) {
+  if (!canEditTask(member, task)) return false;
+  const mine =
+    !!member?.userId && (task.assignedToId === member.userId || task.createdById === member.userId);
+  if (mine) return true;
+  const full = await loadEnforceableMember(db, member.id);
+  const hit = await db.task.findFirst({
+    where: { id: task.id, companyId: member.companyId, ...claimableTaskWhere(full) },
+    select: { id: true },
+  });
+  return Boolean(hit);
 }

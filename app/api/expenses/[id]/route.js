@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { expensePlacementRefusal } from "@/lib/expenses/placement";
+import { recordActivity } from "@/lib/activity/log";
 
 /**
  * May this member touch this expense row?
@@ -85,6 +87,20 @@ export async function PATCH(request, { params }) {
   });
   if (badAsset) return badAsset;
 
+  // Same placement rule as POST (lib/expenses/placement.js), asked of the
+  // row's resulting state so a PATCH cannot reach a fixed cost one flag at
+  // a time.
+  if (projectId !== undefined || isOverhead !== undefined || recurring !== undefined) {
+    const placement = await expensePlacementRefusal(db, {
+      companyId: member.companyId,
+      full: await loadEnforceableMember(db, member.id),
+      projectId: projectId !== undefined ? projectId : null,
+      isOverhead: isOverhead !== undefined ? !!isOverhead : existing.isOverhead,
+      recurring: recurring !== undefined ? !!recurring : existing.recurring,
+    });
+    if (placement) return NextResponse.json({ error: placement.error }, { status: placement.status });
+  }
+
   const updated = await db.expense.update({
     where: { id: _params.id },
     data: {
@@ -99,6 +115,16 @@ export async function PATCH(request, { params }) {
       // Absent key leaves the link alone; null or "" clears it.
       ...(assetId !== undefined && { assetId: assetId || null }),
     },
+  });
+
+  // On the record under whoever changed it — POST already logged the
+  // create; an edit moves a job's cost just as much. Never throws.
+  await recordActivity(member, {
+    action: "expense.updated",
+    entityType: "expense",
+    entityId: updated.id,
+    summary: `Edited a ${updated.category || "general"} expense`,
+    metadata: { projectId: updated.projectId || null },
   });
 
   return NextResponse.json(updated);
@@ -120,5 +146,12 @@ export async function DELETE(request, { params }) {
     return NextResponse.json(FORBIDDEN, { status: 403 });
 
   await db.expense.delete({ where: { id: _params.id } });
+  await recordActivity(member, {
+    action: "expense.deleted",
+    entityType: "expense",
+    entityId: existing.id,
+    summary: `Deleted a ${existing.category || "general"} expense of ${existing.amount}`,
+    metadata: { projectId: existing.projectId || null },
+  });
   return NextResponse.json({ success: true });
 }

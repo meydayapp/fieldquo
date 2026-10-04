@@ -35,12 +35,18 @@
 // like the rest of it, so it is a diagnostic FieldQuo can run, not a read a
 // browser can reach.
 export const runtime = "nodejs";
+// The history walk below runs for up to HISTORY_BUDGET_MS after the imports.
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { PAGE_CHANNEL_PLATFORMS } from "@/lib/messaging/pageChannels";
 import { importAfterConnect, importPageConversations } from "@/lib/messaging/pageImport";
+import { ensureBackfills, continueBackfills } from "@/lib/meta/historyBackfill";
+
+/** Wall-clock the history walk may use per tick, after the imports. */
+const HISTORY_BUDGET_MS = 150 * 1000;
 
 /** Companies per run for the FIRST pull. Each is up to two platforms of up to 100 conversations. */
 const MAX_PER_RUN = 5;
@@ -150,6 +156,30 @@ export async function GET(request) {
     });
   }
 
+  // ── The history walk (lib/meta/historyBackfill.js) ──────────────────────
+  //
+  // Older conversations than the import above reaches, as far back as Meta
+  // returns them, a chunk per row per tick. A connected channel that has
+  // been imported and has no walk yet (a Page connected before 2026-10-03)
+  // gets one queued here, so nobody has to press anything to get their
+  // history. Skipped on a dry run: the walk writes as it goes.
+  let history = [];
+  if (!dry) {
+    const imported = await db.messagingChannel.findMany({
+      where: { platform: { in: [...PAGE_CHANNEL_PLATFORMS] }, disconnectedAt: null, status: "connected", importedAt: { not: null } },
+      select: { id: true, companyId: true },
+    });
+    const walked = new Set(
+      (await db.metaHistoryBackfill.findMany({ where: { kind: { in: ["messenger", "instagram"] } }, select: { scopeId: true } }).catch(() => [])).map((w) => w.scopeId),
+    );
+    for (const companyId of [...new Set(imported.filter((c) => !walked.has(c.id)).map((c) => c.companyId))].slice(0, MAX_RESYNC_PER_RUN)) {
+      await ensureBackfills({ companyId, scope: "messages" }).catch(() => null);
+    }
+    history = await continueBackfills({ kinds: ["messenger", "instagram"], budgetMs: HISTORY_BUDGET_MS, maxRows: 10 }).catch((err) => [
+      { error: err?.message || "threw" },
+    ]);
+  }
+
   return NextResponse.json({
     ok: true,
     dry,
@@ -157,5 +187,6 @@ export async function GET(request) {
     pending: [...new Set(due.map((c) => c.companyId))].length,
     results,
     resynced,
+    history,
   });
 }

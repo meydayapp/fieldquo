@@ -160,9 +160,15 @@ section is absent (not approved) or one line pointing at Settings › Reviews
 - **GET** says whether the page is bookable and, only when the button would
   be drawn, whether our link is on the listing now. Nothing is written.
 
-Who: `user:manage` (`refuseUnlessAdmin`), the capability the Booking Page
-screen and every other `/api/reviews/google/*` route already require —
-owners, admins and supervisors.
+Who: to SEE the card (GET) — `user:manage` (`refuseUnlessAdmin`), the
+capability the Booking Page screen and every other `/api/reviews/google/*`
+route already require: owners, admins and supervisors. To ADD or REMOVE the
+link (POST/DELETE) — owners and admins only (`canManageBookButton` in
+`lib/reviews/googleBusiness/bookButton.js`; owner decision 2026-10-03: the
+listing is the company's public face outside FieldQuo). A supervisor's GET
+answers `canManage: false`, the card draws no button and says who can
+instead, and the route refuses with `kind: "owner_admin_only"` before Google
+is asked anything — `npm run check:google-book-button` executes all three.
 
 **Why `APPOINTMENT` and not `ONLINE_APPOINTMENT`.** Google's enum: APPOINTMENT
 is "booking an appointment", ONLINE_APPOINTMENT "booking an online

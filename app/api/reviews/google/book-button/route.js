@@ -11,11 +11,17 @@
 //
 // ── Who ─────────────────────────────────────────────────────────────────────
 //
-// `user:manage`, through refuseUnlessAdmin — the same capability the Booking
-// Page screen is gated on (the whole page renders NoAccessPanel without it)
-// and the one every other /api/reviews/google route checks, so the person
-// who can connect the listing and edit the booking page is the person who can
-// put one on the other. It is held by owners, admins AND supervisors.
+// GET: `user:manage`, through refuseUnlessAdmin — the same capability the
+// Booking Page screen is gated on (the whole page renders NoAccessPanel
+// without it), held by owners, admins and supervisors. A supervisor sees the
+// card, the link and whether it is on Google.
+//
+// POST and DELETE: owners and admins only (canManageBookButton,
+// lib/reviews/googleBusiness/bookButton.js) — owner decision 2026-10-03. Until
+// then a supervisor could change the company's Google listing because user:
+// manage was the whole gate. The GET answers `canManage` so the card draws
+// the buttons only for the people this route lets press them; the refusal
+// below is the gate, the card's note is the explanation.
 //
 // ── When the POST/DELETE refuse ─────────────────────────────────────────────
 //
@@ -41,6 +47,7 @@ import {
   bookingPageLive,
   bookingPageUrl,
   pushableUrl,
+  canManageBookButton,
 } from "@/lib/reviews/googleBusiness/bookButton";
 
 /** Everything both verbs and the GET need to decide, read once. */
@@ -70,6 +77,14 @@ function refusalFor(s) {
   if (!s.live) return { kind: "not_live", error: "Set up your booking page first — nobody can book on it yet." };
   if (!pushableUrl(s.bookingUrl)) return { kind: "not_https", error: "Google needs a public https address for the Book button." };
   return null;
+}
+
+function refuseUnlessOwnerAdmin(member) {
+  if (canManageBookButton(member)) return null;
+  return NextResponse.json(
+    { kind: "owner_admin_only", error: "Only the owner or an admin can add or remove the Book button on Google." },
+    { status: 403 },
+  );
 }
 
 export async function GET(request) {
@@ -102,13 +117,18 @@ export async function GET(request) {
       google.errorKind = status.kind;
     }
   }
-  return NextResponse.json({ bookingUrl: s.live ? s.bookingUrl : null, bookingLive: s.live, google });
+  return NextResponse.json({
+    bookingUrl: s.live ? s.bookingUrl : null,
+    bookingLive: s.live,
+    canManage: canManageBookButton(member),
+    google,
+  });
 }
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const refusal = refuseUnlessAdmin(member);
+  const refusal = refuseUnlessAdmin(member) || refuseUnlessOwnerAdmin(member);
   if (refusal) return refusal;
   // getCurrentMember already refuses every non-GET for a read-only session;
   // this writes to a listing outside FieldQuo, so it says so twice.
@@ -133,7 +153,7 @@ export async function POST(request) {
 export async function DELETE(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const refusal = refuseUnlessAdmin(member);
+  const refusal = refuseUnlessAdmin(member) || refuseUnlessOwnerAdmin(member);
   if (refusal) return refusal;
   if (member.impersonationMode === "read_only") {
     return NextResponse.json({ error: "Read-only session." }, { status: 403 });

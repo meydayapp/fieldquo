@@ -14,7 +14,7 @@ import {
   buildScoreCalibration,
 } from "../lib/analytics/leadScoring.js";
 import { scoreLead } from "../lib/leads/score.js";
-import { UNASKABLE_BY_SOURCE } from "../lib/leads/createLead.js";
+import { scoringOptions } from "../lib/leads/createLead.js";
 
 let pass = 0;
 const failures = [];
@@ -163,7 +163,7 @@ check("median ignores unscored leads rather than counting them as 0",
       "Address: 917 Little Rock Street, Ottawa\nCabinet refinishing: 37 doors, 6 drawers, white, soft-close hinges, new handle holes.",
   };
   const asWeb = scoreLead(anna);
-  const asPhone = scoreLead(anna, { unasked: ["budget"] });
+  const asPhone = scoreLead(anna, { unasked: ["budget"], source: "phone_agent" });
 
   check(
     `the same lead scores higher when budget could not be asked (web ${asWeb.score} vs phone ${asPhone.score})`,
@@ -201,23 +201,30 @@ check("median ignores unscored leads rather than counting them as 0",
   // factors to score — without needing a database.
   check(
     "a phone lead declares budget as unasked",
-    JSON.stringify(UNASKABLE_BY_SOURCE.phone_agent) === JSON.stringify(["budget"]),
+    JSON.stringify(scoringOptions("phone_agent").unasked) === JSON.stringify(["budget"]),
   );
   check(
     "a RECOVERED phone lead withholds the same one — same receptionist, same forbidden question",
-    JSON.stringify(UNASKABLE_BY_SOURCE.phone_agent_recovered) === JSON.stringify(["budget"]),
+    JSON.stringify(scoringOptions("phone_agent_recovered").unasked) === JSON.stringify(["budget"]),
   );
+  // Owner, 2026-10-03: "remove the penalty if they are sourced from somewhere
+  // else". The two forms that PUT both questions are untouched; every other
+  // channel is scored on what it can capture (lib/leads/qualifiers.js).
   check(
-    "…and only the phone withholds anything, so every web channel is untouched",
-    Object.keys(UNASKABLE_BY_SOURCE).every((s) => s.startsWith("phone_agent")),
+    "…the self-quote form and the instant quote withhold nothing, so their scores are untouched",
+    scoringOptions("self_quote").unasked.length === 0 && scoringOptions("instant_quote").unasked.length === 0,
   );
   check(
     "…and composing the two gives the warm score the receptionist's leads deserve",
-    scoreLead(anna, { unasked: UNASKABLE_BY_SOURCE.phone_agent || [] }).temperature === "warm",
+    scoreLead(anna, scoringOptions("phone_agent")).temperature === "warm",
   );
   check(
-    "…while an unknown source composes to no withholding at all",
-    scoreLead(anna, { unasked: UNASKABLE_BY_SOURCE.web_form || [] }).score === asWeb.score,
+    "…a Facebook form lead is not marked down for questions its form never had",
+    scoreLead(anna, scoringOptions("meta_lead_form")).score > asWeb.score,
+  );
+  check(
+    "…a self-quote lead that SKIPPED both questions is still scored against them",
+    scoreLead(anna, scoringOptions("self_quote")).score === asWeb.score,
   );
 }
 
