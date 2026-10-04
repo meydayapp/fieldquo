@@ -171,4 +171,282 @@ export const ARTICLES = {
       },
     ],
   },
+
+  "channels-and-group-chats": {
+    title: "Canaux et discussions de groupe",
+    summary: "Les canaux sont des lieux que le bureau crée — #estimation, #equipe-nord, #annonces; les discussions de groupe sont des conversations que n'importe qui lance. Qui peut créer, modifier, rejoindre et quitter chacun.",
+    updated: "2026-10-04",
+    intro: [
+      "En plus de **#general**, des salons de chantier et des messages directs, le clavardage a deux sortes de salons que les gens créent eux-mêmes. Un **canal** est un lieu : il a un nom comme **#estimation**, un sujet facultatif, et il survit aux personnes qui y sont. Une **discussion de groupe** est une conversation entre les personnes choisies — trois personnes qui règlent le camion de demain. #general et les salons de chantier restent tenus par FieldQuo à partir de votre liste d'équipe et de votre horaire.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          {
+            p: "Les canaux sont sous **Canaux** dans la liste, après **#general**; les discussions de groupe sont avec vos messages directs. Un canal **public** peut être trouvé et rejoint par tout le monde dans l'entreprise depuis **Parcourir les canaux**; un canal **privé** est caché pour quiconque n'y a pas été ajouté — le propriétaire compris — et ouvrir son lien répond comme s'il n'existait pas. Un canal peut être réglé pour que **Seul le bureau peut publier** : les propriétaires, administrateurs et superviseurs publient, tout le monde lit. C'est ainsi que fonctionne un canal **#annonces**.",
+          },
+        ],
+      },
+      {
+        id: "who-can-do-what",
+        heading: "Qui peut faire quoi",
+        blocks: [
+          {
+            table: {
+              head: [
+                "Action",
+                "Propriétaire et administrateur",
+                "Gestionnaire et répartiteur",
+                "Estimateur et équipe terrain",
+              ],
+              rows: [
+                [
+                  "Créer un canal",
+                  "Oui",
+                  "Oui",
+                  "Non",
+                ],
+                [
+                  "Lancer une discussion de groupe",
+                  "Oui",
+                  "Oui",
+                  "Oui",
+                ],
+                [
+                  "Rejoindre un canal public",
+                  "Oui",
+                  "Oui",
+                  "Oui",
+                ],
+                [
+                  "Renommer un canal, définir son sujet, le rendre privé, réserver les publications au bureau, l'archiver",
+                  "Tout canal où ils sont",
+                  "Les canaux qu'ils gèrent (ceux qu'ils ont créés)",
+                  "Non",
+                ],
+                [
+                  "Ajouter ou retirer des personnes dans un canal",
+                  "Tout canal où ils sont",
+                  "Les canaux qu'ils gèrent",
+                  "Non",
+                ],
+                [
+                  "Renommer une discussion de groupe ou y ajouter des gens",
+                  "Toute personne du groupe",
+                  "Toute personne du groupe",
+                  "Toute personne du groupe",
+                ],
+                [
+                  "Retirer des personnes d'une discussion de groupe",
+                  "Oui, quand ils en font partie",
+                  "S'ils l'ont lancée",
+                  "S'ils l'ont lancée",
+                ],
+              ],
+            },
+          },
+          {
+            note: "Le serveur vérifie ces règles à chaque modification; elles ne sont pas seulement cachées à l'écran. Une session de soutien en lecture seule peut ouvrir tous les salons et n'en modifier aucun.",
+          },
+        ],
+      },
+      {
+        id: "make-a-channel",
+        heading: "Créer un canal",
+        blocks: [
+          {
+            steps: [
+              "Dans **Clavardage**, appuyez sur **+** à côté de **Canaux** (ou **Parcourir les canaux**, puis **Nouveau canal**).",
+              "Tapez un nom. Il est enregistré en minuscules avec des tirets — **Ce sera #equipe-nord** montre ce que vous obtiendrez.",
+              "Ajoutez un **Sujet** si cela aide les gens à savoir à quoi sert le canal.",
+              "Choisissez **Public** ou **Privé**. Un canal privé a besoin des personnes que vous voulez y voir.",
+              "Activez **Seul le bureau peut publier** pour les annonces, et **Inclure tout le monde** pour ajouter toute l'équipe maintenant et chaque nouvelle personne à son arrivée.",
+              "Appuyez sur **Créer le canal**.",
+            ],
+          },
+          {
+            note: "Tout le monde dans l'entreprise peut lire un canal public, l'équipe terrain comprise. Gardez les détails des clients dans le salon du chantier.",
+          },
+        ],
+      },
+      {
+        id: "start-a-group",
+        heading: "Lancer une discussion de groupe",
+        blocks: [
+          {
+            steps: [
+              "Appuyez sur **Nouveau message**.",
+              "Choisissez deux personnes ou plus. Choisir une seule personne ouvre plutôt votre message direct avec elle.",
+              "Donnez un nom au groupe si vous voulez — sinon il porte le nom des personnes qui en font partie.",
+              "Appuyez sur **Créer le groupe**.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "archive-and-leave",
+        heading: "Archiver, quitter et retirer",
+        blocks: [
+          {
+            bullets: [
+              "**Archiver le canal** conserve chaque message et met le canal en lecture seule; il passe sous **Archivés**. **Désarchiver le canal** le ramène. Rien n'est supprimé.",
+              "**Quitter le canal** ou **Quitter le groupe** vous en fait sortir; vos messages restent, et quelqu'un peut vous rajouter.",
+              "Vous ne pouvez pas quitter #general, un salon de chantier, un message direct, ou un canal réglé sur **Inclure tout le monde** — mettez-le en sourdine à la place.",
+              "**Retirer** fait sortir quelqu'un d'un canal ou d'un groupe. Ses messages restent où ils étaient.",
+            ],
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Le propriétaire peut-il lire un canal privé?",
+        a: "Seulement s'il en fait partie. Un canal privé est caché pour quiconque n'y a pas été ajouté, propriétaires et administrateurs compris.",
+      },
+      {
+        q: "Quelle taille peut avoir une discussion de groupe?",
+        a: "Il n'y a pas de limite. La liste des personnes se charge cinquante à la fois, et taper @ cherche parmi tout le groupe.",
+      },
+      {
+        q: "L'équipe terrain peut-elle créer un canal?",
+        a: "Non. L'équipe terrain et les estimateurs lancent des discussions de groupe; les canaux sont créés par les propriétaires, administrateurs, gestionnaires et répartiteurs.",
+      },
+    ],
+  },
+
+  "chat-notifications-and-mute": {
+    title: "Notifications du clavardage et sourdine",
+    summary: "Ce que chaque sorte de salon vous signale par défaut, comment le changer ou mettre un salon en sourdine un moment, et pourquoi une mention arrive aussi dans la cloche.",
+    updated: "2026-10-04",
+    intro: [
+      "Chaque salon du clavardage a votre propre réglage de notifications. Personne d'autre ne le voit, et le réglage de quelqu'un d'autre ne change rien à ce que vous recevez. Ouvrez un salon et appuyez sur l'engrenage (ou sur le nombre de personnes) pour trouver **Vos notifications**.",
+    ],
+    sections: [
+      {
+        id: "defaults",
+        heading: "Ce qui vous est signalé par défaut",
+        blocks: [
+          {
+            table: {
+              head: [
+                "Salon",
+                "On vous signale",
+              ],
+              rows: [
+                [
+                  "Un message direct",
+                  "Chaque message",
+                ],
+                [
+                  "Une discussion de groupe",
+                  "Chaque message",
+                ],
+                [
+                  "#general, un canal, un salon de chantier",
+                  "Seulement quand on vous mentionne",
+                ],
+              ],
+            },
+          },
+          {
+            p: "On ne vous signale jamais vos propres messages, et vous ne recevez pas de notification pour un message pendant que ce salon est ouvert à votre écran.",
+          },
+        ],
+      },
+      {
+        id: "change-it",
+        heading: "Le changer pour un salon",
+        blocks: [
+          {
+            steps: [
+              "Ouvrez le salon et appuyez sur l'engrenage.",
+              "Sous **Vos notifications**, choisissez **Chaque message**, **Seulement quand on me mentionne** ou **Rien (sourdine jusqu'à ce que je la retire)**. **Par défaut** revient au tableau ci-dessus.",
+              "Pour une sourdine temporaire, appuyez sur **1 heure** ou **Jusqu'à demain 7 h**. **Réactiver** y met fin plus tôt.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "what-mute-does",
+        heading: "Ce que fait la sourdine",
+        blocks: [
+          {
+            bullets: [
+              "Un salon en sourdine est affiché en gris avec une cloche barrée, et son compte est gris. Les messages sont toujours là; rien n'est caché.",
+              "Pendant une sourdine temporaire, une mention vous parvient quand même, et seules les mentions comptent dans l'onglet **Clavardage**.",
+              "**Rien** rend le salon complètement silencieux — mentions comprises — et le retire du nombre de l'onglet **Clavardage**.",
+              "**Masquer de ma liste** (messages directs et discussions de groupe) retire une conversation de votre liste jusqu'à ce que quelqu'un y écrive de nouveau.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "mentions-in-the-bell",
+        heading: "Les mentions dans la cloche",
+        blocks: [
+          {
+            p: "Quand quelqu'un vous mentionne avec @ dans une discussion de groupe, un canal, #general ou un salon de chantier, la mention arrive aussi dans la cloche des notifications — **Ana vous a mentionné dans #estimation** — et la toucher ouvre le clavardage à ce message. La ligne de la cloche garde qui et où, pas le texte du message. Un message direct n'ajoute pas de ligne dans la cloche (il vous avertit déjà), et un salon réglé sur **Rien** n'en ajoute aucune.",
+          },
+          {
+            note: "Seul le **@everyone** du bureau avertit tout le salon. Le @everyone de quelqu'un d'autre est envoyé comme simple texte, et la zone de rédaction le dit avant l'envoi.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Pourquoi n'ai-je pas eu de notification pendant que j'étais dans le salon?",
+        a: "Parce que vous le regardiez. FieldQuo n'envoie pas de notification pour un message déjà à votre écran.",
+      },
+      {
+        q: "La sourdine avertit-elle quelqu'un?",
+        a: "Non. Vos réglages de notifications ne regardent que vous.",
+      },
+    ],
+  },
+
+  "seen-by-in-team-chat": {
+    title: "Vu par dans le clavardage",
+    summary: "Sous votre dernier message, Vu par 3 indique combien de personnes de la conversation l'ont eu à l'écran — touchez-le pour les noms. Seuls les membres de la conversation le voient.",
+    updated: "2026-10-04",
+    intro: [
+      "Dans le clavardage, la ligne sous votre propre dernier message indique qui l'a vu : **Vu par 3** dans un groupe, un canal ou un salon de chantier, et **Vu** dans un message direct. Touchez-la pour la liste des noms. Sur un de vos messages plus anciens, **Vu par** se trouve dans la barre qui apparaît quand vous pointez le message.",
+    ],
+    sections: [
+      {
+        id: "what-it-means",
+        heading: "Ce que cela veut dire",
+        blocks: [
+          {
+            bullets: [
+              "**Vu** signifie que le message était à l'écran de cette personne dans cette conversation — elle a ouvert le salon, ou le message est arrivé pendant qu'il était ouvert.",
+              "Cela ne veut pas dire qu'elle l'a lu attentivement, et il n'y a pas d'indicateur de saisie.",
+              "Le compte porte sur les personnes de la conversation maintenant. Quelqu'un ajouté plus tard compte dès qu'il l'ouvre.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "who-sees-it",
+        heading: "Qui peut le voir",
+        blocks: [
+          {
+            p: "Seulement les personnes de la conversation. L'écran l'offre sur vos propres messages. Quelqu'un hors d'un canal privé ne peut pas le voir, et la session de soutien de FieldQuo en lecture seule ne le voit pas non plus.",
+          },
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Puis-je le désactiver?",
+        a: "Non. Vu par fait partie du clavardage d'équipe pour tous les membres d'une conversation, comme la ligne des non-lus.",
+      },
+      {
+        q: "Le propriétaire voit-il qui a lu quoi?",
+        a: "Seulement dans les conversations dont il fait partie, comme tout le monde.",
+      },
+    ],
+  },
 };

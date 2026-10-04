@@ -28,6 +28,11 @@ const SHAPE = {
     "companyChatMember",
     "companyChatMessage",
     "pushSubscription",
+    // The bell: a chat mention writes a feed row through the REAL
+    // notifyEvent (lib/notifications/notify.js) against this fake, so the
+    // check proves the row exists rather than that a stub was called.
+    "notificationEvent",
+    "notificationDelivery",
   ],
   /** Relations, per table: name → { table, kind, localKey | foreignKey }. */
   relations: {
@@ -53,16 +58,47 @@ const SHAPE = {
     companyChatMessage: {
       author: { table: "member", kind: "one", localKey: "authorMemberId" },
     },
+    notificationDelivery: {
+      event: { table: "notificationEvent", kind: "one", localKey: "eventId" },
+      member: { table: "member", kind: "one", localKey: "memberId" },
+    },
   },
   uniques: {
     companyChatRoom: [["companyId", "key"], ["jobId"]],
     companyChatMember: [["roomId", "memberId"]],
     member: [["userId", "companyId"]],
+    notificationDelivery: [["eventId", "memberId"]],
   },
+  // The column defaults Postgres gives a row (prisma/schema.prisma), so a
+  // row the store creates without naming a column reads as the database
+  // would hand it back.
   defaults: {
-    companyChatMember: { open: true, lastSeenAt: null, removedAt: null },
+    companyChatMember: {
+      open: true,
+      lastSeenAt: null,
+      removedAt: null,
+      role: "member",
+      notify: "default",
+      mutedUntil: null,
+      lastOpenedAt: null,
+      hiddenAt: null,
+      starredAt: null,
+      addedByMemberId: null,
+    },
     companyChatMessage: { kind: "message", mentions: [], meta: null },
-    companyChatRoom: { name: null, jobId: null, lastMessageAt: null },
+    companyChatRoom: {
+      name: null,
+      jobId: null,
+      lastMessageAt: null,
+      topic: null,
+      private: false,
+      postingPolicy: "everyone",
+      autoJoin: false,
+      createdByMemberId: null,
+      archivedAt: null,
+      archivedByMemberId: null,
+    },
+    notificationDelivery: { readAt: null },
   },
 };
 

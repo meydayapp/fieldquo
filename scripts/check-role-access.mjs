@@ -638,5 +638,95 @@ seedLeave([{ id: "lpx", companyId: "co1", name: "Unpaid time off", kind: "unpaid
   ok("the form posts unpaid:true in place of a policy", /unpaid: true/.test(src("app/app/time-off/RequestForm.js")));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("Team chat channels and groups (2026-10-04) — the shipped routes, per role");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "only the office creates, renames and archives channels; anyone
+// can start a group chat". Executed through app/api/chat/** as each preset,
+// so the 403 is the route's, not a hidden button's. The full matrix (rename,
+// add, remove, leave, mute, private isolation, a 56-person group) is
+// executed against the store in scripts/check-company-chat.mjs §15–25.
+const CHAT_ROOMS = await import("../app/api/chat/rooms/route.js");
+const CHAT_ROOM = await import("../app/api/chat/rooms/[id]/route.js");
+const CHAT_ARCHIVE = await import("../app/api/chat/rooms/[id]/archive/route.js");
+const CHAT_JOIN = await import("../app/api/chat/rooms/[id]/join/route.js");
+function seedChat() {
+  seed();
+  // The chat resolves every picked id against the ACTIVE roster.
+  tables.member = tables.member.map((m) => ({ ...m, active: true }));
+  const memberRow = (m, extra = {}) => ({
+    id: `cm_${m.id}`, companyId: "co1", memberId: m.id, open: true, role: "member", notify: "default",
+    mutedUntil: null, lastOpenedAt: null, lastSeenAt: null, hiddenAt: null, starredAt: null,
+    member: { id: m.id, userId: m.userId, role: m.role, active: true, user: { name: `${m.id.slice(2)} person`, email: `${m.id}@example.test` } },
+    ...extra,
+  });
+  // #announcements: office-only posting; the manager made it; crew are in it.
+  const annMembers = [memberRow(MEMBERS.manager, { roomId: "ch_ann", role: "manager" }), memberRow(MEMBERS.crew, { roomId: "ch_ann" })];
+  // #office: PRIVATE, the manager only.
+  const offMembers = [memberRow(MEMBERS.manager, { roomId: "ch_off", role: "manager" })];
+  const room = (id, extra, members) => ({
+    id, companyId: "co1", kind: "channel", key: `channel:${id}`, name: id.slice(3), jobId: null, topic: null,
+    private: false, postingPolicy: "everyone", autoJoin: false, archivedAt: null, createdByMemberId: "m_mgr",
+    lastMessageAt: null, members, messages: [], job: null, ...extra,
+  });
+  tables.companyChatRoom = [
+    room("ch_ann", { postingPolicy: "office" }, annMembers),
+    room("ch_off", { private: true }, offMembers),
+  ];
+  tables.companyChatMember = [...annMembers, ...offMembers];
+  tables.companyChatMessage = [];
+  tables.activityLog = [];
+}
+const chatWrites = (model, action = "create") => writes.filter((w) => w.model === model && w.action === action);
+
+for (const role of ROLES) {
+  seedChat();
+  const r = await call(CHAT_ROOMS, "POST", { as: role, body: { kind: "channel", name: `Estimating ${role}` } });
+  const office = ["owner", "admin", "manager", "dispatcher"].includes(role);
+  if (office) {
+    ok(`${role}: creates a channel (200)`, r.status === 200 && Boolean(r.json?.roomId), `status ${r.status} ${JSON.stringify(r.json)}`);
+    ok(`${role}: …logged in the activity log`, activityRows().some((a) => a.action === "chat.channel_created"));
+  } else {
+    ok(`${role}: is refused a channel (403 not_allowed)`, r.status === 403 && r.json?.code === "not_allowed", `status ${r.status}`);
+    ok(`${role}: …and nothing was written`, chatWrites("companyChatRoom").length === 0 && chatWrites("companyChatMember", "createMany").length === 0);
+  }
+}
+seedChat();
+{
+  const g = await call(CHAT_ROOMS, "POST", { as: "crew", body: { kind: "group", members: ["m_est", "m_disp"] } });
+  ok("crew: starts a group chat (200, kind group)", g.status === 200 && g.json?.kind === "group", `status ${g.status} ${JSON.stringify(g.json)}`);
+  ok("crew: …the room written is a group, the crew member its manager", chatWrites("companyChatRoom").some((w) => w.args.data.kind === "group") && chatWrites("companyChatMember", "createMany").some((w) => w.args.data.some((d) => d.memberId === "m_crew" && d.role === "manager")));
+}
+seedChat();
+{
+  const post = await call(CHAT_ROOM, "POST", { as: "crew", params: { id: "ch_ann" }, body: { body: "can I post?" } });
+  ok("crew: cannot post in an office-only channel (403 office_only)", post.status === 403 && post.json?.code === "office_only", `status ${post.status}`);
+  ok("crew: …nothing was written", chatWrites("companyChatMessage").length === 0);
+  const read = await call(CHAT_ROOM, "GET", { as: "crew", params: { id: "ch_ann" } });
+  ok("crew: still READS it (200), and is told it may not post", read.status === 200 && read.json?.can?.post === false && read.json?.can?.postRefusal === "office_only", `status ${read.status}`);
+  const rename = await call(CHAT_ROOM, "PATCH", { as: "crew", params: { id: "ch_ann" }, body: { name: "mine" } });
+  ok("crew: cannot rename a channel (403 not_allowed)", rename.status === 403 && rename.json?.code === "not_allowed", `status ${rename.status}`);
+  const archive = await call(CHAT_ARCHIVE, "POST", { as: "crew", params: { id: "ch_ann" } });
+  ok("crew: cannot archive a channel (403 not_allowed)", archive.status === 403 && archive.json?.code === "not_allowed", `status ${archive.status}`);
+  ok("crew: …none of it wrote to the room", chatWrites("companyChatRoom", "update").length === 0);
+}
+seedChat();
+{
+  const archive = await call(CHAT_ARCHIVE, "POST", { as: "manager", params: { id: "ch_ann" } });
+  ok("manager: archives the channel they manage (200), kept — an update, never a delete", archive.status === 200 && chatWrites("companyChatRoom", "update").some((w) => w.args.data.archivedAt instanceof Date) && !writes.some((w) => w.model.startsWith("companyChat") && /delete/i.test(w.action)), `status ${archive.status}`);
+}
+seedChat();
+{
+  for (const role of ["crew", "estimator", "owner"]) {
+    const r = await call(CHAT_ROOM, "GET", { as: role, params: { id: "ch_off" } });
+    ok(`${role}: a private channel they are not in is 404 — the owner included`, r.status === 404 && r.json?.code === "no_room", `status ${r.status}`);
+    const j = await call(CHAT_JOIN, "POST", { as: role, params: { id: "ch_off" } });
+    ok(`${role}: …and cannot join it (404)`, j.status === 404, `status ${j.status}`);
+  }
+  const list = await call(CHAT_ROOMS, "GET", { as: "crew" });
+  ok("crew: the room list and Browse never name the private channel", list.status === 200 && !textHas(list.json, "ch_off"), `status ${list.status}`);
+}
+
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;

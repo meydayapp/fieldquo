@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (team chat channels and group chats — phases 1 and 2 of the channels plan: the office makes channels (public/private, office-only posting, include everyone, archive), anybody starts a group chat with no size limit, per-room notifications and mute, "Seen by", and @mentions in the bell. Schema is additive and NOT yet applied — the SQL is in "Team chat: channels and group chats" below)
 Last updated: 4 October 2026 (the live crew test, owner + Joe on the Crew preset at TrueFinish Cabinets — eleven gaps closed, one commit each: a PUBLISHED SHIFT on a job now grants the job like a visit (assignedJobWhere is visit OR published shift, from publication to 14 days after it ends; drafts/open/other people's shifts grant nothing) across the job page and routes, work order, job chat membership, clock picker, receipts and photo mentions, and My schedule links the job and its work order; My schedule shows the person's job visits from the same read as My day (GET /api/me/visits); Share with staff sends a crew DM the work order only and puts the crew's line first in rooms; the work order carries quantities and units, cabinet door/drawer counts, colour/sheen/coats, what's included, the options the client chose, the materials list, checklist, visit notes and hours (the quote's labour estimate as fallback) — still no money; the crew job page gets job wording on the upload box, the website star/tags/stage words and controls for curators only, and no client preparation guide (GET refuses crew); Jennifer's launcher steps aside on /app/chat and /app/messages; /app/scheduler reads "My shifts" for people who can't assign them; Add visit clears an error when its field changes; with no leave policies crew can still request UNPAID time off (LeavePolicy.systemUnpaid, additive — SQL in the commit, not applied); the correction form always offers a job picker scoped to their jobs; /app/timesheets is an alias. docs/ROLE-ACCESS.md has the table; open decisions 5–6 there: the shift window, and unpaid-with-no-policies.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
@@ -230,6 +231,105 @@ prompt failure through `respondToMessage`.
 **Deploy order:** the SQL in items 2 and 4 is applied in production, so the code can deploy (every Plan read selects `aiMonthlyAllowanceCents`, and the gate selects the Company columns).
 
 ---
+## Team chat: channels and group chats (4 October 2026)
+
+Phases 1 and 2 of the channels plan, on the owner's decisions of 4 October:
+channels and group chats yes; only the office (owner, admin, supervisor —
+Manager and Dispatcher map to supervisor) creates, renames and archives
+channels; anybody starts a group chat, no maximum size; "Seen by" yes, room
+members only; @everyone stays the office's; an @mention also lands in the
+notification bell. #general and job rooms stay derived from the roster and
+the schedule.
+
+- **Schema (additive — apply by hand, then `prisma db push` should say "in
+  sync"; never `--accept-data-loss`).** CompanyChatRoom: topic, private,
+  postingPolicy, autoJoin, createdByMemberId, archivedAt,
+  archivedByMemberId. CompanyChatMember: role, notify, mutedUntil,
+  lastOpenedAt, hiddenAt, starredAt, addedByMemberId. CompanyChatMessage:
+  attachments, card, replyToId, editedAt, deletedAt, deletedByMemberId,
+  pinnedAt, pinnedByMemberId — **reserved for phases 3–4, written and read by
+  nothing yet**. Channel keys are `channel:<slug>` on the existing unique
+  (companyId, key) — no new unique index. SQL:
+
+  ```sql
+  ALTER TABLE "CompanyChatRoom" ADD COLUMN "archivedAt" TIMESTAMP(3),
+  ADD COLUMN "archivedByMemberId" TEXT,
+  ADD COLUMN "autoJoin" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "createdByMemberId" TEXT,
+  ADD COLUMN "postingPolicy" TEXT NOT NULL DEFAULT 'everyone',
+  ADD COLUMN "private" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "topic" TEXT;
+  ALTER TABLE "CompanyChatMember" ADD COLUMN "addedByMemberId" TEXT,
+  ADD COLUMN "hiddenAt" TIMESTAMP(3),
+  ADD COLUMN "lastOpenedAt" TIMESTAMP(3),
+  ADD COLUMN "mutedUntil" TIMESTAMP(3),
+  ADD COLUMN "notify" TEXT NOT NULL DEFAULT 'default',
+  ADD COLUMN "role" TEXT NOT NULL DEFAULT 'member',
+  ADD COLUMN "starredAt" TIMESTAMP(3);
+  ALTER TABLE "CompanyChatMessage" ADD COLUMN "attachments" JSONB,
+  ADD COLUMN "card" JSONB,
+  ADD COLUMN "deletedAt" TIMESTAMP(3),
+  ADD COLUMN "deletedByMemberId" TEXT,
+  ADD COLUMN "editedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedByMemberId" TEXT,
+  ADD COLUMN "replyToId" TEXT;
+  CREATE INDEX "CompanyChatRoom_companyId_kind_private_archivedAt_idx" ON "CompanyChatRoom"("companyId", "kind", "private", "archivedAt");
+  CREATE INDEX "CompanyChatMember_roomId_open_lastSeenAt_idx" ON "CompanyChatMember"("roomId", "open", "lastSeenAt");
+  CREATE INDEX "CompanyChatMessage_roomId_pinnedAt_idx" ON "CompanyChatMessage"("roomId", "pinnedAt");
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_createdByMemberId_fkey" FOREIGN KEY ("createdByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_archivedByMemberId_fkey" FOREIGN KEY ("archivedByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatMessage" ADD CONSTRAINT "CompanyChatMessage_replyToId_fkey" FOREIGN KEY ("replyToId") REFERENCES "CompanyChatMessage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ```
+
+  **Until it is applied, the deployed chat errors**: the list and thread
+  queries select the new columns. Ship the SQL with (or before) this code.
+- **Rules** (`lib/company/chat/rules.js`, pure): the role matrix
+  (canCreateChannel, canManage, canRename, canAddMembers, canRemoveMembers,
+  canArchive, canLeave, canPost, isJoinable); the notify table — DMs and
+  groups push every message, #general / channels / job rooms only mentions;
+  "none" silences everything; a snooze lets mentions through; nobody is
+  pushed while looking at the room (lastOpenedAt < 30 s) or about their own
+  words. "Seen by" is derived from each member's existing `lastSeenAt` (one
+  indexed count), not a row per message per reader. The channel-name rule
+  is shared with the staff chat in `lib/chat/channelName.js` (Unicode slugs
+  for the company chat, the staff chat's ASCII slugs byte-identical).
+- **Store and routes** — create channel / group (one pick = the DM), rename,
+  topic, private, office-only, include-everyone, archive/unarchive (kept,
+  read-only), join (public only; a private channel is a 404 to non-members,
+  the owner included), leave and remove (rows closed, never deleted), add
+  (closed rows reopen), your settings (notify, snooze, hide, star), Seen by,
+  locate-a-message; a system line and an activity-log row for every change.
+  Big groups: 4 members per listed room plus the viewer's own row and a
+  grouped head-count; members 50 a page with a name search; ≤ 200 members
+  inline in a thread; pushes in slices of 500; seeding on open, not every
+  poll. Realtime stays polling: the open room is a `?after=` delta every
+  4 s (15 s after two quiet minutes), the list every 15 s.
+- **Bell** — catalog type `chat.mention` (entity `chatMessage` →
+  `/app/chat?message=<id>`), written by `notifyEvent` with the new
+  `push: false` so the chat's own push is the only one; never for a DM or a
+  room set to "none"; the row stores who and where, not the words.
+- **Screen** — Channels / Jobs / Direct messages (groups with DMs), crew
+  order My jobs first with 64 px rows and one big New message; "+" and
+  Browse channels; New channel; the settings panel (name, topic, public /
+  private, office-only, include everyone, your notifications, mute 1 h /
+  until 7 AM, star, hide, people paged with Add / Remove, Archive, Leave);
+  "Seen by n" under your last message; office-only and archived notes in
+  place of the composer. 121 keys in all nine languages. Help: three new
+  articles (channels-and-group-chats, chat-notifications-and-mute,
+  seen-by-in-team-chat) and team-chat / chat-on-your-phone brought up to
+  date, en/fr/es.
+- **Checks** — `check:company-chat` §15–25 (447 passed),
+  `check:role-access` (+28, the shipped routes per role),
+  `check:chat-kit`, `check:notifications` (35 types).
+- **Left for phases 3–4** — photos and files (Cloudinary `chat` upload
+  purpose, Save to job photos — a cost increase, needs the owner's yes, and
+  the public-vs-signed decision), work-order / quote / job cards resolved
+  per reader, offline sends; reply-quote, pins, edit within 15 minutes,
+  soft removal (body hidden from everyone incl. the owner — decided), search.
+  The columns for all of these already exist. The screenshot set in
+  `docs/screens/company-chat` predates channels and should be re-captured.
+
 ## Team chat: seven live bugs fixed (3 October 2026)
 
 Phase 0 of the channels plan — what was broken in the crew chat, fixed
