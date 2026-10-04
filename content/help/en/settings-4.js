@@ -644,6 +644,9 @@ export const ARTICLES = {
             "p": "The price on the **Labour — 6.5 h × $85** line the invoice editor offers when it is opened from a job with clock-ins. This is what you **charge**, not what you pay: a crew member's wage lives on their worker record and never appears on an invoice."
           },
           {
+            "p": "Only **On site** time is offered on that line. **Driving** and **Supplies** time linked to the job counts toward the job's cost, not the client's bill, and the box says how much it left out: “2 driving or supply-run entries count toward this job's cost, not the client's invoice.”"
+          },
+          {
             "p": "A service you price by the hour under **Services & Pricing** is offered as a second choice on the same line, so a company that bills plumbing at one rate and carpentry at another can pick the right one."
           }
         ]
@@ -678,6 +681,6 @@ export const ARTICLES = {
         "a": "No. The page is owner and administrator only, and the invoice editor and the sheets only read what is set here."
       }
     ],
-    "updated": "2026-09-21"
+    "updated": "2026-10-03"
   },
 };

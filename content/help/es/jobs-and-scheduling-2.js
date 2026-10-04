@@ -633,7 +633,7 @@ export const ARTICLES = {
     title: "El reloj de tiempo",
     summary:
       "La marcación propia de la cuadrilla: registrar la entrada en el trabajo en el que están, cambiar de trabajo a mitad del día, registrar la salida y ver las horas de hoy — con una posición capturada al tocar para que la hoja de tiempo muestre a qué distancia del sitio se hizo.",
-    updated: "2026-09-13",
+    updated: "2026-10-03",
     intro: [
       "**Reloj de tiempo** es la única pantalla que un trabajador por hora toca en cada turno, así que se mantiene sencilla: la fecha, un reloj en vivo, un botón grande, el total de hoy. Cada toque escribe una entrada de tiempo simple que va al gerente para revisarla en las hojas de tiempo — aquí no se hace ningún cálculo de nómina.",
       "Cada entrada puede nombrar el trabajo en el que se trabajó, que es lo que permite al costeo saber cuánto costó de verdad la mano de obra de un trabajo. Una hora sin trabajo — traslados, el taller, una mañana presupuestando — es una hora real y se registra exactamente como tal.",
@@ -688,7 +688,8 @@ export const ARTICLES = {
           { bullets: [
             "Cada entrada queda **pendiente** hasta que un gerente la aprueba en las **Hojas de tiempo**; las horas aprobadas alimentan la nómina.",
             "Las horas en un trabajo alimentan el costeo de ese trabajo como mano de obra. Las horas sin trabajo se cuentan y se nombran como no atribuidas en el panel de costeo en lugar de perderse. Vea [[job-costing|Costeo del trabajo: presupuestado contra real]].",
-            "Corregir su propia entrada la devuelve a pendiente para que se revise de nuevo.",
+            "El tiempo de **Manejando** y **Materiales** vinculado a un trabajo cuenta en el costo de ese trabajo, pero solo el tiempo **En obra** se ofrece como mano de obra en la factura del cliente.",
+            "Usted no cambia un registro por su cuenta. En el **Registro**, **Pedir una corrección** envía el arreglo a su gerente, y el registro queda como está hasta que lo aprueba — vea [[time-correction-requests|Solicitudes de corrección]].",
           ] },
         ],
       },
@@ -697,13 +698,14 @@ export const ARTICLES = {
         heading: "Quién puede usarlo",
         blocks: [
           { p: "Cualquiera con una ficha de trabajador, en todos los niveles de acceso — el reloj se limita a la persona conectada y nadie puede marcar por otra. Sin ficha de trabajador la pantalla dice « Aún no estás configurado como trabajador. Pide a un administrador que te agregue en Equipo. »" },
+          { p: "Un propietario o un administrador puede apagar el reloj para una persona. Entonces sale del menú de esa persona y el reloj la rechaza — vea [[switch-the-clock-off-for-someone|Apagar el reloj de tiempo para una persona]]." },
         ],
       },
     ],
     faq: [
       { q: "¿Necesito la aplicación?", a: "No. El reloj de tiempo es una página web que funciona en cualquier teléfono. Vea [[clock-in-and-out-on-your-phone|Registrar entrada y salida desde su teléfono]]." },
       { q: "¿FieldQuo rastrea dónde estoy durante el día?", a: "No. Pide una posición en el momento en que toca, si usted lo permite, y nada entre medio." },
-      { q: "Ayer olvidé registrar la salida.", a: "La entrada sigue abierta. Registre la salida ahora y avise a su gerente — las horas se corrigen en las hojas de tiempo antes de aprobarse." },
+      { q: "Ayer olvidé registrar la salida.", a: "La entrada sigue abierta. Registre la salida ahora, luego abra el Registro, vuelva a ayer y presione Pedir una corrección con la hora en que de verdad se fue. Su gerente la aprueba en las hojas de tiempo." },
     ],
   },
 };

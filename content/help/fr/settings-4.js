@@ -641,6 +641,9 @@ export const ARTICLES = {
             "p": "Le prix de la ligne **Main-d'œuvre — 6,5 h × 85 $** que l'éditeur de facture propose quand on l'ouvre depuis un chantier avec des pointages. C'est ce que vous **facturez**, pas ce que vous payez : le salaire d'un équipier vit sur sa fiche de travailleur et n'apparaît jamais sur une facture."
           },
           {
+            "p": "Seul le temps **Sur le chantier** est proposé sur cette ligne. Le temps de **Route** et de **Matériel** lié au chantier compte dans le coût du chantier, pas dans la facture du client, et l'encadré dit combien il en a laissé de côté : « 2 entrées de route ou de matériel comptent dans le coût de ce chantier, pas dans la facture du client. »"
+          },
+          {
             "p": "Un service tarifé à l'heure dans **Services et tarifs** est proposé comme second choix sur la même ligne, pour qu'une entreprise qui facture la plomberie à un taux et la menuiserie à un autre choisisse le bon."
           }
         ]
@@ -675,6 +678,6 @@ export const ARTICLES = {
         "a": "Non. La page est réservée aux propriétaires et administrateurs, et l'éditeur de facture comme les feuilles ne font que lire ce qui est réglé ici."
       }
     ],
-    "updated": "2026-09-21"
+    "updated": "2026-10-03"
   },
 };

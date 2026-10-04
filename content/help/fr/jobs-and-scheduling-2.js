@@ -633,7 +633,7 @@ export const ARTICLES = {
     title: "La pointeuse",
     summary:
       "Le pointage de l'équipe : pointer l'entrée sur le chantier où l'on est, changer de chantier en cours de journée, pointer la sortie et voir les heures du jour — avec une position saisie au moment du pointage pour que la feuille de temps puisse montrer à quelle distance du chantier il a été fait.",
-    updated: "2026-09-13",
+    updated: "2026-10-03",
     intro: [
       "**Pointeuse** est le seul écran qu'un travailleur à l'heure touche à chaque quart, alors il reste dépouillé : la date, une horloge en direct, un gros bouton, le total du jour. Chaque touche écrit une simple entrée de temps qui va au gestionnaire pour révision sur les feuilles de temps — aucun calcul de paie ne se fait ici.",
       "Chaque entrée peut nommer le chantier sur lequel elle a été travaillée, ce qui permet aux coûts de chantier de savoir ce que la main-d'œuvre d'un chantier a vraiment coûté. Une heure sans chantier — déplacement, cour, une matinée de soumissions — est une vraie heure et est enregistrée exactement comme telle.",
@@ -688,7 +688,8 @@ export const ARTICLES = {
           { bullets: [
             "Chaque entrée est **en attente** jusqu'à ce qu'un gestionnaire l'approuve sur les **Feuilles de temps** ; les heures approuvées alimentent la paie.",
             "Les heures sur un chantier alimentent les coûts de ce chantier comme main-d'œuvre. Les heures sans chantier sont comptées et nommées comme non attribuées sur le panneau des coûts plutôt que perdues. Voir [[job-costing|Coûts de chantier : soumis contre réel]].",
-            "Corriger votre propre entrée la renvoie en attente pour qu'elle soit révisée à nouveau.",
+            "Le temps de **Route** et de **Matériel** lié à un chantier compte dans le coût de ce chantier, mais seul le temps **Sur le chantier** est proposé comme main-d'œuvre sur la facture du client.",
+            "Vous ne modifiez pas une entrée vous-même. Dans le **Journal**, **Demander une correction** envoie la correction à votre gestionnaire, et l'entrée reste telle quelle jusqu'à ce qu'il l'approuve — voir [[time-correction-requests|Demandes de correction]].",
           ] },
         ],
       },
@@ -697,13 +698,14 @@ export const ARTICLES = {
         heading: "Qui peut l'utiliser",
         blocks: [
           { p: "Quiconque a une fiche d'intervenant, à tous les niveaux d'accès — la pointeuse est limitée à la personne connectée et personne ne peut pointer pour quelqu'un d'autre. Sans fiche d'intervenant, l'écran dit « Vous n'êtes pas encore configuré comme intervenant. Demandez à un administrateur de vous ajouter sous Équipe. »" },
+          { p: "Un propriétaire ou un administrateur peut désactiver la pointeuse pour une personne. Elle disparaît alors du menu de cette personne et la pointeuse la refuse — voir [[switch-the-clock-off-for-someone|Désactiver la pointeuse pour une personne]]." },
         ],
       },
     ],
     faq: [
       { q: "Ai-je besoin de l'application ?", a: "Non. La pointeuse est une page web qui fonctionne sur n'importe quel téléphone. Voir [[clock-in-and-out-on-your-phone|Pointer l'entrée et la sortie sur votre téléphone]]." },
       { q: "FieldQuo suit-il où je suis pendant la journée ?", a: "Non. Il demande une position au moment où vous appuyez, si vous le permettez, et rien entre les deux." },
-      { q: "J'ai oublié de pointer la sortie hier.", a: "L'entrée est encore ouverte. Pointez la sortie maintenant, puis prévenez votre gestionnaire — les heures se corrigent sur les feuilles de temps avant d'être approuvées." },
+      { q: "J'ai oublié de pointer la sortie hier.", a: "L'entrée est encore ouverte. Pointez la sortie maintenant, puis ouvrez le Journal, revenez à hier et appuyez sur Demander une correction avec l'heure à laquelle vous êtes vraiment parti. Votre gestionnaire l'approuve dans les feuilles de temps." },
     ],
   },
 };

@@ -641,6 +641,9 @@ export const ARTICLES = {
             "p": "El precio de la línea **Mano de obra — 6,5 h × $85** que el editor de facturas ofrece cuando se abre desde un trabajo con fichajes. Es lo que usted **cobra**, no lo que paga: el salario de un miembro del equipo vive en su ficha de trabajador y nunca aparece en una factura."
           },
           {
+            "p": "En esa línea solo se ofrece el tiempo **En obra**. El tiempo de **Manejando** y **Materiales** vinculado al trabajo cuenta en el costo del trabajo, no en la factura del cliente, y el recuadro dice cuánto dejó fuera: «2 entradas de manejo o de compra de materiales cuentan en el costo de este trabajo, no en la factura del cliente.»"
+          },
+          {
             "p": "Un servicio que usted tarifa por hora en **Servicios y precios** se ofrece como segunda opción en la misma línea, para que una empresa que factura la plomería a una tarifa y la carpintería a otra elija la correcta."
           }
         ]
@@ -675,6 +678,6 @@ export const ARTICLES = {
         "a": "No. La página es solo para propietarios y administradores, y el editor de facturas y las hojas solo leen lo que se fija aquí."
       }
     ],
-    "updated": "2026-09-21"
+    "updated": "2026-10-03"
   },
 };

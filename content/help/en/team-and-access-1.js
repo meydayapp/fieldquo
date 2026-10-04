@@ -254,7 +254,7 @@ export const ARTICLES = {
     title: "The Crew level",
     summary:
       "What a Crew login can see and do — their own schedule, the jobs they are assigned to, their hours — what it can never see, and why it is free.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Crew** is the level for the people in the van: installers, painters, helpers. It is the only level that is free — a Crew login never uses a seat — and the only level whose dials are fixed, so nothing can be added to it by accident.",
       "The product's own description on the level card: “View their schedule, the jobs they're assigned to, and what to buy for them. Mark work complete and track their time. No prices, quotes, invoices or requests.”",
@@ -265,6 +265,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Crew sits in the **Worker tier**. When you pick it, the editor shows no dials at all and says instead: “Crew access is fixed: their own schedule, the jobs they're assigned to, what to buy for those jobs, and their own hours. No prices, quotes, invoices or requests. Crew don't use a seat — to give someone more than this, pick another level.” That sentence is the whole contract." },
+          { p: "One thing on that panel can be switched: the **Time clock** checkbox. Unticked, the clock is off for that one person, who stays on Crew and stays free — see [[switch-the-clock-off-for-someone|Switch the time clock off for one person]]." },
         ],
       },
       {
@@ -273,7 +274,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "See their own schedule and mark it complete (**Schedule**: View and complete their own schedule).",
-            "Clock in and out and correct their own hours (**Time Tracking & Timesheets**: View, record, and edit their own). An entry they edit themselves goes back to pending, so a supervisor re-checks it before it reaches a pay run.",
+            "Clock in and out, and ask for a correction to their own hours (**Time Tracking & Timesheets**: View, record, and edit their own). A correction changes nothing until a supervisor approves it on Timesheets — see [[time-correction-requests|Correction requests]].",
             "Open the jobs they are assigned to — and only those — read-only: the address, the visit, the checklist and what to buy for it (**Jobs**: View only, scoped to their own).",
             "Log their own expenses (**Expenses**: View, record, and edit their own).",
             "See their own payslips (**Payroll & Payslips**: View their own payslips).",
@@ -552,7 +553,7 @@ export const ARTICLES = {
     title: "The Custom access editor",
     summary:
       "The grid behind every level — eleven areas, three switches — how to open it for a new or an existing person, what each dial does, and what you are allowed to hand out.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Every level except Administrator is a grid: eleven areas, each a ladder from least to most access, and three on/off switches. The four presets are filled-in grids. **Custom** is the same grid with your own settings on it.",
       "The same editor is used on **New User** and, for someone already on the team, from the **Custom…** entry of their Role dropdown on **Manage Team** — so what you can set at invitation you can also change later.",
@@ -586,7 +587,7 @@ export const ARTICLES = {
             head: ["Area","Rung 1 (lowest)","Rung 2","Rung 3","Rung 4","Rung 5"],
             rows: [
               ["Schedule","View their own schedule","View and complete their own schedule","Edit their own schedule","Edit everyone's schedule","Edit and delete everyone's schedule"],
-              ["Time Tracking & Timesheets","View and record their own","View, record, and edit their own","View, record, edit, and delete everyone's","—","—"],
+              ["Time Tracking & Timesheets","No access","View and record their own","View, record, and edit their own","View, record, edit, and delete everyone's","—"],
               ["Payroll & Payslips","No access","View their own payslips","View everyone's payslips","View everyone's and run payroll","—"],
               ["Notes","View notes on jobs and visits only","View all notes","View and edit all","View, edit, and delete all","—"],
               ["Expenses","View, record, and edit their own","View, record, and edit everyone's","—","—","—"],
@@ -598,7 +599,7 @@ export const ARTICLES = {
               ["Safety Incidents","No access","Report incidents, and view their own","View everyone's incidents","View everyone's incidents and follow up on them","—"],
             ],
           } },
-          { p: "A dash means the ladder stops there; the last filled cell is the top rung. **Requests** is the Leads screen. **Jobs** at No access withholds the job record, not the work: the schedule, the visit checklist and the clock are their own areas, so a crew member still sees their day. The top rung of Time Tracking is the one that deletes an entry, and the payroll ladder deliberately starts at “their own”: one employee seeing another's pay is an incident, not a setting." },
+          { p: "A dash means the ladder stops there; the last filled cell is the top rung. **Requests** is the Leads screen. **Jobs** at No access withholds the job record, not the work: the schedule, the visit checklist and the clock are their own areas, so a crew member still sees their day. **No access** on Time Tracking switches the time clock off for that person — see [[switch-the-clock-off-for-someone|Switch the time clock off for one person]]. The top rung of Time Tracking is the one that deletes an entry, and the payroll ladder deliberately starts at “their own”: one employee seeing another's pay is an incident, not a setting." },
           { note: "The **Notes** dial gates the internal notes on people — a lead's call-back log and a client's private notes: read them at **View all notes**, write them at **View and edit all notes**, remove a lead note at **View, edit and delete all notes**. Below that a person sees “hidden by your access level” where the notes would be. Notes on a visit itself stay readable at every level, and a quote's or an expense's notes belong to that document, not to this dial." },
         ],
       },
@@ -619,7 +620,7 @@ export const ARTICLES = {
         heading: "What you can hand out",
         blocks: [
           { p: "An owner or administrator sees every rung and every switch. A Dispatcher or Manager sees each ladder only up to their own rung, and only the switches they hold themselves — a level you do not hold is not yours to delegate. The server applies the same clamp when it saves, so a grid that arrived by other means is cut down to the same line. Changing an existing person's grid at all is owner and administrator only; a Dispatcher or Manager meets this editor on New User alone." },
-          { note: "**Crew** shows no dials. Picking it locks the grid to the free level; to give somebody more than Crew, start from another card or from Custom — and that makes them a seat." },
+          { note: "**Crew** shows no dials. Picking it locks the grid to the free level; to give somebody more than Crew, start from another card or from Custom — and that makes them a seat. The one control the Crew panel does offer is the **Time clock** checkbox, which can only take something away." },
         ],
       },
     ],
@@ -627,6 +628,77 @@ export const ARTICLES = {
       { q: "Does a Custom grid use a seat?", a: "Yes, unless every dial is at or below the Crew level and no switch is on. Any single dial above Crew's makes the login a seat, whatever the rest says." },
       { q: "I picked a preset and the badge says Custom.", a: "A dial was moved after the preset was loaded — by you, or by somebody earlier. Pick the preset again from the Role dropdown to replace the whole grid." },
       { q: "The setting I chose came back lower.", a: "You cannot hand out more than you hold. The server clamped the grid to your own rung on that area; ask an owner or administrator to set it." },
+    ],
+  },
+
+  "switch-the-clock-off-for-someone": {
+    title: "Switch the time clock off for one person",
+    summary:
+      "The time clock is on for every level by default. How to turn it off for one person, what disappears for them, what the server refuses, and what it leaves alone — their level, their seat, their past hours and job costing.",
+    updated: "2026-10-03",
+    intro: [
+      "Every level — Crew, Estimator, Dispatcher, Manager — comes with the time clock on. Some people should not punch at all: a salaried office manager, a relative who helps with the books, somebody whose hours you log for them. You switch the clock off per person, in the same access editor as everything else.",
+      "Switching it off is not cosmetic. The menu row goes, and the clock itself refuses that person, so there is no back door to a punch.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "The clock is the bottom rung of the **Time Tracking & Timesheets** dial: **No access**. Every level starts above it, so nothing changes for anyone until you move somebody down to it." },
+          { p: "Crew has no dials, so on the Crew panel the same thing is one checkbox, **Time clock**: “Clock in and out, and their own time log. Untick to switch the clock off for this person — it leaves their menu and its pages refuse them.”" },
+        ],
+      },
+      {
+        id: "switch-it-off",
+        heading: "How to switch it off",
+        blocks: [
+          { steps: [
+            "Open **Manage Team**, find the person, and choose **Custom…** in their **Role** dropdown. The **Access for …** panel opens on the level they have now.",
+            "On a Crew member: untick **Time clock**, under the sentence that says Crew access is fixed.",
+            "On any other level: set **Time Tracking & Timesheets** to **No access**.",
+            "Press **Save**. To turn it back on later, tick the box again, or put the dial back on the rung the level had.",
+          ] },
+          { tip: "The same editor is on **Add User**, so you can set it before the person's first day." },
+        ],
+      },
+      {
+        id: "what-changes",
+        heading: "What changes for them",
+        blocks: [
+          { bullets: [
+            "**Time clock** leaves their menu and the More page, the clock leaves their phone's tab bar, and the **Clock in** cards and the week's hours leave their Home screen.",
+            "The clock itself refuses them — clocking in and out, the **Time log** and **Request a correction** — with a message that the clock is switched off for them and that an owner or admin can turn it on.",
+            "If they were on the clock when you switched it off, that entry stays open. Close it with **Clock out** on [[timesheets-and-approving-hours|Timesheets]].",
+            "For a Dispatcher or Manager the same dial also holds **Timesheets**: at **No access** they lose the Timesheets screen and approving hours as well, not only their own punch.",
+          ] },
+        ],
+      },
+      {
+        id: "what-it-leaves-alone",
+        heading: "What it leaves alone",
+        blocks: [
+          { bullets: [
+            "**Their level.** Switching the clock off does not turn the person into Custom: a Crew member stays Crew and stays free, an Estimator stays an Estimator on the same seat.",
+            "**Hours they already clocked.** Nothing is deleted. Their entries stay on Timesheets, approved hours still go to pay runs, and hours on a job still count toward its cost.",
+            "**Job Costing.** Whether a person sees what jobs cost is its own switch in the same editor. Switching the clock off neither grants it nor takes it away. Crew never have it.",
+            "**Hours logged for them.** A manager can still add their hours by hand on Timesheets with **Add entry**.",
+          ] },
+        ],
+      },
+      {
+        id: "who-can-switch-it",
+        heading: "Who can switch it",
+        blocks: [
+          { p: "An owner or administrator changes it for anyone already on the team. A Dispatcher or Manager adding somebody new meets the same editor on **Add User**." },
+          { p: "The clock cannot be switched off for an owner or an administrator — yourself included. Their access is not a grid, so there is no dial to turn down, and the clock is always there for them." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Does switching the clock off free up a seat?", a: "No. A seat is counted from what a person can do with money, and the clock is not part of that. A Crew login was free already and stays free." },
+      { q: "They say the clock gives them an error.", a: "That is the switch working: the clock refuses everyone it is switched off for. Turn it back on in their access if that was not intended." },
+      { q: "Will they still be paid?", a: "For approved hours, yes, exactly as before. New hours have to reach Timesheets another way — a manager adds them with Add entry." },
     ],
   },
 

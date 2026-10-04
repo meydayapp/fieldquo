@@ -252,7 +252,7 @@ export const ARTICLES = {
     title: "Le niveau Crew",
     summary:
       "Ce qu'un accès Crew peut voir et faire — son propre horaire, les chantiers qui lui sont assignés, ses heures — ce qu'il ne voit jamais, et pourquoi il est gratuit.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Crew** est le niveau des gens dans le camion : installateurs, peintres, aides. C'est le seul niveau gratuit — un accès Crew n'occupe jamais de siège — et le seul dont les réglages sont fixes, de sorte que rien ne peut s'y ajouter par accident.",
       "La description du produit lui-même sur la carte du niveau, affichée en anglais : voir leur horaire, les chantiers qui leur sont assignés et quoi acheter pour ceux-ci ; marquer le travail terminé et suivre leur temps ; aucun prix, soumission, facture ni demande.",
@@ -263,6 +263,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Crew appartient au **palier Worker**. Quand vous le choisissez, l'éditeur n'affiche aucun réglage et dit plutôt : « L'accès des équipiers est fixe : leur propre horaire, les contrats qui leur sont assignés, ce qu'il faut acheter pour ces contrats, et leurs propres heures. Aucun prix, devis, facture ni demande. Les équipiers n'occupent pas de siège — pour donner plus que cela, choisissez un autre niveau. » Cette phrase est tout le contrat." },
+          { p: "Une seule chose se règle sur ce panneau : la case **Pointeuse**. Décochée, la pointeuse est désactivée pour cette personne seulement, qui reste Crew et reste gratuite — voir [[switch-the-clock-off-for-someone|Désactiver la pointeuse pour une personne]]." },
         ],
       },
       {
@@ -271,7 +272,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "Voir son propre horaire et le marquer terminé (**Schedule** : View and complete their own schedule).",
-            "Pointer ses entrées et sorties et corriger ses propres heures (**Time Tracking & Timesheets** : View, record, and edit their own). Une entrée qu'il modifie lui-même repasse en attente, pour qu'un superviseur la revérifie avant qu'elle atteigne une paie.",
+            "Pointer ses entrées et sorties, et demander une correction de ses propres heures (**Time Tracking & Timesheets** : View, record, and edit their own). Une correction ne change rien tant qu'un superviseur ne l'a pas approuvée dans les feuilles de temps — voir [[time-correction-requests|Demandes de correction]].",
             "Ouvrir les chantiers qui lui sont assignés — et seulement ceux-là — en lecture seule : l'adresse, la visite, la liste de vérification et ce qu'il faut acheter (**Jobs** : View only, limité aux siens).",
             "Noter ses propres dépenses (**Expenses** : View, record, and edit their own).",
             "Voir ses propres fiches de paie (**Payroll & Payslips** : View their own payslips).",
@@ -550,7 +551,7 @@ export const ARTICLES = {
     title: "L'éditeur d'accès personnalisé",
     summary:
       "La grille derrière chaque niveau — onze domaines, trois interrupteurs — comment l'ouvrir pour une personne nouvelle ou existante, ce que chaque réglage fait, et ce que vous avez le droit d'accorder.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Chaque niveau sauf Administrator est une grille : onze domaines, chacun une échelle du moins au plus d'accès, et trois interrupteurs marche/arrêt. Les quatre préréglages sont des grilles remplies. **Personnalisé** est la même grille avec vos propres réglages.",
       "Le même éditeur sert dans **Nouvel utilisateur** et, pour quelqu'un déjà dans l'équipe, depuis l'entrée **Personnalisé…** de sa liste Rôle dans **Gérer l'équipe** — ce que vous pouvez régler à l'invitation, vous pouvez donc aussi le changer plus tard.",
@@ -584,7 +585,7 @@ export const ARTICLES = {
             head: ["Domaine","Échelon 1 (le plus bas)","Échelon 2","Échelon 3","Échelon 4","Échelon 5"],
             rows: [
               ["Schedule","View their own schedule","View and complete their own schedule","Edit their own schedule","Edit everyone's schedule","Edit and delete everyone's schedule"],
-              ["Time Tracking & Timesheets","View and record their own","View, record, and edit their own","View, record, edit, and delete everyone's","—","—"],
+              ["Time Tracking & Timesheets","No access","View and record their own","View, record, and edit their own","View, record, edit, and delete everyone's","—"],
               ["Payroll & Payslips","No access","View their own payslips","View everyone's payslips","View everyone's and run payroll","—"],
               ["Notes","View notes on jobs and visits only","View all notes","View and edit all","View, edit, and delete all","—"],
               ["Expenses","View, record, and edit their own","View, record, and edit everyone's","—","—","—"],
@@ -596,7 +597,7 @@ export const ARTICLES = {
               ["Safety Incidents","No access","Report incidents, and view their own","View everyone's incidents","View everyone's incidents and follow up on them","—"],
             ],
           } },
-          { p: "Un tiret veut dire que l'échelle s'arrête là ; la dernière case remplie est l'échelon le plus haut. **Requests**, c'est l'écran Prospects. **Jobs** à No access retient la fiche du chantier, pas le travail : l'horaire, la liste de vérification de la visite et la pointeuse sont leurs propres domaines, alors un équipier voit quand même sa journée. L'échelon le plus haut de Time Tracking est celui qui supprime une entrée, et l'échelle de la paie commence volontairement à « leurs propres » : un employé qui voit la paie d'un autre, c'est un incident, pas un réglage." },
+          { p: "Un tiret veut dire que l'échelle s'arrête là ; la dernière case remplie est l'échelon le plus haut. **Requests**, c'est l'écran Prospects. **Jobs** à No access retient la fiche du chantier, pas le travail : l'horaire, la liste de vérification de la visite et la pointeuse sont leurs propres domaines, alors un équipier voit quand même sa journée. **No access** sur Time Tracking désactive la pointeuse pour cette personne — voir [[switch-the-clock-off-for-someone|Désactiver la pointeuse pour une personne]]. L'échelon le plus haut de Time Tracking est celui qui supprime une entrée, et l'échelle de la paie commence volontairement à « leurs propres » : un employé qui voit la paie d'un autre, c'est un incident, pas un réglage." },
           { note: "Le réglage **Notes** contrôle les notes internes sur les personnes — le journal de rappels d'un prospect et les notes privées d'un client : lecture à **View all notes**, écriture à **View and edit all notes**, suppression d'une note de prospect à **View, edit and delete all notes**. En dessous, la personne voit « masqué par votre niveau d'accès » à la place des notes. Les notes d'une visite restent lisibles à tous les niveaux, et les notes d'une soumission ou d'une dépense appartiennent à ce document, pas à ce réglage." },
         ],
       },
@@ -617,7 +618,7 @@ export const ARTICLES = {
         heading: "Ce que vous pouvez accorder",
         blocks: [
           { p: "Un propriétaire ou un administrateur voit chaque échelon et chaque interrupteur. Un Dispatcher ou un Manager ne voit chaque échelle que jusqu'à son propre échelon, et seulement les interrupteurs qu'il détient lui-même — un niveau que vous n'avez pas n'est pas à vous à déléguer. Le serveur applique le même plafond à l'enregistrement, alors une grille arrivée par un autre chemin est ramenée à la même ligne. Changer la grille d'une personne existante est réservé au propriétaire et aux administrateurs ; un Dispatcher ou un Manager ne rencontre cet éditeur que dans Nouvel utilisateur." },
-          { note: "**Crew** n'affiche aucun réglage. Le choisir verrouille la grille au niveau gratuit ; pour donner plus que Crew à quelqu'un, partez d'une autre carte ou de Personnalisé — et cela en fait un siège." },
+          { note: "**Crew** n'affiche aucun réglage. Le choisir verrouille la grille au niveau gratuit ; pour donner plus que Crew à quelqu'un, partez d'une autre carte ou de Personnalisé — et cela en fait un siège. Le seul contrôle que le panneau Crew offre est la case **Pointeuse**, qui ne peut que retirer quelque chose." },
         ],
       },
     ],
@@ -625,6 +626,77 @@ export const ARTICLES = {
       { q: "Une grille personnalisée occupe-t-elle un siège ?", a: "Oui, sauf si chaque réglage est au niveau de Crew ou en dessous et qu'aucun interrupteur n'est activé. Un seul réglage au-dessus de celui de Crew fait de l'accès un siège, quoi que dise le reste." },
       { q: "J'ai choisi un préréglage et le badge dit Personnalisé.", a: "Un réglage a été déplacé après le chargement du préréglage — par vous, ou par quelqu'un avant. Choisissez de nouveau le préréglage dans la liste Rôle pour remplacer toute la grille." },
       { q: "Le réglage que j'ai choisi est revenu plus bas.", a: "Vous ne pouvez pas accorder plus que ce que vous détenez. Le serveur a ramené la grille à votre propre échelon sur ce domaine ; demandez à un propriétaire ou à un administrateur de le régler." },
+    ],
+  },
+
+  "switch-the-clock-off-for-someone": {
+    title: "Désactiver la pointeuse pour une personne",
+    summary:
+      "La pointeuse est activée à tous les niveaux par défaut. Comment la désactiver pour une personne, ce qui disparaît pour elle, ce que le serveur refuse, et ce qui ne bouge pas — son niveau, son siège, ses heures passées et le coût de revient.",
+    updated: "2026-10-03",
+    intro: [
+      "Chaque niveau — Crew, Estimator, Dispatcher, Manager — vient avec la pointeuse activée. Certaines personnes ne devraient pas pointer du tout : une gestionnaire de bureau salariée, un parent qui aide à la comptabilité, quelqu'un dont vous saisissez les heures à sa place. Vous désactivez la pointeuse personne par personne, dans le même éditeur d'accès que tout le reste.",
+      "La désactiver n'est pas cosmétique. La ligne du menu disparaît, et la pointeuse elle-même refuse cette personne, donc il n'y a pas de porte arrière pour pointer.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "La pointeuse est l'échelon le plus bas du réglage **Time Tracking & Timesheets** : **No access**. Chaque niveau commence au-dessus, donc rien ne change pour personne tant que vous n'y descendez pas quelqu'un." },
+          { p: "Crew n'a pas de réglages, alors sur le panneau Crew la même chose est une seule case, **Pointeuse** : « Pointer l'entrée et la sortie, et son propre journal. Décochez pour désactiver la pointeuse pour cette personne — elle disparaît de son menu et ses pages la refusent. »" },
+        ],
+      },
+      {
+        id: "switch-it-off",
+        heading: "Comment la désactiver",
+        blocks: [
+          { steps: [
+            "Ouvrez **Gérer l'équipe**, trouvez la personne et choisissez **Personnalisé…** dans sa liste **Rôle**. Le panneau **Accès de …** s'ouvre sur le niveau qu'elle a maintenant.",
+            "Pour un membre Crew : décochez **Pointeuse**, sous la phrase qui dit que l'accès des équipiers est fixe.",
+            "Pour tout autre niveau : réglez **Time Tracking & Timesheets** sur **No access**.",
+            "Appuyez sur **Enregistrer**. Pour la réactiver plus tard, cochez de nouveau la case, ou remettez le réglage sur l'échelon qu'avait le niveau.",
+          ] },
+          { tip: "Le même éditeur se trouve dans **Ajouter un utilisateur**, donc vous pouvez le régler avant la première journée de la personne." },
+        ],
+      },
+      {
+        id: "what-changes",
+        heading: "Ce qui change pour elle",
+        blocks: [
+          { bullets: [
+            "**Pointeuse** disparaît de son menu et de la page Plus, la pointeuse quitte la barre d'onglets de son téléphone, et les cartes **Pointer l'entrée** et les heures de la semaine quittent son écran d'accueil.",
+            "La pointeuse elle-même la refuse — pointer l'entrée et la sortie, le **Journal** et **Demander une correction** — avec un message qui dit que la pointeuse est désactivée pour elle et qu'un propriétaire ou un administrateur peut la réactiver.",
+            "Si elle était en service au moment où vous l'avez désactivée, cette entrée reste ouverte. Fermez-la avec **Pointer la sortie** dans les [[timesheets-and-approving-hours|feuilles de temps]].",
+            "Pour un Dispatcher ou un Manager, le même réglage porte aussi les **Feuilles de temps** : à **No access**, il perd aussi l'écran des feuilles de temps et l'approbation des heures, pas seulement son propre pointage.",
+          ] },
+        ],
+      },
+      {
+        id: "what-it-leaves-alone",
+        heading: "Ce qui ne change pas",
+        blocks: [
+          { bullets: [
+            "**Son niveau.** Désactiver la pointeuse ne fait pas passer la personne à Personnalisé : un membre Crew reste Crew et reste gratuit, un Estimator reste un Estimator sur le même siège.",
+            "**Les heures déjà pointées.** Rien n'est supprimé. Ses entrées restent dans les feuilles de temps, les heures approuvées vont toujours aux paies, et les heures sur un chantier comptent toujours dans son coût.",
+            "**Job Costing.** Voir ce que coûtent les chantiers est un interrupteur à part dans le même éditeur. Désactiver la pointeuse ne l'accorde pas et ne le retire pas. Les membres Crew ne l'ont jamais.",
+            "**Les heures saisies pour elle.** Un gestionnaire peut toujours ajouter ses heures à la main dans les feuilles de temps avec **Ajouter une entrée**.",
+          ] },
+        ],
+      },
+      {
+        id: "who-can-switch-it",
+        heading: "Qui peut la désactiver",
+        blocks: [
+          { p: "Un propriétaire ou un administrateur la change pour toute personne déjà dans l'équipe. Un Dispatcher ou un Manager qui ajoute quelqu'un de nouveau trouve le même éditeur dans **Ajouter un utilisateur**." },
+          { p: "La pointeuse ne peut pas être désactivée pour un propriétaire ou un administrateur — vous-même compris. Leur accès n'est pas une grille, donc il n'y a pas de réglage à descendre, et la pointeuse est toujours là pour eux." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Désactiver la pointeuse libère-t-il un siège?", a: "Non. Un siège se compte d'après ce qu'une personne peut faire avec l'argent, et la pointeuse n'en fait pas partie. Un accès Crew était déjà gratuit et le reste." },
+      { q: "La personne dit que la pointeuse lui affiche une erreur.", a: "C'est l'interrupteur qui fonctionne : la pointeuse refuse toute personne pour qui elle est désactivée. Réactivez-la dans son accès si ce n'était pas voulu." },
+      { q: "Sera-t-elle encore payée?", a: "Pour les heures approuvées, oui, exactement comme avant. Les nouvelles heures doivent arriver dans les feuilles de temps autrement — un gestionnaire les ajoute avec Ajouter une entrée." },
     ],
   },
 
