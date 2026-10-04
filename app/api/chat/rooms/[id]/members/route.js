@@ -1,27 +1,49 @@
 // app/api/chat/rooms/[id]/members/route.js
 //
-// Who is in a room of the company's crew chat.
+// The people in one conversation — a PAGE at a time (a group has no maximum
+// size, and #general is the whole roster) — and, for a channel or group,
+// adding people to it.
 //
-// GET → { room: { id, kind, name, jobId }, members: [{ id, name, email,
-//         label, departed, isYou }] }
+// #general and job rooms are derived from the roster and the schedule and a
+// DM is two people, so for those the list is read-only and the screen
+// explains why. For a channel the office manages it (lib/company/chat/
+// rules.js canAddMembers); for a group anybody in it may add.
 //
-// Read-only by design, not by omission: #general is everybody, a job room
-// follows the job's visits, a DM is two people. There is no POST here
-// because there is nothing a person could add that the schedule would not
-// undo on the next read — a control like that is the dead control AGENTS.md
-// forbids. To put somebody in a job's room, book them on a visit.
+// GET [?q=&cursor=] → { room, members, total, nextCursor, can }
+//        members: [{ id, name, email, label, title, departed, isYou,
+//                    manager, addedBy }]
+// POST { members: [ids] } → { ok, added }
+//        codes: no_room | read_only | fixed_room | archived | not_allowed |
+//               nobody_named | member_unknown
+//
+// `params` is a Promise in Next 16 — awaited below, not destructured.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { membersOf } from "@/lib/company/chat/store";
+import { membersOf, addMembers } from "@/lib/company/chat/store";
 
 export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
   const { id } = await params;
-  const result = await membersOf(member, id);
+  const url = new URL(request.url);
+  const result = await membersOf(member, id, {
+    q: url.searchParams.get("q") || "",
+    cursor: url.searchParams.get("cursor") || null,
+  });
   if (!result) return NextResponse.json({ error: "No such conversation.", code: "no_room" }, { status: 404 });
   return NextResponse.json(result);
+}
+
+export async function POST(request, { params }) {
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  const { id } = await params;
+  const body = await request.json().catch(() => null);
+  const done = await addMembers(member, id, body?.members);
+  if (!done.ok) return NextResponse.json({ error: done.error, code: done.code }, { status: done.status });
+  return NextResponse.json({ ok: true, added: done.added });
 }
