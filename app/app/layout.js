@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import TopBar from "@/app/components/layout/TopBar";
+import CrewShell from "@/app/components/layout/CrewShell";
 import MobileTabBar from "@/app/components/layout/MobileTabBar";
 import { NavShellProvider } from "@/app/components/layout/NavShell";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
@@ -132,6 +133,9 @@ async function getCompanyShell() {
       // on the query every /app page already makes, so the gate costs nothing.
       select: {
         name: true,
+        // The crew header's mark (CrewShell.js) — the company's own logo
+        // beside its name, on the one /app surface that shows either.
+        logoUrl: true,
         currency: true,
         influencerAt: true,
         influencerRepId: true,
@@ -581,6 +585,11 @@ export default async function AppLayout({ children }) {
                 search, Create, bell, avatar) and the phone's 52px bar
                 (hamburger, logo, search, bell). */}
             <TopBar />
+            {/* Crew only, `lg` and up: the slim header, the big clock button
+                and their few places, in place of the rail and the top bar
+                above (both draw nothing for crew — lib/nav/crewShell.js).
+                Renders nothing for everybody else. */}
+            <CrewShell companyName={company?.name || null} logoUrl={company?.logoUrl || null} />
             {/* "Text and call prices changed" — our new price and the date,
                 owners/admins of a company that texts or calls through
                 FieldQuo only, never a demo. Renders nothing otherwise. Inside

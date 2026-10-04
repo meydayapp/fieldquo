@@ -139,13 +139,20 @@ check("flat item list filters", filterNavItemsByPermission([{ key: "app.nav.team
 // every `also` key, its page must exist, and the More slot must be the
 // only "More" — no tab duplicates it and the sheet drops the bar's rows.
 console.log("\nThe phone bar, per preset — executed\n");
+// 2026-10-03, the owner: "everyone should have a clock, even the boss" — the
+// clock is the first tab on every set, and each set kept its size by moving
+// one tab to More (Invoices, Leads, Jobs — lib/nav/phoneBar.js says why).
+// `off` is the bar of the same person with their clock switched off: the
+// swapped tab comes back, so nobody loses a tab to a button they cannot have.
 const PRESET_BARS = {
-  owner: { caller: owner, set: "office", hrefs: ["/app/leads", "/app/quotes", "/app/jobs", "/app/invoices", "/app/chat"], more: "sheet", pin: false },
-  admin: { caller: { role: "admin", permissions: null }, set: "office", hrefs: ["/app/leads", "/app/quotes", "/app/jobs", "/app/invoices", "/app/chat"], more: "sheet", pin: false },
-  worker: { set: "crew", hrefs: ["/app/clock", "/app", "/app/chat"], more: "page", pin: true },
-  estimator: { set: "estimator", hrefs: ["/app/leads", "/app/quotes", "/app/appointments", "/app/chat"], more: "sheet", pin: true },
-  dispatcher: { set: "dispatch", hrefs: ["/app/scheduler", "/app/jobs", "/app/settings/team/timesheets", "/app/chat"], more: "sheet", pin: true },
-  manager: { set: "dispatch", hrefs: ["/app/scheduler", "/app/jobs", "/app/settings/team/timesheets", "/app/chat"], more: "sheet", pin: true },
+  owner: { caller: owner, set: "office", hrefs: ["/app/clock", "/app/leads", "/app/quotes", "/app/jobs", "/app/chat"], more: "sheet", pin: true, slots: 6 },
+  admin: { caller: { role: "admin", permissions: null }, set: "office", hrefs: ["/app/clock", "/app/leads", "/app/quotes", "/app/jobs", "/app/chat"], more: "sheet", pin: true, slots: 6 },
+  worker: { set: "crew", hrefs: ["/app/clock", "/app", "/app/chat"], more: "page", pin: true, slots: 4, off: ["/app", "/app/chat"] },
+  estimator: { set: "estimator", hrefs: ["/app/clock", "/app/quotes", "/app/appointments", "/app/chat"], more: "sheet", pin: true, slots: 5, off: ["/app/leads", "/app/quotes", "/app/appointments", "/app/chat"] },
+  // Time Tracking at None also closes the timesheets screen, so Team goes with
+  // the clock — the swap still brings Jobs back.
+  dispatcher: { set: "dispatch", hrefs: ["/app/clock", "/app/scheduler", "/app/settings/team/timesheets", "/app/chat"], more: "sheet", pin: true, slots: 5, off: ["/app/scheduler", "/app/jobs", "/app/chat"] },
+  manager: { set: "dispatch", hrefs: ["/app/clock", "/app/scheduler", "/app/settings/team/timesheets", "/app/chat"], more: "sheet", pin: true, slots: 5, off: ["/app/scheduler", "/app/jobs", "/app/chat"] },
 };
 const pageExists = (href) => existsSync(new URL(`../app${href}/page.js`, import.meta.url));
 for (const [name, want] of Object.entries(PRESET_BARS)) {
@@ -162,7 +169,23 @@ for (const [name, want] of Object.entries(PRESET_BARS)) {
     bar.more.kind === want.more && (!bar.more.href || pageExists(bar.more.href)));
   check(`${name}: no tab is a second More`, !hrefs.some((h) => h === "/app/more" || h === bar.more.href));
   check(`${name}: the desktop rail ${want.pin ? "pins" : "does not pin"} the clock`, railPinsClock(caller) === want.pin);
+  check(`${name}: the clock is the FIRST tab`, hrefs[0] === "/app/clock");
+  check(`${name}: the bar kept its size — ${want.slots} slots with More`, bar.tabs.length + 1 === want.slots);
+  if (want.off) {
+    // The grid's own switch, as Manage Team writes it: Time Tracking at None.
+    const off = { ...caller, permissions: { ...caller.permissions, timeTracking: "none" } };
+    const offBar = phoneBarFor(off);
+    const offHrefs = offBar.tabs.map((t) => t.href);
+    check(`${name}, clock switched off: ${offHrefs.join(" · ")} · More — no clock, the swapped tab back`,
+      offBar.set === want.set && JSON.stringify(offHrefs) === JSON.stringify(want.off));
+    check(`${name}, clock switched off: the rail pins nothing`, railPinsClock(off) === false);
+  }
 }
+
+// Owners and admins bypass the grid, so a `none` written onto an owner's row
+// (no screen offers it) still leaves them their clock — "even the boss".
+check("an owner's clock cannot be switched off by a stray grid value",
+  phoneBarFor({ role: "owner", permissions: { timeTracking: "none" } }).tabs[0]?.href === "/app/clock");
 
 // Crew: no money anywhere on the bar. The four office documents are the money
 // screens a crew grid refuses; none may be a tab, and Today is My day, whose
@@ -185,7 +208,7 @@ for (const [name, want] of Object.entries(PRESET_BARS)) {
   const oddDispatcher = { role: "employee", permissions: { ...PERMISSION_PRESETS.dispatcher.values } };
   const bar = phoneBarFor(oddDispatcher);
   check("a schedule-running EMPLOYEE (no user:manage) gets no Team tab", bar.set === "dispatch" && !bar.tabs.some((t) => t.href === "/app/settings/team/timesheets"));
-  check("…and still a bar with Schedule, Jobs and Chat", ["/app/scheduler", "/app/jobs", "/app/chat"].every((h) => bar.tabs.some((t) => t.href === h)));
+  check("…and still a bar with Clock, Schedule and Chat", ["/app/clock", "/app/scheduler", "/app/chat"].every((h) => bar.tabs.some((t) => t.href === h)));
 }
 
 // A grid at `none` on everything an estimator set carries falls back to the
@@ -195,7 +218,8 @@ for (const [name, want] of Object.entries(PRESET_BARS)) {
   check("a quotes-only reader is an estimator-set member", phoneBarSetFor(bare) === "estimator");
   const hollow = { role: "employee", permissions: { ...PERMISSION_PRESETS.worker.values, invoices: "view_only" } };
   const hb = phoneBarFor(hollow);
-  check("an invoices-only reader (office set, Jobs and Invoices survive) keeps real tabs", hb.tabs.filter((t) => t.href !== "/app/chat").length > 0);
+  check("an invoices-only reader (office set, Jobs survives; Invoices is in the sheet) keeps real tabs",
+    hb.tabs.filter((t) => t.href !== "/app/chat" && t.href !== "/app/clock").length > 0);
 }
 
 // Legacy and unresolved callers keep the owner's bar, as before the split.
@@ -222,6 +246,127 @@ check("a gridless supervisor keeps the office bar they had", phoneBarSetFor({ ro
   check("the rail pins through railPinsClock and drops the pinned row from More",
     /railPinsClock\(caller\) \? PINNED_CLOCK : NOTHING_PINNED/.test(sidebarSrc) &&
     /railPinsClock\(caller\) \? MORE_GROUPS_UNPINNED : MORE_GROUPS/.test(sidebarSrc));
+}
+
+// ── The crew shell: no accordion, one big clock button (2026-10-03) ─────────
+//
+// The owner: "for crews I don't think we need the accordion … just a little
+// header with the button under it." lib/nav/crewShell.js decides who and
+// which buttons; executed here against the real presets. Then the promise
+// that makes removing the rail safe: every row the rail, the drawer, the
+// avatar menu and Create offered a Crew member is still on a screen they
+// can reach — their bar, their big buttons, or their More page.
+console.log("\nThe crew shell — who gets it, what it carries, and nothing lost\n");
+{
+  const { usesCrewShell, crewButtonsFor, crewButtonActive, crewClockState, CREW_BUTTONS, CREW_CLOCK_HREF } =
+    await import("../lib/nav/crewShell.js");
+  const { contrastRatio } = await import("../lib/brand/colour.js");
+  const crewCaller = { role: PRESET_TO_ROLE.worker, permissions: PERMISSION_PRESETS.worker.values };
+
+  check("Crew get the crew shell", usesCrewShell(crewCaller) === true);
+  check("…and still do with their clock switched off", usesCrewShell({ ...crewCaller, permissions: { ...crewCaller.permissions, timeTracking: "none" } }) === true);
+  for (const name of ["estimator", "dispatcher", "manager"]) {
+    check(`${name} keeps the rail`, usesCrewShell({ role: PRESET_TO_ROLE[name], permissions: PERMISSION_PRESETS[name].values }) === false);
+  }
+  check("owner keeps the rail", usesCrewShell(owner) === false);
+  check("admin keeps the rail", usesCrewShell({ role: "admin", permissions: null }) === false);
+  check("a null caller keeps the rail (no shell that flips while loading)", usesCrewShell(null) === false);
+  check("a gridless member keeps the rail they had", usesCrewShell(legacy) === false);
+  check("junk does not throw and keeps the rail", usesCrewShell({ role: 7 }) === false && usesCrewShell("crew") === false);
+
+  const buttons = crewButtonsFor(crewCaller).map((b) => b.href);
+  check(`Crew buttons: ${buttons.join(" · ")}`,
+    JSON.stringify(buttons) === JSON.stringify(["/app", "/app/me/schedule", "/app/chat", "/app/jobs", "/app/me/more"]));
+  check("every crew button is a real page", [...buttons, CREW_CLOCK_HREF].every((h) => pageExists(h)));
+  check("every crew button but More passes navRowAllowed for its key",
+    crewButtonsFor(crewCaller).filter((b) => b.href !== "/app/me/more").every((b) => navRowAllowed(b.key, crewCaller)));
+  check("no money screen is a crew button", !CREW_BUTTONS.some((b) => ["/app/quotes", "/app/invoices", "/app/leads", "/app/payroll", "/app/me/earnings"].includes(b.href)));
+  {
+    const noJobs = { ...crewCaller, permissions: { ...crewCaller.permissions, jobs: "none" } };
+    check("Jobs at No access → no Jobs button (never a link to a refusal)", !crewButtonsFor(noJobs).some((b) => b.href === "/app/jobs"));
+    const chatOff = { team_chat: { state: "hidden", visible: false, usable: false } };
+    check("team_chat hidden → no Chat button", !crewButtonsFor(crewCaller, chatOff).some((b) => b.href === "/app/chat"));
+  }
+  const today = CREW_BUTTONS.find((b) => b.href === "/app");
+  const more = CREW_BUTTONS.find((b) => b.href === "/app/me/more");
+  check("Today lights on /app only", crewButtonActive(today, "/app") && !crewButtonActive(today, "/app/jobs"));
+  check("More lights on /app/me/more, not on /app/me/schedule", crewButtonActive(more, "/app/me/more") && !crewButtonActive(more, "/app/me/schedule"));
+
+  // What the big button says — never "Clock in" on a guess.
+  check("clock state: no answer → neutral", crewClockState(null) === "open" && crewClockState("x") === "open" && crewClockState({}) === "open");
+  check("clock state: not on the roster → neutral (the clock page offers self-enrol)", crewClockState({ worker: null, open: null }) === "open");
+  check("clock state: on the roster, nothing open → Clock in", crewClockState({ worker: { id: "w" }, open: null }) === "in");
+  check("clock state: an open entry → Clock out", crewClockState({ worker: { id: "w" }, open: { clockIn: "2026-10-03T12:00:00Z", breaks: [{ end: "2026-10-03T12:30:00Z" }] } }) === "out");
+  check("clock state: an open break → End break", crewClockState({ worker: { id: "w" }, open: { breaks: [{ end: null }] } }) === "break");
+  check("clock state: junk breaks do not throw", crewClockState({ worker: { id: "w" }, open: { breaks: "x" } }) === "out");
+
+  // Contrast, measured — the fills in the component source, the tokens in globals.css.
+  const shellSrc = readFileSync(new URL("../app/components/layout/CrewShell.js", import.meta.url), "utf8");
+  const fills = [...shellSrc.matchAll(/bg-\[(#[0-9a-fA-F]{6})\] text-white/g)].map((m) => m[1]);
+  check(`the clock's three fixed fills are in the source (${fills.join(", ")})`, fills.length === 3);
+  for (const hex of fills) check(`white on ${hex} ≥ 4.5:1 (${contrastRatio("#ffffff", hex).toFixed(2)})`, contrastRatio("#ffffff", hex) >= 4.5);
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const tok = (block, name) => (block.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
+  // The first `:root {` block is the light theme, `.dark {` the dark one.
+  const rootAt = css.indexOf("\n:root {");
+  const darkAt = css.indexOf("\n.dark {");
+  const light = rootAt >= 0 && darkAt > rootAt ? css.slice(rootAt, darkAt) : "";
+  const dark = darkAt >= 0 ? css.slice(darkAt, css.indexOf("\n}", darkAt)) : "";
+  for (const [label, block] of [["light", light], ["dark", dark]]) {
+    const pairs = [
+      ["active button", tok(block, "inverted-foreground"), tok(block, "inverted")],
+      ["button word", tok(block, "foreground"), tok(block, "card")],
+      ["button border", tok(block, "muted-foreground"), tok(block, "card")],
+    ];
+    for (const [what, fg, bg] of pairs) {
+      const r = fg && bg ? contrastRatio(fg, bg) : 0;
+      check(`${label}: ${what} ${fg} on ${bg} ≥ 4.5:1 (${r.toFixed(2)})`, r >= 4.5);
+    }
+  }
+
+  // Reachability. The rows the old shell offered a Crew member: every rail /
+  // More row, the account rows and the Create rows, read from the source and
+  // run through the real navRowAllowed. Each must land somewhere they reach.
+  const sidebarSrc = readFileSync(new URL("../app/components/layout/AdminSidebar.js", import.meta.url), "utf8");
+  const rows = [...sidebarSrc.matchAll(/\{ key: "(app\.(?:nav|quickAdd)\.[A-Za-z]+)", href: "([^"]+)"/g)].map((m) => ({ key: m[1], href: m[2] }));
+  const before = rows.filter((r) => r.key !== "app.nav.influencer" && navRowAllowed(r.key, crewCaller));
+  console.log(`  ·    Crew reached before (rail + More + account + Create): ${before.map((r) => r.href).join(", ")}`);
+  const moreSrc = readFileSync(new URL("../app/app/me/more/page.js", import.meta.url), "utf8");
+  const pageHrefs = JSON.parse((moreSrc.match(/const PAGE_HREFS = (\[[\s\S]*?\]);/) || [])[1]?.replace(/,\s*\]$/, "]") || "null");
+  check("the More page names the rows it draws itself (PAGE_HREFS)", Array.isArray(pageHrefs) && pageHrefs.length > 0);
+  // The exclusion list is only safe if the page really draws each of them.
+  const drawn = (pageHrefs || []).filter((h) => moreSrc.includes(`href="${h}"`));
+  check("…and every one of them IS a row on that page — the exclusion never hides a row",
+    drawn.length === (pageHrefs || []).length, (pageHrefs || []).filter((h) => !drawn.includes(h)));
+  check("Everything else is the rail's whole map: Home, NAV_GROUPS and MORE_GROUPS",
+    /items: \[HOME_ITEM, \.\.\.NAV_GROUPS\.flatMap\(\(g\) => g\.items\), \.\.\.MORE_GROUPS\.flatMap\(\(g\) => g\.items\)\]/.test(moreSrc));
+  check("…plus the account rows and the Create rows", /const CREW_ALL_ITEMS = \[\.\.\.BOTTOM_ITEMS, \.\.\.QUICK_ADD_ITEMS\];/.test(moreSrc));
+  check("…through the rail's own filters (useNavGroups / useNavItems)", /useNavGroups\(CREW_ALL_GROUPS\)/.test(moreSrc) && /useNavItems\(CREW_ALL_ITEMS\)/.test(moreSrc));
+  check("…and it is drawn for exactly the crew-shell callers", /crewShell \? <CrewEverythingElse pageDrawn \/> : null/.test(moreSrc) && /usesCrewShell\(caller, useFeatureFlags\(\)\)/.test(moreSrc));
+  // Everything else leaves out only what the phone bar and the page itself
+  // already draw — never the desktop buttons, which a phone does not have.
+  check("Everything else subtracts the bar and the page's own rows, not the desktop buttons",
+    /\.\.\.\(pageDrawn \? PAGE_HREFS : \[\]\),\s*CREW_CLOCK_HREF,\s*"\/app\/me\/more",\s*\.\.\.phoneBarFor\(caller, flags\)\.tabs\.map/.test(moreSrc) && !/CREW_BUTTONS/.test(moreSrc));
+  check("…and when the page's own rows fail to load, the list stands alone and leaves none of them out",
+    /<CrewEverythingElse pageDrawn \/>/.test(moreSrc) && /crewShell && !data && !loading \? \([\s\S]{0,80}<CrewEverythingElse pageDrawn=\{false\} \/>/.test(moreSrc));
+  const bar = phoneBarFor(crewCaller).tabs.map((t) => t.href);
+  check("every desktop button is also on the phone bar or the More page — the phone loses nothing",
+    buttons.every((h) => h === "/app/me/more" || bar.includes(h) || (pageHrefs || []).includes(h)));
+  // /app/more is the one row not carried over: it is a hub page of the
+  // MORE_GROUPS rows, every one of which is in Everything else (asserted
+  // above), and a "More" row on the page called More would be a loop.
+  const placeOf = (h) =>
+    h === "/app/more" ? "not linked — a hub of MORE_GROUPS rows, each of them in Everything else"
+      : bar.includes(h) ? "phone bar" : (pageHrefs || []).includes(h) ? "More page" : "More › Everything else";
+  console.log(`  ·    …after: ${before.map((r) => `${r.href} → ${placeOf(r.href)}${buttons.includes(r.href) || r.href === CREW_CLOCK_HREF ? " + desktop button" : ""}`).join("; ")}`);
+
+  // The shells that used to carry them stand down for crew, and only for crew.
+  check("the rail and the phone drawer draw nothing for crew", /const crewShell = usesCrewShell\(usePermissions\(\), featureFlags\);/.test(sidebarSrc) && /if \(crewShell\) return null;/.test(sidebarSrc));
+  const topSrc = readFileSync(new URL("../app/components/layout/TopBar.js", import.meta.url), "utf8");
+  check("the top bar drops its desktop header and its hamburger for crew", /\{!crew && \(\s*<header/.test(topSrc) && /\{!crew && \(\s*<button[\s\S]{0,120}shell\.open\("drawer"\)/.test(topSrc));
+  const layoutSrc = readFileSync(new URL("../app/app/layout.js", import.meta.url), "utf8");
+  check("the layout mounts the crew shell with the company's own name and logo", /<CrewShell companyName=\{company\?\.name \|\| null\} logoUrl=\{company\?\.logoUrl \|\| null\} \/>/.test(layoutSrc) && /logoUrl: true/.test(layoutSrc));
+  check("the crew shell's clock follows the clock switch", /const clockOn = crew && clockOffered\(caller\);/.test(shellSrc) && /\{clockOn \? \(/.test(shellSrc));
 }
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);

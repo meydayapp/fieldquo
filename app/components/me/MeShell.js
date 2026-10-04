@@ -33,7 +33,8 @@
 // From `lg` up the same five tabs are a sub-nav across the top of the page,
 // inside the ordinary /app layout with the sidebar — the sidebar's "My home"
 // row lands here, and the five tabs move between the screens without going
-// back through the rail.
+// back through the rail. Not for crew, who have no rail: CrewShell.js's big
+// buttons sit above the page instead (lib/nav/crewShell.js).
 //
 // ── Why `lg` and not 768 ─────────────────────────────────────────────────────
 //
@@ -58,6 +59,8 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { activeMeTab, meTabsFor } from "@/lib/me/tabs";
+import { usesCrewShell } from "@/lib/nav/crewShell";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 
 const ICONS = {
   home: Home,
@@ -128,6 +131,11 @@ export function MeTabBar() {
 function MeTopNav() {
   const { t } = useTranslation();
   const { tabs, active } = useMeTabs();
+  // Crew have CrewShell.js's big buttons right above this from `lg` up
+  // (lib/nav/crewShell.js); a second row of tabs under them is the clutter
+  // that shell exists to remove. Everyone else keeps the sub-nav.
+  const crew = usesCrewShell(usePermissions(), useFeatureFlags());
+  if (crew) return null;
   return (
     <nav
       data-me-tabs="top"

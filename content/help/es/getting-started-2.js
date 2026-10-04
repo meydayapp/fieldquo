@@ -296,7 +296,7 @@ export const ARTICLES = {
         heading: "Un día con un acceso Crew",
         blocks: [
           { steps: [
-            "Abra FieldQuo en su teléfono. La barra de pestañas muestra **Trabajos**, **Chat** y **Más**; las pestañas del proceso que usa la oficina no están ahí para usted.",
+            "Abra FieldQuo en su teléfono. La barra de pestañas muestra **Reloj**, **Hoy**, **Chat** y **Más**; las pestañas del proceso que usa la oficina no están ahí para usted. En una computadora tiene lo mismo en botones grandes, bajo un botón de reloj grande.",
             "Abra **Trabajos**, toque el trabajo de hoy y lea las notas de la visita y la lista de verificación.",
             "Abra **Reloj de tiempo** y presione **Registrar entrada**. La etiqueta dice **En turno** y el cronómetro corre contra ese trabajo.",
             "Fotos: tómelas desde la página del trabajo, o envíelas por mensaje de texto al número de la cuadrilla y se archivan solas — vea [[text-a-photo-to-the-crew-inbox|Enviar una foto por texto sin aplicación]].",

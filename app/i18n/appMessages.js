@@ -17124,6 +17124,7 @@ const en = {
   "app.phonePrice.what.call_bridge": "calls placed with the Call button",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Today",
+  "app.me.more.allPages": "Everything else",
   "app.shareStaff.quoteLine": "Quote {number}, for the office (needs quote access): {link}",
   "app.shareStaff.workOrderLine": "Work order, no prices, for the crew booked on the job: {link}",
   "app.shareStaff.accessNote": "This link opens for people with access to quotes. The crew get the work order once the quote is a job.",
@@ -33771,6 +33772,7 @@ const fr = {
   "app.phonePrice.what.call_bridge": "les appels passés avec le bouton Appeler",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Aujourd'hui",
+  "app.me.more.allPages": "Tout le reste",
   "app.shareStaff.quoteLine": "Soumission {number}, pour le bureau (accès aux soumissions requis) : {link}",
   "app.shareStaff.workOrderLine": "Bon de travail, sans prix, pour l'équipe affectée au chantier : {link}",
   "app.shareStaff.accessNote": "Ce lien s'ouvre pour les personnes qui ont accès aux soumissions. L'équipe reçoit le bon de travail une fois la soumission devenue un chantier.",
@@ -50770,6 +50772,7 @@ const es = {
   "app.phonePrice.what.call_bridge": "las llamadas hechas con el botón Llamar",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Hoy",
+  "app.me.more.allPages": "Todo lo demás",
   "app.shareStaff.quoteLine": "Cotización {number}, para la oficina (requiere acceso a cotizaciones): {link}",
   "app.shareStaff.workOrderLine": "Orden de trabajo, sin precios, para la cuadrilla asignada al trabajo: {link}",
   "app.shareStaff.accessNote": "Este enlace se abre para quienes tienen acceso a cotizaciones. La cuadrilla recibe la orden de trabajo cuando la cotización se convierte en trabajo.",
@@ -67247,6 +67250,7 @@ const uk = {
   "app.phonePrice.what.call_bridge": "дзвінки через кнопку «Подзвонити»",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Сьогодні",
+  "app.me.more.allPages": "Усе інше",
   "app.shareStaff.quoteLine": "Кошторис {number}, для офісу (потрібен доступ до кошторисів): {link}",
   "app.shareStaff.workOrderLine": "Наряд, без цін, для бригади, призначеної на роботу: {link}",
   "app.shareStaff.accessNote": "Це посилання відкривається для тих, хто має доступ до кошторисів. Бригада отримує наряд, коли кошторис стає роботою.",
@@ -83654,6 +83658,7 @@ const pa = {
   "app.phonePrice.what.call_bridge": "ਕਾਲ ਬਟਨ ਨਾਲ ਕੀਤੀਆਂ ਕਾਲਾਂ",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "ਅੱਜ",
+  "app.me.more.allPages": "ਬਾਕੀ ਸਭ ਕੁਝ",
   "app.shareStaff.quoteLine": "ਕੋਟ {number}, ਦਫ਼ਤਰ ਲਈ (ਕੋਟਾਂ ਤੱਕ ਪਹੁੰਚ ਚਾਹੀਦੀ ਹੈ): {link}",
   "app.shareStaff.workOrderLine": "ਵਰਕ ਆਰਡਰ, ਕੀਮਤਾਂ ਤੋਂ ਬਿਨਾਂ, ਕੰਮ 'ਤੇ ਲੱਗੀ ਟੀਮ ਲਈ: {link}",
   "app.shareStaff.accessNote": "ਇਹ ਲਿੰਕ ਉਹਨਾਂ ਲਈ ਖੁੱਲ੍ਹਦਾ ਹੈ ਜਿਨ੍ਹਾਂ ਕੋਲ ਕੋਟਾਂ ਤੱਕ ਪਹੁੰਚ ਹੈ। ਕੋਟ ਦੇ ਕੰਮ ਬਣਨ 'ਤੇ ਟੀਮ ਨੂੰ ਵਰਕ ਆਰਡਰ ਮਿਲਦਾ ਹੈ।",
@@ -100071,6 +100076,7 @@ const tl = {
   "app.phonePrice.what.call_bridge": "tawag gamit ang Tumawag na button",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Ngayon",
+  "app.me.more.allPages": "Lahat ng iba pa",
   "app.shareStaff.quoteLine": "Quote {number}, para sa opisina (kailangan ng access sa quotes): {link}",
   "app.shareStaff.workOrderLine": "Work order, walang presyo, para sa crew na naka-book sa job: {link}",
   "app.shareStaff.accessNote": "Bumubukas ang link na ito para sa may access sa quotes. Makukuha ng crew ang work order kapag naging job na ang quote.",
@@ -116374,6 +116380,7 @@ const de = {
   "app.phonePrice.what.call_bridge": "Anrufe über die Anrufen-Taste",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Heute",
+  "app.me.more.allPages": "Alles andere",
   "app.shareStaff.quoteLine": "Angebot {number}, fürs Büro (braucht Zugriff auf Angebote): {link}",
   "app.shareStaff.workOrderLine": "Arbeitsauftrag, ohne Preise, fürs Team auf dem Auftrag: {link}",
   "app.shareStaff.accessNote": "Dieser Link öffnet sich für alle mit Zugriff auf Angebote. Das Team bekommt den Arbeitsauftrag, sobald aus dem Angebot ein Auftrag wird.",
@@ -132669,6 +132676,7 @@ const zh = {
   "app.phonePrice.what.call_bridge": "通过拨打按钮拨出的电话",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "今天",
+  "app.me.more.allPages": "其他全部",
   "app.shareStaff.quoteLine": "报价单 {number}，供办公室查看（需要报价单权限）：{link}",
   "app.shareStaff.workOrderLine": "施工单，不含价格，供排到该工程的班组查看：{link}",
   "app.shareStaff.accessNote": "此链接仅对有报价单权限的人开放。报价单转为工程后，班组会收到施工单。",
@@ -149266,6 +149274,7 @@ const it = {
   "app.phonePrice.what.call_bridge": "le chiamate fatte con il pulsante Chiama",
   // ── 2026-10-03: phone bar per role, share-with-staff audience, your own rate ──
   "app.nav.today": "Oggi",
+  "app.me.more.allPages": "Tutto il resto",
   "app.shareStaff.quoteLine": "Preventivo {number}, per l'ufficio (serve l'accesso ai preventivi): {link}",
   "app.shareStaff.workOrderLine": "Ordine di lavoro, senza prezzi, per la squadra assegnata al lavoro: {link}",
   "app.shareStaff.accessNote": "Questo link si apre per chi ha accesso ai preventivi. La squadra riceve l'ordine di lavoro quando il preventivo diventa un lavoro.",

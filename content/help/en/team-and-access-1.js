@@ -299,7 +299,7 @@ export const ARTICLES = {
         id: "their-menu",
         heading: "What their menu shows",
         blocks: [
-          { p: "**Home**, **Jobs** (theirs), **Calendar**, **To-do**, **Chat**, **Time clock**, **Time Off**, **Safety**, **Payroll** (their own payslips) and **Help**. Under Settings: **Language**, **Availability** and **Product Updates**. On a phone the same screens sit in the crew tab bar — see [[what-a-crew-member-sees|What a crew member sees]] and [[how-fieldquo-works-for-crew|How FieldQuo works for crew]]." },
+          { p: "**Home**, **Jobs** (theirs), **Calendar**, **To-do**, **Chat**, **Time clock**, **Time Off**, **Safety**, **Payroll** (their own payslips) and **Help**. Under Settings: **Language**, **Availability** and **Product Updates**. They are not in a folding sidebar: on a computer a crew member gets one big **Clock in** button and big buttons for **Today**, **My schedule**, **Chat**, **Jobs** and **More**, and on a phone the tab bar **Clock · Today · Chat · More**; everything else in this list is on their More page under **Everything else** — see [[the-crew-tab-bar|The crew tab bar]], [[what-a-crew-member-sees|What a crew member sees]] and [[how-fieldquo-works-for-crew|How FieldQuo works for crew]]." },
         ],
       },
       {
@@ -667,7 +667,7 @@ export const ARTICLES = {
         heading: "What changes for them",
         blocks: [
           { bullets: [
-            "**Time clock** leaves their menu and the More page, the clock leaves their phone's tab bar, and the **Clock in** cards and the week's hours leave their Home screen.",
+            "**Time clock** leaves their menu and the More page, the clock leaves their phone's tab bar (the tab it had replaced comes back — **Leads** for an estimator, **Jobs** for a dispatcher), the big clock button leaves a crew member's computer screen, and the **Clock in** cards and the week's hours leave their Home screen.",
             "The clock itself refuses them — clocking in and out, the **Time log** and **Request a correction** — with a message that the clock is switched off for them and that an owner or admin can turn it on.",
             "If they were on the clock when you switched it off, that entry stays open. Close it with **Clock out** on [[timesheets-and-approving-hours|Timesheets]].",
             "For a Dispatcher or Manager the same dial also holds **Timesheets**: at **No access** they lose the Timesheets screen and approving hours as well, not only their own punch.",
