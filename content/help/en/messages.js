@@ -5,5 +5,6 @@
 // carries the slugs lib/help/tree.js assigns it; the check reads THIS module.
 import { ARTICLES as PART_1 } from "./messages-1.js";
 import { ARTICLES as PART_2 } from "./messages-2.js";
+import { ARTICLES as PART_3 } from "./messages-3.js";
 
-export const ARTICLES = { ...PART_1, ...PART_2 };
+export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3 };

@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 340; “Only in FieldQuo”: 34._
+_Generated 2026-10-04 — 343 articles in the tree; written: en 343, fr 343, es 343; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -317,7 +317,7 @@ _Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 
 | `influencer-programme` — Influencer programme | ✓ | ✓ | ✓ | influencer | referrals |  |
 | `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
-### messages (18)
+### messages (21)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -339,6 +339,9 @@ _Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 
 | `the-crew-inbox` — The crew inbox: photos and updates by text | ✓ | ✓ | ✓ | crew-inbox | crew_inbox | ✓ |
 | `team-chat` — Team chat | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
 | `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | ✓ | ✓ | ✓ |  | appointment_reminders |  |
+| `fetch-older-facebook-and-instagram-history` — Fetch older Facebook and Instagram history | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `photos-and-videos-from-facebook-and-instagram` — Photos and videos from Facebook and Instagram | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `facebook-leads-checked-against-your-records` — Facebook leads checked against your records | ✓ | ✓ | ✓ |  | page_messaging |  |
 
 ### mobile-and-crew (17)
 

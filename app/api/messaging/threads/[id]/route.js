@@ -42,6 +42,7 @@ import { writeActivity } from "@/lib/messaging/activity";
 import { smsReceiptsBySid } from "@/lib/sms/deliveryStore";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { inSupportView, EMAIL_PROVENANCE_SELECT, supportViewMessage } from "@/lib/mailbox/supportView";
+import { publicReview } from "@/lib/leads/messageReview";
 
 /** The member with their grid attached — a scope decided without it widens. */
 async function graded(member) {
@@ -152,6 +153,9 @@ async function readThread({ id, member }) {
       assignedEmployeeId: true,
       humanTookOverAt: true,
       routingIntent: true,
+      // The message reviewer's verdict (lib/leads/messageReview.js) — read
+      // here only to be shaped below; the raw column never leaves the server.
+      leadCapture: true,
       // The linked client's name, for the one sentence that needs it: "save
       // this pin as Sandra Cole's address". Only ever returned to somebody who
       // may edit clients (see below), so this is not a new disclosure — it is
@@ -244,6 +248,15 @@ async function readThread({ id, member }) {
     thread: {
       ...thread,
       assignedEmployeeId: undefined,
+      leadCapture: undefined,
+      // Genuine lead / not a lead / existing client / converted, with the
+      // message and the documents it rests on — numbers only on the dials
+      // that own them. Null until a review has run.
+      review: publicReview(thread.leadCapture?.review || null, {
+        quotes: hasLevel(full, "quotes", "view_only"),
+        jobs: hasLevel(full, "jobs", "view_only"),
+        invoices: hasLevel(full, "invoices", "view_only"),
+      }),
       ai,
       // Only for somebody who could act on it. A crew member sees the contact
       // card and the pin — those are the message — and not the two buttons

@@ -76,6 +76,126 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Facebook / Instagram history, attachments, fair scoring, and the FB lead check (3 October 2026)
+
+The owner, 2026-10-03: "the leads doesn't seem to fetch all the leads from
+facebook only the new ones … same thing for the messages in fb and instagram …
+also images and video were not probably fetched", "remove the penalty if they
+are sourced from somewhere else", and "validate FB leads with messages to not
+create a copy … determine if a client is a lead, if it is a converted client …
+because fb leads are pretty bad and deceptive".
+
+### Why it happened (each found in the code, not guessed)
+
+- **Lead forms.** `pollForm` read ONE page of `/<form>/leads` (100) and moved the
+  cursor to the newest lead on it — Meta returns newest first, so anything past
+  the hundredth in a window was stepped over for good; and a form switched on
+  after its leads came in only ever saw what came next.
+- **Conversations.** `lib/messaging/pageImport.js` pulls conversations updated
+  since the company SIGNED UP (owner's own earlier rule, capped at 30 days), and
+  only each one's newest 50 messages. A test company signed up last week sees
+  last week.
+- **Images and video.** (a) the Conversations API was asked for a bare
+  `attachments` field, whose default fields Meta does not promise include the
+  URL — an attachment stored with no URL could only ever say "unavailable";
+  (b) the re-host applied WhatsApp's ceilings to Messenger (5 MB image, 16 MB
+  video) while Messenger/IG carry 25 MB, so a 9 MB phone photo was refused as
+  "larger than WhatsApp's own limit"; (c) every re-pull overwrote a re-hosted
+  Cloudinary copy with Meta's expiring link again.
+
+### What shipped
+
+- **History walk** — `lib/meta/historyBackfill.js`, one `MetaHistoryBackfill`
+  row per Messenger channel / Instagram channel / active lead form: Meta's
+  `after` cursor stored between chunks (resumable), rate-limit answers park the
+  row until Meta's retry-after, a lease stops two runners on one row, auth /
+  Leads Access refusals stop it with the reason. Conversations: every page, and
+  each conversation's OLDER messages paged via `GET /<conversation>/messages`
+  (`listConversationMessages`, up to 500 per conversation; a cut-off is counted
+  as `truncated`, shown on the card). Lead forms: every page of the 90 days
+  Meta keeps. Idempotent on Meta's message id / leadgen id.
+- **Started** on connect (`importAfterConnect` queues it), when a form is
+  switched ON (forms PATCH), and by **Fetch older** on both Meta cards
+  (`POST /api/meta/history`, billing admin; GET for the progress line). Carried
+  on by `/api/cron/messaging-import` (conversations, 150 s/tick) and
+  `/api/cron/meta-leads` (forms). A never-polled form is WALKED, not polled; the
+  walk sets the form's cursor when done. An errored walk falls back to the old
+  poll so a form is never deaf. Pages connected before today get a walk queued
+  by the cron without anyone pressing anything.
+- **History wakes nobody.** Every pulled message is stamped `Message.imported`
+  (AI employee / Closer, staff push and live capture already skip imported).
+  Messages older than the inbox floor carry `history: true`: a history-only
+  thread is created **resolved**, no unread increment, no waiting clock, never
+  reopened by history. Leads older than a day get `LeadRequest.importedAt` and
+  createScoredLead sends no `lead.created` for them; a lead under a day old is
+  live and announced. Each conversation is reviewed ONCE after its history is
+  in (`captureLeadFromConversation({ imported: true })`).
+- **Cost (company-paid AI, named):** the history review runs the model only for
+  conversations whose customer last wrote within 90 days, at most 25 per run,
+  metered through the existing `conversation_lead` meter (company AI credit);
+  older ones get the free records-only review. Without AI credit, nothing is
+  read by the model and the review says so.
+- **Attachments:** named subfields (`attachments{id,mime_type,name,size,
+  image_data,video_data,file_url}`) with a one-shot bare fallback on Meta's
+  "nonexisting field"; 25 MB ceiling for Messenger/IG (`maxBytesFor`); an IG
+  reel is a video; `mergeAttachmentsOnRedelivery` keeps a durable copy on
+  re-delivery and revives an expired failed link when Meta hands a fresh one.
+- **Scoring by source** (`lib/leads/qualifiers.js` ASKED_BY_SOURCE /
+  `unaskedForScoring`, `scoringOptions` in createLead): a missing budget or
+  timeline counts against a lead only when its channel put the question —
+  self_quote and instant_quote (both), the phone (timeline). Everyone else
+  (manual, Meta form, Messenger, IG, WhatsApp, CSV, embed, funnels, portal,
+  kitchen, AI employee, web chat, SMS) is scored on what it captured; an answer
+  that IS present still counts. Reasons say "Budget unknown / Timing unknown —
+  not counted". **Existing leads keep their stored score until edited** (no
+  data was rewritten); a bulk re-score is a write the owner should approve.
+- **FB lead check** — `lib/leads/identityMatch.js` (pure): a new form lead is
+  matched against open leads, Meta threads (PSID/IGSID, typed phone/email,
+  profile name + address) and clients. Certain/likely + not tied → **folded**
+  into the existing lead (`LeadIdentityLink` kind meta_lead_form, payload kept,
+  only empty columns filled, each recorded with its before-value) instead of a
+  second lead; a thread with no lead is pointed at the new lead; a client on
+  file is tied so `convertLead` reuses it. Shared family phone with different
+  names, same name at another address, name alone, ties: shown, never linked.
+  **Not the same person** (`POST /api/leads/[id]/identity`) splits it back,
+  reverts only untouched fields, and the pair is never proposed again.
+- **Message reviewer** — `lib/leads/messageReview.js`: verdict genuine lead /
+  not a lead (spam, wrong number, job seeker, vendor, other) / existing client
+  / already converted, with the customer's message, the matched client and the
+  quote/job/invoice it rests on. The model (`conversationLeadExtract`, new
+  `notLeadReason` + `kindMessage`, still witness-verified) reads the words; the
+  RECORDS (`loadVerifiedConversion`, shared with the drawer) decide who it is.
+  A converted person or an existing client with no new work makes no new lead;
+  the thread is pointed at the client (inbox **Not this client** undoes it and
+  is respected). Drawn in the lead drawer and the inbox thread header; document
+  numbers only on the quotes / jobs / invoices dials.
+
+### Schema (additive — NOT applied; SQL in the agent report)
+
+`LeadRequest.importedAt`, `Message.imported`, models `LeadIdentityLink`,
+`MetaHistoryBackfill` (+ back-relations on Company and LeadRequest).
+
+### Checks
+
+`check:meta-history` (new, 130 assertions: Meta error payloads, attachment
+merge/limits/expiry, hostile identities, lying model, end-to-end walks against
+an in-memory Graph + db stub, rate limit/resume, undo), plus `check:meta-leads`
+(cron now walks never-polled forms), `check:lead-intake`, `check:lead-scoring`,
+`check:page-import` (its pre-existing `referral` key failure fixed),
+`check:social-leads`, `check:lead-linking`, `check:help-centre` (three new
+articles en/fr/es).
+
+### Owed
+
+- **Live only:** whether Meta's Message Attachment node accepts every named
+  subfield on v21 for both Messenger and Instagram (the bare fallback covers a
+  refusal); how far back `/<conversation>/messages` actually returns per
+  platform; real rate-limit behaviour on a Page with thousands of threads.
+- **ads_management — deliberately NOT added** (owner: later, after the current
+  Meta reviews). When it is: add it to the lead-forms permission list in
+  lib/meta/pageConnect.js / META_LEADS_SCOPE and re-run check:meta-leads.
+- Re-scoring existing leads under the new rule (a data write — owner's yes).
+
 ## Privacy policy: the Google user data section (3 October 2026)
 
 For Google OAuth verification. `/privacy` Section 9 "Google user data" says,

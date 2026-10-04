@@ -206,7 +206,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 322 models.
+it cannot drift from the code. 324 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -241,7 +241,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>322 models — expand</summary>
+<details><summary>324 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -315,8 +315,9 @@ tenancy, so it carries no information.
 | `JobPhotoTagOnPhoto` | JobPhoto, JobPhotoTag | — |
 | `JobSubcontractor` | Job, JobVisit, Subcontractor | SubcontractorBill, SubcontractorPayment |
 | `JobVisit` | Job | JobSubcontractor, LocationStamp |
+| `LeadIdentityLink` | LeadRequest | — |
 | `LeadNote` | LeadRequest | — |
-| `LeadRequest` | Quote, ServiceCategory | LeadNote, Quote |
+| `LeadRequest` | Quote, ServiceCategory | LeadIdentityLink, LeadNote, Quote |
 | `LeaveBalance` | LeavePolicy, Worker | — |
 | `LeavePolicy` | — | LeaveBalance, LeaveRequest |
 | `LeaveRequest` | LeavePolicy, Worker | — |

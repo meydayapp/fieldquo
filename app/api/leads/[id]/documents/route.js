@@ -5,7 +5,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { loadLeadDocuments, loadLeadConversion } from "@/lib/leads/linkedDocuments";
+import { loadLeadDocuments, loadLeadConversion, documentAccess } from "@/lib/leads/linkedDocuments";
+import { listIdentityLinks } from "@/lib/leads/identityLinks";
+import { publicReview } from "@/lib/leads/messageReview";
 
 // The lead drawer's "Linked documents": the quote linked to this lead, the
 // jobs it became and the invoices billed from it, plus the Won rule's verdict
@@ -15,6 +17,14 @@ import { loadLeadDocuments, loadLeadConversion } from "@/lib/leads/linkedDocumen
 // a linked conversation): did it become a quote, a job, a paid invoice, and on
 // what evidence. Confirmed and possible are kept apart; see
 // lib/attribution/conversionEvidence.js. Null for every other lead.
+//
+// `identityLinks` — other records that are the same person as this lead (a
+// Facebook form submission folded in instead of becoming a second lead, a
+// conversation joined by phone or email, a client on file), each with what
+// matched and a "Not the same person" undo (POST /api/leads/[id]/identity).
+// `review` — the message reviewer's verdict on the linked conversation
+// (lib/leads/messageReview.js), with document numbers only on the dials that
+// own them.
 //
 // Gated on requests:view_only — the same door as the lead itself — and then
 // each section on its OWN category inside loadLeadDocuments, because a member
@@ -48,7 +58,7 @@ export async function GET(request, { params }) {
   });
   if (!lead) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [documents, conversion] = await Promise.all([
+  const [documents, conversion, identityLinks, thread] = await Promise.all([
     loadLeadDocuments(db, { lead, full, companyId: member.companyId }),
     // Best effort: the documents list must never fail because the evidence
     // line could not be worked out.
@@ -56,6 +66,24 @@ export async function GET(request, { params }) {
       console.error("[leads/documents] conversion check failed:", err?.message);
       return null;
     }),
+    listIdentityLinks(db, { companyId: member.companyId, leadId: lead.id }).catch(() => []),
+    // Best effort, like the two above: an async wrapper so even a failure to
+    // reach the model at all becomes a null review, never a failed drawer.
+    (async () =>
+      db.messageThread.findFirst({ where: { companyId: member.companyId, leadId: lead.id }, orderBy: { createdAt: "asc" }, select: { leadCapture: true } }))().catch(() => null),
   ]);
-  return NextResponse.json({ ...documents, conversion });
+  const access = documentAccess(full);
+  // The thread's own review carries the document numbers; the lead's copy
+  // does not (lib/leads/messageReview.js reviewForLead). Either way, shaped
+  // for this member.
+  const review = publicReview(thread?.leadCapture?.review || lead.conversationEvidence?.review || null, access);
+  const links = identityLinks.map((l) => ({
+    ...l,
+    documents: (l.documents || []).map((d) =>
+      (d.type === "quote" && access.quotes) || (d.type === "job" && access.jobs) || (d.type === "invoice" && access.invoices)
+        ? d
+        : { type: d.type, restricted: true },
+    ),
+  }));
+  return NextResponse.json({ ...documents, conversion, identityLinks: links, review });
 }
