@@ -46,7 +46,10 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
     setError("");
     setTarget("");
     setMessage("");
-    Promise.all([fetchJson("/api/chat/rooms"), fetchJson("/api/chat/directory")])
+    // ?sync=1: a one-off read when the dialog opens, so a company whose chat
+    // nobody has opened yet still has its #general and job rooms to pick
+    // (the 15-second chat poll no longer seeds — lib/company/chat/store.js).
+    Promise.all([fetchJson("/api/chat/rooms?sync=1"), fetchJson("/api/chat/directory")])
       .then(([r, d]) => {
         if (cancelled) return;
         // An archived channel is read-only, so it is not somewhere to share
