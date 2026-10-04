@@ -86,6 +86,9 @@ function ReportForm({ t, jobs, onCreated, onCancel }) {
           uploadUrl="/api/upload" purpose="safety"
           value={[]}
           max={6}
+          // Not MediaUploader's default — that is the homeowner's "helps us
+          // quote accurately", which means nothing on an incident report.
+          hint={t("app.safety.photos.hint", "Photos of the scene, the damage or the injury, as it was.")}
           onChange={async (added) => {
             const usable = (added || []).filter((m) => m?.url);
             if (!usable.length) return;

@@ -164,6 +164,7 @@ function seed() {
     "timeEntry", "jobPhoto", "changeOrder", "jobDailyLog", "assetUseLog", "companyChatRoom", "kitchenDesignConfig",
     "customFieldValue", "customField", "recordEdit", "materialPriceObservation", "smsDelivery", "safetyIncident",
     "booking", "shift", "leaveRequest", "calendarConnection", "googleCalendarBusy", "smsOptOut", "locationStamp",
+    "jobDocument", "jobPhotoTag", "jobPhotoTagLink",
   ]) tables[m] ||= [];
   tables.changeOrder = job1.changeOrders.map((c) => ({ ...c }));
   tables.payment ||= [];
@@ -546,6 +547,45 @@ seedShift({ start: new Date(Date.now() - 13 * DAY - 8 * 3600000), end: new Date(
 ok("crew: a shift that ended 13 days ago still opens the job (late receipts, corrections)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
 seedShift({ start: new Date(Date.now() + 30 * DAY), end: new Date(Date.now() + 30 * DAY + 8 * 3600000) });
 ok("crew: a shift published for a month out opens the job now (My schedule links it)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Crew on the job page: photos yes, the website and the office's cards no");
+//
+// The live test (2026-10-04): the crew's job page said "Tap the star to show
+// a photo on your website", linked "Manage tags", captioned the upload box
+// with the homeowner's "helps us quote accurately", and drew the client
+// preparation guide card. Each refusal below is the SERVER's; the static
+// half proves the screen no longer offers what the server refuses.
+const PHOTOS = await import("../app/api/jobs/[id]/photos/route.js");
+const PHOTO_TAGS = await import("../app/api/settings/job-photo-tags/route.js");
+const PREP_GUIDE = await import("../app/api/jobs/[id]/prep-guide/route.js");
+seed();
+{
+  tables.jobPhoto = [{ id: "ph1", companyId: "co1", jobId: "j1", url: "https://x/1.jpg", stage: "finish", featured: false, createdAt: new Date(), tags: [] }];
+  const add = await call(PHOTOS, "POST", { as: "crew", params: { id: "j1" }, body: { photos: [{ url: "https://res.cloudinary.com/x/2.jpg" }] } });
+  ok("crew: CAN add a photo to their job (200)", add.status === 200, `status ${add.status} ${JSON.stringify(add.json)}`);
+  const star = await call(PHOTOS, "PATCH", { as: "crew", params: { id: "j1" }, body: { photoId: "ph1", featured: true } });
+  ok("crew: cannot put a photo on the company website (403)", star.status === 403, `status ${star.status}`);
+  const tag = await call(PHOTO_TAGS, "POST", { as: "crew", body: { name: "Sanding", color: "#123456" } });
+  ok("crew: cannot create a photo tag (403)", tag.status === 403, `status ${tag.status}`);
+  ok("…and nothing was featured or tagged", !writes.some((w) => (w.model === "jobPhoto" && w.action === "update") || w.model === "jobPhotoTag"));
+  const prep = await call(PREP_GUIDE, "GET", { as: "crew", params: { id: "j1" } });
+  ok("crew: the client preparation guide's status is refused (403) — office information", prep.status === 403, `status ${prep.status}`);
+  const prepMgr = await call(PREP_GUIDE, "GET", { as: "manager", params: { id: "j1" } });
+  ok("manager: reads it (not refused)", prepMgr.status !== 403, `status ${prepMgr.status}`);
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const curator = src("app/components/jobs/JobPhotoCurator.js");
+  ok("screen: the website star tip and count are drawn only for curators", /canCurate \? \(\s*<p[^>]*>\s*\{t\("app\.jobPhotos\.starTip"/.test(curator) && /\{canCurate && \(\s*<span[^>]*>\s*\{t\("app\.jobPhotos\.onWebsite"/.test(curator));
+  ok("screen: 'Manage tags' only for whoever may manage them", /\{canManageTags && \(/.test(curator) && curator.indexOf("canManageTags && (") < curator.indexOf("/app/settings/job-photo-tags\" className"));
+  ok("screen: the job upload box has the job's words, not the homeowner's", /hint=\{t\("app\.jobPhotos\.uploadHint"/.test(curator));
+  ok("screen: no hardcoded 'Tap the star' left in the markup", !/>\s*Tap the star/.test(curator));
+  const detail = src("app/app/jobs/[id]/JobDetail.js");
+  ok("screen: the preparation guide card is not drawn for crew", /\{!seesOnlyAssignedJobs\(caller\) && <PrepGuideCard /.test(detail));
+  ok("screen: the safety report's photo box has its own words too", /hint=\{t\("app\.safety\.photos\.hint"/.test(src("app/app/safety/page.js")));
+}
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;
