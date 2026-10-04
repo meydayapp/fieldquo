@@ -611,6 +611,27 @@ section("9. The row, the tab, the gate and the catalogue agree");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("11. \"Message {name}\" on the team directory lands IN the conversation");
+
+{
+  // It linked to plain /app/chat, so the person landed on the list and had
+  // to find the name again. The link now names the member; the chat opens
+  // the DM through the SAME openDirect the New message picker calls (section
+  // 4 executes its rules: same company, active, not yourself).
+  const team = decomment(read("app/app/me/team/page.js"));
+  ok("the team page links to /app/chat?with=<member id>", /href=\{`\/app\/chat\?with=\$\{encodeURIComponent\(p\.id\)\}`\}/.test(team));
+  ok("…only for a member with a login who is not you", /p\.kind === "member" && !p\.isYou/.test(team));
+  const page = decomment(read("app/app/chat/page.js"));
+  ok("the chat page reads ?with= and hands it to CompanyChat (a ?room= wins)", /initialRoomId \? null : params\?\.get\("with"\)/.test(page) && /initialWithId=\{initialWithId\}/.test(page));
+  const screen = decomment(read("app/components/company/CompanyChat.js"));
+  const effect = screen.slice(screen.indexOf("const openedWith"), screen.indexOf("[initialWithId, data, startDirect]"));
+  ok("the screen opens it through startDirect (openDirect), once", /startDirect\(\{ id: initialWithId \}\)/.test(effect) && /openedWith\.current = true/.test(effect));
+  ok("…not for a read-only support session", /data\.me\?\.readOnly\) return/.test(effect));
+  ok("…and swaps the URL to ?room= so a reload does not re-open", /replaceState\([^)]*\?room=/.test(effect));
+  ok("a refused open is said on the no-room pane, not swallowed", /data-action-error/.test(screen));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${pass} passed, ${failures.length} failed\n`);
 if (failures.length) {
   for (const f of failures) console.log(`  ✗ ${f}`);
