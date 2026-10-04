@@ -36,12 +36,12 @@ export const ARTICLES = {
         blocks: [
           { p: "Top to bottom, on any page:" },
           { bullets: [
-            "**The top bar** — the menu button on the left opens the full menu as a drawer; the FieldQuo logo in the middle goes to the dashboard; the bell on the right shows how many notifications you have not read.",
+            "**The top bar** — the menu button on the left opens the full menu as a drawer (crew have no menu button: their More page holds everything); the FieldQuo logo goes to the dashboard; the bell on the right shows how many notifications you have not read.",
             "**The page itself** — the same cards as on a computer, stacked in one column. Buttons are sized for a thumb, and the job picker on the time clock is your phone's own picker, not a custom menu.",
-            "**The tab bar** — up to five tabs plus **More**. Which tabs you get depends on your access level; a crew member sees **Jobs**, **Chat** and **More**. See [[the-crew-tab-bar|The crew tab bar]].",
+            "**The tab bar** — **Clock** first for everyone, then the screens your role uses most, then **More**. A crew member sees **Clock**, **Today**, **Chat** and **More**. See [[the-crew-tab-bar|The crew tab bar]].",
             "**The safe area** — on an iPhone the bar sits above the home indicator rather than under it, so the bottom tab is never half covered.",
           ] },
-          { figure: "harness:mobile-job", caption: "A job on a phone — the visit with its On my way and Mark complete buttons, the checklist underneath, and the Jobs · Chat · More tab bar." },
+          { figure: "harness:mobile-job", caption: "A job on a phone — the visit with its On my way and Mark complete buttons, the checklist underneath, and the tab bar at the bottom." },
         ],
       },
       {
@@ -51,7 +51,7 @@ export const ARTICLES = {
           { steps: [
             "Open the invitation email on your phone and accept it — that is how you join a company; there is no self-serve way to add yourself to one. Your login costs the company nothing at the Crew level.",
             "Set your password. From then on, the login page asks for **Email** and **Password** and the button is **Log In**.",
-            "You land on **Home**. Tap the menu button, or a tab, to get where you are going.",
+            "You land on **Home**. Tap a tab — or the menu button, or **More** if you are on the crew level — to get where you are going.",
             "Optional but worth doing: add FieldQuo to your home screen so it opens like an app — [[install-it-like-an-app|Install it like an app]].",
           ] },
           { tip: "Stay signed in. FieldQuo does not sign you out between visits, so the home-screen icon opens straight onto your day; if you ever are signed out, the icon opens the login page instead." },
@@ -85,7 +85,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Is there an app in the App Store?", a: "No. FieldQuo runs in the phone's browser. You can add it to your home screen so it opens full-screen with its own icon, which is as close to an app as it gets today." },
-      { q: "Does it work on an iPad or a small tablet?", a: "Yes. Below about 1,024 pixels of width you get the phone layout with the tab bar; wider than that you get the sidebar, exactly as on a computer." },
+      { q: "Does it work on an iPad or a small tablet?", a: "Yes. Below about 1,024 pixels of width you get the phone layout with the tab bar; wider than that you get the computer layout — the sidebar for the office, and for crew a slim header with one big clock button and big buttons for their screens." },
       { q: "Does the office see where my phone is?", a: "Only where it was at the moment you tapped Clock in, Clock out, On my way or Mark complete — and only if you allowed it when the phone asked. Nothing runs between taps." },
     ],
   },
@@ -155,62 +155,84 @@ export const ARTICLES = {
   "the-crew-tab-bar": {
     title: "The crew tab bar",
     summary:
-      "The bar along the bottom of the phone layout: which tabs it holds, why a crew member sees three, and where everything else went.",
-    updated: "2026-09-12",
+      "The bar along the bottom of the phone layout: the time clock first on everyone's bar, what else each role gets, and the crew's simple layout on a computer.",
+    updated: "2026-10-03",
     intro: [
-      "On a phone, the bar along the bottom of the screen is how you move around. It holds the four screens work flows through — **Leads**, **Quotes**, **Jobs**, **Invoices** — plus **Chat**, and a **More** button that opens the full menu. Tabs you cannot use are not drawn, so the bar a crew member sees is shorter than the owner's.",
+      "On a phone, the bar along the bottom of the screen is how you move around. Everyone's bar starts with **Clock** — the owner's too — and the rest depends on what you do all day: a crew member gets **Today** and **Chat**, someone who writes quotes gets **Quotes** and **Calendar**, someone who runs the schedule gets **Schedule** and **Team**. **More**, on the right, holds everything else.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The bar appears whenever the screen is narrower than about 1,024 pixels — every phone, most tablets held upright. The current screen's tab is highlighted; the others show in a muted colour. Above that width the bar disappears and the sidebar takes over." },
+          { p: "The bar appears whenever the screen is narrower than about 1,024 pixels — every phone, most tablets held upright. The current screen's tab is highlighted; the others show in a muted colour. Above that width the bar disappears: the office gets the sidebar, and a crew member gets the simple layout described below." },
           { figure: "harness:mobile-chat", caption: "A job's chat room on a phone, with Chat highlighted in the tab bar and More on the right." },
         ],
       },
       {
         id: "the-tabs",
-        heading: "The tabs, and when each one appears",
+        heading: "The tabs, by role",
         blocks: [
           { table: {
-            head: ["Tab", "Opens", "Shown when"],
+            head: ["Who", "The bar", "Moved to More"],
             rows: [
-              ["**Leads**", "The leads board", "Your access to Requests is at least View only"],
-              ["**Quotes**", "The quotes list", "Your access to Quotes is at least View only"],
-              ["**Jobs**", "The jobs list", "Your access to Jobs is at least View only"],
-              ["**Invoices**", "The invoices list", "Your access to Invoices is at least View only"],
-              ["**Chat**", "The company chat", "Always — as long as the crew chat feature is on for your company"],
-              ["**More**", "The full menu, as a drawer", "Always"],
+              ["Owner and admins", "**Clock** · **Leads** · **Quotes** · **Jobs** · **Chat** · **More**", "**Invoices** — you usually reach an invoice from its job, from the **+** button, or from the payment notification."],
+              ["Crew", "**Clock** · **Today** · **Chat** · **More**", "Nothing — the clock was already first."],
+              ["Estimator", "**Clock** · **Quotes** · **Calendar** · **Chat** · **More**", "**Leads** — a new lead arrives as a notification that opens it, and the visit you book lands on the Calendar."],
+              ["Dispatcher and Manager", "**Clock** · **Schedule** · **Team** · **Chat** · **More**", "**Jobs** — every booking on the schedule opens its job."],
             ],
           } },
-          { p: "The same rules hide the same rows in the full menu, and the pages behind them refuse at the same level, so the bar is a shortcut, not the security." },
+          { p: "A tab you cannot use is not drawn: the same access rules hide the same rows in the full menu, and the pages behind them refuse at the same level, so the bar is a shortcut, not the security. **Team** needs both your access to Time Tracking at everyone's and permission to manage people; **Chat** needs the crew chat feature on for your company." },
+        ],
+      },
+      {
+        id: "the-clock-tab",
+        heading: "The Clock tab",
+        blocks: [
+          { p: "**Clock** opens the time clock. It is on every bar, owners and admins included. An owner or admin who is not on the roster yet sees **Set yourself up to clock in** there — it costs no seat, and it does not put you on a pay run: owners stay off payroll unless **Pay me through payroll** is on under Team → Your own rate." },
+          { p: "If an owner sets someone's **Time Tracking & Timesheets** to **No access** (Manage Team → Role → Custom…), the Clock tab leaves that person's bar and the tab it replaced comes back — an estimator gets **Leads** again, a dispatcher **Jobs**. An owner's or admin's clock cannot be switched off." },
         ],
       },
       {
         id: "what-a-crew-member-gets",
         heading: "What a crew member gets",
         blocks: [
-          { p: "The Crew level is set to No access on Leads, Quotes and Invoices, so none of the four document tabs are drawn. When that leaves the bar with nothing but Chat, FieldQuo swaps in the employee home's own five instead — **Home · Schedule · Earnings · Messages · More** — the same five every screen under My home shows. See [[your-home-screen|Your home screen]]." },
           { bullets: [
-            "**Home** — your next shift or visit, Clock in, Message and Find cover, today's hours, the shout-outs.",
-            "**Schedule** — your shifts, visits and tasks by day. **Earnings** — your hours per pay period, and the money if your access allows it.",
-            "**Messages** — #general, the room for each job you are on, and direct messages. **More** — requests, the team directory, notifications, settings, sign out.",
+            "**Clock** — clock in and out, start a break, switch job; the **Time log** tab is where you **Request a correction** if a time is wrong.",
+            "**Today** — today's visits with the address and directions, the job's photos and checklist, then the rest of the week.",
+            "**Chat** — #general, the room for each job you are on, and direct messages.",
+            "**More** — a page, not a menu: your requests, time off, availability, supplies, the team, your earnings, your jobs, then **Everything else** — every other screen your access allows, one big row each.",
           ] },
+          { p: "There is no menu button for crew. The folding menu the office uses is not drawn for them, on a phone or a computer: everything it held for them is on the More page." },
+        ],
+      },
+      {
+        id: "crew-on-a-computer",
+        heading: "Crew on a computer or a tablet held sideways",
+        blocks: [
+          { p: "Wider than about 1,024 pixels, a crew member gets no sidebar. Instead, at the top of every page:" },
+          { bullets: [
+            "**A slim header** — your company's logo and name, your name, the notification bell and **Sign out**.",
+            "**One big clock button** right under it. It says **Clock in** when you are not clocked in (green), **Clock out** with the time you started when you are (red), and **End break** on a break. It opens the time clock, where you tap once more to punch — the same as the clock card on Today.",
+            "**Big buttons** for **Today**, **My schedule**, **Chat**, **Jobs** and **More**. The one you are on is filled in dark.",
+          ] },
+          { note: "The bigger letters and buttons are on purpose: a crew screen is read in a van, in gloves, by people who do not want a menu. Nothing is hidden behind a hover or a fold." },
         ],
       },
       {
         id: "the-more-drawer",
-        heading: "The More drawer",
+        heading: "More, for everyone else",
         blocks: [
-          { p: "**More** does not open a second menu. It opens the same drawer the menu button at the top opens — the full menu, grouped exactly as on a computer — so there is one list of screens, not two that could disagree. **Home** is not a tab: the FieldQuo logo in the top bar already takes you there." },
-          { tip: "If the bar shows nothing but More, every one of your document categories is set to No access. That is a valid grid, not a fault — everything you can use is in the drawer." },
+          { p: "For the office roles, **More** opens a sheet over the bar: search first, then every screen that is not already one of your tabs, then your account rows. A screen is in one place, never two — when **Invoices** left the owner's bar, it appeared in the sheet. **Home** is not a tab: the FieldQuo logo in the top bar takes you there." },
+          { tip: "If your bar shows only Clock, Chat and More, every document your role carries is set to No access. That is a valid grid, not a fault — everything you can use is under More." },
         ],
       },
     ],
     faq: [
-      { q: "Can I choose which tabs are in the bar?", a: "No. The five are fixed — the four document screens and Chat, or the employee home's five when the document tabs all gate away or you are on a My home screen — and your access level decides which set you get." },
-      { q: "Why is there no Time clock tab?", a: "The bar is reserved for the screens work moves through and the chat. The time clock is one tap away under More, and the same for everyone regardless of level." },
+      { q: "Can I choose which tabs are in the bar?", a: "No. Each role's bar is fixed, and your access level decides which one you get. Under More, everything else is one tap away." },
+      { q: "I own the company and never clock in. Why is there a Clock tab?", a: "Because some owners work on the tools, and the clock should be one tap away for them like for everybody else. It changes nothing until you use it: it does not put you on payroll." },
+      { q: "Where did Invoices go?", a: "Under More, in the same sheet as every other screen. You also reach an invoice from its job's page, from the + button, and from the notification when it is paid." },
+      { q: "A crew member wants the old sidebar back.", a: "There is no switch for it. Everything the sidebar showed them is on their More page, under Everything else." },
     ],
   },
 
@@ -1001,8 +1023,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Open **My home** from the sidebar under People, or tap **Home** in the bottom bar. The five tabs are **Home · Schedule · Earnings · Messages · More**. If you run the rota — your access to Schedule is *Edit everyone's schedule* or higher — the middle two are **Schedule** (the board) and **Team** instead, and Home shows today's coverage rather than your own day." },
-          { figure: "harness:my-home", caption: "My home on a phone — the next shift card with Find cover and Trade, the three quick actions, today's hours and the shout-outs feed, with the Home · Schedule · Earnings · Messages · More bar." },
+          { p: "Open **My home** under **More** (on a computer, the sidebar's More; on a phone, the More sheet). On a phone its screens have their own five tabs: **Home · Clock · Schedule · Messages · More**. If you run the rota — your access to Schedule is *Edit everyone's schedule* or higher — they are **Home · Schedule · Team · Messages · More**, and Home shows today's coverage rather than your own day. Crew keep their own bar there — **Clock · Today · Chat · More** — and reach My home from their More page." },
+          { figure: "harness:my-home", caption: "My home on a phone — the next shift card with Find cover and Trade, the three quick actions, today's hours and the shout-outs feed, with the tab bar at the bottom." },
         ],
       },
       {

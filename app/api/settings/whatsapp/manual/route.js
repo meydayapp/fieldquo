@@ -121,7 +121,7 @@ export async function POST(request) {
   if (!access.manual) {
     return access.approved
       ? refuse("staff_only", "Connect WhatsApp with the Connect WhatsApp button on this screen.", 403)
-      : refuse("awaiting_review", "WhatsApp is waiting on Meta to approve FieldQuo, so there's nothing to connect yet.", 409);
+      : refuse("awaiting_review", "WhatsApp is waiting on Meta's App Review to grant FieldQuo's WhatsApp permissions, so there's nothing to connect yet.", 409);
   }
 
   if (!metaFullyConfigured()) {

@@ -1,7 +1,7 @@
 // app/platform/sales/funnel/page.js
 //
 // Per-rep funnel by month: dials → answered → owner reached → real
-// conversation → agreed on the call → signup completed with card →
+// conversation → agreed on the call → signup completed (trial started) →
 // activated → first payment → retained at 60 days. English-only like the
 // rest of /platform; superadmin and platform admin.
 //
@@ -34,10 +34,10 @@ const COPY = {
   unit: (u) => UNITS[u] || u,
   benchmarkUntil: (n, dials) =>
     `References are the published B2B cold-calling benchmark until this rep has ${n} dials in the month (${dials} so far); from there they are FieldQuo's own measured figure with the sample printed.`,
-  abandoned: (n) => `${n} ${n === 1 ? "signup was" : "signups were"} started on this rep's link this month and never reached the card step — counted nowhere above.`,
+  abandoned: (n) => `${n} ${n === 1 ? "signup was" : "signups were"} started on this rep's link this month and never finished — no trial started — counted nowhere above.`,
   bands: { minimum: "minimum", target: "target", strong: "strong" },
   rampNote: (f) => `ramp ×${f} applied`,
-  quotaSignups: "Card trials this month",
+  quotaSignups: "Trials started this month",
   quotaAgreed: "Agreed on the call this month",
 };
 
@@ -85,11 +85,11 @@ export default function PlatformSalesFunnelPage() {
         <h1 className="text-xl font-semibold text-foreground">Sales funnel</h1>
         <p className="text-sm text-muted-foreground">
           One funnel per rep per month, from what the pipeline already records: call attempts and their outcomes, signup-link texts,
-          attributions, subscriptions. The rep&apos;s controllable output ends at &ldquo;agreed on the call&rdquo; — the company enters
-          its own card on the self-serve signup — so that stage and &ldquo;signup completed with card&rdquo; are shown apart. Read-only.
+          attributions, trials, subscriptions. The rep&apos;s controllable output ends at &ldquo;agreed on the call&rdquo; — the company starts
+          its own free trial on the self-serve signup, with no card — so that stage and &ldquo;signup completed&rdquo; are shown apart. Read-only.
         </p>
         <p className="text-xs text-muted-foreground">
-          Bands per ramped rep: card trials {data?.bands?.signupCompleted?.minimum ?? 10} minimum / {data?.bands?.signupCompleted?.target ?? 15} target /{" "}
+          Bands per ramped rep: trials started {data?.bands?.signupCompleted?.minimum ?? 10} minimum / {data?.bands?.signupCompleted?.target ?? 15} target /{" "}
           {data?.bands?.signupCompleted?.strong ?? 20} strong; agreed on the call {data?.bands?.agreed?.minimum ?? 12} / {data?.bands?.agreed?.target ?? 18} /{" "}
           {data?.bands?.agreed?.strong ?? 24}. Ramp ×{(data?.rampFactors || [0.5, 0.75, 1]).join(", ×")} by month since the rep started. Months are UTC.
         </p>
@@ -157,12 +157,13 @@ export default function PlatformSalesFunnelPage() {
           <strong>Where each stage comes from.</strong> Dials are outbound call attempts (a press of the button, not a connection). Answered is any outcome whose
           reached flag is set; owner reached leaves out &ldquo;someone answered, but not the owner&rdquo;; a real conversation is a callback, interested, agreed or
           not interested. Agreed is distinct businesses with the &ldquo;agreed — link sent&rdquo; outcome or a signup-link text from the rep. Signup completed is an
-          attribution whose company holds a Subscription row (the checkout finished with a card); activated is Stripe charges enabled; first payment is the
-          subscription&apos;s billing start; retained is the same predicate the retention commission uses, evaluated today.
+          attribution whose company finished signing up — it started the card-free trial or holds a Subscription row; activated is Stripe charges enabled;
+          first payment is the subscription&apos;s billing start, so a trial with no plan chosen never reaches it; retained is the same predicate the retention commission uses, evaluated today.
         </p>
         <p>
           <strong>References.</strong> Belkins (175k dials: 9.9% connect per dial, 58% of connects become conversations, 4.6% of conversations book a next step),
-          First Page Sage (card-required trials → 48.8% make a first payment). Read 2026-09-13. A benchmark is always labelled as one; it is replaced by
+          First Page Sage (card-required trials → 48.8% make a first payment — FieldQuo&apos;s trial has needed no card since 2026-09-24, so read it as a
+          ceiling, not a like-for-like). Read 2026-09-13. A benchmark is always labelled as one; it is replaced by
           FieldQuo&apos;s own figure once the rep has {data?.benchmark?.minDials ?? 200} dials in the month.
         </p>
       </section>

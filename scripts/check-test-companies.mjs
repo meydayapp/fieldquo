@@ -140,8 +140,8 @@ const funnel = (companies) =>
     subscriptions: [{ companyId: "co_real", billingStartedAt: null }, { companyId: "co_t", billingStartedAt: null }],
     monthKey: "2026-10",
   });
-const f1 = funnel([{ id: "co_real", stripeChargesEnabled: false, isDemo: false, isTestCompany: false }, { id: "co_t", stripeChargesEnabled: false, isDemo: false, isTestCompany: true }]);
-const f0 = funnel([{ id: "co_real", stripeChargesEnabled: false, isDemo: false, isTestCompany: false }, { id: "co_t", stripeChargesEnabled: false, isDemo: true, isTestCompany: false }]);
+const f1 = funnel([{ id: "co_real", stripeChargesEnabled: false, isDemo: false, isTestCompany: false, trialEndsAt: null }, { id: "co_t", stripeChargesEnabled: false, isDemo: false, isTestCompany: true, trialEndsAt: null }]);
+const f0 = funnel([{ id: "co_real", stripeChargesEnabled: false, isDemo: false, isTestCompany: false, trialEndsAt: null }, { id: "co_t", stripeChargesEnabled: false, isDemo: true, isTestCompany: false, trialEndsAt: null }]);
 ok(JSON.stringify(f1) === JSON.stringify(f0), "rep sales funnel: a test company is left out exactly as a demo is");
 ok(/isTestCompany: true/.test(read("lib/sales/funnelData.js")), "…and the loader selects the column");
 

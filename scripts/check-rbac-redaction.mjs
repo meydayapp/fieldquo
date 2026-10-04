@@ -1134,6 +1134,11 @@ await mutant(
 );
 
 // C6 — take the two new gates out and the approved timesheet reopens.
+//
+// As a view_record_own member who is NOT crew (they read quotes), because a
+// crew member now meets a third, separate refusal first (crew ask for a
+// correction — the next mutant) and would hide what these two gates do.
+const recordOnlyOffice = { role: "employee", permissions: { ...viewOnly.permissions, timeTracking: "view_record_own" } };
 await mutant(
   "app/api/time-entries/[id]/route.js",
   [
@@ -1142,7 +1147,7 @@ await mutant(
   ],
   async (mod) => {
     timeEntryRow = APPROVED_ENTRY;
-    become(worker);
+    become(recordOnlyOffice);
     const reopened = await mod.PATCH(
       req("http://x/api/time-entries/te1", { clockOut: "2026-08-20T10:00", status: "pending" }),
       { params: params({ id: "te1" }) },
@@ -1158,12 +1163,51 @@ await mutant(
 
 // And the shipped file does not behave that way. Same member, same request.
 timeEntryRow = APPROVED_ENTRY;
-become(worker);
+become(recordOnlyOffice);
 const shipped = await timeEntry.PATCH(
   req("http://x/api/time-entries/te1", { clockOut: "2026-08-20T10:00", status: "pending" }),
   { params: params({ id: "te1" }) },
 );
 check("…while the shipped route refuses it", shipped.status === 403);
+
+// ── C6b — crew change their own hours by ASKING (2026-10-03) ──────────────
+//
+// Crew hold view_record_edit_own, so the gates above let them PATCH their own
+// pending entry's clock-out straight through. Since corrections go through
+// approval (POST /api/time-entries/corrections, nothing changes until a
+// manager says yes), that door is shut for crew — and only for crew.
+console.log("\nC6b — crew ask for a correction; nobody else's edit changes\n");
+timeEntryRow = PENDING_ENTRY;
+become(worker);
+const crewEditsOwn = await patchEntry({ clockOut: "2026-08-20T10:00" });
+check("Crew may NOT change their own clock-out here", crewEditsOwn.status === 403);
+check("…and the refusal names the screen that does it",
+  /Time log/.test(crewEditsOwn.body?.error || "") && /Request a correction/.test(crewEditsOwn.body?.error || ""));
+check("…with a code a screen can key on", crewEditsOwn.body?.code === "use_correction_request");
+const crewNoTimes = await patchEntry({ status: "pending" });
+check("…a crew request that changes no times is not caught by it (the other gates decide that)",
+  crewNoTimes.body?.code !== "use_correction_request");
+become(workerFull);
+check("an Estimator still edits their own pending entry (unchanged)", (await patchEntry({ clockOut: "2026-08-20T10:00" })).status === 200);
+become({ role: "owner", permissions: null });
+check("an owner still edits their own entry (unchanged)", (await patchEntry({ clockOut: "2026-08-20T10:00" })).status === 200);
+become(dispatcher, { userId: "u-boss" });
+check("a supervisor still edits a crew member's entry (unchanged)", (await patchEntry({ clockOut: "2026-08-20T10:00" })).status === 200);
+become({ role: "supervisor", permissions: worker.permissions });
+check("a supervisor SEAT on a crew-shaped grid still fixes their own entry (the timesheet's manual form PATCHes it)",
+  (await patchEntry({ clockOut: "2026-08-20T10:00" })).status === 200);
+
+// …and it is THIS gate that refuses crew: take it out and the edit goes through.
+await mutant(
+  "app/api/time-entries/[id]/route.js",
+  [["isCrewHome(full)\n  ) {", "false\n  ) {"]],
+  async (mod) => {
+    timeEntryRow = PENDING_ENTRY;
+    become(worker);
+    const through = await mod.PATCH(req("http://x/api/time-entries/te2", { clockOut: "2026-08-20T10:00" }), { params: params({ id: "te2" }) });
+    check("without the crew gate, Crew edits their own clock-out directly again", through.status === 200);
+  },
+);
 
 // ── The door itself, for the tier that is not allowed through it ──────────
 //

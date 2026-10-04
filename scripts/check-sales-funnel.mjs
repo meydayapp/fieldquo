@@ -145,11 +145,13 @@ const attributions = [
   { companyId: "c5", capturedAt: at(16) }, // demo: excluded
   { companyId: "c6", capturedAt: "2026-08-20T00:00:00Z" }, // last month
   { companyId: "c7", capturedAt: at(17) }, // completed, activated, NOT paid (still trialing) — but somehow retained id passed: must not count
+  { companyId: "c8", capturedAt: at(18) }, // card-free trial: NO Subscription row, a trialEndsAt — completed, activated, never paid
+  { companyId: "c9", capturedAt: at(19) }, // no company row loaded at all, no subscription: abandoned, not a crash
 ];
 const companies = [
-  { id: "c1", stripeChargesEnabled: true }, { id: "c2", stripeChargesEnabled: true }, { id: "c3", stripeChargesEnabled: false },
-  { id: "c4", stripeChargesEnabled: true }, { id: "c5", stripeChargesEnabled: true, isDemo: true }, { id: "c6", stripeChargesEnabled: true },
-  { id: "c7", stripeChargesEnabled: true },
+  { id: "c1", stripeChargesEnabled: true, trialEndsAt: at(10) }, { id: "c2", stripeChargesEnabled: true, trialEndsAt: null }, { id: "c3", stripeChargesEnabled: false, trialEndsAt: null },
+  { id: "c4", stripeChargesEnabled: true, trialEndsAt: null }, { id: "c5", stripeChargesEnabled: true, isDemo: true, trialEndsAt: at(20) }, { id: "c6", stripeChargesEnabled: true, trialEndsAt: null },
+  { id: "c7", stripeChargesEnabled: true, trialEndsAt: null }, { id: "c8", stripeChargesEnabled: true, trialEndsAt: at(28) },
 ];
 const subscriptions = [
   { companyId: "c1", billingStartedAt: at(20) }, { companyId: "c2", billingStartedAt: at(21) }, { companyId: "c3", billingStartedAt: null },
@@ -161,10 +163,15 @@ ok("answered: 8 (gatekeeper, callback, interested, agreed ×2, not interested, d
 ok("owner reached: 7 (answered minus gatekeeper)", counts.counts.ownerReached === 7, counts.counts);
 ok("conversation: 5 (callback, interested, agreed ×2, not interested)", counts.counts.conversation === 5, counts.counts);
 ok("agreed: 3 distinct businesses (l6 once despite two dispositions and a text, l5 by text, l14 by text)", counts.counts.agreed === 3, counts.counts);
-ok("signup completed with card: 4 (c1 c2 c3 c7; c4 abandoned, c5 demo, c6 last month, duplicate c4 once)", counts.counts.signupCompleted === 4, counts.counts);
-ok("abandoned signups named beside the stage: 1", counts.abandonedSignups === 1);
-ok("activated: 3 (c3 has no charges)", counts.counts.activated === 3, counts.counts);
-ok("first payment: 2 (c7 still trialing)", counts.counts.firstPayment === 2, counts.counts);
+ok("signup completed: 5 (c1 c2 c3 c7 by Subscription, c8 by the card-free trial; c4 abandoned, c5 demo, c6 last month, duplicate c4 once)", counts.counts.signupCompleted === 5, counts.counts);
+ok("…the card-free trial counts with NO Subscription row (TRIAL_CARD_REQUIRED is false)", counts.companyIds.completed.includes("c8"));
+ok("abandoned signups named beside the stage: 2 (c4 no row and no trial; c9 no company row and no row)", counts.abandonedSignups === 2, counts);
+ok("activated: 4 (c3 has no charges)", counts.counts.activated === 4, counts.counts);
+ok("first payment: 2 (c7 still trialing; c8 has no Subscription — money stages key on the real row)", counts.counts.firstPayment === 2 && !counts.companyIds.firstPayment.includes("c8"), counts.counts);
+ok("a company row whose trialEndsAt was not selected throws rather than reading every trial as abandoned", (() => {
+  try { stageCounts({ attributions: [{ companyId: "x", capturedAt: at(3) }], companies: [{ id: "x", stripeChargesEnabled: false }], monthKey: M }); return false; } catch (e) { return /trialEndsAt was not selected/.test(e.message); }
+})());
+ok("the loader selects trialEndsAt on the attributed companies", /stripeChargesEnabled: true, isDemo: true, trialEndsAt: true/.test(read("lib/sales/funnelData.js")));
 ok("retained: 1 — c7 cannot be retained without a first payment, c6 is last month", counts.counts.retained === 1, counts.counts);
 ok("the stages never increase down the funnel", (() => { const c = counts.counts; for (let i = 1; i < STAGE_KEYS.length; i += 1) if (c[STAGE_KEYS[i]] > c[STAGE_KEYS[i - 1]] && STAGES[i].unit === STAGES[i - 1].unit) return false; return true; })());
 ok("dispositioned counts the rows with an outcome: 11", counts.dispositioned === 11);
@@ -187,7 +194,7 @@ ok("dials has no conversion; every later stage does", f1.stages[0].conversion ==
 ok("this rep (12 dials) is shown the BENCHMARK for answered, with the label", f1.stages[1].conversion.reference.kind === "benchmark" && f1.stages[1].conversion.reference.label === BENCHMARK_LABEL && !f1.benchmark.usingOwn);
 ok("…and no FieldQuo figure leaks in under 200 dials", f1.stages.every((s) => !s.conversion || !s.conversion.reference || s.conversion.reference.kind !== "fieldquo"));
 ok("the ramp for 2026-09 is ×0.75 and the bands follow", f1.ramp.factor === 0.75 && f1.quotas.signupCompleted.bands.target === 12 && f1.quotas.agreed.bands.target === 14);
-ok("the quota counts are the stage counts", f1.quotas.signupCompleted.count === 4 && f1.quotas.agreed.count === 3);
+ok("the quota counts are the stage counts", f1.quotas.signupCompleted.count === 5 && f1.quotas.agreed.count === 3);
 const f2 = buildRepFunnel({ rep: { id: "r2", name: "Rachel" }, counts: other, monthKey: M, references: refs });
 ok("the rep with 300 dials is shown FieldQuo's own figure, labelled with the sample", f2.stages[1].conversion.reference.kind === "fieldquo" && /312 dials/.test(f2.stages[1].conversion.reference.label) && f2.benchmark.usingOwn);
 ok("…and never the benchmark label on a FieldQuo number", f2.stages.every((s) => !s.conversion?.reference || s.conversion.reference.kind !== "fieldquo" || s.conversion.reference.label !== BENCHMARK_LABEL));

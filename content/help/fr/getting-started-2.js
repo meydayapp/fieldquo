@@ -296,7 +296,7 @@ export const ARTICLES = {
         heading: "Une journée sur un accès Crew",
         blocks: [
           { steps: [
-            "Ouvrez FieldQuo sur votre téléphone. La barre d'onglets montre **Chantiers**, **Clavardage** et **Plus** ; les onglets de pipeline que le bureau utilise n'y sont pas pour vous.",
+            "Ouvrez FieldQuo sur votre téléphone. La barre d'onglets montre **Pointage**, **Aujourd'hui**, **Clavardage** et **Plus** ; les onglets de pipeline que le bureau utilise n'y sont pas pour vous. Sur un ordinateur, vous avez la même chose en grands boutons sous un grand bouton de pointage.",
             "Ouvrez **Chantiers**, touchez le chantier du jour, et lisez les notes de visite et la liste de vérification.",
             "Ouvrez **Pointeuse** et appuyez sur **Pointer l'entrée**. La pastille indique **En service** et le chronomètre tourne sur ce chantier.",
             "Les photos : prenez-les depuis la page du chantier, ou textez-les au numéro de l'équipe et elles se classent toutes seules — voir [[text-a-photo-to-the-crew-inbox|Texter une photo sans application]].",

@@ -82,6 +82,8 @@ function reasonLine(item, t, language, now) {
     }
     case "follow_up":
       return t("app.dash.work.reason.followUp", "No reply · last contact {when}", { when: agoWords });
+    case "viewed":
+      return t("app.dash.work.reason.viewed", "Opened by the client {when} · no reply", { when: agoWords });
     case "expiring":
       return item.daysLeft === 0
         ? t("app.dash.work.reason.expiresToday", "Expires today")

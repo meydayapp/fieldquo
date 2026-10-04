@@ -297,7 +297,7 @@ export const ARTICLES = {
         id: "their-menu",
         heading: "Ce que son menu montre",
         blocks: [
-          { p: "**Accueil**, **Chantiers** (les siens), **Calendrier**, **À faire**, **Clavardage**, **Pointeuse**, **Congés**, **Sécurité**, **Paie** (ses propres fiches de paie) et **Aide**. Sous Paramètres : **Langue**, **Disponibilités** et **Nouveautés**. Sur un téléphone, les mêmes écrans sont dans la barre d'onglets de l'équipe — voir [[what-a-crew-member-sees|Ce qu'un équipier voit]] et [[how-fieldquo-works-for-crew|Comment FieldQuo fonctionne pour l'équipe]]." },
+          { p: "**Accueil**, **Chantiers** (les siens), **Calendrier**, **À faire**, **Clavardage**, **Pointeuse**, **Congés**, **Sécurité**, **Paie** (ses propres fiches de paie) et **Aide**. Sous Paramètres : **Langue**, **Disponibilités** et **Nouveautés**. Ils ne sont pas dans une barre latérale repliable : sur un ordinateur, un équipier a un grand bouton **Pointer l'arrivée** et de grands boutons pour **Aujourd'hui**, **Mon horaire**, **Clavardage**, **Chantiers** et **Plus**, et sur un téléphone la barre d'onglets **Pointage · Aujourd'hui · Clavardage · Plus**; tout le reste de cette liste est sur sa page Plus, sous **Tout le reste** — voir [[the-crew-tab-bar|La barre d'onglets de l'équipe]], [[what-a-crew-member-sees|Ce qu'un équipier voit]] et [[how-fieldquo-works-for-crew|Comment FieldQuo fonctionne pour l'équipe]]." },
         ],
       },
       {
@@ -665,7 +665,7 @@ export const ARTICLES = {
         heading: "Ce qui change pour elle",
         blocks: [
           { bullets: [
-            "**Pointeuse** disparaît de son menu et de la page Plus, la pointeuse quitte la barre d'onglets de son téléphone, et les cartes **Pointer l'entrée** et les heures de la semaine quittent son écran d'accueil.",
+            "**Pointeuse** disparaît de son menu et de la page Plus, la pointeuse quitte la barre d'onglets de son téléphone (l'onglet qu'elle remplaçait revient — **Prospects** pour un estimateur, **Chantiers** pour un répartiteur), le grand bouton de pointage quitte l'écran d'ordinateur d'un équipier, et les cartes **Pointer l'entrée** et les heures de la semaine quittent son écran d'accueil.",
             "La pointeuse elle-même la refuse — pointer l'entrée et la sortie, le **Journal** et **Demander une correction** — avec un message qui dit que la pointeuse est désactivée pour elle et qu'un propriétaire ou un administrateur peut la réactiver.",
             "Si elle était en service au moment où vous l'avez désactivée, cette entrée reste ouverte. Fermez-la avec **Pointer la sortie** dans les [[timesheets-and-approving-hours|feuilles de temps]].",
             "Pour un Dispatcher ou un Manager, le même réglage porte aussi les **Feuilles de temps** : à **No access**, il perd aussi l'écran des feuilles de temps et l'approbation des heures, pas seulement son propre pointage.",

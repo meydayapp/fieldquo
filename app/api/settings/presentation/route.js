@@ -21,6 +21,7 @@ import { PROPOSAL_COMPANY_SELECT, loadProposalContent } from "@/lib/proposal/loa
 // The story and its headline are read by a client in the quote's language;
 // a save drafts the other languages after the response.
 import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+import { googleBusinessAvailable } from "@/lib/reviews/googleBusiness/availability";
 
 const HTTP_URL = /^https?:\/\//i;
 const str = (v) => (typeof v === "string" ? v.trim() : "");
@@ -45,6 +46,11 @@ async function present(companyId, company, readOnly = false) {
       testimonials: content.testimonials.length,
       services: content.services.length,
     },
+    // Whether "Connect Google reviews" can work on this deployment — the
+    // same answer that takes the set-up row off the home card
+    // (lib/setupSteps.js google_reviews appliesWhen). The page offers the
+    // link only when this is true.
+    googleReviewsAvailable: googleBusinessAvailable(),
   };
 }
 
