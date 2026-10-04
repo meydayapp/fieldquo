@@ -105,6 +105,28 @@ section("3. HTML in a body is text, never markup");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("3b. Links are tappable, safe, and only http(s)");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const WO = "https://app.fieldquo.com/app/jobs/cmg123/work-order";
+  const html = render([
+    item("w", `Work order, no prices, for the crew booked on the job: ${WO}`, { minutesAgo: 8 }),
+    item("j", "javascript:alert(1) and data:text/html,<script>alert(2)</script>", { minutesAgo: 7 }),
+    item("p", "See https://x.com/a. Or (https://x.com/b)!", { mentionsMe: true, minutesAgo: 6 }),
+    item("m", "@Ana https://x.com/1 @Bob", { minutesAgo: 5 }),
+  ]);
+  const anchors = [...html.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
+  ok("the shared work-order link is an anchor to itself", anchors.some((a) => a.includes(`href="${WO}"`)));
+  ok("every anchor opens a new tab with noopener noreferrer", anchors.length === 4 && anchors.every((a) => /target="_blank"/.test(a) && /rel="noopener noreferrer"/.test(a)), anchors);
+  ok("every href is http(s)", anchors.every((a) => /href="https?:\/\//.test(a)), anchors);
+  ok("no javascript: or data: href anywhere", !/href="(?:javascript|data):/i.test(html));
+  ok("…and no <script> element", !/<script/i.test(html));
+  ok("the full stop and brackets stay outside the links", anchors.some((a) => a.includes('href="https://x.com/a"')) && anchors.some((a) => a.includes('href="https://x.com/b"')) && html.includes('</a>. Or (<a') && html.includes("</a>)!"));
+  ok("a link inside a mention row keeps the tint on its paragraph", /data-mentions-me="true"[^>]*>See <a /.test(html));
+  ok("mentions on either side of a link keep their words", html.includes("@Ana <a") && html.includes("</a> @Bob"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("4. The two chats hand the kit text, and the flag");
 // ═══════════════════════════════════════════════════════════════════════════
 {

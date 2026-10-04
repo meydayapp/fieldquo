@@ -37,6 +37,7 @@ import {
   ROW_UNREAD,
   ROW_MESSAGE,
 } from "@/lib/chat/threadLayout";
+import { linkParts, safeHref } from "@/lib/chat/linkify";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -327,6 +328,63 @@ section("6. The components: every string is translated, nothing sends itself");
   for (const name of ["ChatLayout", "RoomList", "RoomListGroup", "RoomListItem", "Thread", "Composer", "ContextBar", "Avatar"]) {
     ok(`index exports ${name}`, new RegExp(`\\b${name}\\b`).test(index));
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("Links: http(s) only, punctuation left to the sentence, nothing rewritten");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const links = (s) => linkParts(s).filter((p) => p.href).map((p) => p.href);
+  const joined = (s) => linkParts(s).map((p) => p.text).join("");
+  const WO = "https://app.fieldquo.com/app/jobs/cmg123/work-order";
+
+  // The case this exists for: the line Share with staff posts for the crew.
+  const share = `Work order, no prices, for the crew booked on the job: ${WO}`;
+  ok("the shared work-order link is a link", JSON.stringify(links(share)) === JSON.stringify([WO]), links(share));
+  ok("…and the words before it stay words", linkParts(share)[0].text === "Work order, no prices, for the crew booked on the job: " && !linkParts(share)[0].href);
+
+  const hostile = [
+    "javascript:alert(1)",
+    "JaVaScRiPt:alert(document.cookie)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "file:///etc/passwd",
+    "mailto:a@b.com",
+    "www.example.com",
+    "javascript://https://example.com/%0aalert(1)",
+    "xhttps://example.com",
+    "https://",
+    "http://",
+    "https://fieldquo.com@evil.example/login",
+    "https://user:pass@example.com",
+  ];
+  for (const s of hostile) {
+    const got = links(s);
+    const safe = got.every((h) => /^https?:\/\//.test(h) && !/@/.test(new URL(h).host));
+    ok(`no unsafe link from ${JSON.stringify(s)}`, safe, got);
+  }
+  ok("javascript: is never an href", links("javascript:alert(1)").length === 0);
+  // The https URL embedded after a javascript:// prefix is linked on its
+  // own — as the https URL it is, which is harmless; the javascript: half
+  // stays text.
+  ok("…even with an https URL smuggled after it", links("javascript://https://example.com/%0aalert(1)").every((h) => h.startsWith("https://example.com/")) && linkParts("javascript://https://example.com/%0aalert(1)")[0].text === "javascript://" && !linkParts("javascript://https://example.com/%0aalert(1)")[0].href);
+  ok("a scheme glued to a word is not a link", links("xhttps://example.com").length === 0);
+  ok("credentials in a URL keep it text (the shown-host trick)", links("https://fieldquo.com@evil.example/login").length === 0);
+  ok("a bare www. is text — http(s) only", links("go to www.example.com").length === 0);
+
+  ok("a trailing full stop belongs to the sentence", JSON.stringify(links("See https://x.com/a.")) === JSON.stringify(["https://x.com/a"]));
+  ok("…and a trailing comma, question mark, quote and ellipsis", JSON.stringify(links('"https://x.com/b", https://x.com/c? https://x.com/d…')) === JSON.stringify(["https://x.com/b", "https://x.com/c", "https://x.com/d"]), links('"https://x.com/b", https://x.com/c? https://x.com/d…'));
+  ok("a bracket the URL did not open is dropped", JSON.stringify(links("(see https://x.com/e)")) === JSON.stringify(["https://x.com/e"]));
+  ok("a bracket the URL did open is kept", JSON.stringify(links("https://en.wikipedia.org/wiki/Foo_(bar)")) === JSON.stringify(["https://en.wikipedia.org/wiki/Foo_(bar)"]));
+  ok("CJK sentence punctuation is dropped too", JSON.stringify(links("看这里https://x.com/f。")) === JSON.stringify(["https://x.com/f"]), links("看这里https://x.com/f。"));
+  ok("two links in one message are two links", links("a https://x.com/1 and http://y.com/2 b").length === 2);
+  ok("a link at the very start and the very end", JSON.stringify(links("https://x.com/s middle https://x.com/e")) === JSON.stringify(["https://x.com/s", "https://x.com/e"]));
+  ok("HTML around a link never becomes part of it", JSON.stringify(links('<a href="https://evil.example">x</a>')) === JSON.stringify(["https://evil.example/"]), links('<a href="https://evil.example">x</a>'));
+
+  const samples = [share, "See https://x.com/a.", "(see https://x.com/e)", '<img src=x onerror="alert(1)"> https://x.com', "@Ana https://x.com/1 @Bob", "", "no links at all"];
+  ok("joining the runs gives back the message exactly — nothing dropped or rewritten", samples.every((s) => joined(s) === s), samples.filter((s) => joined(s) !== s));
+  ok("a non-string body is text, never a crash", JSON.stringify(linkParts(null)) === "[]" && linkParts(42)[0].text === "42");
+  ok("safeHref refuses a parsed non-http scheme", safeHref("javascript:alert(1)") === null && safeHref("https://x.com") === "https://x.com/");
 }
 
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} assertions, ${failures.length} failures`);
