@@ -21,6 +21,9 @@ const SHAPE = {
     "worker",
     "job",
     "jobVisit",
+    // A published shift on a job puts its worker in the job's room, the same
+    // as a visit (lib/company/chat/rules.js). Empty unless a check seeds one.
+    "shift",
     "companyChatRoom",
     "companyChatMember",
     "companyChatMessage",
@@ -33,6 +36,10 @@ const SHAPE = {
     },
     job: {
       visits: { table: "jobVisit", kind: "many", foreignKey: "jobId" },
+      shifts: { table: "shift", kind: "many", foreignKey: "jobId" },
+    },
+    shift: {
+      worker: { table: "worker", kind: "one", localKey: "workerId" },
     },
     companyChatRoom: {
       job: { table: "job", kind: "one", localKey: "jobId" },

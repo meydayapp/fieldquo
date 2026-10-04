@@ -56,6 +56,8 @@ import { sampleMergeData } from "@/lib/email/templateMergeFields";
 import { compileCanvasEmail } from "@/lib/email/canvasEmail";
 import EmailCanvasEditor from "@/app/components/emailCanvas/EmailCanvasEditor";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
+import TemplateTranslationsPanel from "@/app/components/settings/TemplateTranslationsPanel";
+import { LANGUAGES } from "@/app/i18n/languages";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -87,6 +89,20 @@ const FONT_OPTIONS = [
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
+
+// Everything a save writes, as one comparable string — "are there unsaved
+// changes?" is this differing from the snapshot taken at load and at save.
+function snapshotOf(t) {
+  return JSON.stringify([
+    t?.name || "",
+    t?.subject || "",
+    Array.isArray(t?.sections) ? t.sections : [],
+    t?.theme || null,
+    t?.sentMode === "canvas" ? "canvas" : "blocks",
+    t?.canvas || null,
+    t?.authoredLanguage || "en",
+  ]);
+}
 
 // ── Small reusable alignment segmented control ──────────────────────────
 function AlignControl({ value = "left", onChange }) {
@@ -494,6 +510,15 @@ export default function EmailTemplateEditorPage() {
   const [savedFlash, setSavedFlash] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // The language this email is WRITTEN in (DocumentTemplate.language) —
+  // what the Translations panel translates from, and the language a newly
+  // added block's placeholder words are in.
+  const [authoredLanguage, setAuthoredLanguage] = useState("en");
+  // What was last saved, so the Translations panel can say "save first"
+  // rather than translate an email that is not the one on screen.
+  const [savedSnapshot, setSavedSnapshot] = useState(null);
+  const [translationsKey, setTranslationsKey] = useState(0);
+
   const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [testMsg, setTestMsg] = useState(null); // { ok, text }
@@ -529,6 +554,8 @@ export default function EmailTemplateEditorPage() {
         setTheme(data.theme || null);
         setSentMode(data.sentMode === "canvas" ? "canvas" : "blocks");
         setCanvas(data.canvas || null);
+        setAuthoredLanguage(data.authoredLanguage || "en");
+        setSavedSnapshot(snapshotOf(data));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -600,9 +627,14 @@ export default function EmailTemplateEditorPage() {
   }
 
   function addBlock(type) {
-    setSections((prev) => [...prev, newBlock(type)]);
+    // Placeholder words in the language this email is written in.
+    setSections((prev) => [...prev, newBlock(type, authoredLanguage)]);
     setAddOpen(false);
   }
+
+  const dirty =
+    savedSnapshot !== null &&
+    savedSnapshot !== snapshotOf({ name, subject, sections, theme, sentMode, canvas, authoredLanguage });
 
   function handleDragEnd(event) {
     const { active, over } = event;
@@ -637,9 +669,18 @@ export default function EmailTemplateEditorPage() {
     const res = await fetch(`/api/settings/document-templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, subject, sections, theme, sentMode, canvas }),
+      body: JSON.stringify({ name, subject, sections, theme, sentMode, canvas, language: authoredLanguage }),
     });
     if (res.ok) {
+      // The saved row is what the Translations panel translates and
+      // previews; the snapshot is what "unsaved changes" is measured from.
+      // The snapshot is taken from what is ON SCREEN, not from the reply:
+      // Postgres JSONB does not keep key order, so the reply's blocks can
+      // serialise differently from identical local ones.
+      const saved = await res.json().catch(() => null);
+      if (saved) setTemplate({ ...saved, authoredLanguage });
+      setSavedSnapshot(snapshotOf({ name, subject, sections, theme, sentMode, canvas, authoredLanguage }));
+      setTranslationsKey((k) => k + 1);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
     } else {
@@ -662,7 +703,7 @@ export default function EmailTemplateEditorPage() {
     const savedRes = await fetch(`/api/settings/document-templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, subject, sections, theme, sentMode, canvas }),
+      body: JSON.stringify({ name, subject, sections, theme, sentMode, canvas, language: authoredLanguage }),
     });
     if (!savedRes.ok) {
       const saveErr = await savedRes.json().catch(() => ({}));
@@ -675,6 +716,11 @@ export default function EmailTemplateEditorPage() {
       setSendingTest(false);
       return;
     }
+    // That PATCH was a save: the Translations panel follows it.
+    const savedRow = await savedRes.json().catch(() => null);
+    if (savedRow) setTemplate({ ...savedRow, authoredLanguage });
+    setSavedSnapshot(snapshotOf({ name, subject, sections, theme, sentMode, canvas, authoredLanguage }));
+    setTranslationsKey((k) => k + 1);
     const res = await fetch(`/api/settings/document-templates/${id}/test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -803,6 +849,26 @@ export default function EmailTemplateEditorPage() {
             <p className="text-xs text-muted-foreground mt-1.5">
               {t("app.emailEditor.subjectHelper", "Merge fields work here too. Left blank, the built-in subject for this template type is used.")}
             </p>
+            {/* The language the company writes this email in — what the
+                Translations panel below translates from. */}
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <label htmlFor="template-language" className="text-xs font-semibold text-muted-foreground">
+                {t("app.emailTranslations.writtenIn")}
+              </label>
+              <select
+                id="template-language"
+                value={authoredLanguage}
+                onChange={(e) => setAuthoredLanguage(e.target.value)}
+                className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.nativeName}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground">{t("app.emailTranslations.writtenInHelp")}</span>
+            </div>
           </div>
 
           {/* Theme */}
@@ -1087,6 +1153,19 @@ export default function EmailTemplateEditorPage() {
               </p>
             )}
           </div>
+
+          {/* Translations — this email in the languages the company's
+              clients read, reviewed before use (lib/email/templateTranslation.js).
+              Translated from the SAVED email; the panel says "save first"
+              while there are changes on screen. */}
+          <TemplateTranslationsPanel
+            templateId={id}
+            template={template}
+            dirty={dirty}
+            company={company}
+            mergeData={previewMergeData}
+            refreshKey={translationsKey}
+          />
         </div>
 
         {/* ── Preview column ─────────────────────────────────────── */}

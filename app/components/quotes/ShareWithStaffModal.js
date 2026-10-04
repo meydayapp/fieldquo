@@ -9,8 +9,9 @@
 // The quote link opens for people whose grid reads quotes; Crew are at `none`
 // and the page refuses them. When the quote is a job, the message also
 // carries the job's WORK ORDER — no prices, the crew's copy — labelled for
-// the crew, and a share straight to one person who can open neither is
-// refused before it posts. The rules, and why, are lib/quotes/
+// the crew and posted FIRST; a share straight to one person who cannot open
+// quotes carries the work order alone; and one to a person who can open
+// neither is refused before it posts. The rules, and why, are lib/quotes/
 // shareWithStaff.js; this file supplies the words.
 //
 // ── Why chat, and not a new "internal note" ─────────────────────────────────
@@ -75,6 +76,10 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
   // A directory row from before canOpenQuote existed says nothing — unknown,
   // not "no". Only an explicit false refuses.
   const personCanOpen = pickedPerson ? (typeof pickedPerson.canOpenQuote === "boolean" ? pickedPerson.canOpenQuote : null) : null;
+  // Straight to one person who cannot open quotes: they get the work order
+  // alone (lib/quotes/shareWithStaff.js shareLinkLines), and the preview and
+  // hint below say so rather than showing a quote link that will not be sent.
+  const workOrderOnly = Boolean(workOrderLink) && pickedPerson != null && personCanOpen === false;
 
   async function share() {
     if (!target) {
@@ -112,9 +117,11 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
       }
       const body = shareMessageBody({
         message,
-        quoteLine: t("app.shareStaff.quoteLine", "Quote {number}, for the office (needs quote access): {link}", { number: quoteNumber, link }),
+        kind: pickedPerson ? "person" : "room",
+        personCanOpenQuote: personCanOpen,
+        quoteLine: t("app.shareStaff.quoteLine", "For the office — quote {number} (needs quote access): {link}", { number: quoteNumber, link }),
         workOrderLine: workOrderLink
-          ? t("app.shareStaff.workOrderLine", "Work order, no prices, for the crew booked on the job: {link}", { link: workOrderLink })
+          ? t("app.shareStaff.workOrderLine", "For the crew — work order, no prices: {link}", { link: workOrderLink })
           : null,
         accessNote: t("app.shareStaff.accessNote", "This link opens for people with access to quotes. The crew get the work order once the quote is a job."),
       });
@@ -132,7 +139,11 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
     }
   }
 
-  const roomLabel = (r) => (r.kind === "general" ? "#general" : r.kind === "job" ? `#${r.name || t("app.shareStaff.jobRoom", "job")}` : r.name || t("app.shareStaff.direct", "Direct message"));
+  // `title`, not `name`: /api/chat/rooms returns list rows
+  // (lib/company/chat/rules.js roomListRow), which carry the job's or the
+  // other person's name as `title` and no `name` at all — reading `name`
+  // printed every job room as "#job" and every DM as "Direct message".
+  const roomLabel = (r) => (r.kind === "general" ? "#general" : r.kind === "job" ? `#${r.title || t("app.shareStaff.jobRoom", "job")}` : r.title || t("app.shareStaff.direct", "Direct message"));
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true" onClick={busy ? undefined : onClose}>
@@ -143,8 +154,14 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
         </div>
         <div className="px-5 py-4 space-y-3">
           <p className="text-xs text-muted-foreground">
-            {workOrderLink
-              ? t("app.shareStaff.hintWithJob", "Posts the quote link for the office and the job's work order, with no prices, for the crew. Everyone in the room reads your message.")
+            {workOrderOnly
+              ? t(
+                  "app.shareStaff.hintWorkOrderOnly",
+                  "{name} can't open quotes, so they get the work order only — no prices. It opens for them while they're booked on the job.",
+                  { name: pickedPerson?.name || pickedPerson?.email || "" },
+                )
+              : workOrderLink
+              ? t("app.shareStaff.hintWithJob", "Posts the job's work order, with no prices, for the crew first, then the quote link for the office. Everyone in the room reads your message.")
               : t("app.shareStaff.hintNoJob", "Posts a link to this quote. It opens for people with access to quotes; crew can't open it and get the work order once the client accepts. Everyone in the room reads your message.")}
           </p>
           <div>
@@ -180,8 +197,9 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
             <label htmlFor="share-staff-message" className="block text-xs font-medium text-muted-foreground mb-1">{t("app.shareStaff.message", "Message (optional)")}</label>
             <textarea id="share-staff-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className="w-full border border-border rounded px-2 py-2 text-sm bg-background resize-none" placeholder={t("app.shareStaff.messagePlaceholder", "Can you check the ceiling price before this goes out?")} />
           </div>
-          <p className="text-[11px] text-muted-foreground break-all">{link}</p>
+          {/* The links in the order they will be posted. */}
           {workOrderLink ? <p className="text-[11px] text-muted-foreground break-all">{workOrderLink}</p> : null}
+          {workOrderOnly ? null : <p className="text-[11px] text-muted-foreground break-all">{link}</p>}
           {error ? <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle size={12} /> {error}</p> : null}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-border">

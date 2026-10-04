@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, Sparkles, AlertTriangle, Gauge } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { AiAllowanceLine } from "@/app/components/billing/AiAllowance";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { copilotSuggestions } from "./suggestions";
@@ -124,6 +125,10 @@ export default function CopilotPage() {
             "Ask about your own quotes, invoices, clients and material costs. It looks up real numbers rather than guessing.",
           )}
         </p>
+        {/* "US$X of US$Y AI used this month" — from the reply's own figures,
+            so it appears after the first answer and says nothing on an
+            uncapped account. */}
+        <AiAllowanceLine display={usage} className="mt-1" />
       </div>
 
       {/* The 80% warning. Present only while it is true and the allowance has

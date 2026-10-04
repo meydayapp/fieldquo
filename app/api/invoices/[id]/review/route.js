@@ -21,9 +21,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { redactAiReview } from "@/lib/permissions/enforce";
 import { recordFeatureUse } from "@/lib/analytics/product/server";
 import { reviewInvoice } from "@/lib/ai/invoiceReview";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { checkAiQuota, recordAiUsage, allowanceDisplay } from "@/lib/ai/usage";
 import { AI_MODEL } from "@/lib/ai/provider";
 
 export async function GET(request, { params }) {
@@ -32,7 +33,7 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const { response: denied } = await levelOrRefusal(member, "invoices", "view_only", "see invoices");
+  const { full, response: denied } = await levelOrRefusal(member, "invoices", "view_only", "see invoices");
   if (denied) return denied;
 
   const invoice = await db.invoice.findFirst({
@@ -41,7 +42,9 @@ export async function GET(request, { params }) {
   });
   if (!invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json({ review: invoice.aiReview || null, reviewedAt: invoice.aiReviewedAt });
+  // The stored review carries invoiceTotal; the same rule as the invoice
+  // payload itself (redactAiReview in lib/permissions/enforce.js).
+  return NextResponse.json({ review: redactAiReview(full, invoice.aiReview) || null, reviewedAt: invoice.aiReviewedAt });
 }
 
 export async function POST(request, { params }) {
@@ -88,7 +91,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       review,
       reviewedAt: saved.aiReviewedAt,
-      usage: quota.cap ? { used: quota.usage.tokens, cap: quota.cap, nearLimit: quota.nearLimit } : null,
+      usage: allowanceDisplay(quota),
     });
   } catch (err) {
     console.error("[invoices/review]", err);

@@ -22,12 +22,21 @@ import {
 } from "@/lib/leave/policyTemplates";
 import { refreshAccruals, rollYear } from "@/lib/leave/balances";
 import { statedCountry, countryKeyIn } from "@/lib/company/resolveCountry";
+import {
+  ACCRUAL_PRESETS,
+  presetStillMatches,
+  normaliseRate,
+  normaliseCap,
+  normaliseHoursPerDay,
+  nextRateHistory,
+  cleanRateHistory,
+} from "@/lib/leave/hourAccrual";
 
 function isLeaveAdmin(role) {
   return role === "owner" || role === "admin";
 }
 
-const METHODS = ["annual_allotment", "per_period", "percent_of_gross"];
+const METHODS = ["annual_allotment", "per_period", "percent_of_gross", "per_hours_worked"];
 
 // Null and 0 mean different things for carryover (unlimited vs use-it-or-lose-it),
 // so an empty string has to resolve to null, not to zero.
@@ -49,7 +58,10 @@ function cleanPolicy(body = {}) {
     // Only the field the chosen method actually uses is written. Keeping a
     // stale annualDays alongside a percent policy invites a later reader to use
     // the wrong one.
-    annualDays: method === "percent_of_gross" ? null : nullableNumber(body.annualDays) ?? 0,
+    annualDays:
+      method === "percent_of_gross" || method === "per_hours_worked"
+        ? null
+        : nullableNumber(body.annualDays) ?? 0,
     percentOfGross:
       method === "percent_of_gross"
         ? Math.min(100, Math.max(0, Number(body.percentOfGross) || 0))
@@ -59,6 +71,57 @@ function cleanPolicy(body = {}) {
     active: body.active !== false,
   };
 }
+
+/**
+ * The per_hours_worked half of a policy: the rate, the cap, the day length,
+ * the preset label and the rate history — or the errors that refuse it.
+ *
+ * Refused, never repaired (lib/leave/hourAccrual.js says why). For every other
+ * method the hour columns are nulled, and the rate HISTORY is kept: it is a
+ * record of what the rate was, and a policy switched back to hours later must
+ * not forget that July's hours were earned at 4%.
+ */
+function cleanHourFields(body = {}, existing = null, today) {
+  if (body.accrualMethod !== "per_hours_worked") {
+    return {
+      errors: [],
+      data: {
+        accrualHoursEarned: null,
+        accrualPerHoursWorked: null,
+        accrualYearlyCapHours: null,
+        hoursPerDay: null,
+        accrualPreset: null,
+      },
+    };
+  }
+  const errors = [];
+  const { rate, error: rateError } = normaliseRate(body.accrualHoursEarned, body.accrualPerHoursWorked);
+  if (rateError) errors.push(rateError);
+  const { cap, error: capError } = normaliseCap(body.accrualYearlyCapHours);
+  if (capError) errors.push(capError);
+  const { hoursPerDay, error: dayError } = normaliseHoursPerDay(body.hoursPerDay);
+  if (dayError) errors.push(dayError);
+  if (errors.length) return { errors, data: null };
+
+  // The preset label survives only while the numbers are still the preset's.
+  const presetKey = typeof body.accrualPreset === "string" ? body.accrualPreset : null;
+  const accrualPreset =
+    presetKey && presetStillMatches(presetKey, { ...rate, yearlyCapHours: cap }) ? presetKey : null;
+
+  return {
+    errors: [],
+    data: {
+      accrualHoursEarned: rate.hoursEarned,
+      accrualPerHoursWorked: rate.perHoursWorked,
+      accrualYearlyCapHours: cap,
+      hoursPerDay,
+      accrualPreset,
+      accrualRateHistory: nextRateHistory(existing?.accrualRateHistory, rate, today),
+    },
+  };
+}
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -73,7 +136,11 @@ export async function GET(request) {
   const year = new Date().getUTCFullYear();
   const [policies, workerCount, company] = await Promise.all([
     db.leavePolicy.findMany({
-      where: { companyId: member.companyId },
+      // The policies the company set up. The unpaid fallback FieldQuo files
+      // a request under when there are none (lib/leave/unpaidFallback.js) is
+      // not one of them: listing it would hide the starter templates and the
+      // "set up your policies" state this screen exists to show.
+      where: { companyId: member.companyId, systemUnpaid: false },
       orderBy: [{ active: "desc" }, { name: "asc" }],
       include: { _count: { select: { requests: true } } },
     }),
@@ -123,6 +190,10 @@ export async function GET(request) {
     // seeding stays a press either way — see the POST below, which takes any
     // region and does not consult `home`. What changed is which one is offered
     // first, not which ones exist.
+    // Hour-based rules we can cite, each with its source. Offered as a
+    // starting point on the policy form; nothing is applied until somebody
+    // picks one and saves (lib/leave/hourAccrual.js ACCRUAL_PRESETS).
+    accrualPresets: ACCRUAL_PRESETS,
     templates: LEAVE_REGIONS.map((key) => ({
       key,
       label: LEAVE_TEMPLATES[key].label,
@@ -205,9 +276,14 @@ export async function POST(request) {
     return NextResponse.json({ error: "Give the policy a name." }, { status: 400 });
   }
 
+  const hours = cleanHourFields({ ...body, accrualMethod: data.accrualMethod }, null, todayIso());
+  if (hours.errors.length) {
+    return NextResponse.json({ error: hours.errors.join(" "), errors: hours.errors }, { status: 400 });
+  }
+
   try {
     const created = await db.leavePolicy.create({
-      data: { ...data, companyId: member.companyId },
+      data: { ...data, ...hours.data, companyId: member.companyId },
     });
     await refreshAccruals({
       companyId: member.companyId,
@@ -221,7 +297,18 @@ export async function POST(request) {
       entityType: "settings",
       entityId: created.id,
       summary: `Created leave policy "${created.name}"`,
-      metadata: { accrualMethod: created.accrualMethod, paid: created.paid },
+      metadata: {
+        accrualMethod: created.accrualMethod,
+        paid: created.paid,
+        ...(created.accrualMethod === "per_hours_worked"
+          ? {
+              hoursEarned: Number(created.accrualHoursEarned),
+              perHoursWorked: Number(created.accrualPerHoursWorked),
+              yearlyCapHours: created.accrualYearlyCapHours == null ? null : Number(created.accrualYearlyCapHours),
+              preset: created.accrualPreset,
+            }
+          : {}),
+      },
     });
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
@@ -255,13 +342,22 @@ export async function PATCH(request) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const data = cleanPolicy({ ...existing, ...body });
+  const merged = { ...existing, ...body };
+  const data = cleanPolicy(merged);
   if (!data.name) {
     return NextResponse.json({ error: "Give the policy a name." }, { status: 400 });
   }
+  const hours = cleanHourFields({ ...merged, accrualMethod: data.accrualMethod }, existing, todayIso());
+  if (hours.errors.length) {
+    return NextResponse.json({ error: hours.errors.join(" "), errors: hours.errors }, { status: 400 });
+  }
+  const rateBefore = cleanRateHistory(existing.accrualRateHistory).at(-1) || null;
 
   try {
-    const updated = await db.leavePolicy.update({ where: { id: existing.id }, data });
+    const updated = await db.leavePolicy.update({
+      where: { id: existing.id },
+      data: { ...data, ...hours.data },
+    });
     // Changing the entitlement has to change the balances, or the screen keeps
     // showing the old accrual and the edit looks like it did nothing.
     await refreshAccruals({
@@ -276,7 +372,19 @@ export async function PATCH(request) {
       entityType: "settings",
       entityId: updated.id,
       summary: `Updated leave policy "${updated.name}"`,
-      metadata: { accrualMethod: updated.accrualMethod, annualDays: Number(updated.annualDays || 0) },
+      metadata: {
+        accrualMethod: updated.accrualMethod,
+        annualDays: Number(updated.annualDays || 0),
+        // A rate change is the one edit that changes what people EARN from
+        // today, so the activity row carries the before and after.
+        ...(updated.accrualMethod === "per_hours_worked"
+          ? {
+              rateBefore,
+              rateAfter: cleanRateHistory(updated.accrualRateHistory).at(-1) || null,
+              yearlyCapHours: updated.accrualYearlyCapHours == null ? null : Number(updated.accrualYearlyCapHours),
+            }
+          : {}),
+      },
     });
     return NextResponse.json(updated);
   } catch (err) {
@@ -306,15 +414,18 @@ export async function DELETE(request) {
 
   const existing = await db.leavePolicy.findFirst({
     where: { id, companyId: member.companyId },
-    include: { _count: { select: { requests: true } } },
+    include: { _count: { select: { requests: true, accrualOverrides: true } } },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // A policy with history is deactivated, not deleted. Past requests reference
   // it, and a payslip that says "Vacation" must still be able to say what that
-  // meant. Only a never-used policy is safe to remove outright.
-  if (existing._count.requests > 0) {
+  // meant. Only a never-used policy is safe to remove outright. A personal
+  // accrual rate is history too — LeaveAccrualOverride cascades with its
+  // policy, so deleting the policy would delete the record of who was on
+  // which rate and who set it.
+  if (existing._count.requests > 0 || existing._count.accrualOverrides > 0) {
     const updated = await db.leavePolicy.update({
       where: { id },
       data: { active: false },

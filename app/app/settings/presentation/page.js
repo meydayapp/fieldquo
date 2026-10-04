@@ -38,6 +38,9 @@ function Card({ id, title, description, children }) {
 
 export default function PresentationSettingsPage() {
   const { t } = useTranslation();
+  // Read off the presentation route's own answer (SectionDefaults loads it).
+  // Null until it arrives: the link is offered only on an explicit true.
+  const [googleReviewsAvailable, setGoogleReviewsAvailable] = useState(null);
   return (
     <div className="space-y-6 max-w-3xl">
       <BackToHome />
@@ -61,20 +64,29 @@ export default function PresentationSettingsPage() {
       </Card>
 
       <Card id="sections" title={t("app.presentation.sections.title", "Sections on a new quote")} description={t("app.presentation.sections.hint", "Which sections a new quote starts with. A section with nothing behind it is never shown, whatever the switch says; a quote's own Presentation panel can switch one off for that quote only.")}>
-        <SectionDefaults t={t} />
+        <SectionDefaults t={t} onLoaded={(d) => setGoogleReviewsAvailable(d?.googleReviewsAvailable === true)} />
       </Card>
 
       <p className="text-sm text-muted-foreground">
-        {t("app.presentation.reviewsNote", "Testimonials come from Settings › Reviews — Google reviews you switch on, and approved testimonials.")}{" "}
-        <Link href="/app/settings/reviews#google-business" className="underline underline-offset-2 text-foreground">
-          {t("app.setup.step.google_reviews", "Connect Google reviews")}
-        </Link>
+        {t("app.presentation.reviewsNote", "Testimonials come from Settings › Reviews — Google reviews you switch on, and approved testimonials.")}
+        {/* Gated exactly like the home card's set-up row: until Google
+            approves FieldQuo's Business Profile API access every connection
+            dead-ends on a quota refusal, so the link is not offered
+            (lib/reviews/googleBusiness/availability.js). */}
+        {googleReviewsAvailable && (
+          <>
+            {" "}
+            <Link href="/app/settings/reviews#google-business" className="underline underline-offset-2 text-foreground">
+              {t("app.setup.step.google_reviews", "Connect Google reviews")}
+            </Link>
+          </>
+        )}
       </p>
     </div>
   );
 }
 
-function SectionDefaults({ t }) {
+function SectionDefaults({ t, onLoaded }) {
   const access = useSettingsAccess();
   const canEdit = access.canChange("user:manage");
   const [data, setData] = useState(null);
@@ -82,7 +94,14 @@ function SectionDefaults({ t }) {
   const [busy, setBusy] = useState("");
 
   useEffect(() => {
-    fetchJson("/api/settings/presentation").then(setData).catch((err) => setError(err.message));
+    fetchJson("/api/settings/presentation")
+      .then((d) => {
+        setData(d);
+        onLoaded?.(d);
+      })
+      .catch((err) => setError(err.message));
+    // Once, on mount — as before; onLoaded is the page's setter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function flip(key, on) {

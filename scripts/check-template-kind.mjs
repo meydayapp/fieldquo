@@ -146,7 +146,9 @@ section("Call sites — the create route and every PDF reader are wired");
 
 const createRoute = readFileSync("app/api/settings/document-templates/route.js", "utf8");
 ok("create route uses starterSectionsFor, not defaultSectionsFor",
-  /starterSectionsFor\(type\)/.test(createRoute) && !/sections:\s*defaultSectionsFor/.test(createRoute));
+  // `(type,` since 2026-10-03: the email starter is written in the company's
+  // language, so the route passes one (lib/i18n/emailStarterCopy.js).
+  /starterSectionsFor\(type[,)]/.test(createRoute) && !/sections:\s*defaultSectionsFor/.test(createRoute));
 
 const patchRoute = readFileSync("app/api/settings/document-templates/[id]/route.js", "utf8");
 ok("patch route rejects a mismatched vocabulary before writing",

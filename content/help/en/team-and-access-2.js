@@ -111,7 +111,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "The screen is headed **Time off policies** — “What time off your team can take, and how it builds up. Requests and balances live on Time off.” With no policies yet, a starter card is offered first; once you have at least one, the card disappears and the **Year end** section appears instead." },
-          { p: "Three accrual methods exist and they are genuinely different. **Fixed days per year** makes the whole allowance available now. **Accrues each pay period** spreads the days over the pay periods elapsed so far, using the frequency on [[payroll-settings|Payroll settings]] — lower in January, full by December. **Vacation pay (% of gross)** accrues money, not days, from the gross on approved pay runs; time off under it is not limited by a day balance." },
+          { p: "Four accrual methods exist and they are genuinely different. **Fixed days per year** makes the whole allowance available now. **Accrues each pay period** spreads the days over the pay periods elapsed so far, using the frequency on [[payroll-settings|Payroll settings]] — lower in January, full by December. **Vacation pay (% of gross)** accrues money, not days, from the gross on approved pay runs; time off under it is not limited by a day balance. **Earned per hour worked** builds the balance from approved hours — see [[leave-earned-from-hours|Leave earned from hours worked]]." },
         ],
       },
       {
@@ -153,6 +153,7 @@ export const ARTICLES = {
               ["Fixed days per year", "The full **Days per year** is available from the first day. Someone with a hire date this year gets a pro-rated share; with no hire date on record they get the whole amount."],
               ["Accrues each pay period", "**Days per year** divided over the year's pay periods, granted as each period passes."],
               ["Vacation pay (% of gross)", "Accrues an amount equal to the percentage of gross on approved and paid pay runs this year. Requests under it are not checked against a day balance."],
+              ["Earned per hour worked", "Hours earned per hours worked (4 per 100 is 4%), an optional yearly cap, and how many hours one day off is worth. Built from approved time entries plus any hours entered from before FieldQuo — see [[leave-earned-from-hours|Leave earned from hours worked]]."],
               ["Carryover cap (days)", "How many unused days the **Year end** button may carry into the next year. Blank is unlimited; 0 is none."],
               ["Paid", "Unticked, the policy shows an **unpaid** badge and approved days under it are not added to a payslip. Ticked, approved leave in a pay period becomes an earning line on the payslip."],
               ["Needs a manager's approval", "Ticked, a request waits as pending until a manager approves it. Unticked, the request is approved the moment it is made and the balance is consumed immediately — the card shows **auto-approved**."],
@@ -186,6 +187,92 @@ export const ARTICLES = {
       { q: "Does a sick-day policy have to be approved?", a: "Only if you tick **Needs a manager's approval**. The starter sets leave it unticked for sick leave, so a request is approved on the spot and the manager still sees it in the list." },
       { q: "Where do people see their balance?", a: "On the **Time Off** screen — a card per policy with accrued and taken, and a Team tab for managers. Balances are recalculated whenever a policy is added or edited." },
       { q: "Can I edit the numbers a starter set gave me?", a: "Yes. Once seeded they are your policies; press **Edit** on any card. FieldQuo never changes them afterwards." },
+    ],
+  },
+
+  // ── Leave earned from hours worked (2026-10-03) ─────────────────────────
+  // Facts from lib/leave/hourAccrual.js, lib/leave/balances.js
+  // (refreshAccruals), app/api/leave/opening, app/api/leave/accrual-override,
+  // app/app/time-off/TeamBalances.js and app/components/leave/AccrualPanels.js.
+  "leave-earned-from-hours": {
+    title: "Leave earned from hours worked",
+    summary:
+      "Vacation and sick time that builds up from the hours a person actually works — the rate, the yearly cap, the hours from before FieldQuo, and how every balance shows its working.",
+    updated: "2026-10-03",
+    intro: [
+      "A policy set to **Earned per hour worked** gives each person leave in proportion to the time they work: “4 hours per 100 hours worked” is 4% (about two weeks a year full-time), “1 hour per 30 hours worked” is the common paid-sick-leave rule. Nothing accrues from hours until you create such a policy — FieldQuo does not assume a rule for you.",
+      "Someone added part-way through the year can have the hours they worked since 1 January entered, so their balance reflects the whole year and not only the weeks since they joined.",
+    ],
+    sections: [
+      {
+        id: "set-it-up",
+        heading: "Set up a policy earned per hour",
+        blocks: [
+          { steps: [
+            "Open **Settings → Time Off Policies** and press **Add policy** (or **Edit** on an existing one).",
+            "Set **How it builds up** to **Earned per hour worked**.",
+            "Optionally pick **Start from a rule** — for example Ontario vacation 4% or 6%, or the California, Washington, Colorado or New York sick-leave rule. It fills the rate and cap and names the law it comes from, with a link to the source.",
+            "Check **Hours earned** and **Per hours worked**, the **Yearly cap (hours)** (blank = no cap) and **Hours in one day off** — required, because requests are booked in days.",
+            "Press **Add policy** or **Save changes**. Every balance is recalculated straight away.",
+          ] },
+          { warning: "The rules offered are starting points, not legal advice. Some depend on company size or years of service (New York's 40 or 56 hours, Ontario's 4% or 6%), and laws change. Check the rules where you operate. If you change a number, the card stops naming the law it came from." },
+        ],
+      },
+      {
+        id: "which-hours",
+        heading: "Which hours count",
+        blocks: [
+          { bullets: [
+            "**Approved** time entries only. A pending entry counts the moment a manager approves it on [[timesheets-and-approving-hours|Timesheets]].",
+            "Every work activity: on site, driving, office, supply runs and general — including a stretch your company has chosen not to pay, because it was still worked.",
+            "Unpaid lunches and breaks never count.",
+            "The calendar year, 1 January to 31 December.",
+          ] },
+          { p: "A day off is worth the person's own working day when they have working hours set, otherwise the **Hours in one day off** on the policy. The same figure is used when paid leave reaches a pay run, so a day earned is a day paid." },
+        ],
+      },
+      {
+        id: "rate-changes",
+        heading: "Changing the rate",
+        blocks: [
+          { p: "A new rate applies from the day you save it. Hours worked before keep the rate they were earned at, so lowering a rate never takes back leave people already earned. The first rate a policy ever had applies from 1 January." },
+          { p: "For one person — a fifth anniversary that moves them from 4% to 6% — open **Time Off → Team → Balances**, open their name and press **Set a personal rate**: pick the policy, the start day and the rate. Leave both rate boxes blank to put them back on the company rate from a day. Every personal rate stays on record with who set it." },
+        ],
+      },
+      {
+        id: "before-fieldquo",
+        heading: "Hours worked before FieldQuo",
+        blocks: [
+          { steps: [
+            "Open **Time Off → Team**, scroll to **Balances** and open the person's name.",
+            "Under **Before FieldQuo**, press **Enter hours before FieldQuo**.",
+            "Enter the **Hours worked since 1 January** and the last day those hours cover — usually the day before they started clocking in FieldQuo.",
+            "Enter any leave already taken this year, in days, against each policy — paid and unpaid.",
+            "Press **Save**.",
+          ] },
+          { p: "Those hours earn leave at the rate in force on the last day they cover. FieldQuo time entries on or before that day are left out, so an hour is never counted twice. Leave already taken comes off the paid balances; unpaid leave is recorded and changes no balance." },
+          { note: "These hours only build leave balances. They are never added to timesheets, job costs or payroll — they were paid by whatever you used before." },
+          { p: "Changing it adds a new version; nothing is overwritten. The screen shows “Entered by … on …” and every earlier version with who changed it and when." },
+        ],
+      },
+      {
+        id: "how-balances-read",
+        heading: "Reading a balance",
+        blocks: [
+          { p: "Each balance shows **Earned** (in hours and days), **Taken in FieldQuo**, **Taken before FieldQuo**, anything awaiting approval, and **Left**. **How it's calculated** lists the hours counted at each rate, the hours from before FieldQuo, any cap reached and the hours-to-days conversion. An unpaid policy shows only the days taken, because it keeps no balance." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Who can see it",
+        blocks: [
+          { p: "Everyone sees their own balances, their own hours from before FieldQuo and their own personal rate on **Time Off**. Managers see everyone's on the Team tab. Only owners and administrators can enter hours from before FieldQuo or set a personal rate; a read-only support session cannot change either." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Why is a new hire's balance low?", a: "Leave is earned as hours are worked and approved. If they worked for you before you started using FieldQuo this year, enter those hours under **Before FieldQuo**." },
+      { q: "Why does a balance not move after I approve hours?", a: "Balances are refreshed when the Time Off screen loads, at most every few hours, and immediately when a policy, a personal rate or hours before FieldQuo are saved. **How it's calculated** shows when it was last worked out." },
     ],
   },
 
@@ -447,7 +534,7 @@ export const ARTICLES = {
     title: "Subcontractors and their insurance",
     summary:
       "The companies you hire per job — their trade and contact, whether their certificate of insurance and WSIB/WCB clearance are in date, what you agreed with them on each job, and what you paid them this year.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Subcontractors** is the roster of other companies — the electrician, the countertop fabricator, the roofer — with the one fact that has a same-day consequence at the top: whether their paperwork is still valid. A lapsed certificate of insurance is a sub who must not step on site tomorrow, so the **Insurance or clearance expiring** panel comes before everything else.",
       "This is not the roster of people you employ; that is [[manage-team|Manage Team]]. And it is not a way to pay a sub: the feature FieldQuo does ship — paying a contractor from the app — pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company. Payments to a subcontractor company are recorded here after the money has left.",
@@ -479,7 +566,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Open **Subcontractors** (under People) and press **Add**.",
-            "Fill in the **Company name** and **Trade** (“electrical, roofing, drywall…”), then the **Contact person**, **Email** and **Phone**.",
+            "Fill in the **Company name** and **Trade** (“electrical, roofing, drywall…”), then the **Contact person**, **Email**, **Phone** and **Business address**.",
             "Enter **Insurance (COI) expires** and **WSIB / WCB clearance expires** if you have the certificates. “Leave a date blank if you don't have the certificate — blank means not recorded, not expired.”",
             "Leave **Goes on the year-end contractor form (T5018 / 1099-NEC)** ticked for a construction sub; untick it for an incorporated materials supplier your accountant says does not get one.",
             "Press **Add subcontractor**.",
@@ -487,6 +574,19 @@ export const ARTICLES = {
           ] },
           { figure: "create:app-subcontractors-create", caption: "Subcontractors → Add — the new-subcontractor form: company, trade, contact, the two expiry dates and the year-end form checkbox." },
           { tip: "A sub you no longer use gets **Mark inactive** rather than a delete: they drop out of the “add a sub to a job” picker, keep their jobs and payments, and still appear with their total for the years you paid them." },
+        ],
+      },
+      {
+        id: "from-their-fieldquo-profile",
+        heading: "A sub who is on FieldQuo too",
+        blocks: [
+          { p: "When a sub's quote that you pulled into your own quote is accepted — or you put that import on the job from **Subs on this job** — the sub is added to your roster, or found there if you already linked them, and their details are filled from their own FieldQuo company profile: the email, phone and business address their own quotes and invoices print." },
+          { bullets: [
+            "**Only blanks are filled.** Anything you typed — an estimator's direct email, your own note of their phone — stays exactly as you typed it.",
+            "**Only what they print.** Nothing private crosses: no account, login or billing details of theirs. If their documents leave a box empty, it stays empty here.",
+            "**The contact person is not filled.** FieldQuo documents name the company, not a person, so there is no contact name to copy; the sub's page says so — add the name with **Edit**.",
+            "**It says where each came from.** The sub's page reads “From their FieldQuo profile (what their own quotes print): Email, Phone, Business address”, and the same label sits under each box in **Edit**. Change a value and it is yours: the label goes.",
+          ] },
         ],
       },
       {

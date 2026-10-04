@@ -150,7 +150,7 @@ ok(planFieldquoEnd({ company: ended("now", NOW), subscription: null, mode: "peri
 ok(planFieldquoEnd({ company: ended("period_end", at(14)), subscription: null, mode: "terms", reason: "escalate", now: NOW }).data?.platformEndMode === "terms",
   "period_end → terms (stricter) is allowed, the way terms is allowed on a Stripe subscription already cancelled");
 ok(Boolean(cancelOptions({ company: ended("terms", NOW), subscription: null, now: NOW }).refusal),
-  "a terms lock already set: the panel says so and offers nothing (there is no reinstate control)");
+  "a terms lock already set: the panel says so and offers nothing (reversing it is Unlock company, its own act)");
 
 // ══ 2. The access gate for the resulting states ═══════════════════════════
 console.log("\n2. What the company can do afterwards\n");

@@ -8,6 +8,7 @@ import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
 import { dayRangeUtc } from "@/lib/analytics/dayRange";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { expensePlacementRefusal } from "@/lib/expenses/placement";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -81,6 +82,17 @@ export async function POST(request) {
     assetId: assetId || null,
   });
   if (badAsset) return badAsset;
+
+  // Which job it lands on, and whether it is a fixed cost — see
+  // lib/expenses/placement.js for why both are checked against the grid.
+  const placement = await expensePlacementRefusal(db, {
+    companyId: member.companyId,
+    full: await loadEnforceableMember(db, member.id),
+    projectId,
+    isOverhead: !!isOverhead,
+    recurring: !!recurring,
+  });
+  if (placement) return NextResponse.json({ error: placement.error }, { status: placement.status });
 
   const expense = await db.expense.create({
     data: {

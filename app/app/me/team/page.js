@@ -52,7 +52,7 @@ export default function MeTeamPage() {
                   </a>
                 ) : null}
                 {p.kind === "member" && !p.isYou ? (
-                  <Link href="/app/chat" aria-label={t("app.me.team.message", { name: p.name })} className="grid h-11 w-11 place-items-center rounded-xl border border-border text-foreground">
+                  <Link href={`/app/chat?with=${encodeURIComponent(p.id)}`} aria-label={t("app.me.team.message", { name: p.name })} className="grid h-11 w-11 place-items-center rounded-xl border border-border text-foreground">
                     <MessagesSquare size={16} />
                   </Link>
                 ) : null}

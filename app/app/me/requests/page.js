@@ -170,7 +170,10 @@ function RequestCard({ r, me, manager, tab, t, language, busy, onAct }) {
  * in flight is listed and disabled, with the state, rather than hidden.
  */
 function MyShiftPicker({ mode, t, language, onClose, onPick }) {
-  const from = new Date();
+  // Pinned once per open: a fresh `new Date()` on every render changed the
+  // URL, so useMeData refetched, re-rendered and refetched again — thousands
+  // of GET /api/shifts a minute while the dialog sat on its spinner.
+  const [from] = useState(() => new Date());
   const to = new Date(from.getTime() + 28 * 86_400_000);
   const { data, errorKey, loading, reload } = useMeData(`/api/shifts?from=${from.toISOString()}&to=${to.toISOString()}`);
   const shifts = (data?.shifts || []).filter((s) => new Date(s.start) > from);

@@ -543,6 +543,21 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "translations",
+        heading: "Correos en el idioma de su cliente",
+        blocks: [
+          { p: "Usted escribe cada plantilla una sola vez, en su propio idioma; el cuadro **Escrito en**, debajo de **Asunto**, indica cuál. Las plantillas nuevas y **Agregar plantillas predeterminadas** empiezan en el idioma de su empresa." },
+          { p: "La tarjeta **Traducciones**, debajo de **Enviar una prueba**, muestra cada uno de los demás idiomas con cuántos de sus clientes lo leen. **Traducir** prepara un borrador en ese idioma con la IA de FieldQuo; **Revisar / editar** muestra cada línea junto al original, con una vista previa, y no se envía nada en ese idioma hasta que pulse **Aprobar y usar**. **Escribirla yo** abre una traducción vacía para que la escriba, sin costo." },
+          { bullets: [
+            "Un cliente cuyo idioma tiene una traducción aprobada y actualizada la recibe. Todos los demás reciben el correo tal como usted lo escribió; un envío nunca espera una traducción.",
+            "Un seguimiento sobre un presupuesto o una factura se envía en el idioma de ese documento; una campaña, en el idioma del cliente.",
+            "Si edita la plantilla, sus traducciones muestran **Desactualizada: se envía el original** hasta que pulse **Actualizar** (solo se rehacen las líneas que cambió) y vuelva a aprobarlas.",
+            "Los campos combinados como {{clientName}} están protegidos. Una línea preparada que pierde o cambia uno se rechaza y queda vacía para que usted la escriba, y una traducción con una línea vacía no se puede aprobar.",
+          ] },
+          { note: "Cada traducción muestra cuánto costó en IA, normalmente una fracción de centavo. Si tiene crédito de IA, se cobra de ahí; sin crédito, FieldQuo cubre las traducciones de 5 ¢ o menos, hasta $1.00 al mes para su empresa." },
+        ],
+      },
+      {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
@@ -551,6 +566,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
+      { q: "¿FieldQuo traduce mi correo por su cuenta al enviarlo?", a: "No. Una traducción solo se prepara cuando usted pulsa Traducir, Actualizar o Regenerar, y solo se usa después de que la apruebe. El envío nunca espera a la IA ni la llama." },
       { q: "Puse una plantilla Quote email como Activo y mi correo de presupuesto se ve igual. ¿Por qué?", a: "Porque el correo de presupuesto hoy no se renderiza desde una plantilla. Su texto sale del presupuesto y de Servicios y precios; las secciones opcionales, de Correo de presupuesto." },
       { q: "¿Las plantillas conservan mi logotipo y mi color?", a: "Sí. Una plantilla nueva empieza Usando su marca, desde Configuración → Marca, hasta que personalice su aspecto." },
       { q: "¿Dónde elijo qué plantilla usa un seguimiento?", a: "En la propia regla de seguimiento, en Configuración → Seguimientos. Solo se ofrecen las plantillas Follow-up, Marketing y Custom." },

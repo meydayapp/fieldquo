@@ -35,7 +35,10 @@ export async function GET(request, { params }) {
 
   const company = await db.company.findUnique({
     where: { id },
-    select: { id: true, name: true },
+    // currency: what this company bills ITS clients in — every activity
+    // amount below is in it (owner decision 2026-10-03: a company's figures
+    // are written in its own currency, never as CAD by default).
+    select: { id: true, name: true, currency: true },
   });
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -114,6 +117,8 @@ export async function GET(request, { params }) {
             status: subscription.status,
             planName: subscription.plan?.name,
             priceMonthly: subscription.plan?.priceMonthly,
+            // The plan's currency: FieldQuo bills this subscription in it.
+            currency: subscription.plan?.currency || null,
             currentPeriodEnd: subscription.currentPeriodEnd,
             trialEndsAt: subscription.trialEndsAt,
             stripeCustomerId: subscription.stripeCustomerId,
@@ -132,6 +137,7 @@ export async function GET(request, { params }) {
     },
 
     activity: {
+      currency: company.currency || null,
       invoicedTotal: Number(invoiceTotals._sum.total || 0),
       invoiceCount: invoiceTotals._count,
       collectedTotal: Number(paidTotal._sum.amount || 0),

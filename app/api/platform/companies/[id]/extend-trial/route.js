@@ -71,14 +71,15 @@ export async function POST(request, { params }) {
   // trialEndsAt, is what lib/billing/access.js reads, so moving the trial
   // date here would write a column, print "Free until March" and change
   // nothing the company can do — a control that appears to work and
-  // doesn't. Refused by name until a reinstate control exists.
+  // doesn't. Refused by name, pointing at the control that does reverse it:
+  // Unlock company (app/api/platform/companies/[id]/unlock, 2026-10-03).
   if (company.platformEndsAt) {
     return NextResponse.json(
       {
         error:
           company.platformEndMode === "terms"
-            ? "FieldQuo locked this company for a terms breach — extending its free period would not reopen it, and there is no reinstate control yet."
-            : "FieldQuo already ended this company's access — extending its free period would not bring it back, and there is no reinstate control yet.",
+            ? "FieldQuo locked this company for a terms breach — extending its free period would not reopen it. Unlock the company first (Unlock company, below), then extend."
+            : "FieldQuo already ended this company's access — extending its free period would not bring it back. Unlock the company first (Unlock company, below), then extend.",
       },
       { status: 409 },
     );

@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 340; “Only in FieldQuo”: 34._
+_Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 344; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -254,7 +254,7 @@ _Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 
-### team-and-access (27)
+### team-and-access (28)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -272,6 +272,7 @@ _Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 
 | `deactivate-a-team-member` — Deactivate a team member | ✓ | ✓ | ✓ |  | team_access |  |
 | `working-hours-and-bookable-hours` — Working hours and bookable hours | ✓ | ✓ | ✓ | settings-availability | booking_page |  |
 | `time-off-policies` — Time off policies | ✓ | ✓ | ✓ | settings-leave | time_off |  |
+| `leave-earned-from-hours` — Leave earned from hours worked | ✓ | ✓ | ✓ | time-off | time_off |  |
 | `payroll-runs` — Payroll runs | ✓ | ✓ | ✓ | payroll | payroll | ✓ |
 | `payroll-settings` — Payroll settings | ✓ | ✓ | ✓ | settings-payroll | payroll |  |
 | `payslips` — Payslips | ✓ | ✓ | ✓ |  | payroll |  |
@@ -317,7 +318,7 @@ _Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 
 | `influencer-programme` — Influencer programme | ✓ | ✓ | ✓ | influencer | referrals |  |
 | `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
-### messages (18)
+### messages (21)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -339,6 +340,9 @@ _Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 
 | `the-crew-inbox` — The crew inbox: photos and updates by text | ✓ | ✓ | ✓ | crew-inbox | crew_inbox | ✓ |
 | `team-chat` — Team chat | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
 | `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | ✓ | ✓ | ✓ |  | appointment_reminders |  |
+| `fetch-older-facebook-and-instagram-history` — Fetch older Facebook and Instagram history | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `photos-and-videos-from-facebook-and-instagram` — Photos and videos from Facebook and Instagram | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `facebook-leads-checked-against-your-records` — Facebook leads checked against your records | ✓ | ✓ | ✓ |  | page_messaging |  |
 
 ### mobile-and-crew (17)
 

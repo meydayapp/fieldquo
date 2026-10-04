@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
+import { canSeeMoney } from "@/lib/permissions/enforce";
 import { TAKEOFF_ADD_ON_SOURCE } from "@/lib/quotes/takeoffAddOns";
 import { CATALOGUE_ADD_ON_SOURCE } from "@/lib/quotes/offeredAddOns";
 
@@ -28,7 +29,7 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "quotes",
     "view_only",
@@ -47,8 +48,16 @@ export async function GET(request, { params }) {
     orderBy: { sortOrder: "asc" },
   });
 
+  // An add-on's amount is the price of the upsell — the whole point of the
+  // row. GET /api/quotes/[id] strips it (stripDocumentMoney) for a reader
+  // without showPricing; this list handed it straight back.
+  const mayPrice = canSeeMoney(full);
   return NextResponse.json(
-    addOns.map((a) => ({ ...a, amount: Number(a.amount) })),
+    addOns.map((a) => {
+      if (mayPrice) return { ...a, amount: Number(a.amount) };
+      const { amount: _a, ...rest } = a;
+      return { ...rest, pricingHidden: true };
+    }),
   );
 }
 

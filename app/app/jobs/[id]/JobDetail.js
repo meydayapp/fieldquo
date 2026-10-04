@@ -59,14 +59,17 @@ import {
   Archive,
   ClipboardList,
   ScanLine,
+  MessagesSquare,
 } from "lucide-react";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { formatAddress } from "@/lib/format/address";
 import { formatDistanceM } from "@/lib/geo/distance";
 import DirectionsButtons from "@/app/components/jobs/DirectionsButtons";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { hasLevel } from "@/lib/permissions/enforce";
+import { hasLevel, seesOnlyAssignedJobs } from "@/lib/permissions/enforce";
+import { can } from "@/lib/permissions";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
 import JobClientPo from "@/app/components/jobs/JobClientPo";
@@ -136,6 +139,27 @@ export default function JobDetail({ jobId }) {
   // Managers editing jobs sets the grid, and a hardcoded role here would
   // contradict it.
   const canEditJob = hasLevel(caller, "jobs", "view_create_edit");
+  // ── The rest of the page's doors, asked of the rules behind them ─────────
+  //
+  // The 2026-10-03 role-access audit walked this page as each preset and
+  // found five more links that open onto a refusal for the person reading
+  // the page on site: the quote (quotes: none), a new invoice (invoices
+  // below create), a callback job and "Set dates" (jobs below edit), and
+  // booking a visit (schedule below "edit their own" — POST .../visits).
+  // Same questions the routes ask, so the link is offered exactly when the
+  // page behind it will open.
+  const canOpenQuote = hasLevel(caller, "quotes", "view_only");
+  const canRaiseInvoice = hasLevel(caller, "invoices", "view_create_edit");
+  const canBookVisit = hasLevel(caller, "schedule", "edit_own");
+  // POST /api/tasks requires task:create (supervisor and up). An unresolved
+  // provider falls open, as everywhere else on this page.
+  const canCreateTasks = !caller || can(caller.role, "task:create");
+  // The job's crew-chat room: the GET hands back its id only to a member of
+  // the room (lib/company/chat/store.js jobRoomIdFor — the office, and the
+  // crew booked on the visits), so the id's presence IS the permission. Off
+  // with the team_chat feature, whose page would refuse the link anyway.
+  const chatFlag = useFeatureFlags()?.team_chat;
+  const chatUsable = !chatFlag || chatFlag.usable !== false;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -320,7 +344,7 @@ export default function JobDetail({ jobId }) {
               </span>
             )}
           </div>
-          {job.quote && (
+          {job.quote && canOpenQuote && (
             <p className="text-sm text-muted-foreground mt-1">
               From quote{" "}
               <Link
@@ -360,6 +384,16 @@ export default function JobDetail({ jobId }) {
             >
               <ClipboardList size={13} />
               {t("app.workOrder.link", "Work order")}
+            </Link>
+          )}
+          {job.chatRoomId && chatUsable && (
+            <Link
+              href={`/app/chat?room=${encodeURIComponent(job.chatRoomId)}`}
+              data-open-job-chat
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
+            >
+              <MessagesSquare size={13} />
+              {t("app.companyChat.openJobChat")}
             </Link>
           )}
           {canEditJob && (
@@ -460,7 +494,7 @@ export default function JobDetail({ jobId }) {
           flips the job to "scheduled" automatically (POST .../visits and PATCH
           .../[id] both do it, from `unscheduled` only), so this banner is never
           steering someone toward a visit that isn't the right recommendation. */}
-      {job.status === "unscheduled" && (
+      {job.status === "unscheduled" && (canEditJob || canBookVisit) && (
         <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200">
             <Calendar size={16} className="shrink-0" />
@@ -470,18 +504,22 @@ export default function JobDetail({ jobId }) {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href={`/app/jobs/${jobId}/edit`}
-              className="inline-flex items-center gap-1.5 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 px-3 py-1.5 rounded-lg text-sm font-semibold"
-            >
-              {t("app.job.setDates", "Set dates")}
-            </Link>
-            <Link
-              href={`/app/jobs/${jobId}/visits/new`}
-              className="inline-flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold"
-            >
-              <Plus size={14} /> {t("app.job.scheduleVisit", "Schedule a visit")}
-            </Link>
+            {canEditJob && (
+              <Link
+                href={`/app/jobs/${jobId}/edit`}
+                className="inline-flex items-center gap-1.5 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 px-3 py-1.5 rounded-lg text-sm font-semibold"
+              >
+                {t("app.job.setDates", "Set dates")}
+              </Link>
+            )}
+            {canBookVisit && (
+              <Link
+                href={`/app/jobs/${jobId}/visits/new`}
+                className="inline-flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold"
+              >
+                <Plus size={14} /> {t("app.job.scheduleVisit", "Schedule a visit")}
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -806,9 +844,11 @@ export default function JobDetail({ jobId }) {
 
       {/* What the client was asked to do before the crew arrives, and when
           they were (or will be) told. Under Documents because the sent guide
-          is filed there; its own card because "did they get it" is a
-          question asked from the van on the first morning. */}
-      <PrepGuideCard jobId={job.id} />
+          is filed there. Office information — when it goes, to which email,
+          the send / don't-send controls — so a crew member scoped to their
+          own jobs does not get the card (the owner, 2026-10-04 live test),
+          and GET /api/jobs/[id]/prep-guide refuses them the same way. */}
+      {!seesOnlyAssignedJobs(caller) && <PrepGuideCard jobId={job.id} />}
 
       {/* Email with the client about this job, filed from a connected work
           mailbox (Settings → Work email) — by the job's quote or invoice
@@ -841,31 +881,37 @@ export default function JobDetail({ jobId }) {
             {/* Opens the invoice editor FOR this job, which is what makes
                 the "add today's clocked hours" offer appear there
                 (app/app/invoices/new reads ?jobId=). */}
-            <Link
-              href={`/app/invoices/new?jobId=${jobId}&clientId=${job.clientId}`}
-              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
-            >
-              {t("app.job.newInvoice")}
-            </Link>
+            {canRaiseInvoice && (
+              <Link
+                href={`/app/invoices/new?jobId=${jobId}&clientId=${job.clientId}`}
+                className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+              >
+                {t("app.job.newInvoice")}
+              </Link>
+            )}
             <Link
               href="/app/daily-sheets"
               className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
             >
               {t("app.job.dailySheets")}
             </Link>
-            <Link
-              href={`/app/jobs/new?originalJobId=${jobId}&clientId=${job.clientId}`}
-              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
-            >
-              {t("app.job.logCallbackJob", "Log a callback job")}
-            </Link>
-            <Link
-              href={`/app/jobs/${jobId}/visits/new`}
-              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
-            >
-              <Plus size={13} />
-              {t("app.job.addVisit")}
-            </Link>
+            {canEditJob && (
+              <Link
+                href={`/app/jobs/new?originalJobId=${jobId}&clientId=${job.clientId}`}
+                className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+              >
+                {t("app.job.logCallbackJob", "Log a callback job")}
+              </Link>
+            )}
+            {canBookVisit && (
+              <Link
+                href={`/app/jobs/${jobId}/visits/new`}
+                className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+              >
+                <Plus size={13} />
+                {t("app.job.addVisit")}
+              </Link>
+            )}
           </div>
         </div>
 
@@ -1023,7 +1069,9 @@ export default function JobDetail({ jobId }) {
       <JobChecklist job={job} onChanged={load} readOnlyByDefault={canEditJob} />
 
       {/* Turn what a human wrote about this job into office to-dos */}
-      <SuggestedTasks jobId={jobId} onCreated={load} />
+      {/* "Add chosen" posts to /api/tasks, which needs task:create — and
+          "Suggest" spends AI credit on a list the reader could not add. */}
+      {canCreateTasks && <SuggestedTasks jobId={jobId} onCreated={load} />}
 
       {/* The job's own photo record — every photo filed, dated, grouped by
           stage, issue shots included. This is the evidence; the panel below

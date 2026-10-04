@@ -432,7 +432,12 @@ section("The right month, and a loader that cannot write");
 {
   const ov = code("lib/analytics/overview.js");
   ok("getAnalyticsOverview takes the month to report", /getAnalyticsOverview\(\{ companyId, now = new Date\(\) \}\)/.test(ov));
-  ok("…and bounds every current-month filter above (6 of them)", (ov.match(/lt: startOfNextMonth/g) || []).length === 6, (ov.match(/lt: startOfNextMonth/g) || []).length);
+  // Six current-month filters: the three money ones bounded by the server
+  // month, the three quote ones by the company's month (quotesThisMonthWindow
+  // is { gte, lt } — see overview.js). check-historical-rows executes them.
+  ok("…and bounds every current-month filter above (6 of them)",
+    (ov.match(/lt: startOfNextMonth/g) || []).length === 3 && (ov.match(/quotesThisMonthWindow(\.lt)?\b/g) || []).length >= 3 && /quotesThisMonthWindow = \{ gte: quoteMonth\.start, lt: quoteMonth\.end \}/.test(ov),
+    (ov.match(/lt: startOfNextMonth/g) || []).length);
   const data = code("lib/analytics/monthlySummaryData.js");
   ok("the summary asks overview about the REPORTED month", /getAnalyticsOverview\(\{ companyId, now: mid \}\)/.test(data));
   for (const f of ["lib/analytics/monthlySummaryData.js", "lib/analytics/campaignRollupData.js", "lib/analytics/monthlySummary.js"]) {

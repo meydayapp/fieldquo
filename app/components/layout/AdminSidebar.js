@@ -68,12 +68,16 @@ import { filterNavGroups, filterNavItems } from "@/lib/features/nav";
 import {
   filterNavGroupsByPermission,
   filterNavItemsByPermission,
+  labelNavItems,
 } from "@/lib/permissions/nav";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useTradeGate } from "@/app/providers/TradeGateProvider";
 import { filterNavGroupsByTrade } from "@/lib/settings/tradeGateNav";
 import { railPinsClock } from "@/lib/nav/phoneBar";
+import { usesCrewShell } from "@/lib/nav/crewShell";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
+import { useChatUnread } from "@/app/hooks/useChatUnread";
+import NavUnreadBadge from "@/app/components/chat/NavUnreadBadge";
 import { useNavShell, isSettingsPath } from "@/app/components/layout/NavShell";
 import { SettingsPanel } from "@/app/components/layout/SettingsSidebar";
 import { useRovingRows } from "@/app/components/layout/rovingRows";
@@ -393,7 +397,7 @@ export function useNavGroups(groups) {
           caller,
         ),
         tradeGate,
-      ),
+      ).map((g) => ({ ...g, items: labelNavItems(g.items, caller) })),
     [groups, featureFlags, caller, tradeGate, isInfluencer],
   );
 }
@@ -403,7 +407,7 @@ export function useNavItems(items) {
   const featureFlags = useFeatureFlags();
   const caller = usePermissions();
   return useMemo(
-    () => filterNavItemsByPermission(filterNavItems(items, featureFlags), caller),
+    () => labelNavItems(filterNavItemsByPermission(filterNavItems(items, featureFlags), caller), caller),
     [items, featureFlags, caller],
   );
 }
@@ -411,11 +415,11 @@ export function useNavItems(items) {
 // ── The clock, pinned for the people who punch it (2026-10-03) ─────────────
 //
 // The same object More › Crew holds, so the gates, the help article and the
-// active-row rule are that row's. Pinned under Home on the rail for every
-// role that is not office (railPinsClock in lib/nav/phoneBar.js — crew,
-// estimators, dispatchers and managers clock in daily; most owners do not),
-// and dropped from More for those same people, so the row is in one place.
-// The phone sheet keeps it: the rail is not on a phone.
+// active-row rule are that row's. Pinned under Home on the rail for everybody
+// whose clock is on — owners and admins included since 2026-10-03 ("everyone
+// should have a clock, even the boss"; railPinsClock in lib/nav/phoneBar.js)
+// — and dropped from More for those same people, so the row is in one place.
+// The phone sheet drops it too, because it is the first tab on every bar.
 export const CLOCK_ITEM = MORE_GROUPS.find((g) => g.key === "app.nav.group.moreCrew").items.find(
   (i) => i.key === "app.nav.clock",
 );
@@ -470,12 +474,24 @@ export default function AdminSidebar() {
   const setMobileOpen = (v) => (v ? shell.open("drawer") : shell.close());
 
   const featureFlags = useFeatureFlags();
+  // Crew get no rail and no drawer — the accordion is the menu the owner
+  // said they don't need (lib/nav/crewShell.js). Decided here, drawn by
+  // CrewShell.js from `lg` up and by the bottom bar below it; the early
+  // return is after every hook below, so the hook order never changes.
+  const crewShell = usesCrewShell(usePermissions(), featureFlags);
   const navGroups = useNavGroups(NAV_GROUPS);
   const moreGroups = useRailMoreGroups();
   const railPins = useRailPins();
   const bottomItems = useNavItems(BOTTOM_ITEMS);
   const settingsItem = bottomItems.find((i) => i.key === "app.nav.settings") || null;
   const moreCount = moreGroups.reduce((n, g) => n + g.items.length, 0);
+  // The Chat row's digit — polled only when the rail actually draws a Chat
+  // row (useNavGroups has already applied the team_chat flag), and never for
+  // crew, whose Chat is CrewShell's button with the same shared poll.
+  const chatInRail =
+    !crewShell &&
+    (railPins.some((i) => i.href === "/app/chat") || navGroups.some((g) => (g.items || []).some((i) => i.href === "/app/chat")));
+  const chatUnread = useChatUnread(chatInRail);
 
   // Persist the expanded/contracted preference across visits.
   useEffect(() => {
@@ -541,10 +557,10 @@ export default function AdminSidebar() {
       item={item}
       showLabel={forceExpanded || !collapsed}
       active={isActive(item.href)}
-      label={t(item.key)}
+      label={t(item.labelKey || item.key)}
       featureFlags={featureFlags}
       onNavigate={onNavigate}
-      trailing={trailing}
+      trailing={trailing ?? (item.href === "/app/chat" ? <NavUnreadBadge counts={chatUnread} placement="end" /> : null)}
     />
   );
 
@@ -859,6 +875,8 @@ export default function AdminSidebar() {
       </div>
     );
   }
+
+  if (crewShell) return null;
 
   return (
     <>

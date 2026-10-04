@@ -43,6 +43,7 @@ import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels"
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import { invoiceStatusClasses, invoiceStatusPresentation } from "@/lib/invoices/statusPresentation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { ReviewVerdict, IdentityLinks } from "./IdentityReview";
 
 const WON_CODES = new Set(["no_quote", "quote_declined", "quote_not_approved", "quote_unverified"]);
 
@@ -289,7 +290,16 @@ export function LinkedDocuments({
           )}
 
           <SocialEvidence lead={lead} conversion={docs.conversion} money={money} t={t} />
+          {/* The message reviewer's verdict and the records folded into this
+              lead — lib/leads/messageReview.js, lib/leads/identityLinks.js. */}
+          <ReviewVerdict review={docs.review} t={t} />
+          <IdentityLinks leadId={leadId} links={docs.identityLinks} canEdit={canEdit} onUndone={load} t={t} />
         </>
+      )}
+      {lead?.importedAt && (
+        <p className="text-[11px] text-muted-foreground" data-lead-imported>
+          {t("app.leads.identity.imported")}
+        </p>
       )}
 
       {/* The ways to get a quote onto this lead, or off it. */}

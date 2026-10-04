@@ -34,6 +34,7 @@ import {
   groupKey,
   areaTaskSourceKey,
   WORK_ORDER_MONEY_KEYS,
+  lineScopeText,
 } from "@/lib/workOrder/build";
 import { workOrderPath, workOrderPdfPath, workOrderPrintPath } from "@/lib/workOrder/url";
 import { workOrderPrintHtml } from "@/lib/workOrder/printSheet";
@@ -209,6 +210,73 @@ ok("the page renders the crew note", /a\.crewNote/.test(view));
 ok("the job page links to the work order", /work-order/.test(read("app/app/jobs/[id]/JobDetail.js")));
 ok("the URL helper has no database import (safe for a client bundle)", !/@\/lib\/db/.test(read("lib/workOrder/url.js")));
 ok("workOrderForQuote requires a companyId", /if \(!quoteId \|\| !companyId\) return null/.test(read("lib/workOrder/locate.js")));
+
+section("8. Enough to do the job — the live test's '0 h across 1 areas · Cabinet Refinishing · 0 h'");
+{
+  // A cabinet job exactly as the builder saves one: no takeoff, the counts in
+  // the intake, the finish in the base line's meta beside its base price.
+  const cabJob = {
+    id: "jc", title: "Côté kitchen", status: "scheduled", workOrderHidden: [],
+    checklistItems: [{ label: "Bag the hardware", required: true, phase: "before", done: false }, { label: "" }],
+    quote: {
+      quoteNumber: "Q-9", language: "en",
+      scopeGroups: [{
+        id: "gc", label: "Cabinet Refinishing", categoryId: "catc", takeoff: null,
+        category: { key: "cabinet_refinishing", label: "Cabinet Refinishing" },
+        intakeValues: { doorCount: 32, drawerCount: 0, primerCoats: 1, topCoats: 2 },
+        lineItems: [
+          { description: "Cabinet Refinishing", quantity: 32, unit: "unit", rate: 109, amount: 3488, meta: { baseUnitPrice: 100, color: "Hale Navy", sheen: "satin", doorStyle: "Shaker", complexity: { multiplier: 1.2 } } },
+          { description: "Soft-close hinges", quantity: 64, unit: "hinges", rate: 6, amount: 384 },
+        ],
+      }],
+    },
+  };
+  const cab = buildWorkOrderModel({
+    job: cabJob,
+    includedByGroup: new Map([["gc", ["Degrease and scuff-sand every door", ""]]]),
+    addOns: [{ description: "Two-Tone Finish", detail: "Uppers **white**", areaLabel: "Kitchen", amount: 900 }, { description: "" }],
+    materials: [{ name: "Cabinet enamel", qty: "3.00", unit: "gal", group: "Paint", estUnitCost: 89, actualCost: 260, purchasedAt: null }, { name: "Tape", qty: 4, unit: "roll", purchasedAt: new Date() }],
+    visits: [{ id: "v1", scheduledAt: new Date("2026-10-05T12:00:00Z"), status: "scheduled", notes: "Side door, dog in the yard", assignedTo: { name: "Joe" } }, { id: "v2", status: "cancelled", notes: "old" }],
+  });
+  const area = cab.areas[0];
+  ok("the cabinet group has HOURS now (cabinet labour model from the door count)", area.hours > 0 && cab.totalHours > 0, String(area.hours));
+  ok("…its scope says how many: 'Cabinet Refinishing × 32' and 'Soft-close hinges × 64 hinges'", area.scope === "Cabinet Refinishing × 32; Soft-close hinges × 64 hinges", area.scope);
+  ok("…the counts as numbers (32 doors, 0 drawers)", area.counts?.doors === 32 && area.counts?.drawers === 0);
+  ok("…the finish: colour, sheen, door style, coats; no two-tone claimed when nobody said so", area.finish?.colour === "Hale Navy" && area.finish.sheen === "satin" && area.finish.doorStyle === "Shaker" && area.finish.primerCoats === 1 && area.finish.topCoats === 2 && area.finish.twoTone === undefined, JSON.stringify(area.finish));
+  ok("…what's included, blanks dropped", JSON.stringify(area.included) === JSON.stringify(["Degrease and scuff-sand every door"]));
+  ok("the options the client chose, rich text flattened, no amount", cab.addOns.length === 1 && cab.addOns[0].detail === "Uppers white" && cab.addOns[0].area === "Kitchen" && !("amount" in cab.addOns[0]));
+  ok("materials: name, qty, unit, bought — no cost column", cab.materials.length === 2 && cab.materials[0].qty === 3 && cab.materials[1].bought === true && !("estUnitCost" in cab.materials[0]) && !("actualCost" in cab.materials[0]));
+  ok("visits: the note and who, a cancelled one left out", cab.visits.length === 1 && cab.visits[0].notes === "Side door, dog in the yard" && cab.visits[0].assignee === "Joe");
+  ok("checklist: the labelled items, required kept", cab.checklist.length === 1 && cab.checklist[0].required === true);
+  ok("NO money key anywhere in the richer model", findWorkOrderMoneyKey(cab) === null, findWorkOrderMoneyKey(cab));
+  ok("…and no price figure as text (109, 3488, 384, 900, 89, 260)", !/\b(109|3488|384|900|89|260)\b/.test(JSON.stringify(cab)), JSON.stringify(cab).match(/\b(109|3488|384|900|89|260)\b/)?.[0]);
+
+  // A group with no counts and no takeoff: the quote's own estimate stands in.
+  const bare = buildWorkOrderModel({
+    job: { id: "jb", workOrderHidden: [], quote: { scopeGroups: [{ id: "gb", label: "Repairs", categoryId: "x", category: { key: "handyman" }, lineItems: [{ description: "Patch drywall", quantity: 1 }] }] } },
+    quotedHours: 18,
+  });
+  ok("no area hours → the quote's labour estimate is the total, and says so", bare.totalHours === 18 && bare.hoursFromQuote === true);
+  const both = buildWorkOrderModel({ job: cabJob, quotedHours: 999 });
+  ok("area hours present → the quote's figure is NOT added on top", both.hoursFromQuote === false && both.totalHours < 999);
+  ok("lineScopeText leaves a generic 'unit' and a lone 1 off", lineScopeText({ label: "Gate", quantity: 1, unit: "unit" }) === "Gate" && lineScopeText({ label: "Post", quantity: 1, unit: "ea" }) === "Post × 1 ea");
+
+  // The three surfaces say it.
+  const print = workOrderPrintHtml({ company: { name: "Co" }, workOrder: cab, language: "fr" });
+  ok("the print sheet carries the counts, the chosen option, the material and the checklist (in the document's language)",
+    /32 portes/.test(print) && /Two-Tone Finish/.test(print) && /Cabinet enamel/.test(print) && /Bag the hardware/.test(print) && /Options choisies par le client/.test(print));
+  ok("…and no price", !/\$|\b(3488|900|89)\b/.test(print));
+  const pdfSection = read("lib/documentSections/WorkOrderSection.js");
+  ok("the PDF section prints the counts/finish, included, options, materials, checklist", /areaFactLines\(a, c\)/.test(pdfSection) && /a\.included/.test(pdfSection) && /wo\.addOns/.test(pdfSection) && /wo\.materials/.test(pdfSection) && /wo\.checklist/.test(pdfSection));
+  const view = read("app/app/jobs/[id]/work-order/WorkOrderView.js");
+  ok("the page draws each line's quantity, the counts, the finish, included, and the extras", /<AreaScope /.test(view) && /<JobExtras /.test(view) && /app\.workOrder\.count\.doors/.test(view) && /app\.workOrder\.fact\.colour/.test(view) && /app\.workOrder\.included/.test(view));
+  ok("…and never says '0 h' when there is no estimate", /wo\.totalHours > 0/.test(view) && /a\.hours > 0 &&/.test(view));
+  const load = read("lib/workOrder/load.js");
+  ok("the loader reads only the CHOSEN add-ons, and no amount", /addOns: \{\s*where: \{ selected: true \},\s*select: \{ description: true, detail: true, areaLabel: true \}/.test(load));
+  ok("…the materials without a cost column", /materials: \{[\s\S]*?select: \{ name: true, qty: true, unit: true, group: true, purchasedAt: true \}/.test(load));
+  ok("…the quote costing's HOURS only", /costing: \{ select: \{ labourHours: true \} \}/.test(load));
+  ok("…and 'what's included' in the QUOTE's language", /resolveServiceContent\([\s\S]*?job\.quote\?\.language/.test(load));
+}
 
 console.log(`\n${checks} checks, ${failures} failed`);
 process.exit(failures ? 1 : 0);

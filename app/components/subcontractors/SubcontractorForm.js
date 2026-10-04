@@ -31,6 +31,7 @@ export function formValuesFrom(sub) {
     contactName: sub?.contactName || "",
     email: sub?.email || "",
     phone: sub?.phone || "",
+    address: sub?.address || "",
     insuranceExpiresAt: dateInputValue(sub?.insuranceExpiresAt),
     clearanceExpiresAt: dateInputValue(sub?.clearanceExpiresAt),
     taxFormRequired: sub?.taxFormRequired ?? true,
@@ -75,6 +76,10 @@ export default function SubcontractorForm({ mode, sub, onSaved, onCancel }) {
     }
   }
 
+  // A detail filled from a linked sub's own documents says so while it is
+  // still that value (lib/subcontractors/profileFill.js fieldSources). Typing
+  // over it makes it yours: the label goes as soon as the box differs.
+  const fromProfile = (key) => sub?.sources?.[key] === "profile" && values[key] === (sub?.[key] || "");
   const field = (key, label, extra = {}) => (
     <label className="block text-xs text-muted-foreground">
       {label}
@@ -84,6 +89,11 @@ export default function SubcontractorForm({ mode, sub, onSaved, onCancel }) {
         onChange={(e) => setValues({ ...values, [key]: e.target.value })}
         {...extra}
       />
+      {fromProfile(key) && (
+        <span className="mt-1 block text-[11px] text-muted-foreground" data-sub-from-profile={key}>
+          {t("app.subcontractors.fromProfile", "From their FieldQuo profile")}
+        </span>
+      )}
     </label>
   );
 
@@ -107,6 +117,7 @@ export default function SubcontractorForm({ mode, sub, onSaved, onCancel }) {
         {field("email", t("app.subcontractors.email", "Email"), { type: "email", inputMode: "email" })}
         {field("phone", t("app.subcontractors.phone", "Phone"), { type: "tel", inputMode: "tel" })}
       </div>
+      {field("address", t("app.subcontractors.address", "Business address"), { autoComplete: "street-address" })}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {field("insuranceExpiresAt", t("app.subcontractors.insuranceExpires", "Insurance (COI) expires"), { type: "date" })}

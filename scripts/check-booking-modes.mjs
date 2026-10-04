@@ -399,7 +399,7 @@ const viewVisit = visitView({ booking: bookingRow(), eventType: EVENT_TYPE, comp
 ok("the manage page's line for a visit names the address", viewVisit.where === "Visite sur place au 12 Elm St", viewVisit.where);
 ok("visitWhere never prints the event type's label", visitWhere({ booking: bookingRow({ address: null }), eventType: { ...EVENT_TYPE, location: LABEL } }) === "On-site visit — address to be confirmed");
 const resched = read("app/api/visit/[token]/reschedule/route.js");
-ok("the reschedule route computes slots in the booking's mode", (resched.match(/eventTypeForMode\(\{ company, eventType, mode: booking\.mode \}\)/g) || []).length === 2);
+ok("the reschedule route computes slots in the booking's mode", (resched.match(/eventTypeForMode\(\{ company, eventType, mode: booking\.mode \}\)/g) || []).length >= 2); // 3 since 2026-10-03: the booking-time drive check sizes the move the same way
 ok("…and accepts no new mode, address or phone from the browser", !/body\.(mode|address|phone|clientPhone)/.test(resched));
 
 // ───────────────────────────────────────────────────────────────────────────

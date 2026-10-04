@@ -60,6 +60,12 @@ const PERMISSION_WORDS = {
     "read any staff conversation and any rep's texts and emails with a prospect, read-only — every look is logged, and the people in a staff conversation are told",
   "porting:handle":
     "open a Canadian number-port package (the carrier account number, PIN and bill) and record that it was filed, rejected or given a date — every open is logged",
+  "storage:test":
+    "test FieldQuo's own video-archive storage keys (Cloudflare R2) from the costs page — one read, nothing written",
+  "company:mark_test":
+    "mark a company as a test, leaving it out of every FieldQuo number (MRR, counts, funnels) — with a reason, logged",
+  "company:unlock":
+    "unlock a company FieldQuo locked or ended from the cancel panel — with a reason, logged; never touches Stripe",
 };
 
 function describe(permissions) {

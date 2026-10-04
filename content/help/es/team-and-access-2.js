@@ -110,7 +110,7 @@ export const ARTICLES = {
         heading: "Visión general",
         blocks: [
           { p: "La pantalla lleva el título **Políticas de tiempo libre** — «Qué tiempo libre puede tomar tu equipo y cómo se acumula. Las solicitudes y los saldos están en Tiempo libre.» Sin políticas todavía, se ofrece primero una tarjeta inicial; en cuanto tiene al menos una, la tarjeta desaparece y aparece en su lugar la sección **Fin de año**." },
-          { p: "Existen tres métodos de acumulación y son de verdad distintos. **Días fijos por año** deja toda la asignación disponible de inmediato. **Se acumula en cada período de pago** reparte los días entre los períodos de pago transcurridos, según la frecuencia de la [[payroll-settings|Configuración de nómina]] — menos en enero, completo en diciembre. **Pago de vacaciones (% del bruto)** acumula dinero, no días, a partir del bruto de las nóminas aprobadas; el tiempo libre con este método no está limitado por un saldo de días." },
+          { p: "Existen cuatro métodos de acumulación y son de verdad distintos. **Días fijos por año** deja toda la asignación disponible de inmediato. **Se acumula en cada período de pago** reparte los días entre los períodos de pago transcurridos, según la frecuencia de la [[payroll-settings|Configuración de nómina]] — menos en enero, completo en diciembre. **Pago de vacaciones (% del bruto)** acumula dinero, no días, a partir del bruto de las nóminas aprobadas; el tiempo libre con este método no está limitado por un saldo de días. **Se gana por hora trabajada** construye el saldo con las horas aprobadas — ver [[leave-earned-from-hours|Ausencias ganadas por horas trabajadas]]." },
         ],
       },
       {
@@ -152,6 +152,7 @@ export const ARTICLES = {
               ["Días fijos por año", "Todos los **Días por año** están disponibles desde el primer día. Alguien con fecha de contratación este año recibe una parte proporcional; sin fecha de contratación registrada recibe el monto completo."],
               ["Se acumula en cada período de pago", "**Días por año** divididos entre los períodos de pago del año, otorgados a medida que pasa cada período."],
               ["Pago de vacaciones (% del bruto)", "Acumula un monto igual al porcentaje del bruto de las nóminas aprobadas y pagadas este año. Las solicitudes bajo este método no se comprueban contra un saldo de días."],
+              ["Se gana por hora trabajada", "Horas ganadas por horas trabajadas (4 por cada 100 es el 4 %), un tope anual opcional y cuántas horas vale un día libre. Se calcula con los registros de horas aprobados más las horas ingresadas de antes de FieldQuo — ver [[leave-earned-from-hours|Ausencias ganadas por horas trabajadas]]."],
               ["Tope de traslado (días)", "Cuántos días no usados puede trasladar el botón **Fin de año** al año siguiente. En blanco es ilimitado; 0 es ninguno."],
               ["Con goce", "Desmarcado, la política muestra una insignia **sin goce** y los días aprobados bajo ella no se agregan a un recibo de pago. Marcado, una ausencia aprobada dentro de un período de pago se convierte en una línea de ingreso en el recibo."],
               ["Requiere la aprobación de un gerente", "Marcado, una solicitud espera como pendiente hasta que un encargado la aprueba. Desmarcado, la solicitud se aprueba en el momento en que se hace y el saldo se consume de inmediato — la tarjeta muestra **aprobado automáticamente**."],
@@ -185,6 +186,89 @@ export const ARTICLES = {
       { q: "¿Una política de días por enfermedad tiene que aprobarse?", a: "Solo si marca **Requiere la aprobación de un gerente**. Los conjuntos iniciales lo dejan desmarcado para enfermedad, así que una solicitud se aprueba al instante y el encargado igual la ve en la lista." },
       { q: "¿Dónde ve la gente su saldo?", a: "En la pantalla **Ausencias** — una tarjeta por política con lo acumulado y lo tomado, y una pestaña de Equipo para los encargados. Los saldos se recalculan cada vez que se agrega o edita una política." },
       { q: "¿Puedo editar los números que me dio un conjunto inicial?", a: "Sí. Una vez cargadas son sus políticas; pulse **Editar** en cualquier tarjeta. FieldQuo nunca las cambia después." },
+    ],
+  },
+
+  // ── Ausencias ganadas por horas trabajadas (2026-10-03) ─────────────────
+  "leave-earned-from-hours": {
+    title: "Ausencias ganadas por horas trabajadas",
+    summary:
+      "Vacaciones y días por enfermedad que se acumulan según las horas realmente trabajadas — la tasa, el tope anual, las horas de antes de FieldQuo y el detalle de cómo se calcula cada saldo.",
+    updated: "2026-10-03",
+    intro: [
+      "Una política configurada como **Se gana por hora trabajada** da a cada persona tiempo libre en proporción a lo que trabaja: «4 horas por cada 100 horas trabajadas» es el 4 % (unas dos semanas al año a tiempo completo), «1 hora por cada 30 horas trabajadas» es la norma habitual de baja por enfermedad pagada. Nada se acumula por horas hasta que creas una política así — FieldQuo no supone ninguna norma por ti.",
+      "A alguien que se incorpora a mitad de año se le pueden ingresar las horas trabajadas desde el 1 de enero, para que su saldo refleje todo el año y no solo las semanas desde que llegó.",
+    ],
+    sections: [
+      {
+        id: "set-it-up",
+        heading: "Crear una política que se gana por hora",
+        blocks: [
+          { steps: [
+            "Abre **Configuración → Políticas de ausencias** y pulsa **Agregar política** (o **Editar** en una existente).",
+            "Pon **Cómo se acumula** en **Se gana por hora trabajada**.",
+            "Si quieres, elige **Partir de una norma** — por ejemplo vacaciones de Ontario al 4 % o 6 %, o la norma de baja por enfermedad de California, Washington, Colorado o Nueva York. Rellena la tasa y el tope y nombra la ley de origen, con un enlace a la fuente.",
+            "Revisa **Horas ganadas** y **Por horas trabajadas**, el **Tope anual (horas)** (vacío = sin tope) y **Horas en un día libre** — obligatorio, porque las solicitudes se reservan en días.",
+            "Pulsa **Agregar política** o **Guardar cambios**. Todos los saldos se recalculan al momento.",
+          ] },
+          { warning: "Las normas ofrecidas son puntos de partida, no asesoría legal. Algunas dependen del tamaño de la empresa o de la antigüedad (40 o 56 horas en Nueva York, 4 % o 6 % en Ontario), y las leyes cambian. Consulta las normas donde trabajas. Si cambias un número, la tarjeta deja de nombrar la ley de origen." },
+        ],
+      },
+      {
+        id: "which-hours",
+        heading: "Qué horas cuentan",
+        blocks: [
+          { bullets: [
+            "Solo los registros de horas **aprobados**. Uno pendiente cuenta en cuanto un gerente lo aprueba en [[timesheets-and-approving-hours|Hojas de horas]].",
+            "Todas las actividades de trabajo: en obra, conduciendo, en oficina, comprando material y general — incluso un tramo que tu empresa decidió no pagar, porque igual se trabajó.",
+            "Los almuerzos y descansos no pagados nunca cuentan.",
+            "El año natural, del 1 de enero al 31 de diciembre.",
+          ] },
+          { p: "Un día libre vale la jornada de la persona cuando tiene horario de trabajo definido; si no, las **Horas en un día libre** de la política. La misma cifra se usa cuando una ausencia pagada llega a la nómina, así que un día ganado es un día pagado." },
+        ],
+      },
+      {
+        id: "rate-changes",
+        heading: "Cambiar la tasa",
+        blocks: [
+          { p: "Una tasa nueva aplica desde el día en que la guardas. Las horas trabajadas antes conservan la tasa con la que se ganaron, así que bajar una tasa nunca quita tiempo libre ya ganado. La primera tasa de una política aplica desde el 1 de enero." },
+          { p: "Para una persona — un quinto aniversario que la pasa del 4 % al 6 % — abre **Tiempo libre → Equipo → Saldos**, abre su nombre y pulsa **Fijar una tasa personal**: elige la política, el día de inicio y la tasa. Deja vacíos los dos campos de la tasa para devolverla a la tasa de la empresa desde un día. Cada tasa personal queda registrada con quién la fijó." },
+        ],
+      },
+      {
+        id: "before-fieldquo",
+        heading: "Horas trabajadas antes de FieldQuo",
+        blocks: [
+          { steps: [
+            "Abre **Tiempo libre → Equipo**, baja hasta **Saldos** y abre el nombre de la persona.",
+            "En **Antes de FieldQuo**, pulsa **Ingresar horas antes de FieldQuo**.",
+            "Ingresa las **Horas trabajadas desde el 1 de enero** y el último día que cubren — normalmente el día antes de empezar a fichar en FieldQuo.",
+            "Ingresa las ausencias ya tomadas este año, en días, en cada política — pagadas y no pagadas.",
+            "Pulsa **Guardar**.",
+          ] },
+          { p: "Esas horas generan tiempo libre con la tasa vigente el último día que cubren. Los registros de FieldQuo hasta ese día inclusive se dejan fuera, así que una hora nunca se cuenta dos veces. Las ausencias ya tomadas se descuentan de los saldos pagados; las no pagadas quedan registradas y no cambian ningún saldo." },
+          { note: "Estas horas solo sirven para los saldos de ausencias. Nunca se agregan a las hojas de horas, a los costos de los trabajos ni a la nómina — ya se pagaron con lo que usabas antes." },
+          { p: "Cambiarlo agrega una versión nueva; nada se sobrescribe. La pantalla muestra «Ingresado por … el …» y cada versión anterior con quién la cambió y cuándo." },
+        ],
+      },
+      {
+        id: "how-balances-read",
+        heading: "Leer un saldo",
+        blocks: [
+          { p: "Cada saldo muestra **Ganado** (en horas y días), **Tomado en FieldQuo**, **Tomado antes de FieldQuo**, lo pendiente de aprobación y **Queda**. **Cómo se calcula** detalla las horas contadas a cada tasa, las horas de antes de FieldQuo, el tope alcanzado y la conversión de horas a días. Una política no pagada muestra solo los días tomados, porque no tiene saldo." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Quién puede verlo",
+        blocks: [
+          { p: "Cada persona ve sus propios saldos, sus horas de antes de FieldQuo y su tasa personal en **Tiempo libre**. Los gerentes ven los de todos en la pestaña Equipo. Solo los propietarios y administradores pueden ingresar horas de antes de FieldQuo o fijar una tasa personal; una sesión de soporte de solo lectura no puede cambiar nada." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Por qué el saldo de una persona nueva es bajo?", a: "El tiempo libre se gana a medida que se trabajan y aprueban horas. Si trabajó para ti este año antes de FieldQuo, ingresa esas horas en **Antes de FieldQuo**." },
+      { q: "¿Por qué un saldo no cambia después de aprobar horas?", a: "Los saldos se actualizan al abrir la pantalla de Tiempo libre, como mucho cada pocas horas, y al momento cuando se guarda una política, una tasa personal u horas de antes de FieldQuo. **Cómo se calcula** muestra cuándo se hizo el cálculo." },
     ],
   },
 
@@ -446,7 +530,7 @@ export const ARTICLES = {
     title: "Los subcontratistas y su seguro",
     summary:
       "Las empresas que contrata por trabajo — su oficio y contacto, si su certificado de seguro y su constancia WSIB/WCB están vigentes, lo que acordó con ellas en cada trabajo y lo que les pagó este año.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Subcontratistas** es la lista de otras empresas — el electricista, el fabricante de cubiertas, el techador — con el único dato que tiene consecuencia el mismo día en la parte superior: si su papeleo sigue vigente. Un certificado de seguro vencido es un subcontratista que no debe pisar la obra mañana, así que el panel **Seguro o constancia por vencer** va antes que todo lo demás.",
       "No es la lista de las personas que emplea; eso es [[manage-team|Gestionar equipo]]. Y no es una forma de pagarle a un subcontratista: la función que FieldQuo sí ofrece — pagar a un contratista desde la aplicación — paga a una persona de su propia lista, por horas que fichó, a la tarifa que usted fijó. No puede pagar un precio cerrado a otra empresa. Los pagos a una empresa subcontratista se registran aquí después de que el dinero salió.",
@@ -478,7 +562,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Abra **Subcontratistas** (bajo Personas) y pulse **Agregar**.",
-            "Complete el **Nombre de la empresa** y el **Oficio** («electricidad, techos, drywall…»), luego la **Persona de contacto**, el **Correo** y el **Teléfono**.",
+            "Complete el **Nombre de la empresa** y el **Oficio** («electricidad, techos, drywall…»), luego la **Persona de contacto**, el **Correo**, el **Teléfono** y la **Dirección de la empresa**.",
             "Ingrese **Seguro (certificado) vence el** y **Constancia WSIB / WCB vence el** si tiene los certificados. «Deja la fecha vacía si no tienes el certificado — vacío significa no registrado, no vencido.»",
             "Deje **Va en el formulario anual de contratistas (T5018 / 1099-NEC)** marcado para un subcontratista de construcción; desmárquelo para un proveedor de materiales incorporado que, según su contador, no lo recibe.",
             "Pulse **Agregar subcontratista**.",
@@ -486,6 +570,19 @@ export const ARTICLES = {
           ] },
           { figure: "create:app-subcontractors-create", caption: "Subcontratistas → Agregar — el formulario de nuevo subcontratista: empresa, oficio, contacto, las dos fechas de vencimiento y la casilla del formulario anual." },
           { tip: "Un subcontratista que ya no usa recibe **Marcar inactivo** en lugar de un borrado: sale del selector «agregar un subcontratista a un trabajo», conserva sus trabajos y pagos, y sigue apareciendo con su total en los años en que le pagó." },
+        ],
+      },
+      {
+        id: "from-their-fieldquo-profile",
+        heading: "Un subcontratista que también usa FieldQuo",
+        blocks: [
+          { p: "Cuando se acepta el presupuesto de un subcontratista que usted incorporó a su propio presupuesto — o cuando pone esa importación en el trabajo desde **Subcontratistas en este trabajo** — el subcontratista se agrega a su lista, o se encuentra si ya estaba vinculado, y sus datos se completan desde su propio perfil de empresa en FieldQuo: el correo, el teléfono y la dirección de la empresa que muestran sus propios presupuestos y facturas." },
+          { bullets: [
+            "**Solo se completan los vacíos.** Lo que usted escribió — el correo directo de un estimador, su propia nota del teléfono — queda exactamente como lo escribió.",
+            "**Solo lo que ellos muestran.** No pasa nada privado: ningún dato de cuenta, de acceso ni de facturación. Si sus documentos dejan un campo vacío, aquí queda vacío.",
+            "**La persona de contacto no se completa.** Los documentos de FieldQuo nombran a la empresa, no a una persona, así que no hay un nombre que copiar; la ficha del subcontratista lo indica — agregue el nombre con **Editar**.",
+            "**Dice de dónde salió cada dato.** La ficha muestra «De su perfil de FieldQuo (lo que muestran sus propios presupuestos): Correo, Teléfono, Dirección de la empresa», y la misma nota aparece bajo cada campo en **Editar**. Cambie un valor y pasa a ser suyo: la nota desaparece.",
+          ] },
         ],
       },
       {

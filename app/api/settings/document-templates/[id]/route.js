@@ -11,7 +11,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
-import { invalidSectionTypes } from "@/lib/documents/templateKind";
+import { invalidSectionTypes, isPdfTemplate } from "@/lib/documents/templateKind";
+import { isSupported } from "@/app/i18n/languages";
+import { templateLanguageOf } from "@/lib/email/templateTranslation";
 
 async function loadOwned(id, companyId) {
   const template = await db.documentTemplate.findUnique({ where: { id } });
@@ -28,7 +30,16 @@ export async function GET(request, { params }) {
   if (!template)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(template);
+  // The language the email is written in, resolved — a row from before
+  // `language` was recorded reads as the company's default, which is what
+  // the Translations panel translates from (lib/email/templateTranslation.js).
+  const company = template.documentKind
+    ? null
+    : await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
+  return NextResponse.json({
+    ...template,
+    authoredLanguage: template.documentKind ? template.language : templateLanguageOf(template, company),
+  });
 }
 
 // PATCH { name?, subject?, sections?, theme? } — the block editor saves the
@@ -53,7 +64,18 @@ export async function PATCH(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, subject, sections, theme, sentMode, canvas } = await request.json();
+  const { name, subject, sections, theme, sentMode, canvas, language } = await request.json();
+
+  // `language`: the language the company WROTE this email in — what the
+  // Translations panel translates from (lib/email/templateTranslation.js).
+  // Only on an ordinary email template: a document-email copy's language is
+  // its identity (set on its own screen) and a PDF layout has no words, so
+  // for those the field is ignored rather than refused — the editor sends it
+  // with every save, and a save must not fail over a field that does not apply.
+  const writesLanguage = language !== undefined && !existing.documentKind && !isPdfTemplate(existing.type);
+  if (writesLanguage && !isSupported(language)) {
+    return NextResponse.json({ error: "Pick one of the supported languages." }, { status: 400 });
+  }
 
   // ── Blocks or canvas ──────────────────────────────────────────────────────
   //
@@ -108,6 +130,7 @@ export async function PATCH(request, { params }) {
       ...(theme !== undefined && { theme }),
       ...(sentMode !== undefined && { sentMode }),
       ...(canvas !== undefined && { canvas }),
+      ...(writesLanguage && { language: String(language).toLowerCase() }),
     },
   });
 

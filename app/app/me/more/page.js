@@ -22,16 +22,81 @@ import { meTabSetFor } from "@/lib/me/tabs";
 import { navRowAllowed } from "@/lib/permissions/nav";
 import { clockOffered } from "@/lib/timeclock/access";
 import { HR_MORE_LINKS } from "@/lib/me/moreLinks";
+import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, BOTTOM_ITEMS, QUICK_ADD_ITEMS, useNavGroups, useNavItems } from "@/app/components/layout/AdminSidebar";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
+import { CREW_CLOCK_HREF, usesCrewShell } from "@/lib/nav/crewShell";
+import { phoneBarFor } from "@/lib/nav/phoneBar";
+import ThemeToggle from "@/app/components/ThemeToggle";
 import MeShell from "@/app/components/me/MeShell";
 import { BigRow, MeLoad, PersonAvatar, RowList, useMeData } from "@/app/components/me/bits";
 
 const HELP_LANGS = new Set(["en", "fr", "es"]);
+
+// ── Everything else, for crew (2026-10-03) ──────────────────────────────────
+//
+// Crew have no rail and no phone drawer any more (lib/nav/crewShell.js — the
+// owner: "for crews I don't think we need the accordion"). Every row those
+// two offered them still has to be somewhere, so it is here, on the page the
+// last button of their bar opens: the rail's rows, the account rows and the
+// Create rows, through the SAME filters the rail ran (useNavGroups /
+// useNavItems — feature flags, the grid, the trade gate), minus what this
+// page and their phone bar already show. Big rows, one column,
+// nothing folded. scripts/check-rbac-nav.mjs holds the source to that shape.
+const CREW_ALL_GROUPS = [
+  { key: "app.me.more.allPages", items: [HOME_ITEM, ...NAV_GROUPS.flatMap((g) => g.items), ...MORE_GROUPS.flatMap((g) => g.items)] },
+];
+const CREW_ALL_ITEMS = [...BOTTOM_ITEMS, ...QUICK_ADD_ITEMS];
+
+// The rows this page draws below, by href — what "Everything else" must not repeat.
+const PAGE_HREFS = [
+  "/app/me/requests", "/app/time-off", "/app/me/availability", "/app/me/supplies", "/app/me/team",
+  "/app/me/earnings", "/app/jobs", "/app/settings/notifications", "/app/me/schedule", "/app/settings",
+];
+
+/** @param {{ pageDrawn: boolean }} p  whether this page's own rows (PAGE_HREFS) are on screen */
+function CrewEverythingElse({ pageDrawn }) {
+  const { t } = useTranslation();
+  const caller = usePermissions();
+  const flags = useFeatureFlags();
+  const groups = useNavGroups(CREW_ALL_GROUPS);
+  const items = useNavItems(CREW_ALL_ITEMS);
+  // What the phone bar and this page already draw. Not the desktop buttons:
+  // a phone has none, and each of them is a bar tab or a row here anyway
+  // (check-rbac-nav holds that).
+  const taken = new Set([
+    ...(pageDrawn ? PAGE_HREFS : []),
+    CREW_CLOCK_HREF,
+    "/app/me/more",
+    ...phoneBarFor(caller, flags).tabs.map((r) => r.href),
+  ]);
+  const seen = new Set();
+  const keep = (row) => {
+    if (!row || taken.has(row.href) || seen.has(row.href)) return false;
+    seen.add(row.href);
+    return true;
+  };
+  const pages = groups.flatMap((g) => g.items).filter(keep);
+  const others = items.filter(keep);
+  return (
+    <section className="space-y-2" data-crew-everything-else>
+      <h2 className="px-1 text-lg font-bold text-foreground">{t("app.me.more.allPages")}</h2>
+      <RowList>
+        {[...pages, ...others].map((row) => (
+          <BigRow key={row.href} icon={row.icon} title={t(row.labelKey || row.key)} href={row.href} />
+        ))}
+        {/* Light or dark — it lived in the avatar menu, which crew no longer have. */}
+        <BigRow title={t("app.nav.appearance")} right={<ThemeToggle compact />} />
+      </RowList>
+    </section>
+  );
+}
 
 export default function MeMorePage() {
   const { t, language } = useTranslation();
   const router = useRouter();
   const caller = usePermissions();
   const manager = meTabSetFor(caller) === "manager";
+  const crewShell = usesCrewShell(caller, useFeatureFlags());
   const { data, errorKey, loading, reload } = useMeData("/api/me/home");
   // The HR rows' counts — policies to sign, checklist items open, documents
   // about to lapse (lib/me/moreLinks.js `badge` names). Its own read so a
@@ -111,6 +176,8 @@ export default function MeMorePage() {
               </RowList>
             ) : null}
 
+            {crewShell ? <CrewEverythingElse pageDrawn /> : null}
+
             <RowList>
               <BigRow icon={Bell} title={t("app.me.more.notifications")} href="/app/settings/notifications" />
               <BigRow icon={Calendar} title={t("app.me.more.calendarSync")} subtitle={t("app.me.more.calendarSyncNote")} href="/app/me/schedule" />
@@ -121,6 +188,14 @@ export default function MeMorePage() {
           </div>
         ) : null}
       </MeLoad>
+      {/* /api/me/home failed or never answered: the rows above are not
+          drawn, and for crew this page is the only menu — so the list stands
+          on its own, minus nothing but the bar. */}
+      {crewShell && !data && !loading ? (
+        <div className="mt-4">
+          <CrewEverythingElse pageDrawn={false} />
+        </div>
+      ) : null}
     </MeShell>
   );
 }

@@ -12,7 +12,10 @@ import {
   redactClient,
   redactQuotes,
   redactInvoices,
+  redactJobs,
   hasLevel,
+  assignedJobWhere,
+  assignedClientWhere,
 } from "@/lib/permissions/enforce";
 import { textsForClient } from "@/lib/sms/deliveryStore";
 import { isSupported } from "@/app/i18n/languages";
@@ -26,12 +29,30 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Loaded first now: WHICH client, and which of its documents ride along,
+  // both depend on the grid.
+  const full = await loadEnforceableMember(db, member.id);
+
+  // ── The documents follow their own dials, not the client's ───────────────
+  //
+  // This include used to be unconditional, so a Crew member (quotes: none,
+  // invoices: none, jobs scoped to their own) opened a client and read every
+  // quote and invoice the household had ever had — titles, line descriptions,
+  // statuses — and every job, assigned to them or not. The money was stripped
+  // by redactQuotes/redactInvoices; the documents themselves were the leak.
+  // A dial at `none` means the list is not sent (an empty list would state
+  // "this client has no quotes"), and the job list is the same assigned-only
+  // list GET /api/jobs gives them. The client itself is scoped the same way
+  // (assignedClientWhere): a crew member reaches the households they are
+  // sent to, not the client book.
   const client = await db.client.findFirst({
-    where: { id: id, companyId: member.companyId },
+    where: { id: id, companyId: member.companyId, ...assignedClientWhere(full) },
     include: {
-      quotes: { orderBy: { createdAt: "desc" } },
-      invoices: { orderBy: { createdAt: "desc" } },
-      jobs: { orderBy: { createdAt: "desc" } },
+      ...(hasLevel(full, "quotes", "view_only") && { quotes: { orderBy: { createdAt: "desc" } } }),
+      ...(hasLevel(full, "invoices", "view_only") && { invoices: { orderBy: { createdAt: "desc" } } }),
+      ...(hasLevel(full, "jobs", "view_only") && {
+        jobs: { where: assignedJobWhere(full), orderBy: { createdAt: "desc" } },
+      }),
     },
   });
 
@@ -63,7 +84,6 @@ export async function GET(request, { params }) {
   // This is why redactInvoice exists next to redactQuote rather than being
   // spelled out per route — invoices mirror quotes (AGENTS.md on
   // lib/documentSections), and their redaction is not a lesser version of it.
-  const full = await loadEnforceableMember(db, member.id);
 
   // ── The texts this client was sent, and whether they arrived ────────────
   //
@@ -78,8 +98,12 @@ export async function GET(request, { params }) {
 
   return NextResponse.json({
     ...redactClient(full, client),
-    quotes: redactQuotes(full, client.quotes),
-    invoices: redactInvoices(full, client.invoices),
+    ...("quotes" in client && { quotes: redactQuotes(full, client.quotes) }),
+    ...("invoices" in client && { invoices: redactInvoices(full, client.invoices) }),
+    ...("jobs" in client && { jobs: redactJobs(full, client.jobs) }),
+    // Which document lists were withheld by the grid, so the page can say so
+    // instead of drawing "No quotes yet" for a client with ten.
+    documentsHidden: ["quotes", "invoices", "jobs"].filter((k) => !(k in client)),
     texts,
   });
 }

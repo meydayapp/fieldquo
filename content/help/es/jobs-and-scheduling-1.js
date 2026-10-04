@@ -81,13 +81,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verla",
         blocks: [
-          { p: "La fila **Trabajos** aparece para cualquiera cuyo acceso a Trabajos sea al menos “View only”; alguien puesto en “No access” no tiene la fila y la página lo rechaza. El perfil Cuadrilla (Crew) está en “View only”, pero acotado: un miembro de la cuadrilla ve solo los trabajos con una visita asignada a él, y un trabajo sin visita todavía no es de nadie y no aparece. Los estimadores ven todos los trabajos pero no pueden crear ni cambiar ninguno. Los despachadores crean y editan; los gerentes, los administradores y el propietario también pueden eliminar. Los perfiles se describen en [[access-levels-overview|Niveles de acceso: quién ve qué]]." },
+          { p: "La fila **Trabajos** aparece para cualquiera cuyo acceso a Trabajos sea al menos “View only”; alguien puesto en “No access” no tiene la fila y la página lo rechaza. El perfil Cuadrilla (Crew) está en “View only”, pero acotado: un miembro de la cuadrilla ve solo los trabajos con una visita asignada a él o un turno suyo publicado en el horario con ese trabajo elegido (desde que se publica la semana hasta dos semanas después de que termina el turno), y un trabajo sin ninguno de los dos no es de nadie y no aparece. Un turno en borrador no da nada. Los estimadores ven todos los trabajos pero no pueden crear ni cambiar ninguno. Los despachadores crean y editan; los gerentes, los administradores y el propietario también pueden eliminar. Los perfiles se describen en [[access-levels-overview|Niveles de acceso: quién ve qué]]." },
           { note: "Ocultar el botón no es la regla — el servidor revisa el mismo acceso en cada solicitud. Una persona que llega al formulario Nuevo trabajo por un marcador viejo sin el nivel adecuado lee **Tu nivel de acceso te permite ver trabajos, no crearlos.**" },
         ],
       },
     ],
     faq: [
-      { q: "¿Por qué a mi empleado le falta un trabajo?", a: "Un miembro de la cuadrilla solo ve los trabajos con una visita asignada a él. Programe una visita en el trabajo con su nombre y aparece de inmediato en su lista." },
+      { q: "¿Por qué a mi empleado le falta un trabajo?", a: "Un miembro de la cuadrilla solo ve los trabajos con una visita asignada a él, o un turno publicado en el horario con ese trabajo elegido en **Trabajo (opcional)**. Programe una visita con su nombre, o publique su turno, y aparece de inmediato en su lista — con su orden de trabajo y su sala de chat. Un turno deja de dar acceso dos semanas después de terminar; un turno en borrador nunca lo da." },
       { q: "¿Archivados significa cancelado?", a: "No. Cancelado es un estado; archivado es si usted todavía quiere ver el trabajo. Un trabajo terminado que guarda en el archivo sigue Completado, y Restaurar en su página lo devuelve a la lista activa." },
       { q: "¿Puedo ordenar o exportar la lista?", a: "No. El orden es fijo, del más reciente al más antiguo, y FieldQuo no exporta listas — el historial de trabajos anteriores viaja en sentido contrario, hacia FieldQuo, por Trabajos anteriores." },
     ],
@@ -538,7 +538,7 @@ export const ARTICLES = {
         id: "travel-check",
         heading: "La verificación de trayecto",
         blocks: [
-          { p: "Con **No ofrezcas horarios a los que no puedas llegar en auto** activado, un cliente que escribe una dirección ve solo los horarios a los que usted podría llegar desde su cita anterior: el fin de la cita anterior, más el trayecto, más el margen, deben caber antes de que empiece el horario. El trayecto es el tiempo de conducción de Google cuando FieldQuo tiene las coordenadas de ambos extremos y una clave, y una estimación en línea recta si no." },
+          { p: "Con **No ofrezcas horarios a los que no puedas llegar en auto** activado, un cliente que escribe una dirección ve solo los horarios a los que usted podría llegar desde su cita anterior: el fin de la cita anterior, más el trayecto, más el margen, deben caber antes de que empiece el horario. Mientras el cliente recorre el calendario, el trayecto es una estimación deliberadamente lenta — la línea recta por un factor de carretera, a 32 km/h — para que un horario justo se oculte en lugar de ofrecerse. Cuando el cliente pulsa el botón para reservar, FieldQuo comprueba ese horario con el tiempo de conducción real de Google, de ida y de salida. Si Google dice que no llega, la reserva no se hace: el cliente lee por qué, y el siguiente horario al que usted puede llegar queda seleccionado para que lo confirme. Nunca se reserva un horario al que usted no puede llegar." },
           { steps: [
             "Abra **Configuración → Página de reservas** y asegúrese de que **Ir a su domicilio** esté seleccionado.",
             "Active **No ofrezcas horarios a los que no puedas llegar en auto**. Está activado mientras usted no lo apague.",
@@ -594,7 +594,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Por qué no se ofrece un horario que sé que está libre?", a: "Normalmente la verificación de trayecto: desde el fin de la cita anterior, el trayecto más el margen no caben antes de ese horario. O el trabajo anterior termina tarde en el calendario, o el margen es generoso. Apagar la verificación muestra cada horario libre." },
       { q: "¿La ventana cambia mi calendario?", a: "No. Su calendario conserva la hora exacta; solo la confirmación y la página de gestión del cliente muestran la ventana." },
-      { q: "¿El tiempo de trayecto es exacto?", a: "Con coordenadas en ambos extremos y Google disponible, es el tiempo de conducción de Google. Si no, es una estimación en línea recta con un factor de carretera, y FieldQuo dice “about” cuando eso es todo lo que tiene." },
+      { q: "¿El tiempo de trayecto es exacto?", a: "El calendario usa una estimación en línea recta con un factor de carretera, del lado prudente. El horario que el cliente realmente reserva se comprueba con el tiempo de conducción de Google cuando FieldQuo tiene las coordenadas de ambos extremos y una clave; si Google no está disponible, la estimación se mantiene, y FieldQuo dice “about” cuando eso es todo lo que tiene." },
     ],
   },
 

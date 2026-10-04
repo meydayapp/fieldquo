@@ -81,13 +81,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut la voir",
         blocks: [
-          { p: "La ligne **Chantiers** apparaît pour quiconque a au moins l'accès Chantiers « View only » ; une personne réglée à « No access » n'a pas la ligne et la page la refuse. Le profil Équipe (Crew) est à « View only », mais restreint : un membre de l'équipe ne voit que les chantiers où une visite lui est assignée, et un chantier sans visite n'est à personne et n'apparaît pas. Les estimateurs voient tous les chantiers mais ne peuvent ni en créer ni en modifier. Les répartiteurs créent et modifient ; les gestionnaires, les administrateurs et le propriétaire peuvent aussi supprimer. Les profils sont décrits dans [[access-levels-overview|Niveaux d'accès : qui voit quoi]]." },
+          { p: "La ligne **Chantiers** apparaît pour quiconque a au moins l'accès Chantiers « View only » ; une personne réglée à « No access » n'a pas la ligne et la page la refuse. Le profil Équipe (Crew) est à « View only », mais restreint : un membre de l'équipe ne voit que les chantiers où une visite lui est assignée ou un de ses quarts publiés dans l'horaire avec ce chantier choisi (dès la publication de la semaine et jusqu'à deux semaines après la fin du quart), et un chantier sans l'un ni l'autre n'est à personne et n'apparaît pas. Un quart en brouillon ne donne rien. Les estimateurs voient tous les chantiers mais ne peuvent ni en créer ni en modifier. Les répartiteurs créent et modifient ; les gestionnaires, les administrateurs et le propriétaire peuvent aussi supprimer. Les profils sont décrits dans [[access-levels-overview|Niveaux d'accès : qui voit quoi]]." },
           { note: "Cacher le bouton n'est pas la règle — le serveur vérifie le même accès à chaque requête. Une personne qui atteint le formulaire Nouveau chantier par un vieux signet sans le bon niveau lit **Votre niveau d'accès vous permet de consulter les chantiers, pas d'en créer.**" },
         ],
       },
     ],
     faq: [
-      { q: "Pourquoi un chantier manque-t-il à mon employé?", a: "Un membre de l'équipe ne voit que les chantiers où une visite lui est assignée. Planifiez une visite sur le chantier avec son nom et il apparaît aussitôt dans sa liste." },
+      { q: "Pourquoi un chantier manque-t-il à mon employé?", a: "Un membre de l'équipe ne voit que les chantiers où une visite lui est assignée, ou un quart publié dans l'horaire avec ce chantier choisi sous **Travail (facultatif)**. Planifiez une visite à son nom, ou publiez son quart, et le chantier apparaît aussitôt dans sa liste — avec son bon de travail et sa salle de clavardage. Un quart cesse de donner accès deux semaines après sa fin; un quart en brouillon n'en donne jamais." },
       { q: "Le bouton Archivés veut-il dire annulé?", a: "Non. Annulé est un statut ; archivé, c'est si vous voulez encore voir le chantier. Un chantier fini que vous classez reste Terminé, et Restaurer sur sa page le ramène dans la liste active." },
       { q: "Puis-je trier ou exporter la liste?", a: "Non. L'ordre est fixe, du plus récent au plus ancien, et FieldQuo n'exporte pas de listes — l'historique des anciens chantiers voyage dans l'autre sens, vers FieldQuo, par Anciens chantiers." },
     ],
@@ -538,7 +538,7 @@ export const ARTICLES = {
         id: "travel-check",
         heading: "La vérification de trajet",
         blocks: [
-          { p: "Avec **N'offrez pas d'heures où vous ne pouvez pas vous rendre** activé, un client qui tape une adresse ne voit que les plages que vous pourriez atteindre depuis votre rendez-vous précédent : la fin du rendez-vous précédent, plus le trajet, plus la marge, doivent tenir avant le début de la plage. Le trajet, c'est le temps de conduite de Google quand FieldQuo a les coordonnées des deux bouts et une clé, et une estimation à vol d'oiseau sinon." },
+          { p: "Avec **N'offrez pas d'heures où vous ne pouvez pas vous rendre** activé, un client qui tape une adresse ne voit que les plages que vous pourriez atteindre depuis votre rendez-vous précédent : la fin du rendez-vous précédent, plus le trajet, plus la marge, doivent tenir avant le début de la plage. Pendant que le client parcourt le calendrier, le trajet est une estimation volontairement lente — la distance à vol d'oiseau multipliée par un facteur de route, à 32 km/h — pour qu'une heure limite soit cachée plutôt qu'offerte. Quand le client appuie sur le bouton pour réserver, FieldQuo vérifie cette heure-là avec le vrai temps de conduite de Google, à l'aller et au départ. Si Google dit que vous n'y arriverez pas, la réservation n'est pas faite : le client lit pourquoi, et la prochaine heure que vous pouvez atteindre est sélectionnée pour qu'il la confirme. Rien n'est jamais réservé sur une plage où vous ne pouvez pas vous rendre." },
           { steps: [
             "Ouvrez **Paramètres → Page de rendez-vous** et assurez-vous que **Se rendre chez eux** est sélectionné.",
             "Activez **N'offrez pas d'heures où vous ne pouvez pas vous rendre**. Il est activé tant que vous ne l'avez pas éteint.",
@@ -594,7 +594,7 @@ export const ARTICLES = {
     faq: [
       { q: "Pourquoi une plage que je sais libre n'est-elle pas offerte?", a: "Habituellement la vérification de trajet : depuis la fin du rendez-vous précédent, le trajet plus la marge ne tiennent pas avant cette plage. Soit le chantier d'avant finit tard au calendrier, soit la marge est généreuse. Éteindre la vérification montre chaque plage libre." },
       { q: "La fenêtre change-t-elle mon calendrier?", a: "Non. Votre calendrier garde l'heure exacte ; seules la confirmation et la page de gestion du client montrent la fenêtre." },
-      { q: "Le temps de route est-il exact?", a: "Avec des coordonnées aux deux bouts et Google disponible, c'est le temps de conduite de Google. Sinon, c'est une estimation à vol d'oiseau avec un facteur de route, et FieldQuo dit « environ » quand c'est tout ce qu'il a." },
+      { q: "Le temps de route est-il exact?", a: "Le calendrier utilise une estimation à vol d'oiseau avec un facteur de route, du côté prudent. L'heure que le client réserve vraiment est vérifiée avec le temps de conduite de Google quand FieldQuo a les coordonnées des deux bouts et une clé ; si Google n'est pas disponible, l'estimation tient, et FieldQuo dit « environ » quand c'est tout ce qu'il a." },
     ],
   },
 

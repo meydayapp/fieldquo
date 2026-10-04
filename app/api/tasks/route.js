@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission } from "@/lib/permissions";
 import { normaliseRequiredPhotoCount } from "@/lib/tasks/completion";
+import { loadEnforceableMember, claimableTaskWhere } from "@/lib/permissions/enforce";
 import { normalisePlanFields } from "@/lib/tasks/planFields";
 import { wouldCycle } from "@/lib/jobs/plan";
 
@@ -59,6 +60,13 @@ export async function GET(request) {
   // nothing. `member.userId` left as undefined would make Prisma DROP those two
   // terms, and an OR with a dropped arm matches everything — fail-open, in the
   // one place that must fail closed.
+  //
+  // ── Which orphans (the 2026-10-03 role-access audit) ───────────────────
+  //
+  // "Unassigned stays visible" handed a crew member every auto-created
+  // office to-do — the invoice chases, the quote follow-ups, jobs they are
+  // not on. claimableTaskWhere narrows the orphans to the ones hanging off
+  // things this member may open; see its header in lib/permissions/enforce.js.
   const me = member.userId || "__none__";
   const scope = can(member.role, "task:assign")
     ? {}
@@ -68,7 +76,7 @@ export async function GET(request) {
             OR: [
               { assignedToId: me },
               { createdById: me },
-              { assignedToId: null },
+              claimableTaskWhere(await loadEnforceableMember(db, member.id)),
             ],
           },
         ],

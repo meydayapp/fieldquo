@@ -458,6 +458,23 @@ section("No second copy of the tab bar's footprint");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 6. Not over a chat composer (the live test, 2026-10-04)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The launcher covered the Send button on /app/chat — a composer at the
+// bottom of a full-height pane, not a registered dock. lib/jennifer/
+// launcher.js names the screens where the launcher gives way.
+{
+  const { launcherHiddenOn } = await import("../lib/jennifer/launcher.js");
+  ok("launcher hidden on the team chat", launcherHiddenOn("/app/chat") && launcherHiddenOn("/app/chat/room_1") && launcherHiddenOn("/app/chat?room=x"));
+  ok("…and on client conversations", launcherHiddenOn("/app/messages") && launcherHiddenOn("/app/messages/review"));
+  ok("…but not on a sibling that only shares letters, nor anywhere else", !launcherHiddenOn("/app/chatbot") && !launcherHiddenOn("/app/jobs/1") && !launcherHiddenOn("/app") && !launcherHiddenOn(null));
+  const panel = readFileSync(join(ROOT, "app/components/jennifer/JenniferPanel.js"), "utf8");
+  ok("JenniferPanel asks it with the live pathname, in the app only", /const pathname = usePathname\(\);\s*const hideLauncher = isCompany && launcherHiddenOn\(pathname\)/.test(panel));
+  ok("…and hides the launcher (not the open panel) when it says so", /open \|\| hideLauncher \? "hidden" : "flex"/.test(panel));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Verdict
 // ═══════════════════════════════════════════════════════════════════════════
 

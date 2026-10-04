@@ -35,6 +35,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { METRICS_COMPANY_WHERE, isMetricsBucket } from "@/lib/platform/metricsScope";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
@@ -43,6 +44,7 @@ import { trialAccessFor, FIELDQUO_END_SELECT } from "@/lib/billing/access";
 import { loadSubscriberBook, outlookSubscriptions } from "@/lib/platform/trialCounting";
 import { isTrialingBucket } from "@/lib/platform/subscriberBuckets";
 import { buildRevenueOutlook } from "@/lib/platform/revenueOutlook";
+import { pickByCurrency } from "@/lib/platform/metricFormat";
 import { stripeMirrorFreshness } from "@/lib/platform/webhookHealth";
 
 const DAY = 86400000;
@@ -72,7 +74,7 @@ export async function GET(request) {
     // The owner's name and email for the free-trial list — the one thing the
     // book does not carry.
     db.company.findMany({
-      where: { isDemo: false, ...cardFreeTrialWhere() },
+      where: { ...METRICS_COMPANY_WHERE, ...cardFreeTrialWhere() },
       select: {
         id: true,
         name: true,
@@ -110,7 +112,8 @@ export async function GET(request) {
     };
   });
 
-  const customers = book.companies.filter((c) => c.bucket !== "demo");
+  // Demos and test companies are their own buckets (lib/platform/metricsScope.js).
+  const customers = book.companies.filter((c) => isMetricsBucket(c.bucket));
 
   // One row per real company holding a Subscription, newest first.
   const allRows = customers
@@ -126,6 +129,9 @@ export async function GET(request) {
         bucket: c.bucket,
         planName: s.plan?.name || "—",
         priceMonthly: Number(s.plan?.priceMonthly || 0),
+        // The plan's currency — the price above is in it, and the page
+        // writes it that way (never as CAD by default).
+        currency: s.plan?.currency || null,
         companyId: c.id,
         companyName: c.name || "—",
         companyEmail: c.email,
@@ -196,6 +202,11 @@ export async function GET(request) {
       trialingNoPlan: tally.trialing.noPlan,
       mrr: outlook.collectableMrr,
       mrrOnPaper: outlook.nominalMrr,
+      // The same two, per currency — what the page prints (owner decision
+      // 2026-10-03). The scalars above are null once the book holds two
+      // currencies; see lib/platform/revenueOutlook.js.
+      mrrByCurrency: pickByCurrency(outlook.byCurrency, (m) => m.collectableMrr),
+      mrrOnPaperByCurrency: pickByCurrency(outlook.byCurrency, (m) => m.nominalMrr),
       collectableCount: outlook.collectableCount,
       // The two lists worth acting on today — over the whole book.
       expiringSoon: everyRow.filter(

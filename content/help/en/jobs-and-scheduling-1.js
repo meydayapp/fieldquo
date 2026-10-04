@@ -82,13 +82,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The **Jobs** row appears for anyone whose Jobs access is at least **View only**; somebody set to **No access** has no row and the page refuses them. The Crew preset sits at View only, scoped: a crew member sees only the jobs that have a visit assigned to them, and a job with no visit yet is nobody's and does not appear. Estimators see every job but cannot create or change one. Dispatchers create and edit; Managers, administrators and the owner can also delete. The presets are described in [[access-levels-overview|Access levels: who sees what]]." },
+          { p: "The **Jobs** row appears for anyone whose Jobs access is at least **View only**; somebody set to **No access** has no row and the page refuses them. The Crew preset sits at View only, scoped: a crew member sees only the jobs that have a visit assigned to them or a published shift of theirs on the scheduler with that job picked (from the moment the week is published until two weeks after the shift ends), and a job with neither is nobody's and does not appear. A draft shift grants nothing. Estimators see every job but cannot create or change one. Dispatchers create and edit; Managers, administrators and the owner can also delete. The presets are described in [[access-levels-overview|Access levels: who sees what]]." },
           { note: "Hiding the button is not the rule — the server checks the same access on every request. A person who reaches the New Job form through an old bookmark without the right level reads **Your access level lets you view jobs, not create them.**" },
         ],
       },
     ],
     faq: [
-      { q: "Why is a job missing for my crew member?", a: "A crew member only sees jobs with a visit assigned to them. Book a visit on the job with their name on it and it appears in their list immediately." },
+      { q: "Why is a job missing for my crew member?", a: "A crew member only sees jobs with a visit assigned to them, or a published shift on the scheduler with that job picked under **Job (optional)**. Book a visit with their name on it, or publish their shift, and it appears in their list immediately — with the job's work order and its chat room. A shift stops granting the job two weeks after it ends; a draft shift never does." },
       { q: "Does the Archived toggle mean cancelled?", a: "No. Cancelled is a status; archived is whether you still want to see the job. A finished job you file away stays Completed, and Restore on the job page brings it back to the live list." },
       { q: "Can I sort or export the list?", a: "No. The order is fixed, newest first, and FieldQuo does not export lists — past-job history goes the other way, into FieldQuo, through Past jobs." },
     ],
@@ -539,7 +539,7 @@ export const ARTICLES = {
         id: "travel-check",
         heading: "The travel check",
         blocks: [
-          { p: "With **Don't offer times you can't drive to** on, a client who types an address is shown only the slots you could reach from your previous appointment: the earlier appointment's end, plus the drive, plus the buffer, must fit before the slot starts. The drive is Google's driving time when FieldQuo has coordinates for both ends and a key, and a straight-line estimate otherwise." },
+          { p: "With **Don't offer times you can't drive to** on, a client who types an address is shown only the slots you could reach from your previous appointment: the earlier appointment's end, plus the drive, plus the buffer, must fit before the slot starts. While the client browses the calendar, the drive is a deliberately slow estimate — the straight line times a road factor, at 32 km/h — so a borderline time is hidden rather than offered. When the client presses the button to book, FieldQuo checks that one time against Google's real driving time, in and out. If Google says you can't make it, the booking is not made: the client reads why, and the next time you can reach is selected for them to confirm. Nothing is ever booked into a slot you can't drive to." },
           { steps: [
             "Open **Settings → Booking Page** and make sure **Visit their place** is selected.",
             "Turn on **Don't offer times you can't drive to**. It is on unless you switched it off.",
@@ -595,7 +595,7 @@ export const ARTICLES = {
     faq: [
       { q: "Why is a slot I know is free not offered?", a: "Usually the travel check: from the previous appointment's end, the drive plus the buffer does not fit before that slot. Either the earlier job runs late in the calendar, or the buffer is generous. Turning the check off shows every free slot." },
       { q: "Does the window change my calendar?", a: "No. Your calendar keeps the exact time; only the client's confirmation and manage page show the window." },
-      { q: "Is the drive time exact?", a: "With coordinates on both ends and Google available, it is Google's driving time. Otherwise it is a straight-line estimate with a road factor, and FieldQuo says “about” when that is all it has." },
+      { q: "Is the drive time exact?", a: "The calendar uses a straight-line estimate with a road factor, on the slow side. The time the client actually books is checked against Google's driving time when FieldQuo has coordinates for both ends and a key; if Google is unavailable the estimate stands, and FieldQuo says “about” when that is all it has." },
     ],
   },
 

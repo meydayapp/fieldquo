@@ -197,7 +197,7 @@ const PART_1 = {
     updated: "2026-09-28",
     intro: [
       "The **WhatsApp Business** panel on **Settings → Meta Ads** connects the WhatsApp Business number your clients write to, so their messages arrive in **Messages** beside your Facebook and Instagram conversations and are answered from there. It is a business number, not anyone's personal WhatsApp.",
-      "Today the panel reads **WhatsApp is coming soon. We're waiting on Meta to approve FieldQuo for WhatsApp, and we'll tell you the day it's ready.**, with no button: Meta has not yet granted FieldQuo Advanced Access to the WhatsApp permissions a business's number needs, and until it does Meta's sign-up refuses every business but FieldQuo's own. That review is with Meta. Nothing is missing on your side — see [[whatsapp-coming-soon|WhatsApp (coming soon)]] — and this article says what the feature does the day it switches on, including the one rule that surprises everybody.",
+      "Today the panel reads **WhatsApp is coming soon. It's built, and waiting on Meta's App Review to grant FieldQuo's two WhatsApp permissions — the Connect WhatsApp button appears here the day Meta does.**, with no button: Meta has not yet granted FieldQuo Advanced Access to the WhatsApp permissions a business's number needs, and until it does Meta's sign-up refuses every business but FieldQuo's own. That review is with Meta. Nothing is missing on your side — see [[whatsapp-coming-soon|WhatsApp (coming soon)]] — and this article says what the feature does the day it switches on, including the one rule that surprises everybody.",
     ],
     sections: [
       {
@@ -439,6 +439,7 @@ const PART_1 = {
             ],
           } },
           { p: "A refused file gets a sentence, not a spinner: **Upload a photo (JPEG, PNG, HEIC…), a video (MP4, MOV, WebM) or a PDF.** or **That photo is larger than 15 MB. Try a smaller photo.** A PDF is stored byte for byte with a random name; the filename you uploaded is never part of the address." },
+          { p: "Before a photo leaves your phone or computer, FieldQuo shrinks it to **2,560 pixels on its longest side** (sharp enough for any quote, invoice or website) and removes the **GPS location** your camera wrote into it, so a job photo on a public quote never gives away where it was taken. A photo already that size or smaller keeps its pixels and only loses the location. A drawing sheet rendered from a PDF plan is never shrunk. An HEIC photo on Chrome or Firefox goes up as it is." },
         ],
       },
       {

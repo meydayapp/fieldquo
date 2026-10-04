@@ -448,7 +448,7 @@ export const ARTICLES = {
               ["**Disconnect**", "Stops syncing. Rows already imported stay in your marketing spend history."],
               ["**Facebook lead forms** switches", "One per form found on your connected Facebook Page, with its lead count — forms and leads are read through the Page connection, not this ad account. If the card shows “Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.”, the switches are disabled. See [[facebook-lead-forms|Facebook lead forms]]."],
               ["**Facebook & Instagram publishing**", "**Connect Facebook & Instagram** connects your Page and its Instagram account — the connection lead forms are read through and the Designer posts through. It reads **Waiting on Meta's approval**, with no button, if its permissions are not switched on for FieldQuo. See [[social-posting-and-scheduling|Post to Facebook and Instagram, now or later]]."],
-              ["**WhatsApp Business**", "Reads **WhatsApp is coming soon. We're waiting on Meta to approve FieldQuo for WhatsApp, and we'll tell you the day it's ready.**, with no button, until Meta grants FieldQuo advanced access to its WhatsApp permissions. See [[whatsapp-coming-soon|WhatsApp (coming soon)]]."],
+              ["**WhatsApp Business**", "Reads **WhatsApp is coming soon. It's built, and waiting on Meta's App Review to grant FieldQuo's two WhatsApp permissions — the Connect WhatsApp button appears here the day Meta does.**, with no button, until Meta grants FieldQuo advanced access to its WhatsApp permissions. See [[whatsapp-coming-soon|WhatsApp (coming soon)]]."],
             ],
           } },
         ],

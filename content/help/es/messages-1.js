@@ -193,10 +193,10 @@ export const ARTICLES = {
   "whatsapp-business": {
     title: "Mensajes de WhatsApp Business",
     summary:
-      "Su propio número de WhatsApp Business atendido en la misma bandeja que Facebook e Instagram, con la regla de las 24 horas que impone el propio WhatsApp — próximamente: está construido y espera la aprobación de Meta antes de que una empresa pueda conectar un número.",
-    updated: "2026-09-28",
+      "Su propio número de WhatsApp Business atendido en la misma bandeja que Facebook e Instagram, con la regla de las 24 horas que impone el propio WhatsApp — próximamente: está construido y espera a que la revisión de apps de Meta (App Review) conceda a FieldQuo sus dos permisos de WhatsApp antes de que una empresa pueda conectar un número.",
+    updated: "2026-10-03",
     intro: [
-      "Hoy la tarjeta **WhatsApp Business** de **Configuración → Meta Ads** dice **WhatsApp llegará pronto. Estamos esperando que Meta apruebe a FieldQuo para WhatsApp y le avisaremos el día que esté listo.** — sin botón (vea [[whatsapp-coming-soon|WhatsApp (próximamente)]]). Este artículo cuenta cómo funciona cuando Meta diga que sí: su número de WhatsApp Business se conecta a través del registro de Meta, y desde entonces cada mensaje que un cliente envía a ese número llega a [[the-messages-inbox|Mensajes]] bajo el chip **WhatsApp**, junto a Facebook e Instagram. Llegan fotos, videos, mensajes de voz, documentos, stickers, tarjetas de contacto y ubicaciones; se pueden enviar de vuelta fotos, videos, documentos y su propia dirección.",
+      "Hoy la tarjeta **WhatsApp Business** de **Configuración → Meta Ads** dice **WhatsApp llegará pronto. Ya está listo y a la espera de que la revisión de apps de Meta (App Review) conceda a FieldQuo sus dos permisos de WhatsApp; el botón Conectar WhatsApp aparecerá aquí el día que Meta lo haga.** — sin botón (vea [[whatsapp-coming-soon|WhatsApp (próximamente)]]). Este artículo cuenta cómo funciona cuando Meta diga que sí: su número de WhatsApp Business se conecta a través del registro de Meta, y desde entonces cada mensaje que un cliente envía a ese número llega a [[the-messages-inbox|Mensajes]] bajo el chip **WhatsApp**, junto a Facebook e Instagram. Llegan fotos, videos, mensajes de voz, documentos, stickers, tarjetas de contacto y ubicaciones; se pueden enviar de vuelta fotos, videos, documentos y su propia dirección.",
       "Una regla sorprenderá a quien solo haya usado WhatsApp en un teléfono: en un número de empresa, WhatsApp rechaza un mensaje escrito más de **24 horas** después del último mensaje del cliente. FieldQuo dice en qué caso está usted en cada conversación y ofrece la salida — una plantilla aprobada de antemano por Meta — en lugar de dejar que el envío falle después de pulsar el botón.",
     ],
     sections: [
@@ -213,12 +213,12 @@ export const ARTICLES = {
         heading: "Cómo conectará su número",
         blocks: [
           { steps: [
-            "Cuando Meta haya aprobado a FieldQuo, abra **Configuración → Meta Ads** y baje hasta **WhatsApp Business**.",
+            "Cuando Meta haya concedido esos permisos, abra **Configuración → Meta Ads** y baje hasta **WhatsApp Business**.",
             "Pulse **Conectar WhatsApp**. Meta le guía para iniciar sesión, elegir o crear una cuenta de WhatsApp Business y escoger el número de teléfono al que le escriben sus clientes.",
             "De vuelta en la tarjeta, el número aparece con su nombre verificado, **Conectado mediante el registro de Meta** y el teléfono tal como Meta lo imprime. Los mensajes empiezan a llegar a la bandeja enseguida.",
             "Pulse **Actualizar plantillas** para leer sus plantillas de mensaje desde Meta. La tarjeta lista cada una con su idioma y el estado que le da Meta: **APPROVED**, o lo que Meta indique.",
           ] },
-          { figure: "live:app-settings-meta-ads", caption: "Configuración → Meta Ads — la tarjeta de WhatsApp Business está al final de la pantalla; mientras Meta no apruebe a FieldQuo, solo contiene la frase de «próximamente»." },
+          { figure: "live:app-settings-meta-ads", caption: "Configuración → Meta Ads — la tarjeta de WhatsApp Business está al final de la pantalla; mientras Meta no conceda a FieldQuo sus permisos de WhatsApp, solo contiene la frase de «próximamente»." },
           { note: "Un número que no recibe es peor que ninguno: si FieldQuo no puede suscribirse a los mensajes del número, no se conecta nada y la tarjeta lo dice: **FieldQuo no pudo suscribirse a sus mensajes, así que no se conectó nada: un número que no recibe es peor que ninguno. Inténtelo otra vez.**" },
         ],
       },

@@ -47,6 +47,8 @@ import {
   openDirect,
   postMessage,
   markRoomSeen,
+  jobRoomIdFor,
+  unreadTotalsFor,
   THREAD_TAKE,
 } from "@/lib/company/chat/store";
 import { seenUpTo } from "@/lib/chat/unreadQuery";
@@ -72,7 +74,9 @@ import {
   threadMessages,
   canWrite,
   seesAllRooms,
+  mayMentionEveryone,
 } from "@/lib/company/chat/rules";
+import { parseMentions, mentionsEveryone } from "@/lib/staff/mentions";
 import { FEATURES, featureForNavKey } from "@/lib/features/registry";
 import { NAV_REQUIREMENTS, navRowAllowed } from "@/lib/permissions/nav";
 import { PHONE_BARS, phoneBarFor } from "@/lib/nav/phoneBar";
@@ -257,6 +261,37 @@ section("2. Job rooms: one per ACTIVE job, membership follows the visits");
   const finished = listed.find((r) => r.jobId === "j1");
   ok("a finished job's room is KEPT, with its messages, and listed as inactive", finished && finished.active === false && finished.lastBody === "all done, thanks");
   ok("…under the 'finished' group", groupOf(finished) === "finished");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. A published SHIFT on a job puts its worker in the room — a draft does not");
+//
+// The live test, 2026-10-04: a shift linked to a job sent the crew member
+// there on My schedule while the job's chat left them out. The room now
+// follows the same two facts assignedJobWhere reads: a visit, or a published
+// shift inside its window (lib/permissions/enforce.js shiftWindowWhere).
+{
+  const DAY = 86400000;
+  const db = seed();
+  db.tables.worker.push({ id: "wCat", companyId: "A", userId: "uCat", name: "Cat Crew" });
+  const shift = { id: "s1", companyId: "A", workerId: "wCat", jobId: "j1", published: false, start: new Date(Date.now() + DAY), end: new Date(Date.now() + DAY + 8 * 3600000) };
+  db.tables.shift.push(shift);
+  await ensureCompanyRooms("A", { client: db });
+  const j1 = roomOf(db, jobRoomKey("j1"));
+  ok("a DRAFT shift does not put Cat in the job room", !memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open));
+  shift.published = true;
+  await syncJobRoom("A", "j1", { client: db });
+  ok("published, it does — Cat is in the room", memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open));
+  ok("…and sees it in her list", JSON.stringify(kinds(await roomsFor(CAT, { client: db }))) === JSON.stringify(["general", "job"]));
+  ok("…and Bob (on the visit) is still in it", memberRows(db, j1.id).some((m) => m.memberId === "mBob" && m.open));
+  shift.start = new Date(Date.now() - 15 * DAY - 8 * 3600000);
+  shift.end = new Date(Date.now() - 15 * DAY);
+  await ensureCompanyRooms("A", { client: db });
+  ok("a shift that ended 15 days ago no longer holds her in it (closed, row kept)", memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open === false));
+  shift.end = new Date(Date.now() + DAY);
+  shift.workerId = null;
+  await ensureCompanyRooms("A", { client: db });
+  ok("an OPEN shift (no worker) puts nobody in", !memberRows(db, j1.id).some((m) => m.memberId === "mCat" && m.open));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -509,6 +544,7 @@ section("7. The pure rules, driven directly");
   ok("jobRoomMemberIds: office + booked crew, each once, nobody unbooked", JSON.stringify(jobRoomMemberIds({ visits: [{ assignedToId: "ue2" }, { assignedToId: "ue2" }, { assignedToId: null }] }, roster)) === JSON.stringify(["o", "s", "e2"]));
   ok("jobRoomMemberIds with no visits is the office alone", JSON.stringify(jobRoomMemberIds({ visits: [] }, roster)) === JSON.stringify(["o", "s"]));
   ok("jobRoomMemberIds ignores a booked user who is not on the roster", !jobRoomMemberIds({ visits: [{ assignedToId: "stranger" }] }, roster).includes("stranger"));
+  ok("jobRoomMemberIds counts a shift's worker as booked", JSON.stringify(jobRoomMemberIds({ visits: [], shifts: [{ worker: { userId: "ue1" } }, { worker: null }] }, roster)) === JSON.stringify(["o", "s", "e1"]));
   const delta = membershipDelta(["a", "b", "c"], [{ memberId: "a", open: true }, { memberId: "b", open: false }, { memberId: "d", open: true }, { memberId: "e", open: false }]);
   ok("membershipDelta: create the new, reopen the closed, close the departed, leave the rest", JSON.stringify(delta) === JSON.stringify({ create: ["c"], reopen: ["b"], close: ["d"] }), delta);
   const msgs = [
@@ -558,6 +594,7 @@ section("8. The boundary, in the source (decommented)");
     "app/api/chat/rooms/[id]/route.js",
     "app/api/chat/rooms/[id]/members/route.js",
     "app/api/chat/directory/route.js",
+    "app/api/chat/unread/route.js",
   ]) {
     const src = decomment(read(route));
     ok(`${route} reaches the database only through the store (no db. call of its own)`, !/\bdb\s*\./.test(src) && !/@\/lib\/db/.test(src));
@@ -608,6 +645,184 @@ section("9. The row, the tab, the gate and the catalogue agree");
   ok(`every key the screen asks for exists in all ${languages.length} languages (${all.length} keys)`, missing.length === 0, missing.slice(0, 10));
   ok("the refusal codes the store stamps are all mapped for the screen", ["no_room", "read_only", "empty", "self", "member_unknown", "nobody_named"].every((c) => new RegExp(`\\b${c}:`).test(client)));
   ok("docs/screens/company-chat has the 1280 and 375 captures", ["list-1280.png", "list-375.png", "job-1280.png", "job-375.png", "members-1280.png", "members-375.png", "mention-1280.png", "mention-375.png"].every((f) => existsSync(join(ROOT, "docs/screens/company-chat", f))));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. \"Message {name}\" on the team directory lands IN the conversation");
+
+{
+  // It linked to plain /app/chat, so the person landed on the list and had
+  // to find the name again. The link now names the member; the chat opens
+  // the DM through the SAME openDirect the New message picker calls (section
+  // 4 executes its rules: same company, active, not yourself).
+  const team = decomment(read("app/app/me/team/page.js"));
+  ok("the team page links to /app/chat?with=<member id>", /href=\{`\/app\/chat\?with=\$\{encodeURIComponent\(p\.id\)\}`\}/.test(team));
+  ok("…only for a member with a login who is not you", /p\.kind === "member" && !p\.isYou/.test(team));
+  const page = decomment(read("app/app/chat/page.js"));
+  ok("the chat page reads ?with= and hands it to CompanyChat (a ?room= wins)", /initialRoomId \? null : params\?\.get\("with"\)/.test(page) && /initialWithId=\{initialWithId\}/.test(page));
+  const screen = decomment(read("app/components/company/CompanyChat.js"));
+  const effect = screen.slice(screen.indexOf("const openedWith"), screen.indexOf("[initialWithId, data, startDirect]"));
+  ok("the screen opens it through startDirect (openDirect), once", /startDirect\(\{ id: initialWithId \}\)/.test(effect) && /openedWith\.current = true/.test(effect));
+  ok("…not for a read-only support session", /data\.me\?\.readOnly\) return/.test(effect));
+  ok("…and swaps the URL to ?room= so a reload does not re-open", /replaceState\([^)]*\?room=/.test(effect));
+  ok("a refused open is said on the no-room pane, not swallowed", /data-action-error/.test(screen));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. The job page's \"Open job chat\": only for the room's members");
+
+{
+  // The job page had no way into the job's room. GET /api/jobs/[id] now
+  // carries chatRoomId from jobRoomIdFor, and the page draws the link only
+  // when it is there. Executed against the two-company fake: the office and
+  // the crew booked on the visits get the id; crew not booked, another
+  // company, and a job with no room get null.
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  await ensureCompanyRooms("B", { client: db });
+  const j1 = roomOf(db, jobRoomKey("j1"));
+  ok("the owner (office) gets the job's room", (await jobRoomIdFor(ANA, "j1", { client: db })) === j1.id);
+  ok("…and the supervisor (office)", (await jobRoomIdFor(DAN, "j1", { client: db })) === j1.id);
+  ok("crew booked on the visits get it", (await jobRoomIdFor(BOB, "j1", { client: db })) === j1.id);
+  ok("crew NOT booked get nothing (the crew-assigned rule's own fact)", (await jobRoomIdFor(CAT, "j1", { client: db })) === null);
+  ok("another company gets nothing for A's job", (await jobRoomIdFor(ZED, "j1", { client: db })) === null);
+  ok("an unscheduled job has no room and so no link", (await jobRoomIdFor(ANA, "j3", { client: db })) === null);
+  ok("a read-only support session gets it (it reads every room)", (await jobRoomIdFor(SUPPORT, "j1", { client: db })) === j1.id);
+  // Bob taken off the visits: his row closes and the link goes with it.
+  db.tables.jobVisit.length = 0;
+  await syncJobRoom("A", "j1", { client: db });
+  ok("crew taken off the job lose the link with the room", (await jobRoomIdFor(BOB, "j1", { client: db })) === null);
+
+  const route = decomment(read("app/api/jobs/[id]/route.js"));
+  const get = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function PATCH"));
+  ok("the job GET asks jobRoomIdFor AFTER the assignedJobWhere-scoped read", /assignedJobWhere\(full\)/.test(get) && get.indexOf("assignedJobWhere(full)") < get.indexOf("jobRoomIdFor(member, job.id)"));
+  ok("…best-effort: a failed chat read never fails the job page", /jobRoomIdFor\(member, job\.id\)\.catch\(\(\) => null\)/.test(get));
+  ok("…and returns it as chatRoomId", /\bchatRoomId,/.test(get));
+  const detail = decomment(read("app/app/jobs/[id]/JobDetail.js"));
+  ok("the job page draws Open job chat only when the id came back and team_chat is usable", /\{job\.chatRoomId && chatUsable && \(/.test(detail) && /useFeatureFlags\(\)\?\.team_chat/.test(detail));
+  ok("…linking into the room through the push landing (?room=)", /href=\{`\/app\/chat\?room=\$\{encodeURIComponent\(job\.chatRoomId\)\}`\}/.test(detail));
+  ok("…with its label in every language", Object.values(APP_MESSAGES).every((m) => typeof m["app.companyChat.openJobChat"] === "string" && m["app.companyChat.openJobChat"].trim()));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. @everyone is the office's: anyone else's is words, not a push");
+
+{
+  // lib/staff/mentions.js treated "@all"/"@everyone" as every member, and
+  // the company store passed every author through, so a crew member in
+  // #general could push a notification to the whole roster.
+  ok("owner, admin and supervisor (Manager/Dispatcher map here) may @everyone", ["owner", "admin", "supervisor"].every((role) => mayMentionEveryone({ role })));
+  ok("crew (employee), a viewer and nobody may not", !mayMentionEveryone({ role: "employee" }) && !mayMentionEveryone({ role: "viewer" }) && !mayMentionEveryone(null));
+
+  const room = [
+    { kind: "member", id: "mAna", name: "Ana Owner" },
+    { kind: "member", id: "mBob", name: "Bob Crew" },
+    { kind: "member", id: "mCat", name: "Cat Crew" },
+  ];
+  const keys = (body, everyone) => [...parseMentions(body, room, { everyone })].sort().join();
+  ok("detector: @everyone at the start", mentionsEveryone("@everyone lunch at noon"));
+  ok("detector: @all at the very end", mentionsEveryone("lunch at noon @all"));
+  ok("detector: any case", mentionsEveryone("heads up @EveryOne"));
+  ok("detector: an email is not a mention", !mentionsEveryone("write to crew@everyone.com") && !mentionsEveryone("x@all"));
+  ok("detector: a longer word is not it", !mentionsEveryone("@everyones") && !mentionsEveryone("@allison"));
+  ok("allowed: @everyone names the whole room", keys("@everyone lunch", true) === "member:mAna,member:mBob,member:mCat");
+  ok("refused: @everyone names nobody", keys("@everyone lunch", false) === "");
+  ok("refused: a real name beside it still counts — one mention, not the room", keys("@everyone and @Ana Owner, look", false) === "member:mAna");
+  ok("refused: two names and @all at the end — just the two", keys("@Bob Crew @Cat Crew see you @all", false) === "member:mBob,member:mCat");
+  ok("the staff chat's default is unchanged (everyone allowed)", [...parseMentions("@all", room)].length === 3);
+
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const calls = [];
+  const notify = async (args) => { calls.push(args); return { sent: 1 }; };
+
+  const crew = await postMessage({ member: BOB, roomId: general.id, body: "@everyone the truck is blocking the drive" }, { client: db, notify });
+  ok("crew's @everyone is posted", crew.ok === true);
+  ok("…with the words exactly as typed", crew.message.body === "@everyone the truck is blocking the drive");
+  ok("…mentioning nobody", crew.message.mentions.length === 0, crew.message.mentions);
+  ok("…and pushing to nobody", calls.length === 0, calls.length);
+
+  calls.length = 0;
+  const crewAll = await postMessage({ member: CAT, roomId: general.id, body: "done for today @all" }, { client: db, notify });
+  ok("crew's @all at the end is the same: no mention, no push", crewAll.message.mentions.length === 0 && calls.length === 0);
+
+  calls.length = 0;
+  const crewNamed = await postMessage({ member: BOB, roomId: general.id, body: "@everyone — @Ana Owner can you call the client?" }, { client: db, notify });
+  ok("crew naming one person beside @everyone reaches that person only", JSON.stringify(crewNamed.message.mentions) === JSON.stringify(["member:mAna"]) && calls.length === 1 && JSON.stringify(calls[0].userIds) === JSON.stringify(["uAna"]));
+
+  calls.length = 0;
+  const office = await postMessage({ member: ANA, roomId: general.id, body: "@everyone safety meeting at 7" }, { client: db, notify });
+  ok("the owner's @everyone mentions the whole room", office.message.mentions.length === 4, office.message.mentions);
+  ok("…and pushes to everyone but the owner", calls.length === 1 && JSON.stringify([...calls[0].userIds].sort()) === JSON.stringify(["uBob", "uCat", "uDan"]));
+
+  const store = decomment(read("lib/company/chat/store.js"));
+  ok("the store passes the AUTHOR's verdict to the parser", /parseMentions\(text, people, \{ everyone: mayMentionEveryone\(member\) \}\)/.test(store));
+  const screen = decomment(read("app/components/company/CompanyChat.js"));
+  ok("the composer says so before sending, with the server's own detector and rule", /mentionsEveryone\(text\)/.test(screen) && /!mayMentionEveryone\(data\.me\)/.test(screen) && /data-everyone-hint/.test(screen) && /app\.companyChat\.everyoneOfficeOnly/.test(screen));
+  ok("…not in a DM, where there is no everyone", /room\.kind !== "dm" && !mayMentionEveryone/.test(screen));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. The Chat tab's digit is the room list's counts, summed");
+
+{
+  // lib/chat/badges.js said it: "The /app chrome carries no chat digit
+  // today". GET /api/chat/unread → unreadTotalsFor now feeds one shared poll
+  // (app/hooks/useChatUnread.js) drawn on every Chat entry in the chrome.
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  await ensureCompanyRooms("B", { client: db });
+  const general = roomOf(db, "general");
+  const j1 = roomOf(db, jobRoomKey("j1"));
+  const quiet = async () => ({});
+  await postMessage({ member: ANA, roomId: general.id, body: "morning all" }, { client: db, notify: quiet });
+  await postMessage({ member: ANA, roomId: j1.id, body: "@Bob Crew bring the sander" }, { client: db, notify: quiet });
+  await postMessage({ member: DAN, roomId: j1.id, body: "and the ladder" }, { client: db, notify: quiet });
+  await postMessage({ member: ZED, roomId: roomOf(db, "general", "B").id, body: "B's news" }, { client: db, notify: quiet });
+
+  const sumOf = (rows) => rows.reduce((s, r) => ({ unread: s.unread + r.unread, mentions: s.mentions + r.mentions }), { unread: 0, mentions: 0 });
+  const bobTotals = await unreadTotalsFor(BOB, { client: db });
+  const bobList = sumOf(roomList(await roomsFor(BOB, { client: db }), "mBob"));
+  ok("Bob's tab equals his room list, summed", JSON.stringify(bobTotals) === JSON.stringify(bobList), [bobTotals, bobList]);
+  ok("…3 unread (one in #general, two in the job room), 1 of them naming him", bobTotals.unread === 3 && bobTotals.mentions === 1, bobTotals);
+  const catTotals = await unreadTotalsFor(CAT, { client: db });
+  ok("Cat (not on the job) counts #general only", catTotals.unread === 1 && catTotals.mentions === 0, catTotals);
+  ok("the author's own words never count for them", (await unreadTotalsFor(ANA, { client: db })).unread === 1);
+  ok("company B's message counts for nobody in A", (await unreadTotalsFor(CAT, { client: db })).unread === 1 && (await unreadTotalsFor(ZED, { client: db })).unread === 0);
+  ok("a read-only support session gets zero, not the company's history", JSON.stringify(await unreadTotalsFor(SUPPORT, { client: db })) === JSON.stringify({ unread: 0, mentions: 0 }));
+  const thread = await roomFor(BOB, j1.id, { client: db });
+  await markRoomSeen(BOB, j1.id, { client: db, upTo: seenUpTo(thread.messages, "createdAt") });
+  const after = await unreadTotalsFor(BOB, { client: db });
+  ok("opening the job room takes its two off the tab", after.unread === 1 && after.mentions === 0, after);
+
+  const route = decomment(read("app/api/chat/unread/route.js"));
+  ok("the route seeds nothing — no ensureCompanyRooms on a poll", !/ensureCompanyRooms/.test(route) && /unreadTotalsFor\(member\)/.test(route));
+  ok("the browser reaches it through chatApi.unread", /unread: \(\) => fetchJson\("\/api\/chat\/unread"\)/.test(read("lib/company/chat/client.js")));
+  const hook = decomment(read("app/hooks/useChatUnread.js"));
+  ok("one poll for the chrome: module-level, started by the first subscriber, stopped by the last", /listeners\.size === 1\) stopPoll = startPoll\(\)/.test(hook) && /listeners\.size === 0 && stopPoll/.test(hook));
+  ok("…re-read when a chat screen announces lastSeenAt moved", /onBadgesChanged\(read\)/.test(hook));
+  ok("…skipped while the tab is hidden", /document\.hidden\) return/.test(hook));
+  for (const [file, place] of [
+    ["app/components/layout/MobileTabBar.js", "corner"],
+    ["app/components/me/MeShell.js", "corner"],
+    ["app/components/layout/CrewShell.js", "inline"],
+    ["app/components/layout/AdminSidebar.js", "end"],
+  ]) {
+    const src = decomment(read(file));
+    ok(`${file} draws the digit on its /app/chat entry`, /useChatUnread\(/.test(src) && new RegExp(`href === "/app/chat" \\? <NavUnreadBadge counts=\\{chatUnread\\} placement="${place}" />`).test(src));
+  }
+  const badge = decomment(read("app/components/chat/NavUnreadBadge.js"));
+  ok("the badge says its number to a screen reader, translated", /app\.chat\.unreadCountSr/.test(badge) && Object.values(APP_MESSAGES).every((m) => typeof m["app.chat.unreadCountSr"] === "string"));
+  ok("…and draws nothing for zero or unknown", /if \(!n\) return null/.test(badge));
+  // White on red-600, measured: the pill carries its own fill so the bar's
+  // colour (navy, or a brand) never decides whether it can be read.
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (1 + 0.05) / (lum("#dc2626") + 0.05);
+  ok(`white on red-600 clears 4.5:1 (${ratio.toFixed(2)}:1)`, ratio >= 4.5 && /bg-red-600/.test(badge) && /text-white/.test(badge));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

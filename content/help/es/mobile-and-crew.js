@@ -34,12 +34,12 @@ export const ARTICLES = {
         blocks: [
           { p: "De arriba abajo, en cualquier página:" },
           { bullets: [
-            "**La barra superior** — el botón de menú a la izquierda abre el menú completo como un cajón; el logotipo de FieldQuo en el centro va al panel; la campana a la derecha muestra cuántas notificaciones no ha leído.",
+            "**La barra superior** — el botón de menú a la izquierda abre el menú completo como un cajón (la cuadrilla no tiene botón de menú: su página Más lo contiene todo); el logotipo de FieldQuo va al panel; la campana a la derecha muestra cuántas notificaciones no ha leído.",
             "**La página misma** — las mismas tarjetas que en una computadora, apiladas en una columna. Los botones tienen tamaño para un pulgar, y el selector de trabajo del reloj de tiempo es el selector propio de su teléfono, no un menú a medida.",
-            "**La barra de pestañas** — hasta cinco pestañas más **Más**. Qué pestañas recibe depende de su nivel de acceso; un miembro de la cuadrilla ve **Trabajos**, **Chat** y **Más**. Vea [[the-crew-tab-bar|La barra de pestañas de la cuadrilla]].",
+            "**La barra de pestañas** — **Reloj** primero para todos, luego las pantallas que su rol usa más, luego **Más**. Un miembro de la cuadrilla ve **Reloj**, **Hoy**, **Chat** y **Más**. Vea [[the-crew-tab-bar|La barra de pestañas de la cuadrilla]].",
             "**La zona segura** — en un iPhone la barra queda por encima del indicador de inicio y no debajo, así que la pestaña inferior nunca queda medio tapada.",
           ] },
-          { figure: "harness:mobile-job", caption: "Un trabajo en un teléfono — la visita con sus botones Voy en camino y Marcar como completada, la lista de verificación debajo, y la barra de pestañas Trabajos · Chat · Más." },
+          { figure: "harness:mobile-job", caption: "Un trabajo en un teléfono — la visita con sus botones Voy en camino y Marcar como completada, la lista de verificación debajo, y la barra de pestañas abajo." },
         ],
       },
       {
@@ -49,7 +49,7 @@ export const ARTICLES = {
           { steps: [
             "Abra el correo de invitación en su teléfono y acéptelo — así es como se entra a una empresa; no hay manera de agregarse uno mismo. En el nivel Crew, su cuenta no le cuesta nada a la empresa.",
             "Elija su contraseña. A partir de ahí, la página de inicio de sesión pide **Correo electrónico** y **Contraseña**, y el botón es **Iniciar sesión**.",
-            "Llega a **Inicio**. Toque el botón de menú, o una pestaña, para ir adonde necesita.",
+            "Llega a **Inicio**. Toque una pestaña — o el botón de menú, o **Más** si está en el nivel de cuadrilla — para ir adonde necesita.",
             "Opcional pero recomendable: agregue FieldQuo a su pantalla de inicio para que se abra como una aplicación — [[install-it-like-an-app|Instalarlo como una aplicación]].",
           ] },
           { tip: "Manténgase con la sesión iniciada. FieldQuo no cierra su sesión entre visitas, así que el ícono de la pantalla de inicio se abre directo en su día; si alguna vez la sesión está cerrada, el ícono abre la página de inicio de sesión." },
@@ -63,7 +63,7 @@ export const ARTICLES = {
             head: ["Lo que necesita hacer", "Dónde", "Notas"],
             rows: [
               ["Registrar entrada y salida, cambiar de trabajo", "**Reloj de tiempo**", "A su teléfono se le pregunta dónde está una vez, al tocar — nunca en segundo plano."],
-              ["Ver sus turnos y visitas", "**Asignar turnos**, **Calendario**, **Trabajos**", "Solo lo publicado, y solo aquello en lo que usted está."],
+              ["Ver sus turnos y visitas", "**Mis turnos**, **Calendario**, **Trabajos**", "Solo lo publicado, y solo aquello en lo que usted está."],
               ["Agregar fotos a un trabajo", "La página del trabajo, **Fotos del trabajo**", "Desde la cámara o el carrete; o envíelas por mensaje de texto sin abrir nada."],
               ["Hablar con la oficina", "**Chat**", "Una sala por trabajo, #general para todos, mensajes directos."],
               ["Pedir tiempo libre", "**Ausencias**", "Los saldos y sus solicitudes en una sola pantalla."],
@@ -83,7 +83,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Hay una aplicación en la App Store?", a: "No. FieldQuo corre en el navegador del teléfono. Puede agregarlo a su pantalla de inicio para que se abra a pantalla completa con su propio ícono, que hoy es lo más cercano a una aplicación." },
-      { q: "¿Funciona en un iPad o una tableta pequeña?", a: "Sí. Por debajo de unos 1,024 píxeles de ancho obtiene el diseño para teléfono con la barra de pestañas; por encima, la barra lateral, exactamente como en una computadora." },
+      { q: "¿Funciona en un iPad o una tableta pequeña?", a: "Sí. Por debajo de unos 1,024 píxeles de ancho obtiene el diseño para teléfono con la barra de pestañas; por encima, el diseño de computadora — la barra lateral para la oficina, y para la cuadrilla un encabezado delgado con un botón de reloj grande y botones grandes para sus pantallas." },
       { q: "¿La oficina ve dónde está mi teléfono?", a: "Solo dónde estaba en el momento en que tocó Registrar entrada, Registrar salida, Voy en camino o Marcar como completada — y solo si lo permitió cuando el teléfono lo preguntó. Nada corre entre un toque y otro." },
     ],
   },
@@ -153,62 +153,84 @@ export const ARTICLES = {
   "the-crew-tab-bar": {
     title: "La barra de pestañas de la cuadrilla",
     summary:
-      "La barra en la parte inferior del diseño para teléfono: qué pestañas contiene, por qué un miembro de la cuadrilla ve tres, y adónde fue todo lo demás.",
-    updated: "2026-09-12",
+      "La barra en la parte inferior del diseño para teléfono: el reloj primero en la barra de todos, qué más recibe cada rol, y el diseño sencillo de la cuadrilla en una computadora.",
+    updated: "2026-10-03",
     intro: [
-      "En un teléfono, la barra en la parte inferior de la pantalla es cómo se mueve. Contiene las cuatro pantallas por las que fluye el trabajo — **Prospectos**, **Cotizaciones**, **Trabajos**, **Facturas** — más **Chat**, y un botón **Más** que abre el menú completo. Las pestañas que no puede usar no se dibujan, así que la barra que ve un miembro de la cuadrilla es más corta que la del propietario.",
+      "En un teléfono, la barra en la parte inferior de la pantalla es cómo se mueve. La barra de todos empieza con **Reloj** — también la del dueño — y el resto depende de lo que hace todo el día: un miembro de la cuadrilla tiene **Hoy** y **Chat**, quien escribe cotizaciones tiene **Cotizaciones** y **Calendario**, quien lleva el horario tiene **Horario** y **Equipo**. **Más**, a la derecha, contiene todo lo demás.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La barra aparece siempre que la pantalla tiene menos de unos 1,024 píxeles de ancho — todos los teléfonos, la mayoría de las tabletas en vertical. La pestaña de la pantalla actual queda resaltada; las otras se muestran en un color apagado. Por encima de ese ancho la barra desaparece y la barra lateral toma su lugar." },
+          { p: "La barra aparece siempre que la pantalla mide menos de unos 1,024 píxeles de ancho — todos los teléfonos, la mayoría de las tabletas en vertical. La pestaña de la pantalla actual se resalta; las demás se ven en un color apagado. Por encima de ese ancho la barra desaparece: la oficina tiene la barra lateral, y un miembro de la cuadrilla tiene el diseño sencillo que se describe abajo." },
           { figure: "harness:mobile-chat", caption: "La sala de chat de un trabajo en un teléfono, con Chat resaltado en la barra de pestañas y Más a la derecha." },
         ],
       },
       {
         id: "the-tabs",
-        heading: "Las pestañas, y cuándo aparece cada una",
+        heading: "Las pestañas, por rol",
         blocks: [
           { table: {
-            head: ["Pestaña", "Abre", "Se muestra cuando"],
+            head: ["Quién", "La barra", "Pasó a Más"],
             rows: [
-              ["**Prospectos**", "El tablero de prospectos", "Su acceso a solicitudes (Requests) es al menos View only"],
-              ["**Cotizaciones**", "La lista de presupuestos", "Su acceso a presupuestos es al menos View only"],
-              ["**Trabajos**", "La lista de trabajos", "Su acceso a trabajos es al menos View only"],
-              ["**Facturas**", "La lista de facturas", "Su acceso a facturas es al menos View only"],
-              ["**Chat**", "El chat de la empresa", "Siempre — mientras la función de chat de cuadrilla esté activada para su empresa"],
-              ["**Más**", "El menú completo, como un cajón", "Siempre"],
+              ["Dueño y administradores", "**Reloj** · **Prospectos** · **Cotizaciones** · **Trabajos** · **Chat** · **Más**", "**Facturas** — normalmente se llega a una factura desde su trabajo, desde el botón **+** o desde la notificación de pago."],
+              ["Cuadrilla (Crew)", "**Reloj** · **Hoy** · **Chat** · **Más**", "Nada — el reloj ya estaba primero."],
+              ["Estimador", "**Reloj** · **Cotizaciones** · **Calendario** · **Chat** · **Más**", "**Prospectos** — un prospecto nuevo llega como una notificación que lo abre, y la visita que reserva cae en el Calendario."],
+              ["Despachador y gerente", "**Reloj** · **Horario** · **Equipo** · **Chat** · **Más**", "**Trabajos** — cada reserva del horario abre su trabajo."],
             ],
           } },
-          { p: "Las mismas reglas ocultan las mismas filas en el menú completo, y las páginas detrás rechazan al mismo nivel, así que la barra es un atajo, no la seguridad." },
+          { p: "Una pestaña que no puede usar no se dibuja: las mismas reglas de acceso ocultan las mismas filas en el menú completo, y las páginas detrás rechazan al mismo nivel, así que la barra es un atajo, no la seguridad. **Equipo** necesita a la vez acceso a Time Tracking de todos y permiso para gestionar personas; **Chat** necesita que el chat de la cuadrilla esté activado para su empresa." },
+        ],
+      },
+      {
+        id: "the-clock-tab",
+        heading: "La pestaña Reloj",
+        blocks: [
+          { p: "**Reloj** abre el reloj de tiempo. Está en todas las barras, dueños y administradores incluidos. Un dueño o administrador que todavía no está en la plantilla ve ahí **Configurarme para fichar** — no cuesta ningún puesto y no lo pone en ninguna nómina: los dueños quedan fuera de la nómina salvo que **Pagarme por nómina** esté activado en Equipo → Tu propia tarifa." },
+          { p: "Si un dueño pone **Time Tracking & Timesheets** en **No access** para alguien (Gestionar equipo → Rol → Custom…), la pestaña Reloj sale de la barra de esa persona y vuelve la pestaña que reemplazaba — un estimador recupera **Prospectos**, un despachador **Trabajos**. El reloj de un dueño o de un administrador no se puede desactivar." },
         ],
       },
       {
         id: "what-a-crew-member-gets",
-        heading: "Qué recibe un miembro de la cuadrilla",
+        heading: "Lo que recibe un miembro de la cuadrilla",
         blocks: [
-          { p: "El nivel Crew está en No access para prospectos, presupuestos y facturas, así que ninguna de las cuatro pestañas de documentos se dibuja. Cuando eso deja la barra solo con el chat, FieldQuo pone en su lugar las cinco del espacio del empleado — **Inicio · Horario · Ganancias · Mensajes · Más** — las mismas cinco que muestra cada pantalla bajo Mi espacio. Vea [[your-home-screen|Tu pantalla de inicio]]." },
           { bullets: [
-            "**Inicio** — su próximo turno o visita, Fichar, Mensaje y Buscar cobertura, las horas de hoy, los reconocimientos.",
-            "**Horario** — sus turnos, visitas y tareas por día. **Ganancias** — sus horas por periodo de pago, y el dinero si su acceso lo permite.",
-            "**Mensajes** — #general, la sala de cada trabajo en el que está, y los mensajes directos. **Más** — solicitudes, el directorio del equipo, notificaciones, configuración, cerrar sesión.",
+            "**Reloj** — fichar entrada y salida, empezar un descanso, cambiar de trabajo; la pestaña **Registro** es donde puede **Pedir una corrección** si una hora está mal.",
+            "**Hoy** — las visitas del día con la dirección y cómo llegar, las fotos y la lista de verificación del trabajo, y luego el resto de la semana.",
+            "**Chat** — #general, la sala de cada trabajo en el que está, y los mensajes directos.",
+            "**Más** — una página, no un menú: sus solicitudes, sus vacaciones, su disponibilidad, los suministros, el equipo, sus ganancias, sus trabajos, y luego **Todo lo demás** — cada otra pantalla que su acceso permite, una fila grande cada una.",
           ] },
+          { p: "No hay botón de menú para la cuadrilla. El menú plegable de la oficina no se dibuja para ellos, ni en el teléfono ni en la computadora: todo lo que contenía para ellos está en la página Más." },
+        ],
+      },
+      {
+        id: "crew-on-a-computer",
+        heading: "La cuadrilla en una computadora o una tableta en horizontal",
+        blocks: [
+          { p: "Por encima de unos 1,024 píxeles, un miembro de la cuadrilla no tiene barra lateral. En su lugar, arriba de cada página:" },
+          { bullets: [
+            "**Un encabezado delgado** — el logo y el nombre de su empresa, su nombre, la campana de notificaciones y **Cerrar sesión**.",
+            "**Un botón de reloj grande** justo debajo. Dice **Fichar entrada** cuando no ha fichado (verde), **Fichar salida** con la hora en que empezó cuando sí (rojo), y **Terminar descanso** durante un descanso. Abre el reloj, donde toca una vez más para fichar — igual que la tarjeta del reloj en Hoy.",
+            "**Botones grandes** para **Hoy**, **Mi horario**, **Chat**, **Trabajos** y **Más**. El de la pantalla en la que está se ve relleno en oscuro.",
+          ] },
+          { note: "Las letras y los botones más grandes son a propósito: una pantalla de la cuadrilla se lee en una camioneta, con guantes, por gente que no quiere un menú. Nada se esconde detrás de un pase del ratón o un pliegue." },
         ],
       },
       {
         id: "the-more-drawer",
-        heading: "El cajón Más",
+        heading: "Más, para los demás roles",
         blocks: [
-          { p: "**Más** no abre un segundo menú. Abre el mismo cajón que abre el botón de menú de arriba — el menú completo, agrupado exactamente como en una computadora — para que haya una sola lista de pantallas, no dos que puedan contradecirse. **Inicio** no es una pestaña: el logotipo de FieldQuo en la barra superior ya lo lleva ahí." },
-          { tip: "Si la barra no muestra nada más que Más, cada una de sus categorías de documentos está en No access. Es una cuadrícula válida, no una falla — todo lo que puede usar está en el cajón." },
+          { p: "Para los roles de oficina, **Más** abre un panel sobre la barra: primero la búsqueda, luego cada pantalla que no es ya una de sus pestañas, luego las filas de su cuenta. Una pantalla está en un solo lugar, nunca en dos — cuando **Facturas** salió de la barra del dueño, apareció en el panel. **Inicio** no es una pestaña: el logo de FieldQuo en la barra superior lo lleva ahí." },
+          { tip: "Si su barra solo muestra Reloj, Chat y Más, cada documento de su rol está en No access. Es una cuadrícula válida, no un fallo — todo lo que puede usar está en Más." },
         ],
       },
     ],
     faq: [
-      { q: "¿Puedo elegir qué pestañas van en la barra?", a: "No. Las cinco son fijas — las cuatro pantallas de documentos y el chat, o las cinco del espacio del empleado cuando todas las pestañas de documentos quedan ocultas o está en una pantalla de Mi espacio — y su nivel de acceso decide qué juego recibe." },
-      { q: "¿Por qué no hay una pestaña de Reloj de tiempo?", a: "La barra está reservada para las pantallas por las que se mueve el trabajo y para el chat. El reloj de tiempo está a un toque bajo Más, y es igual para todos sin importar el nivel." },
+      { q: "¿Puedo elegir qué pestañas van en la barra?", a: "No. La barra de cada rol es fija, y su nivel de acceso decide cuál recibe. En Más, todo lo demás está a un toque." },
+      { q: "Soy el dueño y nunca ficho. ¿Por qué hay una pestaña Reloj?", a: "Porque algunos dueños trabajan en obra, y el reloj tiene que estar a un toque para ellos como para todos. No cambia nada hasta que lo usa: no lo pone en la nómina." },
+      { q: "¿Dónde quedaron las Facturas?", a: "En Más, en el mismo panel que todas las demás pantallas. También se llega a una factura desde la página de su trabajo, desde el botón + y desde la notificación cuando se paga." },
+      { q: "Un miembro de la cuadrilla quiere la barra lateral de antes.", a: "No hay un interruptor para eso. Todo lo que la barra lateral le mostraba está en su página Más, en Todo lo demás." },
     ],
   },
 
@@ -216,7 +238,7 @@ export const ARTICLES = {
     title: "Qué ve un miembro de la cuadrilla",
     summary:
       "El nivel de acceso Crew desde adentro: qué filas del menú aparecen, qué muestra y qué oculta la página de un trabajo, y por qué los precios no están en ninguna parte.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** es el nivel de acceso de la gente en la camioneta — instaladores, ayudantes, un segundo pintor. No le cuesta nada a la empresa y es deliberadamente estrecho: su propio horario, los trabajos en los que está reservado, el reloj, las ausencias, la seguridad, sus propios recibos de nómina. Ningún precio en ninguna parte, sin presupuestos, sin facturas, sin prospectos y sin lista de clientes.",
       "Este artículo es cómo se ve eso en el teléfono. Está escrito a partir de la propia cuadrícula de permisos del producto, así que dice lo que el menú realmente hace; si su propietario le dio una cuadrícula personalizada, algunas filas pueden diferir.",
@@ -242,7 +264,7 @@ export const ARTICLES = {
               ["**Calendario**", "Citas asignadas a usted, citas sin asignar, y visitas en sus trabajos."],
               ["**Tareas**", "Tareas asignadas a usted, tareas que creó, y las sin asignar que cualquiera puede tomar."],
               ["**Chat**", "#general, una sala por trabajo en el que está, mensajes directos."],
-              ["**Asignar turnos**", "Sus propios turnos publicados — el título es el del gerente; usted ve su semana, solo lectura."],
+              ["**Mis turnos**", "Sus propios turnos publicados, solo lectura. (Los gerentes ven la misma pantalla como **Asignar turnos**.)"],
               ["**Reloj de tiempo**", "Su marcación, su trabajo, sus horas de hoy."],
               ["**Ausencias**", "Sus saldos y solicitudes."],
               ["**Seguridad**", "Reportar un incidente; ver los que usted presentó."],
@@ -260,7 +282,9 @@ export const ARTICLES = {
             "El **nombre y la dirección** del cliente, y la dirección del sitio. El número de teléfono y el correo los retiene su nivel — la página del trabajo lo dice junto al botón Voy en camino, y el cliente igual recibe el mensaje de texto.",
             "**Visitas**: fecha y hora, quién está asignado, la lista de verificación con sus puntos de control, y — en las visitas asignadas a usted — **Voy en camino**, **Marcar como completada** y **Cancelar visita**.",
             "**Materiales por comprar**, como una lista con cantidades y sin precios.",
-            "**Fotos del trabajo** con un botón para subir, y el **Parte diario** que puede escribir y guardar — vea [[photos-from-the-field|Fotos desde el campo]].",
+            "La **orden de trabajo** (desde la página del trabajo, o el enlace en **Mi horario**): cada área con qué hacer y cuánto — «Cabinet Refinishing × 32», el número de puertas y cajones — el color, el brillo y las capas vendidas, qué incluye, las opciones que eligió el cliente (un acabado de dos tonos, por ejemplo), la lista de materiales, la lista de verificación y las notas de las visitas, más la estimación de horas cuando la cotización la tiene. Nunca un precio, un total, un depósito ni un costo.",
+            "**Fotos del trabajo** con un botón para subir, y el **Parte diario** que puede escribir y guardar — vea [[photos-from-the-field|Fotos desde el campo]]. Usted agrega fotos y las comenta; poner una foto en el sitio web de la empresa, cambiar su etapa y administrar las etiquetas de fotos son cosa de la oficina, así que esos controles no están en su copia.",
+            "No está en su copia: la tarjeta de la **guía de preparación del cliente** — cuándo se envía al cliente y a qué correo es asunto de la oficina.",
             "Las notas de la visita misma. Las notas privadas sobre el cliente y el registro de llamadas del prospecto no se muestran.",
           ] },
         ],
@@ -375,8 +399,8 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Su horario en su teléfono",
     summary:
-      "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Asignar turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
-    updated: "2026-09-13",
+      "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Mis turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
+    updated: "2026-10-04",
     intro: [
       "Su día está en tres lugares a propósito, porque son tres cosas distintas: un **turno** son las horas que su gerente publicó para usted, una **visita** es un bloque de trabajo reservado en un trabajo, y una **tarea** es un pendiente con su nombre. Los tres muestran solo lo suyo, y ninguno muestra un borrador que la oficina no haya publicado.",
     ],
@@ -386,6 +410,7 @@ export const ARTICLES = {
         heading: 'Mi horario',
         blocks: [
           { p: "**Mi horario** en el menú (y la pestaña Horario de la barra inferior del teléfono) son tus próximas dos semanas, una tarjeta por día, hecha para el pulgar: **Mañana, martes 15 sep**, luego las horas en grande — **8:00 – 16:00** — el cliente y la dirección del sitio, quién más está en ese trabajo ese día como iniciales, tu comida y descansos, y la nota del responsable citada. En la tarjeta de hoy un botón verde **Fichar** abre el reloj. Un turno puesto fuera de las horas en que dijiste estar disponible lo indica, con quién lo hizo." },
+          { p: "Tus **visitas de trabajo** están en las mismas tarjetas, en orden con tus turnos y marcadas **Visita**: la hora, el cliente y el trabajo, la dirección del sitio y la nota de la visita — las mismas visitas que muestra **Mi día**. Una visita, y un turno que la oficina puso en un trabajo, llevan los botones **Abrir trabajo** y **Orden de trabajo**; ambos se abren para ti, porque estar asignado al trabajo es lo que te lo abre." },
           { p: "**Añadir al calendario** descarga tus turnos publicados como un archivo .ics que el calendario del teléfono abre; descárgalo de nuevo la semana siguiente y los eventos se actualizan en lugar de duplicarse. **Pedir tiempo libre** lleva a la pantalla de Ausencias. Solo aparecen turnos publicados — un borrador que tu responsable no ha confirmado nunca llega a tu teléfono." },
           { note: "Cuando un responsable publica, mueve, cambia de trabajo o cancela uno de tus turnos recibes una notificación en la campana y, si las activaste, un push: **Tu horario está publicado: lun 14 sep, 8:00 – 16:00 en Sophie Dubois, 12 rue Principale, y 4 más**. Tocarlo abre esta pantalla." },
         ],
@@ -404,7 +429,7 @@ export const ARTICLES = {
           { table: {
             head: ["Fila", "Qué muestra", "Qué puede hacer"],
             rows: [
-              ["**Asignar turnos**", "Sus turnos publicados, una semana a la vez, de domingo a sábado, con hoy enmarcado", "Leerlos. La línea al pie dice: Estos son los turnos que publicó tu gerente. Vuelve para ver cambios."],
+              ["**Mis turnos**", "Sus turnos publicados, una semana a la vez, de domingo a sábado, con hoy enmarcado", "Leerlos. La línea al pie dice: Estos son los turnos que publicó tu gerente. Vuelve para ver cambios."],
               ["**Calendario**", "Citas asignadas a usted, citas sin asignar, y visitas en sus trabajos", "Abrir el trabajo; en su propia visita, Voy en camino y Marcar como completada."],
               ["**Trabajos**", "Los trabajos en los que tiene una visita, con la fecha y hora de cada visita", "Marcar la lista de verificación, agregar fotos, escribir el parte diario."],
               ["**Tareas**", "Tareas asignadas a usted, las que creó, y las sin asignar", "Tomar una tarea sin asignar; completar las suyas."],
@@ -418,7 +443,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Un gerente prepara la semana en la pantalla Programación y presiona **Publicar semana**; hasta entonces, un turno es un **Borrador** que la cuadrilla no puede ver. Una vez publicado, su turno muestra su inicio y su fin, el trabajo, y cualquier nota que el gerente haya escrito — dónde estar, qué llevar. Si un turno se colocó fuera de las horas en que dijo estar disponible, el turno mismo dice **Fuera de la disponibilidad declarada**, con quién lo hizo y por qué, para que se entere aquí y no esa mañana." },
           { figure: "harness:scheduler", caption: "La programación como la ve un gerente — la semana como tarjetas por día, Agregar turno y Publicar semana. Un miembro de la cuadrilla ve las mismas tarjetas con solo sus propios turnos publicados, y sin botones." },
-          { note: "La fila de la pantalla se titula **Asignar turnos** para todos porque el título es el del gerente. Usted no asigna nada; lee lo que se le asignó." },
+          { note: "La fila se llama **Asignar turnos** solo para quienes pueden cambiar el horario de todos. Para usted se llama **Mis turnos** — usted no asigna nada, lee lo que se le asignó. Un supervisor que ve la semana del equipo sin poder cambiarla ve **Turnos del equipo**." },
         ],
       },
       {
@@ -694,7 +719,7 @@ export const ARTICLES = {
     title: "Pedir tiempo libre desde su teléfono",
     summary:
       "Solicite un día libre, vea cuánto le queda, retire una solicitud, y sepa de quién está esperando.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Ausencias** es una sola pantalla con dos funciones: lo que le queda, y sus solicitudes. Una solicitud va a la persona a quien usted reporta; algunos tipos se aprueban automáticamente en el momento en que la envía; y hasta que se toma, puede retirarla usted mismo.",
     ],
@@ -704,6 +729,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Arriba, una tarjeta por tipo de ausencia que su empresa configuró — vacaciones, días por enfermedad, día personal, como lo haya llamado el propietario — con **Acumulado**, **Tomado**, lo que está pendiente de aprobación, y los días **Restante**. Debajo, **Tus solicitudes** con el botón **Solicitar tiempo libre**, cada solicitud con su etiqueta de estado y, mientras está pendiente, una línea que dice de quién está esperando. Si todavía no existen políticas de ausencias, la pantalla lo dice y nombra la página de configuración que un propietario usa para agregarlas." },
+          { note: "Si su empresa todavía no configuró ningún tipo de ausencia, la pantalla lo dice — y aun así puede pedir tiempo libre **sin goce de sueldo**: las fechas y un motivo. Va a quien aprueba las ausencias, como cualquier solicitud, y no usa ningún saldo. Los tipos pagados aparecen en cuanto el propietario los configura en Ajustes → Políticas de tiempo libre." },
           { figure: "harness:mobile-time-off", caption: "Ausencias en un teléfono — las tarjetas de saldo Vacaciones y Día personal, Solicitar tiempo libre, y una solicitud pendiente con su botón Withdraw." },
         ],
       },
@@ -999,8 +1025,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vista general",
         blocks: [
-          { p: "Abre **Mi espacio** en la barra lateral bajo Personas, o toca **Inicio** en la barra inferior. Las cinco pestañas son **Inicio · Horario · Ganancias · Mensajes · Más**. Si gestionas el horario — tu acceso a Horario es *Editar el horario de todos* o superior — las dos del medio pasan a ser **Horario** (el tablero) y **Equipo**, y el inicio muestra la cobertura de hoy en lugar de tu propio día." },
-          { figure: "harness:my-home", caption: "Mi espacio en un teléfono — la tarjeta del próximo turno con Buscar cobertura e Intercambiar, las tres acciones rápidas, las horas de hoy y el muro de reconocimientos, con la barra Inicio · Horario · Ganancias · Mensajes · Más." },
+          { p: "Abre **Mi espacio** en **Más** (en una computadora, el Más de la barra lateral; en un teléfono, el panel Más). En un teléfono sus pantallas tienen sus propias cinco pestañas: **Inicio · Reloj · Horario · Mensajes · Más**. Si gestionas el horario — tu acceso a Horario es *Editar el horario de todos* o superior — son **Inicio · Horario · Equipo · Mensajes · Más**, y el inicio muestra la cobertura de hoy en lugar de tu propio día. La cuadrilla conserva su propia barra — **Reloj · Hoy · Chat · Más** — y llega a Mi espacio desde su página Más." },
+          { figure: "harness:my-home", caption: "Mi espacio en un teléfono — la tarjeta del próximo turno con Buscar cobertura e Intercambiar, las tres acciones rápidas, las horas de hoy y el muro de reconocimientos, con la barra de pestañas abajo." },
         ],
       },
       {

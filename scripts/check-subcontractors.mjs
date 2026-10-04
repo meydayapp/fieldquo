@@ -81,6 +81,12 @@ import {
   requireSubcontractorMoney,
 } from "@/lib/subcontractors/access";
 import { actualJobCost } from "@/lib/costing/actualJobCost";
+import {
+  PROFILE_COMPANY_SELECT,
+  documentProfileOf,
+  profileFillPatch,
+  fieldSources,
+} from "@/lib/subcontractors/profileFill";
 import { NAV_REQUIREMENTS, navRowAllowed } from "@/lib/permissions/nav";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE, can } from "@/lib/permissions";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments/methodLabels";
@@ -99,6 +105,7 @@ const ok = (label, cond, detail) =>
     ? (pass++, console.log(`  ✓ ${label}`))
     : fails.push(`${label}${detail !== undefined ? ` — got ${JSON.stringify(detail)}` : ""}`);
 const section = (title) => console.log(`\n${title}\n`);
+const eq2 = (label, got, want) => ok(label, JSON.stringify(got) === JSON.stringify(want), got);
 
 const NOW = new Date("2026-09-10T12:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
@@ -609,7 +616,9 @@ section("11. Imported quote → the GC's job: the owner's worked example (2026-0
 
   const { db, T, writes } = makeDb();
   T.company.push(
-    { id: "SUB", name: "Sparky Electric", email: "office@sparky.test", phone: "555-0199" },
+    // What Sparky prints on its own quotes — and two things it does not:
+    // its Stripe account and a billing note, which must never cross.
+    { id: "SUB", name: "Sparky Electric", email: "office@sparky.test", phone: "555-0199", address: "12 Volt Rd", city: "Ottawa", province: "ON", postalCode: "K1A 0B1", stripeAccountId: "acct_PRIVATE", billingEmail: "owner-private@sparky.test" },
     { id: "GC", name: "Build Right" },
     { id: "OTHER", name: "Unrelated Co" },
   );
@@ -635,6 +644,9 @@ section("11. Imported quote → the GC's job: the owner's worked example (2026-0
   const sub = T.subcontractor[0];
   ok("…as a new roster entry in the GC's company, linked to the sender", sub?.companyId === "GC" && sub?.linkedCompanyId === "SUB");
   ok("…carrying only what the sub's quote shows: name, email, phone", sub?.name === "Sparky Electric" && sub?.email === "office@sparky.test" && sub?.phone === "555-0199");
+  ok("…and the business address their documents print, as one line (owner, 2026-10-03)", sub?.address === "12 Volt Rd, Ottawa, ON, K1A 0B1", sub?.address);
+  ok("…recorded as filled from their profile, field by field", JSON.stringify(sub?.profileFilled) === JSON.stringify({ email: "office@sparky.test", phone: "555-0199", address: "12 Volt Rd, Ottawa, ON, K1A 0B1" }), sub?.profileFilled);
+  ok("…and nothing private crosses: no Stripe account, no billing email", !JSON.stringify(sub).includes("acct_PRIVATE") && !JSON.stringify(sub).includes("owner-private"), sub);
   ok("…and nothing invented: no contact name, no trade from the neutral default label", sub?.contactName == null && sub?.trade === null, sub);
   const js = T.jobSubcontractor[0];
   ok("the job row is `agreed` at $3,000 and ADOPTS the import", js.status === "agreed" && Number(js.agreedAmount) === 3000 && js.quoteImportId === T.quoteImport[0].id && js.companyId === "GC");
@@ -731,6 +743,79 @@ section("11. Imported quote → the GC's job: the owner's worked example (2026-0
   ok("sending an invoice syncs the GC's bill", /syncForSourceInvoice\(db, \{ invoiceId: invoice\.id \}\)/.test(codeOf("app/api/invoices/[id]/send/route.js")));
   ok("the job panel shows the bills and the verdict", /subcontractBillState/.test(codeOf("app/api/jobs/[id]/subcontractors/route.js")) && /billDiffers/.test(codeOf("app/components/jobs/JobSubcontractors.js")));
   ok("the money strip takes the bills off too", (() => { const r = stripJobSubcontractorMoney({ id: "x", agreedAmount: 1, bills: [{ total: 1 }], billing: { billed: 1 } }); return !("bills" in r) && !("billing" in r); })());
+
+  // ── Already on the GC's roster: blanks filled, typed values kept ────────
+  // (owner, 2026-10-03: "Never overwrite a value the GC already typed; fill
+  // blanks only, and say on the roster where each came from.")
+  {
+    const { db: db2, T: T2 } = makeDb();
+    T2.company.push(
+      { id: "SUB", name: "Sparky Electric", email: "office@sparky.test", phone: "555-0199", address: "12 Volt Rd", city: "Ottawa", province: "ON", postalCode: "K1A 0B1" },
+      { id: "GC", name: "Build Right" },
+    );
+    T2.quote.push({ id: "SQ", companyId: "SUB", status: "sent", total: 3000, acceptedTotal: null, quoteNumber: "Q-S-1" });
+    T2.quote.push({ id: "GQ", companyId: "GC", status: "draft", total: 0, discount: 0, taxEnabled: false, quoteNumber: "Q-G-1" });
+    // The GC listed Sparky by hand months ago: their own email for the
+    // estimator they deal with, their own contact, no phone, no address.
+    T2.subcontractor.push({ id: "mine", companyId: "GC", name: "Sparky (Dave)", contactName: "Dave", email: "dave@sparky.test", phone: "  ", address: null, linkedCompanyId: "SUB", createdAt: new Date(2026, 0, 1) });
+    const load2 = (qid) => ({ ...T2.quote.find((q) => q.id === qid), scopeGroups: T2.quoteScopeGroup.filter((g) => g.quoteId === qid) });
+    await performImport({ db: db2, member: { companyId: "GC", userId: "u" }, sourceQuote: load2("SQ"), targetQuote: load2("GQ"), targetCompany: { taxRate: 0 }, markupPercent: 0, display: "blended" });
+    T2.quote.find((q) => q.id === "GQ").status = "accepted";
+    T2.job.push({ id: "GJ", companyId: "GC", quoteId: "GQ" });
+    await materializeImportedCosts(db2, { quoteId: "GQ", jobId: "GJ", companyId: "GC" });
+    await adoptImportsOnJob(db2, { quoteId: "GQ", jobId: "GJ", companyId: "GC" });
+    const mine = T2.subcontractor.find((s) => s.id === "mine");
+    ok("an existing linked entry is used, not a second one made", T2.subcontractor.length === 1 && T2.jobSubcontractor[0]?.subcontractorId === "mine");
+    ok("…the GC's typed email, name and contact stay exactly as typed", mine.email === "dave@sparky.test" && mine.name === "Sparky (Dave)" && mine.contactName === "Dave", mine);
+    ok("…the blank phone (whitespace) and the missing address are filled from the profile", mine.phone === "555-0199" && mine.address === "12 Volt Rd, Ottawa, ON, K1A 0B1", mine);
+    ok("…and only those two are recorded as from the profile", JSON.stringify(mine.profileFilled) === JSON.stringify({ phone: "555-0199", address: "12 Volt Rd, Ottawa, ON, K1A 0B1" }), mine.profileFilled);
+    const s = fieldSources(mine);
+    ok("the roster reads: email typed, phone and address from their profile, contact typed", s.email === "typed" && s.phone === "profile" && s.address === "profile" && s.contactName === "typed", s);
+    // The sub changes its phone afterwards; a later adoption must not
+    // overwrite what is now on the roster — it is no longer blank.
+    T2.company[0].phone = "555-9999";
+    await adoptImportsOnJob(db2, { quoteId: "GQ", jobId: "GJ2", companyId: "GC" });
+    ok("a second adoption overwrites nothing (no longer blank)", mine.phone === "555-0199");
+    // The GC edits the filled phone: it becomes theirs.
+    mine.phone = "555-1234";
+    ok("an edited filled value reads as typed — derived, nothing to keep in step", fieldSources(mine).phone === "typed" && fieldSources(mine).address === "profile");
+  }
+
+  // ── The pure fill, against hostile input ────────────────────────────────
+  {
+    eq2("documentProfileOf: only what a document prints", documentProfileOf({ name: " Sparky ", email: "Office@Sparky.TEST", phone: "555", address: "1 A St", city: "Ottawa", stripeAccountId: "acct_x", ownerName: "Pat" }), { name: "Sparky", email: "office@sparky.test", phone: "555", address: "1 A St, Ottawa" });
+    eq2("…a malformed email is not copied", documentProfileOf({ name: "X", email: "not-an-email" }), { name: "X" });
+    eq2("…blank and junk are absent, never ''", documentProfileOf({ name: "  ", email: "", phone: "\u0000\t", address: null }), {});
+    eq2("…null / a string → {}", [documentProfileOf(null), documentProfileOf("x")], [{}, {}]);
+    ok("…control characters are stripped and lengths capped", (() => { const p = documentProfileOf({ name: "A\u0007B", phone: "1".repeat(99), address: "x".repeat(999) }); return p.name === "A B" && p.phone.length === 40 && p.address.length === 300; })());
+    ok("…the city is never printed twice (Google's formatted line already has it)", documentProfileOf({ name: "X", address: "5 Main St, Toronto, ON M5H 3M9, Canada", city: "Toronto", province: "ON" }).address === "5 Main St, Toronto, ON M5H 3M9, Canada");
+    eq2("profileFillPatch: a new entry gets every printed field", profileFillPatch(null, { email: "a@b.co", phone: "1", address: "x" }).filled, ["email", "phone", "address"]);
+    eq2("profileFillPatch: nothing blank → no write at all", profileFillPatch({ email: "mine@b.co", phone: "2", address: "y" }, { email: "a@b.co", phone: "1", address: "x" }), { data: {}, filled: [] });
+    eq2("profileFillPatch: an empty profile fills nothing", profileFillPatch({}, {}), { data: {}, filled: [] });
+    eq2("profileFillPatch: the earlier record is kept when another blank is filled later", profileFillPatch({ email: "a@b.co", phone: null, profileFilled: { email: "a@b.co" } }, { phone: "1" }).data, { phone: "1", profileFilled: { email: "a@b.co", phone: "1" } });
+    ok("profileFillPatch: a junk profileFilled (array) is not trusted", JSON.stringify(profileFillPatch({ phone: null, profileFilled: ["x"] }, { phone: "1" }).data.profileFilled) === JSON.stringify({ phone: "1" }));
+    ok("profileFillPatch never writes contactName or name", (() => { const p = profileFillPatch({}, { name: "N", contactName: "C", email: "a@b.co" }).data; return !("contactName" in p) && !("name" in p); })());
+    eq2("fieldSources: junk → all null", fieldSources(null), { email: null, phone: null, address: null, contactName: null });
+    ok("fieldSources: a contactName is never 'profile', even if a record claims it", fieldSources({ contactName: "Pat", profileFilled: { contactName: "Pat" } }).contactName === "typed");
+    eq2("the Company columns read are the document identity, nothing else", Object.keys(PROFILE_COMPANY_SELECT).sort(), ["address", "city", "email", "name", "phone", "postalCode", "province"]);
+
+    const parsedAddr = parseSubcontractorBody({ address: "  " + "y".repeat(400) + "  " }, { creating: false });
+    ok("the roster form takes an address, trimmed and capped at 300", parsedAddr.data?.address?.length === 300, parsedAddr);
+  }
+
+  // ── Wired: both roads to the roster fill the same way; the screen says it ──
+  {
+    const panel = codeOf("app/api/jobs/[id]/subcontractors/route.js");
+    ok("the job panel's 'from an import' reads the profile through the import", /sourceCompany: \{ select: PROFILE_COMPANY_SELECT \}/.test(panel));
+    ok("…creates with the profile fill", /\.\.\.profileFillPatch\(null, profile\)\.data/.test(panel));
+    ok("…and fills an existing entry's blanks only", /profileFillPatch\(matched, profile\)/.test(panel));
+    const link = codeOf("lib/subcontractors/sourceLink.js");
+    ok("acceptance reads the same select and the same fill", /sourceCompany: \{ select: PROFILE_COMPANY_SELECT \}/.test(link) && /profileFillPatch\(null, profile\)/.test(link) && /profileFillPatch\(sub, profile\)/.test(link));
+    const detail = codeOf("app/api/subcontractors/[id]/route.js");
+    ok("the detail route sends the verdict (sources), not the raw record", /sources: fieldSources\(sub\)/.test(detail) && /const \{ profileFilled: _filled, \.\.\.subOut \} = sub;/.test(detail));
+    ok("the roster screen names what came from the profile", /app\.subcontractors\.filledFromProfile/.test(read("app/app/subcontractors/[id]/SubcontractorDetail.js")) && /app\.subcontractors\.fromProfile/.test(read("app/components/subcontractors/SubcontractorForm.js")));
+    ok("the form reads and writes the address", /address: sub\?\.address \|\| ""/.test(read("app/components/subcontractors/SubcontractorForm.js")) && /field\("address"/.test(read("app/components/subcontractors/SubcontractorForm.js")));
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

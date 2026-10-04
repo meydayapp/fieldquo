@@ -296,7 +296,7 @@ export const ARTICLES = {
         heading: "Une journée sur un accès Crew",
         blocks: [
           { steps: [
-            "Ouvrez FieldQuo sur votre téléphone. La barre d'onglets montre **Chantiers**, **Clavardage** et **Plus** ; les onglets de pipeline que le bureau utilise n'y sont pas pour vous.",
+            "Ouvrez FieldQuo sur votre téléphone. La barre d'onglets montre **Pointage**, **Aujourd'hui**, **Clavardage** et **Plus** ; les onglets de pipeline que le bureau utilise n'y sont pas pour vous. Sur un ordinateur, vous avez la même chose en grands boutons sous un grand bouton de pointage.",
             "Ouvrez **Chantiers**, touchez le chantier du jour, et lisez les notes de visite et la liste de vérification.",
             "Ouvrez **Pointeuse** et appuyez sur **Pointer l'entrée**. La pastille indique **En service** et le chronomètre tourne sur ce chantier.",
             "Les photos : prenez-les depuis la page du chantier, ou textez-les au numéro de l'équipe et elles se classent toutes seules — voir [[text-a-photo-to-the-crew-inbox|Texter une photo sans application]].",
@@ -384,6 +384,7 @@ export const ARTICLES = {
         blocks: [
           { p: "FieldQuo IA est inclus dans chaque forfait ; il n'y a rien à acheter. Chaque entreprise a un quota mensuel partagé par tout ce que l'IA fait pour vous — cet assistant, la révision de soumission, les textes du constructeur de site, les brouillons de l'employé IA. À 80 %, l'écran affiche un avertissement : « Vous avez utilisé {pct} % de votre quota FieldQuo AI de ce mois-ci. »" },
           { p: "Quand il est épuisé, la boîte de question est désactivée et l'écran indique **Le quota FieldQuo AI de ce mois-ci est épuisé.** Il est remis à zéro au début du mois prochain, et tout le reste de FieldQuo continue de fonctionner normalement. Acheter du crédit IA dans **Paramètres → Crédit IA** ne l'augmente pas — ce crédit sert aux minutes téléphoniques et aux images IA ; écrivez-nous s'il vous faut un quota plus élevé." },
+          { p: "Le quota dépend de votre forfait. Un forfait peut le donner **en dollars** — ce que coûte réellement l'IA derrière ces fonctions, si bien qu'une réponse longue et détaillée en consomme plus qu'une courte — et **Paramètres → Compte et facturation** affiche alors **FieldQuo AI ce mois-ci** avec une ligne comme « 1,20 $ US sur 5,00 $ US d'IA utilisés ce mois-ci », en dollars américains quelle que soit la devise de votre forfait. Un forfait encore compté à l'ancienne montre ce qui a été utilisé en dollars et la part du quota consommée. L'assistant est compté sur sa propre ligne, avec un plafond de la même taille. L'employé IA n'est compté dans aucune des deux : il est payé à même votre crédit IA." },
         ],
       },
       {

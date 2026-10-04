@@ -296,7 +296,7 @@ export const ARTICLES = {
         heading: "Un día con un acceso Crew",
         blocks: [
           { steps: [
-            "Abra FieldQuo en su teléfono. La barra de pestañas muestra **Trabajos**, **Chat** y **Más**; las pestañas del proceso que usa la oficina no están ahí para usted.",
+            "Abra FieldQuo en su teléfono. La barra de pestañas muestra **Reloj**, **Hoy**, **Chat** y **Más**; las pestañas del proceso que usa la oficina no están ahí para usted. En una computadora tiene lo mismo en botones grandes, bajo un botón de reloj grande.",
             "Abra **Trabajos**, toque el trabajo de hoy y lea las notas de la visita y la lista de verificación.",
             "Abra **Reloj de tiempo** y presione **Registrar entrada**. La etiqueta dice **En turno** y el cronómetro corre contra ese trabajo.",
             "Fotos: tómelas desde la página del trabajo, o envíelas por mensaje de texto al número de la cuadrilla y se archivan solas — vea [[text-a-photo-to-the-crew-inbox|Enviar una foto por texto sin aplicación]].",
@@ -384,6 +384,7 @@ export const ARTICLES = {
         blocks: [
           { p: "FieldQuo IA viene incluido en cada plan; no hay nada que comprar. Cada empresa tiene una cuota mensual compartida por todo lo que la IA hace por usted — este asistente, la revisión de presupuestos, los textos del constructor de sitios, los borradores del empleado de IA. Al 80 %, la pantalla muestra una advertencia: «Has usado el {pct} % de la cuota de FieldQuo AI de este mes.»" },
           { p: "Cuando se agota, el cuadro de pregunta se desactiva y la pantalla dice **La cuota de FieldQuo AI de este mes se ha agotado.** Se reinicia a principios del mes que viene, y todo lo demás en FieldQuo sigue funcionando con normalidad. Comprar crédito de IA en **Configuración → Crédito de IA** no la aumenta — ese crédito es para minutos de teléfono e imágenes de IA; escríbanos si necesita una cuota mayor." },
+          { p: "La cuota la fija su plan. Un plan puede darla **en dólares** — lo que realmente cuesta la IA detrás de estas funciones, de modo que una respuesta larga y detallada consume más que una corta — y entonces **Configuración → Cuenta y facturación** muestra **FieldQuo AI este mes** con una línea como «US$1.20 de US$5.00 de IA usados este mes», en dólares estadounidenses sea cual sea la moneda de su plan. Un plan que aún se cuenta a la manera anterior muestra lo usado en dólares y la parte de la cuota consumida. El asistente se cuenta en su propia línea, con un tope del mismo tamaño. El empleado de IA no se cuenta en ninguna: se paga con su crédito de IA." },
         ],
       },
       {

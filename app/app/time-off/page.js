@@ -41,6 +41,12 @@ import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 // screen live beside this file; both read the limits the route now sends.
 import RequestForm from "./RequestForm";
 import TeamTimeOff from "./TeamTimeOff";
+import {
+  AccrualBasis,
+  BalanceFigures,
+  OpeningSummary,
+  OverrideList,
+} from "@/app/components/leave/AccrualPanels";
 const STATUS_STYLE = {
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
   approved: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
@@ -264,7 +270,14 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
     );
   }
 
-  if (!data.policies?.length) {
+  // No policies set up. Until 2026-10-04 this was the whole page — a note,
+  // and no way to ask for a day off at all. Now the note stays (the owner
+  // still has no policies of their own) and unpaid time off can still be
+  // requested: lib/leave/unpaidFallback.js. An old API answer without the
+  // fallback keeps the old note-only page rather than a form that would fail.
+  const noPolicies = !data.policies?.length;
+  const unpaidFallback = noPolicies ? data.unpaidFallback || null : null;
+  if (noPolicies && !unpaidFallback) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground flex items-start gap-2">
         <Info size={16} className="mt-0.5 shrink-0" />
@@ -275,15 +288,50 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {data.balances?.length ? (
-          data.balances.map((b) => <BalanceCard key={b.id} balance={b} />)
-        ) : (
-          <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-            {t("app.timeOff.noBalance")}
+      {noPolicies ? (
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground flex items-start gap-2" data-unpaid-fallback>
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <p>{t("app.timeOff.noPolicies")}</p>
+            <p className="mt-1 text-foreground">{t("app.timeOff.unpaidStillAsk", "You can still ask for unpaid time off — your request goes to whoever approves time off.")}</p>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {data.balances?.length ? (
+            data.balances.map((b) => <BalanceCard key={b.id} balance={b} />)
+          ) : (
+            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+              {t("app.timeOff.noBalance")}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* What the balances were built from besides this year's clocked
+          hours — the opening balance a manager entered, and any rate of
+          their own. Shown to the person it is about, with who entered it
+          and when; nothing here is editable from their side. */}
+      {(data.openings?.length > 0 || data.accrualOverrides?.length > 0) && (
+        <section className="rounded-xl border border-border bg-card p-4 space-y-3">
+          {data.openings?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">{t("app.leaveAccrual.openingTitle")}</h3>
+              <OpeningSummary
+                rows={data.openings}
+                policies={data.policies}
+                year={new Date().getUTCFullYear()}
+              />
+            </div>
+          )}
+          {data.accrualOverrides?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">{t("app.leaveAccrual.overrideTitle")}</h3>
+              <OverrideList rows={data.accrualOverrides} policies={data.policies} />
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="flex justify-between items-center">
         <h2 className="font-semibold text-foreground">{t("app.timeOff.yourRequests")}</h2>
@@ -296,7 +344,8 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
 
       {open && (
         <RequestForm
-          policies={data.policies}
+          policies={data.policies || []}
+          unpaidFallback={unpaidFallback}
           balances={data.balances || []}
           rules={data.rules || null}
           holidays={data.holidays || []}
@@ -337,6 +386,7 @@ function BalanceCard({ balance }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const isMoney = balance.policy?.accrualMethod === "percent_of_gross";
+  const unpaid = balance.policy?.paid === false;
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
@@ -353,31 +403,23 @@ function BalanceCard({ balance }) {
               : balance.policy?.kind}
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <div className="text-2xl font-bold text-foreground leading-none">
-            {isMoney ? money(balance.remainingAmount) : balance.remainingDays}
+        {/* An unpaid policy has no "left" — it keeps no balance — so the
+            headline is what was taken, and BalanceFigures says so. */}
+        {!unpaid && (
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-bold text-foreground leading-none">
+              {isMoney ? money(balance.remainingAmount) : balance.remainingDays}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {isMoney ? t("app.leaveAccrual.accruedMoney") : t("app.leaveAccrual.daysLeft")}
+            </div>
           </div>
-          <div className="text-[11px] text-muted-foreground">
-            {isMoney ? "accrued" : "days left"}
-          </div>
-        </div>
+        )}
       </div>
       {!isMoney && (
-        <div className="mt-3 text-xs text-muted-foreground space-y-0.5">
-          <div className="flex justify-between">
-            <span>{t("app.timeOff.accrued")}</span>
-            <span>{balance.accruedDays}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>{t("app.timeOff.taken")}</span>
-            <span>{balance.usedDays}</span>
-          </div>
-          {balance.pendingDays > 0 && (
-            <div className="flex justify-between text-amber-600 dark:text-amber-400">
-              <span>{t("app.timeOff.awaitingApproval")}</span>
-              <span>{balance.pendingDays}</span>
-            </div>
-          )}
+        <div className="mt-3">
+          <BalanceFigures balance={balance} />
+          <AccrualBasis balance={balance} />
         </div>
       )}
       {isMoney && (

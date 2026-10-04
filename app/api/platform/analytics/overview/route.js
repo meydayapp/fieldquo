@@ -5,17 +5,19 @@
 //
 // A note on what the money numbers mean, because they're easy to misread:
 //
-//   mrr           — sum of priceMonthly across ACTIVE subscriptions. Forward
-//                   looking; what you'd bill next month if nothing changed.
-//   totalBilled   — sum of Payment.amount actually recorded. This is money
-//                   your CUSTOMERS' clients paid THEM, not revenue you earned.
-//                   It measures volume flowing through FieldQuo, which is a
-//                   product-health signal, not your income.
-//   quotedValue   — total face value of quotes created. Aspirational, not
-//                   earned: most quotes never convert.
+//   mrrByCurrency — sum of priceMonthly across ACTIVE subscriptions, PER
+//                   CURRENCY (the plan's). Forward looking; what you'd bill
+//                   next month if nothing changed. `mrr` is the same figure
+//                   only while the book is in one currency, null once it
+//                   holds two — see lib/platform/metricFormat.js (owner
+//                   decision 2026-10-03: never summed across currencies).
 //
-// Conflating the second with your own revenue would badly overstate the
-// business, so they're named and labelled separately in the UI.
+// totalBilled / quotedValue / invoicedValue used to ship here too: tenant
+// volume (customers' clients paying THEM), summed across every company's
+// currency, and read by no screen since the outlook replaced them. Removed on
+// 2026-10-03 rather than split — a mixed-currency sum nobody prints is still
+// a wrong number waiting for a reader. The tenant board (/api/platform/
+// analytics/tenants) is where that volume is shown, per currency.
 //
 // ── That warning was not enough ────────────────────────────────────────────
 //
@@ -45,9 +47,14 @@ import {
 } from "@/lib/platform/trialCounting";
 import { ON_PLAN_BUCKETS, isCustomerBucket } from "@/lib/platform/subscriberBuckets";
 import { stripeMirrorFreshness } from "@/lib/platform/webhookHealth";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
+import { sumByCurrency } from "@/lib/platform/metricFormat";
 
 /** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
-const NOT_DEMO = { isDemo: false };
+// Demos AND companies a superadmin marked as tests (owner, 2026-10-03) —
+// one rule for every FieldQuo number, lib/platform/metricsScope.js. The
+// name is kept so the checks that look for it still find it.
+const NOT_DEMO = METRICS_COMPANY_WHERE;
 
 // Groups rows into buckets by date key without pulling the whole table into
 // memory twice. Raw SQL would be faster, but keeping it in Prisma means this
@@ -131,7 +138,6 @@ export async function GET(request) {
     recentPayments,
     yearQuotes,
     yearPayments,
-    paymentTotal,
     quoteTotal,
     invoiceTotal,
   ] = await Promise.all([
@@ -178,8 +184,11 @@ export async function GET(request) {
       console.error("[platform/overview] mirror freshness unavailable:", err?.message);
       return null;
     }),
-    db.quote.count({ where: { createdAt: { gte: startOfMonth } } }),
-    db.job.count({ where: { createdAt: { gte: startOfMonth } } }),
+    // Scoped like every other number here (2026-10-03): these two had no
+    // company filter, so a demo seeded this month and the owner's test
+    // company both landed in "quotes / jobs this month".
+    db.quote.count({ where: { createdAt: { gte: startOfMonth }, company: NOT_DEMO } }),
+    db.job.count({ where: { createdAt: { gte: startOfMonth }, company: NOT_DEMO } }),
 
     // Daily and monthly series inputs. The company series come from the book
     // below, not a query: "New companies" counted every Company row created,
@@ -206,6 +215,9 @@ export async function GET(request) {
 
     // ── Scoped to real companies, which they were not ─────────────────────
     //
+    // (Kept for the counts only since 2026-10-03 — see the header for why the
+    // summed money left this route.)
+    //
     // These three had no `where` clause at all while every company COUNT on
     // the same dashboard used NOT_DEMO. So the numerators came from one
     // population and the denominators from another, and the money was mostly
@@ -220,17 +232,11 @@ export async function GET(request) {
     // so the demo filter has to travel through that relation. Caught by
     // running it: the direct `company` filter is a validation error, not a
     // silent no-op, but only if somebody executes the query.
-    db.payment.aggregate({
-      _sum: { amount: true },
-      where: { invoice: { company: NOT_DEMO } },
-    }),
     db.quote.aggregate({
-      _sum: { total: true },
       _count: true,
       where: { company: NOT_DEMO },
     }),
     db.invoice.aggregate({
-      _sum: { total: true },
       _count: true,
       where: { company: NOT_DEMO },
     }),
@@ -250,10 +256,19 @@ export async function GET(request) {
   const priced = outlookSubscriptions(book.companies);
   const activeOnly = priced.filter((s) => s.status === "active");
 
-  const mrr = activeOnly.reduce(
-    (sum, s) => sum + Number(s.plan?.priceMonthly || 0),
-    0,
+  // Per currency — the plan's, which is the Stripe currency the company
+  // bills in. A single `mrr` only when there is a single currency to state it
+  // in (null otherwise; never a cross-currency sum).
+  const mrrByCurrency = sumByCurrency(
+    activeOnly,
+    (s) => Number(s.plan?.priceMonthly || 0),
+    (s) => s.plan?.currency,
   );
+  const arrByCurrency = Object.fromEntries(
+    Object.entries(mrrByCurrency).map(([code, v]) => [code, Math.round(v * 12 * 100) / 100]),
+  );
+  const mrrCurrencies = Object.keys(mrrByCurrency);
+  const mrr = mrrCurrencies.length <= 1 ? (mrrByCurrency[mrrCurrencies[0]] ?? 0) : null;
 
   // The same subscriptions, asked the harder question: which of these can
   // actually raise a charge next cycle?
@@ -301,14 +316,13 @@ export async function GET(request) {
 
   return NextResponse.json({
     // Money
-    mrr: Math.round(mrr * 100) / 100,
-    arr: Math.round(mrr * 12 * 100) / 100,
-    totalBilled: Number(paymentTotal._sum.amount || 0),
+    mrr: mrr === null ? null : Math.round(mrr * 100) / 100,
+    arr: mrr === null ? null : Math.round(mrr * 12 * 100) / 100,
+    mrrByCurrency,
+    arrByCurrency,
     // FieldQuo's own subscription revenue, kept structurally apart from every
-    // tenant figure above it. See the header.
+    // tenant figure. Its money is split per currency too (outlook.byCurrency).
     outlook: revenueOutlook,
-    quotedValue: Number(quoteTotal._sum.total || 0),
-    invoicedValue: Number(invoiceTotal._sum.total || 0),
 
     // Counts — every one a bucket length from the same book.
     activeSubscriptionCount: activeOnly.length,

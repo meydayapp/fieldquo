@@ -28,8 +28,73 @@ import { annotateRouting } from "@/lib/org/leaveRouting";
 import { judgeLeaveRequest, loadLeaveLimits, othersApprovedDuring } from "@/lib/leave/limits";
 import { holidaysBetween } from "@/lib/leave/statutoryHolidays";
 import { hoursPerWorkingDay } from "@/lib/leave/balances";
+import { isLeaveAdmin } from "@/lib/leave/accrualAdmin";
+import {
+  companySetPolicies,
+  offersUnpaidFallback,
+  unpaidFallbackName,
+  unpaidFallbackPolicyData,
+} from "@/lib/leave/unpaidFallback";
 
 const YEAR = () => new Date().getUTCFullYear();
+
+// What a balance card needs to say how its number was reached: the method,
+// whether it is paid, and — for "earned per hour worked" — the rate, the cap,
+// the day length and the cited rule it came from.
+const BALANCE_POLICY_SELECT = {
+  id: true,
+  name: true,
+  kind: true,
+  paid: true,
+  accrualMethod: true,
+  percentOfGross: true,
+  accrualHoursEarned: true,
+  accrualPerHoursWorked: true,
+  accrualYearlyCapHours: true,
+  hoursPerDay: true,
+  accrualPreset: true,
+};
+
+/**
+ * The records behind the balances beyond time entries, for one year:
+ *
+ *   openings      every LeaveOpeningBalance row (newest first — the first per
+ *                 person is in force, the rest are the audit trail)
+ *   overrides     every LeaveAccrualOverride row (oldest first)
+ *   approvedDays  approved request days per "workerId|policyId" in the year —
+ *                 the only "taken" an UNPAID policy has, since it keeps no
+ *                 balance (lib/leave/balances.js tracksDays) and would
+ *                 otherwise always read as nothing taken
+ *
+ * Scoped by `workerId` for the self view; the whole company for the team.
+ */
+async function accrualRecords({ companyId, year, workerId = null }) {
+  const scope = workerId ? { companyId, workerId } : { companyId };
+  const [openings, overrides, approved] = await Promise.all([
+    db.leaveOpeningBalance.findMany({
+      where: { ...scope, year },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.leaveAccrualOverride.findMany({
+      where: scope,
+      orderBy: [{ effectiveFrom: "asc" }, { createdAt: "asc" }],
+    }),
+    db.leaveRequest.groupBy({
+      by: ["workerId", "policyId"],
+      where: {
+        ...scope,
+        status: "approved",
+        startDate: { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) },
+      },
+      _sum: { days: true },
+    }),
+  ]);
+  const approvedDays = {};
+  for (const r of approved) {
+    approvedDays[`${r.workerId}|${r.policyId}`] = Math.round(Number(r._sum.days || 0) * 100) / 100;
+  }
+  return { openings, overrides, approvedDays };
+}
 
 // The Worker row for this user — leave attaches to a worker, not a member,
 // because contractors take unpaid time too.
@@ -79,10 +144,23 @@ export async function GET(request) {
   const scope = searchParams.get("scope"); // "team" | undefined
   const year = Number(searchParams.get("year")) || YEAR();
 
-  const policies = await db.leavePolicy.findMany({
+  const activePolicies = await db.leavePolicy.findMany({
     where: { companyId: member.companyId, active: true },
     orderBy: { name: "asc" },
   });
+  // The policies the company set up — never the unpaid fallback row, which
+  // exists only because somebody asked before there were any
+  // (lib/leave/unpaidFallback.js). With none set up, the screen still offers
+  // unpaid time off, named in the company's language.
+  const policies = companySetPolicies(activePolicies);
+  const unpaidFallback = offersUnpaidFallback(activePolicies)
+    ? {
+        name: unpaidFallbackName(
+          (await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } }))
+            ?.defaultLanguage,
+        ),
+      }
+    : null;
 
   // Bring accruals up to date before reading them. refreshAccruals SETS rather
   // than increments, so doing this on read is safe and means nobody has to
@@ -101,7 +179,7 @@ export async function GET(request) {
         { status: 403 },
       );
     }
-    const [requests, balances, viewer] = await Promise.all([
+    const [requests, balances, viewer, accrual] = await Promise.all([
       db.leaveRequest.findMany({
         where: { companyId: member.companyId },
         orderBy: [{ status: "asc" }, { startDate: "desc" }],
@@ -114,8 +192,8 @@ export async function GET(request) {
       db.leaveBalance.findMany({
         where: { year, policy: { companyId: member.companyId } },
         include: {
-          policy: { select: { id: true, name: true, kind: true, accrualMethod: true } },
-          worker: { select: { id: true, name: true, title: true } },
+          policy: { select: BALANCE_POLICY_SELECT },
+          worker: { select: { id: true, name: true, title: true, active: true } },
         },
       }),
       // Read, never create: someone browsing the team's leave who has no Worker
@@ -124,6 +202,7 @@ export async function GET(request) {
         where: { companyId: member.companyId, userId: member.userId },
         select: { id: true },
       }),
+      accrualRecords({ companyId: member.companyId, year }),
     ]);
     // ── The limits, the calendar, and who else is off ───────────────────
     //
@@ -189,8 +268,21 @@ export async function GET(request) {
           hasManagePermission: can(member.role, "user:manage"),
         })
       ).map((r) => ({ ...r, othersOff: othersOffFor(r), hoursPerDay: hoursPerDayByWorker[r.workerId] ?? null, balanceAfter: balanceAfterFor(r) })),
-      balances: balances.map((b) => ({ ...b, ...remainingBalance(b) })),
+      balances: balances.map((b) => ({
+        ...b,
+        ...remainingBalance(b),
+        approvedRequestDays: accrual.approvedDays[`${b.workerId}|${b.policyId}`] || 0,
+      })),
+      // What the balances are built from beyond time entries: the opening
+      // balances (every row — the newest is in force, the rest are the trail)
+      // and each person's own rates. Same audience as the balances above.
+      openings: accrual.openings,
+      accrualOverrides: accrual.overrides,
+      // Who may enter them. The POST routes decide (lib/leave/accrualAdmin.js);
+      // this only keeps the screen from offering a form that would be refused.
+      canEditAccrual: isLeaveAdmin(member.role) && member.impersonationMode !== "read_only",
       canApprove: can(member.role, "user:manage"),
+      unpaidFallback,
       // The same people, as a picker for "Add time off" — active workers
       // whose leave a manager may enter on their behalf.
       workers: await db.worker.findMany({
@@ -208,13 +300,14 @@ export async function GET(request) {
       scope: "self",
       worker: null,
       policies,
+      unpaidFallback,
       requests: [],
       balances: [],
       reason: "no_worker_record",
     });
   }
 
-  const [requests, balances] = await Promise.all([
+  const [requests, balances, accrual] = await Promise.all([
     db.leaveRequest.findMany({
       where: { workerId: worker.id },
       orderBy: { startDate: "desc" },
@@ -223,8 +316,11 @@ export async function GET(request) {
     }),
     db.leaveBalance.findMany({
       where: { workerId: worker.id, year },
-      include: { policy: { select: { id: true, name: true, kind: true, accrualMethod: true } } },
+      include: { policy: { select: BALANCE_POLICY_SELECT } },
     }),
+    // Their OWN opening balance and rates only — crew see their own (the
+    // workerId filter is the boundary; nothing here takes an id from the URL).
+    accrualRecords({ companyId: member.companyId, year, workerId: worker.id }),
   ]);
 
   // Pending days per policy, so the UI shows what's already reserved.
@@ -246,6 +342,7 @@ export async function GET(request) {
       ? holidaysBetween({ ...limits.region, from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 11, 31)) })
       : [],
     policies,
+    unpaidFallback,
     // The person who asked for the time off is the one most in the dark about
     // where it went. `canAct` comes back false on their own request, which is
     // correct and is what the PATCH route enforces.
@@ -258,7 +355,10 @@ export async function GET(request) {
     balances: balances.map((b) => ({
       ...b,
       ...remainingBalance(b, { pendingDays: pendingByPolicy[b.policyId] || 0 }),
+      approvedRequestDays: accrual.approvedDays[`${b.workerId}|${b.policyId}`] || 0,
     })),
+    openings: accrual.openings,
+    accrualOverrides: accrual.overrides,
   });
 }
 
@@ -300,9 +400,45 @@ export async function POST(request) {
     );
   }
 
-  const policy = await db.leavePolicy.findFirst({
-    where: { id: policyId, companyId: member.companyId, active: true },
-  });
+  // ── Unpaid time off, when the company has set up no policies ─────────────
+  //
+  // lib/leave/unpaidFallback.js says why. Only while there are none: once the
+  // owner sets up their own, `unpaid` is refused and the form offers theirs.
+  // The fallback row is created on this first ask, never on a page load.
+  let policy = null;
+  if (body?.unpaid === true && !policyId) {
+    const active = await db.leavePolicy.findMany({
+      where: { companyId: member.companyId, active: true },
+      select: { id: true, systemUnpaid: true },
+    });
+    if (!offersUnpaidFallback(active)) {
+      return NextResponse.json({ error: "Pick a leave type." }, { status: 400 });
+    }
+    policy = await db.leavePolicy.findFirst({ where: { companyId: member.companyId, systemUnpaid: true } });
+    if (!policy) {
+      const company = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
+      const data = unpaidFallbackPolicyData(member.companyId, company?.defaultLanguage);
+      // Upsert on the (companyId, name) unique: two people asking in the same
+      // second land on one row, not a duplicate-name error.
+      policy = await db.leavePolicy.upsert({
+        where: { companyId_name: { companyId: member.companyId, name: data.name } },
+        update: {},
+        create: data,
+      });
+    }
+    // A retired policy of the owner's that happens to carry the same name is
+    // theirs, not ours — and retired. Say so rather than file under it.
+    if (!policy.systemUnpaid || !policy.active) {
+      return NextResponse.json(
+        { error: "There's no leave type to file this under yet. Ask whoever runs the office to set one up in Settings → Time off policies." },
+        { status: 409 },
+      );
+    }
+  } else {
+    policy = await db.leavePolicy.findFirst({
+      where: { id: policyId, companyId: member.companyId, active: true },
+    });
+  }
   if (!policy) {
     return NextResponse.json({ error: "Pick a leave type." }, { status: 400 });
   }

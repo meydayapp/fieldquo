@@ -27,6 +27,9 @@ import {
   pastJobsCsvTemplate,
   parseYesNo,
   isoDay,
+  recordedFiguresProblems,
+  recordedQuoteProblems,
+  recordedMarker,
 } from "../lib/jobs/pastJobImport.js";
 
 let passed = 0;
@@ -147,6 +150,54 @@ ok("...while the company's own old numbering is kept", norm({ quoteNumber: "2024
   }
 }
 
+// ── Recorded figures (a past job carried over from another system) ─────────
+//
+// The figures are the source's, never recomputed — so the only defence
+// against a bad source row is this consistency check. Executed against
+// hostile payloads: each must be refused with the code that names it.
+{
+  const day = (s) => new Date(`${s}T00:00:00.000Z`);
+  const lines = (amts) => amts.map((a) => ({ description: "Line", quantity: 1, rate: a, amount: a }));
+  const doc = { lineItems: lines([4200, 0]), subtotal: 4200, discount: 250, tax: 513.5, total: 4463.5, taxEnabled: true };
+  const GOOD_REC = {
+    sourceRef: "truefinish:quote:abc",
+    acceptedAt: day("2026-04-28"),
+    quote: doc,
+    invoice: { ...doc, dueDate: day("2026-05-28") },
+    payments: [
+      { amount: 463.5, method: "cheque", date: day("2026-05-02"), sourceRef: "truefinish:payment:p1" },
+      { amount: 4310, method: "cash", date: day("2026-06-18") },
+    ],
+  };
+  const codes = (r) => recordedFiguresProblems(r, { today: TODAY }).map((p) => `${p.field}:${p.code}`);
+  ok("a consistent recorded payload passes (overpaid, deposit before the job — both as recorded)", codes(GOOD_REC).length === 0, codes(GOOD_REC));
+  ok("an open invoice (no payments) is a valid recorded payload", codes({ ...GOOD_REC, payments: [] }).length === 0);
+  const refused = [
+    ["no payload", null, "recorded:required"],
+    ["a ref with a bracket (would break the marker)", { ...GOOD_REC, sourceRef: "a]b" }, "sourceRef:bad_ref"],
+    ["a blank ref", { ...GOOD_REC, sourceRef: " " }, "sourceRef:bad_ref"],
+    ["a total that is not subtotal − discount + tax", { ...GOOD_REC, invoice: { ...GOOD_REC.invoice, total: 4463.6 } }, "invoice:total_disagrees"],
+    ["lines that do not sum to the subtotal", { ...GOOD_REC, quote: { ...doc, lineItems: lines([4100]) } }, "quote:lines_disagree_with_subtotal"],
+    ["tax charged with tax switched off", { ...GOOD_REC, quote: { ...doc, taxEnabled: false } }, "quote:tax_without_tax_enabled"],
+    ["an unparseable amount", { ...GOOD_REC, quote: { ...doc, subtotal: "abc" } }, "quote:bad_amount"],
+    ["a document with no lines", { ...GOOD_REC, quote: { ...doc, lineItems: [] } }, "quote:no_lines"],
+    ["a payment in the future", { ...GOOD_REC, payments: [{ amount: 1, method: "cash", date: day("2027-01-01") }] }, "payments[0]:future"],
+    ["a zero payment", { ...GOOD_REC, payments: [{ amount: 0, method: "cash", date: day("2026-01-01") }] }, "payments[0]:not_positive"],
+    ["a Stripe payment (FieldQuo never took it)", { ...GOOD_REC, payments: [{ amount: 1, method: "stripe", date: day("2026-01-01") }] }, "payments[0]:unknown_method"],
+    ["a payment dated by a string", { ...GOOD_REC, payments: [{ amount: 1, method: "cash", date: "2026-01-01" }] }, "payments[0]:bad_date"],
+    ["no acceptance date", { ...GOOD_REC, acceptedAt: null }, "acceptedAt:bad_date"],
+  ];
+  for (const [label, payload, code] of refused) ok(`a recorded payload with ${label} is refused`, codes(payload).includes(code), codes(payload));
+  ok("the marker is the bracketed ref", recordedMarker("truefinish:quote:abc") === "[truefinish:quote:abc]");
+
+  const writer = code("lib/jobs/importPastJob.js");
+  ok("the writer checks a recorded payload before opening its transaction",
+    writer.indexOf("recordedFiguresProblems(recorded") > -1 && writer.indexOf("recordedFiguresProblems(recorded") < writer.indexOf("db.$transaction"));
+  ok("...skips a recorded job whose source marker is already on file, under the lock",
+    /costReviewNote: \{ contains: recordedMarker\(recorded\.sourceRef\) \}/.test(writer) && writer.indexOf("recordedMarker(recorded.sourceRef) }") > writer.indexOf("pg_advisory_xact_lock"));
+  ok("...and never resolves tax for one", /const rate = recorded\s*\?\s*0/.test(writer));
+}
+
 // ── Nothing in the writer can send ─────────────────────────────────────────
 {
   const writer = code("lib/jobs/importPastJob.js");
@@ -210,6 +261,145 @@ ok("...and offers the way back when arrived at from the dashboard",
   for (const model of ["Quote", "Job", "Invoice"]) {
     const block = schema.split(`model ${model} {`)[1]?.split("\nmodel ")[0] || "";
     ok(`${model} carries historicalImportedAt`, /historicalImportedAt\s+DateTime\?/.test(block));
+  }
+}
+
+// ── A taxed past job committed twice is ONE past job ───────────────────────
+//
+// Regression, 2026-10-03: the duplicate check keyed rows on the pre-tax
+// amount and the rows on file on Invoice.total, so a taxed job never matched
+// its own earlier import and a second commit wrote a second quote, job,
+// invoice and payment. Executed, not read: the real loadPastJobContext,
+// buildPastJobsPreview and createPastJob against an in-memory Prisma stand-in.
+{
+  // The writer's module graph constructs a Prisma client (lib/db.js); with no
+  // URL it has nowhere to connect, so nothing here can reach a database.
+  delete process.env.DATABASE_URL;
+  const { createPastJob, loadPastJobContext } = await import("../lib/jobs/importPastJob.js");
+
+  const fakeDb = () => {
+    let seq = 0;
+    const T = { company: [], serviceCategory: [], client: [], quote: [], job: [], invoice: [], payment: [], expense: [] };
+    const same = (a, b) => (a instanceof Date || b instanceof Date ? a != null && b != null && new Date(a).getTime() === new Date(b).getTime() : a === b);
+    const matches = (row, where = {}) =>
+      Object.entries(where).every(([k, v]) => {
+        if (k === "OR") return v.some((w) => matches(row, w));
+        const val = row[k];
+        if (v && typeof v === "object" && !(v instanceof Date)) {
+          if ("not" in v && (v.not === null ? val == null : same(val, v.not))) return false;
+          if ("contains" in v && !(typeof val === "string" && val.includes(v.contains))) return false;
+          if ("equals" in v && String(val).toLowerCase() !== String(v.equals).toLowerCase()) return false;
+          if ("in" in v && !v.in.includes(val)) return false;
+          return true;
+        }
+        return v === null ? val == null : same(val, v);
+      });
+    const withRel = (t, r) => (t === "invoice" ? { ...r, client: T.client.find((c) => c.id === r.clientId), job: T.job.find((j) => j.id === r.jobId) } : { ...r });
+    const db = { $executeRaw: async () => 1, $transaction: async (fn) => fn(db), T };
+    for (const t of Object.keys(T)) {
+      db[t] = {
+        findMany: async ({ where } = {}) => T[t].filter((r) => matches(r, where)).map((r) => withRel(t, r)),
+        findFirst: async ({ where } = {}) => { const r = T[t].find((x) => matches(x, where)); return r ? withRel(t, r) : null; },
+        findUnique: async ({ where } = {}) => { const r = T[t].find((x) => matches(x, where)); return r ? withRel(t, r) : null; },
+        create: async ({ data }) => { const { scopeGroups, ...rest } = data; const r = { id: `${t}${++seq}`, version: 1, parentInvoiceId: null, createdAt: new Date(), ...rest }; T[t].push(r); return { ...r }; },
+        update: async ({ where, data }) => { const r = T[t].find((x) => matches(x, where)); Object.assign(r, data); return { ...r }; },
+      };
+    }
+    return db;
+  };
+
+  const db = fakeDb();
+  db.T.company.push({ id: "co1", defaultLanguage: "en", taxRate: 13, autoApplyLocalTax: false, taxMode: "manual", province: "ON", country: "CA", vatRegistered: null, usTaxOverrides: null, taxRates: [] });
+  const raw = { ...GOOD, startDate: "2025-06-02", endDate: "2025-06-04", amount: "3200", taxApplied: "yes", paidDate: "2025-06-20" };
+  const commit = async () => {
+    const context = await loadPastJobContext(db, "co1");
+    const preview = buildPastJobsPreview({ rows: [raw], today: TODAY, defaultTaxApplied: true, existingKeys: context.existingKeys, existingInvoiceNumbers: context.existingInvoiceNumbers, existingQuoteNumbers: context.existingQuoteNumbers });
+    const result = await createPastJob(db, { companyId: "co1", row: preview.rows[0].value, context, now: TODAY });
+    return { preview: preview.rows[0], result };
+  };
+  const first = await commit();
+  ok("a taxed past job is written the first time", first.preview.status === "ok" && first.result.status === "created" && first.result.tax > 0, first.result);
+  const second = await commit();
+  ok("...the same taxed row a second time is flagged as a duplicate by the preview",
+    second.preview.status === "duplicate" && second.preview.duplicateOf === "on_file", second.preview.status);
+  ok("...and skipped by the commit, under the lock", second.result.status === "skipped" && second.result.reason === "on_file", second.result);
+  ok("...leaving one quote, one job, one invoice, one payment",
+    [db.T.quote, db.T.job, db.T.invoice, db.T.payment].every((t) => t.length === 1), [db.T.quote.length, db.T.job.length, db.T.invoice.length, db.T.payment.length]);
+  // The same job at a different price is a different job — the fix must not
+  // turn the key into "same client, same day".
+  const third = await createPastJob(db, {
+    companyId: "co1",
+    row: normalisePastJob({ ...raw, amount: "3300" }, { today: TODAY, defaultTaxApplied: true }).value,
+    context: await loadPastJobContext(db, "co1"),
+    now: TODAY,
+  });
+  ok("...while the same client and dates at another price is still written", third.status === "created", third);
+
+  // ── A recorded quote with no job: lost (historical, declined) and draft (live)
+  const { createRecordedQuote } = await import("../lib/jobs/importPastJob.js");
+  const qdb = fakeDb();
+  qdb.T.company.push({ id: "co1", defaultLanguage: "en", defaultProcessNotes: "We protect the floors.", taxRate: 0, autoApplyLocalTax: true, taxMode: null, province: "ON", country: "CA", vatRegistered: null, usTaxOverrides: null, taxRates: [], paymentMethods: null, offlinePaymentDiscount: false });
+  // One live quote on file, so the live series has somewhere to continue from.
+  qdb.T.quote.push({ id: "live1", companyId: "co1", quoteNumber: "Q-2026-0016", status: "sent", historicalImportedAt: null, createdAt: new Date() });
+  const qctx = await loadPastJobContext(qdb, "co1");
+  const qlines = [{ description: "Cabinet Refinishing", quantity: 18, rate: 170, amount: 3060 }];
+  const qfig = { lineItems: qlines, subtotal: 3060, discount: 0, tax: 397.8, total: 3457.8, taxEnabled: true, notes: "Shaker doors" };
+  const client = { clientName: "Paul Example", clientEmail: "paul@example.com", clientPhone: null, clientAddress: "1 Main St, Ottawa, ON" };
+  const lostRec = {
+    kind: "lost",
+    sourceRef: "src:quote:lost1",
+    sourceLabel: "Source Q1",
+    internalNote: "Deposit of $500 received at the source; refund or forfeit undecided.",
+    declinedAt: new Date("2026-02-21T00:00:00Z"),
+    declineReason: "Lost — recorded from history",
+    quote: qfig,
+  };
+  const before = qdb.T.payment.length;
+  const lost = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client, quoteDate: new Date("2026-02-09T00:00:00Z") }, context: qctx, now: TODAY, recorded: lostRec });
+  const lq = qdb.T.quote.find((q) => q.id === lost.quoteId);
+  ok("a lost quote is written as a historical, declined, never-sent quote", lost.status === "created" && lq?.status === "declined" && lq.historicalImportedAt === TODAY && lq.sentAt === null, lost);
+  ok("...in the historical series, with its decline date and reason", /^Q-2026-H\d{4}$/.test(lq?.quoteNumber || "") && lq.declinedAt.toISOString().startsWith("2026-02-21") && lq.declineReason === "Lost — recorded from history", lq?.quoteNumber);
+  ok("...keeping the source's figures and lines, never accepted", lq?.total === 3457.8 && lq.tax === 397.8 && lq.acceptedAt == null && lq.acceptedTotal == null && lq.lineItems === qlines);
+  ok("...with the deposit and the source marker on its INTERNAL note, not its client notes",
+    lq?.reviewNotes.includes("Deposit of $500") && lq.reviewNotes.includes("[src:quote:lost1]") && lq.notes === "Shaker doors");
+  ok("...and no job, no invoice, no payment", qdb.T.job.length === 0 && qdb.T.invoice.length === 0 && qdb.T.payment.length === before);
+  const lostAgain = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client, quoteDate: new Date("2026-02-09T00:00:00Z") }, context: qctx, now: TODAY, recorded: lostRec });
+  ok("...and a re-run is skipped on its marker", lostAgain.status === "skipped" && lostAgain.reason === "source_ref" && qdb.T.quote.length === 2, lostAgain);
+
+  const draftRec = { kind: "draft", sourceRef: "src:quote:draft1", sourceLabel: "Source Q2", internalNote: "Send it again when ready.", quote: qfig };
+  const draft = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client, quoteDate: new Date("2026-08-28T00:00:00Z") }, context: qctx, now: TODAY, recorded: draftRec });
+  const dq = qdb.T.quote.find((q) => q.id === draft.quoteId);
+  ok("a carried-over draft is a LIVE draft: next live number, not historical, never sent",
+    draft.status === "created" && dq?.status === "draft" && dq.quoteNumber === "Q-2026-0017" && dq.historicalImportedAt == null && dq.sentAt === null, dq?.quoteNumber);
+  ok("...with the draft defaults a new quote gets (share token, company wording)", typeof dq?.shareToken === "string" && dq.shareToken.length > 20 && dq.processNotes === "We protect the floors.");
+  ok("...the source's figures, and no decision stamped", dq?.total === 3457.8 && dq.declinedAt == null && dq.acceptedAt == null);
+  ok("...reusing the client the lost quote created (name-first match)", draft.clientCreated === false && draft.clientId === lost.clientId);
+  const draftAgain = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client }, context: qctx, now: TODAY, recorded: draftRec });
+  ok("...and a re-run is skipped on its marker", draftAgain.status === "skipped" && qdb.T.quote.length === 3, draftAgain);
+  for (const q of [lq, dq]) ok(`${q?.status} quote created via "import" (not produced by this product)`, q?.createdVia === "import");
+
+  const refusedQ = await createRecordedQuote(qdb, { companyId: "co1", row: client, context: qctx, now: TODAY, recorded: { ...lostRec, sourceRef: "src:quote:x" } });
+  ok("a lost quote with no quote date (its number's year) is refused", refusedQ.status === "error" && refusedQ.error === "quote_date_required", refusedQ);
+}
+
+// ── recordedQuoteProblems against hostile input ────────────────────────────
+{
+  const day = (s) => new Date(`${s}T00:00:00.000Z`);
+  const quote = { lineItems: [{ amount: 100 }], subtotal: 100, discount: 0, tax: 13, total: 113, taxEnabled: true };
+  const LOST = { kind: "lost", sourceRef: "s:q:1", declinedAt: day("2026-02-21"), declineReason: "Lost", quote };
+  const codes = (r) => recordedQuoteProblems(r, { today: TODAY }).map((p) => `${p.field}:${p.code}`);
+  ok("a consistent lost quote passes", codes(LOST).length === 0, codes(LOST));
+  ok("a consistent draft passes (no decision needed)", codes({ kind: "draft", sourceRef: "s:q:2", quote }).length === 0);
+  for (const [label, payload, code] of [
+    ["no payload", null, "recorded:required"],
+    ["an unknown kind", { ...LOST, kind: "won" }, "kind:unknown_kind"],
+    ["no decline date", { ...LOST, declinedAt: null }, "declinedAt:bad_date"],
+    ["a decline in the future", { ...LOST, declinedAt: day("2027-01-01") }, "declinedAt:future"],
+    ["no reason", { ...LOST, declineReason: "  " }, "declineReason:required"],
+    ["a total that does not add up", { ...LOST, quote: { ...quote, total: 114 } }, "quote:total_disagrees"],
+    ["a bracket in the ref", { ...LOST, sourceRef: "a[b" }, "sourceRef:bad_ref"],
+  ]) {
+    ok(`a recorded quote with ${label} is refused`, codes(payload).includes(code), codes(payload));
   }
 }
 

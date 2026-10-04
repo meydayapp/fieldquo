@@ -13,7 +13,10 @@
 // Data: GET /api/shifts — the worker payload (their own PUBLISHED shifts, and
 // `coworkers` / `holidays` from lib/shifts/boardExtras.js). A manager opening
 // this sees their OWN shifts too: the route hands them the company's rows
-// and their own worker row as `self`, and the page filters. Nothing is
+// and their own worker row as `self`, and the page filters. And GET
+// /api/me/visits — the job visits assigned to them, the same read My day
+// makes (lib/me/timeline.js visitItemsFor); before 2026-10-04 this screen
+// drew shifts only, so a visit on My day was missing here. Nothing is
 // written from this screen.
 //
 // Rendered inside app/components/me/MeShell.js — the employee home's five
@@ -21,7 +24,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CalendarPlus, Clock, Loader2, MapPin, TreePalm } from "lucide-react";
+import { AlertTriangle, CalendarPlus, ClipboardList, Clock, ExternalLink, Loader2, MapPin, TreePalm } from "lucide-react";
 import MeShell from "@/app/components/me/MeShell";
 import Avatar, { initialsOf } from "@/app/components/chat/Avatar";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -31,6 +34,7 @@ import { formatTimeOfDay, formatWeekdayDayMonth } from "@/lib/format/localeDate"
 import { localYmd } from "@/lib/shifts/coverage";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { clockOffered } from "@/lib/timeclock/access";
+import { workOrderPath } from "@/lib/workOrder/url";
 
 const DAYS = 14;
 
@@ -43,6 +47,7 @@ function addDays(d, n) {
 export default function MySchedulePage() {
   const { t, language } = useTranslation();
   const [data, setData] = useState(null);
+  const [visits, setVisits] = useState([]);
   const [errorKey, setErrorKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
@@ -60,15 +65,21 @@ export default function MySchedulePage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchList(`/api/shifts?from=${range.start.toISOString()}&to=${range.end.toISOString()}`)
-      .then((result) => {
-        if (cancelled || result.aborted) return;
-        if (!result.ok) {
+    const qs = `from=${range.start.toISOString()}&to=${range.end.toISOString()}`;
+    // Both or the error: a schedule that silently drops its visits because
+    // their half failed is the incomplete page this fix exists to end.
+    Promise.all([fetchList(`/api/shifts?${qs}`), fetchList(`/api/me/visits?${qs}`)])
+      .then(([shiftsResult, visitsResult]) => {
+        if (cancelled || shiftsResult.aborted || visitsResult.aborted) return;
+        const failed = !shiftsResult.ok ? shiftsResult : !visitsResult.ok ? visitsResult : null;
+        if (failed) {
           setData(null);
-          setErrorKey(result.errorKey);
+          setVisits([]);
+          setErrorKey(failed.errorKey);
         } else {
           setErrorKey("");
-          setData(result.data);
+          setData(shiftsResult.data);
+          setVisits(Array.isArray(visitsResult.data?.visits) ? visitsResult.data.visits : []);
         }
       })
       .finally(() => !cancelled && setLoading(false));
@@ -88,12 +99,14 @@ export default function MySchedulePage() {
   }, [data]);
 
   const days = useMemo(() => Array.from({ length: DAYS }, (_, i) => addDays(range.start, i)), [range]);
+  // Shifts and visits on one day, in the order the day happens.
   const byDay = useMemo(() => {
     const map = {};
-    for (const s of mine) (map[localYmd(new Date(s.start))] ||= []).push(s);
+    for (const s of mine) (map[localYmd(new Date(s.start))] ||= []).push({ ...s, kind: "shift" });
+    for (const v of visits) (map[localYmd(new Date(v.start))] ||= []).push(v);
     for (const k of Object.keys(map)) map[k].sort((a, b) => new Date(a.start) - new Date(b.start));
     return map;
-  }, [mine]);
+  }, [mine, visits]);
   const holidaysByDay = useMemo(() => {
     const map = {};
     for (const h of data?.holidays || []) (map[h.observed] ||= []).push(h);
@@ -142,13 +155,20 @@ export default function MySchedulePage() {
         <div className="grid min-h-[30vh] place-items-center">
           <Loader2 className="animate-spin text-muted-foreground" />
         </div>
-      ) : noWorker ? (
+      ) : noWorker && visits.length === 0 ? (
         <p className="rounded-xl border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
           {t("app.mySchedule.noWorker")}
         </p>
       ) : (
         <div className="space-y-3">
-          {mine.length === 0 && (
+          {/* No roster row means no shifts, but visits hang off the login and
+              still belong here — so the note sits above them, not instead. */}
+          {noWorker && (
+            <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+              {t("app.mySchedule.noWorker")}
+            </p>
+          )}
+          {mine.length === 0 && visits.length === 0 && (
             <p className="rounded-xl border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
               {t("app.mySchedule.empty", { days: DAYS })}
             </p>
@@ -171,17 +191,21 @@ export default function MySchedulePage() {
                     {t(`app.holiday.${h.key}`, h.name)} — {t("app.scheduler.statutoryHoliday")}
                   </p>
                 ))}
-                {list.map((s) => (
-                  <ShiftCard
-                    key={s.id}
-                    shift={s}
-                    coworkers={data?.coworkers?.[s.id] || []}
-                    isToday={key === todayStr}
-                    now={now}
-                    language={language}
-                    t={t}
-                  />
-                ))}
+                {list.map((s) =>
+                  s.kind === "visit" ? (
+                    <VisitCard key={`v-${s.id}`} visit={s} language={language} t={t} />
+                  ) : (
+                    <ShiftCard
+                      key={s.id}
+                      shift={s}
+                      coworkers={data?.coworkers?.[s.id] || []}
+                      isToday={key === todayStr}
+                      now={now}
+                      language={language}
+                      t={t}
+                    />
+                  ),
+                )}
               </section>
             );
           })}
@@ -190,6 +214,53 @@ export default function MySchedulePage() {
 
       <p className="mt-4 text-xs text-muted-foreground">{t("app.scheduler.workerNote")}</p>
     </MeShell>
+  );
+}
+
+/**
+ * A job visit assigned to this person: the time, what and where, the visit
+ * note, and the job and its work order. A visit grants its job to the person
+ * on it (assignedJobWhere), so both links open for them.
+ */
+function VisitCard({ visit, language, t }) {
+  const label = [visit.title, visit.subtitle && visit.subtitle !== visit.title ? visit.subtitle : null]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="mt-3 first:mt-2">
+      <div className="flex items-baseline gap-2">
+        <span className="text-2xl font-bold tabular-nums text-foreground">{formatTimeOfDay(visit.start, language)}</span>
+        <span className="rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+          {t("app.me.kind.visit")}
+        </span>
+      </div>
+      {label && <div className="mt-0.5 text-sm font-semibold text-foreground">{label}</div>}
+      {visit.address && (
+        <div className="mt-0.5 flex items-start gap-1 text-sm text-muted-foreground">
+          <MapPin size={14} className="mt-0.5 shrink-0" />
+          <span>{visit.address}</span>
+        </div>
+      )}
+      {visit.note && (
+        <blockquote className="mt-2 border-l-2 border-border pl-3 text-sm italic text-foreground/90">“{visit.note}”</blockquote>
+      )}
+      {visit.jobId && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Link
+            href={`/app/jobs/${encodeURIComponent(visit.jobId)}`}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <ExternalLink size={15} /> {t("app.mySchedule.openJob")}
+          </Link>
+          <Link
+            href={workOrderPath(visit.jobId)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <ClipboardList size={15} /> {t("app.mySchedule.workOrder")}
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -250,6 +321,27 @@ function ShiftCard({ shift, coworkers, isToday, now, language, t }) {
             {shift.availabilityOverrideNote ? ` — ${shift.availabilityOverrideNote}` : ""}
           </span>
         </p>
+      )}
+      {/* The job and its work order. Both open for the person on this shift:
+          a published shift on a job grants the job (assignedJobWhere in
+          lib/permissions/enforce.js), from publication until two weeks after
+          it ends — and this screen lists only today onward, so every link it
+          draws is inside that window. */}
+      {shift.job?.id && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Link
+            href={`/app/jobs/${encodeURIComponent(shift.job.id)}`}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <ExternalLink size={15} /> {t("app.mySchedule.openJob")}
+          </Link>
+          <Link
+            href={workOrderPath(shift.job.id)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <ClipboardList size={15} /> {t("app.mySchedule.workOrder")}
+          </Link>
+        </div>
       )}
       {clockOn && isToday && !ended && (
         <Link

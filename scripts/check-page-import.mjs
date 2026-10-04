@@ -213,7 +213,8 @@ const INSTAGRAM_CONVERSATION = {
 section("1. The Graph call — fields, platform spelling, cursor");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  ok("the nested message fields carry everything the event needs", /messages\.limit\(50\)\{id,from,to,message,created_time,attachments\}/.test(CONVERSATION_FIELDS));
+  ok("the nested message fields carry everything the event needs", /messages\.limit\(50\)\{id,from,to,message,created_time,attachments\{id,mime_type,name,size,image_data,video_data,file_url\}\}/.test(CONVERSATION_FIELDS));
+  ok("…and the bare fallback is the pre-2026-10-03 list", /messages\.limit\(50\)\{id,from,to,message,created_time,attachments\}$/.test(conversationFields(50, { bare: true })));
   ok("participants and updated_time are asked for", CONVERSATION_FIELDS.startsWith("id,participants,updated_time,"));
   ok("facebook is Meta's `messenger` on this edge", CONVERSATION_PLATFORM_PARAM.facebook === "messenger");
   ok("instagram is `instagram`", CONVERSATION_PLATFORM_PARAM.instagram === "instagram");
@@ -222,10 +223,10 @@ section("1. The Graph call — fields, platform spelling, cursor");
   ok("no paging, no cursor", nextConversationCursor({}) === null && nextConversationCursor(null) === null);
   const client = code("lib/meta/client.js");
   ok("listPageConversations goes through graphFetch", /export async function listPageConversations[\s\S]*?graphFetch\(`\/\$\{pageId\}\/conversations`/.test(client));
-  ok("…with the platform param and the field list", /params = \{ platform: platformParam, fields: conversationFields\(messagesLimit\)/.test(client));
+  ok("…with the platform param and the field list", /platform: platformParam,\s*fields: conversationFields\(messagesLimit, \{ bare: bareAttachments \}\)/.test(client));
   ok("no second fetch() to graph.facebook.com in pageImport", !/fetch\(/.test(code("lib/messaging/pageImport.js")));
   ok("the nested message count is a parameter", /messages\.limit\(10\)\{/.test(conversationFields(10)) && conversationFields(0) === CONVERSATION_FIELDS);
-  ok("…passed through to the call", /fields: conversationFields\(messagesLimit\)/.test(client));
+  ok("…passed through to the call", /fields: conversationFields\(messagesLimit, \{ bare: bareAttachments \}\)/.test(client));
   ok("Meta's too-much-data refusal is recognised by its sentence", isTooMuchDataError({ ok: false, kind: "unknown_error", message: "Please reduce the amount of data you're asking for, then retry your request" }));
   ok("…and nothing else is", !isTooMuchDataError({ ok: false, kind: "auth_error", message: "Session has expired" }) && !isTooMuchDataError({ ok: true }) && !isTooMuchDataError(null));
   ok("the shapes step down and end at one conversation", PAGE_SHAPES[0].limit === 25 && PAGE_SHAPES[0].messagesLimit === 50 && PAGE_SHAPES.at(-1).limit === 1);

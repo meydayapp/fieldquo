@@ -84,6 +84,7 @@ import { THREAD_OUTCOMES, outcomeLabelKey } from "@/lib/messaging/outcomes";
 import { MESSAGING_PLATFORMS, platformLabelKey } from "@/lib/messaging/platforms";
 import { activityLabel } from "@/lib/messaging/activity";
 import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
+import { ReviewVerdict } from "@/app/components/leads/IdentityReview";
 import {
   GROUP_DONE,
   messageItem,
@@ -941,6 +942,25 @@ function MessagesScreen() {
             >
               <UserRound size={13} aria-hidden="true" /> {t("app.messages.action.details")}
             </button>
+          </div>
+        ) : null}
+        {/* The message reviewer's verdict on this conversation — genuine
+            lead, not a lead, existing client, converted — with the evidence.
+            "Not this client" only when the reviewer linked the client itself;
+            lead capture then never links that client again. */}
+        {thread?.review && !isDemo ? (
+          <div className="mt-2" data-thread-review>
+            <ReviewVerdict
+              review={thread.review}
+              compact
+              t={t}
+              busy={busy}
+              onNotThisClient={
+                canEdit && thread.review.wroteClientId && thread.review.wroteClientId === thread.clientId
+                  ? () => patchThread({ clientId: null }, "app.messages.outcome.saveError")
+                  : null
+              }
+            />
           </div>
         ) : null}
       </header>

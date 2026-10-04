@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, assignedJobWhere } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { sheetScope, mayEditSheet, coordinatesSheets } from "@/lib/dailySheets/access";
 import { loadDay, ownWorker, companyTimezone, linkedUpsellsForJob } from "@/lib/dailySheets/load";
@@ -68,6 +68,17 @@ export async function PUT(request) {
   if (!worker) return NextResponse.json({ error: "Worker not found" }, { status: 404 });
   const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, { jobId });
   if (notOurs) return notOurs;
+  // A crew member's sheet hangs off one of THEIR jobs: the linked upsells
+  // below are copied from that job's add-ons and change orders, so an
+  // unscoped jobId let them credit themselves with another crew's sales
+  // (the 2026-10-03 role-access audit; GET .../upsells has the same scope).
+  if (jobId) {
+    const reachable = await db.job.findFirst({
+      where: { id: jobId, companyId: member.companyId, ...assignedJobWhere(full) },
+      select: { id: true },
+    });
+    if (!reachable) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
 
   const objectives = normaliseObjectives(body.objectives);
   const { map } = await linkedUpsellsForJob({ companyId: member.companyId, jobId: jobId || null });

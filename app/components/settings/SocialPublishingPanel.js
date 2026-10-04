@@ -29,6 +29,7 @@ import { AlertTriangle, CheckCircle2, Clock, Link2, ShieldAlert } from "lucide-r
 import { SocialGlyph } from "@/app/components/links/linkIcons";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
+import MetaHistoryStatus from "@/app/components/settings/MetaHistoryStatus";
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 
 // Every `socialError` value app/api/settings/social/{connect,callback} can
@@ -558,6 +559,10 @@ export default function SocialPublishingPanel() {
               </span>
             </p>
           )}
+          {/* Everything older than that import reaches — as far back as Meta
+              returns it, resolved and silent (lib/meta/historyBackfill.js).
+              Behind the same gate as the import link above. */}
+          {connection.pageImport?.available && <MetaHistoryStatus scope="messages" t={t} />}
 
           <p className="text-xs text-muted-foreground">
             {connection.connectedByName

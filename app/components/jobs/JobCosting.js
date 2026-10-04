@@ -14,6 +14,7 @@
 // on every fresh job is noise, and "£0 spent" on a job nobody has worked yet
 // is a statement we have no business making.
 
+import { useHasToggle } from "@/app/providers/PermissionProvider";
 import { useEffect, useState } from "react";
 import { Receipt, Clock, AlertTriangle, Building2, Unlink, HardHat } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -44,13 +45,16 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
   // A completed job nobody has closed out yet. The prompt exists because the
   // comparison used to measure the estimate against whatever happened to be
   // recorded, and nothing ever asked whether that was all of it.
+  // The route answers 403 without jobCosting; not asking is cheaper than a
+  // refusal on every job page a crew member, estimator or dispatcher opens.
+  const mayCost = useHasToggle("jobCosting");
   const needsReview = jobStatus === "completed" && !costReviewedAt;
   useEffect(() => {
     if (autoOpenReview && needsReview) setReviewOpen(true);
   }, [autoOpenReview, needsReview]);
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId || !mayCost) return;
     let live = true;
     fetch(`/api/jobs/${jobId}/costing`)
       // 403 is the normal answer for someone without the jobCosting toggle,
@@ -61,7 +65,7 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
     return () => {
       live = false;
     };
-  }, [jobId, reloadKey, refreshKey]);
+  }, [jobId, reloadKey, refreshKey, mayCost]);
 
   if (!data?.actual) return null;
 
@@ -349,7 +353,16 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
           an estimate: the quote's estimate isn't stored, and recomputing it
           today against a changed price book would produce a variance that
           moves when nobody touched the job. See the API route. */}
-      {comparison.profit !== null && (
+      {/* A past job typed in with nothing recorded against it: its cost is
+          unknown, and "Left after costs" against $0 would be a 100% margin
+          nobody earned. The route sets the flag only while nothing is
+          recorded; add a receipt and the margin below comes back. */}
+      {data.costsNotRecorded && (
+        <p className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
+          {t("app.jobCosting.costsNotRecorded", "Costs weren't recorded for this past job.")}
+        </p>
+      )}
+      {comparison.profit !== null && !data.costsNotRecorded && (
         <div className="mt-4 pt-4 border-t border-border grid sm:grid-cols-3 gap-4">
           <Stat
             label={

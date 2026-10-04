@@ -287,7 +287,7 @@ export const ARTICLES = {
         heading: "Ce que dit la carte aujourd'hui",
         blocks: [
           {
-            p: "La carte indique **WhatsApp arrive bientôt. Nous attendons que Meta approuve FieldQuo pour WhatsApp, et nous vous préviendrons le jour où ce sera prêt.** Si votre Page Facebook ou votre compte Instagram est déjà connecté, elle ajoute par exemple **Vos messages Facebook et Instagram arrivent déjà ici.**",
+            p: "La carte indique **WhatsApp arrive bientôt. C'est prêt, et en attente de l'examen des applications de Meta (App Review), qui doit accorder à FieldQuo ses deux autorisations WhatsApp — le bouton Connecter WhatsApp apparaîtra ici le jour où Meta le fera.** Si votre Page Facebook ou votre compte Instagram est déjà connecté, elle ajoute par exemple **Vos messages Facebook et Instagram arrivent déjà ici.**",
           },
           {
             p: "Il n'y a ni bouton ni champ à remplir. Comme le reste de **Paramètres → Publicités Meta**, la carte est réservée au propriétaire et aux administrateurs.",

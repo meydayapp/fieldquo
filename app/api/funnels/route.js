@@ -7,7 +7,8 @@ import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
-import { buildFunnelFromTemplate } from "@/lib/funnels/templates";
+import { buildFunnelFromTemplate, blankFunnelSteps, untitledFunnelName } from "@/lib/funnels/templates";
+import { funnelPageLanguage } from "@/lib/i18n/funnelCopy";
 import { slugifyFunnel, uniqueFunnelSlug } from "@/lib/funnels/slug";
 
 // Same gate as the website builder — a funnel is a public marketing surface.
@@ -81,30 +82,32 @@ export async function POST(request) {
   let channel = body.channel || null;
   let steps;
 
+  // The starter's words are written in the language the funnel's public page
+  // is drawn in — the company's (lib/i18n/funnelCopy.js funnelPageLanguage),
+  // so the hook and the page chrome around it are one language.
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { name: true, currency: true, defaultLanguage: true },
+  });
+  const language = funnelPageLanguage(company);
+
   if (Array.isArray(body.steps)) {
     steps = sanitiseFunnelSteps(body.steps);
   } else if (body.template) {
-    const [company, enabled] = await Promise.all([
-      db.company.findUnique({ where: { id: member.companyId }, select: { name: true, currency: true } }),
-      db.companyServiceCategory.findMany({
-        where: { companyId: member.companyId, enabled: true },
-        select: { category: { select: { key: true, label: true } } },
-      }),
-    ]);
+    const enabled = await db.companyServiceCategory.findMany({
+      where: { companyId: member.companyId, enabled: true },
+      select: { category: { select: { key: true, label: true } } },
+    });
     const services = enabled.map((e) => e.category).filter(Boolean);
-    const built = buildFunnelFromTemplate(body.template, { company, services });
+    const built = buildFunnelFromTemplate(body.template, { company, services, language });
     steps = sanitiseFunnelSteps(built.steps);
     if (!name) name = built.name;
     channel = channel || built.channel;
   } else {
-    steps = sanitiseFunnelSteps([
-      { id: "intro", kind: "intro", headline: name || "Get a quote", buttonText: "Get started" },
-      { id: "contact", kind: "form", headline: "Your details", fields: ["name", "email", "phone"], buttonText: "Submit" },
-      { id: "done", kind: "thankyou", headline: "Thanks — we'll be in touch." },
-    ]);
+    steps = sanitiseFunnelSteps(blankFunnelSteps(language, name));
   }
 
-  if (!name) name = "Untitled funnel";
+  if (!name) name = untitledFunnelName(language);
   const slug = await uniqueFunnelSlug(db, member.companyId, slugifyFunnel(name));
 
   const funnel = await db.funnel.create({

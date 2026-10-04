@@ -103,7 +103,7 @@ export default function CompanyHistory({ companyId }) {
               <Field label="Plan" value={sub.planName || "—"} />
               <Field
                 label="Monthly"
-                value={money(sub.priceMonthly, { compact: true })}
+                value={money(sub.priceMonthly, { compact: true, currency: sub.currency })}
               />
               <Field label="Status" value={sub.status} />
               <Field label="Customer since" value={formatDate(sub.since)} />
@@ -162,11 +162,11 @@ export default function CompanyHistory({ companyId }) {
           <dl className="grid gap-4 sm:grid-cols-3">
             <Field
               label="Invoiced"
-              value={money(data.activity.invoicedTotal, { compact: true })}
+              value={money(data.activity.invoicedTotal, { compact: true, currency: data.activity.currency })}
             />
             <Field
               label="Collected"
-              value={money(data.activity.collectedTotal, { compact: true })}
+              value={money(data.activity.collectedTotal, { compact: true, currency: data.activity.currency })}
             />
             <Field
               label="Invoices"
@@ -206,7 +206,7 @@ export default function CompanyHistory({ companyId }) {
                         {i.status}
                       </span>
                       <span className="text-foreground font-medium">
-                        {money(i.total, { compact: true })}
+                        {money(i.total, { compact: true, currency: data.activity.currency })}
                       </span>
                     </div>
                   </div>
@@ -240,7 +240,7 @@ export default function CompanyHistory({ companyId }) {
                         {formatDate(p.date)}
                       </span>
                       <span className="text-emerald-700 dark:text-emerald-300 font-medium">
-                        {money(p.amount, { compact: true })}
+                        {money(p.amount, { compact: true, currency: data.activity.currency })}
                       </span>
                     </div>
                   </div>

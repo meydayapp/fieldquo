@@ -27,6 +27,8 @@ import { buildBuiltInFollowUpEmail } from "@/lib/followUps/defaults";
 import { quoteChaseBlocker, gatherQuoteChaseFacts } from "@/lib/followUps/stopConditions";
 import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
 import { templateBody } from "@/lib/email/templateBody";
+import { localizeTemplate } from "@/lib/email/templateTranslation";
+import { translationsForSend } from "@/lib/email/templateTranslationStore";
 import { mergeDataFor, followUpLanguage } from "@/lib/followUps/mergeData";
 import { runCallbackRotation } from "@/lib/callbacks/build";
 
@@ -205,6 +207,8 @@ export async function GET(request) {
   };
   // One plan-gate answer per company per run — see lib/followUps/readiness.js.
   const planCache = new Map();
+  // Each template's approved translations, read once per run.
+  const translationCache = new Map();
 
   for (const rule of rules) {
     const finder = FINDERS[rule.triggerEvent];
@@ -345,9 +349,21 @@ export async function GET(request) {
         html = built.html;
         text = built.text;
       } else {
+        // The company's reviewed translation for `language` (the document's,
+        // else the client's), or the template as written — read once per
+        // template per run, never drafted here (lib/email/templateTranslation.js).
+        if (!translationCache.has(rule.template.id)) {
+          translationCache.set(rule.template.id, await translationsForSend(db, rule.template.id));
+        }
+        const { template } = localizeTemplate(
+          rule.template,
+          translationCache.get(rule.template.id),
+          language,
+          entity.company || null,
+        );
         // templateBody renders whichever body the template says is sent —
         // its blocks or its canvas — and nothing else reads that column.
-        html = templateBody(rule.template, mergeData, {
+        html = templateBody(template, mergeData, {
           company: entity.company || {},
           // The words FieldQuo prints inside the blocks ("Quote", "Done",
           // the unsubscribe line) — company-typed text stays as written.
@@ -356,7 +372,7 @@ export async function GET(request) {
         });
         // template.name is the internal label ("Quote follow-up (default)") —
         // only fall back to it if no client-facing subject is set.
-        subject = renderSubject(rule.template.subject, mergeData, rule.template.name);
+        subject = renderSubject(template.subject, mergeData, rule.template.name);
       }
 
       const result = await sendEmail({

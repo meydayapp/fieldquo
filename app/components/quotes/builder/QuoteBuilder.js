@@ -164,7 +164,14 @@ import {
   templateOffered,
   templateRunOf,
 } from "@/lib/quotes/serviceTemplateLines";
-import { describeTemplateLine } from "./templateLineNotes";
+import { describeTemplateLine, measureLabel } from "./templateLineNotes";
+import { unitOptionLabel } from "./CustomItemDialog";
+import {
+  customItemTargets,
+  customItemUnits,
+  tierSelectedLines,
+  isCustomItemLine,
+} from "@/lib/quotes/customItem";
 import { explainTaxSource, renderTaxNote } from "@/lib/tax/resolveTaxRate";
 import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
@@ -884,7 +891,14 @@ export function QuoteBuilderForm({
   // (Product.active false — lib/products/offered.js) is never offered on a
   // new line, a service card or an add-on. Lines already on a quote carry
   // their own name and price and never needed the row.
-  const products = useMemo(() => offeredOnly(boot.products), [boot.products]);
+  // Plus any service saved from "Create custom item" › Save to price book in
+  // this session, so the next pick finds it without a reload (the bootstrap
+  // is a prop here and is not re-fetched).
+  const [savedProducts, setSavedProducts] = useState([]);
+  const products = useMemo(
+    () => offeredOnly(savedProducts.length ? [...(boot.products || []), ...savedProducts] : boot.products),
+    [boot.products, savedProducts],
+  );
   // Product id → production rate, for the groups' template runs. Empty on a
   // boot without rates (every check fixture, every company that set none).
   const productionById = useMemo(() => productionMapFrom(boot.productionRates), [boot.productionRates]);
@@ -1573,8 +1587,44 @@ export function QuoteBuilderForm({
     return pv && pv.summary ? { ...pv, note: templateSkipNote(pv.summary, category.key) } : pv;
   }
 
+  // ── "Create custom item" (owner, 2026-10-03) ──────────────────────────────
+  //
+  // A line written on the spot INTO one of the estimate's services, in that
+  // service's units (CustomItemDialog.js, lib/quotes/customItem.js). It lands
+  // in the group's typed lines — where the library's text blocks land
+  // (addLibraryLine) — so it is saved, printed, invoiced and costed as any
+  // line is, and sits beside, never inside, what a calculator derives.
+  function addCustomItem(groupTempId, line) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId && !g.imported ? { ...g, lineItems: [...g.lineItems, line] } : g,
+      ),
+    );
+  }
+  const customItemPicker = {
+    targets: customItemTargets(scopeGroups, categories),
+    unitsFor: (tempId) => {
+      const g = scopeGroups.find((x) => x.tempId === tempId);
+      const cat = g ? categories.find((c) => c.id === g.categoryId) : null;
+      return customItemUnits(g, { categoryUnit: cat?.unit || null });
+    },
+    hourlyRateFor: (tempId) => {
+      const g = scopeGroups.find((x) => x.tempId === tempId);
+      return g ? hourlyRateFor(g) : null;
+    },
+    showPricing: caller ? hasToggle(caller, "showPricing") : true,
+    currency: companyCurrency,
+    // POST /api/products answers owner/admin only (requireCatalogueWrite);
+    // nobody else is offered a box whose save would be refused.
+    canSaveToBook: ["owner", "admin"].includes(caller?.role),
+    bookLanguageOk: (quoteLanguage || companyLanguage) === companyLanguage,
+    add: addCustomItem,
+    onSavedProduct: (product) => setSavedProducts((prev) => [...prev, product]),
+  };
+
   const servicePicker = {
     kind: "quote",
+    customItem: customItemPicker,
     categories,
     products,
     onQuoteCategoryIds: scopeGroups.map((g) => g.categoryId),
@@ -1893,15 +1943,11 @@ export function QuoteBuilderForm({
           ? {
               ...g,
               selectedTier: tierKey,
-              lineItems: [
-                {
-                  description: `${g.label} — ${tierLabel}`,
-                  quantity: 1,
-                  unit: "flat",
-                  rate: 0,
-                  amount: 0,
-                },
-              ],
+              // The tier's line, then any custom item already written into
+              // this group — picking a tier used to replace the whole list
+              // (lib/quotes/customItem.js tierSelectedLines). A group with
+              // no custom item gets exactly the one line it always did.
+              lineItems: tierSelectedLines(g, tierLabel),
             }
           : g,
       ),
@@ -3091,6 +3137,26 @@ export function QuoteBuilderForm({
               // only when it holds a template line at all.
               let measured = null;
               return (item, i, items) => {
+                // A custom item says what it is and in which of this
+                // service's units — and, when that is a unit the group's
+                // calculator already bills, that it is charged on top.
+                if (isCustomItemLine(item)) {
+                  const key = item.meta.customItem.measurementKey || null;
+                  const unitText = unitOptionLabel(t, { unit: item.unit, measurementKey: key, figure: null });
+                  const overlap = key && keysPricedByGroup(group).includes(key);
+                  return {
+                    bar: null,
+                    note: {
+                      tone: overlap ? "warn" : "info",
+                      text: overlap
+                        ? t("app.customItem.lineNoteOverlap", "Custom item · {unit} — charged on top of what this service's calculator already prices for {measure}.", {
+                            unit: unitText,
+                            measure: measureLabel(t, key),
+                          })
+                        : t("app.customItem.lineNote", "Custom item · {unit}", { unit: unitText }),
+                    },
+                  };
+                }
                 if (!templateRunOf(item)) return null;
                 if (!measured) measured = templateMeasurements(group.tempId);
                 return describeTemplateLine({

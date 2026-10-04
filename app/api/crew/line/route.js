@@ -72,6 +72,7 @@ import {
   listSmsCapableNumbers,
   inboundWebhookUrl,
 } from "@/lib/crew/line";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 /**
  * @param read  true only on GET — non-negotiable #3, the platform console views
@@ -311,6 +312,10 @@ export async function POST(request) {
   // The browser posts an E.164 and NEVER an amount (non-negotiable #5). The
   // price is read from our own rows inside the reservation.
   if (action === "buy") {
+    // A card-free trial verifies a mobile before this spends FieldQuo money
+    // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+    const phoneGate = await phoneGateResponse(member, "crew_line");
+    if (phoneGate) return phoneGate;
     const result = await purchaseCrewLine({
       companyId: member.companyId,
       e164: body?.e164,

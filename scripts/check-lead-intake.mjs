@@ -54,7 +54,8 @@ import {
 import { buildLeadFromFunnel } from "../lib/funnels/ingest.js";
 import { normaliseLeadRow } from "../lib/leads/importMap.js";
 import { NOT_ASKED_BY_SOURCE, wasAsked } from "../lib/leads/qualifiers.js";
-import { UNASKABLE_BY_SOURCE } from "../lib/leads/createLead.js";
+import { scoringOptions } from "../lib/leads/createLead.js";
+import { unaskedForScoring, ASKED_BY_SOURCE } from "../lib/leads/qualifiers.js";
 import { scoreLead } from "../lib/leads/score.js";
 import { convertLeadToQuote } from "../lib/leads/convertLead.js";
 import { rows, writes, resetDbStub } from "./fixtures/dbStub.mjs";
@@ -516,20 +517,30 @@ ok(wasAsked("funnel:facebook", "timeline"), "a funnel's questions are the contra
 ok(wasAsked("imported", "budget"), "…nor can we, of a CSV somebody exported");
 ok(!wasAsked("manual", "budget") && !wasAsked("manual", "timeline"),
   "the hand-entered lead form (/app/leads/new) asks neither — its six fields are the owner's list");
-ok(!UNASKABLE_BY_SOURCE.manual, "…and that is display only: the scorer is not re-weighted for it");
+ok(unaskedForScoring("manual").join(",") === "budget,timeline", "…and since 2026-10-03 the scorer does not hold either against a hand-typed lead (owner's call)");
 ok(wasAsked(undefined, "budget"), "an unknown source claims nothing");
 
 // The relationship that must hold between the two maps, or the screen and the
-// scorer end up describing different worlds.
-for (const [source, fields] of Object.entries(UNASKABLE_BY_SOURCE)) {
+// scorer end up describing different worlds: a question the SCREEN says nobody
+// asked can never be held against the lead by the SCORER.
+for (const [source, fields] of Object.entries(NOT_ASKED_BY_SOURCE)) {
   for (const f of fields) {
     ok(
-      (NOT_ASKED_BY_SOURCE[source] || []).includes(f),
-      `the scorer withholding "${f}" for ${source} is also declared unasked on the screen`,
-      NOT_ASKED_BY_SOURCE[source],
+      unaskedForScoring(source).includes(f),
+      `"${f}" declared unasked on the screen for ${source} is not counted against it by the scorer`,
+      unaskedForScoring(source),
     );
   }
 }
+// …and the scorer holds an absence against a lead only where the channel put
+// the question: the two forms that do, and the phone's urgency question.
+ok(Object.keys(ASKED_BY_SOURCE).sort().join(",") === "instant_quote,phone_agent,phone_agent_recovered,self_quote", "only four sources put a scored question", Object.keys(ASKED_BY_SOURCE));
+ok(unaskedForScoring("self_quote").length === 0 && unaskedForScoring("instant_quote").length === 0, "the self-quote form and the instant quote are scored exactly as before");
+ok(unaskedForScoring("meta_lead_form").join(",") === "budget,timeline", "a Meta lead form is not penalised for questions it never had");
+ok(unaskedForScoring("meta_messenger").join(",") === "budget,timeline" && unaskedForScoring("meta_instagram").join(",") === "budget,timeline", "…nor a Messenger or Instagram conversation");
+ok(unaskedForScoring("phone_agent").join(",") === "budget", "the phone still asks urgency, so only budget is withheld");
+ok(unaskedForScoring("funnel:facebook").join(",") === "budget,timeline" && unaskedForScoring(undefined).join(",") === "budget,timeline", "a funnel or an unknown source: absence is not a penalty");
+ok(wasAsked("meta_lead_form", "budget") === false && wasAsked("meta_lead_form", "timeline") === false, "the screen says \"Nobody asked\" on a Meta form lead");
 
 {
   const page = code("app/app/leads/page.js");
@@ -596,10 +607,20 @@ ok(
 {
   const voice = code("app/api/voice/tools/[tool]/route.js");
   ok(/timeline:\s*URGENCY_TIMELINE\[urgency\]/.test(voice), "the phone still maps urgency onto the timeline the scorer reads");
-  const recovered = scoreLead(INSTANT_LEAD, { unasked: UNASKABLE_BY_SOURCE.phone_agent_recovered });
-  ok(recovered.score > withoutTimeline.score, "a RECOVERED phone lead is scored without the budget question it could not ask", {
-    web: withoutTimeline.score, recovered: recovered.score,
+  // A phone lead has no budget band — the receptionist may not ask one.
+  const noBudget = { ...INSTANT_LEAD, budgetBand: undefined };
+  const asWeb = scoreLead(noBudget, scoringOptions("self_quote"));
+  const recovered = scoreLead(noBudget, scoringOptions("phone_agent_recovered"));
+  ok(recovered.score > asWeb.score, "a RECOVERED phone lead is scored without the budget question it could not ask", {
+    web: asWeb.score, recovered: recovered.score,
   });
+  ok(recovered.reasons.some((r) => r.key === "app.leads.reason.noBudgetPhone"), "…and keeps the phone's own reason wording", recovered.reasons);
+  const metaForm = scoreLead({ phone: "+16135550142", email: "a@b.co", message: "Kitchen cabinets" }, scoringOptions("meta_lead_form"));
+  const sameAsWeb = scoreLead({ phone: "+16135550142", email: "a@b.co", message: "Kitchen cabinets" }, scoringOptions("self_quote"));
+  ok(metaForm.score > sameAsWeb.score, "a Meta form lead with the same details outscores a web form that skipped both questions", { meta: metaForm.score, web: sameAsWeb.score });
+  ok(metaForm.reasons.some((r) => r.key === "app.leads.reason.budgetNotAsked") && metaForm.reasons.some((r) => r.key === "app.leads.reason.timelineNotAsked"), "…and says both were UNKNOWN rather than counting them", metaForm.reasons);
+  const withTimeline = scoreLead({ phone: "+16135550142", timeline: "asap" }, scoringOptions("meta_messenger"));
+  ok(!withTimeline.reasons.some((r) => r.key === "app.leads.reason.timelineNotAsked") && withTimeline.reasons.some((r) => r.key === "app.leads.reason.timelineAsap"), "a timeline a conversation DID give counts, and is not called unknown", withTimeline.reasons);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

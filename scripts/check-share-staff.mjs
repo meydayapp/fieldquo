@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import { canOpenQuote, shareMessageBody, shareVerdict } from "@/lib/quotes/shareWithStaff";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import { roomListRow } from "@/lib/company/chat/rules";
 
 let pass = 0;
 const failures = [];
@@ -45,8 +46,24 @@ ok("GET /api/quotes/[id] refuses below quotes:view_only — the rung canOpenQuot
 
 section("2. The message");
 const withJob = shareMessageBody({ message: "  have a look ", quoteLine: "Q: /app/quotes/q1", workOrderLine: "WO: /app/jobs/j1/work-order", accessNote: "NOTE" });
-ok("with a job: the sender's line, the quote link, the work order link — in that order",
-  withJob === "have a look\nQ: /app/quotes/q1\nWO: /app/jobs/j1/work-order", JSON.stringify(withJob));
+// The live test (2026-10-04): a DM to a crew member carried the quote link
+// ("needs quote access") above the work order — a link aimed at them that
+// refuses them. A room now gets the crew's line FIRST; one person who
+// cannot open quotes gets the work order ALONE.
+ok("with a job, into a room: the sender's line, the WORK ORDER first, then the quote",
+  withJob === "have a look\nWO: /app/jobs/j1/work-order\nQ: /app/quotes/q1", JSON.stringify(withJob));
+const dmCrew = shareMessageBody({ message: "", quoteLine: "Q: /app/quotes/q1", workOrderLine: "WO: /app/jobs/j1/work-order", accessNote: "NOTE", kind: "person", personCanOpenQuote: false });
+ok("a DM to someone who cannot open quotes carries the work order ONLY", dmCrew === "WO: /app/jobs/j1/work-order", JSON.stringify(dmCrew));
+const dmOffice = shareMessageBody({ message: "", quoteLine: "Q", workOrderLine: "WO", kind: "person", personCanOpenQuote: true });
+ok("a DM to someone who CAN open quotes gets both, crew line first", dmOffice === "WO\nQ", JSON.stringify(dmOffice));
+const dmUnknown = shareMessageBody({ message: "", quoteLine: "Q", workOrderLine: "WO", kind: "person", personCanOpenQuote: null });
+ok("an unknown (old directory row) keeps both — no link dropped on a guess", dmUnknown === "WO\nQ", JSON.stringify(dmUnknown));
+const dmCrewNoJob = shareMessageBody({ message: "", quoteLine: "Q", workOrderLine: null, accessNote: "NOTE", kind: "person", personCanOpenQuote: false });
+ok("(no work order + a crew DM is refused by shareVerdict before this is built — the body alone would be the quote)", dmCrewNoJob === "Q\nNOTE");
+ok("the modal passes the target kind and the person's access into the body",
+  /kind: pickedPerson \? "person" : "room",\s*personCanOpenQuote: personCanOpen,/.test(code("app/components/quotes/ShareWithStaffModal.js")));
+ok("…and does not preview the quote link when it will not be sent", /workOrderOnly \? null : <p/.test(code("app/components/quotes/ShareWithStaffModal.js")));
+ok("the labels say who each link is for (en)", /^For the crew/.test(APP_MESSAGES.en["app.shareStaff.workOrderLine"]) && /^For the office/.test(APP_MESSAGES.en["app.shareStaff.quoteLine"]));
 ok("…and no access note (the work order IS the crew's answer)", !withJob.includes("NOTE"));
 const noJob = shareMessageBody({ message: "", quoteLine: "Q: /app/quotes/q1", workOrderLine: null, accessNote: "NOTE" });
 ok("without a job: the quote link and the access note, no empty first line", noJob === "Q: /app/quotes/q1\nNOTE", JSON.stringify(noJob));
@@ -75,6 +92,18 @@ ok("…links the work order by the one URL helper", /workOrderPath\(workOrderJob
 ok("…and marks people who can't open quotes in the picker", /p\.canOpenQuote === false/.test(modal));
 ok("the quote page hands it the job", /workOrderJobId=\{quote\.jobs\?\.\[0\]\?\.id \|\| null\}/.test(code("app/app/quotes/[id]/page.js")));
 ok("the builder hands it the job", /workOrderJobId=\{workOrderJobId\}/.test(code("app/components/quotes/builder/DocumentBuilder.js")));
+{
+  // The picker labels the rows /api/chat/rooms returns — roomListRow's
+  // shape. It read `name`, which that row does not carry, so every job room
+  // was "#job" and every DM "Direct message". Run the real row builder and
+  // assert the field the modal reads is the field the row has.
+  const row = roomListRow({ id: "r1", kind: "job", name: "Nguyen kitchen", members: [{ memberId: "m1", open: true }] }, "m1");
+  const dm = roomListRow({ id: "r2", kind: "dm", members: [{ memberId: "m1", open: true }, { memberId: "m2", open: true, member: { user: { name: "Ana Côté" } } }] }, "m1");
+  ok("a listed job room carries its name as `title`, and no `name`", row.title === "Nguyen kitchen" && !("name" in row), row);
+  ok("a listed DM carries the other person as `title`", dm.title === "Ana Côté", dm.title);
+  const label = modal.slice(modal.indexOf("const roomLabel"), modal.indexOf("\n", modal.indexOf("const roomLabel")));
+  ok("the picker labels rooms by `title`", /r\.title/.test(label) && !/r\.name/.test(label), label);
+}
 const page = code("app/app/quotes/[id]/page.js");
 ok("the quote page tells a 403 apart from a 404", /setRefused\(r\.status === 403\)/.test(page) && /app\.quoteDetail\.noAccess/.test(page));
 
@@ -82,12 +111,13 @@ section("6. Every new sentence, in every catalogue language");
 const KEYS = [
   "app.shareStaff.quoteLine", "app.shareStaff.workOrderLine", "app.shareStaff.accessNote", "app.shareStaff.hintWithJob",
   "app.shareStaff.hintNoJob", "app.shareStaff.getsWorkOrder", "app.shareStaff.cantOpen", "app.shareStaff.noAccessNoWorkOrder",
+  "app.shareStaff.hintWorkOrderOnly",
   "app.quoteDetail.noAccess",
 ];
 for (const [lang, msgs] of Object.entries(APP_MESSAGES)) {
   const missing = KEYS.filter((k) => typeof msgs[k] !== "string" || !msgs[k].trim());
   ok(`${lang}: all ${KEYS.length} present`, missing.length === 0, missing.join(", "));
-  const placeholders = ["app.shareStaff.quoteLine", "app.shareStaff.workOrderLine", "app.shareStaff.noAccessNoWorkOrder"];
+  const placeholders = ["app.shareStaff.quoteLine", "app.shareStaff.workOrderLine", "app.shareStaff.noAccessNoWorkOrder", "app.shareStaff.hintWorkOrderOnly"];
   const broken = placeholders.filter((k) => {
     const want = (APP_MESSAGES.en[k].match(/\{\w+\}/g) || []).sort().join();
     return ((msgs[k] || "").match(/\{\w+\}/g) || []).sort().join() !== want;

@@ -152,6 +152,11 @@ export const rows = {
   // Client.address/city/province/country, and it is exactly the regression a
   // source-level check would keep passing through.
   leadRequest: [],
+  // "Same person as that lead" links and the Meta history walk's progress
+  // rows (lib/leads/identityLinks.js, lib/meta/historyBackfill.js) — scripted
+  // so the form-lead import and the backfill run as real code here.
+  leadIdentityLink: [],
+  metaHistoryBackfill: [],
   // The tenant activity trail and the actor lookup lib/activity/log.js makes
   // before writing it (check-whatsapp.mjs). The claim that needs executing is
   // "the connection is logged and the token is not in the row" — a property
@@ -303,6 +308,8 @@ export function resetDbStub() {
   rows.metaPageConnection = [];
   rows.whatsAppTemplate = [];
   rows.leadRequest = [];
+  rows.leadIdentityLink = [];
+  rows.metaHistoryBackfill = [];
   rows.user = [];
   rows.activityLog = [];
   rows.invoice = [];
@@ -735,6 +742,8 @@ export const db = new Proxy(
     metaPageConnection: model("metaPageConnection"),
     whatsAppTemplate: model("whatsAppTemplate"),
     leadRequest: model("leadRequest"),
+    leadIdentityLink: model("leadIdentityLink"),
+    metaHistoryBackfill: model("metaHistoryBackfill"),
     user: model("user"),
     activityLog: model("activityLog"),
     invoice: model("invoice"),

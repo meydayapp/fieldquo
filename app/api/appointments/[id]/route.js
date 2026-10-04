@@ -9,6 +9,7 @@ import {
   loadEnforceableMember,
   hasLevel,
   redactClient,
+  redactDocumentRefs,
 } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
@@ -100,7 +101,9 @@ export async function GET(request, { params }) {
 
   // The nested client is the same record GET /api/clients redacts for
   // name_address_only — reaching it through an appointment must not pay more.
-  return NextResponse.json({ ...appt, client: redactClient(full, appt.client) });
+  // …and the quote or invoice it is about only for a reader who can open
+  // that document (redactDocumentRefs).
+  return NextResponse.json(redactDocumentRefs(full, { ...appt, client: redactClient(full, appt.client) }));
 }
 
 export async function PATCH(request, { params }) {

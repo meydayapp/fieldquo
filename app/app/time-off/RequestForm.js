@@ -17,6 +17,14 @@
 // read before Submit, not after. The server still decides: the cap ("three
 // people are already off") needs the live rows and is judged there, and its
 // message names who.
+//
+// ── With no policies set up (2026-10-04) ────────────────────────────────────
+//
+// `unpaidFallback` ({ name }) arrives when the company has set up no leave
+// policies. The type is then fixed — unpaid time off, said in place of the
+// picker — and the POST carries `unpaid: true` instead of a policyId; the
+// route files it under the fallback policy and routes it for approval like
+// any request (lib/leave/unpaidFallback.js).
 
 import { useMemo, useState } from "react";
 import { Info, Loader2, AlertTriangle } from "lucide-react";
@@ -38,7 +46,8 @@ function iso(d) {
  * @param {Array}  [p.holidays]   [{ key, name, observed }]
  * @param {Array}  [p.workers]    when set, the form is a manager's "Add time off"
  */
-export default function RequestForm({ policies, balances, rules = null, holidays = [], workers = null, onDone, onCancel }) {
+export default function RequestForm({ policies, balances, rules = null, holidays = [], workers = null, unpaidFallback = null, onDone, onCancel }) {
+  const fallback = !policies?.length && unpaidFallback ? unpaidFallback : null;
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const today = iso(new Date());
@@ -78,6 +87,7 @@ export default function RequestForm({ policies, balances, rules = null, holidays
           ...form,
           workerId: onBehalf ? form.workerId : undefined,
           halfDay: sameDay && form.halfDay,
+          ...(fallback ? { policyId: undefined, unpaid: true } : {}),
         }),
       });
       onDone(created);
@@ -109,23 +119,32 @@ export default function RequestForm({ policies, balances, rules = null, holidays
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.type")}</span>
-          <select
-            value={form.policyId}
-            onChange={(e) => setForm({ ...form, policyId: e.target.value })}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            {policies.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.paid === false ? ` (${t("app.timeOff.unpaidSuffix")})` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        {fallback ? (
+          <div className="block">
+            <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.type")}</span>
+            <p className="mt-1 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+              {fallback.name} ({t("app.timeOff.unpaidSuffix")})
+            </p>
+          </div>
+        ) : (
+          <label className="block">
+            <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.type")}</span>
+            <select
+              value={form.policyId}
+              onChange={(e) => setForm({ ...form, policyId: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              {policies.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.paid === false ? ` (${t("app.timeOff.unpaidSuffix")})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="flex items-end">
-          {policy?.paid === false ? (
+          {fallback || policy?.paid === false ? (
             <p className="text-xs text-muted-foreground">{t("app.timeOff.unpaidNoBalance")}</p>
           ) : balance ? (
             <p className="text-xs text-muted-foreground">
@@ -221,6 +240,7 @@ export default function RequestForm({ policies, balances, rules = null, holidays
           {t("app.timeOff.onBehalfNote")}
         </p>
       ) : (
+        !fallback &&
         policy &&
         !policy.requiresApproval && (
           <p className="text-xs text-muted-foreground flex items-start gap-1.5">

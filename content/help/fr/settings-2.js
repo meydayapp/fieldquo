@@ -543,6 +543,21 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "translations",
+        heading: "Des courriels dans la langue de votre client",
+        blocks: [
+          { p: "Vous rédigez chaque modèle une seule fois, dans votre langue — la case **Rédigé en**, sous **Objet**, indique laquelle. Les nouveaux modèles et **Ajouter les modèles par défaut** partent dans la langue de votre entreprise." },
+          { p: "La carte **Traductions**, sous **Envoyer un test**, liste chacune des autres langues avec le nombre de vos clients qui la lisent. **Traduire** prépare un brouillon dans cette langue avec l'IA de FieldQuo; **Réviser / modifier** montre chaque ligne à côté de l'original, avec un aperçu, et rien ne part dans cette langue avant que vous appuyiez sur **Approuver et utiliser**. **La rédiger moi-même** ouvre une traduction vide à remplir, sans frais." },
+          { bullets: [
+            "Un client dont la langue a une traduction approuvée et à jour la reçoit. Tous les autres reçoivent le courriel tel que vous l'avez rédigé — un envoi n'attend jamais une traduction.",
+            "Une relance au sujet d'une soumission ou d'une facture part dans la langue de ce document; une campagne part dans la langue du client.",
+            "Si vous modifiez le modèle, ses traductions affichent **Périmé — l'original est envoyé** jusqu'à ce que vous appuyiez sur **Mettre à jour** (seules les lignes modifiées sont refaites) et que vous approuviez de nouveau.",
+            "Les champs de fusion comme {{clientName}} sont protégés. Une ligne préparée qui en perd ou en modifie un est refusée et laissée vide pour que vous la rédigiez, et une traduction qui a une ligne vide ne peut pas être approuvée.",
+          ] },
+          { note: "Chaque traduction indique ce qu'elle a coûté en IA — habituellement une fraction de cent. Si vous avez du crédit IA, elle y est facturée; sans crédit, FieldQuo assume les traductions de 5 ¢ ou moins, jusqu'à 1,00 $ par mois pour votre entreprise." },
+        ],
+      },
+      {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
@@ -551,6 +566,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
+      { q: "FieldQuo traduit-il mon courriel tout seul au moment de l'envoi?", a: "Non. Une traduction n'est préparée que lorsque vous appuyez sur Traduire, Mettre à jour ou Régénérer, et elle n'est utilisée qu'une fois approuvée. L'envoi n'attend jamais l'IA et ne l'appelle jamais." },
       { q: "J'ai rendu un modèle Quote email Actif et mon courriel de soumission est pareil. Pourquoi?", a: "Parce que le courriel de soumission n'est pas rendu à partir d'un modèle aujourd'hui. Son texte vient de la soumission et de Services et tarifs; les sections facultatives, de Courriel de soumission." },
       { q: "Les modèles gardent-ils mon logo et ma couleur?", a: "Oui. Un nouveau modèle démarre Selon votre image de marque, depuis Paramètres → Image de marque, jusqu'à ce que vous personnalisiez son apparence." },
       { q: "Où est-ce que je choisis le modèle qu'une relance utilise?", a: "Sur la règle de relance elle-même, sous Paramètres → Relances. Seuls les modèles Follow-up, Marketing et Custom sont offerts." },

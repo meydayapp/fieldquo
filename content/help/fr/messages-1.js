@@ -192,10 +192,10 @@ export const ARTICLES = {
   "whatsapp-business": {
     title: "Les messages WhatsApp Business",
     summary:
-      "Votre propre numéro WhatsApp Business traité dans la même boîte que Facebook et Instagram, avec la règle des 24 heures que WhatsApp impose lui-même — bientôt : c'est construit, et ça attend l'approbation de Meta avant qu'une entreprise puisse connecter un numéro.",
-    updated: "2026-09-28",
+      "Votre propre numéro WhatsApp Business traité dans la même boîte que Facebook et Instagram, avec la règle des 24 heures que WhatsApp impose lui-même — bientôt : c'est construit, et ça attend que l'examen des applications de Meta (App Review) accorde à FieldQuo ses deux autorisations WhatsApp avant qu'une entreprise puisse connecter un numéro.",
+    updated: "2026-10-03",
     intro: [
-      "Aujourd'hui, la carte **WhatsApp Business** de **Paramètres → Publicités Meta** affiche **WhatsApp arrive bientôt. Nous attendons que Meta approuve FieldQuo pour WhatsApp, et nous vous préviendrons le jour où ce sera prêt.** — sans bouton (voir [[whatsapp-coming-soon|WhatsApp (bientôt)]]). Cet article décrit le fonctionnement une fois que Meta aura dit oui : votre numéro WhatsApp Business se connecte par l'inscription de Meta, et dès lors chaque message qu'un client envoie à ce numéro arrive dans [[the-messages-inbox|Messages]] sous la pastille **WhatsApp**, à côté de Facebook et Instagram. Photos, vidéos, messages vocaux, documents, autocollants, fiches contact et positions arrivent tous ; photos, vidéos, documents et votre propre adresse peuvent repartir.",
+      "Aujourd'hui, la carte **WhatsApp Business** de **Paramètres → Publicités Meta** affiche **WhatsApp arrive bientôt. C'est prêt, et en attente de l'examen des applications de Meta (App Review), qui doit accorder à FieldQuo ses deux autorisations WhatsApp — le bouton Connecter WhatsApp apparaîtra ici le jour où Meta le fera.** — sans bouton (voir [[whatsapp-coming-soon|WhatsApp (bientôt)]]). Cet article décrit le fonctionnement une fois que Meta aura dit oui : votre numéro WhatsApp Business se connecte par l'inscription de Meta, et dès lors chaque message qu'un client envoie à ce numéro arrive dans [[the-messages-inbox|Messages]] sous la pastille **WhatsApp**, à côté de Facebook et Instagram. Photos, vidéos, messages vocaux, documents, autocollants, fiches contact et positions arrivent tous ; photos, vidéos, documents et votre propre adresse peuvent repartir.",
       "Une règle surprendra quiconque n'a utilisé WhatsApp que sur un téléphone : sur un numéro d'entreprise, WhatsApp refuse un message écrit plus de **24 heures** après le dernier message du client. FieldQuo indique dans quel cas vous êtes sur chaque conversation et offre la porte de sortie — un modèle approuvé à l'avance par Meta — plutôt que de laisser l'envoi échouer après que vous avez appuyé sur le bouton.",
     ],
     sections: [
@@ -212,12 +212,12 @@ export const ARTICLES = {
         heading: "Comment vous connecterez votre numéro",
         blocks: [
           { steps: [
-            "Une fois FieldQuo approuvé par Meta, ouvrez **Paramètres → Publicités Meta** et descendez jusqu'à **WhatsApp Business**.",
+            "Une fois ces autorisations accordées par Meta, ouvrez **Paramètres → Publicités Meta** et descendez jusqu'à **WhatsApp Business**.",
             "Appuyez sur **Connecter WhatsApp**. Meta vous guide pour vous connecter, choisir ou créer un compte WhatsApp Business, et choisir le numéro de téléphone auquel vos clients écrivent.",
             "De retour sur la carte, le numéro apparaît avec son nom vérifié, **Connecté via l'inscription Meta**, et le numéro tel que Meta l'imprime. Les messages arrivent dans la boîte tout de suite après.",
             "Appuyez sur **Actualiser les modèles** pour lire vos modèles de message chez Meta. La carte liste chacun avec sa langue et le statut donné par Meta — **APPROVED**, ou ce que Meta indique.",
           ] },
-          { figure: "live:app-settings-meta-ads", caption: "Paramètres → Publicités Meta — la carte WhatsApp Business se trouve au bas de l'écran ; tant que Meta n'a pas approuvé FieldQuo, elle ne contient que la phrase « bientôt »." },
+          { figure: "live:app-settings-meta-ads", caption: "Paramètres → Publicités Meta — la carte WhatsApp Business se trouve au bas de l'écran ; tant que Meta n'a pas accordé à FieldQuo ses autorisations WhatsApp, elle ne contient que la phrase « bientôt »." },
           { note: "Un numéro qui ne reçoit rien est pire que pas de numéro : si FieldQuo ne peut pas s'abonner aux messages du numéro, rien n'est connecté et la carte le dit — **FieldQuo n'a pas pu s'abonner à vos messages : rien n'a été connecté, car un numéro qui ne reçoit rien est pire que pas de numéro. Réessayez.**" },
         ],
       },

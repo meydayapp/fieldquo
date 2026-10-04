@@ -194,7 +194,7 @@ const PART_1 = {
     updated: "2026-09-28",
     intro: [
       "Le panneau **WhatsApp Business** de **Paramètres → Publicités Meta** connecte le numéro WhatsApp Business auquel vos clients écrivent, pour que leurs messages arrivent dans **Messages** à côté de vos conversations Facebook et Instagram et y soient répondus. C'est un numéro d'entreprise, pas le WhatsApp personnel de quelqu'un.",
-      "Aujourd'hui le panneau affiche **WhatsApp arrive bientôt. Nous attendons que Meta approuve FieldQuo pour WhatsApp, et nous vous préviendrons le jour où ce sera prêt.**, sans bouton : Meta n'a pas encore accordé à FieldQuo l'accès avancé (Advanced Access) aux autorisations WhatsApp dont le numéro d'une entreprise a besoin, et d'ici là l'inscription de Meta refuse toute entreprise autre que FieldQuo. Cet examen dépend de Meta. Rien ne manque de votre côté — voir [[whatsapp-coming-soon|WhatsApp (bientôt)]] — et cet article dit ce que la fonction fait le jour où elle s'allume — y compris la seule règle qui surprend tout le monde.",
+      "Aujourd'hui le panneau affiche **WhatsApp arrive bientôt. C'est prêt, et en attente de l'examen des applications de Meta (App Review), qui doit accorder à FieldQuo ses deux autorisations WhatsApp — le bouton Connecter WhatsApp apparaîtra ici le jour où Meta le fera.**, sans bouton : Meta n'a pas encore accordé à FieldQuo l'accès avancé (Advanced Access) aux autorisations WhatsApp dont le numéro d'une entreprise a besoin, et d'ici là l'inscription de Meta refuse toute entreprise autre que FieldQuo. Cet examen dépend de Meta. Rien ne manque de votre côté — voir [[whatsapp-coming-soon|WhatsApp (bientôt)]] — et cet article dit ce que la fonction fait le jour où elle s'allume — y compris la seule règle qui surprend tout le monde.",
     ],
     sections: [
       {
@@ -436,6 +436,7 @@ const PART_1 = {
             ],
           } },
           { p: "Un fichier refusé reçoit une phrase, pas une roue qui tourne : le message dit de téléverser une photo (JPEG, PNG, HEIC…), une vidéo (MP4, MOV, WebM) ou un PDF, ou qu'une photo dépasse 15 Mo et d'en essayer une plus petite. Un PDF est conservé octet pour octet sous un nom aléatoire ; le nom du fichier que vous avez téléversé ne fait jamais partie de l'adresse." },
+          { p: "Avant qu'une photo quitte votre téléphone ou votre ordinateur, FieldQuo la réduit à **2 560 pixels sur son plus grand côté** (assez net pour toute soumission, facture ou site web) et retire la **position GPS** que votre appareil y a inscrite : une photo de chantier sur une soumission publique ne révèle jamais où elle a été prise. Une photo déjà de cette taille ou plus petite garde ses pixels et perd seulement la position. Une feuille de plan tirée d'un PDF n'est jamais réduite. Une photo HEIC sur Chrome ou Firefox monte telle quelle." },
         ],
       },
       {

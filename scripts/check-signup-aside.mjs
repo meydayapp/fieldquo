@@ -470,7 +470,11 @@ console.log("\nThe wiring: written AND read");
   ok("the route starts the trial banner on the band's rung only when the link named none", /recommendedTierKeyForBand\(teamBand\)/.test(route) && route.indexOf("recommendedTierKeyForBand(teamBand)") > route.indexOf("wantedPlanId === \"string\""));
   ok("the schema carries the four columns, all optional", ["teamSizeBand", "yearsInBusinessBand", "signupGoal", "signupSource"].every((c) => new RegExp(`\\n  ${c}\\s+String\\?`).test(schema)));
   ok("the platform company list reads them", /c\.teamSizeBand/.test(code("app/platform/companies/page.js")) && /c\.signupGoal/.test(code("app/platform/companies/page.js")) && /c\.revenueBand/.test(code("app/platform/companies/page.js")) && /c\.signupPriority/.test(code("app/platform/companies/page.js")));
-  ok("the rail labels the two rungs from the app catalogue", /team: \{ key: "app\.signup\.steps\.team"/.test(code("app/components/auth/SignupSteps.js")));
+  // The five-step rail (SignupSteps.js) went with the funnel it drew; the
+  // one-screen signup and /welcome have their own question rail. Removed
+  // 2026-10-03 once nothing imported it.
+  ok("the old signup step rail is gone, and nothing imports it",
+    !fs.existsSync("app/components/auth/SignupSteps.js") && !/auth\/SignupSteps/.test(code("app/signup/page.js")) && !/auth\/SignupSteps/.test(code("app/welcome/WelcomeFlow.js")));
   const shell = code("app/components/auth/AuthShell.js");
   ok("the shell draws the strip above the form below lg, and the aside only from lg when a strip is given", /strip \? <div className="mt-6 lg:hidden">\{strip\}<\/div> : null/.test(shell) && /strip \? "hidden lg:block" : ""/.test(shell));
 }

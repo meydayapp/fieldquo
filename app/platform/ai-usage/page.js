@@ -170,8 +170,10 @@ export default function AiUsagePage() {
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-foreground">By company</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Blank cap follows the plan. 0 turns AI off for that company.
-            Default when neither is set: {fmt(data.defaultCap)} tokens.
+            Blank cap follows the plan — its dollar allowance when one is set
+            on Billing › Plans, else its token cap. A token limit here
+            overrides the plan. 0 turns AI off for that company. Default when
+            neither is set: {fmt(data.defaultCap)} tokens.
           </p>
         </div>
 
@@ -227,7 +229,10 @@ export default function AiUsagePage() {
                                 : "bg-muted text-muted-foreground"
                             }`}
                           >
-                            {r.percentUsed}% of {fmt(r.effectiveCap)}
+                            {r.percentUsed}% of{" "}
+                            {r.capUnit === "dollars"
+                              ? `${money(r.effectiveCap)} (plan allowance)`
+                              : `${fmt(r.effectiveCap)} tokens`}
                           </span>
                         )}
                         {r.percentUsed === null && (
