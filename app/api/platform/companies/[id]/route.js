@@ -122,7 +122,12 @@ export async function GET(request, { params }) {
   // decides with; the write set (`data`) stays on the server.
   const unlock = unlockPlan({ company, subscription: company.subscription ?? null });
   delete unlock.data;
-  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel, unlock, callBack });
+  // Who marked it a test company (the switch's "marked by … on …" line).
+  // The id is stored, not a relation — the audit log is the full record.
+  const testMarkedByEmail = company.testMarkedBy
+    ? (await db.platformAdmin.findUnique({ where: { id: company.testMarkedBy }, select: { email: true } }).catch(() => null))?.email || null
+    : null;
+  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel, unlock, callBack, testMarkedByEmail });
 }
 
 export async function PATCH(request, { params }) {

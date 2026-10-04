@@ -45,9 +45,13 @@ import {
 } from "@/lib/platform/trialCounting";
 import { ON_PLAN_BUCKETS, isCustomerBucket } from "@/lib/platform/subscriberBuckets";
 import { stripeMirrorFreshness } from "@/lib/platform/webhookHealth";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 
 /** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
-const NOT_DEMO = { isDemo: false };
+// Demos AND companies a superadmin marked as tests (owner, 2026-10-03) —
+// one rule for every FieldQuo number, lib/platform/metricsScope.js. The
+// name is kept so the checks that look for it still find it.
+const NOT_DEMO = METRICS_COMPANY_WHERE;
 
 // Groups rows into buckets by date key without pulling the whole table into
 // memory twice. Raw SQL would be faster, but keeping it in Prisma means this
@@ -178,8 +182,11 @@ export async function GET(request) {
       console.error("[platform/overview] mirror freshness unavailable:", err?.message);
       return null;
     }),
-    db.quote.count({ where: { createdAt: { gte: startOfMonth } } }),
-    db.job.count({ where: { createdAt: { gte: startOfMonth } } }),
+    // Scoped like every other number here (2026-10-03): these two had no
+    // company filter, so a demo seeded this month and the owner's test
+    // company both landed in "quotes / jobs this month".
+    db.quote.count({ where: { createdAt: { gte: startOfMonth }, company: NOT_DEMO } }),
+    db.job.count({ where: { createdAt: { gte: startOfMonth }, company: NOT_DEMO } }),
 
     // Daily and monthly series inputs. The company series come from the book
     // below, not a query: "New companies" counted every Company row created,

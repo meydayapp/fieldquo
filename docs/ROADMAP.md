@@ -80,6 +80,62 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 Four decisions, four commits.
 
+### 1. Test companies — out of every /platform number
+
+A "Test company" card on /platform/companies/[id] (superadmin only,
+`company:mark_test` in `SUPERADMIN_ONLY_PERMISSIONS`; reason required;
+refused inside a View as company session; `test_company_marked` /
+`test_company_unmarked` audit rows; "Marked test by … on …" from
+`testMarkedAt` / `testMarkedBy`). A violet "Test" badge on the company page
+header and in the companies list; the list hides test companies by default
+("Show test companies" lists them under their REAL standing's chip — the
+per-country tally still leaves them out) and the "Test company" chip lists
+only them. The company itself is untouched: no cron, gate or email reads the
+column (check asserts it).
+
+One rule, `lib/platform/metricsScope.js` (`METRICS_COMPANY_WHERE`,
+`countsInMetrics`, `isMetricsBucket`), replacing six re-declared `NOT_DEMO`
+literals and three `bucket !== "demo"` filters; and a `test` bucket in
+`subscriberBucket` (read straight after `demo`), so the one book every tile
+counts leaves it out by construction — MRR/ARR and the revenue outlook,
+paying/past-due/trialing/customers, the plans page's subscriber counts, the
+tax tally, the growth model's starting stock. Also scoped: the overview's
+quote/payment series and totals (and quotes/jobs this month, which had no
+filter at all — demos are now out of those two as well), the tenant board and
+per-tenant comparison, the pricing benchmark (both readers), /platform/signups,
+the subscriptions page's free-trial list, measured growth (cohorts,
+retention, conversion — id list and raw SQL), product analytics (signups
+completed, trial linking, the signup funnel's browsers, client conversions,
+the company denominator, every usage row, range-wide uniques by SQL; the
+company picker keeps them, labelled "test — in no total"), campaign outcomes,
+the reps' top-features card, the rep sales funnel, "companies online now",
+cost per signup (denominator only — the costs stay whole), and the growth CSV
+export (which had no demo filter either; now matches the dashboard).
+The company page keeps the real standing in words ("Test company · Paying").
+
+`check:test-companies` (new, in check:all, 63 assertions): the scope against
+hostile rows; the book with and without three test companies is identical
+in every tally and in MRR, unmarking restores the real buckets; each other
+aggregate executed on fixtures; the route's gates and write set; a sweep of
+every metric directory that fails on a demo-only exclusion that is not listed
+with its reason (mutation-tested); crons/gates never read the column.
+`check:platform-buckets`, `check:abandoned-signup`, `check:signup-funnel`
+updated for the shared scope.
+
+**Apply before deploying (by hand — not run from here):**
+
+```sql
+ALTER TABLE "Company" ADD COLUMN "isTestCompany" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "testMarkedAt" TIMESTAMP(3),
+ADD COLUMN "testMarkedBy" TEXT;
+```
+
+Until it is applied every Prisma read of Company that does not name its
+columns fails, so this must land before the code. Not covered (not metrics,
+or not excluding demos either): the sales-floor "unplaced signups" queue, rep
+performance rows (they badge demos rather than drop them), the
+subscriptions CSV export.
+
 ### 2. Unlock company
 
 `POST /api/platform/companies/[id]/unlock { reason }` and an "Unlock company"

@@ -37,17 +37,27 @@ import { callBackFor, needsChecklistRead } from "@/lib/platform/callBack";
  *
  * @returns a predicate over a row carrying `bucket`, or null for "unknown filter"
  */
-function statusFilter(status) {
+//
+// Test companies (owner, 2026-10-03 — Company.isTestCompany, bucket "test")
+// are hidden from every chip like a demo, unless `?tests=1`: then they are
+// listed under the chip their REAL standing belongs to (`realBucket`), with
+// the badge the page draws. The "Test company" chip lists only them. The
+// page's per-country tally counts `bucket`, which stays "test", so showing
+// them never puts them back in a number.
+function statusFilter(status, showTests = false) {
+  const visible = (c) => showTests || c.bucket !== "test";
+  const bucketOf = (c) => (c.bucket === "test" ? c.realBucket : c.bucket);
   // The demo companies are FieldQuo's own sales props, not customers, and
   // they never see Stripe. The day after the test companies were purged this
   // list was ten rows of "pending · Never finished checkout · No plan" — all
   // demos, read by the owner as ten abandoned signups. Every customer filter
   // (All included) leaves them out, and "demo" is the one place they show —
   // the same line /platform/signups and the analytics overview draw.
-  if (!status) return (c) => c.bucket !== "demo";
-  if (status === "card_free") return (c) => isCardFreeTrial(c);
-  if (BUCKET_GROUPS[status]) return (c) => BUCKET_GROUPS[status].includes(c.bucket);
-  if (BUCKETS[status]) return (c) => c.bucket === status;
+  if (!status) return (c) => c.bucket !== "demo" && visible(c);
+  if (status === "test") return (c) => c.bucket === "test";
+  if (status === "card_free") return (c) => visible(c) && isCardFreeTrial(c);
+  if (BUCKET_GROUPS[status]) return (c) => visible(c) && BUCKET_GROUPS[status].includes(bucketOf(c));
+  if (BUCKETS[status]) return (c) => visible(c) && bucketOf(c) === status;
   return null;
 }
 
@@ -60,7 +70,7 @@ export async function GET(request) {
   const status = searchParams.get("status");
   const q = searchParams.get("q");
 
-  const keep = statusFilter(status);
+  const keep = statusFilter(status, searchParams.get("tests") === "1");
   // A filter nobody implements answering with the whole list under its label
   // is the "control that appears to work" — refused by name instead.
   if (!keep) {
@@ -94,7 +104,13 @@ export async function GET(request) {
   // prints, derived from the same bucket (lib/platform/companyStanding.js).
   const now = new Date();
   const rows = companies
-    .map((c) => ({ ...c, bucket: subscriberBucket(c, now) }))
+    .map((c) => {
+      const bucket = subscriberBucket(c, now);
+      // The bucket a test company would be in unmarked — for the filters
+      // above when tests are shown; never counted.
+      const realBucket = bucket === "test" ? subscriberBucket({ ...c, isTestCompany: false }, now) : bucket;
+      return { ...c, bucket, realBucket };
+    })
     .filter(keep)
     .map((c) => ({ ...c, standing: companyStanding(c, now) }));
 

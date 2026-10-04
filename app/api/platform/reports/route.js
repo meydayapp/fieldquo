@@ -9,6 +9,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
@@ -125,10 +126,15 @@ export async function GET(request) {
     // One row per month with the counts that describe the shape of growth.
     // Assembled in JS rather than SQL so it stays provider-agnostic and
     // readable; at platform scale the row counts are small.
+    //
+    // Demos and test companies out (lib/platform/metricsScope.js, 2026-10-03)
+    // — the population the dashboard's own series count. Unscoped, a seeded
+    // demo's invented invoices were most of "Payment value" here while the
+    // dashboard beside it left them out.
     const [companies, quotes, payments] = await Promise.all([
-      db.company.findMany({ select: { createdAt: true } }),
-      db.quote.findMany({ select: { createdAt: true, total: true } }),
-      db.payment.findMany({ select: { createdAt: true, amount: true } }),
+      db.company.findMany({ where: METRICS_COMPANY_WHERE, select: { createdAt: true } }),
+      db.quote.findMany({ where: { company: METRICS_COMPANY_WHERE }, select: { createdAt: true, total: true } }),
+      db.payment.findMany({ where: { invoice: { company: METRICS_COMPANY_WHERE } }, select: { createdAt: true, amount: true } }),
     ]);
 
     const buckets = new Map();

@@ -62,6 +62,8 @@ const PERMISSION_WORDS = {
     "open a Canadian number-port package (the carrier account number, PIN and bill) and record that it was filed, rejected or given a date — every open is logged",
   "storage:test":
     "test FieldQuo's own video-archive storage keys (Cloudflare R2) from the costs page — one read, nothing written",
+  "company:mark_test":
+    "mark a company as a test, leaving it out of every FieldQuo number (MRR, counts, funnels) — with a reason, logged",
   "company:unlock":
     "unlock a company FieldQuo locked or ended from the cancel panel — with a reason, logged; never touches Stripe",
 };

@@ -38,6 +38,7 @@ import CompanyHistory from "./CompanyHistory";
 import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
+import CompanyTestFlag from "./CompanyTestFlag";
 import CompanyInfluencer from "./CompanyInfluencer";
 import CompanyBuilderLayout from "./CompanyBuilderLayout";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
@@ -226,6 +227,15 @@ export default function CompanyDetail({ companyId }) {
               {company.standing?.label || company.onboardingStatus}
             </span>
             <PresenceBadge badge={presence.badge} size="lg" />
+            {company.isTestCompany ? (
+              <span
+                className="text-xs px-2.5 py-1 rounded-full border bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-200 border-violet-300 dark:border-violet-800 font-semibold"
+                title="Marked test by a superadmin — left out of every /platform number"
+                data-test-company
+              >
+                Test
+              </span>
+            ) : null}
             {/* Both columns, the same test lib/influencers makes. */}
             {company.influencerAt && company.influencerRepId ? (
               <span className="text-xs px-2.5 py-1 rounded-full border bg-muted text-muted-foreground border-border">
@@ -751,6 +761,17 @@ export default function CompanyDetail({ companyId }) {
         trialEndsAt={company.trialEndsAt}
         cancelOptions={company.cancelOptions}
         unlock={company.unlock}
+        onDone={load}
+      />
+
+      {/* FieldQuo's own label: a test company is in no /platform number. */}
+      <CompanyTestFlag
+        companyId={companyId}
+        companyName={company.name}
+        isDemo={company.isDemo}
+        isTestCompany={company.isTestCompany}
+        testMarkedAt={company.testMarkedAt}
+        testMarkedByEmail={company.testMarkedByEmail}
         onDone={load}
       />
 

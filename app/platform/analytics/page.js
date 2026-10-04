@@ -764,7 +764,7 @@ export default function PlatformAnalyticsPage() {
                   <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={`${FIELD} min-w-[16rem]`}>
                     <option value="">Pick a company with /app views…</option>
                     {data.companies.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}{c.isDemo ? " (demo)" : ""}</option>
+                      <option key={c.id} value={c.id}>{c.name}{c.isDemo ? " (demo)" : ""}{c.isTestCompany ? " (test — in no total)" : ""}</option>
                     ))}
                   </select>
                 </label>

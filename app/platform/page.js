@@ -1008,6 +1008,7 @@ function BookLedger({ book, stripeMirror }) {
                 {/* Twenty-odd sales fixtures by name would bury the real
                     companies; the chip opens them for anyone who asks. */}
                 {b === "demo" ? "FieldQuo's own sales fixtures, in no count above." : null}
+                {b === "test" ? "Marked test by a superadmin, in no count above: " : null}
                 {(b === "demo" ? [] : book.members?.[b] || []).map((m, i) => (
                   <span key={m.id}>
                     {i > 0 ? ", " : ""}

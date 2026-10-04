@@ -2534,6 +2534,23 @@ model Company {
 
   isDemo Boolean @default(false)
 
+  /// FieldQuo's own label: a company a superadmin marked as a TEST company
+  /// (the owner's live payment tests, a QA account) from the "Test company"
+  /// switch on /platform/companies/[id] (owner, 2026-10-03). It is left out
+  /// of every /platform number exactly where isDemo is — revenue/MRR,
+  /// paying and trialing counts, signups, funnels, cohorts, cost per signup —
+  /// through ONE helper, lib/platform/metricsScope.js, and the bucket
+  /// "test" in lib/platform/trialCounting.js. The company itself is not
+  /// touched: it keeps working, billing and emailing exactly as before.
+  /// Non-null with a false default so every metric `where` can say
+  /// `isTestCompany: false` without a NULL branch. Who and when are here
+  /// for the list; the reason and the full record are the audit row
+  /// (test_company_marked / test_company_unmarked). testMarkedBy is the
+  /// PlatformAdmin id, no relation — the audit log is the join.
+  isTestCompany Boolean   @default(false)
+  testMarkedAt  DateTime?
+  testMarkedBy  String?
+
   // ── Account standing (seat-sharing guard) ────────────────────────────────
   //
   // active | under_review | restricted.

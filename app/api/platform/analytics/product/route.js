@@ -22,10 +22,10 @@ import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import {
   RANGES, rangeFor, dailyRows, rawUniques, mergeUniques, signupVisitors, signupsCompleted,
-  rawUniquesByPath, clientConversions, companyDenominator, companyNames,
+  rawUniquesByPath, clientConversions, companyDenominator, companyNames, testCompanyIds,
 } from "@/lib/analytics/product/queries";
 import {
-  excludeDemo, topPaths, byLanguage, dimension, signupFunnel, monotoneFromCounts, featureUsage,
+  excludeDemo, excludeTestCompanies, topPaths, byLanguage, dimension, signupFunnel, monotoneFromCounts, featureUsage,
   companyScreens, perDay, salesTopFeatures,
 } from "@/lib/analytics/product/aggregate";
 import { SIGNUP_FUNNEL_DEFS, SIGNUP_FUNNEL_CUTOVER, signupFunnelCutover, FEATURES } from "@/lib/analytics/product/events";
@@ -79,7 +79,7 @@ export async function GET(request) {
   const includeDemo = searchParams.get("demo") === "1";
   const companyId = String(searchParams.get("company") || "").trim() || null;
 
-  const [dailyAll, uniques, funnelRaw, conversions, totalCompanies, rangeUniques, completedInRange] = await Promise.all([
+  const [dailyAll, uniques, funnelRaw, conversions, totalCompanies, rangeUniques, completedInRange, testIds] = await Promise.all([
     dailyRows({ start: range.start, end: range.end }),
     rawUniques({ start: range.start, end: range.end }),
     // The current funnel's own window: from the cutover on. Before it, the
@@ -96,8 +96,12 @@ export async function GET(request) {
     companyDenominator({ includeDemo }),
     rawUniquesByPath({ start: range.start, end: range.end }),
     signupsCompleted({ start: range.start, end: range.end }),
+    testCompanyIds(),
   ]);
-  const merged = mergeUniques(dailyAll, uniques);
+  // Test companies (owner, 2026-10-03) leave every number on this page; the
+  // one-company drill-down below still reads them, by name, from mergedAll.
+  const mergedAll = mergeUniques(dailyAll, uniques);
+  const merged = excludeTestCompanies(mergedAll, testIds);
   const rows = includeDemo ? merged : excludeDemo(merged);
 
   // ── Visitors per page: one browser once for the whole range ────────────
@@ -278,12 +282,14 @@ export async function GET(request) {
   if (companyId) {
     const names = await companyNames([companyId]);
     const meta = names.get(companyId) || null;
-    company = { id: companyId, name: meta?.name || null, isDemo: Boolean(meta?.isDemo), ...companyScreens(merged, companyId) };
+    company = { id: companyId, name: meta?.name || null, isDemo: Boolean(meta?.isDemo), isTestCompany: Boolean(meta?.isTestCompany), ...companyScreens(mergedAll, companyId) };
   }
-  const seenIds = [...new Set(merged.filter((r) => r.surface === "app" && r.companyId).map((r) => r.companyId))];
+  // The picker keeps test companies (labelled) so one can still be opened;
+  // they are in no total.
+  const seenIds = [...new Set(mergedAll.filter((r) => r.surface === "app" && r.companyId).map((r) => r.companyId))];
   const names = await companyNames(seenIds);
   const companies = seenIds
-    .map((id) => ({ id, name: names.get(id)?.name || id, isDemo: Boolean(names.get(id)?.isDemo) }))
+    .map((id) => ({ id, name: names.get(id)?.name || id, isDemo: Boolean(names.get(id)?.isDemo), isTestCompany: Boolean(names.get(id)?.isTestCompany) }))
     .filter((c) => includeDemo || !c.isDemo)
     .sort((a, b) => a.name.localeCompare(b.name));
 

@@ -177,7 +177,7 @@ ok("unknown and hostile step names are ignored", furthestBar({ visited: true, st
 {
   const q = read("lib/analytics/product/queries.js");
   ok("the raw query reads steps, not the old per-step columns", /array_agg\(DISTINCT path\) FILTER \(WHERE event = 'signup_step'\)/.test(q) && !/checkout_started/.test(q));
-  ok("trials are tied through SignupLead.visitorId → a finished, non-demo company", /completedCompany: \{ is: \{ isDemo: false, createdAt: \{ gte: start, lt: end \}, \.\.\.completedSignupWhere\(\) \} \}/.test(q) && /skipReason: \{ not: "company_exists" \}/.test(q));
+  ok("trials are tied through SignupLead.visitorId → a finished, non-demo, non-test company", /completedCompany: \{ is: \{ \.\.\.METRICS_COMPANY_WHERE, createdAt: \{ gte: start, lt: end \}, \.\.\.completedSignupWhere\(\) \} \}/.test(q) && /skipReason: \{ not: "company_exists" \}/.test(q));
   ok("the raw query takes the era's definition", /signupVisitors\(\{ start, end, def = undefined \} = \{\}\)/.test(q) && /funnelFromVisitors\(visitors, def\)/.test(q));
   const route = read("app/api/platform/analytics/product/route.js");
   ok("the route splits the range at the cutover", /signupFunnelCutover\(\)/.test(route) && /SIGNUP_FUNNEL_DEFS\.legacy/.test(route) && /SIGNUP_FUNNEL_DEFS\.current/.test(route));
