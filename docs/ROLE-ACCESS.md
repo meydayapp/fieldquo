@@ -1,4 +1,4 @@
-# Who sees what — the confirmation (3 October 2026)
+# Who sees what — the confirmation (3 October 2026, updated 4 October)
 
 You asked: when a quote or a job is shared with a teammate, does each person
 see only what fits their access? Crew should get the scope of work and the
@@ -8,9 +8,11 @@ address, and never prices, cost or margin.
 the real server code as a member of that role and reading exactly what came
 back. Checking only what the screen draws would not be enough: a hidden column
 can still be sent to the phone. The proof is
-`npm run check:role-access`, 168 checks, all passing. Before today's fixes,
-**40 of those checks failed**. "Leaks found and fixed" at the bottom says what
-they were.
+`npm run check:role-access`, 227 checks, all passing (168 on 3 October;
+§9–§11 and the richer §3 were added on 4 October from the live test with
+Joe on the Crew preset — see "4 October: the live test" below). Before the
+3 October fixes, **40 of those checks failed**. "Leaks found and fixed" at
+the bottom says what they were.
 
 **Verified by:** every "§" is a section of `check:role-access`. Where a row is
 proven by a different, older check, that check is named on the row instead.
@@ -25,17 +27,19 @@ The default for field staff. They are free seats.
 
 | | Sees | Can do | Logged |
 |---|---|---|---|
-| **Job** | Only jobs they are booked on: title, address and site address, dates, visits and the notes on them, change-order *descriptions*, checklist, photos | Mark their visit on-my-way / started / done, write the visit note, fill in the checklist, add photos, write the daily log, log equipment used | Yes: visit status and notes, checklist, photos, daily log, equipment §8 |
+| **Job** | Only jobs they are booked on — a visit assigned to them, **or a published shift of theirs with that job picked** (from publication until 14 days after the shift ends; a draft, an open shift or somebody else's grants nothing) §9: title, address and site address, dates, visits and the notes on them, change-order *descriptions*, checklist, photos. Not the client preparation guide card (office information, 403) §10 | Mark their visit on-my-way / started / done, write the visit note, fill in the checklist, add photos, write the daily log, log equipment used | Yes: visit status and notes, checklist, photos, daily log, equipment §8 |
 | | **Never:** deposit / payment schedule, change-order prices, invoice numbers, cost-review notes §1 | **Cannot:** edit the job, move or cancel a visit, book a new visit, log a change order §8 | |
-| **Work order** (the link "Share with team" sends) | Scope per area: what, how many, how many coats, which product, the crew note, hours; address; PO number §3 | Tick an area done, add photos to it | Yes: area ticks §8 |
+| **Work order** (the link "Share with team" sends) | Scope per area: what, how many and in what unit ("Cabinet Refinishing × 32"), door and drawer counts, colour / sheen / door style / coats, which product, what's included, the crew note, hours (the quote's labour estimate when the areas have none); the options the client chose (a two-tone finish); the materials list with quantities; the checklist; visit notes; address; PO number §3 | Tick an area done, add photos to it | Yes: area ticks §8 |
 | | **Never:** any price, rate, total, deposit, margin, or the client's phone/email §3 | | |
 | **Quote** | Nothing. The quote link refuses them (403) and says so §4 | — | — |
 | **Client** | Only the households on their jobs: name and address §5 | — | — |
 | | **Never:** email, phone, private notes, portal link, the client's other quotes, invoices or jobs §5 | **Cannot:** edit the client §8 | |
 | **Invoice** | Nothing (403) §6 | — | — |
-| **Files / photos** (permits, drawings) | Plans, permits, warranties and photos on their jobs. Priced documents (quote, contract, invoice PDFs) are hidden. Verified by `check:job-documents-autofile` | Add photos | Yes |
+| **Files / photos** (permits, drawings) | Plans, permits, warranties and photos on their jobs. Priced documents (quote, contract, invoice PDFs) are hidden. Verified by `check:job-documents-autofile` | Add photos, comment on them §10 | Yes |
+| | | **Cannot:** put a photo on the company website, change its stage, manage photo tags (403; the controls and the words about them are not drawn) §10 | |
 | **Notes** | Visit notes on their jobs. Not the client's private notes, not lead call logs (`check:notes-dial`) | Write the note on their own visit | Yes §8 |
-| **Time** | Their own hours and their own pay rate, nobody else's (`check:rbac-redaction`, `check:timesheet-approval`) | Clock in/out on their own jobs, correct their own entry (it goes back to "pending" for approval) | The timesheet is the record |
+| **Time** | Their own hours and their own pay rate, nobody else's (`check:rbac-redaction`, `check:timesheet-approval`) | Clock in/out on their own jobs (a job on a published shift today is suggested, `check:time-clock-job`), ask for a correction to their own entry, naming any job they may book time to (`check:time-activities` §11b) | The timesheet is the record |
+| **Time off** | Their own balances and requests | Request time off; with **no leave policies set up**, still request **unpaid** time off (dates + reason, pending approval, no balance) §11 | Yes |
 | | | **Cannot:** clock hours onto a job they are not on §8 | |
 | **Materials / expenses** | The buy list for their jobs, without costs (`check:crew-access`) | File their own receipt on their own job | Yes §8 |
 | | | **Cannot:** put cost on a job they are not on, or add a recurring fixed cost (rent etc.) §8 | |
@@ -104,9 +108,15 @@ From a quote, Send → **Share with staff** posts into your team chat:
 - If you share it directly to one crew member before there is a job, it
   refuses and tells you why. Otherwise you would be sending them a link they
   cannot open.
+- **4 October:** shared directly to one person who cannot open quotes, the
+  message carries **only the work order** — not the office quote link. Into
+  a room, both links go, the crew's line **first**, each labelled ("For the
+  crew — work order, no prices" / "For the office — quote …")
+  (`check:share-staff`).
 
 The job page itself has no share button yet. The job's chat room already
-includes everyone booked on it.
+includes everyone booked on it — on a visit or, since 4 October, a published
+shift (`check:company-chat` §2b).
 
 ---
 
@@ -149,6 +159,24 @@ and these buttons no longer answer "not allowed":
 - Reschedule and Cancel on a visit
 - Convert to invoice (for Estimators)
 
+## 4 October: the live test
+
+Owner as Owner, Joe on the Crew preset, TrueFinish Cabinets Inc.:
+
+| Found | Now | Proof |
+|---|---|---|
+| A published shift with "Job (optional)" put Joe on My schedule, but the job page said "Not found", the clock did not list it, and he was not in the job's chat | A published shift on a job grants the job like a visit — job page and every job route, work order, chat room, clock picker, receipts, photo mentions — from publication to 14 days after the shift ends. Drafts grant nothing. My schedule links the job and its work order | role-access §9, time-clock-job, company-chat §2b, crew-access |
+| My schedule showed shifts only; a visit on My day was missing | My schedule shows the person's visits too, from the same read as My day | employee-home |
+| A DM to crew carried the quote link they cannot open | Work order only to a crew DM; rooms put the crew line first | share-staff |
+| Work order: "0 h across 1 areas · Cabinet Refinishing · 0 h" | Quantities, counts, finish, included, chosen options, materials, checklist, visit notes, hours — still no money | work-order §8, role-access §3 |
+| Crew job page: homeowner upload copy, "Tap the star…", "Manage tags", the prep guide card | Job wording; website/tag/stage controls and words for curators only (server already refused); prep guide hidden and refused | role-access §10 |
+| Jennifer's launcher covered Send on the chat | Hidden on chat screens | dock §6 |
+| Crew More: "Assign shifts" | "My shifts" (or "Team shifts" for a view-only supervisor) | nav-audit §6 |
+| Add visit: the return-reason error outlived the unticked box | Errors clear when their field changes | job-controls §3 |
+| No leave policies → crew could not ask for anything | Unpaid time off can still be requested; the owner's note stays | role-access §11, leave-templates |
+| Correction form had no job | Job picker always offered, scoped to their jobs | time-activities §11b |
+| /app/timesheets was a 404 | Alias to Timesheets (or the person's own Time log) | nav-audit §7 |
+
 ## Owed: your decisions
 
 1. **Client phone for crew without opening the whole board.** Today, giving a
@@ -160,3 +188,12 @@ and these buttons no longer answer "not allowed":
    they sold on their own job, because their bonus is calculated on it. If you
    would rather they saw "sold" with no amount, that is a small change.
 4. **Activity log for Managers.** It is owner and admin only today.
+5. **How long a shift keeps its job open.** Chosen: from publication until
+   14 days after the shift ends (so a fortnightly pay period's corrections,
+   late receipts and photos still find the job). A visit has no end date.
+   Say if you want shifts to behave exactly like visits (no end), or a
+   shorter window.
+6. **Unpaid time off with no policies.** Chosen: unpaid only, approval
+   required, filed under one "Unpaid time off" policy FieldQuo creates on
+   the first request (hidden from your policy list). Say if you would rather
+   it were offered only once you have set up policies.
