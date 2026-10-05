@@ -107,7 +107,8 @@ eq("a seeded row's trade", tradeOfSeedKey("fq.cabinet_refinishing.kitchen.full_r
 eq("no trade off junk", tradeOfSeedKey("../../etc"), null);
 
 // Suggestions: shown, never applied.
-eq("suggested: painting walls", suggestedProduction("interior_painting", "wallSqft"), { key: "wallSqft", amount: 250, basis: "per_hour" });
+// 110, a FINISHED rate like the painting takeoff's — was 250 "per coat" (owner, 2026-10-05).
+eq("suggested: painting walls", suggestedProduction("interior_painting", "wallSqft"), { key: "wallSqft", amount: 110, basis: "per_hour" });
 eq("suggested: cabinet doors", suggestedProduction(["cabinet_refinishing"], "doorCount"), { key: "doorCount", amount: 12, basis: "per_day" });
 eq("suggested: stair treads", suggestedProduction("stairs", "treads"), { key: "treads", amount: 1.5, basis: "hours_per_unit" });
 eq("no suggestion for an untracked pair", suggestedProduction("plumbing", "each"), null);

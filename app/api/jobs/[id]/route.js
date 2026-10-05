@@ -601,10 +601,25 @@ export async function DELETE(request, { params }) {
     if (taskCount) reasons.push(`${taskCount} ${taskCount === 1 ? "task" : "tasks"}`);
     return NextResponse.json(
       {
+        // The owner (2026-10-05) clearing TEST jobs read only "set it to
+        // Cancelled" and had no way to know what would let it go. Both ways
+        // out are now named: clear what is attached (when it was a test), or
+        // cancel (when it was real work). Nothing about the refusal changed.
         error:
           `This job has ${reasons.join(" and ")} attached, so it can't be deleted — ` +
           `those are records of work. Set it to Cancelled instead; it stays on the ` +
-          `books and stops appearing as live work.`,
+          `books and stops appearing as live work. If it was only a test, first ` +
+          [
+            taskCount ? `delete its ${taskCount === 1 ? "task" : "tasks"} from To-do` : null,
+            timeEntryCount
+              ? `delete its time ${timeEntryCount === 1 ? "entry" : "entries"} from Timesheets (an approved entry has to be reopened first)`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" and ") +
+          `, then delete the job.`,
+        code: "job_has_records",
+        counts: { tasks: taskCount, timeEntries: timeEntryCount },
       },
       { status: 409 },
     );

@@ -32,6 +32,7 @@ import SheetMeasure from "./SheetMeasure";
 import { UnmeasuredBanner, MeasuredCard, AssumptionsCard, CrewPlanCard, SlicesCard, PastJobsLine, AccessSource, ConfidenceChip } from "./FirstPassCards";
 import { ReviewPanel, MaterialsCard, AccessReasonPicker } from "./ReviewPanel";
 import { itemDef, ITEM_ATTRIBUTE_CHOICES } from "@/lib/planRead/tradeCatalogue";
+import { coatHoursText } from "@/app/components/quotes/builder/coatHoursText";
 
 const POLL_MS = 4000;
 const card = "bg-card border border-border rounded-xl p-4 sm:p-5";
@@ -1155,12 +1156,15 @@ function DraftCard({ view, t, money, onPrice, onConfirm, onPrep, onCreate, onOp 
           <li key={`${l.surfaceId}-${i}`} className="py-2 flex items-start justify-between gap-3 text-sm">
             <span className="min-w-0">
               {`${l.area} — ${l.label}`}
-              {/* Coats beside the hours, as the builder shows them — so a
-                  change of coats that moves the paint and not the hours is
-                  visible as the rule it is (coatsNote below). */}
+              {/* Coats beside the hours, as the builder shows them, and the
+                  hours in coats — "2 coats × 2.07 h a coat" — so a change of
+                  coats is visible as the rule it is (coatsNote below). */}
               <span className="block text-xs text-muted-foreground">
                 {[`${l.quantity.toLocaleString()} ${l.unit}`, l.coats ? `${l.coats} ${t("app.paint.coatsShort", "coats")}` : null, `${Math.round(l.hours * 10) / 10} h`].filter(Boolean).join(" · ")}
               </span>
+              {coatHoursText(l.coatHours, t) && (
+                <span className="block text-[11px] text-muted-foreground mt-0.5">{coatHoursText(l.coatHours, t)}</span>
+              )}
               {l.prepHours > 0 && (
                 <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                   <span>{`${t("app.planRead.draft.prep", "+{h} h prep", { h: Math.round(l.prepHours * 10) / 10 })}${l.prepNote ? ` — ${l.prepNote}` : ""}`}</span>
@@ -1216,7 +1220,13 @@ function DraftCard({ view, t, money, onPrice, onConfirm, onPrep, onCreate, onOp 
           </li>
         ))}
       </ul>
-      {d.lines.some((l) => l.coats) && <p className="text-xs text-muted-foreground mt-2">{t("app.planRead.draft.coatsNote", "Coats change the paint, not the hours: your production rates are per finished surface, as on a typed quote. For slow or high work, ask the chat for extra prep hours on that surface.")}</p>}
+      {d.lines.some((l) => l.coats) && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {d.lines.some((l) => l.coatHours?.applies)
+            ? t("app.planRead.draft.coatsNote", "Coats change the hours as well as the paint: your production rates are for each surface's standard coats, and each coat takes about the same time — as on a typed quote. Prep never scales with coats. For slow or high work, ask the chat for extra prep hours on that surface.")
+            : t("app.planRead.draft.coatsNoteOff", "Coats change the paint, not the hours: your production rates are per finished surface, as on a typed quote. For slow or high work, ask the chat for extra prep hours on that surface.")}
+        </p>
+      )}
       {d.skipped?.length > 0 && (
         <p className="text-xs text-muted-foreground mt-2">{t("app.planRead.draft.skipped", "{n} surfaces have no quantity yet and aren't priced — measure them or tell the chat.", { n: d.skipped.length })}</p>
       )}

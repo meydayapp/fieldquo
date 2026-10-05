@@ -1230,7 +1230,7 @@ export const ARTICLES = {
     title: "Painting priced by production rate",
     summary:
       "Measure the room or the elevation, say what is painted in it, and the quote works out the hours from your production rates and the gallons from coverage — with a rate set per kind of estimate that you keep in Settings.",
-    updated: "2026-09-25",
+    updated: "2026-10-05",
     intro: [
       "Painting in FieldQuo is not a price per square foot. You measure the room or the face of the house, say what is being painted in it — walls, ceiling, trim, doors — and the quote works out how long it takes from your production rates and how much paint it needs from coverage. The hours times your hourly sell rate are the labour; the gallons times what you pay for the paint are the material.",
       "The rates are yours to set, one rate set per kind of estimate, and every one of them stays on your side: the client reads a line and an amount, never the rate behind it.",
@@ -1252,12 +1252,13 @@ export const ARTICLES = {
             head: ["Figure", "How it is worked out"],
             rows: [
               ["Quantity", "Read from the area's measurements — the walls of a room are 2 × (length + width) × height, gross: doors and windows are not deducted, because the production rates were set against gross area. Type over any figure to override it."],
-              ["Hours", "The quantity divided by the rate's production rate — 414 sqft of walls at 100 sqft an hour is 4.14 hours — plus any prep hours on the line. A surface counted by the piece, such as a door, uses hours per piece instead."],
+              ["Hours", "The quantity divided by the rate's production rate — 414 sqft of walls at 100 sqft an hour is 4.14 hours — plus any prep hours on the line. A surface counted by the piece, such as a door, uses hours per piece instead. Your rates are for each surface's standard coats — two for walls, ceilings, trim, doors and cabinets, one for siding — and each coat takes about the same time, so the same walls at 1 coat are 2.07 hours and at 3 coats 6.21. Prep hours never change with the coats."],
               ["Labour", "The hours times the rate set's **Hourly sell rate**. A rate priced as a flat price per unit sells the quantity at that price instead, and its prep hours at the hourly rate."],
               ["Paint", "The quantity times the coats, divided by the product's coverage, times what you pay per gallon. The money uses the gallons the line actually consumes, not the tins you will buy."],
             ],
           } },
-          { note: "Your rates already cover two coats. An **Extra coat** offered to the client adds one more coat of paint and a share of the line's hours, set on the rate card." },
+          { note: "An **Extra coat** offered to the client adds one more coat of paint and one coat's hours — the line's hours divided by its coats. On cabinet doors and drawer fronts only the painting minutes count as a coat; the sanding, degreasing and tacking are done once." },
+          { p: "**Dry time between coats**: an area with a line at two coats or more asks how long a coat needs to dry (cabinets start at the 1 hour of the cabinet labour model). It is charged only when you tick **Crew waits on site while coats dry** — once per gap between coats, at the area's hourly rate. Left unticked, the crew is working elsewhere while it dries and nothing is added." },
         ],
       },
       {
@@ -1283,7 +1284,7 @@ export const ARTICLES = {
             "Each rate's name, the situation it is for, how it is priced — a production rate or hours per piece times your hourly rate, or a flat price per unit — and its figure. A figure you change is highlighted with a reset beside it.",
             "A default rate cannot be deleted, but **Hide from the picker** takes it off the list on quotes; a rate you added can be removed. Tags beside the defaults say where they came from: **✓ recovered** figures were solved from completed jobs; **analogue** and **example** are opening positions to check before you quote with them.",
             "**Paint products — what you pay**: the cost per gallon of each product. An unpriced product is counted in gallons and not costed — never as free paint.",
-            "**Extra coat — labour, as a share of the line's hours**: what an extra coat adds in labour on top of its paint.",
+            "**Coats change labour time**, on by default: 1 coat is half the hours of 2, 3 coats one and a half times, on your rates as on ours. Turn it off if your rates already price the coats in — then coats change the paint only, and **Extra coat — labour, as a share of the line's hours** sets what an extra coat adds in labour.",
           ] },
         ],
       },
