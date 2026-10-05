@@ -164,6 +164,26 @@ credit** (Stripe Checkout that returns to the page via an allow-listed
 credit (the 30 free minutes are only granted when a number is bought), so
 every trial now tops up (min $5, preset $10) before it can verify.
 
+### 4. The video pack is sold to every company
+
+What gated selling it: **only** `packAvailability` — USD companies only, so a
+Canadian or Australian company read "packs aren't available on a non-USD
+account yet" (Stripe allows one currency per customer, and the pack was
+priced in USD beside a CAD/AUD plan). No env flag, Cloudinary check or
+platform switch gated it; the pricing page and Account & Billing already
+offered it. Now the pack bills in the company's own currency at the **same
+number** — the rule every FieldQuo price follows — $77 USD / CAD / AUD
+(`PACK_CURRENCIES`, `packCurrencyFor`); the app's pack sentences say
+`{currency}` in all nine languages; /pricing names no currency beside it, as
+beside the plans. Margin at the worst case (90 × 2:30 ≈ US$38 of Cloudinary):
+USD $77 → ~US$39; CAD $77 ≈ US$56 → ~US$18; AUD $77 ≈ US$51 → ~US$13 (at
+~0.73 / ~0.66 — check the rate). The one limit that really waits on
+Cloudinary Plus — the size of ONE upload (Free 100 MB) — stays, read live
+from the plan, and the pack card now says the figure. **Price owed:** the
+owner's message said US$31; the code, the pricing page and the help all say
+$77 (owner-set 2026-09-29) — unchanged here, needs his word.
+`check:video-posts` 230 → 243. Help en/fr/es.
+
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 
 A Past jobs import creates its quotes and jobs TODAY with last year's dates.

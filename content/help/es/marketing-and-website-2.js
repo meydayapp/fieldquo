@@ -727,7 +727,7 @@ export const ARTICLES = {
     "updated": "2026-09-29",
     "intro": [
       "En el Diseñador de marketing, cada campaña tiene **Nueva publicación de video**. Elige un video de tu computadora o teléfono (de 3 segundos a 2:30), ponle portada y texto, apruébalo y marca a dónde va: **Reel de Instagram**, **Reel de Facebook**, **TikTok** — uno, dos o los tres.",
-      "Cada plan incluye **5 videos al mes**. Un **paquete de videos** añade hasta **90 más al mes** por **US$77/mes**. Un video cuenta una sola vez, dure lo que dure y lo publiques donde lo publiques."
+      "Cada plan incluye **5 videos al mes**. Un **paquete de videos** añade hasta **90 más al mes** por **$77/mes** (en la moneda de tu plan). Un video cuenta una sola vez, dure lo que dure y lo publiques donde lo publiques."
     ],
     "sections": [
       {
@@ -771,13 +771,14 @@ export const ARTICLES = {
         "heading": "El paquete de videos",
         "blocks": [
           {
-            "p": "Un **paquete de videos** es un complemento mensual: **US$77/mes** por hasta **90 videos más al mes**, además de los 5 incluidos. Puedes tener más de uno — cada uno añade otros 90. Agrégalo desde **Configuración → Cuenta y facturación** o desde el botón que aparece cuando se acaba el mes; es un pago de Stripe en la misma cuenta que tu plan."
+            "p": "Un **paquete de videos** es un complemento mensual: **$77/mes** (en la moneda de tu plan) por hasta **90 videos más al mes**, además de los 5 incluidos. Puedes tener más de uno — cada uno añade otros 90. Agrégalo desde **Configuración → Cuenta y facturación** o desde el botón que aparece cuando se acaba el mes; es un pago de Stripe en la misma cuenta que tu plan."
           },
           {
             "bullets": [
               "Cuenta desde que pasa su primer pago, y mientras esté pagado.",
               "**Dejar de renovar** lo mantiene contando hasta el final del mes pagado, y luego termina. No se toca nada de lo ya publicado.",
-              "Los paquetes de videos se facturan en dólares estadounidenses. Una empresa cuyo plan se factura en dólares canadienses o australianos aún no puede agregar uno — la pantalla lo dice en lugar de ofrecer un pago que Stripe rechazaría."
+              "Un paquete de videos se factura en la misma moneda que tu plan, con el mismo número: US$77, CA$77 o A$77.",
+              "Por ahora, un clip puede pesar al subirlo hasta el tamaño que indica la tarjeta de **Cuenta y facturación** — recorta antes en el teléfono una grabación más pesada. Ese límite es de cada subida, no de cuántos videos tienes."
             ]
           }
         ]

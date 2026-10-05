@@ -25,6 +25,9 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import { BILLING_ADMIN_ERROR, isBillingAdmin } from "@/lib/billing/billingAdmin";
 import { allowanceBody, loadVideoAllowance } from "@/lib/marketing/videoPostServer";
+import { planLimits } from "@/lib/media/directUploadServer";
+import { videoUploadCap } from "@/lib/marketing/videoUpload";
+import { megabytes } from "@/lib/media/validate";
 import {
   VIDEO_PACK_KIND,
   cancelVideoPack,
@@ -43,10 +46,17 @@ function safeReturnPath(value) {
 
 async function body(member) {
   const a = await loadVideoAllowance(member.companyId);
+  // The one limit that depends on FieldQuo's Cloudinary plan: the size of a
+  // single upload (Free 100 MB, Plus much more). Read from the plan at the
+  // same place the upload is signed, so the card can never quote a figure the
+  // upload would not honour. The COUNT a pack buys does not depend on it.
+  const uploadMaxBytes = videoUploadCap(await planLimits().catch(() => null));
   return {
     allowance: allowanceBody(a, member),
     packs: a.packs.filter((p) => p.status !== "canceled" || publicPack(p).counts).map((p) => publicPack(p)),
     availability: packAvailability(a.currency),
+    uploadMaxBytes,
+    uploadMaxLabel: megabytes(uploadMaxBytes),
   };
 }
 
@@ -93,6 +103,7 @@ export async function POST(request) {
       successUrl: `${origin}${returnPath}?videopack={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${origin}${returnPath}`,
     });
+    if (!result.ok) return NextResponse.json({ error: availability.reason || "Video packs can't be sold to this account.", code: result.reason }, { status: 409 });
     return NextResponse.json({ checkoutUrl: result.checkoutUrl });
   } catch (err) {
     await recordError({

@@ -726,7 +726,7 @@ export const ARTICLES = {
     "updated": "2026-09-29",
     "intro": [
       "Dans le Studio marketing, chaque campagne a **Nouvelle publication vidéo**. Choisissez une vidéo sur votre ordinateur ou votre téléphone (3 secondes à 2:30), donnez-lui une couverture et une légende, approuvez-la, puis cochez où elle part : **Reel Instagram**, **Reel Facebook**, **TikTok** — une, deux ou les trois.",
-      "Chaque forfait inclut **5 vidéos par mois**. Un **pack vidéo** ajoute jusqu'à **90 vidéos de plus par mois** pour **77 $ US/mois**. Une vidéo compte une seule fois, quelle que soit sa durée et quel que soit le nombre d'endroits où vous la publiez."
+      "Chaque forfait inclut **5 vidéos par mois**. Un **pack vidéo** ajoute jusqu'à **90 vidéos de plus par mois** pour **77 $/mois** (dans la devise de votre forfait). Une vidéo compte une seule fois, quelle que soit sa durée et quel que soit le nombre d'endroits où vous la publiez."
     ],
     "sections": [
       {
@@ -770,13 +770,14 @@ export const ARTICLES = {
         "heading": "Le pack vidéo",
         "blocks": [
           {
-            "p": "Un **pack vidéo** est un module mensuel : **77 $ US/mois** pour jusqu'à **90 vidéos de plus par mois**, en plus des 5 incluses. Vous pouvez en avoir plusieurs — chacun en ajoute 90. Ajoutez-en un depuis **Paramètres → Compte et facturation** ou depuis le bouton qui apparaît quand le mois est épuisé ; c'est un paiement Stripe sur le même compte que votre forfait."
+            "p": "Un **pack vidéo** est un module mensuel : **77 $/mois** (dans la devise de votre forfait) pour jusqu'à **90 vidéos de plus par mois**, en plus des 5 incluses. Vous pouvez en avoir plusieurs — chacun en ajoute 90. Ajoutez-en un depuis **Paramètres → Compte et facturation** ou depuis le bouton qui apparaît quand le mois est épuisé ; c'est un paiement Stripe sur le même compte que votre forfait."
           },
           {
             "bullets": [
               "Il compte dès que son premier paiement passe, et tant qu'il est payé.",
               "**Arrêter le renouvellement** le laisse compter jusqu'à la fin du mois payé, puis il prend fin. Rien de déjà publié n'est touché.",
-              "Les packs vidéo sont facturés en dollars américains. Une entreprise dont le forfait est facturé en dollars canadiens ou australiens ne peut pas encore en ajouter — l'écran le dit au lieu de proposer un paiement que Stripe refuserait."
+              "Un pack vidéo est facturé dans la même devise que votre forfait, au même chiffre — 77 $ US, 77 $ CA ou 77 $ AU.",
+              "Pour l'instant, un clip peut peser au téléversement jusqu'à la taille qu'indique la carte de **Compte et facturation** — raccourcissez d'abord un enregistrement plus lourd sur le téléphone. Cette limite porte sur un téléversement, pas sur le nombre de vidéos."
             ]
           }
         ]

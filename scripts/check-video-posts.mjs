@@ -437,7 +437,43 @@ const inv = (sub, endIso, id = `in_${endIso}`) => ({ id, status: "paid", subscri
   ok("an unpaid pack invoice grants nothing", unpaid.handled && unpaid.settled === false && row.paidThrough.toISOString() === "2026-12-01T00:00:00.000Z");
   ok("laterOf ignores junk and keeps the later date", packLib.laterOf("junk", "2026-01-01").toISOString().startsWith("2026-01-01") && packLib.laterOf("2027-01-01", "2026-01-01").toISOString().startsWith("2027"));
 }
-ok("packs are USD only; a CAD company is told why before Stripe is asked", packLib.packAvailability("USD").ok && !packLib.packAvailability("CAD").ok && /US dollars/.test(packLib.packAvailability("CAD").reason));
+// ── Sold to every company, in its own currency (owner, 2026-10-04) ──────
+// It was USD-only; a Canadian or Australian company could not buy one. Now
+// the pack bills in the company's currency at the same number, so it never
+// meets Stripe's one-currency-per-customer rule.
+ok("packs sell in USD, CAD and AUD — the plans' own currencies", ["USD", "CAD", "AUD", "cad", "aud"].every((c) => packLib.packAvailability(c).ok) && packLib.packAvailability("CAD").currency === "CAD");
+ok("…a currency no plan bills in is refused before Stripe is asked, and says which ones sell", !packLib.packAvailability("GBP").ok && packLib.packAvailability("GBP").code === "currency_locked" && /USD, CAD, AUD/.test(packLib.packAvailability("GBP").reason));
+ok("…an unknown currency on the row reads as USD (the schema's own default for a pack's cost basis)", packLib.packAvailability(null).ok && packLib.packAvailability(null).currency === "USD");
+{
+  const sessions = [];
+  const fakeStripe = { checkout: { sessions: { create: async (args) => { sessions.push(args); return { url: "https://checkout.test/s" }; } } } };
+  const cad = await packLib.createVideoPackCheckoutSession({ company: { id: "co_ca", currency: "CAD" }, successUrl: "s", cancelUrl: "c", deps: { stripe: fakeStripe, getOrCreateStripeCustomer: async () => "cus_1" } });
+  ok("a CAD company's checkout is in CAD, at the same 7,700 — not a conversion", cad.ok && sessions[0].line_items[0].price_data.currency === "cad" && sessions[0].line_items[0].price_data.unit_amount === 7700 && sessions[0].metadata.currency === "CAD");
+  const aud = await packLib.createVideoPackCheckoutSession({ company: { id: "co_au", currency: "AUD" }, successUrl: "s", cancelUrl: "c", deps: { stripe: fakeStripe, getOrCreateStripeCustomer: async () => "cus_2" } });
+  ok("an AUD company's in AUD, same number", aud.ok && sessions[1].line_items[0].price_data.currency === "aud" && sessions[1].line_items[0].price_data.unit_amount === 7700);
+  const gbp = await packLib.createVideoPackCheckoutSession({ company: { id: "co_uk", currency: "GBP" }, successUrl: "s", cancelUrl: "c", deps: { stripe: fakeStripe, getOrCreateStripeCustomer: async () => "cus_3" } });
+  ok("a currency no plan bills in never reaches Stripe, even past the route", !gbp.ok && sessions.length === 2);
+}
+{
+  const al2 = await import("../lib/marketing/videoAllowance.js");
+  ok("the allowance names the company's pack currency (CAD for a CAD company)", al2.packCurrencyFor("CAD") === "CAD" && al2.packCurrencyFor("gbp") === null);
+  const server = read("lib/marketing/videoPostServer.js");
+  ok("allowanceBody sends the company's currency, not a hard-coded USD", /packCurrency: packCurrencyFor\(a\.currency\) \|\| VIDEO_PACK\.currency/.test(server));
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  const keys = ["app.videoAllowance.addPack", "app.videoAllowance.addAnotherPack", "app.videoAllowance.explain", "app.videoAllowance.packLine"];
+  ok("every language's pack sentences say {currency}, none says USD", Object.values(APP_MESSAGES).every((m) => keys.every((k) => String(m[k] || "").includes("{currency}") && !/USD/.test(String(m[k] || "")))));
+  const card = read("app/components/designer/VideoAllowance.js");
+  ok("…and every place that prints them passes it", (card.match(/currency: (a|allowance)\.packCurrency/g) || []).length === 4);
+  ok("/pricing names no currency beside the pack's price, as beside the plans'", !/VIDEO_PACK\.currency/.test(read("app/(marketing)/pricing/PricingPlans.js")));
+}
+// ── The ONE limit that waits on Cloudinary Plus: the size of a single upload ──
+{
+  const route = read("app/api/marketing/video-pack/route.js");
+  ok("the pack card is told today's per-upload size, from the plan reading the upload is signed against", /videoUploadCap\(await planLimits\(\)/.test(route) && /uploadMaxLabel: megabytes\(uploadMaxBytes\)/.test(route));
+  ok("…and says it, in every language", /app\.videoAllowance\.uploadLimit/.test(read("app/components/designer/VideoAllowance.js")));
+  const vu2 = await import("../lib/marketing/videoUpload.js");
+  ok("on Cloudinary Free (100 MB) that figure is 100 MB; on a bigger plan our own ceiling binds", vu2.videoUploadCap({ video_max_size_bytes: 100 * 1024 * 1024 }) === 100 * 1024 * 1024 && vu2.videoUploadCap({ video_max_size_bytes: 1e13 }) < 1e13);
+}
 const webhook = read("app/api/platform/billing/webhook/route.js");
 ok("webhook: pack invoices are intercepted BEFORE the company-plan handler", webhook.indexOf("settleVideoPackInvoice(invoice)") > 0 && webhook.indexOf("settleVideoPackInvoice(invoice)") < webhook.indexOf("await syncSubscriptionFromStripeEvent(event)"));
 ok("webhook: a pack's subscription.deleted never reaches the churn handler", webhook.indexOf("event.data.object?.metadata?.kind === VIDEO_PACK_KIND") > 0 && webhook.indexOf("event.data.object?.metadata?.kind === VIDEO_PACK_KIND") < webhook.indexOf("await syncSubscriptionFromStripeEvent(event)"));
@@ -549,7 +585,7 @@ ok("a help article exists in en, fr and es", /A\("video-posts"/.test(helpTree) &
 ok("…and it names the allowance, the pack, the 2:30 limit, Facebook's 90 s, 1080p and the approval", (() => {
   const s = read("content/help/en/marketing-and-website-2.js");
   const a = s.slice(s.indexOf('"video-posts":'));
-  return /5 videos a month/.test(a) && /US\$77\/month/.test(a) && /2:30/.test(a) && /3 – 90 seconds/.test(a) && /1080/.test(a) && /Approve/.test(a);
+  return /5 videos a month/.test(a) && /\$77\/month\*\* \(in your plan's currency\)/.test(a) && /2:30/.test(a) && /3 – 90 seconds/.test(a) && /1080/.test(a) && /Approve/.test(a);
 })());
 
 console.log(`\n${checks - failures}/${checks} checks passed${failures ? ` — ${failures} FAILED` : ""}`);
