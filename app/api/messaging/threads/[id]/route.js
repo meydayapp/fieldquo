@@ -45,6 +45,7 @@ import { smsReceiptsBySid } from "@/lib/sms/deliveryStore";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { inSupportView, EMAIL_PROVENANCE_SELECT, supportViewMessage } from "@/lib/mailbox/supportView";
 import { publicReview } from "@/lib/leads/messageReview";
+import { publicQualification } from "@/lib/leads/qualification";
 
 /** The member with their grid attached — a scope decided without it widens. */
 async function graded(member) {
@@ -260,6 +261,9 @@ async function readThread({ id, member }) {
         invoices: hasLevel(full, "invoices", "view_only"),
         scoped: seesOnlyAssignedJobs(full),
       }),
+      // Tap only / conversation / lead / not relevant, the reason, and a
+      // person's override (lib/leads/qualification.js). Null until classified.
+      qualification: publicQualification(thread.leadCapture?.qualification || null),
       ai,
       // Only for somebody who could act on it. A crew member sees the contact
       // card and the pin — those are the message — and not the two buttons

@@ -85,6 +85,7 @@ import { MESSAGING_PLATFORMS, platformLabelKey } from "@/lib/messaging/platforms
 import { activityLabel } from "@/lib/messaging/activity";
 import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
 import { ReviewVerdict } from "@/app/components/leads/IdentityReview";
+import QualificationControl from "@/app/components/leads/QualificationControl";
 import {
   GROUP_DONE,
   messageItem,
@@ -961,6 +962,21 @@ function MessagesScreen() {
                   ? () => patchThread({ clientId: null }, "app.messages.outcome.saveError")
                   : null
               }
+            />
+          </div>
+        ) : null}
+        {/* Only a tap / conversation / lead / not relevant, the reason, and
+            the one-tap change (lib/leads/qualification.js). "Lead" on a
+            conversation with no lead makes it now; the thread reloads so
+            "Open lead" appears. Meta conversations only. */}
+        {thread && !isDemo && ["facebook", "instagram", "whatsapp"].includes(thread.platform) ? (
+          <div className="mt-2" data-thread-qualification>
+            <QualificationControl
+              qualification={thread.qualification || null}
+              endpoint={`/api/messaging/threads/${thread.id}/qualification`}
+              canEdit={canEdit}
+              onChanged={() => loadThread(thread.id, { quiet: true })}
+              t={t}
             />
           </div>
         ) : null}
