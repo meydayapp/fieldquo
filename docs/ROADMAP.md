@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (drawing read P1 + P2 — the read is scoped by the quote's own service (no trade picker), sends only the sheets that service needs, reads drywall/framing/roofing/electrical/plumbing/flooring with every quantity sourced and confidence-rated, prices them by the ladder (your rate card → your services → cited FieldQuo suggestions, framing book switched on, NECA ×1.0 commercial), recommends a price at your target margin with overhead as the job's share of the month's crew time, offers a margin adjustment line and notifies owner/managers/assignee when below target, and takes pricing figures from the chat only through a manual, diffed button; plus the first live read's five fixes (signed PDF fetch, browser split over 10 MB, failed sheets retried, unreadable-file message, UK/metric parsing). Schema additive and NOT applied: `PlanRead.scope`, `ForecastSettings.billableHoursPerMonth` — see "Start from drawings" and "Overhead by crew time".)
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
 Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
@@ -1632,14 +1633,126 @@ sections 14–19 (scripted provider with real millisecond delays, never the live
   null on a Json column, which Prisma refuses, would have left a finished, paid read stuck
   "reading". It now leaves `similar` as it was.
 
+### The first live read's five fixes (4 October 2026)
+
+The deep read had never run in production. The first real set (St Paul's, Egham Hythe — a UK
+planning set, 13 sheets, 13.4 MB) failed five ways; each is fixed in its own commit and executed in
+`check:plan-deep-read` §20, ahead of P1/P2 so they can ship first.
+
+- **The server could not read its own PDFs** — Cloudinary answered the raw PDF's public URL 401
+  ("deny or ACL failure"; the account blocks PDF delivery). `fetchPlanFile` reads plan files through
+  the API-signed `private_download_url` (the HR / reference-library path), inside this company's
+  `plans` folder only; the public URL is only the no-secret fallback.
+- **Sets over 10 MB were refused** — the Free plan's `raw_max_size_bytes` binds. The Files card now
+  splits a too-large PDF in the browser with **pdf-lib** (new dependency, MIT, loaded only then) into
+  parts under the binding limit, page order kept; each part is its own document on the read and one
+  read covers them all. A single page over the limit is refused by page number.
+- **"Try again" re-ran the synthesis on blank sheets** — a failed sheet pass now carries the run that
+  wrote it off and is pending again for any later run (and estimated again); a run where NO sheet
+  could be read fails and refunds instead of synthesising; a sheet with nothing to send is
+  permanent, never retried for ever.
+- **"Add a drawing set first" to someone who had** — the run route names the file that couldn't be
+  read and why.
+- **UK/metric parsing** — the title block is read by its labels (value under "Drawing No." → P43…P52,
+  E01…E03, not the paper size A3; "Drawing Title"; "Scale" → P52 at 1:500, not the location plan's
+  1:1250); Title Case headings count; E/P/M are a discipline only when the titles agree (UK letters
+  are status: proposed/existing); "6.75 metres" reads; bare one-decimal metres on a metric plan
+  (kitchen 4.7 × 5.2 m, meeting room 6.8 × 3.1 m) read with the unit flagged assumed; scale-bar
+  ticks and the title block's project number 21047 are no longer dimensions.
+
+### P1 — multi-trade extraction, scoped by the quote's service (4 October 2026)
+
+Owner decision: the trade comes from the quote's selected service — no separate trade picker.
+
+- **Scope** — `PlanRead.scope` (new Json column) = the services the read is for, from the quote
+  builder's groups (`?categories=`), the lead's category, or the company's own switched-on list on the
+  read's page ("What this quote is for"). `lib/planRead/tradeCatalogue.js` maps each category to a
+  trade and a focus (interior painting → inside; roofing → roof; electrical → the building). No scope =
+  painting, every sheet, md5-pinned unchanged.
+- **Routing in code** — only the sheets a trade needs are sent (discipline + titles; cover/code/civil
+  never; spec pages digested as text for free; E/P fall back to the floor plans when a set has none).
+  The read card says "Reading 2 of 8 sheets — the others aren't for drywall, electrical".
+- **Trade sheet pass** — painting's fields + symbol counts per tile (whole sheet + quarters split down
+  the overlap, summed in code) + the trade notes the sheet states; schedules (panel, lighting/plumbing
+  fixture, door, window, wall types, room finish, legend) read in code with row ids.
+- **One synthesis per trade beyond painting**, in parallel, over one shared context; painting's only
+  when the scope has painting. Model v2: `model.trades[]` (`lib/planRead/tradeModel.js`) — drywall by
+  GA-214 level, framing lin ft, roof squares sloped by the printed pitch, electrical devices/panels/
+  circuits, plumbing fixtures, flooring by material; every quantity computed in code with its source
+  and a confidence (measured/drawing/schedule-row-verified = high; spreadsheet, legend-matched counts
+  whose quarters agree = medium; scans, assumed units, unmatched counts, photos, estimates = low).
+- 18 measurement keys registered for the read's items so a company's own services price them.
+- Sheet reuse only between passes asked the same (`scopeKey`).
+
+### P2 — pricing ladder and the target-margin recommendation (4 October 2026)
+
+- **Ladder** (`lib/planRead/tradePricing.js`): (1) the company's engine — drywall rate card
+  (hang + GA-214 finish level, `drywallFinishLine`), roofing rate card (`buildTradeLineItems` over one
+  roofing takeoff, timed by `roofLabour`); (2) the company's own services (Product templates keyed to
+  the item's measurement key, hours from the production rate); (3) FieldQuo suggestions with every
+  coefficient cited and tagged (`lib/planRead/tradeDefaults.js`): NECA units for electrical — factor
+  1.0 for commercial (owner decision), the residential 0.456 for houses; the plumbing benchmark's
+  water-heater hours; the staged drywall/flooring recipes; **the framing price book switched on**
+  (`app/data/priceBooks/structural.js`, flattened to USD/CAD — its own sources are published-range
+  midpoints; no Housecall Pro reference is in the file); anything else "No rate — add one", never $0.
+- **Overhead by crew time** — the job's fair share of the month (`lib/costing/overheadShare.js`), the
+  same function the quote builder's Cost & margin panel now uses (see "Overhead by crew time" below).
+- **Recommendation** (`lib/planRead/recommendation.js`, `readPricing.js`) with the working shown:
+  labour at the crew's average cost rate (or the $35 fallback, labelled), materials, service line
+  costs, equipment, overhead, cost, price at the target, your rates' price and margin, minimum price,
+  hourly floor, flags (below target, loss, suggestions, cost incomplete, low-confidence value).
+- **The gap** — "Add a margin adjustment line" (server computes the amount); the draft quote carries
+  it as its own visible line. **Notified**: `planRead.belowTarget` (approvers, bell + push) and
+  `planRead.belowTargetAssigned` (the quote's or lead's assignee), once per finished read.
+- **Chat → pricing, manually** — "Update pricing from this conversation" (`/pricing-from-chat`):
+  finds only figures printed in the estimator's own messages, shows a diff, applies nothing until
+  Apply (re-verified server-side), stored on the read only. Suggested lines reach a quote only via
+  "Put FieldQuo's suggested lines on the quote", each flagged `meta.aiSuggested`.
+- The draft quote now carries each trade's lines (your rates; suggestions when switched on) under the
+  company's category for it — whole read only; per-trade / existing-quote apply is P4.
+- Cost per read (estimates until the first live read is measured): 13 sheets + 10 photos painting
+  ~$1.85; one other trade reading 8 of them ~$1.46; three trades ~$2.80; 40 sheets / 3 trades ~$3.37.
+
+**Schema (additive, NOT applied — run before this deploys):**
+`ALTER TABLE "PlanRead" ADD COLUMN IF NOT EXISTS "scope" JSONB;`
+`ALTER TABLE "ForecastSettings" ADD COLUMN IF NOT EXISTS "billableHoursPerMonth" DECIMAL(10,2);`
+
 ### Owed
 
 - Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
   `PlanRead.usage` (per step, now with the stage clock) and as AiUsage `plan_read*` rows — read them
   on /platform/ai-usage → Drawing reads after the first live read and correct `READ_TOKENS` in
-  lib/planRead/billing.js.
-- Phase 2: siding, roofing and other trades (their own catalogues/engines), equipment rental rates,
-  deductions for openings. (The cron backstop shipped in P0 above.)
+  lib/planRead/billing.js (now with `tradeSynthesis`).
+- P3 (similar jobs across trades — `similar.js` stays painting-only), P4 (apply per trade / onto an
+  existing quote, chat scope ops, the roofing takeoff config handed to the builder), P5 (speed round 2).
+- Framing as an editable company rate card needs the `framing` ServiceCategory seeded (structural.js
+  `proposedCatalogEntry`) and RateCard flattening — a seed is a database write, owner's call.
+- No repo figure for per-fixture plumbing hours or conduit/data/fire-alarm labour: those items show
+  "No rate — add one" until a company adds a service (or a cited source is added).
+
+## Overhead by crew time (4 October 2026)
+
+A quote's overhead is now its fair share of the month: monthly fixed costs × (the job's crew-hours ÷
+billable crew-hours a month) — the owner's rule ("if a job takes 2 weeks and they only do 2 jobs a
+month … its fair share").
+
+- **Where it's set:** Settings → Overhead asks for "Billable crew hours a month (everyone in the
+  field, together)" (`ForecastSettings.billableHoursPerMonth`) and shows overhead per crew-hour
+  (`calculateHourlyFloor`'s first production caller) and the minimum per crew-hour.
+- **Where it applies:** the builder's Cost & margin panel, the saved `QuoteCosting` row and the
+  derived costing read the rate through `overheadInputsFrom` and price it through `overheadForJob`
+  (`lib/costing/overheadShare.js` — the same function the drawing read uses), so they agree to the
+  cent. The panel prints the whole sum: "$8,000 a month ÷ 320 billable crew-hours = $25/h × 160 h on
+  this job (50% of your month)".
+- **Fallbacks, each labelled:** hours unset or a job with no hours → per job (monthly ÷ jobs a month)
+  with a link to set the hours; nothing set → 10% of the price.
+- **What doesn't change:** a company without hours sees byte-identical figures (md5-pinned in
+  `check:quote-costing`); invoices, job actuals and KPIs stay per job.
+- **Deploy order:** the `billableHoursPerMonth` column SQL (above) before this ships —
+  `calculateMinimumPrice` reads the whole forecast row.
+- Help: "Settings → Overhead" and "Cost and margin on a quote" explain it with the two-week example
+  (en/fr/es). Noted, not fixed: the cost-and-margin article still says the default target is 30%
+  (it is 20%), and its fr/es versions say the labels are "in English for now" — no longer true.
 
 ## Referrals need a chosen plan (3 October 2026)
 
