@@ -40,7 +40,8 @@ export const HOME_PAGE_EN = {
   "home.demo.subtitle":
     "The office sees the whole pipeline. The crew sees today's jobs on their phone. It is the same job in both places.",
   "home.demo.sample": "Sample data — these are not real customers.",
-  "home.demo.figureLabel": "An illustration of FieldQuo with sample jobs moving from new lead to invoice paid",
+  "home.demo.figureLabel":
+    "An illustration of FieldQuo with sample jobs moving from new lead to invoice paid",
   "home.demo.nav.pipeline": "Pipeline",
   "home.demo.nav.schedule": "Schedule",
   "home.demo.nav.clients": "Clients",
@@ -65,12 +66,15 @@ export const HOME_PAGE_EN = {
 
   // ── Results: promises, facts, and attributed research ────────────────────
   "home.results.promise.volume": "Handle more volume without adding headcount.",
-  "home.results.promise.overhead": "Big-company systems without the big-company overhead.",
+  "home.results.promise.overhead":
+    "Big-company systems without the big-company overhead.",
   "home.results.promise.techs": "Get more out of every tech in the field.",
-  "home.results.title": "What contractors report after moving to one connected platform",
+  "home.results.title":
+    "What contractors report after moving to one connected platform",
   "home.results.intro":
-    "Industry research, not FieldQuo customer results. Each figure is the share of surveyed contractors who reported the improvement — not the size of it.",
-  "home.results.stat.volume": "say their office handles more volume without adding headcount",
+    "Industry research. Each figure is the share of surveyed contractors who reported the improvement — not the size of it.",
+  "home.results.stat.volume":
+    "say their office handles more volume without adding headcount",
   "home.results.stat.revenuePerTech": "report more revenue per tech",
   "home.results.stat.margins": "report better margins",
   "home.results.stat.growth": "report revenue growth",
@@ -78,7 +82,8 @@ export const HOME_PAGE_EN = {
   "home.results.stat.quoteTurnaround": "report faster quote turnaround",
   "home.results.stat.winRate": "report higher quote win rates",
   "home.results.stat.tools": "separate tools replaced, on average",
-  "home.results.source": "Source: {report} ({count} commercial contractors, {date}).",
+  "home.results.source":
+    "Source: {report} ({count} commercial contractors, {date}).",
   "home.results.fact.onePlatform": "One platform instead of six apps",
   "home.results.fact.allFeatures": "Every feature on every plan",
 
@@ -86,26 +91,34 @@ export const HOME_PAGE_EN = {
   "home.how.title": "One job. One simple workflow.",
   "home.how.subtitle": "Six steps, one record, nothing typed twice.",
   "home.how.lead.title": "Get the lead",
-  "home.how.lead.body": "Calls, web forms, your booking page and referrals land in one place.",
+  "home.how.lead.body":
+    "Calls, web forms, your booking page and referrals land in one place.",
   "home.how.quote.title": "Send the quote",
-  "home.how.quote.body": "Build it on site from your own prices and send it before you leave the driveway.",
+  "home.how.quote.body":
+    "Build it on site from your own prices and send it before you leave the driveway.",
   "home.how.schedule.title": "Schedule the job",
-  "home.how.schedule.body": "The approved quote becomes a job. Put it on the calendar and assign the crew.",
+  "home.how.schedule.body":
+    "The approved quote becomes a job. Put it on the calendar and assign the crew.",
   "home.how.work.title": "Do the work",
-  "home.how.work.body": "Your crew clocks in, adds photos and works through the checklist from their phone.",
+  "home.how.work.body":
+    "Your crew clocks in, adds photos and works through the checklist from their phone.",
   "home.how.paid.title": "Get paid",
-  "home.how.paid.body": "Invoice from the job and take payment online, straight to your own bank account.",
+  "home.how.paid.body":
+    "Invoice from the job and take payment online, straight to your own bank account.",
   "home.how.numbers.title": "Know your numbers",
-  "home.how.numbers.body": "See what each job really earned against what you quoted.",
+  "home.how.numbers.body":
+    "See what each job really earned against what you quoted.",
 
   // ── Built for your trade ─────────────────────────────────────────────────
   "home.trades.title": "Built for your trade",
-  "home.trades.subtitle": "Pick your trade to see the kind of estimate you would send from FieldQuo.",
+  "home.trades.subtitle":
+    "Pick your trade to see the kind of estimate you would send from FieldQuo.",
   "home.trades.pick": "Choose a trade",
   "home.trades.example": "Example",
   "home.trades.estimate": "Estimate",
   "home.trades.send": "Send quote",
-  "home.trades.note": "Illustrative figures, not a price list — in FieldQuo you set your own prices.",
+  "home.trades.note":
+    "Illustrative figures, not a price list — in FieldQuo you set your own prices.",
   "home.trades.more": "More about FieldQuo for this trade",
   "home.trades.painting.job": "Interior painting",
   "home.trades.painting.scope": "3 rooms · 1,450 sq ft",
@@ -122,11 +135,13 @@ export const HOME_PAGE_EN = {
   "home.trades.handyman.job": "Handyman punch list",
   "home.trades.handyman.scope": "8 small repairs · about 6 hours",
   "home.trades.construction-contracting.job": "Basement finishing",
-  "home.trades.construction-contracting.scope": "750 sq ft · framing through paint",
+  "home.trades.construction-contracting.scope":
+    "750 sq ft · framing through paint",
 
   // ── What FieldQuo helps you do ───────────────────────────────────────────
   "home.outcomes.title": "What FieldQuo helps you do",
-  "home.outcomes.subtitle": "Everything in one system, grouped by what it gets done.",
+  "home.outcomes.subtitle":
+    "Everything in one system, grouped by what it gets done.",
   "home.outcomes.win": "Win more work",
   "home.outcomes.run": "Run every job",
   "home.outcomes.paid": "Get paid",
@@ -186,7 +201,8 @@ export const HOME_PAGE_EN = {
   // ── Pricing ──────────────────────────────────────────────────────────────
   "home.pricing.title": "Every feature. Every plan.",
   "home.pricing.question": "How many people run your business?",
-  "home.pricing.body": "Plans differ only by how many people use them. Nothing is locked behind a bigger plan.",
+  "home.pricing.body":
+    "Plans differ only by how many people use them. Nothing is locked behind a bigger plan.",
   "home.pricing.audience.solo": "Just me",
   "home.pricing.audience.crew": "Small team",
   "home.pricing.audience.shop": "Growing",
@@ -195,11 +211,13 @@ export const HOME_PAGE_EN = {
 
   // ── FAQ (every answer checked against the code the day it was written) ──
   "home.faq.trial.q": "How long is the free trial?",
-  "home.faq.trial.a": "{days} days, with every feature switched on — long enough to send real quotes to real clients.",
+  "home.faq.trial.a":
+    "{days} days, with every feature switched on — long enough to send real quotes to real clients.",
   "home.faq.card.q": "Do I need a credit card to start?",
   "home.faq.card.aNoCard":
     "No. Sign up without one. When you are ready, choose a plan and add a card in Account & Billing. If the trial ends without a plan, your account turns read-only for {grace} days and then locks — nothing is deleted.",
-  "home.faq.card.aCard": "Yes — a card is taken when you sign up, and nothing is charged until the {days}-day trial ends.",
+  "home.faq.card.aCard":
+    "Yes — a card is taken when you sign up, and nothing is charged until the {days}-day trial ends.",
   "home.faq.cancel.q": "Can I cancel anytime?",
   "home.faq.cancel.a":
     "Yes, from Account & Billing. A paid plan keeps working until the end of the period it covers — a month, or a year on the 1-year commitment — and nothing more is charged.",

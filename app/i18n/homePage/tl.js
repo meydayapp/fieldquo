@@ -1,6 +1,7 @@
 // app/i18n/homePage/tl.js — see en.js for what may and may not be typed here.
 export const HOME_PAGE_TL = {
-  "home.hero.title": "Patakbuhin ang buong field service na negosyo mo mula sa iisang lugar.",
+  "home.hero.title":
+    "Patakbuhin ang buong field service na negosyo mo mula sa iisang lugar.",
   "home.hero.subtitle":
     "Mag-quote ng trabaho. I-schedule ang crew. Mag-invoice sa customer. Mabayaran. Palaguin ang negosyo — nang hindi nagpapalipat-lipat sa limang magkakaibang app.",
   "home.hero.ctaPrimary": "Simulan ang libreng subok",
@@ -18,11 +19,13 @@ export const HOME_PAGE_TL = {
   "home.sale.ends": "hanggang {date}",
   "home.sale.seePricing": "Tingnan ang presyo",
 
-  "home.demo.title": "Bawat trabaho, mula sa unang tawag hanggang sa huling bayad",
+  "home.demo.title":
+    "Bawat trabaho, mula sa unang tawag hanggang sa huling bayad",
   "home.demo.subtitle":
     "Nakikita ng opisina ang buong pipeline. Nakikita ng crew ang mga trabaho ngayong araw sa phone nila. Iisang trabaho ito sa dalawang lugar.",
   "home.demo.sample": "Halimbawang data — hindi ito mga totoong customer.",
-  "home.demo.figureLabel": "Larawan ng FieldQuo na may halimbawang mga trabaho, mula sa bagong lead hanggang sa bayad na invoice",
+  "home.demo.figureLabel":
+    "Larawan ng FieldQuo na may halimbawang mga trabaho, mula sa bagong lead hanggang sa bayad na invoice",
   "home.demo.nav.pipeline": "Pipeline",
   "home.demo.nav.schedule": "Iskedyul",
   "home.demo.nav.clients": "Mga kliyente",
@@ -45,46 +48,63 @@ export const HOME_PAGE_TL = {
   "home.demo.phone.onMyWay": "Papunta na",
   "home.demo.phone.startJob": "Simulan",
 
-  "home.results.promise.volume": "Humawak ng mas maraming trabaho nang hindi nagdadagdag ng tao.",
-  "home.results.promise.overhead": "Sistema ng malaking kumpanya, walang gastos ng malaking kumpanya.",
+  "home.results.promise.volume":
+    "Humawak ng mas maraming trabaho nang hindi nagdadagdag ng tao.",
+  "home.results.promise.overhead":
+    "Sistema ng malaking kumpanya, walang gastos ng malaking kumpanya.",
   "home.results.promise.techs": "Mas mapakinabangan ang bawat tech sa field.",
-  "home.results.title": "Ang iniuulat ng mga contractor matapos lumipat sa iisang konektadong platform",
+  "home.results.title":
+    "Ang iniuulat ng mga contractor matapos lumipat sa iisang konektadong platform",
   "home.results.intro":
-    "Pananaliksik ng industriya, hindi resulta ng mga customer ng FieldQuo. Ang bawat numero ay bahagi ng mga contractor na sinurbey na nag-ulat ng pagbuti — hindi ang laki ng pagbuti.",
-  "home.results.stat.volume": "ang nagsabing mas maraming trabaho ang kaya ng opisina nila nang hindi nagdadagdag ng tao",
-  "home.results.stat.revenuePerTech": "ang nag-ulat ng mas malaking kita bawat tech",
+    "Pananaliksik ng industriya. Ang bawat numero ay bahagi ng mga contractor na sinurbey na nag-ulat ng pagbuti — hindi ang laki ng pagbuti.",
+  "home.results.stat.volume":
+    "ang nagsabing mas maraming trabaho ang kaya ng opisina nila nang hindi nagdadagdag ng tao",
+  "home.results.stat.revenuePerTech":
+    "ang nag-ulat ng mas malaking kita bawat tech",
   "home.results.stat.margins": "ang nag-ulat ng mas magandang margin",
   "home.results.stat.growth": "ang nag-ulat ng paglago ng kita",
   "home.results.stat.invoicing": "ang nag-ulat ng mas mabilis na pag-invoice",
-  "home.results.stat.quoteTurnaround": "ang nag-ulat ng mas mabilis na paggawa ng quote",
-  "home.results.stat.winRate": "ang nag-ulat ng mas maraming napanalunang quote",
+  "home.results.stat.quoteTurnaround":
+    "ang nag-ulat ng mas mabilis na paggawa ng quote",
+  "home.results.stat.winRate":
+    "ang nag-ulat ng mas maraming napanalunang quote",
   "home.results.stat.tools": "hiwalay na tool ang napalitan, sa karaniwan",
-  "home.results.source": "Pinagmulan: {report} ({count} komersyal na contractor, {date}).",
+  "home.results.source":
+    "Pinagmulan: {report} ({count} komersyal na contractor, {date}).",
   "home.results.fact.onePlatform": "Iisang platform sa halip na anim na app",
   "home.results.fact.allFeatures": "Lahat ng feature sa bawat plano",
 
   "home.how.title": "Isang trabaho. Isang simpleng daloy.",
-  "home.how.subtitle": "Anim na hakbang, iisang record, walang tina-type nang dalawang beses.",
+  "home.how.subtitle":
+    "Anim na hakbang, iisang record, walang tina-type nang dalawang beses.",
   "home.how.lead.title": "Kunin ang lead",
-  "home.how.lead.body": "Ang mga tawag, web form, booking page mo at mga referral ay napupunta sa iisang lugar.",
+  "home.how.lead.body":
+    "Ang mga tawag, web form, booking page mo at mga referral ay napupunta sa iisang lugar.",
   "home.how.quote.title": "Ipadala ang quote",
-  "home.how.quote.body": "Gawin ito sa mismong site gamit ang sarili mong presyo at ipadala bago ka umalis sa driveway.",
+  "home.how.quote.body":
+    "Gawin ito sa mismong site gamit ang sarili mong presyo at ipadala bago ka umalis sa driveway.",
   "home.how.schedule.title": "I-schedule ang trabaho",
-  "home.how.schedule.body": "Nagiging trabaho ang aprubadong quote. Ilagay ito sa kalendaryo at i-assign ang crew.",
+  "home.how.schedule.body":
+    "Nagiging trabaho ang aprubadong quote. Ilagay ito sa kalendaryo at i-assign ang crew.",
   "home.how.work.title": "Gawin ang trabaho",
-  "home.how.work.body": "Nagka-clock in ang crew mo, nagdadagdag ng litrato at tinatapos ang checklist mula sa phone nila.",
+  "home.how.work.body":
+    "Nagka-clock in ang crew mo, nagdadagdag ng litrato at tinatapos ang checklist mula sa phone nila.",
   "home.how.paid.title": "Mabayaran",
-  "home.how.paid.body": "Mag-invoice mula sa trabaho at tumanggap ng bayad online, diretso sa sarili mong bank account.",
+  "home.how.paid.body":
+    "Mag-invoice mula sa trabaho at tumanggap ng bayad online, diretso sa sarili mong bank account.",
   "home.how.numbers.title": "Alamin ang mga numero mo",
-  "home.how.numbers.body": "Tingnan kung magkano talaga ang kinita ng bawat trabaho kumpara sa quote mo.",
+  "home.how.numbers.body":
+    "Tingnan kung magkano talaga ang kinita ng bawat trabaho kumpara sa quote mo.",
 
   "home.trades.title": "Ginawa para sa trade mo",
-  "home.trades.subtitle": "Piliin ang trade mo para makita ang klase ng estimate na ipapadala mo mula sa FieldQuo.",
+  "home.trades.subtitle":
+    "Piliin ang trade mo para makita ang klase ng estimate na ipapadala mo mula sa FieldQuo.",
   "home.trades.pick": "Pumili ng trade",
   "home.trades.example": "Halimbawa",
   "home.trades.estimate": "Estimate",
   "home.trades.send": "Ipadala ang quote",
-  "home.trades.note": "Mga halimbawang halaga, hindi listahan ng presyo — sa FieldQuo, ikaw ang nagtatakda ng sarili mong presyo.",
+  "home.trades.note":
+    "Mga halimbawang halaga, hindi listahan ng presyo — sa FieldQuo, ikaw ang nagtatakda ng sarili mong presyo.",
   "home.trades.more": "Higit pa tungkol sa FieldQuo para sa trade na ito",
   "home.trades.painting.job": "Pagpipinta sa loob ng bahay",
   "home.trades.painting.scope": "3 kuwarto · 1,450 sq ft",
@@ -101,10 +121,12 @@ export const HOME_PAGE_TL = {
   "home.trades.handyman.job": "Listahan ng maliliit na ayos",
   "home.trades.handyman.scope": "8 maliliit na ayos · mga 6 na oras",
   "home.trades.construction-contracting.job": "Pagtatapos ng basement",
-  "home.trades.construction-contracting.scope": "750 sq ft · mula framing hanggang pintura",
+  "home.trades.construction-contracting.scope":
+    "750 sq ft · mula framing hanggang pintura",
 
   "home.outcomes.title": "Ang tinutulungan kang gawin ng FieldQuo",
-  "home.outcomes.subtitle": "Lahat sa iisang sistema, pinagsama ayon sa natatapos nito.",
+  "home.outcomes.subtitle":
+    "Lahat sa iisang sistema, pinagsama ayon sa natatapos nito.",
   "home.outcomes.win": "Manalo ng mas maraming trabaho",
   "home.outcomes.run": "Patakbuhin ang bawat trabaho",
   "home.outcomes.paid": "Mabayaran",
@@ -136,14 +158,16 @@ export const HOME_PAGE_TL = {
   "home.ai.title": "Tanungin ang negosyo mo ng kahit ano.",
   "home.ai.body":
     "Magtanong sa simpleng salita at makakuha ng sagot mula sa sarili mong mga quote, trabaho, invoice at gastos. Sumasagot lang ito tungkol sa data ng kumpanya mo — hindi kailanman sa data ng ibang kumpanya.",
-  "home.ai.q.profitable": "Aling mga trabaho ang pinakamalaki ang kinita ngayong buwan?",
+  "home.ai.q.profitable":
+    "Aling mga trabaho ang pinakamalaki ang kinita ngayong buwan?",
   "home.ai.q.followUp": "Aling mga quote ang hindi pa na-follow up?",
   "home.ai.q.materials": "Magkano ang nagastos natin sa materyales?",
   "home.ai.q.owed": "Aling mga customer ang may utang pa sa atin?",
   "home.ai.examples": "Mga halimbawang tanong",
   "home.ai.cta": "Paano gumagana ang FieldQuo AI",
 
-  "home.why.title": "Tigilan na ang pagpapatakbo ng negosyo sa limang magkakaibang app.",
+  "home.why.title":
+    "Tigilan na ang pagpapatakbo ng negosyo sa limang magkakaibang app.",
   "home.why.body":
     "Bawat hiwalay na tool ay may sariling kopya ng customer mo, at ikaw ang nagpapanatiling magkakatugma ang mga ito. Iisa lang ang hawak ng FieldQuo.",
   "home.why.before": "Hiwalay na mga tool",
@@ -161,7 +185,8 @@ export const HOME_PAGE_TL = {
 
   "home.pricing.title": "Lahat ng feature. Sa bawat plano.",
   "home.pricing.question": "Ilang tao ang nagpapatakbo ng negosyo mo?",
-  "home.pricing.body": "Nagkakaiba lang ang mga plano sa dami ng gumagamit. Walang nakakandado sa likod ng mas malaking plano.",
+  "home.pricing.body":
+    "Nagkakaiba lang ang mga plano sa dami ng gumagamit. Walang nakakandado sa likod ng mas malaking plano.",
   "home.pricing.audience.solo": "Ako lang",
   "home.pricing.audience.crew": "Maliit na team",
   "home.pricing.audience.shop": "Lumalaki",
@@ -169,15 +194,18 @@ export const HOME_PAGE_TL = {
   "home.pricing.compare": "Ikumpara ang mga plano",
 
   "home.faq.trial.q": "Gaano katagal ang libreng subok?",
-  "home.faq.trial.a": "{days} araw, bukas ang lahat ng feature — sapat para magpadala ng totoong quote sa totoong kliyente.",
+  "home.faq.trial.a":
+    "{days} araw, bukas ang lahat ng feature — sapat para magpadala ng totoong quote sa totoong kliyente.",
   "home.faq.card.q": "Kailangan ko ba ng credit card para magsimula?",
   "home.faq.card.aNoCard":
     "Hindi. Mag-sign up nang walang card. Kapag handa ka na, pumili ng plano at magdagdag ng card sa Account & Billing. Kung matapos ang subok nang walang plano, magiging read-only ang account mo nang {grace} araw at saka ito mala-lock — walang binubura.",
-  "home.faq.card.aCard": "Oo — kinukuha ang card sa pag-sign up, at walang sinisingil hangga't hindi natatapos ang {days} araw na subok.",
+  "home.faq.card.aCard":
+    "Oo — kinukuha ang card sa pag-sign up, at walang sinisingil hangga't hindi natatapos ang {days} araw na subok.",
   "home.faq.cancel.q": "Puwede ba akong mag-cancel kahit kailan?",
   "home.faq.cancel.a":
     "Oo, sa Account & Billing. Gumagana pa rin ang bayad na plano hanggang sa katapusan ng panahong sakop nito — isang buwan, o isang taon sa 1-taong commitment — at wala nang ibang sisingilin.",
-  "home.faq.switch.q": "May ibang tool na akong gamit. Puwede ko bang dalhin ang data ko?",
+  "home.faq.switch.q":
+    "May ibang tool na akong gamit. Puwede ko bang dalhin ang data ko?",
   "home.faq.switch.a":
     "Oo. May sariling spreadsheet (CSV) import ang mga kliyente, ang mga produkto at presyo mo, at ang mga nakaraang trabaho, kaya magsisimula ka nang nandoon na ang history mo.",
   "home.faq.migration.q": "Puwede n'yo bang ilipat ang data ko para sa akin?",

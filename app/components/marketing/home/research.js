@@ -5,7 +5,7 @@
 //
 // ══ What these numbers ARE ═════════════════════════════════════════════════
 //
-// BuildOps 2026 Customer Benchmark Report, April 2026: 54 commercial
+// "2026 Customer Benchmark Report" (an industry survey, April 2026): 54 commercial
 // contractors were surveyed after moving to one connected platform. Every
 // `share` below is the proportion of those 54 who REPORTED an improvement.
 // It is not the size of the improvement, and they are not FieldQuo
@@ -22,7 +22,7 @@
 // or beside it. FieldQuo's own results appear when the owner has real ones.
 export const RESEARCH_SOURCE = Object.freeze({
   // A title, printed as-is in every language: it is the name of a document.
-  report: "BuildOps 2026 Customer Benchmark Report",
+  report: "2026 Customer Benchmark Report",
   contractors: 54,
   // Year and month only; rendered as a month name in the reader's language.
   published: { year: 2026, month: 4 },
