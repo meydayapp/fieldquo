@@ -28,6 +28,7 @@ import { createScoredLead } from "@/lib/leads/createLead";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { emailRefusal } from "@/lib/validation";
 import { deleteLeads, cleanLeadIds, supportSessionRefusal, MAX_DELETE_BATCH } from "@/lib/leads/deleteLead";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -310,6 +311,8 @@ export async function PATCH(request) {
       lostReason: status === "lost" ? (lostReason ?? existing.lostReason) : null,
     },
   });
+  // lead.stage_changed for the marketing agency, after the response.
+  nudgeAgencyEvents(member.companyId);
   return NextResponse.json(updated);
 }
 

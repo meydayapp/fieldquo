@@ -21,6 +21,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { memberMayPreview } from "@/lib/quotes/previewAccess";
 import { viewVerdict, isPrefetchRequest } from "@/lib/quotes/quoteViews";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 export async function POST(request, { params }) {
   const { token } = await params;
@@ -50,5 +51,7 @@ export async function POST(request, { params }) {
   // The status is in the predicate so a quote that became a draft again
   // between the read above and here is not stamped.
   await db.$executeRaw`UPDATE "Quote" SET "viewCount" = "viewCount" + 1, "viewedAt" = COALESCE("viewedAt", NOW()) WHERE "id" = ${quote.id} AND "status" <> 'draft'`;
+  // quote.viewed for the company's marketing agency — after the response.
+  nudgeAgencyEvents(quote.companyId);
   return NextResponse.json({ recorded: true });
 }

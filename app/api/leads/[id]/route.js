@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { rescoreLead } from "@/lib/leads/createLead";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 import { cleanBudgetBand, cleanTimeline } from "@/lib/leads/qualifiers";
 import {
   loadEnforceableMember,
@@ -196,6 +197,8 @@ export async function PATCH(request, { params }) {
 
   // Re-triage after a qualifier edit so score/temperature reflect the new inputs.
   if (qualifiersChanged) await rescoreLead(id);
+  // lead.stage_changed for the marketing agency (rescoreLead nudges its own).
+  else if (data.status) nudgeAgencyEvents(member.companyId);
 
   const updated = await db.leadRequest.findFirst({
     where: { id },

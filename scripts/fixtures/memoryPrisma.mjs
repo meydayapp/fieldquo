@@ -31,7 +31,11 @@ const RELATIONS = {
     client: { table: "client", kind: "one", localKey: "clientId" },
     payments: { table: "payment", kind: "many", foreignKey: "invoiceId" },
   },
-  quote: { client: { table: "client", kind: "one", localKey: "clientId" } },
+  quote: {
+    client: { table: "client", kind: "one", localKey: "clientId" },
+    jobs: { table: "job", kind: "many", foreignKey: "quoteId" },
+    invoices: { table: "invoice", kind: "many", foreignKey: "quoteId" },
+  },
   companyChatRoom: {
     job: { table: "job", kind: "one", localKey: "jobId" },
     members: { table: "companyChatMember", kind: "many", foreignKey: "roomId" },
@@ -72,6 +76,16 @@ const RELATIONS = {
     email: { table: "emailMessage", kind: "one", foreignKey: "messageId" },
   },
   emailMessage: { mailbox: { table: "mailboxConnection", kind: "one", localKey: "mailboxId" } },
+  // The marketing-agency outbox (scripts/check-agency-api.mjs): a
+  // subscription is live only while its key is, and a delivery is read with
+  // its event and its subscription. A lead's linked quote carries the Won
+  // rule's evidence (lib/leads/pipeline.js LEAD_QUOTE_EVIDENCE_SELECT).
+  agencyHookSubscription: { key: { table: "agencyAccessKey", kind: "one", localKey: "keyId" } },
+  agencyHookDelivery: {
+    event: { table: "agencyEvent", kind: "one", localKey: "eventId" },
+    subscription: { table: "agencyHookSubscription", kind: "one", localKey: "subscriptionId" },
+  },
+  leadRequest: { quote: { table: "quote", kind: "one", localKey: "quoteId" } },
 };
 const RELATION_NAMES = new Set(Object.values(RELATIONS).flatMap((r) => Object.keys(r)));
 
@@ -84,7 +98,7 @@ const UNIQUES = {
   quoteCosting: [["quoteId"]],
   invoiceCosting: [["invoiceId"]],
   payment: [["stripePaymentIntentId"], ["stripeRefundId"]],
-  leadRequest: [["quoteId"], ["companyId", "metaLeadId"]],
+  leadRequest: [["quoteId"], ["companyId", "metaLeadId"], ["companyId", "agencyRef"]],
   task: [["sourceKey"]],
   stockMovement: [["ref"]],
   purchaseOrder: [["companyId", "number"]],
@@ -113,6 +127,9 @@ const UNIQUES = {
   company: [["slug"]],
   memberGoogleCalendar: [["memberId"]],
   calendarMirror: [["memberId", "entityKind", "entityId"]],
+  agencyAccessKey: [["keyHash"]],
+  agencyEvent: [["companyId", "dedupeKey"]],
+  agencyHookDelivery: [["eventId", "subscriptionId"]],
 };
 
 /**
@@ -135,6 +152,10 @@ const DEFAULTS = {
   leadRequest: { status: "new" },
   marketingSubscriber: { subscribed: true },
   servicePlanOccurrence: { status: "pending" },
+  agencyAccessKey: { revokedAt: null, lastUsedAt: null },
+  agencyHookSubscription: { endedAt: null, endedReason: null },
+  agencyEvent: { fannedOutAt: null },
+  agencyHookDelivery: { status: "pending", attempts: 0, lastStatusCode: null, lastError: null, deliveredAt: null },
 };
 
 function flatten(where = {}) {
@@ -191,7 +212,8 @@ export function fakeDb() {
         if ("equals" in v) ok = ok && actual === v.equals;
         if ("contains" in v) ok = ok && String(actual ?? "").includes(v.contains);
         if ("startsWith" in v) ok = ok && String(actual ?? "").startsWith(v.startsWith);
-        const known = ["gt", "gte", "lt", "lte", "equals", "contains", "startsWith", "mode"];
+        if ("endsWith" in v) ok = ok && String(actual ?? "").endsWith(v.endsWith);
+        const known = ["gt", "gte", "lt", "lte", "equals", "contains", "startsWith", "endsWith", "mode"];
         if (!Object.keys(v).every((op) => known.includes(op))) throw new Error(`memory db: unsupported where ${t}.${k}: ${JSON.stringify(v)}`);
         if (!ok) return false;
         continue;
@@ -250,9 +272,12 @@ export function fakeDb() {
 
   function countRelations(t, row, spec) {
     const out = {};
-    for (const k of Object.keys(spec?.select || {})) {
+    for (const [k, v] of Object.entries(spec?.select || {})) {
       const rel = RELATIONS[t]?.[k];
-      out[k] = rel && rel.kind === "many" ? table(rel.table).filter((r) => r[rel.foreignKey] === row.id).length : 0;
+      // `_count: { select: { jobs: { where } } }` counts only the matching
+      // rows, as Prisma does — the Won rule counts live jobs only.
+      const where = v && typeof v === "object" ? v.where : null;
+      out[k] = rel && rel.kind === "many" ? table(rel.table).filter((r) => r[rel.foreignKey] === row.id && (!where || matches(rel.table, r, where))).length : 0;
     }
     return out;
   }
@@ -295,17 +320,36 @@ export function fakeDb() {
         const rows = sortBy(table(t).filter((r) => matches(t, r, where)), orderBy);
         return shape(t, rows[0] || null, { select, include });
       },
-      findMany: async ({ where, select, include, orderBy, take, skip } = {}) => {
+      findMany: async ({ where, select, include, orderBy, take, skip, distinct } = {}) => {
         let rows = sortBy(table(t).filter((r) => matches(t, r, where)), orderBy);
+        if (distinct) {
+          const seen = new Set();
+          rows = rows.filter((r) => {
+            const k = JSON.stringify(distinct.map((d) => r[d]));
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+        }
         if (skip) rows = rows.slice(skip);
         if (take) rows = rows.slice(0, take);
         return rows.map((r) => shape(t, r, { select, include }));
       },
       count: async ({ where } = {}) => table(t).filter((r) => matches(t, r, where)).length,
       create: async ({ data, select, include }) => shape(t, insert(t, data), { select, include }),
-      createMany: async ({ data }) => {
-        for (const d of Array.isArray(data) ? data : [data]) insert(t, d);
-        return { count: Array.isArray(data) ? data.length : 1 };
+      createMany: async ({ data, skipDuplicates = false }) => {
+        let count = 0;
+        for (const d of Array.isArray(data) ? data : [data]) {
+          // skipDuplicates is Postgres' ON CONFLICT DO NOTHING: a row a unique
+          // index refuses is skipped and not counted, never an error.
+          try {
+            insert(t, d);
+            count++;
+          } catch (err) {
+            if (!(skipDuplicates && err.code === "P2002")) throw err;
+          }
+        }
+        return { count };
       },
       update: async ({ where, data, select, include }) => {
         const row = find(where);

@@ -36,6 +36,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { syncJobRoom, jobRoomIdFor } from "@/lib/company/chat/store";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
 import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -547,6 +548,8 @@ export async function PATCH(request, { params }) {
   // Same redaction as the GET above. An unredacted PATCH reply hands back
   // every field the GET just hid — renaming a job would have restored the
   // client's phone number to the browser.
+  // job.completed for the marketing agency, after the response.
+  nudgeAgencyEvents(member.companyId);
   return NextResponse.json(redactJob(full, updated));
 }
 

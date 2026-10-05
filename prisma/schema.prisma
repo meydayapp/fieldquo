@@ -2801,6 +2801,26 @@ model Company {
   clientPoPrefix      String  @default("PO-")
   clientPoIncludeYear Boolean @default(true)
   clientPoDigits      Int     @default(4)
+
+  // ── Marketing agency access (2026-10-05) — lib/agency/ ─────────────────
+  //
+  // A company that pays a marketing agency gives it read-only access to its
+  // marketing results (Settings › Marketing agency access). These two
+  // switches decide what every agency-facing path may carry — the API, the
+  // webhook payloads and the Zapier samples all build their rows through
+  // lib/agency/leadRow.js, which reads both, so no path can forget one.
+  //
+  // agencyShareContacts: OFF by default (the owner's rule). Off, a lead row
+  // carries a pseudonymous reference, the first name and a partial postal
+  // code — never a full name, phone, email or street address. On adds the
+  // full name, phone, email and full postal code. Owner/admin only, logged.
+  agencyShareContacts Boolean @default(false)
+  // agencyShareMoney: ON by default (the owner's rule) — quote, won and
+  // collected amounts. Off, every money field is null and the metrics that
+  // need money (revenue, ROAS, average job size) are null with a reason.
+  agencyShareMoney    Boolean @default(true)
+  agencyAccessKeys    AgencyAccessKey[]
+  agencyEvents        AgencyEvent[]
   @@index([influencerRepId])
   @@index([trialPhoneE164])
 }
@@ -7640,7 +7660,21 @@ model LeadRequest {
   /// client on file. Each one can be undone ("Not the same person").
   identityLinks LeadIdentityLink[]
 
+  /// The lead's stable pseudonymous reference for a marketing agency
+  /// (lib/agency/leadRef.js): random, never derived from a phone or an email,
+  /// assigned once and never changed, so a lead that closes two months later
+  /// is the same row in the agency's dashboard. Shown as "L-7F3A" (the last
+  /// four characters). Null until the first agency read assigns it.
+  agencyRef   String?
+  /// When the lead first became warm or hot — the "qualified" stage the
+  /// agency funnel counts. Written by createScoredLead / rescoreLead on the
+  /// first warm-or-hot score and never moved afterwards. Null on a cold lead,
+  /// and on a lead that was already warm before this column existed (the
+  /// agency row then says qualified without a time, rather than inventing one).
+  qualifiedAt DateTime?
+
   @@unique([companyId, metaLeadId])
+  @@unique([companyId, agencyRef])
   @@index([companyId, metaFormId])
 }
 
@@ -22829,4 +22863,129 @@ model PhoneVerification {
 
   @@index([companyId, createdAt])
   @@index([e164, createdAt])
+}
+
+// ── Marketing agency access (2026-10-05) ───────────────────────────────────
+//
+// A company's marketing agency reads the company's marketing results through
+// a versioned API (/api/v1/marketing/*) and Zapier REST hooks, with a key the
+// owner creates in Settings › Marketing agency access. lib/agency/ holds the
+// rules; docs/AGENCY-API.md the whole design.
+
+/// One agency key. The secret is shown ONCE and never stored — only its
+/// sha256. Read-only unless the owner ticked "may add and update leads"
+/// (`marketing:write_leads`). Revoked, never deleted: the call log and the
+/// "created by" line stay as the record of who had access when.
+model AgencyAccessKey {
+  id            String    @id @default(cuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// The agency's name as the owner typed it ("Pulse Marketing").
+  name          String
+  /// sha256 (hex) of the full secret. Unique so a presented key resolves to
+  /// exactly one row — and therefore exactly one company.
+  keyHash       String    @unique
+  /// The secret's last four characters, so the list can tell two keys apart.
+  keyHint       String
+  /// "marketing:read" always; "marketing:write_leads" only when opted in.
+  scopes        String[]
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime  @default(now())
+  lastUsedAt    DateTime?
+  revokedAt     DateTime?
+  revokedById   String?
+  revokedByName String?
+
+  calls         AgencyApiCall[]
+  subscriptions AgencyHookSubscription[]
+
+  @@index([companyId, createdAt])
+}
+
+/// Every API call made with an agency key — the per-key log the settings
+/// screen shows and the rate limit counts.
+model AgencyApiCall {
+  id        String          @id @default(cuid())
+  companyId String
+  keyId     String
+  key       AgencyAccessKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  method    String
+  path      String
+  status    Int
+  at        DateTime        @default(now())
+
+  @@index([keyId, at])
+  @@index([companyId, at])
+}
+
+/// A Zapier (or any) REST-hook subscription: deliver `event` to `targetUrl`.
+/// Ended, never deleted: by DELETE /api/v1/hooks/{id}, by a 410 from the
+/// target, or by the key being revoked.
+model AgencyHookSubscription {
+  id          String          @id @default(cuid())
+  companyId   String
+  keyId       String
+  key         AgencyAccessKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  event       String
+  targetUrl   String
+  createdAt   DateTime        @default(now())
+  endedAt     DateTime?
+  /// "unsubscribed" | "gone_410" | "key_revoked"
+  endedReason String?
+
+  deliveries AgencyHookDelivery[]
+
+  @@index([companyId, event, endedAt])
+  @@index([keyId])
+}
+
+/// The outbox: one row per thing that happened to a lead, written by the
+/// sweep (lib/agency/events.js) — idempotent through `dedupeKey`, so the
+/// after-response nudge and the cron can both run without a double event.
+/// `facts` carries the event's own facts and NO contact details: the lead row
+/// is built at delivery time, under the sharing switches as they are then.
+model AgencyEvent {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  event       String
+  leadId      String
+  dedupeKey   String
+  occurredAt  DateTime
+  facts       Json?
+  createdAt   DateTime  @default(now())
+  /// Set once a delivery row exists for every subscription it was owed to.
+  /// A baseline (the stage sweep's internal marker) is set at birth.
+  fannedOutAt DateTime?
+
+  deliveries AgencyHookDelivery[]
+
+  @@unique([companyId, dedupeKey])
+  @@index([fannedOutAt])
+  @@index([companyId, event, occurredAt])
+  @@index([companyId, leadId])
+}
+
+/// One event owed to one subscription — the delivery log. Retried with
+/// backoff (lib/agency/delivery.js); a 410 ends the subscription.
+model AgencyHookDelivery {
+  id             String                 @id @default(cuid())
+  eventId        String
+  event          AgencyEvent            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   AgencyHookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  /// "pending" | "delivered" | "failed" | "gone" | "cancelled"
+  status         String                 @default("pending")
+  attempts       Int                    @default(0)
+  nextAttemptAt  DateTime               @default(now())
+  lastAttemptAt  DateTime?
+  lastStatusCode Int?
+  lastError      String?
+  deliveredAt    DateTime?
+  createdAt      DateTime               @default(now())
+
+  @@unique([eventId, subscriptionId])
+  @@index([status, nextAttemptAt])
+  @@index([subscriptionId])
 }

@@ -203,6 +203,10 @@
     {
       "path": "/api/cron/urgent-alerts",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/agency-events",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

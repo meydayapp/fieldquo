@@ -30,6 +30,7 @@ import {
 } from "@/lib/booking/bookingModes";
 import { verifySlotTravel, nextVerifiedSlot, travelRefusal } from "@/lib/booking/verifyTravel";
 import { findVisit, linkVisitToBooking } from "@/lib/tracking/visits";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 // The one refusal this route makes in the visitor's own language: the "when
 // do you need this done?" question is required, and a homeowner reading the
@@ -611,5 +612,7 @@ export async function POST(request, { params }) {
   // path so the two can't drift. Best-effort: the booking already exists.
   await finalizeBooking({ company, eventType, booking, clientId: client.id });
 
+  // appointment.booked / estimate.scheduled for the marketing agency.
+  nudgeAgencyEvents(company.id);
   return NextResponse.json(booking, { status: 201 });
 }

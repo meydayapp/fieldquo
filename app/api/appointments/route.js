@@ -22,6 +22,7 @@ import { geocodeAppointment, appointmentAddress } from "@/lib/geo/geocodeAppoint
 import { loadScheduleFeed } from "@/lib/schedule/feed";
 import { attachCalendarTexts } from "@/lib/sms/deliveryStore";
 import { scheduleSync } from "@/lib/calendar/googleSync";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -380,6 +381,8 @@ export async function POST(request) {
   // Onto the assignee's Google Calendar, behind the response — a Google
   // hiccup can never fail the booking that just saved.
   scheduleSync("appointment", appointment.id);
+  // appointment.booked / estimate.scheduled for the marketing agency.
+  nudgeAgencyEvents(member.companyId);
 
   return NextResponse.json(out, { status: 201 });
 }

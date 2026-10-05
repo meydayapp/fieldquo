@@ -17,6 +17,7 @@ import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestInFamily, familyPayments } from "@/lib/invoices/family";
 import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -246,6 +247,8 @@ export async function POST(request) {
     summary: `Recorded a ${method} payment of ${amount} on invoice ${invoice.invoiceNumber || invoiceId}`,
     metadata: { invoiceId, amount, method, isPaid: after.isPaid },
   });
+  // payment.received / invoice.paid for the marketing agency.
+  nudgeAgencyEvents(member.companyId);
 
   return NextResponse.json(payment, { status: 201 });
 }

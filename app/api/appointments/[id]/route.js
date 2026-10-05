@@ -28,6 +28,7 @@ import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
 import { geocodeAppointment, locationChanged } from "@/lib/geo/geocodeAppointment";
 import { scheduleSync } from "@/lib/calendar/googleSync";
+import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -566,6 +567,8 @@ export async function PATCH(request, { params }) {
   // Moved, reassigned, cancelled or reopened: the assignee's Google Calendar
   // follows, and a previous assignee's loses it. Behind the response.
   scheduleSync("appointment", updated.id);
+  // appointment.outcome (held / cancelled) for the marketing agency.
+  nudgeAgencyEvents(member.companyId);
 
   return NextResponse.json({
     ...updated,
