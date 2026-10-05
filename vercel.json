@@ -29,6 +29,10 @@
       "schedule": "40 4 * * *"
     },
     {
+      "path": "/api/cron/google-ads-sync",
+      "schedule": "25 6 * * *"
+    },
+    {
       "path": "/api/cron/voice-outbound",
       "schedule": "*/15 * * * *"
     },

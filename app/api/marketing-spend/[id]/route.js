@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { isSyncedSource } from "@/lib/googleAds/sources";
 
 // Same gate as the collection route beside this one — see its header.
 function requireMarketingManage(member) {
@@ -38,11 +39,18 @@ export async function PATCH(request, { params }) {
   // sync, which is exactly the "control that appears to work and doesn't"
   // AGENTS.md is written against. Refused with a real explanation instead;
   // DELETE below stays open, because removing a row is not silently undone.
-  if (existing.source === "meta_api") {
+  //
+  // The same is true of the two Google sources: the API sync upserts on its
+  // externalId every night, and re-importing a Google Ads report updates the
+  // rows the last import wrote (lib/googleAds/spendPlan.js). isSyncedSource
+  // is the one list, so a fourth importer cannot be forgotten here.
+  if (isSyncedSource(existing.source)) {
+    const isGoogle = existing.source !== "meta_api";
     return NextResponse.json(
       {
-        error:
-          "This entry was imported from Meta and is kept in sync automatically — editing it here wouldn't stick past the next sync. Delete it if you don't want it, or change the campaign in Meta Ads Manager.",
+        error: isGoogle
+          ? "This entry was imported from Google Ads — editing it here wouldn't stick past the next sync or report import. Delete it if you don't want it, or import a corrected report."
+          : "This entry was imported from Meta and is kept in sync automatically — editing it here wouldn't stick past the next sync. Delete it if you don't want it, or change the campaign in Meta Ads Manager.",
       },
       { status: 409 },
     );

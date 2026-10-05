@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { dayRangeUtc } from "@/lib/analytics/dayRange";
 import { loadCampaignRollup } from "@/lib/analytics/campaignRollupData";
+import { loadGoogleAdsRollup } from "@/lib/analytics/googleAdsRollupData";
 
 // Per-campaign spend, Meta's own counts, and what each campaign became in
 // FieldQuo — the "Campaigns" section of app/app/marketing/spend/page.js.
@@ -36,12 +37,24 @@ export async function GET(request) {
   // September beside the job it produced.
   const range = dayRangeUtc(searchParams.get("from"), searchParams.get("to"));
 
+  const asOf = new Date();
   const rollup = await loadCampaignRollup({
     db,
     companyId: member.companyId,
     range,
-    asOf: new Date(),
+    asOf,
   });
 
-  return NextResponse.json(rollup);
+  // Google Ads beside it (lib/analytics/googleAdsRollupData.js): its own read
+  // and its own failure — a Google query that fails must not take the Meta
+  // table down with it, and must not look like "no Google spend" either.
+  let google = null;
+  let googleError = null;
+  try {
+    google = await loadGoogleAdsRollup({ db, companyId: member.companyId, range, asOf });
+  } catch (err) {
+    googleError = err?.message || "Google Ads figures could not be worked out.";
+  }
+
+  return NextResponse.json({ ...rollup, google, googleError });
 }

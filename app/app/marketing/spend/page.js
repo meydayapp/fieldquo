@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, X, TrendingUp, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, TrendingUp, ExternalLink, Pencil, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -30,8 +30,20 @@ import { fetchJson } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
 import { formatDateOnly } from "@/lib/format/companyDate";
 import { CurrencyNotes, excludedSentence } from "@/app/components/marketing/SpendCurrencyNotes";
+import { isSyncedSource } from "@/lib/googleAds/sources";
+import GoogleAdsImportDialog from "@/app/components/marketing/GoogleAdsImportDialog";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
+
+// Where a row came from → its chip label and colour. A synced or imported row
+// has no Edit button: the next sync or re-import would put its own figures
+// back (app/api/marketing-spend/[id]/route.js refuses the PATCH for the same
+// reason).
+const SOURCE_CHIPS = {
+  meta_api: { key: "app.marketingSpend.sourceMeta", tone: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" },
+  google_ads_api: { key: "app.marketingSpend.sourceGoogleApi", tone: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" },
+  google_ads_csv: { key: "app.marketingSpend.sourceGoogleCsv", tone: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" },
+};
 
 function emptyForm() {
   // The user's own calendar day, not UTC's: toISOString at 9pm in Toronto is
@@ -207,6 +219,156 @@ function CampaignsSection({ id, campaigns, error, loading, currency, onRetry, t 
   );
 }
 
+// ── Google Ads, campaign by campaign ──────────────────────────────────────────
+//
+// lib/analytics/googleAdsRollup.js: Google's spend and its own counts beside
+// FieldQuo's OWN leads from Google (arrived with a Google click id) and what
+// they became. "Google's conversions" is a column of its own and is never what
+// a cost per lead divides by. Same cell rules as the Meta table: "—" for
+// anything not reported or not divisible, never 0.
+const GOOGLE_COLUMNS = [
+  { key: "spend", label: "app.marketingSpend.campaigns.colSpend", kind: "money" },
+  { key: "impressions", label: "app.marketingSpend.campaigns.colImpressions", kind: "count" },
+  { key: "clicks", label: "app.marketingSpend.campaigns.colClicks", kind: "count" },
+  { key: "ctr", label: "app.marketingSpend.campaigns.colCtr", kind: "rate" },
+  { key: "cpc", label: "app.marketingSpend.campaigns.colCpc", kind: "money" },
+  { key: "googleConversions", label: "app.marketingSpend.google.colGoogleConversions", kind: "decimal" },
+  { key: "leads", label: "app.marketingSpend.google.colLeads", kind: "count" },
+  { key: "costPerLead", label: "app.marketingSpend.campaigns.colCostPerLead", kind: "money" },
+  { key: "quotes", label: "app.marketingSpend.campaigns.colQuotes", kind: "count" },
+  { key: "wonJobs", label: "app.marketingSpend.google.colWonJobs", kind: "count" },
+  { key: "costPerWonJob", label: "app.marketingSpend.google.colCostPerWonJob", kind: "money" },
+  { key: "revenue", label: "app.marketingSpend.campaigns.colRevenue", kind: "money" },
+  { key: "paid", label: "app.marketingSpend.campaigns.colPaid", kind: "money" },
+];
+
+function GoogleCampaignsSection({ google, error, loading, currency, onRetry, t }) {
+  const fmtMoney = (n, approximate) =>
+    n == null ? "—" : `${approximate ? "≈ " : ""}${new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n)}`;
+  const fmtCount = (n) => (n == null ? "—" : new Intl.NumberFormat(undefined).format(n));
+  const fmtDecimal = (n) => (n == null ? "—" : new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n));
+  const fmtRate = (n) => (n == null ? "—" : new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(n));
+  const cell = (c, col, approximate) => {
+    const v = c[col.key];
+    if (col.kind === "money") return fmtMoney(v, approximate);
+    if (col.kind === "rate") return fmtRate(v);
+    if (col.kind === "decimal") return fmtDecimal(v);
+    return fmtCount(v);
+  };
+  const rows = google?.campaigns || [];
+  const totals = google?.totals;
+
+  return (
+    <section id="google-campaigns" className="bg-card border border-border rounded-xl overflow-hidden scroll-mt-4">
+      <div className="px-5 py-3 border-b border-border flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-foreground">{t("app.marketingSpend.google.title")}</div>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("app.marketingSpend.google.subtitle")}</p>
+        </div>
+        <Link href="/app/settings/google-ads" className="text-xs underline text-foreground shrink-0">
+          {t("app.marketingSpend.googlePointerLink")}
+        </Link>
+      </div>
+
+      {error && (
+        <p className="px-5 py-4 text-sm text-muted-foreground">
+          {t("app.marketingSpend.google.unavailable")}{" "}
+          <button type="button" onClick={onRetry} className="underline font-medium">
+            {t("app.load.retry")}
+          </button>
+        </p>
+      )}
+
+      {!error && loading && !google && <div className="px-5 py-4 animate-pulse h-16 bg-accent" />}
+
+      {!error && google && rows.length === 0 && (
+        <p className="px-5 py-4 text-sm text-muted-foreground">{t("app.marketingSpend.google.empty")}</p>
+      )}
+
+      {!error && rows.length > 0 && (
+        <>
+          {/* The channel's two figures, on FieldQuo's own Google leads. */}
+          <div className="px-5 py-3 border-b border-border grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">{t("app.marketingSpend.campaigns.colSpend")}</div>
+              <div className="font-semibold text-foreground tabular-nums">{fmtMoney(totals.spend, totals.approximate)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">{t("app.marketingSpend.google.costPerLeadTotal", { count: totals.leads })}</div>
+              <div className="font-semibold text-foreground tabular-nums">
+                {totals.costPerLead != null ? fmtMoney(totals.costPerLead, totals.approximate) : t("app.marketingSpend.google.noLeadsYet")}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">{t("app.marketingSpend.google.costPerWonJobTotal", { count: totals.wonJobs })}</div>
+              <div className="font-semibold text-foreground tabular-nums">
+                {totals.costPerWonJob != null ? fmtMoney(totals.costPerWonJob, totals.approximate) : t("app.marketingSpend.google.noWonJobsYet")}
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                  <th className="px-5 py-2 font-medium">{t("app.marketingSpend.campaigns.colCampaign", "Campaign")}</th>
+                  {GOOGLE_COLUMNS.map((col) => (
+                    <th key={col.key} className="px-3 py-2 font-medium text-right">
+                      {t(col.label)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c) => (
+                  <tr key={c.campaignKey} className="border-b border-border last:border-0 align-top">
+                    <td className="px-5 py-2.5">
+                      <div className="font-medium text-foreground">
+                        {c.notTied ? t("app.marketingSpend.google.notTied") : c.campaignName || c.campaignId}
+                      </div>
+                      {c.days > 0 && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {t("app.marketingSpend.campaigns.period", { first: formatDateOnly(c.firstDate), last: formatDateOnly(c.lastDate), days: c.days })}
+                        </div>
+                      )}
+                      {c.spendExcluded && (
+                        <div className="text-[11px] text-amber-700 dark:text-amber-400">
+                          {excludedSentence(
+                            t,
+                            c.spendExcluded,
+                            new Intl.NumberFormat(undefined, { style: "currency", currency: c.spendExcluded.currency }).format(c.spendExcluded.amount),
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    {GOOGLE_COLUMNS.map((col) => (
+                      <td key={col.key} className="px-3 py-2.5 text-right tabular-nums">
+                        {cell(c, col, c.approximate)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-2.5 border-t border-border space-y-1">
+            <p className="text-[11px] text-muted-foreground">{t("app.marketingSpend.google.leadsNote")}</p>
+            <p className="text-[11px] text-muted-foreground">{t("app.marketingSpend.google.conversionsNote")}</p>
+            {totals.leadsNotTied > 0 && (
+              <p className="text-[11px] text-muted-foreground">{t("app.marketingSpend.google.notTiedNote", { count: totals.leadsNotTied })}</p>
+            )}
+            {totals.inferredQuotes > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                {t("app.marketingSpend.campaigns.inferredNote", { count: totals.inferredQuotes })}
+              </p>
+            )}
+            <CurrencyNotes totals={totals} t={t} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function MarketingSpendPage() {
   const { t } = useTranslation();
   // The company's own currency, from the provider that holds it for every
@@ -234,6 +396,7 @@ export default function MarketingSpendPage() {
   // "no campaigns synced yet".
   const [campaigns, setCampaigns] = useState(null);
   const [campaignsError, setCampaignsError] = useState("");
+  const [showGoogleImport, setShowGoogleImport] = useState(false);
 
   const load = useCallback(async () => {
     setErrorKey("");
@@ -378,12 +541,20 @@ export default function MarketingSpendPage() {
             )}
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
-        >
-          <Plus size={14} /> {t("app.marketingSpend.addEntry", "Log spend")}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2 shrink-0">
+          <button
+            onClick={() => setShowGoogleImport(true)}
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Upload size={14} /> {t("app.googleAds.import.open")}
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Plus size={14} /> {t("app.marketingSpend.addEntry", "Log spend")}
+          </button>
+        </div>
       </div>
 
       {banner && (
@@ -566,6 +737,18 @@ export default function MarketingSpendPage() {
         t={t}
       />
 
+      {/* Google Ads, campaign by campaign — from the same campaigns read,
+          with its own error (`googleError`) so a failed Google query is said,
+          never shown as "no Google spend". */}
+      <GoogleCampaignsSection
+        google={campaigns?.google || null}
+        error={campaignsError || campaigns?.googleError || ""}
+        loading={loading}
+        currency={currency}
+        onRetry={load}
+        t={t}
+      />
+
       {/* Meta Ads connection pointer — the import lives in Settings, this is
           just a link so the two halves of the feature find each other. */}
       <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-3">
@@ -577,6 +760,17 @@ export default function MarketingSpendPage() {
           className="flex items-center gap-1.5 text-sm font-semibold text-foreground border border-border rounded-full px-3.5 py-2 shrink-0"
         >
           {t("app.marketingSpend.metaPointerLink", "Meta Ads settings")} <ExternalLink size={13} />
+        </Link>
+      </div>
+      {/* Google Ads' twin of the pointer above: the API connection lives in
+          Settings › Google Ads; the report upload is on both screens. */}
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{t("app.marketingSpend.googlePointer")}</p>
+        <Link
+          href="/app/settings/google-ads"
+          className="flex items-center gap-1.5 text-sm font-semibold text-foreground border border-border rounded-full px-3.5 py-2 shrink-0"
+        >
+          {t("app.marketingSpend.googlePointerLink")} <ExternalLink size={13} />
         </Link>
       </div>
 
@@ -624,16 +818,14 @@ export default function MarketingSpendPage() {
                     <td className="px-4 py-2.5">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          entry.source === "meta_api"
-                            ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
-                            : "bg-muted text-muted-foreground"
+                          SOURCE_CHIPS[entry.source]?.tone || "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {t(entry.source === "meta_api" ? "app.marketingSpend.sourceMeta" : "app.marketingSpend.sourceManual", entry.source)}
+                        {t(SOURCE_CHIPS[entry.source]?.key || "app.marketingSpend.sourceManual", entry.source)}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {entry.source !== "meta_api" && (
+                      {!isSyncedSource(entry.source) && (
                         <button onClick={() => openEdit(entry)} className="text-muted-foreground hover:text-foreground p-1" aria-label={t("app.action.edit", "Edit")}>
                           <Pencil size={14} />
                         </button>
@@ -649,6 +841,14 @@ export default function MarketingSpendPage() {
           </div>
         </div>
       </ListState>
+
+      {showGoogleImport && (
+        <GoogleAdsImportDialog
+          companyCurrency={currency}
+          onClose={() => setShowGoogleImport(false)}
+          onImported={load}
+        />
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowForm(false)}>
