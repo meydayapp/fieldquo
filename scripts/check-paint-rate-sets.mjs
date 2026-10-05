@@ -535,6 +535,51 @@ for (const icon of new Set(Object.values(TRADE_CATALOG).map((c) => c.icon).filte
   ok(`icons: ServiceTiles maps ${icon}`, new RegExp(`\\b${icon}\\b`).test(mapSrc));
 }
 
+/* ══ The owner's NPC preset corrections (2026-10-05) ═════════════════════ */
+//
+// Craftsman's National Painting Cost Estimator against the presets; each value
+// is the owner's decision. The CALIBRATION report cites every page.
+{
+  const S = PAINT_SUBSTRATE_DEFAULTS;
+  const P = B.products;
+  // 1. A picket fence beside the solid-board default.
+  eq("NPC 1: a solid-board fence stays 120 a face", S.stain_fence.productionRate, 120);
+  const picket = PAINT_RATE_SET_DEFAULTS.staining.rates.stain_fence_picket;
+  ok("NPC 1: a picket rate prices the fence substrate at 40 a face", picket && picket.substrate === "stain_fence" && picket.basis === "production" && picket.productionRate === 40);
+  ok("NPC 1: the fence picker lists both", ratesForSubstrate(PAINT_RATE_SET_DEFAULTS.staining, "stain_fence").map((r) => r.key).join(",") === "stain_fence,stain_fence_picket");
+  const fence = (rateKey) => paintTakeoff({ model: "area_substrate", estimateType: "staining", areas: [{ ...newPaintArea("fence", B, { estimateType: "staining" }), substrates: [sub("stain_fence", { quantity: 800, rateKey }, "staining")] }] }, B);
+  near("NPC 1: 800 sq ft of pickets is 20 h, a board fence 6.67 h", line(fence("stain_fence_picket"), "stain_fence").hours, 20);
+  near("NPC 1: …and the board fence", line(fence("stain_fence"), "stain_fence").hours, 800 / 120);
+  // 2. Exterior stain 200 sq ft/gal; interior stain keeps 400.
+  eq("NPC 2: exterior stain covers 200 a coat", P.stain_exterior.coverageSqftPerGal, 200);
+  eq("NPC 2: …unpriced until the company prices it", P.stain_exterior.costPerGal, null);
+  eq("NPC 2: interior oil stain keeps 400 (cabinets)", P.stain_oil.coverageSqftPerGal, 400);
+  for (const k of ["stain_deck", "stain_fence"]) {
+    ok(`NPC 2: ${k} uses the exterior stain`, S[k].productKey === "stain_exterior" && S[k].products.length === 1 && S[k].products[0].productKey === "stain_exterior");
+  }
+  for (const k of ["stain_cab_door", "stain_cab_drawer", "stain_vanity_door", "stain_vanity_drawer"]) {
+    eq(`NPC 2: ${k} keeps the interior stain`, S[k].products[0].productKey, "stain_oil");
+  }
+  near("NPC 2: a 1,000 sq ft deck, 2 coats, buys 10 gal", line(paintTakeoff({ model: "area_substrate", estimateType: "staining", areas: [{ ...newPaintArea("deck", B, { estimateType: "staining" }), substrates: [sub("stain_deck", { quantity: 1000 }, "staining")] }] }, B), "stain_deck").gallons, 10);
+  // A deck row saved before 2026-10-05 names stain_oil on its own row and keeps it.
+  const savedDeck = { key: "stain_deck", label: "Deck", coats: 2, prepHours: 0, quantity: 1000, products: [{ productKey: "stain_oil", coats: 2 }], productKey: "stain_oil", rateKey: "stain_deck" };
+  near("NPC 2: a saved deck row keeps buying what it bought", paintTakeoff({ model: "area_substrate", estimateType: "staining", areas: [{ ...newPaintArea("deck", B, { estimateType: "staining" }), substrates: [savedDeck] }] }, B).areas[0].lines[0].gallons, 5);
+  const ref = readFileSync(new URL("../app/data/materialReference.js", import.meta.url), "utf8");
+  ok("NPC 2: materialReference's deck stain is the same 200 a coat", /R\("deck_stain_gal",[^\n]*cov\(200, "sqft"\)/.test(ref));
+  // 3–5. Cabinet boxes, French doors, built-ins.
+  eq("NPC 3: cabinet boxes 12 lnft/hr", S.cab_box.productionRate, 12);
+  eq("NPC 4: French door 0.75 h a side", S.french_door.hoursPerUnit, 0.75);
+  eq("NPC 5: built-ins keep 40 (sprayed) so quoted built-ins don't double", S.cab_builtin.productionRate, 40);
+  eq("NPC 5: …named sprayed in the cabinets set", PAINT_RATE_SET_DEFAULTS.cabinets.rates.cab_builtin.label, "Built-ins, sprayed");
+  const brushed = PAINT_RATE_SET_DEFAULTS.cabinets.rates.cab_builtin_brushed;
+  ok("NPC 5: …and a brushed 20 beside it", brushed && brushed.substrate === "cab_builtin" && brushed.productionRate === 20);
+  // 7. Cabinet enamel: the reference row agrees with the takeoff.
+  const cabDoors = Number((ref.match(/R\("paint_trim_enamel_cabinet",[^\n]*cov\((\d+(?:\.\d+)?), "each"\)/) || [])[1]);
+  eq("NPC 7: cabinet enamel 25 doors a gallon", cabDoors, 25);
+  const takeoffDoors = P.trim_enamel.coverageSqftPerGal / (S.cab_door.sqftPerUnit * S.cab_door.coats);
+  ok("NPC 7: …within 15% of the takeoff's own doors a gallon (28)", Math.abs(cabDoors - takeoffDoors) / takeoffDoors < 0.15, `${cabDoors} vs ${takeoffDoors}`);
+}
+
 /* ══ Done ════════════════════════════════════════════════════════════════ */
 
 if (process.exitCode) {

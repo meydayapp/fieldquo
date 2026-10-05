@@ -56,10 +56,18 @@ export const MATERIAL_REFERENCE = [
   R("ceiling_paint_gal", "Flat ceiling paint", "gallon", cov(187.5, "sqft"), "rule", { US: US(23.98), CA: CA(60.97, { unit: "pail", coverage: cov(375, "sqft"), note: "7.58 L pail" }) }),
   R("primer_gal", "All-purpose primer, 1 gal", "gallon", cov(350, "sqft"), "rule", { US: US(23.98), CA: CA(47.97, { unit: "can" }) }),
   R("paint_exterior_gal", "Exterior satin, 1 gal", "gallon", cov(162.5, "sqft"), "rule", { US: US(35.98), CA: CA(37.97, { unit: "can", note: "exterior flat 3.79 L — the .ca match was a barn-and-fence paint" }) }),
+  // ONE coat: 200 sq ft a gallon a coat is the painting takeoff's exterior
+  // stain too (lib/pricing/paintTakeoff.js `stain_exterior`, the Slow end of
+  // NPC's 180–237 on exterior wood), so a deck priced either way buys alike.
   R("deck_stain_gal", "Semi-transparent deck stain, 1 gal", "gallon", cov(200, "sqft"), "rule", { US: US(41.48), CA: CA(68.97, { unit: "can" }) }),
   R("paint_trim_enamel_gal", "Cabinet, door and trim enamel, 1 gal", "gallon", cov(500, "linft"), "rule", { US: US(55.98), CA: CA(86.47, { unit: "can" }) }),
   R("paint_trim_enamel_doors", "Cabinet, door and trim enamel — per door coverage", "gallon", cov(4.5, "each"), "rule", { US: US(55.98), CA: CA(86.47, { unit: "can" }) }),
-  R("paint_trim_enamel_cabinet", "Cabinet, door and trim enamel — per cabinet door", "gallon", cov(15, "each"), "rule", { US: US(55.98), CA: CA(86.47, { unit: "can" }) }),
+  // 25 doors (both faces, two coats) a gallon. WAS 15 — heavier than NPC's
+  // Fast spray and 1.9× what the painting takeoff buys for the same door
+  // (350 sq ft ÷ (6.25 sq ft × 2 coats) = 28). NPC 2014 p54, cabinet spray
+  // enamel two coats, is 25.8 / 23.9 / 21.8 doors a gallon; 25 is its Slow.
+  // Owner, 2026-10-05.
+  R("paint_trim_enamel_cabinet", "Cabinet, door and trim enamel — per cabinet door", "gallon", cov(25, "each"), "rule", { US: US(55.98), CA: CA(86.47, { unit: "can" }) }),
   R("paint_ppg_diamond", "Interior eggshell (premium), 1 gal", "gallon", cov(187.5, "sqft"), "rule", { US: US(38.98) }),
   R("wood_stain_qt", "Wood stain, 1 qt", "quart", cov(85, "sqft"), "rule", { US: US(14.98) }),
   R("poly_qt", "Polyurethane, 1 qt", "quart", cov(125, "sqft"), "rule", { US: US(18.98) }),

@@ -23,7 +23,7 @@
 //   7. roofing: tear-off by material, labour-only materials, the job
 //      minimum, the pitch ladder is monotone and editable
 //   8. the complexity ladder's values unchanged, its provenance cited
-//   9. painting presets untouched (the owner's eight corrections are pending)
+//   9. painting's suggested rates as the owner decided them (2026-10-05)
 //  10. strings in all nine languages; wired into check:all
 import { readFileSync } from "node:fs";
 
@@ -453,7 +453,10 @@ ok("…and the line no longer tags it a GUESS", cx && cx.tag === "DERIVED" && cx
 // 9. Painting untouched; nothing written to a company
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("painting's suggested rates are exactly as before (the owner's eight corrections are pending)", JSON.stringify(SUGGESTED_PRODUCTION.interior_painting) === JSON.stringify({ wallSqft: { amount: 250, basis: "per_hour" }, ceilingSqft: { amount: 200, basis: "per_hour" }, linearFt: { amount: 75, basis: "per_hour" } }) && JSON.stringify(SUGGESTED_PRODUCTION.exterior_painting) === JSON.stringify({ wallSqft: { amount: 150, basis: "per_hour" }, linearFt: { amount: 40, basis: "per_hour" } }));
+// The owner decided painting's corrections on 2026-10-05: interior suggestions
+// are FINISHED rates now (110 / 120 / 45), the takeoff's basis; exterior as was.
+ok("painting's suggested rates are the owner's decided finished rates (110 / 120 / 45; exterior unchanged)", JSON.stringify(SUGGESTED_PRODUCTION.interior_painting) === JSON.stringify({ wallSqft: { amount: 110, basis: "per_hour" }, ceilingSqft: { amount: 120, basis: "per_hour" }, linearFt: { amount: 45, basis: "per_hour" } }) && JSON.stringify(SUGGESTED_PRODUCTION.exterior_painting) === JSON.stringify({ wallSqft: { amount: 150, basis: "per_hour" }, linearFt: { amount: 40, basis: "per_hour" } }));
+ok("...and the comment says they are finished rates, not per coat", /interior figures are FINISHED rates/.test(code(PROD)) && /WAS 250 \/ 200 \/ 75/.test(code(PROD)));
 ok("no preset belongs to a painting category", !PRESET_HOME_CATEGORIES.some((k) => /painting/.test(k)) && presetsForCategory("interior_painting").length === 0);
 ok("nothing in the presets module writes a database row", !/prisma|\.update\(|\.upsert\(|\.create\(/.test(code(PRESETS)));
 

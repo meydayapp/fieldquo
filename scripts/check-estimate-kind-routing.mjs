@@ -341,10 +341,17 @@ const PINNED = {
   "exterior_room/exterior_painting": "2955122ec71d825efa819cb783d434e0",
   "exterior_surface/interior_painting": "6405b9a556aed07fdc79f67c6826d155",
   "exterior_surface/exterior_painting": "6405b9a556aed07fdc79f67c6826d155",
-  "cabinets/interior_painting": "31933a62cfeb6957da00b8ca54a59754",
-  "cabinets/exterior_painting": "31933a62cfeb6957da00b8ca54a59754",
-  "staining/interior_painting": "cad188fae530e2edf3810c2078789d9a",
-  "staining/exterior_painting": "cad188fae530e2edf3810c2078789d9a",
+  // Re-pinned 2026-10-05 (the owner's painting preset corrections, NPC):
+  // cabinets — its 30 lnft of cab_box at 12 lnft/hr, not 6 (half the hours);
+  // staining — its deck row is a literal with no `products`, so it reads the
+  // substrate's new exterior stain (200 sq ft/gal, not stain_oil's 400):
+  // twice the gallons, still unpriced, the same total. A stored staining row
+  // carries its own `products` (newPaintSubstrate copies them), so a real
+  // quote keeps buying stain_oil. Every other pin is unchanged.
+  "cabinets/interior_painting": "720048313febc15bec7fe3d3c536b9b7",
+  "cabinets/exterior_painting": "720048313febc15bec7fe3d3c536b9b7",
+  "staining/interior_painting": "9555fc0a16899211c95ffd4cef98ea75",
+  "staining/exterior_painting": "9555fc0a16899211c95ffd4cef98ea75",
   "commercial/interior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "commercial/exterior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "stairs/live": "07ace69015133fb88bfdb14ce72518ea",

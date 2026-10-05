@@ -1269,7 +1269,10 @@ section("21. P1 multi-trade: the quote's service decides what is read, every qua
 
 // The reference painting read (section 14's, no scope) as it was before the
 // trades existed — any change to painting's prompt or model fails here.
-const PIN_PAINT_PROMPT = "87c5b9372b6ae32645a756b63d8a11f6";
+// Re-pinned 2026-10-05: the catalogue's product list gained the exterior
+// stain (paintTakeoff.js `stain_exterior`, the owner's NPC corrections) —
+// catalogueForModel lists every product key and label. Nothing else moved.
+const PIN_PAINT_PROMPT = "469e16fdc96d334a2997696c9e1c3da6";
 const PIN_PAINT_MODEL = "5616a7c9a0553d9ef592d23332006fce";
 
 ok("painting with no scope is pinned by md5 — the synthesis prompt and the model of the reference read", md5(seqP.synthPrompts[0]) === PIN_PAINT_PROMPT && md5(seq.row.model) === PIN_PAINT_MODEL, [md5(seqP.synthPrompts[0]), md5(seq.row.model)]);
