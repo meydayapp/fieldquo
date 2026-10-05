@@ -109,6 +109,14 @@
       "schedule": "20 * * * *"
     },
     {
+      "path": "/api/cron/meta-conversions",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/meta-conversions-daily",
+      "schedule": "10 7 * * *"
+    },
+    {
       "path": "/api/cron/sales-retention",
       "schedule": "20 9 * * *"
     },

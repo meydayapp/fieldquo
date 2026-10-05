@@ -29,6 +29,8 @@ import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { emailRefusal } from "@/lib/validation";
 import { deleteLeads, cleanLeadIds, supportSessionRefusal, MAX_DELETE_BATCH } from "@/lib/leads/deleteLead";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { captureDeletedNotALead } from "@/lib/meta/capi/capture";
+import { afterResponse } from "@/lib/meta/capi/afterResponse";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -489,6 +491,12 @@ export async function DELETE(request) {
   });
   if (!result.deleted.length)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Deleted as "not a lead": a Facebook lead-form lead is a Disqualified
+  // stage for Meta ("Send lead results to Meta", lib/meta/capi/capture.js).
+  // Queued after the response — Meta never slows or fails a delete.
+  if (result.metaDisqualify?.length) {
+    afterResponse(() => captureDeletedNotALead(db, { companyId: member.companyId, leads: result.metaDisqualify }));
+  }
 
   return NextResponse.json({
     ok: true,

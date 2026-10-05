@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 361 articles in the tree; written: en 361, fr 361, es 361; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 362 articles in the tree; written: en 362, fr 362, es 362; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -291,7 +291,7 @@ _Generated 2026-10-05 — 361 articles in the tree; written: en 361, fr 361, es 
 | `the-manager-log-book` — The manager's log book | ✓ | ✓ | ✓ | manager-log | hr_compliance |  |
 | `hr-and-compliance` — HR & compliance overview | ✓ | ✓ | ✓ |  | hr_compliance |  |
 
-### marketing-and-website (27)
+### marketing-and-website (28)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -316,6 +316,7 @@ _Generated 2026-10-05 — 361 articles in the tree; written: en 361, fr 361, es 
 | `archived-videos` — Archived videos: when a video post moves to the archive, and restoring it | ✓ | ✓ | ✓ |  | marketing_designer |  |
 | `connect-meta-ads` — Connect your Meta ad account | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
 | `get-facebook-and-instagram-lead-ads-into-fieldquo` — Get your Facebook and Instagram lead ads into FieldQuo | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
+| `send-lead-results-to-meta` — Send lead results to Meta | ✓ | ✓ | ✓ |  | marketing_spend |  |
 | `answer-facebook-and-instagram-messages-from-fieldquo` — Answer Facebook and Instagram messages from FieldQuo | ✓ | ✓ | ✓ |  | page_messaging |  |
 | `whatsapp-coming-soon` — WhatsApp (coming soon) | ✓ | ✓ | ✓ |  | whatsapp_messaging |  |
 | `ask-for-reviews-automatically` — Ask for reviews automatically | ✓ | ✓ | ✓ | settings-reviews | review_requests |  |

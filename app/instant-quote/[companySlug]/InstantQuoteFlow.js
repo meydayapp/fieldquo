@@ -1158,8 +1158,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
                     contact={{ ...contact, address: jobAddress }}
                     copy={{ title: t.bookTitle, body: t.bookBody, cta: t.bookCta }}
                     // A confirmed visit is the ad platforms' Schedule. The
-                    // trade key only — no time, no address.
-                    onBooked={() => tracking.fire("Schedule", { params: { content_category: tradeKey || "" } })}
+                    // trade key only — no time, no address. The booking id is
+                    // the eventID, matching the server-side Schedule.
+                    onBooked={(b) => tracking.fire("Schedule", { params: { content_category: tradeKey || "" }, eventId: b?.id || null })}
                   />
                 )}
               </>
