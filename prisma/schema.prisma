@@ -10630,7 +10630,7 @@ model ForecastSettings {
   targetMargin        Decimal?  @db.Decimal(5, 4)
   /// Hours the business can INVOICE in a month, across everyone in the field
   /// together. NULL means "not said", and is never defaulted: a floor
-  /// computed against an invented number is worse than none. 1–744 on write
+  /// computed against an invented number is worse than none. 1–20,000 on write
   /// (app/api/settings/forecast, lib/analytics/hourlyFloor.js
   /// parseBillableHours). Two readers, one figure:
   ///   - the divisor of the hourly price floor (lib/analytics/hourlyFloor.js),

@@ -1881,10 +1881,11 @@ month … its fair share").
 - **What doesn't change:** a company without hours sees byte-identical figures (md5-pinned in
   `check:quote-costing`); invoices, job actuals and KPIs stay per job.
 - **One column, one parser:** merged with main's hourly floor (2026-10-05) — the column is main's
-  `Int?` (1–744 on write, `lib/analytics/hourlyFloor.js` parseBillableHours), already in production;
-  Settings → Overhead keeps main's input and hourly-floor line beside the per-crew-hour tiles. The
-  744 cap is a month of ONE person's hours — a field crew of five or more billing full time cannot
-  type its real total; that bound is main's and is flagged for the owner, not changed here.
+  `Int?` (`lib/analytics/hourlyFloor.js` parseBillableHours), already in production; Settings →
+  Overhead keeps main's input and hourly-floor line beside the per-crew-hour tiles. The upper bound
+  was 744 — one person's month — which silently refused the real answer of any crew of five or more;
+  it is now 20,000 (the figure is the whole crew's together, which is how both the hourly floor and
+  the overhead share divide by it) and the label says "all crew together".
 - Help: "Settings → Overhead" and "Cost and margin on a quote" explain it with the two-week example
   (en/fr/es). Noted, not fixed: the cost-and-margin article still says the default target is 30%
   (it is 20%), and its fr/es versions say the labels are "in English for now" — no longer true.

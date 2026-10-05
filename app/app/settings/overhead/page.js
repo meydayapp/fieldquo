@@ -680,12 +680,12 @@ function OverheadEditor() {
           </label>
           <label className="flex-1">
             <span className="text-xs font-medium text-muted-foreground block mb-1">
-              {t("app.setOverhead.billableHours", "Billable hours a month")}
+              {t("app.setOverhead.billableHours", "Billable hours a month (all crew together)")}
             </span>
             <input
               type="number"
               min="1"
-              max="744"
+              max="20000"
               step="1"
               value={billableHours}
               onChange={(e) => setBillableHours(e.target.value)}

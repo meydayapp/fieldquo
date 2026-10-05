@@ -283,10 +283,12 @@ console.log("\n4b. Billable crew hours a month — written AND read\n");
 
 // The PUT's parser — ONE for the column, shared with the hourly floor
 // (lib/analytics/hourlyFloor.js, merged 2026-10-05): the same three states
-// as the margin beside it, a whole number of hours 1–744 (the column is Int).
+// as the margin beside it, a whole number of hours 1–20,000 — the WHOLE
+// crew's together, so not capped at one person's month (the column is Int).
 ok("PUT with no hours field: left alone (an older client)", parseBillableHours(undefined).skip === true);
 ok("PUT null / '' clears it", parseBillableHours(null).value === null && parseBillableHours("").value === null);
 ok("PUT 320 → 320; ' 320 ' → 320", parseBillableHours(320).value === 320 && parseBillableHours(" 320 ").value === 320);
+ok("a crew of 20 billing 150 h each (3,000) is accepted; 20,001 is refused", parseBillableHours(3000).value === 3000 && parseBillableHours(20001).error === true);
 ok("PUT 0 / negative / 'abc' / NaN / Infinity / 1e9 / 320.5 / true / {} → refused, never clamped",
   [0, -1, "abc", NaN, Infinity, 1e9, 320.5, true, {}, []].every((v) => parseBillableHours(v).error === true));
 {
