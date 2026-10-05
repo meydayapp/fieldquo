@@ -66,8 +66,6 @@
 // …unless the owner has said otherwise for that quote — OWNER_DECISIONS below,
 // which win over the rules above and are printed on every run.
 
-import fs from "node:fs";
-import pg from "pg";
 
 // ── The owner's answers, 2026-10-03 ───────────────────────────────────────
 //
@@ -141,26 +139,20 @@ if (!COMPANY_ID) die("--company <FieldQuo company id> is required — the exact 
 if (!SOURCE_ENV) die("--source-env <path to the TrueFinish .env> is required.");
 
 // ── Connection strings — read, never printed ──────────────────────────────
-function urlFromEnvFile(path) {
-  let text;
-  try {
-    text = fs.readFileSync(path, "utf8");
-  } catch {
-    die(`Cannot read ${path}.`);
-  }
-  const m = text.match(/^\s*DATABASE_URL\s*=\s*["']?([^"'\n]+)["']?\s*$/m);
-  if (!m) die(`${path} has no DATABASE_URL line.`);
-  return m[1].trim();
-}
-const SOURCE_URL = urlFromEnvFile(SOURCE_ENV);
 const TARGET_URL = process.env.DATABASE_URL || null;
 if (!TARGET_URL) die("DATABASE_URL (FieldQuo) is not set — run with node --env-file=.env.");
-if (SOURCE_URL === TARGET_URL) die("The TrueFinish and FieldQuo connection strings are the same database. Refusing.");
 
 // A dry run must not be ABLE to write. The product modules below construct a
 // Prisma client at import time (lib/db.js) from DATABASE_URL; with it gone,
 // any query that slipped in would fail to connect instead of landing.
 if (!APPLY) delete process.env.DATABASE_URL;
+
+// Reading TrueFinish read-only, and its documents → FieldQuo lines: shared
+// with scripts/import-truefinish-quotes.mjs (scripts/truefinish/source.mjs).
+// Loaded after the line above, like every other module.
+const { urlFromEnvFile, readOnly, tfDay, dayDate, categoryKeyFor, clean, docFigures, money } = await import("./truefinish/source.mjs");
+const SOURCE_URL = urlFromEnvFile(SOURCE_ENV, die);
+if (SOURCE_URL === TARGET_URL) die("The TrueFinish and FieldQuo connection strings are the same database. Refusing.");
 
 const { normalisePastJob, recordedFiguresProblems, recordedQuoteProblems, isoDay, PAST_JOB_PAYMENT_METHODS } = await import("@/lib/jobs/pastJobImport");
 const { nextHistoricalQuoteNumber, looksLikeLiveQuoteNumber, getNextQuoteNumber, LIVE_QUOTE_NUMBER_WHERE } = await import("@/lib/quotes/quoteNumber");
@@ -168,44 +160,6 @@ const { nextHistoricalInvoiceNumber, looksLikeLiveInvoiceNumber } = await import
 const { matchContactAgainst } = await import("@/lib/contacts/matchContact");
 const { computeInvoiceState } = await import("@/lib/invoices/computeInvoiceState");
 const { round2 } = await import("@/lib/quotes/totals");
-
-// ── Read-only access ───────────────────────────────────────────────────────
-//
-// Neon scales to zero (AGENTS.md): the first connection after idle can fail
-// with a connect error. One retry, then believe it.
-//
-// Both schemas store DateTime as Postgres `timestamp` WITHOUT time zone,
-// written in UTC by Prisma. node-pg's default parser reads such a value as
-// the HOST's local time, so the same row gave a different Date on a Toronto
-// Mac and on a UTC server. This client reads it as the UTC it is — per
-// client, not pg.types globally, so the Prisma adapter used by --apply is
-// untouched.
-const TIMESTAMP_WITHOUT_TZ = 1114;
-function utcTimestampParser(oid, format) {
-  if (oid === TIMESTAMP_WITHOUT_TZ) return (s) => (s === null ? null : new Date(`${s.replace(" ", "T")}Z`));
-  return pg.types.getTypeParser(oid, format);
-}
-async function readOnly(url, fn) {
-  let client;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    client = new pg.Client({ connectionString: url, types: { getTypeParser: utcTimestampParser } });
-    try {
-      await client.connect();
-      break;
-    } catch (err) {
-      await client.end().catch(() => {});
-      if (attempt === 1) throw err;
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-  }
-  try {
-    await client.query("BEGIN TRANSACTION READ ONLY");
-    return await fn((sql, params = []) => client.query(sql, params).then((r) => r.rows));
-  } finally {
-    await client.query("ROLLBACK").catch(() => {});
-    await client.end().catch(() => {});
-  }
-}
 
 // ── TrueFinish, as stored ──────────────────────────────────────────────────
 async function readTrueFinish() {
@@ -284,105 +238,6 @@ async function readFieldQuoPrisma(db) {
   return { company, clients, quoteNumbers, invoiceNumbers, markers, categories, quoteMarkers, lastLiveQuote: lastLive ? [lastLive] : [] };
 }
 
-// ── Mapping ────────────────────────────────────────────────────────────────
-
-// TrueFinish's date-only fields (job start/end, due date, payment date) are
-// stored as UTC midnights of the day picked, so their UTC calendar day IS the
-// day TrueFinish showed. Its moments (paidDate = when "mark paid" was
-// pressed, createdAt, sentAt) are read the same way — the UTC day — which on
-// every paid invoice on file is the same day as its last payment's date
-// field. FieldQuo's past jobs speak UTC calendar days too
-// (lib/jobs/pastJobImport.js isoDay). An earlier version of this comment said
-// Toronto midnights: that was node-pg reading UTC values as local time on a
-// Toronto machine; utcTimestampParser above removes the host from the sum,
-// and the days it yields are the days the earlier runs printed.
-const tfDay = (v) => (v ? new Date(v).toISOString().slice(0, 10) : null);
-const dayDate = (s) => (s ? new Date(`${s}T00:00:00.000Z`) : null);
-
-// TrueFinish quoteType → FieldQuo ServiceCategory key. "hybrid" is a refacing
-// + refinishing kitchen; FieldQuo's past-job write takes ONE category, and the
-// refinishing share is the larger on the one hybrid on file — flagged in the
-// plan as an owner's call. A null quoteType predates the field; every one on
-// file is the "Essential Cabinet Refinishing" package (serviceId "essential").
-const CATEGORY_BY_TYPE = {
-  refinishing: "cabinet_refinishing",
-  refacing: "cabinet_refacing",
-  hybrid: "cabinet_refinishing",
-  countertop: "countertop",
-  stairs: "stairs",
-  flooring: "flooring",
-  kitchen: "kitchen_design",
-};
-function categoryKeyFor(quote) {
-  if (quote.quoteType) return { key: CATEGORY_BY_TYPE[quote.quoteType] || null, inferred: quote.quoteType === "hybrid" };
-  const lines = Array.isArray(quote.lineItems) ? quote.lineItems : [];
-  if (lines.some((l) => l?.serviceId === "essential" || /cabinet refinishing/i.test(l?.name || l?.title || ""))) {
-    return { key: "cabinet_refinishing", inferred: true };
-  }
-  return { key: null, inferred: false };
-}
-
-const clean = (v) => (typeof v === "string" ? v.trim() : "") || null;
-
-// TrueFinish's own line rule, used ONLY for a line with no stored total —
-// app/admin/lib/lineItemTotal.js: an included item (or a legacy material with
-// no flag, which meant included) is $0; otherwise quantity × unit price.
-function tfComputedLineTotal(l) {
-  if (l?.included === true || (l?.category === "material" && l?.included === undefined)) return 0;
-  const t = (Number(l?.quantity) || 0) * (Number(l?.unitPrice) || 0);
-  return Number.isFinite(t) ? t : 0;
-}
-
-const LINE_TITLE_BY_CATEGORY = { "scope-group": "Cabinet work", "measured-extra": "Extra", "stair-section": "Stairs", "floor-section": "Flooring" };
-
-/**
- * One TrueFinish line → one FieldQuo line: { description, detail, quantity,
- * rate, amount, unit }. `amount` is TrueFinish's stored `total` — the price
- * the client saw. `rate` is amount ÷ quantity, so quantity × rate = amount
- * holds on the FieldQuo side even for TrueFinish's "included" materials,
- * which carry a unit price of $150 and a total of $0.
- */
-function mapLine(l, computedFlags) {
-  const stored = l?.total !== undefined && l?.total !== null && Number.isFinite(Number(l.total));
-  const amount = round2(stored ? Number(l.total) : tfComputedLineTotal(l));
-  if (!stored) computedFlags.push(clean(l?.name) || clean(l?.title) || "line");
-  const quantity = Number(l?.quantity) > 0 ? Number(l.quantity) : 1;
-  const parts = [];
-  if (l?.category === "scope-group") {
-    // What TrueFinish's PDF printed under a scope card (generateQuotePDF.js
-    // renderScopeGroupCard): doors, drawers, colour, sheen.
-    const meta = [
-      Number.isFinite(Number(l.doorsCount)) && l.doorsCount !== undefined ? `Doors: ${l.doorsCount}` : null,
-      Number.isFinite(Number(l.drawerCount)) && l.drawerCount !== undefined ? `Drawers: ${l.drawerCount}` : null,
-      clean(l.style) ? `Style: ${clean(l.style)}` : null,
-      clean(l.color) ? `Color: ${clean(l.color)}` : null,
-      clean(l.sheen) ? `Sheen: ${clean(l.sheen)}` : null,
-    ].filter(Boolean);
-    if (meta.length) parts.push(meta.join(" · "));
-  }
-  if (clean(l?.description)) parts.push(clean(l.description));
-  if (clean(l?.notes)) parts.push(clean(l.notes));
-  return {
-    description: clean(l?.name) || clean(l?.title) || LINE_TITLE_BY_CATEGORY[l?.category] || "Item",
-    ...(parts.length ? { detail: parts.join("\n\n") } : {}),
-    quantity,
-    rate: round2(amount / quantity),
-    amount,
-    ...(clean(l?.unit) ? { unit: clean(l.unit) } : {}),
-  };
-}
-
-function docFigures(doc, computedFlags) {
-  return {
-    lineItems: (Array.isArray(doc.lineItems) ? doc.lineItems : []).map((l) => mapLine(l, computedFlags)),
-    subtotal: round2(Number(doc.subtotal)),
-    discount: round2(Number(doc.discount)),
-    tax: round2(Number(doc.tax)),
-    total: round2(Number(doc.total)),
-    taxEnabled: Boolean(doc.taxEnabled),
-    notes: clean(doc.notes),
-  };
-}
 
 const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
@@ -743,7 +598,6 @@ function buildPlan(tf, fq) {
 }
 
 // ── Printing ───────────────────────────────────────────────────────────────
-const money = (n) => `$${Number(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pad = (s, n) => String(s ?? "").slice(0, n).padEnd(n);
 
 const WRITES = new Set(["import", "lost", "draft", "amend"]);
