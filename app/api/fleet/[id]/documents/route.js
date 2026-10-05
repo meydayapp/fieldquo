@@ -60,6 +60,7 @@ import {
 } from "@/lib/fleet/documents";
 import { loadFleet } from "@/lib/fleet/load";
 import { recordActivity } from "@/lib/activity/log";
+import { withOpenUrls } from "@/lib/media/fileOpen";
 
 const SELECT = {
   id: true,
@@ -123,7 +124,10 @@ export async function GET(request, { params }) {
   const { documents, hiddenCount } = visibleVehicleDocuments(rows, { canSeeCost });
 
   return NextResponse.json({
-    documents,
+    // openUrl: what each row links to, minted after the gates above — the
+    // stored Cloudinary PDF URL answers 401 from this account
+    // (lib/media/fileOpen.js).
+    documents: withOpenUrls(member, "asset-document", documents),
     // A COUNT, never a list — see lib/fleet/documents.js.
     hiddenCount,
     // What the panel may draw, decided by the same member object that gates

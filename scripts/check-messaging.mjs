@@ -1151,7 +1151,9 @@ ok("…without a single request leaving the process", offMeta.length === 0);
 const threadRoute = read("app/api/messaging/threads/[id]/route.js");
 ok(
   "the thread route shapes every message's attachments before answering",
-  /attachments: publicAttachments\(m\.attachments\)/.test(threadRoute),
+  // With openUrl since 2026-10-04: a stored PDF opens through
+  // /api/files/open (lib/media/fileOpen.js), not its Cloudinary URL.
+  /attachments: publicAttachments\(m\.attachments(?:, \{ openUrl: messageOpenUrl\(member, m\.id\) \})?\)/.test(threadRoute),
 );
 ok(
   "…and it selects the column in the first place",

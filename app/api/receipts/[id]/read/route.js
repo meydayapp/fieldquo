@@ -30,7 +30,9 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { mayTouchReceipt, receiptScope } from "@/lib/receipts/access";
 import { receiptFilesOrRefusal } from "@/lib/receipts/media";
-import { fetchReceiptPdf } from "@/lib/receipts/pdf";
+import { fetchReceiptPdf, MAX_PDF_BYTES } from "@/lib/receipts/pdf";
+import { fetchTenantFile } from "@/lib/media/fileOpen";
+import { cloudinarySigner } from "@/lib/media/cloudinarySign";
 import { extractReceipt } from "@/lib/receipts/extract";
 import { simulatedReceiptScan } from "@/lib/receipts/demoReceipt";
 import { receiptFieldsFromExtraction } from "@/lib/receipts/fields";
@@ -104,7 +106,13 @@ export async function POST(request, { params }) {
     // ── 4. A PDF's bytes, from our own storage only ──────────────────────
     let pdf = null;
     if (files.pdf) {
-      const fetched = await fetchReceiptPdf(files.pdf);
+      // Through a signed download link inside this company's folders: the
+      // account answers a PDF's plain URL with 401 (lib/media/signedFile.js).
+      const sign = cloudinarySigner();
+      const fetched = await fetchReceiptPdf(
+        files.pdf,
+        sign ? { fetchFile: (u) => fetchTenantFile(u, { companyId: member.companyId, sign, maxBytes: MAX_PDF_BYTES }) } : {},
+      );
       if (!fetched.ok) {
         await db.receipt.update({ where: { id }, data: { status: "unreadable", readError: fetched.reason } });
         return NextResponse.json(
@@ -156,6 +164,6 @@ export async function POST(request, { params }) {
     include: { expenses: { select: EXPENSE_SELECT } },
   });
 
-  const detail = await receiptDetail({ receipt: updated, full, userId: member.userId });
+  const detail = await receiptDetail({ receipt: updated, full, userId: member.userId, member });
   return NextResponse.json({ ...detail, simulated: Boolean(extraction.simulated) });
 }

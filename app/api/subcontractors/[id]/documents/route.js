@@ -48,6 +48,7 @@ import {
 import { parseDocumentBody, EXPIRY_KIND_FIELD, DOCUMENT_SELECT } from "@/lib/subcontractors/payload";
 import { isUploadedUrl, normaliseName } from "@/lib/jobs/documents";
 import { recordActivity } from "@/lib/activity/log";
+import { withOpenUrls } from "@/lib/media/fileOpen";
 
 async function ownSub(id, companyId) {
   return db.subcontractor.findFirst({ where: { id, companyId }, select: { id: true, name: true } });
@@ -75,7 +76,9 @@ export async function GET(request, { params }) {
     orderBy: { uploadedAt: "desc" },
   });
 
-  return NextResponse.json({ documents, canUpload: canWriteSubcontractors(full) });
+  // openUrl: what the row links to — the stored Cloudinary PDF URL answers 401
+  // from this account (lib/media/fileOpen.js).
+  return NextResponse.json({ documents: withOpenUrls(member, "subcontractor-document", documents), canUpload: canWriteSubcontractors(full) });
 }
 
 export async function POST(request, { params }) {

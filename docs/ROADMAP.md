@@ -279,6 +279,56 @@ error bodies, picker and sync over fakes, read-time currency, not-configured
 states, rollup and monthly summary). `check:kpis`, `check:campaign-rollup`
 (outcome helpers extracted, Meta output md5-identical), `check:monthly-summary`,
 `check:impersonation`, `check:settings-access`, `check:refusal-shape`.
+## Stored PDFs open again — signed, streamed, tenant-fenced (4 October 2026)
+
+**Why:** the production Cloudinary account refuses to deliver a PDF from its
+plain URL (401 on `raw/upload/…pdf` and `image/upload/…pdf`), and a raw file
+stored without an extension (every auto-filed quote/contract/invoice PDF)
+arrives as octet-stream named after its random id. Every link to a stored file
+looked like it worked and didn't.
+
+### What shipped (not deployed — unpushed branch)
+
+- `lib/media/signedFile.js` — the parser and signer lifted out of
+  `lib/hr/documentFile.js` (which now re-exports them, same functions), plus the
+  tenant fence (`fieldquo/companies/<id>/`, `fieldquo/<id>/`,
+  `fieldquo/satellite/<id>/`, `messaging/<id>/`, `mailbox/<id>/`, `crew/<id>/`),
+  magic-byte sniffing, safe download names, markup never served inline.
+- `lib/media/fileOpen.js` — three doors, all streaming through a five-minute
+  signed download link:
+  - **staff** `GET /api/files/open` — an HMAC link bound to the reader, the row
+    and a 12-hour expiry, minted by the route that LISTED the file after its own
+    gate; the row is re-read inside the session's company. Works under
+    read-only impersonation (a read).
+  - **client** `GET /api/portal/<token>/files/<waiver|guide>/<id>` and
+    `GET /api/public/quotes/<token>/files/document/<id>` — the page's own token,
+    and only that document's files.
+  - **platform** `GET /api/platform/files/open` — migration uploads and payout
+    receipts, each in its own fence.
+- Surfaces now linked through them: quote files and drawing reads, job documents
+  (and the job's linked documents), inbox PDFs and filed emails, receipts,
+  service documents, company documents, subcontractor and vehicle documents, the
+  prep-guide card, the portal's signed waivers, the proposal's documents (quote
+  page and instant-estimate report), the prep-guide email and PDF (portal token
+  links), the staff prep-guide preview PDF, the platform's migration documents
+  and payout receipts.
+- Server-side reads moved to the signed link too: the drawing read's PDF/sheet
+  ingest, the receipt PDF read, and prep-guide attachments.
+
+### Checks
+
+`check:file-open` (new, in check:all) — hostile URLs, other companies' folders,
+traversal, tokens, reader binding, streaming headers; mutation-tested.
+
+### Owed
+
+- The sales rep / influencer / agency **Earnings** panel still links a payout
+  receipt by its Cloudinary URL (`app/components/sales/EarningsPanel.js`) — it
+  needs a rep-session route; FieldQuo's own sales inbox attachments
+  (`app/sales/…`, folders `sales-inbound/`, `sales-mailbox/`) likewise.
+- Not verified against the live account from this session (production reads
+  were blocked); verify one quote drawing, one inbox PDF and one portal waiver
+  after deploy.
 
 ---
 

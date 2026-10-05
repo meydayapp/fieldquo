@@ -25,6 +25,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
 import { DOCUMENT_TYPES, WAIVER_MAX_ACKNOWLEDGEMENTS } from "@/lib/company/documents";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 const CAPABILITY = "user:manage";
 const FILE_TYPES = DOCUMENT_TYPES.filter((x) => x !== "waiver");
@@ -118,13 +119,16 @@ export default function CompanyDocumentsEditor({ compact = false, onChanged }) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  {doc.fileUrl ? (
-                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-foreground underline-offset-2 hover:underline truncate">
-                      {doc.title}
-                    </a>
-                  ) : (
-                    <span className="text-sm font-semibold text-foreground truncate">{doc.title}</span>
-                  )}
+                  {/* openUrl, not fileUrl: the stored Cloudinary PDF URL answers
+                      401 from this account (lib/media/fileOpen.js). A waiver
+                      has no file and no link. */}
+                  <OpenFileLink
+                    href={doc.openUrl}
+                    className="text-sm font-semibold text-foreground underline-offset-2 hover:underline truncate"
+                    plainClassName="text-sm font-semibold text-foreground truncate"
+                  >
+                    {doc.title}
+                  </OpenFileLink>
                   {doc.expired && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300">
                       <AlertTriangle size={11} /> {t("app.companyDocuments.expired", "Expired — hidden from clients")}

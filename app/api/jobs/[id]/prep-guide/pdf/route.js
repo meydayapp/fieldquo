@@ -12,6 +12,8 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { loadPrepGuideJob, buildPrepGuide } from "@/lib/prepGuide/build";
 import { renderPrepGuidePdf } from "@/lib/prepGuide/renderPdf";
+import { staffFileLink } from "@/lib/media/fileOpen";
+import { getAppOrigin } from "@/lib/appUrl";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -26,7 +28,20 @@ export async function GET(request, { params }) {
   const loaded = await loadPrepGuideJob(db, { jobId: id, companyId: member.companyId });
   if (!loaded) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const data = buildPrepGuide(loaded, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+  const built = buildPrepGuide(loaded, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+  // The preview's document links open for THIS reader through
+  // /api/files/open — the stored Cloudinary PDF URL answers 401 from this
+  // account (lib/media/fileOpen.js). The client's own copy links to the
+  // portal file route instead (lib/prepGuide/send.js). A PDF needs an
+  // absolute link; no link at all when one can't be made.
+  const origin = getAppOrigin(request);
+  const data = {
+    ...built,
+    documents: built.documents.map((doc) => {
+      const path = staffFileLink(member, { kind: "service-document", id: doc.id });
+      return { ...doc, url: path ? origin + path : null };
+    }),
+  };
   const pdf = await renderPrepGuidePdf(data);
   return new NextResponse(pdf, {
     headers: {

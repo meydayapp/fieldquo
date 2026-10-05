@@ -47,6 +47,10 @@ import {
   revisionChains,
 } from "@/lib/jobs/documents";
 import { fileAcceptanceDocuments, fileQuoteDocumentsOnJob, AUTOFILE_SOURCES } from "@/lib/jobs/documentAutofile";
+// Each file opens through /api/files/open on a link minted here, after this
+// route's gate: the stored Cloudinary PDF URL is one the account refuses to
+// deliver, and an auto-filed PDF has no extension (lib/media/fileOpen.js).
+import { withOpenUrls } from "@/lib/media/fileOpen";
 
 const SELECT = {
   id: true,
@@ -133,7 +137,7 @@ export async function GET(request, { params }) {
   const { documents, hiddenCount } = visibleDocuments(rows, { canSeeMoney });
 
   return NextResponse.json({
-    chains: revisionChains(documents),
+    chains: revisionChains(withOpenUrls(member, "job-document", documents)),
     // A COUNT, never a list. "There is nothing here" and "there is something
     // here you may not see" are different statements, and telling a crew member
     // the first when the second is true sends them chasing a filed contract.

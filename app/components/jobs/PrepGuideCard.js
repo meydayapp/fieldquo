@@ -125,10 +125,12 @@ export default function PrepGuideCard({ jobId }) {
         ]
           .filter(Boolean)
           .join(" · ")}
-        {data.document?.url && (
+        {/* openUrl: the filed copy has no extension and its stored Cloudinary
+            URL answers 401 (lib/media/fileOpen.js). No link, no sentence. */}
+        {data.document?.openUrl && (
           <>
             {" · "}
-            <a href={data.document.url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+            <a href={data.document.openUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
               {t("app.prepGuide.job.openSent", "Open the copy that was sent")}
             </a>
           </>

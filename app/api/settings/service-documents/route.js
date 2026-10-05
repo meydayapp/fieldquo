@@ -21,6 +21,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isUploadedUrl, normaliseSizeBytes } from "@/lib/jobs/documents";
 import { recordActivity } from "@/lib/activity/log";
 import { cleanTitle, cleanLanguage } from "@/lib/prepGuide/serviceDocuments";
+import { staffFileLink } from "@/lib/media/fileOpen";
 
 const SELECT = {
   id: true,
@@ -36,10 +37,13 @@ const SELECT = {
   createdAt: true,
 };
 
-const shape = (row) => ({
+const shape = (row, member) => ({
   id: row.id,
   title: row.title,
   url: row.url,
+  // What the settings row links to: the stored PDF URL answers 401 from this
+  // Cloudinary account (lib/media/fileOpen.js).
+  openUrl: staffFileLink(member, { kind: "service-document", id: row.id }),
   sizeBytes: row.sizeBytes,
   mimeType: row.mimeType,
   language: row.language,
@@ -58,7 +62,7 @@ export async function GET(request) {
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     select: SELECT,
   });
-  return NextResponse.json(rows.map(shape));
+  return NextResponse.json(rows.map((row) => shape(row, member)));
 }
 
 export async function POST(request) {
@@ -128,5 +132,5 @@ export async function POST(request) {
     summaryParams: { title },
   });
 
-  return NextResponse.json(shape(row), { status: 201 });
+  return NextResponse.json(shape(row, member), { status: 201 });
 }

@@ -35,6 +35,7 @@ import {
   VEHICLE_MONEY_KINDS,
 } from "@/lib/fleet/documents";
 import ListState from "@/app/components/ListState";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/10";
@@ -157,14 +158,13 @@ export default function VehicleDocuments({
             const size = formatBytes(doc.sizeBytes);
             return (
               <li key={doc.id} className="text-xs">
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <OpenFileLink
+                  href={doc.openUrl}
                   className="text-foreground underline break-words"
+                  plainClassName="text-foreground break-words"
                 >
                   {doc.name}
-                </a>
+                </OpenFileLink>
                 <span className="text-muted-foreground">
                   {" · "}
                   {t(`app.fleet.docKind.${doc.kind}`, doc.kind)}

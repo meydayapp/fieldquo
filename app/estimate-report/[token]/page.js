@@ -51,6 +51,6 @@ export default async function EstimateReportPage({ params }) {
   // The company's proposal sections and the trade's process steps — the
   // "same presentation" half. Only this page reads them; the PDF and the
   // email are built without (lib/estimate/report/presentation.js).
-  const presentation = await loadEstimatePresentation({ quote: loaded.quote, language: loaded.report.language });
+  const presentation = await loadEstimatePresentation({ quote: loaded.quote, language: loaded.report.language, token });
   return <ReportView report={loaded.report} company={loaded.company} token={token} presentation={presentation} />;
 }

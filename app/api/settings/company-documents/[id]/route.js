@@ -106,7 +106,7 @@ export async function PATCH(request, { params }) {
         groups: [{ ns: "documentTitle", texts: [updated.title] }, { ns: "documentSummary", texts: [updated.summary] }],
         sourceLanguage: await companyWritingLanguage(member.companyId),
       });
-  return NextResponse.json({ document: presentForStaff(updated), autoTranslate });
+  return NextResponse.json({ document: presentForStaff(updated, new Date(), { member }), autoTranslate });
 }
 
 export async function DELETE(request, { params }) {
