@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, X, TrendingUp, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, TrendingUp, ExternalLink, Pencil, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -30,8 +30,20 @@ import { fetchJson } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
 import { formatDateOnly } from "@/lib/format/companyDate";
 import { CurrencyNotes, excludedSentence } from "@/app/components/marketing/SpendCurrencyNotes";
+import { isSyncedSource } from "@/lib/googleAds/sources";
+import GoogleAdsImportDialog from "./GoogleAdsImportDialog";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
+
+// Where a row came from → its chip label and colour. A synced or imported row
+// has no Edit button: the next sync or re-import would put its own figures
+// back (app/api/marketing-spend/[id]/route.js refuses the PATCH for the same
+// reason).
+const SOURCE_CHIPS = {
+  meta_api: { key: "app.marketingSpend.sourceMeta", tone: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" },
+  google_ads_api: { key: "app.marketingSpend.sourceGoogleApi", tone: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" },
+  google_ads_csv: { key: "app.marketingSpend.sourceGoogleCsv", tone: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" },
+};
 
 function emptyForm() {
   // The user's own calendar day, not UTC's: toISOString at 9pm in Toronto is
@@ -234,6 +246,7 @@ export default function MarketingSpendPage() {
   // "no campaigns synced yet".
   const [campaigns, setCampaigns] = useState(null);
   const [campaignsError, setCampaignsError] = useState("");
+  const [showGoogleImport, setShowGoogleImport] = useState(false);
 
   const load = useCallback(async () => {
     setErrorKey("");
@@ -378,12 +391,20 @@ export default function MarketingSpendPage() {
             )}
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
-        >
-          <Plus size={14} /> {t("app.marketingSpend.addEntry", "Log spend")}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2 shrink-0">
+          <button
+            onClick={() => setShowGoogleImport(true)}
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Upload size={14} /> {t("app.googleAds.import.open")}
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Plus size={14} /> {t("app.marketingSpend.addEntry", "Log spend")}
+          </button>
+        </div>
       </div>
 
       {banner && (
@@ -624,16 +645,14 @@ export default function MarketingSpendPage() {
                     <td className="px-4 py-2.5">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          entry.source === "meta_api"
-                            ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
-                            : "bg-muted text-muted-foreground"
+                          SOURCE_CHIPS[entry.source]?.tone || "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {t(entry.source === "meta_api" ? "app.marketingSpend.sourceMeta" : "app.marketingSpend.sourceManual", entry.source)}
+                        {t(SOURCE_CHIPS[entry.source]?.key || "app.marketingSpend.sourceManual", entry.source)}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {entry.source !== "meta_api" && (
+                      {!isSyncedSource(entry.source) && (
                         <button onClick={() => openEdit(entry)} className="text-muted-foreground hover:text-foreground p-1" aria-label={t("app.action.edit", "Edit")}>
                           <Pencil size={14} />
                         </button>
@@ -649,6 +668,14 @@ export default function MarketingSpendPage() {
           </div>
         </div>
       </ListState>
+
+      {showGoogleImport && (
+        <GoogleAdsImportDialog
+          companyCurrency={currency}
+          onClose={() => setShowGoogleImport(false)}
+          onImported={load}
+        />
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowForm(false)}>

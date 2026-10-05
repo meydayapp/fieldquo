@@ -9254,7 +9254,7 @@ model MarketingSpend {
   // a manual entry and a later Meta-imported row for the same
   // platform/date/campaign are recognised as a possible duplicate, never
   // silently double-counted.
-  source       String            @default("manual") // "manual" | "meta_api"
+  source       String            @default("manual") // "manual" | "meta_api" | "google_ads_csv" | "google_ads_api"
   // Meta's own composite id for the insights row this came from
   // (`<campaignId>:<date>`) — lets a re-run of the sync UPDATE the same row
   // instead of inserting a duplicate. Null for every manual entry; Postgres
@@ -9293,6 +9293,16 @@ model MarketingSpend {
   /// The full `actions` array as Meta sent it, for anything above that a
   /// later screen wants without another sync. Raw, never read for totals.
   actionsRaw              Json?
+  /// Google Ads' own "Conversions" for the row, exactly as Google reported
+  /// it — fractional under data-driven attribution (2.5 is a real value).
+  /// `conversions` above is an Int and gets the rounded figure so every
+  /// existing reader keeps working; the Google campaign table reads this one.
+  /// Written by lib/googleAds/spendPlan.js only (sources "google_ads_csv" and
+  /// "google_ads_api"); null on every Meta and manual row. It is GOOGLE'S
+  /// claim about its own tag — never FieldQuo's lead count, which comes from
+  /// LeadRequest rows that arrived with a gclid
+  /// (lib/analytics/googleAdsRollup.js).
+  conversionsExact        Decimal?          @db.Decimal(12, 2)
 
   @@index([companyId, campaignId, date])
 
