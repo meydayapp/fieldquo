@@ -16,7 +16,7 @@ export const ARTICLES = {
     title: "El tablero de prospectos",
     summary:
       "Cada consulta que llega a su empresa, en un tablero de cuatro columnas, calificada Caliente, Templado o Frío, con el panel donde la asigna, la anota y la convierte en presupuesto.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "**Prospectos** es la primera pantalla del flujo: el lugar donde una consulta aterriza antes de ser cliente de nadie. Un desconocido llena su formulario de presupuesto, reserva una visita, responde a un anuncio, llama a la recepcionista, o usted importa una lista, y aparece una tarjeta aquí. Nada en esta pantalla es todavía un presupuesto; es la fila de personas a las que devolver la llamada, ordenada para que la mejor quede arriba.",
       "El tablero es un flujo. Una tarjeta se mueve de izquierda a derecha — **Nuevo**, **Contactado**, **Ganado**, **Perdida** — y cada tarjeta abre un panel donde ocurre el trabajo real: leer por qué obtuvo esa puntuación, asignarla a alguien, registrar una nota y convertirla en un borrador de presupuesto que lleva todo lo que la persona le dijo.",
@@ -58,6 +58,20 @@ export const ARTICLES = {
           ] },
           { note: "El motivo que elige para un prospecto perdido es lo que después separa una consulta real de un número equivocado en sus cifras. Un prospecto marcado **No era una consulta real** se reabre con un clic si cambia de opinión." },
           { warning: "Una tarjeta vuelve a su lugar en cuanto el servidor rechaza el movimiento: un prospecto nunca queda en una columna en la que no está de verdad. Si ve una franja roja del tipo «This lead has no quote yet», nada cambió." },
+        ],
+      },
+      {
+        id: "delete-a-lead",
+        heading: "Cómo eliminar un prospecto",
+        blocks: [
+          { p: "**Perdida** es para una consulta real que no prosperó, y sigue contando en sus cifras de ganados y perdidos. **Eliminar** es para una fila que nunca debió contar: un prospecto de prueba, o una conversación que nunca fue una consulta. Los prospectos eliminados dejan de contar en sus totales e informes. Solo quien tiene el acceso **Requests** en **View, create, edit, and delete** ve los controles para eliminar; el propietario, los administradores y el nivel **Manager** lo tienen." },
+          { steps: [
+            "Un prospecto: ábralo y pulse **Eliminar prospecto** al pie del panel, o use el menú **⋯** de su tarjeta.",
+            "Varios: pulse **Seleccionar** sobre el tablero, toque las tarjetas que quiera y luego **Eliminar N prospectos**.",
+            "Lea la confirmación. Nombra el prospecto (o lista la selección), dice que no se puede deshacer y qué se conserva: cualquier cotización, cliente, trabajo o factura creados a partir de él, y la conversación con sus mensajes. Solo dejan de apuntar al prospecto.",
+            "Si el prospecto vino de una conversación de Facebook, Instagram, WhatsApp, mensaje de texto o chat web, marque **No volver a crear un prospecto a partir de esta conversación**. Sin esto, el próximo mensaje de esa persona podría crear un nuevo prospecto.",
+          ] },
+          { note: "Eliminar no se puede deshacer. Se borran el prospecto y sus notas; sus fotos permanecen en su almacenamiento de medios, porque una cotización creada a partir del prospecto usa los mismos archivos. Cada eliminación queda registrada en el **Registro de actividad** con quién la hizo, el nombre del prospecto, de dónde vino y cuándo llegó. Un formulario de prospecto de Facebook eliminado no se vuelve a importar en la siguiente sincronización." },
         ],
       },
       {

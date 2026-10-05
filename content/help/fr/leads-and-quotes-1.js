@@ -16,7 +16,7 @@ export const ARTICLES = {
     title: "Le tableau des prospects",
     summary:
       "Chaque demande qui atteint votre entreprise, sur un tableau à quatre colonnes, classée Chaud, Tiède ou Froid, avec le panneau où vous l'attribuez, la notez et la convertissez en soumission.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "**Prospects** est le premier écran du pipeline : l'endroit où une demande arrive avant d'être le client de qui que ce soit. Un inconnu remplit votre formulaire de soumission, réserve une visite, répond à une publicité, appelle la réceptionniste, ou vous importez une liste — et une carte apparaît ici. Rien sur cet écran n'est encore une soumission ; c'est la file des gens à rappeler, ordonnée pour que le meilleur soit en haut.",
       "Le tableau est un pipeline. Une carte se déplace de gauche à droite — **Nouveau**, **Contacté**, **Gagné**, **Perdue** — et chaque carte ouvre un panneau où se fait le vrai travail : lire pourquoi elle a obtenu ce score, l'attribuer à quelqu'un, consigner une note et la convertir en brouillon de soumission qui reprend tout ce que la personne vous a dit.",
@@ -58,6 +58,20 @@ export const ARTICLES = {
           ] },
           { note: "La raison choisie pour un prospect perdu est ce qui distingue plus tard une vraie demande d'un faux numéro dans vos chiffres. Un prospect marqué **Pas une vraie demande** se rouvre en un clic si vous changez d'avis." },
           { warning: "Une carte revient à sa place dès que le serveur refuse le déplacement — un prospect ne reste jamais dans une colonne où il n'est pas vraiment. Si vous voyez une bannière rouge du genre « This lead has no quote yet », rien n'a changé." },
+        ],
+      },
+      {
+        id: "delete-a-lead",
+        heading: "Comment supprimer un prospect",
+        blocks: [
+          { p: "**Perdue** sert à une vraie demande qui n'a rien donné, et elle reste dans vos statistiques de gains et pertes. **Supprimer** sert à une ligne qui n'aurait jamais dû compter : un prospect de test, ou une conversation qui n'a jamais été une demande. Les prospects supprimés ne comptent plus dans vos totaux et rapports. Seule une personne dont l'accès **Requests** est **View, create, edit, and delete** voit les commandes de suppression ; le propriétaire, les administrateurs et le niveau **Manager** l'ont." },
+          { steps: [
+            "Un seul prospect : ouvrez-le et appuyez sur **Supprimer le prospect** en bas du panneau, ou utilisez le menu **⋯** de sa carte.",
+            "Plusieurs : appuyez sur **Sélectionner** au-dessus du tableau, touchez les cartes voulues, puis **Supprimer N prospects**.",
+            "Lisez la confirmation. Elle nomme le prospect (ou liste la sélection), précise que c'est irréversible et indique ce qui est conservé : toute soumission, tout client, tout travail ou toute facture qui en découle, ainsi que la conversation et ses messages. Ils ne pointent simplement plus vers le prospect.",
+            "Si le prospect vient d'une conversation Facebook, Instagram, WhatsApp, texto ou clavardage web, cochez **Ne plus créer de prospect à partir de cette conversation**. Sinon, le prochain message de cette personne pourrait créer un nouveau prospect.",
+          ] },
+          { note: "La suppression est irréversible. Le prospect et ses notes sont supprimés ; ses photos restent dans votre stockage de médias, car une soumission créée à partir du prospect utilise les mêmes fichiers. Chaque suppression est consignée dans le **Journal d'activité** : qui l'a faite, le nom du prospect, sa provenance et sa date d'arrivée. Un formulaire de prospect Facebook supprimé n'est pas réimporté à la prochaine synchronisation." },
         ],
       },
       {

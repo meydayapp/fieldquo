@@ -21,6 +21,7 @@ import {
   quoteEvidence,
 } from "@/lib/leads/pipeline";
 import { loadMaterialLabels, materialLabelSlot } from "@/lib/estimate/instantQuoteServer";
+import { deleteLeads, supportSessionRefusal } from "@/lib/leads/deleteLead";
 
 // One lead, with everything the detail view shows.
 export async function GET(request, { params }) {
@@ -205,4 +206,53 @@ export async function PATCH(request, { params }) {
     },
   });
   return NextResponse.json(updated ? { ...updated, quote: quoteEvidence(updated.quote) } : updated);
+}
+
+// Delete one lead — for a test row, or a conversation that was never an
+// enquiry (owner, 2026-10-05). Lost stays the answer for a real enquiry that
+// went nowhere; this removes a row that should never have counted. What goes,
+// what survives with its pointer cleared, and why a deleted lead does not come
+// back on the next Meta poll or chat message: lib/leads/deleteLead.js.
+//
+// The top rung of the requests dial — "View, create, edit, and delete" — a
+// level the grid has always had and nothing asked for. Owner and admin hold it
+// (unrestricted), the Manager preset holds it; Estimator and Dispatcher stop
+// at edit, Crew at none.
+//
+// Body (optional): { notALead: true } — also mark the conversation(s) this
+// lead came from so no lead is created from them again.
+export async function DELETE(request, { params }) {
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  const support = supportSessionRefusal(member);
+  if (support) return NextResponse.json(support.body, { status: support.status });
+
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_create_edit_delete",
+    "delete requests",
+  );
+  if (denied) return denied;
+
+  const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+
+  const result = await deleteLeads(db, {
+    companyId: member.companyId,
+    ids: [id],
+    actor: { userId: member.userId, memberId: member.id, role: member.role },
+    notALead: body?.notALead === true,
+  });
+  // Another company's id, or one already gone: the same answer as GET.
+  if (!result.deleted.length)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json({
+    ok: true,
+    deleted: result.deleted.map((l) => l.id),
+    markedThreads: result.markedThreads,
+    noConversation: result.noConversation,
+  });
 }

@@ -24,6 +24,7 @@ import { loadWonAverages } from "@/lib/leads/wonAverages";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { emailRefusal } from "@/lib/validation";
+import { deleteLeads, cleanLeadIds, supportSessionRefusal, MAX_DELETE_BATCH } from "@/lib/leads/deleteLead";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -387,4 +388,56 @@ export async function POST(request) {
   });
 
   return NextResponse.json({ id: lead.id }, { status: 201 });
+}
+
+// Delete a selection of leads — the board's "Delete N leads". The same gate,
+// the same rules and the same audit row per lead as DELETE /api/leads/[id];
+// the work is lib/leads/deleteLead.js, called once for the whole selection so
+// it is one transaction.
+//
+// Body: { ids: string[], notALead?: boolean }. Only ids of the caller's own
+// company are touched; anything else is counted back as notFound and left
+// alone — never "deleted" for what wasn't.
+export async function DELETE(request) {
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  const support = supportSessionRefusal(member);
+  if (support) return NextResponse.json(support.body, { status: support.status });
+
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_create_edit_delete",
+    "delete requests",
+  );
+  if (denied) return denied;
+
+  const body = await request.json().catch(() => null);
+  const { ids, tooMany } = cleanLeadIds(body?.ids);
+  if (tooMany)
+    return NextResponse.json(
+      { error: `Select at most ${MAX_DELETE_BATCH} leads at a time.` },
+      { status: 400 },
+    );
+  if (!ids.length)
+    return NextResponse.json({ error: "No leads selected." }, { status: 400 });
+
+  const result = await deleteLeads(db, {
+    companyId: member.companyId,
+    ids,
+    actor: { userId: member.userId, memberId: member.id, role: member.role },
+    notALead: body?.notALead === true,
+    bulk: true,
+  });
+  if (!result.deleted.length)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json({
+    ok: true,
+    deleted: result.deleted.map((l) => l.id),
+    notFound: result.notFound.length,
+    markedThreads: result.markedThreads,
+    noConversation: result.noConversation,
+  });
 }
