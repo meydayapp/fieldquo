@@ -27,13 +27,26 @@
 // entirely about the `stage` dropdown, and tags have no way to reach it. A
 // retired tag can still show up here, already checked, on whatever photo it
 // was on before it was retired — it just won't be offered as a NEW choice.
+//
+// ── What a crew member sees here (2026-10-04) ────────────────────────────
+//
+// The live test found the crew's copy of this panel saying "Tap the star to
+// show a photo on your website", counting "N on your website", linking
+// "Manage tags", and captioning the upload box with the HOMEOWNER's sentence
+// ("…helps us quote accurately"). A crew member can add photos — that is the
+// upload control's whole purpose — but publishing to the company website and
+// managing the tag list are office decisions, refused server-side (PATCH at
+// jobs:view_create_edit, the tags routes' requireManage). So the words about
+// them are drawn only for the people whose controls they describe, and the
+// upload box speaks about the job.
 
 import { useEffect, useState, useCallback } from "react";
 import { Star, ImageIcon, Loader2, AlertTriangle, MessageCircle, PenLine, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useHasLevel, usePermissions } from "@/app/providers/PermissionProvider";
+import { canSeeSettingsRow } from "@/lib/permissions/settingsAccess";
 import MediaUploader from "@/app/components/MediaUploader";
 import JobPhotoComments from "@/app/components/jobs/JobPhotoComments";
 import PhotoAnnotatorLoader from "@/app/components/photoAnnotator/PhotoAnnotatorLoader";
@@ -65,6 +78,10 @@ export default function JobPhotoCurator({ jobId }) {
   // same PATCH, so both belong behind the same check — commenting does NOT,
   // since that is its own route a crew member is meant to reach.
   const canCurate = useHasLevel("jobs", "view_create_edit");
+  // The tag list is a settings screen behind the tags routes' requireManage —
+  // the same rule the settings sidebar draws its row by.
+  const caller = usePermissions();
+  const canManageTags = canSeeSettingsRow({ role: caller?.role || null }, "app.settings.jobPhotoTags", caller);
 
 
   const load = useCallback(async () => {
@@ -130,19 +147,28 @@ export default function JobPhotoCurator({ jobId }) {
         <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
           <ImageIcon size={15} /> {t("app.jobPhotos.title", { count: photos.length })}
         </h2>
-        <span className="text-xs text-muted-foreground">
-          {featuredCount} on your website
-        </span>
+        {canCurate && (
+          <span className="text-xs text-muted-foreground">
+            {t("app.jobPhotos.onWebsite", "{n} on your website", { n: featuredCount })}
+          </span>
+        )}
       </div>
-      <p className="text-xs text-muted-foreground mb-1">
-        Tap the star to show a photo on your website. Start + finish of a job
-        become a before/after.
-      </p>
-      <p className="text-xs text-muted-foreground mb-3">
-        <Link href="/app/settings/job-photo-tags" className="inline-flex items-center gap-1 underline hover:no-underline">
-          <Settings2 size={11} /> {t("app.jobPhotoTags.manage")}
-        </Link>
-      </p>
+      {canCurate ? (
+        <p className="text-xs text-muted-foreground mb-1">
+          {t("app.jobPhotos.starTip", "Tap the star to show a photo on your website. Start + finish of a job become a before/after.")}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground mb-3">
+          {t("app.jobPhotos.crewTip", "Photos you add are filed to this job for the office. Comment on any photo to flag something.")}
+        </p>
+      )}
+      {canManageTags && (
+        <p className="text-xs text-muted-foreground mb-3">
+          <Link href="/app/settings/job-photo-tags" className="inline-flex items-center gap-1 underline hover:no-underline">
+            <Settings2 size={11} /> {t("app.jobPhotoTags.manage")}
+          </Link>
+        </p>
+      )}
 
       {photos.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -166,8 +192,7 @@ export default function JobPhotoCurator({ jobId }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Nothing filed yet. Add photos here, or text them to your crew line and
-          they land automatically.
+          {t("app.jobPhotos.empty", "Nothing filed yet. Add photos here, or text them to your crew line and they land automatically.")}
         </p>
       )}
 
@@ -183,6 +208,10 @@ export default function JobPhotoCurator({ jobId }) {
           uploadUrl="/api/upload" purpose="jobs"
           value={[]}
           max={12}
+          // The job's words, not the homeowner's: MediaUploader's default
+          // hint is the self-quote form's "helps us quote accurately".
+          label={t("app.jobPhotos.uploadLabel", "Add photos or a short clip")}
+          hint={t("app.jobPhotos.uploadHint", "Before, during and after shots of the work. They're filed to this job.")}
           onChange={async (added) => {
             const usable = (added || []).filter((m) => m?.url);
             if (!usable.length) return;
@@ -203,10 +232,13 @@ export default function JobPhotoCurator({ jobId }) {
             await load();
           }}
         />
-        <p className="text-[11px] text-muted-foreground/70 mt-2">
-          Filed as &ldquo;progress&rdquo; — change the stage on any photo after
-          it lands.
-        </p>
+        {/* Changing the stage is curation (PATCH, view_create_edit); the
+            sentence inviting it is for the people who can. */}
+        {canCurate && (
+          <p className="text-[11px] text-muted-foreground/70 mt-2">
+            {t("app.jobPhotos.filedAsProgress", "Filed as “progress” — change the stage on any photo after it lands.")}
+          </p>
+        )}
       </div>
 
       {commentingOn && (

@@ -259,6 +259,19 @@ function delegate(model) {
       reads.push({ model, action: "count", args });
       return find({ where: args.where }).length;
     },
+    // One column, `_count: { _all: true }` — the shape the chat stores count
+    // unread and head-counts with (lib/chat/unreadQuery.js countByRoomArgs).
+    // Anything else throws by name, the stub's rule.
+    async groupBy(args = {}) {
+      reads.push({ model, action: "groupBy", args });
+      if (!Array.isArray(args.by) || args.by.length !== 1 || args._count?._all !== true) {
+        throw new Error(`prismaShapeStub: db.${model}.groupBy models by:[one column] with _count:{_all:true} only`);
+      }
+      const [col] = args.by;
+      const counts = new Map();
+      for (const r of find({ where: args.where })) counts.set(r[col], (counts.get(r[col]) || 0) + 1);
+      return [...counts].map(([k, n]) => ({ [col]: k, _count: { _all: n } }));
+    },
     async aggregate(args = {}) {
       reads.push({ model, action: "aggregate", args });
       const list = find({ where: args.where });
@@ -269,6 +282,24 @@ function delegate(model) {
       }
       if (args._count) out._count = list.length;
       return out;
+    },
+    // One row per distinct `by` tuple, with _sum / _count over its rows — the
+    // shape GET /api/leave's accrual records read (check:role-access §11).
+    async groupBy(args = {}) {
+      reads.push({ model, action: "groupBy", args });
+      const by = Array.isArray(args.by) ? args.by : [args.by];
+      const groups = new Map();
+      for (const r of find({ where: args.where })) {
+        const k = JSON.stringify(by.map((f) => r[f] ?? null));
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r);
+      }
+      return [...groups.values()].map((rows) => {
+        const out = Object.fromEntries(by.map((f) => [f, rows[0][f] ?? null]));
+        if (args._sum) out._sum = Object.fromEntries(Object.keys(args._sum).map((f) => [f, rows.reduce((s, r) => s + Number(r[f] || 0), 0)]));
+        if (args._count) out._count = typeof args._count === "object" ? Object.fromEntries(Object.keys(args._count).map((f) => [f, rows.length])) : rows.length;
+        return out;
+      });
     },
   };
   for (const action of ["findUniqueOrThrow", "findFirstOrThrow"]) {

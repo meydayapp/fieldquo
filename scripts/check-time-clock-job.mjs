@@ -117,7 +117,7 @@ const TODAY_NOON = new Date(`${TODAY_ISO}T16:00:00.000Z`); // 12:00 in TZ
 const FIXED_NOON = new Date("2026-09-02T16:00:00.000Z"); // 12:00 EDT, 2 Sep 2026
 const at = (hhmm) => new Date(`${TODAY_ISO}T${hhmm}:00.000Z`);
 
-function seed({ visits = [], jobs = [], entries = [], worker = true } = {}) {
+function seed({ visits = [], jobs = [], entries = [], worker = true, shifts = [] } = {}) {
   reset();
   session.member = { ...CREW };
   rows.company = [{ id: OURS, timezone: TZ }, { id: THEIRS, timezone: TZ }];
@@ -128,7 +128,20 @@ function seed({ visits = [], jobs = [], entries = [], worker = true } = {}) {
   rows.job = jobs;
   rows.jobVisit = visits;
   rows.timeEntry = entries;
+  rows.shift = shifts;
 }
+
+/** A shift for our crew member's worker row today, published unless told otherwise. */
+const shiftOn = (id, jobId, from, to, over = {}) => ({
+  id,
+  companyId: OURS,
+  workerId: "wrk_1",
+  jobId,
+  start: at(from),
+  end: at(to),
+  published: true,
+  ...over,
+});
 
 /** A job, ours and clockable unless told otherwise. */
 const job = (id, over = {}) => ({
@@ -211,9 +224,11 @@ section("The one where-fragment both halves use");
   eq("archived jobs are out", w.archivedAt, null);
   eq("cancelled jobs are out", w.status, { not: "cancelled" });
   eq("the id is applied when one is asked about", w.id, "j1");
-  ok("a scoped member is narrowed to their own visits", Boolean(w.visits?.some?.assignedToId));
+  const either = w.AND?.[0]?.OR || [];
+  ok("a scoped member is narrowed to their own visits", either.some((c) => c.visits?.some?.assignedToId === "usr_crew"));
+  ok("...or a published shift of theirs on the job", either.some((c) => c.shifts?.some?.published === true && c.shifts.some.worker?.userId === "usr_crew"));
   const unscoped = clockableJobWhere({ companyId: OURS, full: { role: "owner" } });
-  ok("an owner is not narrowed", !("visits" in unscoped));
+  ok("an owner is not narrowed", !("visits" in unscoped) && !("AND" in unscoped));
   ok("...and the id is simply absent when none is asked about", !("id" in unscoped));
 }
 
@@ -313,6 +328,46 @@ section("GET — the screen's own view of the day");
   eq("an owner is offered both open jobs", asOwner.jobOptions.map((o) => o.id).sort(), ["j1", "j2"]);
   eq("...and still not the other tenant's", asOwner.jobOptions.some((o) => o.id === "theirs"), false);
   eq("...with no visit of their own, nothing is suggested", asOwner.suggestedJobId, null);
+
+  // ── A published SHIFT on a job is a visit for this purpose ──────────────
+  //
+  // The live test (2026-10-04): a shift with "Job (optional)" set showed on
+  // the crew member's My schedule, and the clock's "which job?" had nothing
+  // for it. A published shift now grants the job (assignedJobWhere) and,
+  // being today, suggests it.
+  seed({ jobs: [job("j1"), job("j2")], shifts: [shiftOn("s1", "j2", "12:00", "20:00")] });
+  const viaShift = await (await GET(new Request("http://x/api/time-clock"))).json();
+  eq("a published shift's job is offered", viaShift.jobOptions.map((o) => o.id), ["j2"]);
+  eq("...and, as the one job on today, suggested", viaShift.suggestedJobId, "j2");
+  seed({ jobs: [job("j1"), job("j2")], shifts: [shiftOn("s1", "j2", "12:00", "20:00", { published: false })] });
+  const viaDraft = await (await GET(new Request("http://x/api/time-clock"))).json();
+  eq("a DRAFT shift grants nothing — no job offered", viaDraft.jobOptions.map((o) => o.id), []);
+  seed({
+    jobs: [job("j1"), job("j2")],
+    shifts: [shiftOn("s1", "j2", "12:00", "20:00", { workerId: "wrk_someone_else" })],
+  });
+  ok("somebody else's shift grants nothing", (await (await GET(new Request("http://x/api/time-clock"))).json()).jobOptions.length === 0);
+  seed({
+    jobs: [job("j1"), job("j2")],
+    visits: [visit("v1", "j1", "09:00")],
+    shifts: [shiftOn("s1", "j2", "12:00", "20:00")],
+  });
+  const both = await (await GET(new Request("http://x/api/time-clock"))).json();
+  eq("a visit on one job and a shift on another → two today, nothing guessed", [both.todayCount, both.suggestedJobId], [2, null]);
+  // An old shift: ended three weeks ago, outside the 14-day window.
+  const old = (d) => new Date(Date.now() - d * 86400000);
+  seed({
+    jobs: [job("j1"), job("j2")],
+    shifts: [{ ...shiftOn("s1", "j2", "12:00", "20:00"), start: old(22), end: old(21.7) }],
+  });
+  eq("a shift that ended three weeks ago no longer grants its job", (await (await GET(new Request("http://x/api/time-clock"))).json()).jobOptions.length, 0);
+  seed({
+    jobs: [job("j1"), job("j2")],
+    shifts: [{ ...shiftOn("s1", "j2", "12:00", "20:00"), start: old(10), end: old(9.7) }],
+  });
+  const recent = await (await GET(new Request("http://x/api/time-clock"))).json();
+  eq("one that ended ten days ago still does (late hours, corrections)", recent.jobOptions.map((o) => o.id), ["j2"]);
+  eq("...but is not 'today', so nothing is suggested", recent.suggestedJobId, null);
 
   // Three visits: the same route, no suggestion.
   seed({

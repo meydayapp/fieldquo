@@ -164,6 +164,7 @@ function seed() {
     "timeEntry", "jobPhoto", "changeOrder", "jobDailyLog", "assetUseLog", "companyChatRoom", "kitchenDesignConfig",
     "customFieldValue", "customField", "recordEdit", "materialPriceObservation", "smsDelivery", "safetyIncident",
     "booking", "shift", "leaveRequest", "calendarConnection", "googleCalendarBusy", "smsOptOut", "locationStamp",
+    "jobDocument", "jobPhotoTag", "jobPhotoTagLink",
   ]) tables[m] ||= [];
   tables.changeOrder = job1.changeOrders.map((c) => ({ ...c }));
   tables.payment ||= [];
@@ -284,6 +285,46 @@ for (const role of ROLES) {
 }
 seed();
 ok("crew: the work order of a job they are not on is Not found", (await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } })).status === 404);
+// What the crew need to DO the job — the live test's work order said only
+// "0 h across 1 areas · Cabinet Refinishing · 0 h". Each fact below comes
+// from a row that ALSO carries money (the add-on's amount, the material's
+// cost, the quote costing's dollars), and none of the money may follow it.
+seed();
+{
+  const job1 = tables.job.find((j) => j.id === "j1");
+  const quote1 = tables.quote.find((q) => q.id === "q1");
+  quote1.addOns = [
+    { id: "a1", quoteId: "q1", description: "Paint the ceiling", amount: 650, sortOrder: 0, selected: false },
+    { id: "a2", quoteId: "q1", description: "Two-Tone Finish", detail: "Uppers white, lowers navy", amount: 900, sortOrder: 1, selected: true, areaLabel: "Kitchen" },
+  ];
+  quote1.costing = { quoteId: "q1", labourHours: 18, labourCost: 1260, totalCost: 2400, materialTotal: 400 };
+  quote1.scopeGroups.push({
+    id: "g2", quoteId: "q1", label: "Cabinet Refinishing", sortOrder: 1, categoryId: "cat2", subtotal: 4800, takeoff: null,
+    intakeValues: { doorCount: 32, drawerCount: 12, topCoats: 2, twoTone: true },
+    category: { id: "cat2", key: "cabinet_refinishing", label: "Cabinet Refinishing" },
+    lineItems: [{ description: "Cabinet Refinishing", quantity: 44, unit: "unit", rate: 109, amount: 4800, meta: { baseUnitPrice: 100, color: "Hale Navy", sheen: "satin", doorStyle: "Shaker" } }],
+  });
+  job1.materials = [
+    { id: "m1", jobId: "j1", name: "Cabinet enamel", qty: 3, unit: "gal", group: "Paint", estUnitCost: 89, actualCost: 260, excludedAt: null, purchasedAt: null, sortOrder: 0, createdAt: new Date() },
+    { id: "m2", jobId: "j1", name: "Dropped item", qty: 1, unit: "ea", estUnitCost: 5, excludedAt: new Date(), purchasedAt: null, sortOrder: 1, createdAt: new Date() },
+  ];
+  job1.checklistItems = [{ label: "Mask the windows", required: true, phase: "before", done: false }];
+  const { status, json } = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j1" } });
+  const wo = json?.workOrder;
+  ok("crew work order: opens with the cabinet group (200)", status === 200 && wo?.areas?.some((a) => a.label === "Cabinet Refinishing"), `status ${status}`);
+  const cab = wo?.areas?.find((a) => a.label === "Cabinet Refinishing");
+  ok("…how many: 32 doors and 12 drawers", cab?.counts?.doors === 32 && cab?.counts?.drawers === 12, JSON.stringify(cab?.counts));
+  ok("…the finish: colour, sheen, door style, coats, two-tone", cab?.finish?.colour === "Hale Navy" && cab.finish.sheen === "satin" && cab.finish.doorStyle === "Shaker" && cab.finish.topCoats === 2 && cab.finish.twoTone === true, JSON.stringify(cab?.finish));
+  ok("…the scope says how many, not only what", /Cabinet Refinishing × 44/.test(cab?.scope || ""), cab?.scope);
+  ok("…what's included, as the client's quote printed it", Array.isArray(cab?.included) && cab.included.length > 0, JSON.stringify(cab?.included));
+  ok("…the option the client CHOSE, and not the one they didn't", wo?.addOns?.map((a) => a.description).join("|") === "Two-Tone Finish" && wo.addOns[0].detail === "Uppers white, lowers navy");
+  ok("…the materials still on the list, with quantity and unit", wo?.materials?.length === 1 && wo.materials[0].name === "Cabinet enamel" && wo.materials[0].qty === 3 && wo.materials[0].unit === "gal");
+  ok("…the checklist and the visit note", wo?.checklist?.[0]?.label === "Mask the windows" && wo.checklist[0].required === true && wo?.visits?.[0]?.notes === "Bring the 24ft ladder");
+  ok("…hours: the cabinet group has its own (no takeoff, counted from the doors and drawers)", Number(cab?.hours) > 0, String(cab?.hours));
+  ok("…and the total is the areas', not the quote's estimate added on top", wo?.hoursFromQuote === false && Math.abs(Number(wo?.totalHours) - wo.areas.reduce((s, a) => s + a.hours, 0)) < 0.2, String(wo?.totalHours));
+  ok("…and STILL no money key anywhere — add-on amount, material cost, costing dollars", findWorkOrderMoneyKey(wo) === null && moneyIn(json).length === 0, `${findWorkOrderMoneyKey(wo)} ${moneyIn(json).join(", ")}`);
+  ok("…and no price figure leaked as text (900, 4800, 89, 260, 1260)", !/\b(900|4800|4,800|1260|2400)\b/.test(JSON.stringify(wo)) && !/"(89|260)"/.test(JSON.stringify(wo)));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. Quotes — GET /api/quotes/[id] and the list");
@@ -446,6 +487,392 @@ seed();
   ok("manager: cannot either — the log is owner/admin (documented, not a leak)", m.status === 403);
   const o = await call(ACTIVITY, "GET", { as: "owner", url: "http://test.local/api/activity" });
   ok("owner: reads it", o.status === 200);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. A published SHIFT on a job puts the crew member on it — a draft does not");
+//
+// The live test, 2026-10-04: the scheduler's "Job (optional)" sent Joe to a
+// job on My schedule, and the job page told him it did not exist. A
+// published shift on a job now grants the same access a visit does, from
+// publication until SHIFT_ACCESS_DAYS_AFTER days after it ends
+// (lib/permissions/enforce.js shiftAssignmentWhere). j2 is the job the crew
+// member has NO visit on; each case below puts a different shift on it.
+const DAY = 86400000;
+function seedShift(over = {}) {
+  seed();
+  const job2 = tables.job.find((j) => j.id === "j2");
+  const shift = {
+    id: "s1", companyId: "co1", workerId: "w_crew", jobId: "j2", published: true,
+    start: new Date(Date.now() + 2 * DAY), end: new Date(Date.now() + 2 * DAY + 8 * 3600000),
+    worker: tables.worker[0], ...over,
+  };
+  job2.shifts = [shift];
+  tables.shift = [{ ...shift, job: job2 }];
+  return shift;
+}
+seedShift();
+{
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
+  ok("crew: a published shift on j2 opens the job page (200)", page.status === 200, `status ${page.status}`);
+  ok("…with no money and no contact details, exactly as via a visit", moneyIn(page.json).length === 0 && contactIn(page.json).length === 0, [...moneyIn(page.json), ...contactIn(page.json)].join(", "));
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
+  ok("crew: …and its work order (200), with no money key", wo.status === 200 && wo.json?.workOrder && findWorkOrderMoneyKey(wo.json.workOrder) === null, `status ${wo.status}`);
+  const list = await call(JOBS, "GET", { as: "crew", url: "http://test.local/api/jobs" });
+  ok("crew: the job list now holds both jobs", (list.json || []).map((j) => j.id).sort().join(",") === "j1,j2");
+  const cl = await call(CLIENT, "GET", { as: "crew", params: { id: "c2" } });
+  ok("crew: the shift job's household opens — name and address, no contact", cl.status === 200 && cl.json?.name === "Jean Roy" && contactIn(cl.json).length === 0);
+  const t = await call(TIME, "POST", { as: "crew", body: { workerId: "w_crew", jobId: "j2" } });
+  ok("crew: hours may be booked to it (not 404)", t.status !== 404, `status ${t.status}`);
+  const e = await call(EXPENSES, "POST", { as: "crew", body: { category: "materials", amount: 40, projectId: "j2" } });
+  ok("crew: a receipt may be filed on it", e.status === 200 || e.status === 201, `status ${e.status}`);
+  const quote = await call(QUOTE, "GET", { as: "crew", params: { id: "q1" } });
+  ok("crew: the shift opens the job, never the quote (still 403)", quote.status === 403);
+}
+for (const [label, over] of [
+  ["an UNPUBLISHED draft shift", { published: false }],
+  ["somebody else's shift", { workerId: "w_other", worker: { id: "w_other", companyId: "co1", userId: "u_other", name: "other" } }],
+  ["an open shift (nobody on it)", { workerId: null, worker: null }],
+  ["a shift that ended 15 days ago", { start: new Date(Date.now() - 15 * DAY - 8 * 3600000), end: new Date(Date.now() - 15 * DAY) }],
+]) {
+  seedShift(over);
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
+  ok(`crew: ${label} grants nothing — job is Not found (404)`, page.status === 404, `status ${page.status}`);
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
+  ok(`crew: ${label} — work order Not found too`, wo.status === 404, `status ${wo.status}`);
+  const t = await call(TIME, "POST", { as: "crew", body: { workerId: "w_crew", jobId: "j2" } });
+  ok(`crew: ${label} — no hours on it (404)`, t.status === 404, `status ${t.status}`);
+}
+seedShift({ start: new Date(Date.now() - 13 * DAY - 8 * 3600000), end: new Date(Date.now() - 13 * DAY) });
+ok("crew: a shift that ended 13 days ago still opens the job (late receipts, corrections)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+seedShift({ start: new Date(Date.now() + 30 * DAY), end: new Date(Date.now() + 30 * DAY + 8 * 3600000) });
+ok("crew: a shift published for a month out opens the job now (My schedule links it)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Crew on the job page: photos yes, the website and the office's cards no");
+//
+// The live test (2026-10-04): the crew's job page said "Tap the star to show
+// a photo on your website", linked "Manage tags", captioned the upload box
+// with the homeowner's "helps us quote accurately", and drew the client
+// preparation guide card. Each refusal below is the SERVER's; the static
+// half proves the screen no longer offers what the server refuses.
+const PHOTOS = await import("../app/api/jobs/[id]/photos/route.js");
+const PHOTO_TAGS = await import("../app/api/settings/job-photo-tags/route.js");
+const PREP_GUIDE = await import("../app/api/jobs/[id]/prep-guide/route.js");
+seed();
+{
+  tables.jobPhoto = [{ id: "ph1", companyId: "co1", jobId: "j1", url: "https://x/1.jpg", stage: "finish", featured: false, createdAt: new Date(), tags: [] }];
+  const add = await call(PHOTOS, "POST", { as: "crew", params: { id: "j1" }, body: { photos: [{ url: "https://res.cloudinary.com/x/2.jpg" }] } });
+  ok("crew: CAN add a photo to their job (200)", add.status === 200, `status ${add.status} ${JSON.stringify(add.json)}`);
+  const star = await call(PHOTOS, "PATCH", { as: "crew", params: { id: "j1" }, body: { photoId: "ph1", featured: true } });
+  ok("crew: cannot put a photo on the company website (403)", star.status === 403, `status ${star.status}`);
+  const tag = await call(PHOTO_TAGS, "POST", { as: "crew", body: { name: "Sanding", color: "#123456" } });
+  ok("crew: cannot create a photo tag (403)", tag.status === 403, `status ${tag.status}`);
+  ok("…and nothing was featured or tagged", !writes.some((w) => (w.model === "jobPhoto" && w.action === "update") || w.model === "jobPhotoTag"));
+  const prep = await call(PREP_GUIDE, "GET", { as: "crew", params: { id: "j1" } });
+  ok("crew: the client preparation guide's status is refused (403) — office information", prep.status === 403, `status ${prep.status}`);
+  const prepMgr = await call(PREP_GUIDE, "GET", { as: "manager", params: { id: "j1" } });
+  ok("manager: reads it (not refused)", prepMgr.status !== 403, `status ${prepMgr.status}`);
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const curator = src("app/components/jobs/JobPhotoCurator.js");
+  ok("screen: the website star tip and count are drawn only for curators", /canCurate \? \(\s*<p[^>]*>\s*\{t\("app\.jobPhotos\.starTip"/.test(curator) && /\{canCurate && \(\s*<span[^>]*>\s*\{t\("app\.jobPhotos\.onWebsite"/.test(curator));
+  ok("screen: 'Manage tags' only for whoever may manage them", /\{canManageTags && \(/.test(curator) && curator.indexOf("canManageTags && (") < curator.indexOf("/app/settings/job-photo-tags\" className"));
+  ok("screen: the job upload box has the job's words, not the homeowner's", /hint=\{t\("app\.jobPhotos\.uploadHint"/.test(curator));
+  ok("screen: no hardcoded 'Tap the star' left in the markup", !/>\s*Tap the star/.test(curator));
+  const detail = src("app/app/jobs/[id]/JobDetail.js");
+  ok("screen: the preparation guide card is not drawn for crew", /\{!seesOnlyAssignedJobs\(caller\) && <PrepGuideCard /.test(detail));
+  ok("screen: the safety report's photo box has its own words too", /hint=\{t\("app\.safety\.photos\.hint"/.test(src("app/app/safety/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Time off with no leave policies — crew can still ask for unpaid days");
+//
+// The live test (2026-10-04): with no policies set up, crew read "No leave
+// policies have been set up yet" and could not ask for anything.
+// lib/leave/unpaidFallback.js: unpaid only, approval required, created on the
+// first ask; the owner's "set up policies" note stays.
+const LEAVE = await import("../app/api/leave/route.js");
+function seedLeave(policies = []) {
+  seed();
+  tables.leavePolicy = policies;
+  for (const m of ["leaveBalance", "leaveRequest", "leaveOpeningBalance", "leaveAccrualOverride", "workingHours", "leaveBlackout", "notification", "notificationDelivery", "pushSubscription", "orgReport"]) tables[m] ||= [];
+  tables.workingHours = [1, 2, 3, 4, 5].map((d) => ({ userId: "u_crew", dayOfWeek: d }));
+  tables.company[0].defaultLanguage = "fr";
+}
+seedLeave();
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("crew GET: no policies → the unpaid fallback is offered, named in the company's language", g.status === 200 && g.json?.policies?.length === 0 && g.json?.unpaidFallback?.name === "Congé sans solde", JSON.stringify(g.json?.unpaidFallback) + ` status ${g.status} ${g.json?.error || ""}`);
+  ok("…and GET wrote nothing (looking creates no policy)", !writes.some((w) => w.model === "leavePolicy"));
+  const p = await call(LEAVE, "POST", { as: "crew", body: { unpaid: true, startDate: "2026-11-16", endDate: "2026-11-17", reason: "Moving house" } });
+  ok("crew POST unpaid: accepted", p.status === 200 || p.status === 201, `status ${p.status} ${JSON.stringify(p.json)}`);
+  const made = writes.find((w) => w.model === "leavePolicy" && (w.action === "upsert" || w.action === "create"));
+  const policyData = made?.args?.create || made?.args?.data;
+  ok("…the fallback policy is unpaid, needs approval, flagged systemUnpaid", policyData?.paid === false && policyData?.requiresApproval === true && policyData?.systemUnpaid === true && policyData?.kind === "unpaid");
+  const req = writes.find((w) => w.model === "leaveRequest" && w.action === "create")?.args?.data;
+  ok("…the request is PENDING (routed to approvers), with the dates and the reason", req?.status === "pending" && req?.reason === "Moving house" && String(req?.days) === "2", JSON.stringify(req));
+  ok("…and no balance was consumed", !writes.some((w) => w.model === "leaveBalance"));
+}
+seedLeave([{ id: "lp1", companyId: "co1", name: "Vacation", kind: "vacation", paid: true, accrualMethod: "annual_allotment", annualDays: 10, requiresApproval: true, active: true, systemUnpaid: false }]);
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("with a policy set up: no fallback offered", g.json?.unpaidFallback === null && g.json?.policies?.length === 1);
+  const p = await call(LEAVE, "POST", { as: "crew", body: { unpaid: true, startDate: "2026-11-16", endDate: "2026-11-16" } });
+  ok("…and 'unpaid' without a policy is refused (400) — the company's own types apply", p.status === 400, `status ${p.status}`);
+}
+seedLeave([{ id: "lpx", companyId: "co1", name: "Unpaid time off", kind: "unpaid", paid: false, requiresApproval: true, active: true, systemUnpaid: true }]);
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("the fallback row, once made, is NOT a 'policy the company set up' — note and fallback stay", g.json?.policies?.length === 0 && Boolean(g.json?.unpaidFallback));
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  ok("the settings list leaves the fallback out (starter templates still offered)", /where: \{ companyId: member\.companyId, systemUnpaid: false \}/.test(src("app/api/settings/leave-policies/route.js")));
+  ok("accrual refresh leaves it out (no balance card for it)", /systemUnpaid: false/.test(src("lib/leave/balances.js")));
+  const page = src("app/app/time-off/page.js");
+  ok("the page keeps the owner's note AND offers the request", /data-unpaid-fallback/.test(page) && /app\.timeOff\.noPolicies/.test(page) && /unpaidFallback=\{unpaidFallback\}/.test(page));
+  ok("the form posts unpaid:true in place of a policy", /unpaid: true/.test(src("app/app/time-off/RequestForm.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("Team chat channels and groups (2026-10-04) — the shipped routes, per role");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "only the office creates, renames and archives channels; anyone
+// can start a group chat". Executed through app/api/chat/** as each preset,
+// so the 403 is the route's, not a hidden button's. The full matrix (rename,
+// add, remove, leave, mute, private isolation, a 56-person group) is
+// executed against the store in scripts/check-company-chat.mjs §15–25.
+const CHAT_ROOMS = await import("../app/api/chat/rooms/route.js");
+const CHAT_ROOM = await import("../app/api/chat/rooms/[id]/route.js");
+const CHAT_ARCHIVE = await import("../app/api/chat/rooms/[id]/archive/route.js");
+const CHAT_JOIN = await import("../app/api/chat/rooms/[id]/join/route.js");
+function seedChat() {
+  seed();
+  // The chat resolves every picked id against the ACTIVE roster.
+  tables.member = tables.member.map((m) => ({ ...m, active: true }));
+  const memberRow = (m, extra = {}) => ({
+    id: `cm_${m.id}`, companyId: "co1", memberId: m.id, open: true, role: "member", notify: "default",
+    mutedUntil: null, lastOpenedAt: null, lastSeenAt: null, hiddenAt: null, starredAt: null,
+    member: { id: m.id, userId: m.userId, role: m.role, active: true, user: { name: `${m.id.slice(2)} person`, email: `${m.id}@example.test` } },
+    ...extra,
+  });
+  // #announcements: office-only posting; the manager made it; crew are in it.
+  const annMembers = [memberRow(MEMBERS.manager, { roomId: "ch_ann", role: "manager" }), memberRow(MEMBERS.crew, { roomId: "ch_ann" })];
+  // #office: PRIVATE, the manager only.
+  const offMembers = [memberRow(MEMBERS.manager, { roomId: "ch_off", role: "manager" })];
+  const room = (id, extra, members) => ({
+    id, companyId: "co1", kind: "channel", key: `channel:${id}`, name: id.slice(3), jobId: null, topic: null,
+    private: false, postingPolicy: "everyone", autoJoin: false, archivedAt: null, createdByMemberId: "m_mgr",
+    lastMessageAt: null, members, messages: [], job: null, ...extra,
+  });
+  tables.companyChatRoom = [
+    room("ch_ann", { postingPolicy: "office" }, annMembers),
+    room("ch_off", { private: true }, offMembers),
+  ];
+  tables.companyChatMember = [...annMembers, ...offMembers];
+  tables.companyChatMessage = [];
+  tables.activityLog = [];
+}
+const chatWrites = (model, action = "create") => writes.filter((w) => w.model === model && w.action === action);
+
+for (const role of ROLES) {
+  seedChat();
+  const r = await call(CHAT_ROOMS, "POST", { as: role, body: { kind: "channel", name: `Estimating ${role}` } });
+  const office = ["owner", "admin", "manager", "dispatcher"].includes(role);
+  if (office) {
+    ok(`${role}: creates a channel (200)`, r.status === 200 && Boolean(r.json?.roomId), `status ${r.status} ${JSON.stringify(r.json)}`);
+    ok(`${role}: …logged in the activity log`, activityRows().some((a) => a.action === "chat.channel_created"));
+  } else {
+    ok(`${role}: is refused a channel (403 not_allowed)`, r.status === 403 && r.json?.code === "not_allowed", `status ${r.status}`);
+    ok(`${role}: …and nothing was written`, chatWrites("companyChatRoom").length === 0 && chatWrites("companyChatMember", "createMany").length === 0);
+  }
+}
+seedChat();
+{
+  const g = await call(CHAT_ROOMS, "POST", { as: "crew", body: { kind: "group", members: ["m_est", "m_disp"] } });
+  ok("crew: starts a group chat (200, kind group)", g.status === 200 && g.json?.kind === "group", `status ${g.status} ${JSON.stringify(g.json)}`);
+  ok("crew: …the room written is a group, the crew member its manager", chatWrites("companyChatRoom").some((w) => w.args.data.kind === "group") && chatWrites("companyChatMember", "createMany").some((w) => w.args.data.some((d) => d.memberId === "m_crew" && d.role === "manager")));
+}
+seedChat();
+{
+  const post = await call(CHAT_ROOM, "POST", { as: "crew", params: { id: "ch_ann" }, body: { body: "can I post?" } });
+  ok("crew: cannot post in an office-only channel (403 office_only)", post.status === 403 && post.json?.code === "office_only", `status ${post.status}`);
+  ok("crew: …nothing was written", chatWrites("companyChatMessage").length === 0);
+  const read = await call(CHAT_ROOM, "GET", { as: "crew", params: { id: "ch_ann" } });
+  ok("crew: still READS it (200), and is told it may not post", read.status === 200 && read.json?.can?.post === false && read.json?.can?.postRefusal === "office_only", `status ${read.status}`);
+  const rename = await call(CHAT_ROOM, "PATCH", { as: "crew", params: { id: "ch_ann" }, body: { name: "mine" } });
+  ok("crew: cannot rename a channel (403 not_allowed)", rename.status === 403 && rename.json?.code === "not_allowed", `status ${rename.status}`);
+  const archive = await call(CHAT_ARCHIVE, "POST", { as: "crew", params: { id: "ch_ann" } });
+  ok("crew: cannot archive a channel (403 not_allowed)", archive.status === 403 && archive.json?.code === "not_allowed", `status ${archive.status}`);
+  ok("crew: …none of it wrote to the room", chatWrites("companyChatRoom", "update").length === 0);
+}
+seedChat();
+{
+  const archive = await call(CHAT_ARCHIVE, "POST", { as: "manager", params: { id: "ch_ann" } });
+  ok("manager: archives the channel they manage (200), kept — an update, never a delete", archive.status === 200 && chatWrites("companyChatRoom", "update").some((w) => w.args.data.archivedAt instanceof Date) && !writes.some((w) => w.model.startsWith("companyChat") && /delete/i.test(w.action)), `status ${archive.status}`);
+}
+seedChat();
+{
+  for (const role of ["crew", "estimator", "owner"]) {
+    const r = await call(CHAT_ROOM, "GET", { as: role, params: { id: "ch_off" } });
+    ok(`${role}: a private channel they are not in is 404 — the owner included`, r.status === 404 && r.json?.code === "no_room", `status ${r.status}`);
+    const j = await call(CHAT_JOIN, "POST", { as: role, params: { id: "ch_off" } });
+    ok(`${role}: …and cannot join it (404)`, j.status === 404, `status ${j.status}`);
+  }
+  const list = await call(CHAT_ROOMS, "GET", { as: "crew" });
+  ok("crew: the room list and Browse never name the private channel", list.status === 200 && !textHas(list.json, "ch_off"), `status ${list.status}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("Team chat phases 3–4 (2026-10-04) — files, cards, edit, remove, search, through the routes");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's decisions, executed through app/api/chat/** as each role:
+// chat photos are PRIVATE (a link that is the reader's, that expires, that a
+// non-member cannot open); a removed message's words are in no response —
+// the owner's and a support session's included; the crew never see a price
+// on a card; the 15-minute edit window is the server's; search never reaches
+// into a private room the searcher is not in. The full matrix runs against
+// the store in scripts/check-company-chat.mjs §26–36.
+process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET || "role-access-chat-secret-0123456789";
+process.env.CLOUDINARY_CLOUD_NAME = "democloud";
+process.env.CLOUDINARY_API_KEY = "test-key";
+process.env.CLOUDINARY_API_SECRET = "test-secret";
+const { cloudinary: CLD } = await import("@/lib/cloudinary");
+CLD.config({ cloud_name: "democloud", api_key: "test-key", api_secret: "test-secret", secure: true });
+const { fileLinkFor } = await import("@/lib/company/chat/fileLinks");
+const CHAT_FILES = await import("../app/api/chat/files/[messageId]/[index]/route.js");
+const CHAT_MESSAGE = await import("../app/api/chat/messages/[id]/route.js");
+const CHAT_SEARCH = await import("../app/api/chat/search/route.js");
+// A read-only support session holds no member row; added to MEMBERS only
+// AFTER each seed (seed() builds a user per member).
+const SUPPORT_MEMBER = { id: null, userId: null, companyId: "co1", role: "viewer", impersonation: true, impersonationMode: "read_only", platformAdminId: "pa1", permissions: null };
+
+const PHOTO_ID = "fieldquo/companies/co1/chat/00000000-0000-4000-8000-000000000001";
+const photo = { type: "photo", url: `https://res.cloudinary.com/democloud/image/authenticated/v17/${PHOTO_ID}.jpg`, publicId: PHOTO_ID, mimeType: "image/jpeg", filename: "ladder.jpg", bytes: 900000, width: 2560, height: 1920 };
+function seedChatFiles() {
+  delete MEMBERS.support;
+  seedChat();
+  MEMBERS.support = SUPPORT_MEMBER;
+  const person = (m) => ({ id: m.id, userId: m.userId, role: m.role, active: true, user: { name: `${m.id.slice(2)} person`, email: `${m.id}@example.test`, language: null } });
+  const row = (m, roomId, extra = {}) => ({
+    id: `cm_${roomId}_${m.id}`, companyId: "co1", roomId, memberId: m.id, open: true, role: "member", notify: "default",
+    mutedUntil: null, lastOpenedAt: null, lastSeenAt: null, hiddenAt: null, starredAt: null, member: person(m), ...extra,
+  });
+  const minsAgo = (n) => new Date(Date.now() - n * 60 * 1000);
+  // #site: everyone may post; owner, manager and crew are in it.
+  const siteMembers = [row(MEMBERS.owner, "ch_site"), row(MEMBERS.manager, "ch_site", { role: "manager" }), row(MEMBERS.crew, "ch_site")];
+  // #office: PRIVATE, the manager only — with a photo and a money word.
+  const offMembers = [row(MEMBERS.manager, "ch_office", { role: "manager" })];
+  const msg = (id, roomId, author, extra = {}) => ({
+    id, companyId: "co1", roomId, kind: "message", body: "", mentions: [], meta: null, attachments: null, card: null,
+    replyToId: null, replyTo: null, editedAt: null, deletedAt: null, deletedByMemberId: null, pinnedAt: null, pinnedByMemberId: null,
+    createdAt: minsAgo(30), authorMemberId: author.id, author: person(author), ...extra,
+  });
+  const site = { id: "ch_site", companyId: "co1", kind: "channel", key: "channel:site", name: "site", jobId: null, topic: null, private: false, postingPolicy: "everyone", autoJoin: false, archivedAt: null, createdByMemberId: "m_mgr", lastMessageAt: null, members: siteMembers, job: null };
+  const office = { id: "ch_office", companyId: "co1", kind: "channel", key: "channel:office", name: "office", jobId: null, topic: null, private: true, postingPolicy: "everyone", autoJoin: false, archivedAt: null, createdByMemberId: "m_mgr", lastMessageAt: null, members: offMembers, job: null };
+  const siteMsgs = [
+    msg("m_quote", "ch_site", MEMBERS.manager, { card: { type: "quote", id: "q1" }, createdAt: minsAgo(40) }),
+    msg("m_wo", "ch_site", MEMBERS.manager, { card: { type: "work_order", id: "j1" }, body: "Tomorrow", createdAt: minsAgo(39) }),
+    msg("m_gone", "ch_site", MEMBERS.crew, { body: "the gate code is zulu", attachments: [photo], deletedAt: minsAgo(5), deletedByMemberId: "m_crew", createdAt: minsAgo(20) }),
+    msg("m_old", "ch_site", MEMBERS.crew, { body: "Van at 7", createdAt: minsAgo(16) }),
+    msg("m_new", "ch_site", MEMBERS.crew, { body: "Van at 8", createdAt: minsAgo(1) }),
+    msg("m_pic", "ch_site", MEMBERS.crew, { body: "ladder", attachments: [photo], createdAt: minsAgo(2) }),
+  ];
+  const offMsgs = [msg("m_priv", "ch_office", MEMBERS.manager, { body: "Tremblay deposit cleared — payroll", attachments: [photo] })];
+  site.messages = siteMsgs;
+  office.messages = offMsgs;
+  for (const m of siteMsgs) m.room = site;
+  for (const m of offMsgs) m.room = office;
+  tables.companyChatRoom = [site, office];
+  tables.companyChatMember = [...siteMembers, ...offMembers];
+  tables.companyChatMessage = [...siteMsgs, ...offMsgs];
+  tables.offlineSyncItem = [];
+  tables.member = Object.values(MEMBERS).filter((m) => m.id).map((m) => ({ ...m, active: true }));
+}
+async function openFile(as, messageId, index, variant, { link } = {}) {
+  session.member = { ...MEMBERS[as] };
+  const href = link || fileLinkFor(MEMBERS[as], messageId, index, variant);
+  const res = await CHAT_FILES.GET(new Request(`http://test.local${href}`), { params: Promise.resolve({ messageId, index: String(index) }) });
+  let json = null;
+  try { json = await res.clone().json(); } catch { json = null; }
+  return { status: res.status, json, location: res.headers.get("location") };
+}
+
+seedChatFiles();
+{
+  const member = await openFile("crew", "m_pic", 0, "full");
+  ok("crew (a member): the file opens — 302 to a Cloudinary link that EXPIRES", member.status === 302 && /expires_at=\d+/.test(member.location || "") && /api\.cloudinary\.com/.test(member.location || ""), `status ${member.status} ${member.location}`);
+  ok("…and the stored URL is never what the browser is sent", !(member.location || "").includes("/image/authenticated/v17/"));
+  for (const role of ["crew", "estimator", "owner"]) {
+    const r = await openFile(role, "m_priv", 0, "full");
+    ok(`${role}: a file in a private channel they are not in → 404, with a link signed for them — the owner included`, r.status === 404 && r.json?.code === "no_file", `status ${r.status}`);
+  }
+  const mgrLink = fileLinkFor(MEMBERS.manager, "m_priv", 0, "full");
+  const stolen = await openFile("crew", "m_priv", 0, "full", { link: mgrLink });
+  ok("crew holding the MANAGER's link to it → 404 (a link is its reader's)", stolen.status === 404, `status ${stolen.status}`);
+  const expired = fileLinkFor(MEMBERS.crew, "m_pic", 0, "full", { now: Date.now() - 3 * 3600 * 1000 });
+  const old = await openFile("crew", "m_pic", 0, "full", { link: expired });
+  ok("an EXPIRED link is refused (410 link_expired) even for a member", old.status === 410 && old.json?.code === "link_expired", `status ${old.status}`);
+  const gone = await openFile("owner", "m_gone", 0, "full");
+  ok("a removed message's photo → 404 for everybody, the owner included", gone.status === 404, `status ${gone.status}`);
+  const sup = await openFile("support", "m_gone", 0, "full");
+  ok("…and for a read-only support session", sup.status === 404, `status ${sup.status}`);
+  session.member = null;
+  const anon = await CHAT_FILES.GET(new Request(`http://test.local${fileLinkFor(MEMBERS.crew, "m_pic", 0, "full")}`), { params: Promise.resolve({ messageId: "m_pic", index: "0" }) });
+  ok("no session → 401, link or not", anon.status === 401);
+}
+seedChatFiles();
+{
+  const asCrew = await call(CHAT_ROOM, "GET", { as: "crew", params: { id: "ch_site" } });
+  const card = (t, id) => (t.json?.messages || []).find((m) => m.id === id)?.card;
+  ok("crew: the quote card reads 'Office only' — no number, no client", asCrew.status === 200 && card(asCrew, "m_quote")?.open === false && card(asCrew, "m_quote")?.restricted === "office" && !textHas(card(asCrew, "m_quote"), "Q-0042") && !textHas(card(asCrew, "m_quote"), "Marie"), JSON.stringify(card(asCrew, "m_quote")));
+  ok("crew on the job: the work-order card opens the work order, with no quote link", card(asCrew, "m_wo")?.open === true && card(asCrew, "m_wo")?.href === "/app/jobs/j1/work-order" && card(asCrew, "m_wo")?.quoteHref === null, JSON.stringify(card(asCrew, "m_wo")));
+  ok("crew: NO money key anywhere in the thread (cards included)", moneyIn(asCrew.json).length === 0, moneyIn(asCrew.json).join(", "));
+  // Cards only: the payload's file-link signatures are hex, and "9000" can
+  // turn up in one by chance.
+  ok("crew: the quote's total (9000) is in no card", !JSON.stringify((asCrew.json?.messages || []).map((m) => m.card)).includes("9000"));
+  const asOwner = await call(CHAT_ROOM, "GET", { as: "owner", params: { id: "ch_site" } });
+  ok("owner: the quote card carries number and client — and still no money key", card(asOwner, "m_quote")?.number === "Q-0042" && moneyIn(asOwner.json).length === 0, JSON.stringify(card(asOwner, "m_quote")));
+  const asSupport = await call(CHAT_ROOM, "GET", { as: "support", params: { id: "ch_site" } });
+  for (const [label, r] of [["crew (its author)", asCrew], ["owner", asOwner], ["read-only support session", asSupport]]) {
+    const row = (r.json?.messages || []).find((m) => m.id === "m_gone");
+    ok(`${label}: the removed message is there as 'removed' with NO words and NO files`, r.status === 200 && row?.deleted === true && row.body === "" && row.attachments.length === 0 && !JSON.stringify(r.json).includes("zulu"), `status ${r.status}`);
+  }
+  ok("no payload carries a storage URL or public id", ![asCrew, asOwner, asSupport].some((r) => JSON.stringify(r.json).includes("res.cloudinary.com") || JSON.stringify(r.json).includes(PHOTO_ID)));
+}
+seedChatFiles();
+{
+  const late = await call(CHAT_MESSAGE, "PATCH", { as: "crew", params: { id: "m_old" }, body: { body: "Van at 7:30" } });
+  ok("crew: editing their 16-minute-old message → 403 too_late (the server's clock)", late.status === 403 && late.json?.code === "too_late", `status ${late.status}`);
+  ok("…nothing written", !writes.some((w) => w.model === "companyChatMessage" && w.action === "update"));
+  const fresh = await call(CHAT_MESSAGE, "PATCH", { as: "crew", params: { id: "m_new" }, body: { body: "Van at 8:15" } });
+  ok("crew: editing their 1-minute-old message → 200, editedAt stamped", fresh.status === 200 && writes.some((w) => w.model === "companyChatMessage" && w.action === "update" && w.args.data.editedAt instanceof Date && w.args.data.body === "Van at 8:15"), `status ${fresh.status}`);
+  const theirs = await call(CHAT_MESSAGE, "PATCH", { as: "owner", params: { id: "m_new" }, body: { body: "owner rewrites crew" } });
+  ok("owner: cannot edit the crew's words (403 not_author)", theirs.status === 403 && theirs.json?.code === "not_author", `status ${theirs.status}`);
+  const sup = await call(CHAT_MESSAGE, "PATCH", { as: "support", params: { id: "m_new" }, body: { body: "x" } });
+  ok("support session: cannot edit (403)", sup.status === 403, `status ${sup.status}`);
+  const del = await call(CHAT_MESSAGE, "DELETE", { as: "owner", params: { id: "m_new" } });
+  ok("owner (in the channel): may remove a crew message — owner/admin moderate any channel they are in", del.status === 200, `status ${del.status}`);
+  const crewDel = await call(CHAT_MESSAGE, "DELETE", { as: "estimator", params: { id: "m_pic" } });
+  ok("estimator (not in the room): removing → 404", crewDel.status === 404, `status ${crewDel.status}`);
+  ok("a removal is an UPDATE (deletedAt), never a delete", !writes.some((w) => w.model === "companyChatMessage" && /delete/i.test(w.action)) && writes.some((w) => w.model === "companyChatMessage" && w.action === "update" && w.args.data.deletedAt instanceof Date));
+}
+seedChatFiles();
+{
+  const crew = await call(CHAT_SEARCH, "GET", { as: "crew", url: "http://test.local/api/chat/search?q=tremblay" });
+  ok("crew: search answers (200) and never returns the private channel's words", crew.status === 200 && !JSON.stringify(crew.json).includes("deposit") && !JSON.stringify(crew.json).includes("ch_office"), `status ${crew.status}`);
+  const mgr = await call(CHAT_SEARCH, "GET", { as: "manager", url: "http://test.local/api/chat/search?q=tremblay" });
+  ok("manager (a member of it): finds it", mgr.status === 200 && (mgr.json?.results || []).some((r) => r.id === "m_priv"), `status ${mgr.status}`);
+  const into = await call(CHAT_SEARCH, "GET", { as: "crew", url: "http://test.local/api/chat/search?q=tremblay&room=ch_office" });
+  ok("crew: searching INSIDE the private channel → 404", into.status === 404, `status ${into.status}`);
+  const removed = await call(CHAT_SEARCH, "GET", { as: "owner", url: "http://test.local/api/chat/search?q=gate" });
+  ok("owner: a removed message is never a search result", removed.status === 200 && !(removed.json?.results || []).some((r) => r.id === "m_gone"), `status ${removed.status}`);
 }
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);

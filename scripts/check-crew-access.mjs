@@ -541,25 +541,62 @@ ok(
 ok("a member we cannot identify at all IS scoped", seesOnlyAssignedJobs(null) === true);
 
 const crewWhere = assignedJobWhere({ ...crew, userId: "u_crew" });
+// The fragment is `AND: [{ OR: [visit, shift] }]` — see assignedJobWhere for
+// why it is wrapped rather than a bare OR a caller's own OR would overwrite.
+const branches = (w) => w?.AND?.[0]?.OR || [];
+const visitUser = (w) => branches(w).find((b) => b.visits)?.visits?.some?.assignedToId;
+const shiftRule = (w) => branches(w).find((b) => b.shifts)?.shifts?.some;
 ok(
   "the fragment filters on a visit assigned to that user",
-  crewWhere?.visits?.some?.assignedToId === "u_crew",
+  visitUser(crewWhere) === "u_crew",
 );
 ok(
-  "…and on nothing else — no id key to collide with the caller's own",
-  Object.keys(crewWhere).length === 1 && crewWhere.id === undefined,
+  "…or a PUBLISHED shift of theirs on the job, inside its window",
+  shiftRule(crewWhere)?.published === true &&
+    shiftRule(crewWhere)?.worker?.userId === "u_crew" &&
+    shiftRule(crewWhere)?.end?.gte instanceof Date,
 );
+ok(
+  "…and on nothing else — one AND key, no id and no bare OR to collide with the caller's own",
+  Object.keys(crewWhere).join(",") === "AND" && crewWhere.id === undefined && crewWhere.OR === undefined,
+);
+{
+  // The collision this shape exists to survive: app/api/search spreads the
+  // fragment beside its own OR. Both must still be in the merged where.
+  const merged = { companyId: "co", ...crewWhere, OR: [{ title: "x" }] };
+  ok("spread beside a caller's own OR, the narrowing survives", visitUser(merged) === "u_crew" && merged.OR.length === 1);
+  // No caller may spread it beside a top-level AND of its own — that one
+  // WOULD be overwritten. Every spread site, read.
+  const spreaders = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = join(dir, name.name);
+      if (name.isDirectory()) walk(rel);
+      else if (/\.(js|mjs)$/.test(name.name)) {
+        const src = readFileSync(join(ROOT, rel), "utf8");
+        // The object literal a spread sits in, on one line — every call site
+        // writes it that way. A literal that ALSO names AND is the collision.
+        for (const line of src.split("\n")) {
+          if (/\.\.\.assignedJobWhere\(/.test(line) && /\bAND:/.test(line)) spreaders.push(rel);
+        }
+      }
+    }
+  };
+  walk("app");
+  walk("lib");
+  ok("no call site spreads assignedJobWhere beside its own top-level AND", spreaders.length === 0, spreaders.join(", "));
+}
 ok(
   "an unscoped member gets an empty fragment, so the spread is a no-op",
   Object.keys(assignedJobWhere(dispatcher)).length === 0,
 );
 ok(
   "a scoped member with no userId matches NOTHING rather than everything",
-  assignedJobWhere({ ...crew })?.visits?.some?.assignedToId === "__none__",
+  visitUser(assignedJobWhere({ ...crew })) === "__none__" && shiftRule(assignedJobWhere({ ...crew }))?.worker?.userId === "__none__",
 );
 ok(
   "…and so does a null member",
-  assignedJobWhere(null)?.visits?.some?.assignedToId === "__none__",
+  visitUser(assignedJobWhere(null)) === "__none__" && shiftRule(assignedJobWhere(null))?.worker?.userId === "__none__",
 );
 
 // ═══════════════════════════════════════════════════════════════════════════

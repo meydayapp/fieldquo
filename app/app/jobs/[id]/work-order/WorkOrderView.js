@@ -14,6 +14,15 @@
 // by remembering. Hidden items are ABSENT from the PDF and the print sheet
 // whoever downloads them.
 //
+// ── Enough to do the job (2026-10-04) ───────────────────────────────────────
+//
+// Each area lists its lines with how many and in what unit, the door and
+// drawer counts, the colour / sheen / coats it was sold in, and the trade's
+// "what's included" bullets; below the areas come the options the client
+// chose, the materials list, the checklist and the visits with their notes.
+// All of it is scope from lib/workOrder/build.js — the model still carries no
+// price, and this file only draws what is there.
+//
 // The tick and the photos are the job's own Task rows (one write, two views):
 // POST /api/jobs/[id]/work-order/areas creates the Task on first use, and the
 // photos go through the existing POST /api/tasks/[id]/photos.
@@ -26,7 +35,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { fetchJson } from "@/lib/fetchJson";
-import { formatShortDate } from "@/lib/format/localeDate";
+import { formatShortDate, formatTimeOfDay, formatWeekdayDayMonth } from "@/lib/format/localeDate";
 import MediaUploader from "@/app/components/MediaUploader";
 import { workOrderPath, workOrderPdfPath, workOrderPrintPath } from "@/lib/workOrder/url";
 
@@ -205,8 +214,15 @@ export default function WorkOrderView({ jobId }) {
           </div>
           <div className="text-right">
             <div className="text-base font-bold text-foreground">
-              {t("app.workOrder.hoursAcross", "{hours} h across {n} areas", { hours: wo.displayHours, n: wo.stats.areas })}
+              {/* "0 h across 1 areas" told the crew nothing; no estimate is
+                  said as no estimate. */}
+              {wo.totalHours > 0
+                ? t("app.workOrder.hoursAcross", "{hours} h across {n} areas", { hours: wo.displayHours, n: wo.stats.areas })
+                : t("app.workOrder.areasOnly", "{n} areas", { n: wo.stats.areas })}
             </div>
+            {wo.hoursFromQuote && (
+              <div className="text-xs text-muted-foreground">{t("app.workOrder.hoursFromQuote", "Hours as estimated on the quote")}</div>
+            )}
             {wo.crew.length > 0 && (
               <div className="text-xs text-muted-foreground">
                 {t("app.workOrder.crew", "Crew: {names}", { names: wo.crew.join(", ") })}
@@ -217,7 +233,10 @@ export default function WorkOrderView({ jobId }) {
 
         <div className="mt-3 grid grid-cols-3 gap-2">
           <Stat value={`${wo.stats.done} / ${wo.stats.areas}`} label={t("app.workOrder.statDone", "areas done")} />
-          <Stat value={`${wo.clockedHours} h`} label={t("app.workOrder.statClocked", "clocked of {hours}", { hours: wo.displayHours })} />
+          <Stat
+            value={`${wo.clockedHours} h`}
+            label={wo.totalHours > 0 ? t("app.workOrder.statClocked", "clocked of {hours}", { hours: wo.displayHours }) : t("app.workOrder.statClockedOnly", "clocked")}
+          />
           <Stat value={String(wo.stats.photos)} label={t("app.workOrder.statPhotos", "photos filed")} />
         </div>
 
@@ -251,10 +270,8 @@ export default function WorkOrderView({ jobId }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                   <div className="font-semibold text-foreground">
-                    {a.label}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      · {a.displayHours} h{a.scope ? ` · ${a.scope}` : ""}
-                    </span>
+                    {a.label}
+                    {a.hours > 0 && <span className="font-normal text-muted-foreground"> · {a.displayHours} h</span>}
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
                     {a.assignee && <div>{a.assignee}</div>}
@@ -266,11 +283,7 @@ export default function WorkOrderView({ jobId }) {
                     )}
                   </div>
                 </div>
-                {a.lines?.filter((l) => l.detail).length > 0 && (
-                  <p className="mt-1 text-sm text-foreground">
-                    {a.lines.filter((l) => l.detail && !l.hidden).map((l) => l.detail).join(" ")}
-                  </p>
-                )}
+                <AreaScope area={a} t={t} />
                 {a.crewNote && (
                   <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
                     {t("app.workOrder.crewNote", "Crew note: {note}", { note: a.crewNote })}
@@ -336,6 +349,8 @@ export default function WorkOrderView({ jobId }) {
         </ul>
       </div>
 
+      <JobExtras wo={wo} t={t} language={language} />
+
       <p className="mt-3 text-xs text-muted-foreground">
         {wo.hiddenCount > 0
           ? t("app.workOrder.footHidden", "Not on the crew's copy: {n} items hidden by the office, and prices. The client's contact details follow your access level, the same rule as the job page.", { n: wo.hiddenCount })
@@ -344,6 +359,153 @@ export default function WorkOrderView({ jobId }) {
 
       {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * One area's scope: each line with how many and in what unit, the door and
+ * drawer counts, the finish, and the trade's "what's included".
+ */
+function AreaScope({ area: a, t }) {
+  const lines = (a.lines || []).filter((l) => !l.hidden && l.label);
+  const qtyText = (l) => {
+    // A generic "unit" is the cabinet base line's — its counts are said below.
+    const unit = l.unit && l.unit !== "unit" ? ` ${l.unit}` : "";
+    return l.quantity > 1 || unit ? ` × ${l.quantity}${unit}` : "";
+  };
+  const finish = a.finish || {};
+  const facts = [
+    finish.colour && t("app.workOrder.fact.colour", "Colour: {v}", { v: finish.colour }),
+    finish.sheen && t("app.workOrder.fact.sheen", "Sheen: {v}", { v: finish.sheen }),
+    finish.doorStyle && t("app.workOrder.fact.doorStyle", "Door style: {v}", { v: finish.doorStyle }),
+    finish.primerCoats && t("app.workOrder.fact.primerCoats", "Primer coats: {n}", { n: finish.primerCoats }),
+    finish.topCoats && t("app.workOrder.fact.topCoats", "Top coats: {n}", { n: finish.topCoats }),
+    finish.twoTone && t("app.workOrder.fact.twoTone", "Two-tone"),
+    finish.threeTone && t("app.workOrder.fact.threeTone", "Three-tone"),
+  ].filter(Boolean);
+  const counts = a.counts
+    ? [
+        a.counts.doors > 0 && t("app.workOrder.count.doors", "{n} doors", { n: a.counts.doors }),
+        a.counts.drawers > 0 && t("app.workOrder.count.drawers", "{n} drawers", { n: a.counts.drawers }),
+      ].filter(Boolean)
+    : [];
+  // A paint area's lines carry coats and product; its scope sentence already
+  // says them, so it is printed as it was.
+  const isPaintArea = lines.some((l) => l.coats != null || l.product != null);
+  return (
+    <div className="mt-1 space-y-1 text-sm text-foreground">
+      {isPaintArea ? (
+        a.scope ? <p>{a.scope}</p> : null
+      ) : (
+        lines.length > 0 && (
+          <ul className="space-y-0.5">
+            {lines.map((l, i) => (
+              <li key={l.key || i}>
+                <span className="font-medium">{l.label}</span>
+                <span className="text-muted-foreground">{qtyText(l)}</span>
+                {l.colour ? <span className="text-muted-foreground"> · {l.colour}</span> : null}
+                {l.detail ? <span className="block text-xs text-muted-foreground">{l.detail}</span> : null}
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+      {counts.length > 0 && <p className="font-semibold">{counts.join(" · ")}</p>}
+      {facts.length > 0 && <p className="text-muted-foreground">{facts.join(" · ")}</p>}
+      {a.included?.length > 0 && (
+        <div className="pt-1">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("app.workOrder.included", "What's included")}
+          </div>
+          <ul className="ml-4 list-disc text-xs text-foreground/90">
+            {a.included.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Below the areas: the options the client chose, materials, checklist, visits. */
+function JobExtras({ wo, t, language }) {
+  const addOns = wo.addOns || [];
+  const materials = wo.materials || [];
+  const checklist = wo.checklist || [];
+  const visits = (wo.visits || []).filter((v) => v.notes || v.scheduledAt);
+  if (!addOns.length && !materials.length && !checklist.length && !visits.length) return null;
+  return (
+    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      {addOns.length > 0 && (
+        <Panel title={t("app.workOrder.addOns", "Options the client chose")}>
+          <ul className="space-y-1">
+            {addOns.map((a, i) => (
+              <li key={i}>
+                <span className="font-medium">{a.description}</span>
+                {a.area ? <span className="text-muted-foreground"> · {a.area}</span> : null}
+                {a.detail ? <span className="block text-xs text-muted-foreground">{a.detail}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+      {materials.length > 0 && (
+        <Panel title={t("app.workOrder.materials", "Materials")}>
+          <ul className="space-y-0.5">
+            {materials.map((m, i) => (
+              <li key={i} className="flex justify-between gap-2">
+                <span className={m.bought ? "text-muted-foreground line-through" : ""}>{m.name}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {m.qty}
+                  {m.unit ? ` ${m.unit}` : ""}
+                  {m.bought ? ` · ${t("app.workOrder.bought", "bought")}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+      {checklist.length > 0 && (
+        <Panel title={t("app.workOrder.checklist", "Checklist")}>
+          <ul className="space-y-0.5">
+            {checklist.map((c, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className={`mt-1 inline-block h-3 w-3 shrink-0 rounded-sm border ${c.done ? "border-emerald-600 bg-emerald-600" : "border-muted-foreground"}`} />
+                <span>
+                  {c.label}
+                  {c.required ? <span className="text-xs text-muted-foreground"> · {t("app.workOrder.required", "required")}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+      {visits.length > 0 && (
+        <Panel title={t("app.workOrder.visits", "Visits")}>
+          <ul className="space-y-1.5">
+            {visits.map((v, i) => (
+              <li key={v.id || i}>
+                <span className="font-medium">
+                  {v.scheduledAt ? `${formatWeekdayDayMonth(new Date(v.scheduledAt), language)}, ${formatTimeOfDay(v.scheduledAt, language)}` : ""}
+                </span>
+                {v.assignee ? <span className="text-muted-foreground"> · {v.assignee}</span> : null}
+                {v.notes ? <span className="block text-xs text-foreground/90">“{v.notes}”</span> : null}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+function Panel({ title, children }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-4 text-sm text-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      {children}
+    </section>
   );
 }
 

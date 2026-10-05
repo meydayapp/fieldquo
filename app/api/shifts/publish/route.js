@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { notifyPublished, notifyShiftChange, recordShiftActivity } from "@/lib/shifts/shiftNotify";
+import { syncJobRooms } from "@/lib/company/chat/store";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -72,6 +73,11 @@ export async function POST(request) {
     : { count: 0 };
 
   if (result.count > 0) {
+    // Publishing a shift on a job is what puts its worker on the job — the
+    // job page, the clock's picker and the job's chat room
+    // (lib/permissions/enforce.js shiftAssignmentWhere). The room follows now
+    // rather than at the next chat read.
+    void syncJobRooms(member.companyId, changing.map((s) => s.jobId));
     // One audit row for the press, not one per shift: "Published 14 shifts"
     // is the fact; the per-shift trail is on each shift's own edits.
     await recordShiftActivity(member, {

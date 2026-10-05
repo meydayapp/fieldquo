@@ -259,6 +259,9 @@ const DRILL_INS = {
   "/app/jobs/import": "past jobs, already done and paid, typed in for the year's overview — opened from the Jobs list page's own Past jobs button and from the dashboard's set-up steps. Deliberately not a nav row: it is a thing you do once to catch up, not a place you go, and it must stay reachable after that step is waved off",
   "/app/jobs/new": "opened from the Jobs list, a client's own page, and Quick Add",
   "/app/leads/import": "opened from the Leads list page's own Import button",
+  "/app/timesheets": "an alias, not a page — the short address people type for Timesheets (live test 2026-10-04 got a 404). It replaces itself with /app/settings/team/timesheets, the rail's own Timesheets row, or the person's own Time log when they cannot approve hours (lib/nav/timesheetsAlias.js)",
+  "/app/quotes/drawings/new": "start a quote from a drawing set — opened from the quote builder's own Start from drawings link and from a lead's page (?lead=)",
+  "/app/quotes/drawings/[id]": "one drawing set's read and its draft quote — the new-drawings page replaces itself with it once the set is uploaded",
   "/app/leads/traffic": "visits, sources and the people who typed their details and stopped — opened from the Leads list page's own Traffic button beside Import, from Settings › Instant quotes › Ad tracking, and from a funnel's own page. A view OF the leads, not a second inbox, so not a nav row",
   "/app/settings/services/confirm": "\"Confirm what you quote\" — the target of that home-page set-up step (lib/setupSteps.js confirm_services), which also opens it in a dialog; applies only to a company whose trade FieldQuo has no full service list for, and is done once",
   "/app/messages/review": "the month-end read over Facebook/Instagram conversations — opened from the Messages inbox's own Monthly review button, and deliberately not a nav row: it is a thing you do once a month TO the inbox, not a second inbox to browse to, and a sidebar row for it would compete with the one row that leads to the conversations themselves",
@@ -373,6 +376,59 @@ const gonePlatformExceptions = [
 ].filter((r) => !allPlatformRoutes.includes(r));
 ok("every PLATFORM_DRILL_INS/PLATFORM_EXCLUSIONS entry still names a real route",
   gonePlatformExceptions.length === 0, gonePlatformExceptions.join(", "));
+
+// ── 6. A row says what it does for THIS member (2026-10-04) ──────────────
+//
+// Crew's More page offered "Assign shifts" for /app/scheduler, which for
+// them is a read-only list of their own published shifts. navLabelKey keeps
+// the key (gates, tours, help) and changes only what is printed.
+{
+  const { navLabelKey, labelNavItems } = await import("../lib/permissions/nav.js");
+  const { PERMISSION_PRESETS, PRESET_TO_ROLE } = await import("../lib/permissions.js");
+  const as = (k) => ({ role: PRESET_TO_ROLE[k], permissions: { ...PERMISSION_PRESETS[k].values } });
+  ok("Crew: the scheduler row reads 'My shifts'", navLabelKey("app.nav.scheduler", as("worker")) === "app.nav.schedulerOwn");
+  ok("Manager and Dispatcher (edit everyone's schedule): still 'Assign shifts'",
+    navLabelKey("app.nav.scheduler", as("manager")) === "app.nav.scheduler" && navLabelKey("app.nav.scheduler", as("dispatcher")) === "app.nav.scheduler");
+  ok("owner: 'Assign shifts'", navLabelKey("app.nav.scheduler", { role: "owner", permissions: null }) === "app.nav.scheduler");
+  ok("a supervisor whose schedule is only their own reads the team's: 'Team shifts'",
+    navLabelKey("app.nav.scheduler", { role: "supervisor", permissions: { schedule: "view_own" } }) === "app.nav.schedulerView");
+  ok("unknown member keeps the row's own label; other rows untouched",
+    navLabelKey("app.nav.scheduler", null) === "app.nav.scheduler" && navLabelKey("app.nav.jobs", as("worker")) === "app.nav.jobs");
+  const labelled = labelNavItems([{ key: "app.nav.scheduler", href: "/app/scheduler" }, { key: "app.nav.jobs", href: "/app/jobs" }], as("worker"));
+  ok("labelNavItems sets labelKey and keeps the key", labelled[0].key === "app.nav.scheduler" && labelled[0].labelKey === "app.nav.schedulerOwn" && labelled[1].labelKey === undefined);
+  for (const k of ["app.nav.schedulerOwn", "app.nav.schedulerView"]) {
+    ok(`${k}: English and French strings`, Boolean(APP_MESSAGES.en[k]) && Boolean(APP_MESSAGES.fr[k]));
+  }
+  const sidebar = read("app/components/layout/AdminSidebar.js");
+  ok("the rail hooks label every row they return", /labelNavItems\(g\.items, caller\)/.test(sidebar) && /labelNavItems\(filterNavItemsByPermission/.test(sidebar) && /label=\{t\(item\.labelKey \|\| item\.key\)\}/.test(sidebar));
+  ok("the crew More page, the phone menu and search print the labelKey",
+    /t\(row\.labelKey \|\| row\.key\)/.test(read("app/app/me/more/page.js")) &&
+      !/\{t\(item\.key\)\}/.test(read("app/components/layout/MoreMenu.js")) &&
+      /key: i\.labelKey \|\| i\.key/.test(read("app/components/layout/GlobalSearch.js")));
+}
+
+// ── 7. /app/timesheets resolves (2026-10-04) ─────────────────────────────
+//
+// It was a 404; Timesheets lives under the Team tabs. The alias sends people
+// who approve hours there and everyone else to their own Time log, and the
+// menus where hours are approved link the real address.
+{
+  const { timesheetsAliasTarget, TIMESHEETS_HREF, OWN_HOURS_HREF } = await import("../lib/nav/timesheetsAlias.js");
+  const { PERMISSION_PRESETS, PRESET_TO_ROLE } = await import("../lib/permissions.js");
+  const as = (k) => ({ role: PRESET_TO_ROLE[k], permissions: { ...PERMISSION_PRESETS[k].values } });
+  ok("/app/timesheets has a page", exists("app/app/timesheets/page.js"));
+  ok("…which goes where the alias rule says", /router\.replace\(target\)/.test(read("app/app/timesheets/page.js")) && /timesheetsAliasTarget\(caller\)/.test(read("app/app/timesheets/page.js")));
+  ok("the target page exists", exists("app/app/settings/team/timesheets/page.js"));
+  ok("owner, Manager, Dispatcher → Timesheets",
+    timesheetsAliasTarget({ role: "owner" }) === TIMESHEETS_HREF && timesheetsAliasTarget(as("manager")) === TIMESHEETS_HREF && timesheetsAliasTarget(as("dispatcher")) === TIMESHEETS_HREF);
+  ok("Crew and Estimator → their own Time log, not a refusal", timesheetsAliasTarget(as("worker")) === OWN_HOURS_HREF && timesheetsAliasTarget(as("estimator")) === OWN_HOURS_HREF);
+  ok("…and the clock opens on the log for ?tab=log", /get\("tab"\) === "log"/.test(read("app/app/clock/page.js")));
+  ok("an unresolved caller goes to Timesheets (which answers for itself)", timesheetsAliasTarget(null) === TIMESHEETS_HREF);
+  ok("the owner's rail links Timesheets (More › Crew)", /key: "app\.nav\.timesheets", href: "\/app\/settings\/team\/timesheets"/.test(read("app/components/layout/AdminSidebar.js")));
+  ok("the manager's phone bar Team tab and home link it", /href: "\/app\/settings\/team\/timesheets"/.test(read("lib/nav/phoneBar.js")) && /href="\/app\/settings\/team\/timesheets"/.test(read("app/components/me/ManagerHome.js")));
+  const { navRowAllowed } = await import("../lib/permissions/nav.js");
+  ok("…and the rail row is drawn for owner, Manager and Dispatcher", navRowAllowed("app.nav.timesheets", { role: "owner" }) && navRowAllowed("app.nav.timesheets", as("manager")) && navRowAllowed("app.nav.timesheets", as("dispatcher")));
+}
 
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

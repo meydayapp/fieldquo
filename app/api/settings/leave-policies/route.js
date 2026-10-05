@@ -136,7 +136,11 @@ export async function GET(request) {
   const year = new Date().getUTCFullYear();
   const [policies, workerCount, company] = await Promise.all([
     db.leavePolicy.findMany({
-      where: { companyId: member.companyId },
+      // The policies the company set up. The unpaid fallback FieldQuo files
+      // a request under when there are none (lib/leave/unpaidFallback.js) is
+      // not one of them: listing it would hide the starter templates and the
+      // "set up your policies" state this screen exists to show.
+      where: { companyId: member.companyId, systemUnpaid: false },
       orderBy: [{ active: "desc" }, { name: "asc" }],
       include: { _count: { select: { requests: true } } },
     }),

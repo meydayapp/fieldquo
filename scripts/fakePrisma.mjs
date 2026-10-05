@@ -86,6 +86,15 @@ export function makeFakeDb({ tables: names, relations = {}, uniques = {}, defaul
       if (k === "AND") { if (!v.every((w) => matches(table, row, w))) return false; continue; }
       if (k === "NOT") { if (matches(table, row, v)) return false; continue; }
       const rel = relations[table]?.[k];
+      if (rel && rel.kind === "one") {
+        // A to-one relation filter: Prisma's `{ member: { user: { … } } }`,
+        // or the explicit `{ is: { … } }` — the related row must match.
+        const target = tables[rel.table].find((r) => r.id === row[rel.localKey]) || null;
+        if (!target) return false;
+        const inner = v && typeof v === "object" && "is" in v ? v.is : v;
+        if (!matches(rel.table, target, inner || {})) return false;
+        continue;
+      }
       if (rel) {
         if (rel.kind !== "many" || !v || typeof v.some !== "object") throw new Error(`fake db: unsupported relation filter on ${table}.${k}`);
         const related = tables[rel.table].filter((r) => r[rel.foreignKey] === row.id);
@@ -99,6 +108,14 @@ export function makeFakeDb({ tables: names, relations = {}, uniques = {}, defaul
         // that wants "null or not x" says so with an OR, as both stores do.
         if ("not" in v) { if (row[k] == null || row[k] === v.not) return false; continue; }
         if ("has" in v) { if (!Array.isArray(row[k]) || !row[k].includes(v.has)) return false; continue; }
+        if ("contains" in v) {
+          // Postgres ILIKE when `mode: "insensitive"`, LIKE otherwise.
+          const hay = row[k] == null ? null : String(row[k]);
+          if (hay === null) return false;
+          const ci = v.mode === "insensitive";
+          if (!(ci ? hay.toLowerCase().includes(String(v.contains).toLowerCase()) : hay.includes(String(v.contains)))) return false;
+          continue;
+        }
         let ok = true;
         let ranged = false;
         for (const op of ["gt", "gte", "lt", "lte"]) {
@@ -198,10 +215,27 @@ export function makeFakeDb({ tables: names, relations = {}, uniques = {}, defaul
         const rows = sortBy(tables[table].filter((r) => matches(table, r, where || {})), orderBy);
         return shape(table, rows[0] || null, { select, include });
       },
-      findMany: async ({ where, select, include, orderBy, take } = {}) => {
+      findMany: async ({ where, select, include, orderBy, take, skip } = {}) => {
         let rows = sortBy(tables[table].filter((r) => matches(table, r, where || {})), orderBy);
+        if (skip) rows = rows.slice(skip);
         if (take) rows = rows.slice(0, take);
         return rows.map((r) => shape(table, r, { select, include }));
+      },
+      // Each row inserted as `create` would, so a declared unique still
+      // throws P2002 — unless `skipDuplicates`, which is Postgres's ON
+      // CONFLICT DO NOTHING: the clashing row is skipped and not counted.
+      createMany: async ({ data, skipDuplicates = false } = {}) => {
+        let count = 0;
+        for (const row of Array.isArray(data) ? data : [data]) {
+          await sleep(2);
+          try {
+            insert(table, row);
+            count++;
+          } catch (err) {
+            if (!(skipDuplicates && err?.code === "P2002")) throw err;
+          }
+        }
+        return { count };
       },
       count: async ({ where } = {}) => tables[table].filter((r) => matches(table, r, where || {})).length,
       groupBy: async ({ by, where, _count } = {}) => {

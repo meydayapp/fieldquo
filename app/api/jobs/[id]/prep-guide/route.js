@@ -19,7 +19,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { assignedJobWhere, hasLevel } from "@/lib/permissions/enforce";
+import { assignedJobWhere, hasLevel, seesOnlyAssignedJobs } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
 import { prepGuideDecision, clampLeadDays } from "@/lib/prepGuide/schedule";
 import { sendPrepGuide, PREP_GUIDE_DOCUMENT_KIND } from "@/lib/prepGuide/send";
@@ -77,6 +77,13 @@ export async function GET(request, { params }) {
   if (response) return response;
   const { full, response: denied } = await levelOrRefusal(member, "jobs", "view_only", "see this job");
   if (denied) return denied;
+  // The guide's status is office information — when it goes, to which client
+  // email, whether the office stopped it. The job page does not draw the card
+  // for a crew member scoped to their own jobs (2026-10-04), and hiding a card
+  // is not access control, so the route says no as well.
+  if (seesOnlyAssignedJobs(full)) {
+    return NextResponse.json({ error: "The preparation guide is managed by the office." }, { status: 403 });
+  }
 
   const job = await ownJob(id, member.companyId, full);
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });

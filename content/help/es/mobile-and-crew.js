@@ -63,7 +63,7 @@ export const ARTICLES = {
             head: ["Lo que necesita hacer", "Dónde", "Notas"],
             rows: [
               ["Registrar entrada y salida, cambiar de trabajo", "**Reloj de tiempo**", "A su teléfono se le pregunta dónde está una vez, al tocar — nunca en segundo plano."],
-              ["Ver sus turnos y visitas", "**Asignar turnos**, **Calendario**, **Trabajos**", "Solo lo publicado, y solo aquello en lo que usted está."],
+              ["Ver sus turnos y visitas", "**Mis turnos**, **Calendario**, **Trabajos**", "Solo lo publicado, y solo aquello en lo que usted está."],
               ["Agregar fotos a un trabajo", "La página del trabajo, **Fotos del trabajo**", "Desde la cámara o el carrete; o envíelas por mensaje de texto sin abrir nada."],
               ["Hablar con la oficina", "**Chat**", "Una sala por trabajo, #general para todos, mensajes directos."],
               ["Pedir tiempo libre", "**Ausencias**", "Los saldos y sus solicitudes en una sola pantalla."],
@@ -238,7 +238,7 @@ export const ARTICLES = {
     title: "Qué ve un miembro de la cuadrilla",
     summary:
       "El nivel de acceso Crew desde adentro: qué filas del menú aparecen, qué muestra y qué oculta la página de un trabajo, y por qué los precios no están en ninguna parte.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** es el nivel de acceso de la gente en la camioneta — instaladores, ayudantes, un segundo pintor. No le cuesta nada a la empresa y es deliberadamente estrecho: su propio horario, los trabajos en los que está reservado, el reloj, las ausencias, la seguridad, sus propios recibos de nómina. Ningún precio en ninguna parte, sin presupuestos, sin facturas, sin prospectos y sin lista de clientes.",
       "Este artículo es cómo se ve eso en el teléfono. Está escrito a partir de la propia cuadrícula de permisos del producto, así que dice lo que el menú realmente hace; si su propietario le dio una cuadrícula personalizada, algunas filas pueden diferir.",
@@ -264,7 +264,7 @@ export const ARTICLES = {
               ["**Calendario**", "Citas asignadas a usted, citas sin asignar, y visitas en sus trabajos."],
               ["**Tareas**", "Tareas asignadas a usted, tareas que creó, y las sin asignar que cualquiera puede tomar."],
               ["**Chat**", "#general, una sala por trabajo en el que está, mensajes directos."],
-              ["**Asignar turnos**", "Sus propios turnos publicados — el título es el del gerente; usted ve su semana, solo lectura."],
+              ["**Mis turnos**", "Sus propios turnos publicados, solo lectura. (Los gerentes ven la misma pantalla como **Asignar turnos**.)"],
               ["**Reloj de tiempo**", "Su marcación, su trabajo, sus horas de hoy."],
               ["**Ausencias**", "Sus saldos y solicitudes."],
               ["**Seguridad**", "Reportar un incidente; ver los que usted presentó."],
@@ -282,7 +282,9 @@ export const ARTICLES = {
             "El **nombre y la dirección** del cliente, y la dirección del sitio. El número de teléfono y el correo los retiene su nivel — la página del trabajo lo dice junto al botón Voy en camino, y el cliente igual recibe el mensaje de texto.",
             "**Visitas**: fecha y hora, quién está asignado, la lista de verificación con sus puntos de control, y — en las visitas asignadas a usted — **Voy en camino**, **Marcar como completada** y **Cancelar visita**.",
             "**Materiales por comprar**, como una lista con cantidades y sin precios.",
-            "**Fotos del trabajo** con un botón para subir, y el **Parte diario** que puede escribir y guardar — vea [[photos-from-the-field|Fotos desde el campo]].",
+            "La **orden de trabajo** (desde la página del trabajo, o el enlace en **Mi horario**): cada área con qué hacer y cuánto — «Cabinet Refinishing × 32», el número de puertas y cajones — el color, el brillo y las capas vendidas, qué incluye, las opciones que eligió el cliente (un acabado de dos tonos, por ejemplo), la lista de materiales, la lista de verificación y las notas de las visitas, más la estimación de horas cuando la cotización la tiene. Nunca un precio, un total, un depósito ni un costo.",
+            "**Fotos del trabajo** con un botón para subir, y el **Parte diario** que puede escribir y guardar — vea [[photos-from-the-field|Fotos desde el campo]]. Usted agrega fotos y las comenta; poner una foto en el sitio web de la empresa, cambiar su etapa y administrar las etiquetas de fotos son cosa de la oficina, así que esos controles no están en su copia.",
+            "No está en su copia: la tarjeta de la **guía de preparación del cliente** — cuándo se envía al cliente y a qué correo es asunto de la oficina.",
             "Las notas de la visita misma. Las notas privadas sobre el cliente y el registro de llamadas del prospecto no se muestran.",
           ] },
         ],
@@ -397,8 +399,8 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Su horario en su teléfono",
     summary:
-      "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Asignar turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
-    updated: "2026-09-13",
+      "Dónde vive el día de un miembro de la cuadrilla: los turnos publicados bajo Mis turnos, las citas en el Calendario, las visitas en el trabajo, y las tareas.",
+    updated: "2026-10-04",
     intro: [
       "Su día está en tres lugares a propósito, porque son tres cosas distintas: un **turno** son las horas que su gerente publicó para usted, una **visita** es un bloque de trabajo reservado en un trabajo, y una **tarea** es un pendiente con su nombre. Los tres muestran solo lo suyo, y ninguno muestra un borrador que la oficina no haya publicado.",
     ],
@@ -408,6 +410,7 @@ export const ARTICLES = {
         heading: 'Mi horario',
         blocks: [
           { p: "**Mi horario** en el menú (y la pestaña Horario de la barra inferior del teléfono) son tus próximas dos semanas, una tarjeta por día, hecha para el pulgar: **Mañana, martes 15 sep**, luego las horas en grande — **8:00 – 16:00** — el cliente y la dirección del sitio, quién más está en ese trabajo ese día como iniciales, tu comida y descansos, y la nota del responsable citada. En la tarjeta de hoy un botón verde **Fichar** abre el reloj. Un turno puesto fuera de las horas en que dijiste estar disponible lo indica, con quién lo hizo." },
+          { p: "Tus **visitas de trabajo** están en las mismas tarjetas, en orden con tus turnos y marcadas **Visita**: la hora, el cliente y el trabajo, la dirección del sitio y la nota de la visita — las mismas visitas que muestra **Mi día**. Una visita, y un turno que la oficina puso en un trabajo, llevan los botones **Abrir trabajo** y **Orden de trabajo**; ambos se abren para ti, porque estar asignado al trabajo es lo que te lo abre." },
           { p: "**Añadir al calendario** descarga tus turnos publicados como un archivo .ics que el calendario del teléfono abre; descárgalo de nuevo la semana siguiente y los eventos se actualizan en lugar de duplicarse. **Pedir tiempo libre** lleva a la pantalla de Ausencias. Solo aparecen turnos publicados — un borrador que tu responsable no ha confirmado nunca llega a tu teléfono." },
           { note: "Cuando un responsable publica, mueve, cambia de trabajo o cancela uno de tus turnos recibes una notificación en la campana y, si las activaste, un push: **Tu horario está publicado: lun 14 sep, 8:00 – 16:00 en Sophie Dubois, 12 rue Principale, y 4 más**. Tocarlo abre esta pantalla." },
         ],
@@ -426,7 +429,7 @@ export const ARTICLES = {
           { table: {
             head: ["Fila", "Qué muestra", "Qué puede hacer"],
             rows: [
-              ["**Asignar turnos**", "Sus turnos publicados, una semana a la vez, de domingo a sábado, con hoy enmarcado", "Leerlos. La línea al pie dice: Estos son los turnos que publicó tu gerente. Vuelve para ver cambios."],
+              ["**Mis turnos**", "Sus turnos publicados, una semana a la vez, de domingo a sábado, con hoy enmarcado", "Leerlos. La línea al pie dice: Estos son los turnos que publicó tu gerente. Vuelve para ver cambios."],
               ["**Calendario**", "Citas asignadas a usted, citas sin asignar, y visitas en sus trabajos", "Abrir el trabajo; en su propia visita, Voy en camino y Marcar como completada."],
               ["**Trabajos**", "Los trabajos en los que tiene una visita, con la fecha y hora de cada visita", "Marcar la lista de verificación, agregar fotos, escribir el parte diario."],
               ["**Tareas**", "Tareas asignadas a usted, las que creó, y las sin asignar", "Tomar una tarea sin asignar; completar las suyas."],
@@ -440,7 +443,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Un gerente prepara la semana en la pantalla Programación y presiona **Publicar semana**; hasta entonces, un turno es un **Borrador** que la cuadrilla no puede ver. Una vez publicado, su turno muestra su inicio y su fin, el trabajo, y cualquier nota que el gerente haya escrito — dónde estar, qué llevar. Si un turno se colocó fuera de las horas en que dijo estar disponible, el turno mismo dice **Fuera de la disponibilidad declarada**, con quién lo hizo y por qué, para que se entere aquí y no esa mañana." },
           { figure: "harness:scheduler", caption: "La programación como la ve un gerente — la semana como tarjetas por día, Agregar turno y Publicar semana. Un miembro de la cuadrilla ve las mismas tarjetas con solo sus propios turnos publicados, y sin botones." },
-          { note: "La fila de la pantalla se titula **Asignar turnos** para todos porque el título es el del gerente. Usted no asigna nada; lee lo que se le asignó." },
+          { note: "La fila se llama **Asignar turnos** solo para quienes pueden cambiar el horario de todos. Para usted se llama **Mis turnos** — usted no asigna nada, lee lo que se le asignó. Un supervisor que ve la semana del equipo sin poder cambiarla ve **Turnos del equipo**." },
         ],
       },
       {
@@ -637,7 +640,7 @@ export const ARTICLES = {
     title: "Chat en su teléfono",
     summary:
       "El chat de la empresa desde el teléfono de un miembro de la cuadrilla: #general, una sala por cada trabajo en el que está, mensajes directos, menciones, y qué puede y qué no puede llevar un mensaje.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Chat** es su empresa hablando consigo misma. #general es todo el equipo; cada trabajo en el calendario tiene su propia sala para la cuadrilla reservada en él y la oficina; un mensaje directo es entre ustedes dos. Nada sale de la empresa, y es la única pestaña que todos los niveles de acceso conservan en la barra de pestañas del teléfono.",
     ],
@@ -646,7 +649,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La lista agrupa las salas en **Sin leer**, **Empresa**, **Trabajos**, **Mensajes directos** y **Trabajos terminados**. Abra una y obtiene el hilo con un separador **Mensajes sin leer** donde se quedó, el panel **Miembros**, un enlace **Abrir trabajo** en una sala de trabajo, y el cuadro de redacción abajo. La lista se actualiza sola cada 15 segundos mientras la pantalla está abierta." },
+          { p: "La lista agrupa las salas en **Sin leer**, **Mis trabajos**, **Canales**, **Mensajes directos** y **Trabajos terminados**, en filas grandes. Abra una y obtiene el hilo con un separador **Mensajes sin leer** donde se quedó, el panel **Miembros**, un enlace **Abrir trabajo** en una sala de trabajo, y el cuadro de redacción abajo. La lista se actualiza sola cada 15 segundos mientras la pantalla está abierta." },
           { figure: "harness:mobile-chat", caption: "Una sala de trabajo en un teléfono — el separador de no leídos, un mensaje resaltado que menciona a dos personas, el cuadro de redacción con su contador de caracteres, y Enviar." },
         ],
       },
@@ -660,6 +663,8 @@ export const ARTICLES = {
               ["**#general**", "Todo el equipo", "En el momento en que se acepta su invitación; sale cuando su cuenta se desactiva"],
               ["Una sala de trabajo", "Quien esté reservado en una de las visitas del trabajo, más el propietario, los administradores y los gerentes", "Estar reservado en una visita"],
               ["Un mensaje directo", "Solo ustedes dos — nadie más puede leerlo", "**Nuevo mensaje**, luego un nombre"],
+              ["Un canal", "Quien se unió o fue agregado — uno privado está oculto para todos los demás", "**Explorar canales**, luego **Unirme** — o la oficina lo agrega"],
+              ["Un chat de grupo", "Las personas elegidas — solo ellas pueden leerlo", "**Nuevo mensaje**, luego dos nombres o más"],
               ["**Trabajos terminados**", "Las mismas personas, en lectura para el registro", "El trabajo está terminado; la sala se conserva"],
             ],
           } },
@@ -671,7 +676,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Toque **Chat** en la barra de pestañas.",
-            "Abra la sala — o **Nuevo mensaje** para empezar un mensaje directo con alguien del equipo.",
+            "Abra la sala — o **Nuevo mensaje** para escribirle a una persona, o a dos o más como grupo.",
             "Escriba en el cuadro de redacción. Hasta 4,000 caracteres; el conteo se muestra bajo el cuadro.",
             "Para dirigir un mensaje a alguien, escriba @ y elíjalo de la lista. Solo las personas de la sala pueden ser mencionadas.",
             "Toque **Enviar**. Si falla, el mensaje dice **No se envió.** con **Volver a ponerlo en el cuadro** — sus palabras no se pierden.",
@@ -682,8 +687,8 @@ export const ARTICLES = {
         id: "mentions-and-alerts",
         heading: "Las menciones, y a quién se le avisa",
         blocks: [
-          { p: "Un mensaje directo le avisa a la otra persona; una mención les avisa a las personas nombradas. Nunca al autor, nunca a toda la sala. La campana cuenta sus salas sin leer, y si la persona activó las notificaciones del navegador, un mensaje directo o una mención también le llega como notificación — **Nuevo mensaje de …** o **… te mencionó en #general**." },
-          { note: "No hay confirmación de lectura ni indicador de escritura. Abrir una sala la marca como leída para usted; nadie más lo ve." },
+          { p: "Un mensaje directo o un chat de grupo les avisa a todos los que están en él; en #general, un canal o una sala de trabajo, solo lo hace una mención — y una mención también llega a la campana de notificaciones. Nunca al autor, y nunca a quien tiene la sala abierta. La pestaña **Chat** muestra cuántos mensajes esperan, y si la persona activó las notificaciones del navegador, el mensaje le llega como notificación — **Nuevo mensaje de …** o **… te mencionó en #general**. Cada sala se puede silenciar: vea [[chat-notifications-and-mute|Notificaciones del chat y silenciar]]." },
+          { note: "No hay indicador de escritura. Debajo de su propio último mensaje, **Visto por 3** dice cuántas personas de la sala lo tuvieron en pantalla — tóquelo para ver los nombres; vea [[seen-by-in-team-chat|Visto por en el chat del equipo]]." },
         ],
       },
       {
@@ -716,7 +721,7 @@ export const ARTICLES = {
     title: "Pedir tiempo libre desde su teléfono",
     summary:
       "Solicite un día libre, vea cuánto le queda, retire una solicitud, y sepa de quién está esperando.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Ausencias** es una sola pantalla con dos funciones: lo que le queda, y sus solicitudes. Una solicitud va a la persona a quien usted reporta; algunos tipos se aprueban automáticamente en el momento en que la envía; y hasta que se toma, puede retirarla usted mismo.",
     ],
@@ -726,6 +731,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Arriba, una tarjeta por tipo de ausencia que su empresa configuró — vacaciones, días por enfermedad, día personal, como lo haya llamado el propietario — con **Acumulado**, **Tomado**, lo que está pendiente de aprobación, y los días **Restante**. Debajo, **Tus solicitudes** con el botón **Solicitar tiempo libre**, cada solicitud con su etiqueta de estado y, mientras está pendiente, una línea que dice de quién está esperando. Si todavía no existen políticas de ausencias, la pantalla lo dice y nombra la página de configuración que un propietario usa para agregarlas." },
+          { note: "Si su empresa todavía no configuró ningún tipo de ausencia, la pantalla lo dice — y aun así puede pedir tiempo libre **sin goce de sueldo**: las fechas y un motivo. Va a quien aprueba las ausencias, como cualquier solicitud, y no usa ningún saldo. Los tipos pagados aparecen en cuanto el propietario los configura en Ajustes → Políticas de tiempo libre." },
           { figure: "harness:mobile-time-off", caption: "Ausencias en un teléfono — las tarjetas de saldo Vacaciones y Día personal, Solicitar tiempo libre, y una solicitud pendiente con su botón Withdraw." },
         ],
       },

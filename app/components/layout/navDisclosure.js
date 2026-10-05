@@ -47,7 +47,9 @@ export function filterGroups(groups, query, label) {
       return {
         ...group,
         items: group.items.filter(
-          (item) => groupMatches || label(item.key).toLowerCase().includes(q),
+          // labelKey when the row is printed under another name for this
+          // member (lib/permissions/nav.js navLabelKey) — search what they see.
+          (item) => groupMatches || label(item.labelKey || item.key).toLowerCase().includes(q),
         ),
       };
     })

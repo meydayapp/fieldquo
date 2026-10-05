@@ -68,6 +68,7 @@ import { filterNavGroups, filterNavItems } from "@/lib/features/nav";
 import {
   filterNavGroupsByPermission,
   filterNavItemsByPermission,
+  labelNavItems,
 } from "@/lib/permissions/nav";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useTradeGate } from "@/app/providers/TradeGateProvider";
@@ -396,7 +397,7 @@ export function useNavGroups(groups) {
           caller,
         ),
         tradeGate,
-      ),
+      ).map((g) => ({ ...g, items: labelNavItems(g.items, caller) })),
     [groups, featureFlags, caller, tradeGate, isInfluencer],
   );
 }
@@ -406,7 +407,7 @@ export function useNavItems(items) {
   const featureFlags = useFeatureFlags();
   const caller = usePermissions();
   return useMemo(
-    () => filterNavItemsByPermission(filterNavItems(items, featureFlags), caller),
+    () => labelNavItems(filterNavItemsByPermission(filterNavItems(items, featureFlags), caller), caller),
     [items, featureFlags, caller],
   );
 }
@@ -556,7 +557,7 @@ export default function AdminSidebar() {
       item={item}
       showLabel={forceExpanded || !collapsed}
       active={isActive(item.href)}
-      label={t(item.key)}
+      label={t(item.labelKey || item.key)}
       featureFlags={featureFlags}
       onNavigate={onNavigate}
       trailing={trailing ?? (item.href === "/app/chat" ? <NavUnreadBadge counts={chatUnread} placement="end" /> : null)}

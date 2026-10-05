@@ -82,7 +82,7 @@ function CrewEverythingElse({ pageDrawn }) {
       <h2 className="px-1 text-lg font-bold text-foreground">{t("app.me.more.allPages")}</h2>
       <RowList>
         {[...pages, ...others].map((row) => (
-          <BigRow key={row.href} icon={row.icon} title={t(row.key)} href={row.href} />
+          <BigRow key={row.href} icon={row.icon} title={t(row.labelKey || row.key)} href={row.href} />
         ))}
         {/* Light or dark — it lived in the avatar menu, which crew no longer have. */}
         <BigRow title={t("app.nav.appearance")} right={<ThemeToggle compact />} />

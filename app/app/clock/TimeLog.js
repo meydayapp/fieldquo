@@ -18,6 +18,7 @@ import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { reportResponseError } from "@/lib/clientErrors";
 import { activityIcon, activityName, fmtDuration } from "@/app/components/timeclock/activityUi";
+import { activityForJob } from "@/lib/timeclock/corrections";
 
 function timeIn(iso, timeZone) {
   try {
@@ -372,10 +373,23 @@ function CorrectionSheet({ entry, data, t, onClose, onDone }) {
             ))}
           </select>
         </label>
-        {jobRule !== "none" ? (
+        {/* Always offered (lib/timeclock/corrections.js activityForJob says
+            why): the jobs this person may book time to — the clock's own
+            list, scoped by assignedJobWhere, visits and published shifts —
+            optional unless the activity requires one. Picking a job under an
+            activity that takes none moves the request to "on site". */}
+        {work.length > 0 ? (
           <label className="mt-3 block text-xs font-semibold text-muted-foreground">
             {t("app.clock.jobLabel", "Which job?")}
-            <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground">
+            <select
+              value={jobRule === "none" ? "" : jobId}
+              onChange={(e) => {
+                const next = e.target.value;
+                setJobId(next);
+                setActivity((current) => activityForJob({ activity: current, jobId: next, activities: work }));
+              }}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground"
+            >
               {jobRule === "required" ? (
                 <option value="" disabled>
                   {t("app.clock.pickJob")}
@@ -389,6 +403,11 @@ function CorrectionSheet({ entry, data, t, onClose, onDone }) {
                 </option>
               ))}
             </select>
+            {jobRule === "none" ? (
+              <span className="mt-1 block font-normal">
+                {t("app.clock.correction.jobMakesOnSite", "Optional. Picking a job records this time as on site at that job.")}
+              </span>
+            ) : null}
           </label>
         ) : null}
         <label className="mt-3 block text-xs font-semibold text-muted-foreground">

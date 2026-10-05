@@ -378,6 +378,23 @@ ok("...and offers the way back when arrived at from the dashboard",
   ok("...and a re-run is skipped on its marker", draftAgain.status === "skipped" && qdb.T.quote.length === 3, draftAgain);
   for (const q of [lq, dq]) ok(`${q?.status} quote created via "import" (not produced by this product)`, q?.createdVia === "import");
 
+  // ── The owner decides afterwards: one sentence of a lost quote's note ─────
+  const { amendRecordedQuoteNote } = await import("../lib/jobs/importPastJob.js");
+  const FROM = "Deposit of $500 received at the source; refund or forfeit undecided.";
+  const TO = "The $500 deposit was kept as non-refundable.";
+  const snapshot = (q) => JSON.stringify({ ...q, reviewNotes: undefined });
+  const lqBefore = snapshot(lq);
+  const amended = await amendRecordedQuoteNote(qdb, { companyId: "co1", sourceRef: "src:quote:lost1", from: FROM, to: TO });
+  ok("the deposit decision amends the lost quote's internal note", amended.status === "amended" && lq.reviewNotes.includes(TO) && !lq.reviewNotes.includes(FROM), amended);
+  ok("...and nothing else on the row", snapshot(lq) === lqBefore && lq.reviewNotes.includes("[src:quote:lost1]"));
+  const amendedAgain = await amendRecordedQuoteNote(qdb, { companyId: "co1", sourceRef: "src:quote:lost1", from: FROM, to: TO });
+  ok("...a re-run is skipped", amendedAgain.status === "skipped" && amendedAgain.reason === "already_amended", amendedAgain);
+  const notThere = await amendRecordedQuoteNote(qdb, { companyId: "co1", sourceRef: "src:quote:lost1", from: "A sentence nobody wrote.", to: "Something else." });
+  ok("...a note that no longer says the sentence is refused, not overwritten", notThere.status === "error" && notThere.error === "note_changed_since_import", notThere);
+  const liveDraftNote = dq.reviewNotes;
+  const onLive = await amendRecordedQuoteNote(qdb, { companyId: "co1", sourceRef: "src:quote:draft1", from: "Send it again when ready.", to: "Changed." });
+  ok("...and a quote that is not historical (the live draft) is never touched", onLive.status === "error" && onLive.error === "not_found" && dq.reviewNotes === liveDraftNote, onLive);
+
   const refusedQ = await createRecordedQuote(qdb, { companyId: "co1", row: client, context: qctx, now: TODAY, recorded: { ...lostRec, sourceRef: "src:quote:x" } });
   ok("a lost quote with no quote date (its number's year) is refused", refusedQ.status === "error" && refusedQ.error === "quote_date_required", refusedQ);
 }

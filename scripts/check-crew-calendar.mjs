@@ -139,8 +139,8 @@ ok(
     ).length === 0,
 );
 ok(
-  "assignedJobWhere still means 'has a visit assigned to me'",
-  assignedJobWhere(crew)?.visits?.some?.assignedToId === "u_crew",
+  "assignedJobWhere still means 'has a visit assigned to me' (or a published shift on it)",
+  (assignedJobWhere(crew)?.AND?.[0]?.OR || []).some((b) => b.visits?.some?.assignedToId === "u_crew"),
 );
 ok(
   "…and is a no-op for someone who sees the whole board",

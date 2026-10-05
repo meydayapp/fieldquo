@@ -10,6 +10,7 @@ import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { validateBreaks } from "@/lib/shifts/coverage";
 import { afterShiftDelete, afterShiftUpdate } from "@/lib/shifts/shiftNotify";
+import { syncJobRooms } from "@/lib/company/chat/store";
 
 const SHIFT_SELECT = {
   id: true,
@@ -213,6 +214,9 @@ export async function PATCH(request, { params }) {
       // able to fail it (lib/shifts/shiftNotify.js): a draft moving says
       // nothing; a published shift moving, re-jobbed or just published does.
       await afterShiftUpdate(member, existing, shift);
+      // A published shift on a job puts its worker in the job's room
+      // (lib/company/chat/rules.js); re-jobbing or publishing moves them.
+      void syncJobRooms(member.companyId, [existing.jobId, data.jobId]);
       return NextResponse.json({
         ok: true,
         shift,
@@ -227,6 +231,7 @@ export async function PATCH(request, { params }) {
   // able to fail it (lib/shifts/shiftNotify.js): a draft moving says
   // nothing; a published shift moving, re-jobbed or just published does.
   await afterShiftUpdate(member, existing, shift);
+  void syncJobRooms(member.companyId, [existing.jobId, data.jobId]);
   return NextResponse.json({ ok: true, shift });
 }
 
@@ -272,5 +277,6 @@ export async function DELETE(request, { params }) {
   // Logged, and — if it was published — the person on it is told it is
   // gone. A deleted draft was never theirs to know about.
   await afterShiftDelete(member, existing);
+  void syncJobRooms(member.companyId, [existing.jobId]);
   return NextResponse.json({ ok: true });
 }

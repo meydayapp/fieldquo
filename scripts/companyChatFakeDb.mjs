@@ -21,10 +21,25 @@ const SHAPE = {
     "worker",
     "job",
     "jobVisit",
+    // A published shift on a job puts its worker in the job's room, the same
+    // as a visit (lib/company/chat/rules.js). Empty unless a check seeds one.
+    "shift",
     "companyChatRoom",
     "companyChatMember",
     "companyChatMessage",
     "pushSubscription",
+    // The bell: a chat mention writes a feed row through the REAL
+    // notifyEvent (lib/notifications/notify.js) against this fake, so the
+    // check proves the row exists rather than that a stub was called.
+    "notificationEvent",
+    "notificationDelivery",
+    // Phase 3–4 (2026-10-04): a quote a card names, the client its card
+    // prints, the job photo "Save to job photos" files, and the offline
+    // ledger an outbox replay is answered from.
+    "client",
+    "quote",
+    "jobPhoto",
+    "offlineSyncItem",
   ],
   /** Relations, per table: name → { table, kind, localKey | foreignKey }. */
   relations: {
@@ -33,6 +48,10 @@ const SHAPE = {
     },
     job: {
       visits: { table: "jobVisit", kind: "many", foreignKey: "jobId" },
+      shifts: { table: "shift", kind: "many", foreignKey: "jobId" },
+    },
+    shift: {
+      worker: { table: "worker", kind: "one", localKey: "workerId" },
     },
     companyChatRoom: {
       job: { table: "job", kind: "one", localKey: "jobId" },
@@ -45,17 +64,67 @@ const SHAPE = {
     },
     companyChatMessage: {
       author: { table: "member", kind: "one", localKey: "authorMemberId" },
+      room: { table: "companyChatRoom", kind: "one", localKey: "roomId" },
+      replyTo: { table: "companyChatMessage", kind: "one", localKey: "replyToId" },
+    },
+    quote: {
+      client: { table: "client", kind: "one", localKey: "clientId" },
+    },
+    notificationDelivery: {
+      event: { table: "notificationEvent", kind: "one", localKey: "eventId" },
+      member: { table: "member", kind: "one", localKey: "memberId" },
     },
   },
   uniques: {
     companyChatRoom: [["companyId", "key"], ["jobId"]],
     companyChatMember: [["roomId", "memberId"]],
     member: [["userId", "companyId"]],
+    notificationDelivery: [["eventId", "memberId"]],
+    offlineSyncItem: [["companyId", "clientKey"]],
   },
+  // The column defaults Postgres gives a row (prisma/schema.prisma), so a
+  // row the store creates without naming a column reads as the database
+  // would hand it back.
   defaults: {
-    companyChatMember: { open: true, lastSeenAt: null, removedAt: null },
-    companyChatMessage: { kind: "message", mentions: [], meta: null },
-    companyChatRoom: { name: null, jobId: null, lastMessageAt: null },
+    companyChatMember: {
+      open: true,
+      lastSeenAt: null,
+      removedAt: null,
+      role: "member",
+      notify: "default",
+      mutedUntil: null,
+      lastOpenedAt: null,
+      hiddenAt: null,
+      starredAt: null,
+      addedByMemberId: null,
+    },
+    companyChatMessage: {
+      kind: "message",
+      mentions: [],
+      meta: null,
+      attachments: null,
+      card: null,
+      replyToId: null,
+      editedAt: null,
+      deletedAt: null,
+      deletedByMemberId: null,
+      pinnedAt: null,
+      pinnedByMemberId: null,
+    },
+    jobPhoto: { stage: "progress", featured: false, caption: null },
+    companyChatRoom: {
+      name: null,
+      jobId: null,
+      lastMessageAt: null,
+      topic: null,
+      private: false,
+      postingPolicy: "everyone",
+      autoJoin: false,
+      createdByMemberId: null,
+      archivedAt: null,
+      archivedByMemberId: null,
+    },
+    notificationDelivery: { readAt: null },
   },
 };
 
