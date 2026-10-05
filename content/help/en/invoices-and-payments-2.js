@@ -442,7 +442,7 @@ export const ARTICLES = {
     title: "Refunds",
     summary:
       "How to return a payment to a client from the invoice — through Stripe for a card or bank payment, by hand for cash — what FieldQuo records when you do, and why the processing fee stays deducted.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "A refund returns some or all of a payment to the client. You issue it from the invoice in FieldQuo — **Refund** on the payment row — for the full amount or a part of it, with a reason the client will see on their invoice. A card or bank payment goes back the way it came, through Stripe; a cash, cheque or e-transfer refund is recorded with no money moving through Stripe. FieldQuo writes the refund as its own line under the payment, and the invoice's balance and status follow.",
       "The processing fee is not returned. Stripe keeps its fee on a refunded charge, so the fee already deducted stays deducted. Refund the amount the client paid, not the net you received.",
@@ -495,6 +495,21 @@ export const ARTICLES = {
         heading: "Refunding a cash, cheque or e-transfer payment",
         blocks: [
           { p: "A cash, cheque or e-transfer payment is refunded from the same **Refund** action. The payment was not taken through FieldQuo, so no Stripe call is made: the row records that you returned the amount by hand, and the invoice's balance rises by it. The **Record Payment** form still refuses a negative amount — a refund is not a payment typed with a minus sign. If the invoice should show a smaller total, amend the invoice instead — see [[edit-an-invoice-after-sending|Edit an invoice after it was sent]]." },
+        ],
+      },
+      {
+        id: "void-a-payment",
+        heading: "Voiding a payment recorded by mistake",
+        blocks: [
+          { p: "A payment you recorded by hand for money that never came in — a test, a typo, the wrong invoice — is not refunded: there is nothing to give back, and a refund is one more record of money. It is **voided**. Open the invoice; under **Payment History**, a cash, cheque, e-transfer (or Zelle, Venmo, Cash App, PayPal, bank transfer, card-taken-elsewhere) payment shows **Void** beside it for the owner and administrators. Give the reason (“Test payment — no money was received”) and press **Void payment**." },
+          { bullets: [
+            "The payment is removed from the invoice, together with any refund you recorded by hand against it.",
+            "The invoice goes back to unpaid — **Sent** if it was ever sent, **Draft** if not — with its balance due, and the reminders for unpaid invoices apply to it again until you delete it.",
+            "The **activity log** keeps the void: who did it, when, the amount, the method and the reason. It stays there even after the invoice is deleted.",
+            "Once nothing is recorded on it, the invoice can be deleted; then its job and quote, then the client.",
+          ] },
+          { warning: "A card or bank payment taken through FieldQuo can never be voided — that money really moved, and it sits in your Stripe balance whatever FieldQuo says. Use **Refund** on those, so it goes back to the client the way it came. A booking fee credited from a card can't be voided either." },
+          { p: "Only the owner and administrators can void; the Manager level, Crew, Estimator and Dispatcher cannot, whatever their payment toggles, and a read-only support session is refused." },
         ],
       },
       {

@@ -61,6 +61,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   paintTakeoff,
   paintFormula,
+  paintCoatHours,
+  paintDryWait,
   areaGeometry,
   derivedGeometry,
   newPaintArea,
@@ -81,6 +83,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { showError } from "@/lib/clientErrors";
 import { Field, Num, inputClass, asList } from "./fields";
+import { coatHoursText } from "./coatHoursText";
 import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
 import { usesSurfaceCalculator, usesCountCalculator, excludedBy, trimCountedTwice } from "@/lib/quotes/estimateKindRouting";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -737,6 +740,9 @@ function SubstrateRow({
         : "";
   const products = book?.products || {};
   const multi = Array.isArray(row.products) && row.products.length > 1;
+  const firstProduct = Array.isArray(row.products) && row.products[0] && typeof row.products[0] === "object" ? row.products[0] : null;
+  // "2 coats × 2.07 h a coat = 4.14 h" — the engine's own figures.
+  const coatWhy = priced ? coatHoursText(paintCoatHours(priced, book), t) : null;
 
   return (
     <>
@@ -762,9 +768,16 @@ function SubstrateRow({
             <span>·</span>
             <label className="flex items-center gap-1">
               {t("app.paint.coats", "Coats")}
+              {/* A row that carries its own products (every staining row —
+                  newPaintSubstrate copies them) prices its FIRST product's
+                  coats and ignores row.coats, so this box used to change
+                  nothing on a deck or a fence. It now writes both. */}
               <select
-                value={row.coats ?? def.coats ?? 2}
-                onChange={(e) => set({ coats: Number(e.target.value) })}
+                value={firstProduct ? (firstProduct.coats ?? 1) : (row.coats ?? def.coats ?? 2)}
+                onChange={(e) => {
+                  const coats = Number(e.target.value);
+                  set(firstProduct ? { coats, products: row.products.map((x, xi) => (xi === 0 ? { ...x, coats } : x)) } : { coats });
+                }}
                 className="border border-border rounded px-1 py-0.5 text-xs bg-background"
               >
                 <option value={1}>1</option>
@@ -1020,6 +1033,11 @@ function SubstrateRow({
                 {t("app.paint.heightWhy", "Height ×{f} on the hours: {why}", { f: priced.height.factor, why: priced.height.why })}
               </div>
             )}
+            {coatWhy && (
+              <div className="text-xs text-muted-foreground mt-1" data-coat-hours>
+                {coatWhy}
+              </div>
+            )}
             {priced?.prepAuto && (
               <div className="text-xs text-muted-foreground mt-1">
                 {row.prepHours > 0
@@ -1047,6 +1065,10 @@ function OptionRows({ area, priced, book, t, money, onChange }) {
   const optionalLines = (priced?.lines || []).filter((l) => l.kind === "substrate" && l.optional);
   const pricedOptions = priced?.options || [];
   const includedLines = (priced?.lines || []).filter((l) => l.kind === "substrate" && !l.optional);
+  // An extra coat on wallpaper (no paint, and its coats are not labour)
+  // would price at nothing — not offered, rather than offered at $0.
+  const coatLines = includedLines.filter((l) => !l.noProduct || paintCoatHours(l, book)?.applies);
+  const linesFor = (kind) => (kind === "extra_coat" ? coatLines : includedLines);
   const products = book?.products || {};
 
   const setOption = (i, patch) =>
@@ -1145,7 +1167,7 @@ function OptionRows({ area, priced, book, t, money, onChange }) {
                         className="border border-border rounded px-1.5 py-0.5 text-xs bg-background"
                       >
                         <option value="">{t("app.paint.onWhichLine", "On which line?")}</option>
-                        {includedLines.map((l) => (
+                        {linesFor(o.kind).map((l) => (
                           <option key={l.rowIndex} value={l.rowIndex}>
                             {l.label}
                           </option>
@@ -1257,7 +1279,7 @@ function OptionRows({ area, priced, book, t, money, onChange }) {
                   : t("app.paint.addCustomOptionHint", "Anything else, priced by hand"),
             onSelect: () =>
               addOption(kind, {
-                substrateIndex: kind === "custom" ? null : (includedLines[0]?.rowIndex ?? null),
+                substrateIndex: kind === "custom" ? null : (linesFor(kind)[0]?.rowIndex ?? null),
                 productKey:
                   kind === "premium_paint" && includedLines[0] ? premiumFor(includedLines[0])[0] || null : null,
               }),
@@ -1323,6 +1345,9 @@ function AreaCard({
 
   const media = asList(area.media);
   const hasNotes = Boolean(area.clientNote || area.crewNote);
+  // The engine's own reading of the area's dry-time wait (paintTakeoff.js).
+  const wait = paintDryWait(area, priced?.lines || [], book);
+  const waitHours = num2(priced?.waitHours);
 
   return (
     // data-paint-area: the document builder lands here when its room card is
@@ -1436,6 +1461,39 @@ function AreaCard({
         <Field label={t("app.paint.areaPrepHours", "Extra prep hours")}>
           <Num value={area.prepHours} onChange={(v) => set({ prepHours: v })} step={0.25} suffix="h" />
         </Field>
+        {/* Dry time between coats. Shown only where there IS a gap between
+            coats (a line at 2 coats or more), and charged only when the crew
+            waits on site — a crew that moves on while it dries is not idle. */}
+        {(wait.gaps > 0 || area.crewWaitsOnSite === true) && (
+          <Field label={t("app.paint.dryWait", "Dry time between coats")}>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                step={0.25}
+                value={area.dryWaitHours ?? ""}
+                placeholder={String(wait.presetHours)}
+                onChange={(e) => set({ dryWaitHours: e.target.value === "" ? null : Number(e.target.value) })}
+                className={`${inputClass} pr-8`}
+                aria-label={t("app.paint.dryWait", "Dry time between coats")}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">h</span>
+            </div>
+            <label className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={area.crewWaitsOnSite === true}
+                onChange={(e) => set({ crewWaitsOnSite: e.target.checked })}
+              />
+              {t("app.paint.crewWaits", "Crew waits on site while coats dry")}
+            </label>
+            <p className="mt-0.5 text-[11px] text-muted-foreground" data-dry-wait>
+              {wait.crewWaits
+                ? t("app.paint.dryWaitCharged", "{gaps} waits × {h} h = {total} h of labour", { gaps: wait.gaps, h: wait.perGap, total: Math.round(wait.hours * 100) / 100 })
+                : t("app.paint.dryWaitNotCharged", "Not charged — the crew works elsewhere while it dries")}
+            </p>
+          </Field>
+        )}
       </div>
 
       {/* ── Calculated from measurements — type over any figure ── */}
@@ -1515,7 +1573,12 @@ function AreaCard({
                   {(Math.round(num2(priced.prepHours) * 100) / 100).toFixed(2)}
                 </td>
                 <td className="py-1.5 px-1 text-right tabular-nums">
-                  {(Math.round((num2(priced.hours) - num2(priced.prepHours)) * 100) / 100).toFixed(2)}
+                  {(Math.round((num2(priced.hours) - num2(priced.prepHours) - waitHours) * 100) / 100).toFixed(2)}
+                  {waitHours > 0 && (
+                    <div className="text-[10px] font-normal text-muted-foreground">
+                      {t("app.paint.dryWaitShort", "+{h} h waiting to dry", { h: Math.round(waitHours * 100) / 100 })}
+                    </div>
+                  )}
                 </td>
                 <td className="py-1.5 px-1 text-right tabular-nums">{priced.displayHours.toFixed(2)}</td>
                 <td className="py-1.5 px-1 text-right tabular-nums">{money(priced.material)}</td>

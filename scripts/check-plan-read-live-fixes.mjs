@@ -15,9 +15,10 @@
 //      number: "A-3 p5", "pages 5, 6 and 7", "west elevation" now resolve,
 //      a number shared by every sheet resolves to none, and the model is
 //      told the names.
-//   3. Coats move paint and not hours — the builder's own rule, measured
-//      here on the engine — and slow or high work is the line's own prep
-//      hours, which reach the takeoff the builder opens with.
+//   3. Coats move the paint AND the hours (owner, 2026-10-05: each coat
+//      takes about the same time) — the builder's own rule, measured here
+//      on the engine — and slow or high work is the line's own prep hours,
+//      which reach the takeoff the builder opens with.
 //   4. The chat can enter extra prep hours on a surface, and an equipment
 //      price ONLY at a figure the estimator typed or accepted, flagged as the
 //      AI's; never for a member who can't see prices; never a company rate.
@@ -201,17 +202,19 @@ const staleView = await planReadView(readRow, { companyId: "co1", canSeeMoney: t
 ok("the screen's sheet names: Page 5, not A-3 on all thirteen", staleView.sheets[4].name === "Page 5" && !staleView.sheets.some((s) => s.name === "A-3"), staleView.sheets.map((s) => s.name).slice(0, 3));
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("3. Coats move paint, not hours — the builder's rule — and prep hours");
+section("3. Coats move the paint and the hours — the builder's rule — and prep hours");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const wallTakeoff = (coats, prepHours = 0) => ({ model: "area_substrate", estimateType: "interior", notes: "", areas: [{ label: "Nave", measurement: "surface", substrates: [{ key: "walls", quantity: 4850, coats, ...(prepHours ? { prepHours } : {}) }] }] });
 const eng = [1, 2, 3].map((c) => paintTakeoff(wallTakeoff(c), books.interior_painting));
-ok("the BUILDER's engine: 1, 2 or 3 coats of 4,850 sq ft of wall — the same hours", eng[0].hours === eng[1].hours && eng[1].hours === eng[2].hours, eng.map((e) => e.hours));
+ok("the BUILDER's engine: 1, 2 or 3 coats of 4,850 sq ft of wall — ½, 1 and 1½ times the two-coat hours", near(eng[0].hours, eng[1].hours / 2) && near(eng[2].hours, eng[1].hours * 1.5), eng.map((e) => e.hours));
+const engOff = [1, 2, 3].map((c) => paintTakeoff(wallTakeoff(c), { ...books.interior_painting, coatsChangeLabour: false }));
+ok("…and with \"Coats change labour time\" off, the same hours whatever the coats", engOff.every((e) => e.hours === eng[1].hours), engOff.map((e) => e.hours));
 ok("…and the paint scales with the coats", eng[1].material > eng[0].material * 1.7 && eng[2].material > eng[1].material * 1.3, eng.map((e) => e.material));
 const before = pricingOf(model);
 const twoCoats = applyOps(model, [{ op: "set_surface", surfaceId: "s1", coats: 2 }, { op: "set_surface", surfaceId: "s2", coats: 2 }], opsCtx, { actor: "model" }).model;
 const after = pricingOf(twoCoats);
-ok("the read does what the builder does: 2 coats doubles the paint and leaves the hours (45.1 h stayed 45.1 h)", near(after.pricing.painting.hours, before.pricing.painting.hours, 0.001) && after.pricing.painting.materialCost > before.pricing.painting.materialCost * 1.7, [before.pricing.painting, after.pricing.painting]);
+ok("the read does what the builder does: 1 → 2 coats doubles the paint and the painting hours (32.25 h → 64.5 h)", near(after.pricing.painting.hours, before.pricing.painting.hours * 2, 0.001) && after.pricing.painting.materialCost > before.pricing.painting.materialCost * 1.7, [before.pricing.painting, after.pricing.painting]);
 ok("…its hours ARE the engine's hours for the takeoff the builder opens", near(after.pricedPaint.groups.reduce((n, g) => n + paintTakeoff(g.takeoff, books.interior_painting).hours, 0), after.pricing.painting.hours, 0.01));
 ok("each draft line carries its coats, so the screen shows them beside the hours", after.pricedPaint.lines.every((l) => l.coats === 2), after.pricedPaint.lines.map((l) => l.coats));
 const withPrep = applyOps(twoCoats, [{ op: "set_prep_hours", surfaceId: "s1", hours: 24, text: "nave walls 30–45 ft up, scaffold moves" }], opsCtx, { actor: "person" });
@@ -225,7 +228,8 @@ ok("…and the recommendation's crew-hours count them", near(prepped.pricing.rec
 ok("…with the reason on the crew note, never the client's", prepped.pricedPaint.groups[0].takeoff.areas.some((a) => /\+24 h prep \(nave walls/.test(a.crewNote || "") && !a.clientNote));
 const off = applyOps(withPrep.model, [{ op: "set_prep_hours", surfaceId: "s1", hours: 0 }], opsCtx, { actor: "person" });
 ok("0 takes them off again", !off.model.surfaces[0].prepHours && near(pricingOf(off.model).pricing.painting.hours, after.pricing.painting.hours));
-ok("the screen says the rule beside the coats", /app\.planRead\.draft\.coatsNote/.test(code("app/components/planRead/PlanReadWorkspace.js")) && /Coats change the paint, not the hours/.test(CHAT_SYSTEM));
+ok("the screen says the rule beside the coats", /app\.planRead\.draft\.coatsNote/.test(code("app/components/planRead/PlanReadWorkspace.js")) && /Coats change the hours and the paint/.test(CHAT_SYSTEM) && !/Coats change the paint, not the hours/.test(CHAT_SYSTEM));
+ok("…and each line says its coats × its hours a coat", after.pricedPaint.lines.every((l) => l.coatHours?.applies && l.coatHours.coats === 2 && near(l.coatHours.perCoatHours * 2, l.coatHours.workHours, 1e-9) && near(l.coatHours.workHours, l.hours - l.prepHours, 1e-9)) && /coatHoursText\(l\.coatHours, t\)/.test(code("app/components/planRead/PlanReadWorkspace.js")) && /app\.paint\.coatsWhy/.test(code("app/components/quotes/builder/coatHoursText.js")), after.pricedPaint.lines.map((l) => l.coatHours));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. What an owner naturally asks the chat");

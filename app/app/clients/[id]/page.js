@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 import LanguagePicker from "@/app/components/LanguagePicker";
 import CountrySelect from "@/app/components/CountrySelect";
 import { LANGUAGES } from "@/app/i18n/languages";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -23,6 +24,7 @@ import {
   Languages,
   MessageSquare,
   Hash,
+  Trash2,
 } from "lucide-react";
 import SmsReceiptLine from "@/app/components/sms/SmsReceiptLine";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -53,6 +55,7 @@ export default function ClientDetailPage() {
   const money = useCompanyMoney();
   const { t, language } = useTranslation();
   const { id } = useParams();
+  const router = useRouter();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -70,6 +73,13 @@ export default function ClientDetailPage() {
   // buttons were drawn for one, the two Quick Actions opening a whole builder
   // before the save came back 403.
   const canEditClient = useHasLevel("clientsProperties", "full_edit");
+  // DELETE /api/clients/[id] asks for full_edit_delete — the button follows
+  // the route. There was no delete control on this page at all, so a client
+  // entered as a test (the owner, 2026-10-05) could not be removed by anyone.
+  const canDeleteClient = useHasLevel("clientsProperties", "full_edit_delete");
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   // The private notes are the Notes dial's, not the client dial's: a member
   // may edit the client and still only READ its notes (Estimator), or not see
   // them at all (Crew). Same functions the API asks — see the Notes section
@@ -176,6 +186,36 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/clients/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/app/clients");
+        return;
+      }
+      setShowDelete(false);
+      // What is in the way, in the reader's language: the route counts the
+      // invoices, jobs and quotes and names the order to clear them.
+      const body = await res.clone().json().catch(() => null);
+      if (res.status === 409 && body?.code === "client_has_records" && body.counts) {
+        const sentence = t("app.clientDetail.deleteBlocked", {
+          name: client?.name || "",
+          invoices: body.counts.invoices ?? 0,
+          jobs: body.counts.jobs ?? 0,
+          quotes: body.counts.quotes ?? 0,
+        });
+        setDeleteError(sentence);
+        showError(sentence);
+        return;
+      }
+      await reportResponseError(res, setDeleteError, t("app.clientDetail.deleteError"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
@@ -238,16 +278,44 @@ export default function ClientDetailPage() {
               </span>
             )}
           </div>
-          {canEditClient && (
-            <button
-              onClick={openEdit}
-              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
-            >
-              <Pencil size={14} /> {t("app.action.edit")}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canEditClient && (
+              <button
+                onClick={openEdit}
+                className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
+              >
+                <Pencil size={14} /> {t("app.action.edit")}
+              </button>
+            )}
+            {canDeleteClient && (
+              <button
+                onClick={() => setShowDelete(true)}
+                aria-label={t("app.clientDetail.deleteTitle")}
+                title={t("app.clientDetail.deleteTitle")}
+                data-delete-client
+                className="flex items-center justify-center min-h-[40px] min-w-[40px] border border-border text-red-700 dark:text-red-300 rounded-full hover:bg-muted"
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
         </div>
+        {deleteError && (
+          <div className="mt-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2" data-delete-client-error>
+            {deleteError}
+          </div>
+        )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={showDelete}
+        onClose={() => setShowDelete(false)}
+        onConfirm={handleDelete}
+        title={t("app.clientDetail.deleteTitle")}
+        message={t("app.clientDetail.deleteMessage", { name: client.name })}
+        itemName={client.name}
+        busy={deleting}
+      />
 
       {/* Contact info */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-2.5">

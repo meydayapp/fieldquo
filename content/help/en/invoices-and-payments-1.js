@@ -331,14 +331,14 @@ export const ARTICLES = {
         id: "who-can-edit",
         heading: "Who can edit",
         blocks: [
-          { p: "Editing needs invoices at **View, create & edit** and the **See prices** switch — **Dispatcher**, **Manager**, administrators and the owner. Deleting is a different thing: only a **Draft** can be deleted, and only by someone with **View, create, edit & delete** (the **Manager** preset, administrators, the owner). The trash icon is hidden from everyone else rather than greyed out." },
+          { p: "Editing needs invoices at **View, create & edit** and the **See prices** switch — **Dispatcher**, **Manager**, administrators and the owner. Deleting is a different thing: any invoice with no money recorded on it can be deleted, after a confirmation, and only by someone with **View, create, edit & delete** (the **Manager** preset, administrators, the owner). The trash icon is hidden from everyone else rather than greyed out." },
         ],
       },
     ],
     faq: [
       { q: "Can I just fix a typo without making a version?", a: "On a draft, yes — Save changes edits in place. On a sent invoice, no: even a one-word change is version 2 with a reason. That is the point; the reason can be “Fixed the spelling of the street”." },
       { q: "Which version does the list show?", a: "The current one, with a balance computed across every payment in the family. Opening it shows **v2** in the document header." },
-      { q: "Can I delete a sent invoice I raised by mistake?", a: "No — only drafts can be deleted. Amend it to a zero total with the reason, or refund what was paid; either way the record of what was sent stays." },
+      { q: "Can I delete a sent invoice I raised by mistake?", a: "Yes, as long as no money is recorded on it — any status, after a confirmation. If a payment was recorded on it by hand by mistake, the owner or an administrator voids it first (see [[refunds|Refunds]], Voiding a payment recorded by mistake). An invoice with card money on it stays: refund the money instead." },
     ],
   },
 

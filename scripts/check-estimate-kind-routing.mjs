@@ -341,10 +341,22 @@ const PINNED = {
   "exterior_room/exterior_painting": "2955122ec71d825efa819cb783d434e0",
   "exterior_surface/interior_painting": "6405b9a556aed07fdc79f67c6826d155",
   "exterior_surface/exterior_painting": "6405b9a556aed07fdc79f67c6826d155",
-  "cabinets/interior_painting": "31933a62cfeb6957da00b8ca54a59754",
-  "cabinets/exterior_painting": "31933a62cfeb6957da00b8ca54a59754",
-  "staining/interior_painting": "cad188fae530e2edf3810c2078789d9a",
-  "staining/exterior_painting": "cad188fae530e2edf3810c2078789d9a",
+  // Re-pinned 2026-10-05 (the owner's painting preset corrections, NPC):
+  // cabinets — its 30 lnft of cab_box at 12 lnft/hr, not 6 (half the hours);
+  // staining — its deck row is a literal with no `products`, so it reads the
+  // substrate's new exterior stain (200 sq ft/gal, not stain_oil's 400):
+  // twice the gallons, still unpriced, the same total. A stored staining row
+  // carries its own `products` (newPaintSubstrate copies them), so a real
+  // quote keeps buying stain_oil. Every other pin is unchanged.
+  // Staining moved again the same day, for coats changing labour time: its
+  // stair rows are `coats: 2` — TWO coats of stain under the two clear, four
+  // against the substrate's standard three — so their coat share scales by
+  // 4/3 ($1,171.30 → $1,236.58; with the rule off it prints $1,171.30, as
+  // before). Every row at its standard coats is untouched.
+  "cabinets/interior_painting": "720048313febc15bec7fe3d3c536b9b7",
+  "cabinets/exterior_painting": "720048313febc15bec7fe3d3c536b9b7",
+  "staining/interior_painting": "3c1964fc68bf4ac0ab1766683fa13f82",
+  "staining/exterior_painting": "3c1964fc68bf4ac0ab1766683fa13f82",
   "commercial/interior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "commercial/exterior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "stairs/live": "07ace69015133fb88bfdb14ce72518ea",

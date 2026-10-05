@@ -136,6 +136,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import { clientPoFact } from "@/lib/documents/clientPo";
 import ImportedByPanel from "./ImportedByPanel";
+import { oldSystemNumber } from "@/lib/jobs/pastJobImport";
 import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
 import { costingDefaultsUsed, unratedCrew } from "@/lib/costing/costingDefaults";
@@ -1204,6 +1205,16 @@ export default function QuoteDetailPage() {
           {t("app.pastJobs.note", "Entered as a past job on {date} — no messages were sent.", {
             date: formatDate(quote.historicalImportedAt),
           })}
+          {/* The number the quote had in the system it came from, so the
+              office can match it to a homeowner's old email. Read from the
+              first line of the internal note the importer writes
+              (oldSystemNumber, lib/jobs/pastJobImport.js); a quote with no
+              such line prints nothing. */}
+          {oldSystemNumber(quote.reviewNotes) && (
+            <span className="block" data-old-system-number>
+              {t("app.pastJobs.oldSystem", "Old system: {number}", { number: oldSystemNumber(quote.reviewNotes) })}
+            </span>
+          )}
         </p>
       )}
 

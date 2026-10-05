@@ -128,6 +128,7 @@ import {
   newScopeGroup,
   billedUnitsOf,
   withCabinetAnswers,
+  storedTakeoffDrift,
 } from "@/lib/quotes/builderPayload";
 // Refinish | Reface inside one cabinet group — what carries and why is in
 // the module's header.
@@ -2990,6 +2991,21 @@ export function QuoteBuilderForm({
             {t("app.quoteEdit.takeoffFrozen")}
           </p>
         )}
+
+        {/* Where today's painting rules would price a stored line
+            differently (coats changed labour time on 2026-10-05; a rate card
+            edited since) — said to the office, never applied. The stored
+            price is the quote, whatever its status. */}
+        {group.persisted &&
+          storedTakeoffDrift(group, rateOverridesFor(group.categoryId), quoteLanguage || companyLanguage).map((d) => (
+            <p key={d.description} className="text-xs text-amber-800 dark:text-amber-300" data-stored-price-kept>
+              {t("app.quoteEdit.priceKeptNote", {
+                line: d.description,
+                current: formatAppMoney(d.current, companyCurrency, "en"),
+                stored: formatAppMoney(d.stored, companyCurrency, "en"),
+              })}
+            </p>
+          ))}
 
         {/* A saved unit-priced group's PRICE is frozen for the same reason
             its takeoff is. Its COST is not, and the two are different
