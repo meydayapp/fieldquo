@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 355 articles in the tree; written: en 355, fr 355, es 355; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 357 articles in the tree; written: en 357, fr 357, es 357; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -403,7 +403,7 @@ _Generated 2026-10-05 — 355 articles in the tree; written: en 355, fr 355, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (51)
+### settings (52)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -423,6 +423,7 @@ _Generated 2026-10-05 — 355 articles in the tree; written: en 355, fr 355, es 
 | `settings-work-areas` — Work Areas | ✓ | ✓ | ✓ | settings-work-areas | work_areas |  |
 | `settings-products` — Products & Services (the price book) | ✓ | ✓ | ✓ | settings-products | price_book |  |
 | `settings-services` — Services & Pricing | ✓ | ✓ | ✓ | settings-services | quotes |  |
+| `settings-equipment-access` — Equipment & access | ✓ | ✓ | ✓ | settings-equipment-access | quotes |  |
 | `settings-material-costs` — Material Costs | ✓ | ✓ | ✓ | settings-material-costs | material_costs |  |
 | `settings-cabinet-rates` — Cabinet pricing | ✓ | ✓ | ✓ | settings-cabinet-rates | kitchen_designer |  |
 | `settings-overhead` — Overhead | ✓ | ✓ | ✓ | settings-overhead | break_even |  |

@@ -557,7 +557,10 @@ function memDb(seed) {
 const ledger = [];
 const ledgerDeps = {
   featureAllowsSpend: async () => true,
-  aiBalanceFor: async () => 500,
+  // Enough for a 13-sheet read WITH the first pass's measurement passes
+  // (best model, one per measurable sheet — check:plan-read-first-pass §10):
+  // the read costs more since 2026-10-05, by the owner's choice.
+  aiBalanceFor: async () => 5000,
   debitCredit: async (e) => {
     ledger.push({ ...e, cents: -e.cents });
     return { id: "e1" };
@@ -603,12 +606,17 @@ const goodModel = {
   data: { ...rawSynthesis, surfaces: [{ ...rawSynthesis.surfaces[0], lengthRefs: ["p1.d1"], widthRefs: ["p1.d2"] }], access: [] },
 };
 const sheetReply = { ok: true, data: { relevant: true, summary: "North elevation", areas: [{ name: "North wall", side: "exterior", dimRefs: ["p1.d1", "p1.d2", "p9.zz"], note: null }], heights: [], finishes: [], access: [], readDims: [] } };
+// The first pass's measurement pass (lib/planRead/measurePrompts.js) on a
+// measurable sheet — measuring nothing here, so every assertion below about
+// the sheet passes, the synthesis prompt and the model holds unchanged; what
+// it measures is check:plan-read-first-pass's.
+const emptyMeasure = { ok: true, data: { sheetType: "elevation", sheetTypeReason: "x", views: [], faces: [], heights: [] } };
 let clock = 0;
 const runCalls = [];
 const runComplete = async (args) => {
   runCalls.push(args);
   await args.onUsage?.({ model: args.tier === "best" ? "gpt-5.5" : "gpt-5-mini", promptTokens: 20000, completionTokens: 3000, cachedTokens: 0, imageCount: (args.images || []).length });
-  return args.schemaName === "plan_read_sheet" ? sheetReply : goodModel;
+  return args.schemaName === "plan_read_sheet" ? sheetReply : args.schemaName === "plan_read_measure" ? emptyMeasure : goodModel;
 };
 const adv = await advanceRead("pr2", { companyId: "co1", budgetMs: 10_000_000 }, { ...ledgerDeps, db: mem, complete: runComplete, now: () => (clock += 1000) });
 const row = mem.t.planRead[0];
@@ -618,8 +626,9 @@ ok("…and only dimension ids that exist survive its answer", row.sheets[0].read
 const actualCents = Math.ceil((row.usage.run.vendorMicros * 2) / 10000);
 ok("settled to the actual cost × 2, the rest refunded under the hold's ref", adv.chargedCents === Math.min(started.heldCents, actualCents) && ledger.some((e) => e.refund && e.ref === ledger[0].ref && e.cents === started.heldCents - adv.chargedCents), { adv, ledger, actualCents });
 ok("the charge never exceeds the hold", settlement({ reservedCents: 100, runVendorMicros: 10_000_000 }).chargedCents === 100);
-ok("token totals are kept per step", row.usage.byStep.sheets.calls === 1 && row.usage.byStep.synthesis.calls === 1 && row.usage.promptTokens === 40000, row.usage);
-ok("the synthesis runs on the best tier with the read's cache key", runCalls[1].tier === "best" && runCalls[1].promptCacheKey === "plan_read:pr2");
+ok("token totals are kept per step (the measurement pass its own)", row.usage.byStep.sheets.calls === 1 && row.usage.byStep.measure.calls === 1 && row.usage.byStep.synthesis.calls === 1 && row.usage.promptTokens === 60000, row.usage);
+const synthCall = runCalls.find((c) => c.schemaName === "plan_read_synthesis");
+ok("the synthesis runs on the best tier with the read's cache key", synthCall?.tier === "best" && synthCall?.promptCacheKey === "plan_read:pr2");
 
 ledger.length = 0;
 const memFail = memDb({ planRead: [{ ...baseRead, id: "pr3" }], quoteDocument: docs.map((d) => ({ ...d, planReadId: "pr3" })) });
@@ -628,7 +637,7 @@ const held = -ledger[0].cents;
 const advFail = await advanceRead("pr3", { companyId: "co1", budgetMs: 10_000_000 }, {
   ...ledgerDeps,
   db: memFail,
-  complete: async (args) => (args.schemaName === "plan_read_sheet" ? sheetReply : { ok: false, reason: "vendor_error" }),
+  complete: async (args) => (args.schemaName === "plan_read_sheet" ? sheetReply : args.schemaName === "plan_read_measure" ? emptyMeasure : { ok: false, reason: "vendor_error" }),
   now: () => (clock += 1000),
 });
 ok("a read that fails is refunded IN FULL", advFail.state === "failed" && ledger.some((e) => e.refund && e.cents === held) && memFail.t.planRead[0].status === "failed", ledger);
@@ -819,6 +828,7 @@ const setDocs = (readId, n, photoCount = 0) => [
 ];
 const setRead = (readId, n) => ({ ...baseRead, id: readId, sheets: Array.from({ length: n }, (_, k) => sheetN(k + 1)) });
 const keyOf = (args) => JSON.parse(args.prompt).sheet.dims[0].id.split(".")[0];
+const keyOfMeasure = (args) => JSON.parse(args.prompt).sheet.dims[0]?.id.split(".")[0] || "p1";
 
 /** The scripted provider: replies depend only on WHAT was asked, never on when. */
 function scriptedProvider({ sheetDelay = (k) => 5 + ((Number(k.slice(1)) * 7) % 13) * 3, photoDelay = 60, synthDelay = 10, failures = {} } = {}) {
@@ -840,6 +850,11 @@ function scriptedProvider({ sheetDelay = (k) => 5 + ((Number(k.slice(1)) * 7) % 
       }
       await args.onUsage?.({ model: "gpt-5-mini", promptTokens: 20000, completionTokens: 3000, cachedTokens: 0, imageCount: (args.images || []).length });
       return { ok: true, data: { relevant: true, summary: `Sheet ${k}`, areas: [{ name: `Wall ${k}`, side: "exterior", dimRefs: [`${k}.d1`, `${k}.d2`, "p99.zz"], note: null }], heights: [], finishes: [`PT-1 on ${k}`], access: [], readDims: [] } };
+    }
+    if (args.schemaName === "plan_read_measure") {
+      await wait(sheetDelay(keyOfMeasure(args)));
+      await args.onUsage?.({ model: "gpt-5.5", promptTokens: 6000, completionTokens: 2000, cachedTokens: 0, imageCount: 1 });
+      return emptyMeasure;
     }
     if (args.schemaName === "plan_read_photos") {
       s.photoRunning = true;
@@ -1106,7 +1121,7 @@ ok("both lookups are keyed by the member's company", wheres.length === 2 && wher
 ok("…and a leaked row from another company is dropped in code too", found.offers.length === 1 && found.offers[0].fromId === "pold");
 ok("no lookup at all when nothing unread has a hash", (await findSheetCache({ ...cur, sheets: cur.sheets.map((s) => ({ ...s, read: { x: 1 } })) }, { companyId: "co1", prisma: { quoteDocument: { findMany: async () => { throw new Error("queried"); } } } })).offers.length === 0);
 const sav = reuseSavings({ ...cur, documents: curDocs }, offers[0]);
-ok(`the offer states what it saves: ${sav?.savesCents} credits`, sav && sav.savesCents > 0 && sav.afterCents === estimateRead({ sheets: 2, sheetsAlreadyRead: 2 }).cents, sav);
+ok(`the offer states what it saves: ${sav?.savesCents} credits`, sav && sav.savesCents > 0 && sav.afterCents === estimateRead({ sheets: 2, sheetsAlreadyRead: 2, measureSheets: 2 }).cents, sav); // a reused sheet pass is not a measurement: the first pass still measures both sheets
 const docSrc = code("lib/planRead/documents.js");
 ok("the hash is computed by the server from the bytes it fetched, never taken from the browser", /contentHash: contentHashOf\(file\.buffer\)/.test(docSrc) && !/raw\??\.contentHash/.test(docSrc) && !("contentHash" in (validateQuoteDocument({ kind: "plan", url: url("a.pdf"), mimeType: "application/pdf", contentHash: H }, { companyId: "co1", canSeeMoney: true, cloudName }).data || {})));
 const reuseSrc = code("app/api/plan-reads/[id]/reuse/route.js");
@@ -1538,7 +1553,7 @@ const sheetPrompts = [];
 await advanceRead("pint", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(uniqueLedger()), db: paintOnly, afterReady: null, complete: async (args) => {
   if (args.schemaName === "plan_read_sheet") sheetPrompts.push(JSON.parse(args.prompt));
   await args.onUsage?.({ model: "gpt-5-mini", promptTokens: 100, completionTokens: 10, cachedTokens: 0, imageCount: 0 });
-  return args.schemaName === "plan_read_sheet" ? { ok: true, data: { relevant: true, summary: "x", areas: [], heights: [], finishes: [], access: [], readDims: [] } } : goodModel;
+  return args.schemaName === "plan_read_sheet" ? { ok: true, data: { relevant: true, summary: "x", areas: [], heights: [], finishes: [], access: [], readDims: [] } } : args.schemaName === "plan_read_measure" ? emptyMeasure : goodModel;
 } });
 ok("an interior painting quote: the painting pass, told to read the INSIDE only — and the elevations never sent", sheetPrompts.length === 1 && sheetPrompts[0].sheet.number === "A-101" && /INSIDE/.test(sheetPrompts[0].job.focus), sheetPrompts.map((p) => [p.sheet.number, p.job.focus]));
 const reuseRead = { ...rowMt, id: "pnew", companyId: "co1", status: "draft", documents: mtDocs("pnew").map((d) => ({ ...d, contentHash: "h1" })), sheets: rowMt.sheets.map((s) => ({ ...s, read: null })) };

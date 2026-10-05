@@ -1145,7 +1145,7 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
   );
 }
 
-function InteriorPaintTakeoff({ takeoff, book, onChange, routing = null }) {
+function InteriorPaintTakeoff({ takeoff, book, onChange, routing = null, onAddLine = null }) {
   const money = useCompanyMoney();
   // The discriminator. A takeoff written before the area/substrate model landed
   // has no `model` key and keeps the complexity-grid form below, so reopening
@@ -1153,7 +1153,7 @@ function InteriorPaintTakeoff({ takeoff, book, onChange, routing = null }) {
   // change a number a client may already be holding.
   if (takeoff?.model === "area_substrate")
     return (
-      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} routing={routing} />
+      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} onAddLine={onAddLine} routing={routing} />
     );
 
   const rooms = asList(takeoff.rooms);
@@ -1224,12 +1224,12 @@ function InteriorPaintTakeoff({ takeoff, book, onChange, routing = null }) {
 
 /* ── Exterior painting ─────────────────────────────────────────────────── */
 
-function ExteriorPaintTakeoff({ takeoff, book, onChange, routing = null }) {
+function ExteriorPaintTakeoff({ takeoff, book, onChange, routing = null, onAddLine = null }) {
   const money = useCompanyMoney();
   // Same discriminator, same reason, as InteriorPaintTakeoff above.
   if (takeoff?.model === "area_substrate")
     return (
-      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} routing={routing} />
+      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} onAddLine={onAddLine} routing={routing} />
     );
 
   const level = takeoff.complexityLevel || "standard";
@@ -4024,6 +4024,9 @@ export default function TradeTakeoff({
   // to the builder (lib/quotes/estimateKindRouting.js). Every other form
   // ignores it.
   routing = null,
+  // The painting card's "Add access equipment" puts a priced line on the
+  // group (QuoteBuilder addAccessLine). Every other form ignores it.
+  onAddLine = null,
 }) {
   const Component = TAKEOFFS[categoryKey];
   if (!Component || !takeoff || !book) return null;
@@ -4035,6 +4038,7 @@ export default function TradeTakeoff({
         onChange={onChange}
         siteAddress={siteAddress}
         routing={routing}
+        onAddLine={onAddLine}
       />
     </div>
   );

@@ -285,6 +285,7 @@ export const SCREENS = [
   // Services & pricing
   { slug: "settings-products", nav: "app.settings.products", href: "/app/settings/products", page: "app/app/settings/products/page.js", settings: true },
   { slug: "settings-services", nav: "app.settings.services", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true },
+  { slug: "settings-equipment-access", nav: "app.settings.equipmentAccess", href: "/app/settings/services#equipment-access", page: "app/app/settings/services/page.js", settings: true },
   { slug: "settings-maintenance-plans", nav: "app.settings.planTemplates", href: "/app/settings/maintenance-plans", page: "app/app/settings/maintenance-plans/page.js", settings: true },
   { slug: "settings-material-costs", nav: "app.settings.materialCosts", href: "/app/settings/material-costs", page: "app/app/settings/material-costs/page.js", settings: true },
   { slug: "settings-cabinet-rates", nav: "app.settings.cabinetRates", href: "/app/settings/cabinet-rates", page: "app/app/settings/cabinet-rates/page.js", settings: true },

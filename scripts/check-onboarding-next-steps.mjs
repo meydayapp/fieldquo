@@ -377,7 +377,8 @@ section("7f. The trial line and the additional set-up steps");
   // Business Profile API approval is in (googleReviewsAvailable — the
   // snapshot's answer from lib/reviews/googleBusiness/availability.js). The
   // seven rows before it are hidden so it would be FIRST in the letter.
-  const before = ["team", "confirm_services", "overhead", "job_capacity", "pay_rates", "payment_schedule", "story", "gallery", "documents"];
+  // access_rates (2026-10-05) sits before Google reviews too, as job_capacity and pay_rates do.
+  const before = ["team", "confirm_services", "overhead", "job_capacity", "pay_rates", "access_rates", "payment_schedule", "story", "gallery", "documents"];
   const letterFor = (available) =>
     buildOnboardingNextStepsEmail({ ...base, setupSteps: remainingSteps(stepsFor({ dismissed: before, googleReviewsAvailable: available })) });
   const off = letterFor(false);

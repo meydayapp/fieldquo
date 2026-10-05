@@ -41,6 +41,7 @@ import { applyPricingOps, PRICING_PERSON_OPS } from "@/lib/planRead/pricingOps";
 import { priceReadNow, pricingContextFor } from "@/lib/planRead/priceRead";
 import { tradesFromScope } from "@/lib/planRead/tradeCatalogue";
 import { chatSpendCents } from "@/lib/planRead/billing";
+import { loadFirstPassContext } from "@/lib/planRead/firstPassContext";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -60,10 +61,19 @@ export async function GET(request, { params }) {
   }
 
   const sheetKey = new URL(request.url).searchParams.get("sheet");
-  const [balanceCents, company, authors, cache, scopeOptions, chatChargedCents] = await Promise.all([
+  const [balanceCents, company, authors, cache, scopeOptions, chatChargedCents, fpCtx] = await Promise.all([
     aiBalanceFor(member.companyId),
     db.company.findUnique({ where: { id: member.companyId }, select: { currency: true } }),
-    withAuthors(read.messages, { prisma: db, companyId: member.companyId }),
+    // The chat's authors, and whoever ticked "Check before sending" or gave
+    // an access line's reason — so each says a name, not "your team".
+    withAuthors(
+      [
+        ...(read.messages || []),
+        ...Object.values(read.model?.review && typeof read.model.review === "object" ? read.model.review : {}).map((r) => ({ userId: r?.by || null })),
+        ...(Array.isArray(read.model?.access) ? read.model.access : []).map((a) => ({ userId: a?.zeroBy || null })),
+      ],
+      { prisma: db, companyId: member.companyId },
+    ),
     // The offer is a convenience: a failed lookup shows no offer, never a
     // broken page.
     findSheetCache(read, { companyId: member.companyId, prisma: db }).catch((err) => {
@@ -82,6 +92,9 @@ export async function GET(request, { params }) {
       console.error("[planRead] chat spend:", err?.message);
       return null;
     }),
+    // The first pass's crew and currency (lib/planRead/firstPassContext.js) —
+    // each part degrades on its own inside.
+    loadFirstPassContext(member.companyId, { prisma: db }),
   ]);
   // The company's pricing context — its books, services, labour cost rate,
   // target margin and overhead — for the recommendation. Money: only for a
@@ -106,6 +119,7 @@ export async function GET(request, { params }) {
     scopeOptions,
     pricingCtx,
     chatChargedCents,
+    fpCtx,
   });
   return NextResponse.json({ ...view, currency: company?.currency || null });
 }
@@ -209,9 +223,25 @@ export async function PATCH(request, { params }) {
   const otherOps = Array.isArray(raw?.ops) ? raw.ops.filter((o) => o && !TRADE_PERSON_OPS.includes(o.op) && !PRICING_PERSON_OPS.includes(o.op)) : [];
   if (otherOps.length && read.model) {
     // A price for equipment is money on the estimator's own draft; a member
-    // whose access hides pricing may not set one.
+    // whose access hides pricing may not set one — nor confirm one.
     const canSeeMoney = hasToggle(full, "showPricing");
-    const ops = otherOps.filter((o) => canSeeMoney || o.op !== "set_access_price").slice(0, 20);
+    let ops = otherOps.filter((o) => canSeeMoney || (o.op !== "set_access_price" && o.op !== "confirm_access")).slice(0, 20);
+    // Who and when, from the session — never from the body — on the ops the
+    // read records them for (a left-out access line's reason, a ticked check).
+    const at = new Date().toISOString();
+    ops = ops.map((o) => (o.op === "set_access_reason" || o.op === "review_check" ? { ...o, userId: member.userId || null, at } : o));
+    // "Confirm" an estimated access line: the amount is the server's own,
+    // worked out from the read now (lib/planRead/firstPass.js priceAccessLine)
+    // — a price in the request is never read (AGENTS.md rule 5's spirit).
+    if (ops.some((o) => o.op === "confirm_access")) {
+      const now = await priceReadNow(read, { companyId: member.companyId, prisma: db, model: data.model || read.model });
+      const pricedAccess = now?.pricedPaint?.access || [];
+      ops = ops.map((o) => {
+        if (o.op !== "confirm_access") return o;
+        const line = pricedAccess.find((x) => x.id === String(o.accessId || ""));
+        return { op: "confirm_access", accessId: String(o.accessId || ""), price: line && line.price !== null ? line.price : null, why: line?.why || null };
+      });
+    }
     const { books } = await loadPaintBooks(member.companyId);
     const book = books.interior_painting;
     const { sheets, excel } = readInputs(read);

@@ -29,6 +29,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useAiCreditTopup, AiCreditTopupDialog } from "@/app/components/ai/AiCreditTopupDialog";
 import QuoteFilesCard from "./QuoteFilesCard";
 import SheetMeasure from "./SheetMeasure";
+import { UnmeasuredBanner, MeasuredCard, AssumptionsCard, CrewPlanCard, SlicesCard, PastJobsLine, AccessSource, ConfidenceChip } from "./FirstPassCards";
+import { ReviewPanel, MaterialsCard, AccessReasonPicker } from "./ReviewPanel";
 
 const POLL_MS = 4000;
 const card = "bg-card border border-border rounded-xl p-4 sm:p-5";
@@ -187,6 +189,10 @@ export default function PlanReadWorkspace({ id }) {
       {project && (
         <>
           <OverviewCard view={view} t={t} money={money} onMeasure={() => openMeasure()} onToggle={(op) => patch({ ops: [op] })} />
+          <MeasuredCard view={view} t={t} />
+          <AssumptionsCard view={view} t={t} disabled={reading} onOp={(op) => patch({ ops: [op] })} />
+          <CrewPlanCard key={`${view.draft?.plan?.crew?.size}-${view.draft?.plan?.crew?.hoursPerDay}`} view={view} t={t} money={money} disabled={reading} onOp={(op) => patch({ ops: [op] })} />
+          <SlicesCard view={view} t={t} money={money} onCreate={(key) => router.push(`/app/quotes/new?fromPlanRead=${id}&planScope=${encodeURIComponent(key)}`)} />
           {(project.trades || []).map((trade) => (
             <TradeCard
               key={trade.tradeKey}
@@ -200,9 +206,11 @@ export default function PlanReadWorkspace({ id }) {
               money={money}
             />
           ))}
+          <ReviewPanel view={view} t={t} disabled={reading} onOp={(op) => patch({ ops: [op] })} />
           <RecommendationCard view={view} t={t} money={money} onOp={(op) => patch({ ops: [op] })} />
+          <MaterialsCard view={view} t={t} money={money} disabled={reading} onOp={(op) => patch({ ops: [op] })} />
           <PhotoGroupsCard view={view} t={t} onSplit={(gid) => patch({ photo: { op: "split", id: gid } })} onMerge={(ids) => patch({ photo: { op: "merge", ids } })} onAdjust={(photo) => openMeasure({ photo })} />
-          <DraftCard view={view} t={t} money={money} onPrice={(accessId, price) => patch({ ops: [{ op: "set_access_price", accessId, price }] })} onPrep={(surfaceId, hours) => patch({ ops: [{ op: "set_prep_hours", surfaceId, hours }] })} onCreate={() => router.push(`/app/quotes/new?fromPlanRead=${id}`)} />
+          <DraftCard view={view} t={t} money={money} onPrice={(accessId, price) => patch({ ops: [{ op: "set_access_price", accessId, price }] })} onConfirm={(accessId) => patch({ ops: [{ op: "confirm_access", accessId }] })} onOp={(op) => patch({ ops: [op] })} onPrep={(surfaceId, hours) => patch({ ops: [{ op: "set_prep_hours", surfaceId, hours }] })} onCreate={() => router.push(`/app/quotes/new?fromPlanRead=${id}`)} />
           <ChatCard view={view} t={t} language={language} credits={credits} money={money} onSent={load} onTopup={(data) => topup.open(data)} onApplyPricing={(assumptions) => patch({ ops: [{ op: "set_pricing_assumptions", assumptions }] })} />
         </>
       )}
@@ -351,7 +359,11 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm">
             <p className="font-medium">
-              {view.status === "ready" ? t("app.planRead.readAgain", "New files since the last read") : t("app.planRead.readTitle", "Deep read of the project")}
+              {view.status === "ready"
+                ? view.firstPass?.measureMissing
+                  ? t("app.planRead.measureAgain", "Measure the drawings — the first pass")
+                  : t("app.planRead.readAgain", "New files since the last read")
+                : t("app.planRead.readTitle", "Deep read of the project")}
             </p>
             {c.readCents ? (
               <p className="text-muted-foreground">
@@ -362,6 +374,7 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
                 })}
               </p>
             ) : null}
+            {view.status === "ready" && view.firstPass?.measureMissing && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.measureAgainNote", "This read was made before FieldQuo measured the drawings itself. Measuring scales every elevation, plan and section, prices height, prep and access, and keeps the sheet readings you already paid for.")}</p>}
             {view.status === "ready" && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.readAgainNote", "Reading again rebuilds the overview from all the files; changes made in the chat are replaced.")}</p>}
             <RoutedSheets view={view} t={t} />
             {took && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.lastReadTook", "The last read took {time}.", { time: took })}</p>}
@@ -418,6 +431,7 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
         </button>
       </div>
       {p.summary && <p className="text-sm mb-1">{p.summary}</p>}
+      <UnmeasuredBanner view={view} t={t} />
       {view.clientRequest && <p className="text-xs text-muted-foreground mb-3">{t("app.planRead.overview.client", "Client: {text}", { text: view.clientRequest })}</p>}
       {p.estimatedCount > 0 && (
         <p className="text-xs text-amber-800 dark:text-amber-300 mb-3">{t("app.planRead.overview.estimatedCount", "{n} quantities are estimated — check them before you send.", { n: p.estimatedCount })}</p>
@@ -452,7 +466,9 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
                 </td>
                 <td className="py-2 px-2">
                   <SourceBadge q={s.quantity} t={t} />
+                  {s.quantity.confidence && s.quantity.source === "face" ? <span className="ml-1"><ConfidenceChip value={s.quantity.confidence} t={t} /></span> : null}
                   <span className="block text-[11px] text-muted-foreground mt-0.5 max-w-[280px]">{s.quantity.sourceText}</span>
+                  {s.heightBasis && <span className="block text-[11px] text-muted-foreground mt-0.5 max-w-[280px]">{t("app.planRead.overview.heightBasis", "Height: {text}", { text: s.heightBasis })}</span>}
                 </td>
                 <td className="py-2 px-2">
                   <button type="button" onClick={() => onToggle({ op: s.active ? "remove_surface" : "set_surface", surfaceId: s.id, include: true })} className="text-xs min-h-[36px] px-2 rounded-md border border-border hover:bg-accent">
@@ -492,7 +508,9 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
         </div>
         <div className="border border-border rounded-lg p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold mb-1"><History className="w-4 h-4" aria-hidden />{t("app.planRead.overview.similar", "Your similar jobs")}</p>
-          {similar?.hidden ? (
+          {(view.firstPass?.slices || []).length === 1 && view.canSeeMoney && view.firstPass.slices[0].compare ? (
+            <PastJobsLine compare={view.firstPass.slices[0].compare} t={t} money={money} />
+          ) : similar?.hidden ? (
             <p className="text-sm text-muted-foreground">{t("app.planRead.overview.similarHidden", "Hidden by your access level.")}</p>
           ) : similar?.range ? (
             <p className="text-sm">
@@ -512,7 +530,9 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
       </>
       )}
 
-      {(p.assumptions?.length > 0 || p.exclusions?.length > 0) && (
+      {/* With the first pass's review panel, the assumptions, exclusions and
+          open questions are IN it ("Check before sending") — not listed twice. */}
+      {!view.firstPass?.review && (p.assumptions?.length > 0 || p.exclusions?.length > 0) && (
         <div className="grid gap-3 sm:grid-cols-2 mt-3 text-sm">
           {p.assumptions?.length > 0 && (
             <div><p className="text-xs font-semibold mb-1">{t("app.planRead.overview.assumptions", "Assumptions")}</p><ul className="list-disc pl-4 space-y-0.5">{p.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul></div>
@@ -523,7 +543,7 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
         </div>
       )}
 
-      {openQs.length > 0 && (
+      {!view.firstPass?.review && openQs.length > 0 && (
         <div className="mt-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold mb-1"><HelpCircle className="w-4 h-4" aria-hidden />{t("app.planRead.overview.questions", "Questions for you")}</p>
           <ul className="space-y-2 text-sm">
@@ -918,7 +938,12 @@ function RecommendationCard({ view, t, money, onOp }) {
       )}
       {row(t("app.planRead.reco.materials", "Materials"), money(r.materialCost))}
       {r.lineCost > 0 && row(t("app.planRead.reco.lineCost", "Your services' line costs"), money(r.lineCost))}
-      {r.equipment.cost > 0 && row(t("app.planRead.reco.equipment", "Equipment (at the price you typed)"), money(r.equipment.cost))}
+      {r.equipment.cost > 0 &&
+        row(
+          t("app.planRead.reco.equipmentAll", "Equipment"),
+          money(r.equipment.cost),
+          r.equipment.estimated > 0 ? t("app.planRead.reco.equipmentEstimated", "{v} of it estimated from your rental rates or the reference table — confirm it in the draft below", { v: money(r.equipment.estimated) }) : null,
+        )}
       {row(t("app.planRead.reco.overhead", "Overhead"), money(o.amountAtRecommended), overheadLine)}
       {row(t("app.planRead.reco.cost", "Cost"), money(r.cost))}
       {row(
@@ -1060,7 +1085,7 @@ function PhotoGroupsCard({ view, t, onSplit, onMerge, onAdjust }) {
   );
 }
 
-function DraftCard({ view, t, money, onPrice, onPrep, onCreate }) {
+function DraftCard({ view, t, money, onPrice, onConfirm, onPrep, onCreate, onOp }) {
   const d = view.draft;
   if (!d) return null;
   const quoteHref = view.quoteId ? `/app/quotes/${view.quoteId}` : null;
@@ -1122,6 +1147,15 @@ function DraftCard({ view, t, money, onPrice, onPrep, onCreate }) {
                   )}
                 </span>
               )}
+              {l.height && l.height.factor > 1 && (
+                <span className="block text-[11px] text-muted-foreground mt-0.5">
+                  {t("app.planRead.draft.height", "Height ×{f}: {why}", { f: l.height.factor, why: l.height.why })}
+                </span>
+              )}
+              {l.prep && l.prep.auto?.lines?.length > 0 && !l.prep.manual && (
+                <span className="block text-[11px] text-muted-foreground mt-0.5">{t("app.planRead.draft.prepAuto", "Prep {h} h: {why}", { h: l.prep.hours, why: l.prep.auto.lines.map((x) => `${x.label} — ${x.why}`).join("; ") })}</span>
+              )}
+              {l.setup && l.why && <span className="block text-[11px] text-muted-foreground mt-0.5">{l.why}</span>}
               {l.estimated && <Badge tone="warn">{t("app.planRead.source.estimated", "Estimated · verify")}</Badge>}
             </span>
             {view.canSeeMoney && <span className="shrink-0 font-medium">{money(l.amount)}</span>}
@@ -1129,15 +1163,31 @@ function DraftCard({ view, t, money, onPrice, onPrep, onCreate }) {
         ))}
         {d.access.map((a) => (
           <li key={a.id} className="py-2 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <span>
+            <span className="min-w-0">
               {`${a.label}${a.areaName ? ` — ${a.areaName}` : ""}`}
-              {a.priceSource === "ai" && (
-                <span className="block mt-0.5">
-                  <Badge tone="warn">{t("app.planRead.draft.aiEntered", "Entered by FieldQuo AI · verify")}</Badge>
-                </span>
-              )}
+              <span className="block mt-0.5">
+                <AccessSource a={a} t={t} />
+              </span>
+              {view.canSeeMoney && a.why && <span className="block text-[11px] text-muted-foreground mt-0.5 max-w-[420px]">{a.why}</span>}
             </span>
-            {view.canSeeMoney && <AccessPrice key={String(a.price)} value={a.price} onSave={(p) => onPrice(a.id, p)} t={t} />}
+            {a.id !== "delivery" && a.price === 0 && !a.zeroReason && (
+              <AccessReasonPicker accessId={a.id} reasons={view.firstPass?.review?.reasons || []} onOp={(op) => onOp(op)} t={t} />
+            )}
+            {a.zeroReason && <span className="text-[11px] text-muted-foreground">{t(`app.planRead.accessReason.${a.zeroReason}`, a.zeroReason)}</span>}
+            {view.canSeeMoney && a.id !== "delivery" && (
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => onOp({ op: "remove_access", accessId: a.id })} className="min-h-[40px] px-2 rounded-md border border-border text-xs hover:bg-accent">
+                  {t("app.planRead.overview.leaveOut", "Leave out")}
+                </button>
+                {(a.priceSource === "reference" || a.priceSource === "company") && a.price !== null && (
+                  <button type="button" onClick={() => onConfirm(a.id)} className="min-h-[40px] px-3 rounded-md border border-border text-xs hover:bg-accent">
+                    {t("app.planRead.access.confirm", "Confirm {v}", { v: money(a.price) })}
+                  </button>
+                )}
+                <AccessPrice key={String(a.price)} value={a.priceSource === "reference" || a.priceSource === "company" ? "" : a.price} onSave={(p) => onPrice(a.id, p)} t={t} />
+              </span>
+            )}
+            {view.canSeeMoney && a.id === "delivery" && <span className="font-medium">{money(a.price)}</span>}
           </li>
         ))}
       </ul>
@@ -1151,7 +1201,7 @@ function DraftCard({ view, t, money, onPrice, onPrep, onCreate }) {
           <span className="text-lg font-semibold">{money(d.subtotal)}</span>
         </div>
       )}
-      {d.unpricedAccess > 0 && <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">{t("app.planRead.draft.unpricedAccess", "{n} equipment items have no price yet — none of your price books has rental rates. Type your price above.", { n: d.unpricedAccess })}</p>}
+      {d.unpricedAccess > 0 && <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">{t("app.planRead.draft.unpricedAccessWhy", "{n} equipment items have no price — the reason is on each line. Type your price, or set your rental rates in Settings → Services.", { n: d.unpricedAccess })}</p>}
       <div className="flex flex-wrap items-center justify-end gap-2 mt-4">
         {quoteHref && (
           <Link href={quoteHref} className="min-h-[44px] inline-flex items-center px-4 rounded-lg border border-border text-sm hover:bg-accent">{t("app.planRead.draft.openQuote", "Open the quote")}</Link>

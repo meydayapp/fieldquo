@@ -587,7 +587,10 @@ function routesFetchedBy(pageFile) {
 }
 
 function pageFileFor(href) {
-  const candidate = `app${href}/page.js`;
+  // A row may land on a section of a page (#equipment-access): the page is
+  // what has to exist; the anchor is pinned by the check that owns it
+  // (check-plan-read-first-pass looks for id="equipment-access").
+  const candidate = `app${String(href).split("#")[0]}/page.js`;
   return fs.existsSync(path.join(ROOT, candidate)) ? candidate : null;
 }
 
