@@ -48,6 +48,7 @@ export default function PlanReadWorkspace({ id }) {
   const [view, setView] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [starting, setStarting] = useState(false);
+  const [reusing, setReusing] = useState(false);
   const [measure, setMeasure] = useState(null);
   const timer = useRef(null);
 
@@ -100,6 +101,20 @@ export default function PlanReadWorkspace({ id }) {
       else showError(err?.message || t("app.planRead.runError", "Couldn't start the read."));
     } finally {
       setStarting(false);
+    }
+  }
+
+  // Copy an earlier read's sheet passes of the same file in, free; the cost
+  // shown on the read button drops by what they would have cost.
+  async function reuse(fromPlanReadId) {
+    setReusing(true);
+    try {
+      await fetchJson(`/api/plan-reads/${id}/reuse`, { method: "POST", headers: { "Content-Type": "application/json" }, body: jsonBody({ fromPlanReadId }) });
+      await load();
+    } catch (err) {
+      showError(err?.message || t("app.planRead.reuse.error", "Couldn't reuse those sheets."));
+    } finally {
+      setReusing(false);
     }
   }
 
@@ -166,14 +181,14 @@ export default function PlanReadWorkspace({ id }) {
         onChanged={load}
       />
 
-      <ReadCard view={view} t={t} credits={credits} starting={starting} onRun={run} />
+      <ReadCard view={view} t={t} language={language} credits={credits} starting={starting} onRun={run} onReuse={reuse} reusing={reusing} />
 
       {project && (
         <>
           <OverviewCard view={view} t={t} money={money} onMeasure={() => openMeasure()} onToggle={(op) => patch({ ops: [op] })} />
           <PhotoGroupsCard view={view} t={t} onSplit={(gid) => patch({ photo: { op: "split", id: gid } })} onMerge={(ids) => patch({ photo: { op: "merge", ids } })} onAdjust={(photo) => openMeasure({ photo })} />
           <DraftCard view={view} t={t} money={money} onPrice={(accessId, price) => patch({ ops: [{ op: "set_access_price", accessId, price }] })} onCreate={() => router.push(`/app/quotes/new?fromPlanRead=${id}`)} />
-          <ChatCard view={view} t={t} credits={credits} onSent={load} onTopup={(data) => topup.open(data)} />
+          <ChatCard view={view} t={t} language={language} credits={credits} onSent={load} onTopup={(data) => topup.open(data)} />
         </>
       )}
 
@@ -243,16 +258,53 @@ function ClientRequest({ value, disabled, onSave, t }) {
   );
 }
 
-function ReadCard({ view, t, credits, starting, onRun }) {
+/** "42s" / "3m 05s", in the screen's language. */
+function duration(ms, t) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return t("app.planRead.durationSec", "{s}s", { s });
+  return t("app.planRead.durationMin", "{m}m {s}s", { m: Math.floor(s / 60), s: String(s % 60).padStart(2, "0") });
+}
+
+function ReuseOffer({ reuse, t, language, credits, onReuse, reusing }) {
+  const date = reuse.readAt ? new Date(reuse.readAt).toLocaleDateString(language, { day: "numeric", month: "short" }) : null;
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+      <p className="font-medium">
+        {t("app.planRead.reuse.title", "{n} of these sheets were already read in “{title}”{date}.", {
+          n: reuse.sheets,
+          title: reuse.title || t("app.planRead.reuse.untitled", "an earlier read"),
+          date: date ? ` (${date})` : "",
+        })}
+      </p>
+      <p className="text-muted-foreground mt-0.5">
+        {t("app.planRead.reuse.body", "Same file, byte for byte. Reuse those readings instead of paying for them again — saves about {credits}.", { credits: credits(reuse.savesCents) })}
+      </p>
+      {!reuse.sameRequest && (
+        <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.reuse.otherRequest", "That read was for a different request, so its sheet notes may weigh things a little differently. Read fresh if the scope changed a lot.")}</p>
+      )}
+      <button type="button" onClick={() => onReuse(reuse.fromId)} disabled={reusing} className="mt-2 inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-border bg-background text-sm hover:bg-accent disabled:opacity-60">
+        {reusing ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <History className="w-4 h-4" aria-hidden />}
+        {t("app.planRead.reuse.button", "Reuse {n} sheets", { n: reuse.sheets })}
+      </button>
+    </div>
+  );
+}
+
+function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusing }) {
   const c = view.credits || {};
   const p = view.progress || {};
+  const took = view.timing?.outcome === "ready" && view.timing.totalMs ? duration(view.timing.totalMs, t) : null;
   if (view.status === "reading") {
     const stage =
       view.stage === "photos"
         ? t("app.planRead.progress.photos", "Reading the site photos…")
         : view.stage === "synthesis"
           ? t("app.planRead.progress.synthesis", "Putting the project together…")
-          : t("app.planRead.progress.sheets", "Reading sheet {done} of {total}…", { done: Math.min((p.sheetsDone || 0) + 1, p.sheetsTotal || 1), total: p.sheetsTotal || 0 });
+          : // The sheets are read side by side now, so "sheet 1 of 13" would
+            // name one sheet while thirteen are in flight: count what is done.
+            `${t("app.planRead.progress.sheetsTogether", "Reading the sheets together — {done} of {total} done…", { done: p.sheetsDone || 0, total: p.sheetsTotal || 0 })}${
+              p.photosTotal && !p.photosDone ? ` ${t("app.planRead.progress.photosAlongside", "The site photos are being read alongside.")}` : ""
+            }`;
     const pct = p.sheetsTotal ? Math.round(((p.sheetsDone || 0) / p.sheetsTotal) * 80) + (view.stage === "synthesis" ? 15 : view.stage === "photos" ? 5 : 0) : 30;
     return (
       <section className={card} aria-live="polite">
@@ -270,6 +322,7 @@ function ReadCard({ view, t, credits, starting, onRun }) {
       {view.status === "failed" && (
         <p className="mb-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300"><AlertTriangle className="w-4 h-4 mt-0.5" aria-hidden />{view.error || t("app.planRead.failed", "The read couldn't finish. Nothing was charged.")}</p>
       )}
+      {view.canRead && view.reuse && <ReuseOffer reuse={view.reuse} t={t} language={language} credits={credits} onReuse={onReuse} reusing={reusing} />}
       {view.canRead ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm">
@@ -286,6 +339,7 @@ function ReadCard({ view, t, credits, starting, onRun }) {
               </p>
             ) : null}
             {view.status === "ready" && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.readAgainNote", "Reading again rebuilds the overview from all the files; changes made in the chat are replaced.")}</p>}
+            {took && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.lastReadTook", "The last read took {time}.", { time: took })}</p>}
           </div>
           <button type="button" onClick={onRun} disabled={starting} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60">
             {starting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Sparkles className="w-4 h-4" aria-hidden />}
@@ -295,6 +349,7 @@ function ReadCard({ view, t, credits, starting, onRun }) {
       ) : view.status === "ready" ? (
         <p className="text-sm text-muted-foreground">
           {t("app.planRead.readDone", "Read · {charged} charged so far, chat included in the messages below.", { charged: credits(c.chargedCents || 0) })}
+          {took ? ` ${t("app.planRead.took", "Took {time}.", { time: took })}` : ""}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
@@ -603,7 +658,7 @@ function AccessPrice({ value, onSave, t }) {
   );
 }
 
-function ChatCard({ view, t, credits, onSent, onTopup }) {
+function ChatCard({ view, t, language, credits, onSent, onTopup }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState(null);
@@ -633,19 +688,39 @@ function ChatCard({ view, t, credits, onSent, onTopup }) {
 
   return (
     <section className={card}>
-      <h2 className="text-sm font-semibold mb-3">{t("app.planRead.chat.title", "Ask or change something")}</h2>
+      <h2 className="text-sm font-semibold">{t("app.planRead.chat.title", "Ask or change something")}</h2>
+      <p className="text-xs text-muted-foreground mb-3">{t("app.planRead.history.note", "Your team's own edits and the AI's changes are listed here together, with who and when.")}</p>
       <div className="space-y-2 max-h-[420px] overflow-y-auto">
-        {!messages.length && <p className="text-sm text-muted-foreground">{t("app.planRead.chat.empty", "Try: \"the bell tower needs a 60 ft lift\", \"exclude the basement\", \"premium paint on the trim\".")}</p>}
-        {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-              <p className="whitespace-pre-wrap">{m.text}</p>
-              {m.changes?.length > 0 && (
-                <ul className="mt-1 text-xs opacity-80 list-disc pl-4">{m.changes.map((c, i) => <li key={i}>{c}</li>)}</ul>
-              )}
+        {!messages.some((m) => m.role !== "edit") && <p className="text-sm text-muted-foreground">{t("app.planRead.chat.empty", "Try: \"the bell tower needs a 60 ft lift\", \"exclude the basement\", \"premium paint on the trim\".")}</p>}
+        {messages.map((m) => {
+          // Who and when, on every line of the history: the read's one record
+          // of what was asked, what the AI changed, and what a person changed.
+          const when = m.createdAt ? new Date(m.createdAt).toLocaleString(language, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
+          const who = m.role === "assistant" ? t("app.planRead.history.ai", "AI") : m.author || t("app.planRead.history.someone", "Someone on your team");
+          const caption = when ? `${who} · ${when}` : who;
+          if (m.role === "edit") {
+            return (
+              <div key={m.id} className="rounded-lg border border-dashed border-border px-3 py-2 text-sm">
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Ruler className="w-3.5 h-3.5" aria-hidden />
+                  {t("app.planRead.history.edited", "{caption} — edited", { caption })}
+                </p>
+                <ul className="mt-1 list-disc pl-4">{(m.changes || []).map((c, i) => <li key={i}>{c}</li>)}</ul>
+              </div>
+            );
+          }
+          return (
+            <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                <p className="whitespace-pre-wrap">{m.text}</p>
+                {m.changes?.length > 0 && (
+                  <ul className="mt-1 text-xs opacity-80 list-disc pl-4">{m.changes.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                )}
+              </div>
+              {m.id !== "pending" && <span className="mt-0.5 px-1 text-[11px] text-muted-foreground">{caption}</span>}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {sending && <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" aria-hidden />{t("app.planRead.chat.thinking", "Updating the project…")}</p>}
         <div ref={end} />
       </div>

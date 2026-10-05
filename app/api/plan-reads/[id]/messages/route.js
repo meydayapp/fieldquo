@@ -18,6 +18,7 @@ import { publicTopupOffer } from "@/lib/ai/topupOffer";
 import { featureAllowsSpend } from "@/lib/features/gate";
 import { loadPlanRead } from "@/lib/planRead/load";
 import { chatTurn } from "@/lib/planRead/chat";
+import { chatHistory } from "@/lib/planRead/history";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -41,7 +42,9 @@ export async function POST(request, { params }) {
       companyId: member.companyId,
       userId: member.userId || null,
       message: raw?.message,
-      history: (read.messages || []).map((m) => ({ role: m.role, text: m.text })),
+      // The conversation only: the estimator's own edits share the table
+      // (lib/planRead/history.js) but are not something either side said.
+      history: chatHistory(read.messages),
     },
     { turnId },
   );
@@ -77,6 +80,9 @@ export async function POST(request, { params }) {
         changes: [...turn.changes, ...turn.dropped.map((x) => `Not applied: ${x}`)],
         usage: turn.usage,
         chargedCents: turn.chargedCents,
+        // Who asked, on the reply too: the timeline shows the change under
+        // the person whose message caused it.
+        userId: member.userId || null,
       },
     }),
     db.planRead.updateMany({ where: { id: read.id, companyId: member.companyId }, data: { model: turn.model } }),

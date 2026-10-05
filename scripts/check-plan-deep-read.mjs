@@ -29,7 +29,25 @@
 //  11. Upload scope "plans": PDF/xlsx/csv to 100 MB, old .xls refused with a
 //      way out, every other scope unchanged.
 //  12. The cost envelope the owner approved holds.
+//
+// P0 of the multi-trade plan (speed, measurement, reliability), against a
+// scripted provider with real millisecond delays — never the live API:
+//  14. Every sheet in one wave (bounded), photos beside them; the synthesis
+//      prompt, the model and every stored pass are md5-identical to the old
+//      one-at-a-time order for the same answers.
+//  15. Each stage's clock is on the read; the estimator sees the total,
+//      /platform the stages.
+//  16. Rate limits back off and retry; a failing sheet is written off after
+//      its attempts, never the read.
+//  17. The backstop cron: two ticks at once resume a stalled read once; a
+//      held lease is left alone; a late worker cannot settle twice; the
+//      ledger refunds once; a read stuck past MAX_READ_MS is refunded in full.
+//  18. The estimator's edits are logged in the same history as the chat's,
+//      with who and when, and never sent to the model as conversation.
+//  19. The same PDF bytes are offered for reuse within the company only —
+//      another company's read of the identical file never is.
 import { readFileSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { zipSync, strToU8 } from "fflate";
 
 import { churchSet } from "./fixtures/planPdf.mjs";
@@ -67,7 +85,12 @@ import {
   CHAT_DYNAMIC_MARK,
 } from "@/lib/planRead/prompts";
 import { estimateRead, settlement, addUsage } from "@/lib/planRead/billing";
-import { startRead, advanceRead, scanDimsFrom } from "@/lib/planRead/run";
+import { startRead, advanceRead, scanDimsFrom, retryPlan, SHEET_CONCURRENCY, MAX_READ_MS } from "@/lib/planRead/run";
+import { startTiming, timingSummary, timingMedians, formatDuration } from "@/lib/planRead/timing";
+import { resumeStalledReads, stalledWhere } from "@/lib/planRead/backstop";
+import { editLogEntry, chatHistory, withAuthors } from "@/lib/planRead/history";
+import { contentHashOf, reusableSheets, applySheetReuse, findSheetCache } from "@/lib/planRead/sheetCache";
+import { planReadView, reuseSavings } from "@/lib/planRead/view";
 import { chatTurn, chatContext } from "@/lib/planRead/chat";
 import { summariseSimilar, similarPastQuotes } from "@/lib/planRead/similar";
 import { fileQuoteDocumentsOnJob, quoteDocumentsInChainOrder, quoteUploadHash } from "@/lib/jobs/documentAutofile";
@@ -726,6 +749,337 @@ for (const p of [
 ok("the quote builder opens a drawing read's draft (?fromPlanRead)", /fromPlanRead/.test(code("app/components/quotes/builder/QuoteBuilder.js")) && /\/api\/plan-reads\/\$\{planReadId\}\/draft-quote/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
 ok("POST /api/quotes links the read and its files, scoped", /sourcePlanReadId/.test(code("app/api/quotes/route.js")) && /planReadId: planRead\.id, quoteId: null/.test(code("app/api/quotes/route.js")));
 ok("the AI is called only through lib/ai/provider.js", !/new OpenAI|from "openai"/.test(["lib/planRead/run.js", "lib/planRead/chat.js", "lib/planRead/prompts.js"].map(code).join("\n")));
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. P0 speed: every sheet at once, photos beside them — same model");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// A scripted provider with REAL delays (milliseconds), so the order answers
+// arrive in is shuffled by the clock, not by the script. The same read is
+// run twice: the old order (one sheet at a time, photos after) and the new
+// one. Everything the read produces must be the same bytes.
+
+const md5 = (v) => createHash("md5").update(typeof v === "string" ? v : JSON.stringify(v)).digest("hex");
+const withoutAt = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === "at" ? undefined : x)));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const sheetN = (i) => ({
+  ...elev,
+  key: `p${i}`,
+  page: i,
+  docId: "dset",
+  docPage: i,
+  dims: elev.dims.map((x) => ({ ...x, id: x.id.replace(/^p\d+\./, `p${i}.`) })),
+  pairs: [],
+  read: null,
+  scanDims: [],
+});
+const setDocs = (readId, n, photoCount = 0) => [
+  {
+    id: "dset", companyId: "co1", planReadId: readId, kind: "plan", mimeType: "application/pdf", supersedesId: null, url: "https://res.cloudinary.com/x/raw/upload/set.pdf",
+    uploadedAt: new Date(Date.now() - 120_000).toISOString(),
+    pages: Array.from({ length: n }, (_, k) => ({ page: k + 1, url: `https://res.cloudinary.com/x/image/upload/v1/fieldquo/companies/co1/plans/p${k + 1}.jpg`, width: 3200, height: 2133 })),
+  },
+  ...Array.from({ length: photoCount }, (_, k) => ({
+    id: `ph${k + 1}`, companyId: "co1", planReadId: readId, kind: "photo", mimeType: "image/jpeg", supersedesId: null, name: `Photo ${k + 1}`,
+    url: `https://res.cloudinary.com/x/image/upload/v1/fieldquo/companies/co1/plans/ph${k + 1}.jpg`, uploadedAt: new Date(Date.now() - 60_000).toISOString(), pages: null,
+  })),
+];
+const setRead = (readId, n) => ({ ...baseRead, id: readId, sheets: Array.from({ length: n }, (_, k) => sheetN(k + 1)) });
+const keyOf = (args) => JSON.parse(args.prompt).sheet.dims[0].id.split(".")[0];
+
+/** The scripted provider: replies depend only on WHAT was asked, never on when. */
+function scriptedProvider({ sheetDelay = (k) => 5 + ((Number(k.slice(1)) * 7) % 13) * 3, photoDelay = 60, synthDelay = 10, failures = {} } = {}) {
+  const s = { calls: [], synthPrompts: [], sheetsInFlight: 0, maxSheetsInFlight: 0, overlapPhotoWithSheets: false, photoRunning: false };
+  s.complete = async (args) => {
+    s.calls.push(args.schemaName);
+    if (args.schemaName === "plan_read_sheet") {
+      const k = keyOf(args);
+      s.sheetsInFlight += 1;
+      s.maxSheetsInFlight = Math.max(s.maxSheetsInFlight, s.sheetsInFlight);
+      if (s.photoRunning) s.overlapPhotoWithSheets = true;
+      await wait(sheetDelay(k));
+      s.sheetsInFlight -= 1;
+      const f = failures[k];
+      if (f && f.left > 0) {
+        f.left -= 1;
+        if (f.reason !== "vendor_error") await args.onUsage?.({ model: "gpt-5-mini", promptTokens: 20000, completionTokens: 8000, cachedTokens: 0, imageCount: 5 });
+        return { ok: false, reason: f.reason, message: f.message || "" };
+      }
+      await args.onUsage?.({ model: "gpt-5-mini", promptTokens: 20000, completionTokens: 3000, cachedTokens: 0, imageCount: (args.images || []).length });
+      return { ok: true, data: { relevant: true, summary: `Sheet ${k}`, areas: [{ name: `Wall ${k}`, side: "exterior", dimRefs: [`${k}.d1`, `${k}.d2`, "p99.zz"], note: null }], heights: [], finishes: [`PT-1 on ${k}`], access: [], readDims: [] } };
+    }
+    if (args.schemaName === "plan_read_photos") {
+      s.photoRunning = true;
+      if (s.sheetsInFlight > 0) s.overlapPhotoWithSheets = true;
+      await wait(photoDelay);
+      s.photoRunning = false;
+      await args.onUsage?.({ model: "gpt-5.5", promptTokens: 9000, completionTokens: 4000, cachedTokens: 0, imageCount: (args.images || []).length });
+      return { ok: true, data: rawPhotos };
+    }
+    s.synthPrompts.push(args.prompt);
+    await wait(synthDelay);
+    await args.onUsage?.({ model: "gpt-5.5", promptTokens: 30000, completionTokens: 9000, cachedTokens: 0, imageCount: 0 });
+    return goodModel;
+  };
+  return s;
+}
+
+/** A fake ledger with the database's one rule that matters here:
+ *  VoiceCreditEntry is @@unique([companyId, ref]), and writeEntry answers a
+ *  duplicate with the row already there (lib/voice/credits.js). */
+function uniqueLedger() {
+  const rows = [];
+  const write = (e) => rows.find((r) => r.companyId === e.companyId && r.ref === e.ref) || (rows.push(e), e);
+  return {
+    rows,
+    debitCredit: async (e) => write({ ...e, cents: -e.cents }),
+    refundReservation: async (e) => write({ companyId: e.companyId, cents: e.cents, ref: `refund:${e.ref}`, refund: true }),
+  };
+}
+const p0Deps = (ledger) => ({ ...ledgerDeps, debitCredit: ledger.debitCredit, refundReservation: ledger.refundReservation });
+
+async function runSet({ readId, n, photos = 0, order = {}, provider }) {
+  const memX = memDb({ planRead: [setRead(readId, n)], quoteDocument: setDocs(readId, n, photos) });
+  const lg = uniqueLedger();
+  const st = await startRead({ planReadId: readId, companyId: "co1" }, { ...p0Deps(lg), db: memX });
+  const t0 = Date.now();
+  const out = await advanceRead(readId, { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lg), db: memX, complete: provider.complete, ...order });
+  return { mem: memX, row: memX.t.planRead[0], out, wallMs: Date.now() - t0, ledger: lg, held: st.heldCents };
+}
+
+const seqP = scriptedProvider();
+const seq = await runSet({ readId: "pseq", n: 13, photos: 3, provider: seqP, order: { sheetConcurrency: 1, photosAlongside: false } });
+const parP = scriptedProvider();
+const par = await runSet({ readId: "ppar", n: 13, photos: 3, provider: parP });
+ok("both orders finish", seq.out.state === "ready" && par.out.state === "ready", [seq.out, par.out]);
+ok("old order: one sheet in flight at a time, photos only after the last sheet", seqP.maxSheetsInFlight === 1 && !seqP.overlapPhotoWithSheets, seqP.maxSheetsInFlight);
+ok("new order: all 13 sheets of the reference set in ONE wave", parP.maxSheetsInFlight === 13, parP.maxSheetsInFlight);
+ok("…with the photo pass running beside them", parP.overlapPhotoWithSheets);
+ok("the synthesis prompt is byte-identical (md5) to the old order's", seqP.synthPrompts.length === 1 && md5(seqP.synthPrompts[0]) === md5(parP.synthPrompts[0]), [md5(seqP.synthPrompts[0] || ""), md5(parP.synthPrompts[0] || "")]);
+ok("…and so is the project model", md5(seq.row.model) === md5(par.row.model) && Array.isArray(par.row.model?.surfaces));
+ok("…and every sheet's stored pass, in sheet order (timestamps aside)", md5(withoutAt(seq.row.sheets)) === md5(withoutAt(par.row.sheets)) && par.row.sheets.map((s) => s.key).join() === Array.from({ length: 13 }, (_, k) => `p${k + 1}`).join());
+ok("…and the photo pass", md5(seq.row.photoRead) === md5(par.row.photoRead) && par.row.photoRead?.surfaces?.length > 0);
+ok("…and the progress, the token totals and the charge", md5(seq.row.progress) === md5(par.row.progress) && seq.row.usage.promptTokens === par.row.usage.promptTokens && seq.row.usage.byStep.sheets.calls === 13 && par.row.usage.byStep.sheets.calls === 13 && seq.row.chargedCents === par.row.chargedCents, [seq.row.chargedCents, par.row.chargedCents]);
+ok(`and it is faster: ${par.wallMs} ms against ${seq.wallMs} ms for the same scripted calls`, par.wallMs * 2 < seq.wallMs, [par.wallMs, seq.wallMs]);
+
+const wide = scriptedProvider({ sheetDelay: () => 5 });
+await runSet({ readId: "pwide", n: 20, provider: wide });
+ok(`20 sheets never put more than SHEET_CONCURRENCY (${SHEET_CONCURRENCY}) in flight`, wide.maxSheetsInFlight === SHEET_CONCURRENCY && SHEET_CONCURRENCY >= 8 && SHEET_CONCURRENCY <= 16, wide.maxSheetsInFlight);
+const narrow = scriptedProvider({ sheetDelay: () => 5 });
+await runSet({ readId: "pnarrow", n: 9, provider: narrow, order: { sheetConcurrency: 4 } });
+ok("…and a lower limit is honoured exactly (4)", narrow.maxSheetsInFlight === 4, narrow.maxSheetsInFlight);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("15. P0 measure: each stage's clock on the read");
+// ═══════════════════════════════════════════════════════════════════════════
+
+const tPar = par.row.usage.timing;
+const sPar = timingSummary(tPar);
+const sSeq = timingSummary(seq.row.usage.timing);
+ok("the click, the uploads and every slice are on the row", tPar?.v === 1 && tPar.startedAt > 0 && tPar.uploadDoneAt > tPar.uploadFirstAt && tPar.invocations.length === 1, tPar);
+ok("every sheet's own start and end, with its attempts", Object.keys(tPar.sheets).length === 13 && Object.values(tPar.sheets).every((x) => x.end >= x.start && x.attempts === 1));
+ok("photos started before the last sheet finished (side by side)", tPar.steps.photos.start < tPar.steps.sheets.end, tPar.steps);
+ok("…and in the old order, only after it", seq.row.usage.timing.steps.photos.start >= seq.row.usage.timing.steps.sheets.end);
+ok("the synthesis starts after both", tPar.steps.synthesis.start >= Math.max(tPar.steps.sheets.end, tPar.steps.photos.end));
+ok("summary: total, sheets, photos, synthesis, outcome", sPar.outcome === "ready" && sPar.totalMs >= sPar.synthesisMs && sPar.sheetCount === 13 && sPar.photosMs > 0 && sPar.uploadSpanMs > 0 && sPar.waitBeforeReadMs >= 0, sPar);
+ok(`measured on the row: ${sPar.totalMs} ms side by side against ${sSeq.totalMs} ms in order`, sPar.totalMs < sSeq.totalMs, [sPar.totalMs, sSeq.totalMs]);
+ok("the compact form reads as a person would say it", formatDuration(42_400) === "42s" && formatDuration(185_000) === "3m 05s" && formatDuration(null) === null);
+ok("absent stages are null, never 0", timingSummary({ v: 1, startedAt: 1, steps: {}, sheets: {}, invocations: [] }).photosMs === null && timingSummary(null) === null);
+ok("medians come from finished reads only", timingMedians([sPar, sSeq, { ...sPar, outcome: "failed", totalMs: 1 }]).reads === 2);
+ok("a read from before timings is not given invented ones", (await (async () => {
+  const m = memDb({ planRead: [{ ...setRead("pold", 1), status: "reading", reservedCents: 50, reservationRef: "plan_read:pold:x", usage: { run: {} } }], quoteDocument: setDocs("pold", 1) });
+  await advanceRead("pold", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(uniqueLedger()), db: m, complete: scriptedProvider().complete });
+  return m.t.planRead[0].status === "ready" && !m.t.planRead[0].usage.timing;
+})()));
+const viewTook = await planReadView({ ...par.row, documents: setDocs("ppar", 13, 3), messages: [] }, { companyId: "co1", canSeeMoney: true, prisma: { companyServiceCategory: { findMany: async () => [] } } });
+ok("the estimator's screen gets the total (\"took …\") and nothing else of the clock", viewTook.timing?.totalMs === sPar.totalMs && viewTook.timing.outcome === "ready" && !("sheetsMs" in viewTook.timing), viewTook.timing);
+const platformRoute = code("app/api/platform/plan-reads/route.js");
+ok("/platform reads the stages and the per-step tokens, signed-in admins only", /getCurrentPlatformAdmin/.test(platformRoute) && /timingSummary/.test(platformRoute) && /byStep/.test(platformRoute) && !/\.(update|create|delete)(Many)?\(/.test(platformRoute));
+ok("…and the AI usage page shows them", /<PlanReadTimings \/>/.test(code("app/platform/ai-usage/page.js")) && /\/api\/platform\/plan-reads/.test(code("app/components/platform/PlanReadTimings.js")));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("16. P0 retries: a rate limit backs off; a sheet is never lost to time");
+// ═══════════════════════════════════════════════════════════════════════════
+
+ok("429 → three attempts, backing off 4 s then 8 s (+ jitter)", (() => {
+  const f = { reason: "vendor_error", message: "429 Rate limit reached for gpt-5-mini" };
+  const a = retryPlan(f, 1, () => 0), b = retryPlan(f, 2, () => 0), c = retryPlan(f, 3, () => 0);
+  return a.retry && a.waitMs === 4000 && b.retry && b.waitMs === 8000 && !c.retry;
+})());
+ok("another vendor error → one retry after about a second (it billed nothing)", retryPlan({ reason: "vendor_error", message: "socket hang up" }, 1, () => 0).waitMs === 1000 && !retryPlan({ reason: "vendor_error" }, 2).retry);
+ok("a billed failure (truncated) keeps its single immediate retry", retryPlan({ reason: "truncated" }, 1).waitMs === 0 && retryPlan({ reason: "truncated" }, 1).retry && !retryPlan({ reason: "truncated" }, 2).retry);
+const sleeps = [];
+const flaky = scriptedProvider({
+  sheetDelay: () => 2,
+  failures: { p2: { left: 2, reason: "vendor_error", message: "429 Rate limit reached" }, p3: { left: 5, reason: "truncated" } },
+});
+const fl = await runSet({ readId: "pflaky", n: 4, provider: flaky, order: { sleep: async (ms) => { sleeps.push(ms); } } });
+const flSheet = (k) => fl.row.sheets.find((s) => s.key === k);
+ok("a sheet rate-limited twice is read on the third attempt", !flSheet("p2").read.failed && fl.row.usage.timing.sheets.p2.attempts === 3, fl.row.usage.timing.sheets.p2);
+ok("…after waiting, not hammering", sleeps.length === 2 && sleeps[0] >= 4000 && sleeps[1] >= 8000, sleeps);
+ok("a sheet that keeps failing is marked unreadable after two, and the read still finishes", flSheet("p3").read.failed === true && fl.row.usage.timing.sheets.p3.attempts === 2 && fl.out.state === "ready");
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("17. P0 backstop: a closed tab never stalls a paid read, and never pays twice");
+// ═══════════════════════════════════════════════════════════════════════════
+
+const bLedger = uniqueLedger();
+const memB = memDb({
+  planRead: [
+    setRead("pstall", 3),
+    { ...setRead("pheld", 2), status: "reading", reservedCents: 60, reservationRef: "plan_read:pheld:x", leaseUntil: new Date(Date.now() + 600_000).toISOString(), usage: { run: {} } },
+    { ...setRead("pdone", 1), status: "ready", leaseUntil: null },
+  ],
+  quoteDocument: [...setDocs("pstall", 3), ...setDocs("pheld", 2).map((x) => ({ ...x, id: `${x.id}-h` })), ...setDocs("pdone", 1).map((x) => ({ ...x, id: `${x.id}-d` }))],
+});
+const leaseAtHold = [];
+const bStart = await startRead({ planReadId: "pstall", companyId: "co1" }, {
+  ...p0Deps(bLedger),
+  db: memB,
+  debitCredit: async (e) => {
+    // The moment the hold is written: the row is "reading" — is it leased?
+    leaseAtHold.push(memB.t.planRead[0].leaseUntil);
+    return bLedger.debitCredit(e);
+  },
+});
+ok("the start's claim keeps workers off the row until the hold is written", bStart.ok && leaseAtHold[0] && new Date(leaseAtHold[0]) > new Date(), leaseAtHold);
+ok("…and lets go once it is", memB.t.planRead[0].leaseUntil === null && memB.t.planRead[0].reservationRef);
+// The tab is closed: nobody polls. Two cron ticks land together.
+const bProvider = scriptedProvider({ sheetDelay: () => 3 });
+const bDeps = { db: memB, advanceDeps: { ...p0Deps(bLedger), db: memB, complete: bProvider.complete } };
+const [tick1, tick2] = await Promise.all([resumeStalledReads({ now: new Date() }, bDeps), resumeStalledReads({ now: new Date() }, bDeps)]);
+const states = [...tick1.results, ...tick2.results].filter((r) => r.id === "pstall").map((r) => r.state).sort();
+ok("two ticks at once: one resumes the stalled read, the other finds it leased", states.join() === "busy,ready", [tick1, tick2]);
+ok("a read another worker holds is left alone", ![...tick1.results, ...tick2.results].some((r) => r.id === "pheld") && memB.t.planRead[1].status === "reading");
+ok("a finished read is never picked", ![...tick1.results, ...tick2.results].some((r) => r.id === "pdone"));
+ok("the stalled read finished, from its sheets to its settle", memB.t.planRead[0].status === "ready" && bProvider.calls.filter((c) => c === "plan_read_synthesis").length === 1);
+const bMoney = bLedger.rows.filter((r) => r.ref?.includes("pstall"));
+ok("money: one hold, one refund of the unused part — the cron debited nothing", bMoney.filter((r) => r.cents < 0).length === 1 && bMoney.filter((r) => r.refund).length === 1 && -bMoney.reduce((a, r) => a + r.cents, 0) === memB.t.planRead[0].chargedCents, bMoney);
+const tick3 = await resumeStalledReads({ now: new Date() }, bDeps);
+ok("the next tick finds nothing to do", tick3.considered === 0, tick3);
+ok("the backstop's query is advanceRead's own lease condition", JSON.stringify(stalledWhere(new Date(0))) === JSON.stringify({ status: "reading", OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date(0) } }] }));
+const backstopSrc = code("lib/planRead/backstop.js");
+ok("the backstop holds, debits and refunds nothing itself", !/debitCredit|refundReservation|startRead|settlement\(/.test(backstopSrc) && /advanceRead/.test(backstopSrc));
+const cronSrc = code("app/api/cron/plan-reads/route.js");
+ok("the cron route is behind the cron secret and scheduled", /requireCronSecret\(request\)/.test(cronSrc) && JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")).crons.some((c) => c.path === "/api/cron/plan-reads"));
+
+// A worker that outlived its lease (an invocation the platform let run on):
+// another worker settles the read meanwhile; the late one must change nothing.
+const lLedger = uniqueLedger();
+const memL = memDb({ planRead: [setRead("plate", 2)], quoteDocument: setDocs("plate", 2) });
+await startRead({ planReadId: "plate", companyId: "co1" }, { ...p0Deps(lLedger), db: memL });
+let release;
+const gate = new Promise((r) => (release = r));
+let inSynthesis = false;
+const lateProvider = scriptedProvider({ sheetDelay: () => 2 });
+const late = advanceRead("plate", { companyId: "co1", budgetMs: 10_000_000 }, {
+  ...p0Deps(lLedger),
+  db: memL,
+  complete: async (args) => {
+    if (args.schemaName === "plan_read_synthesis") {
+      inSynthesis = true;
+      await gate;
+    }
+    return lateProvider.complete(args);
+  },
+});
+while (!inSynthesis) await wait(2);
+memL.t.planRead[0].leaseUntil = new Date(Date.now() - 1000).toISOString();
+const onTime = await advanceRead("plate", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lLedger), db: memL, complete: scriptedProvider().complete });
+const chargedOnce = memL.t.planRead[0].chargedCents;
+release();
+const lateOut = await late;
+ok("the worker that took over settles the read", onTime.state === "ready" && chargedOnce > 0, onTime);
+ok("the late worker's settle changes nothing: the charge is not added twice", lateOut.state === "idle" && memL.t.planRead[0].chargedCents === chargedOnce && memL.t.planRead[0].status === "ready", [lateOut, memL.t.planRead[0].chargedCents, chargedOnce]);
+ok("…and the hold is refunded once (the ledger's unique refund ref)", lLedger.rows.filter((r) => r.refund).length === 1 && -lLedger.rows.reduce((a, r) => a + r.cents, 0) === chargedOnce, lLedger.rows);
+ok("the ledger really is unique on (companyId, ref), and a duplicate answers with the row already there", /@@unique\(\[companyId, ref\]\)/.test(readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8").match(/model VoiceCreditEntry \{[\s\S]*?\n\}/)?.[0] || "") && /P2002[\s\S]{0,120}findFirst\(\{ where: \{ companyId, ref \} \}\)/.test(code("lib/voice/credits.js")) && /ref: refundRefFor\(ref\)/.test(code("lib/voice/spendGate.js")));
+
+const gLedger = uniqueLedger();
+const memG = memDb({ planRead: [{ ...setRead("pgone", 2), status: "reading", reservedCents: 80, reservationRef: "plan_read:pgone:x", usage: { run: {}, timing: startTiming({ now: Date.now() - MAX_READ_MS - 60_000 }) } }], quoteDocument: setDocs("pgone", 2) });
+const gProvider = scriptedProvider();
+const gone = await advanceRead("pgone", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(gLedger), db: memG, complete: gProvider.complete });
+ok(`a read still running ${MAX_READ_MS / 60_000} min after its click is given up, refunded IN FULL, once`, gone.state === "failed" && memG.t.planRead[0].status === "failed" && gLedger.rows.length === 1 && gLedger.rows[0].cents === 80 && gProvider.calls.length === 0, gLedger.rows);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("18. P0 history: the estimator's own edits beside the chat's changes");
+// ═══════════════════════════════════════════════════════════════════════════
+
+ok("an edit that changed nothing logs nothing", editLogEntry({ changes: [], companyId: "co1", planReadId: "pr1", userId: "u1" }) === null && editLogEntry({ changes: ["  "], companyId: "co1", planReadId: "pr1" }) === null);
+const logRow = editLogEntry({ changes: ["Measured North wall: 1,040 sq ft (traced on A-201)", "Priced Boom lift at $1,800"], companyId: "co1", planReadId: "pr1", userId: "u1" });
+ok("an edit is a history row: who, what, role edit", logRow.role === "edit" && logRow.userId === "u1" && logRow.changes.length === 2 && /Measured North wall/.test(logRow.text) && logRow.companyId === "co1");
+const mixed = [
+  { id: "m1", role: "user", text: "exclude the basement", userId: "u1", createdAt: "2026-10-04T14:01:00Z" },
+  { id: "m2", role: "assistant", text: "Done.", changes: ["Left out Basement"], userId: "u1", createdAt: "2026-10-04T14:01:05Z" },
+  { id: "m3", ...logRow, createdAt: "2026-10-04T14:02:00Z" },
+];
+const hist = chatHistory(mixed);
+ok("the chat model never sees an edit row as conversation", hist.length === 2 && !hist.some((h) => /Measured/.test(h.text)));
+const promptWithEdits = chatPrompt({ context: ctx1, model, history: hist, message: "anything else?" });
+ok("…so the prompt holds the conversation and not the edit", promptWithEdits.includes("exclude the basement") && !promptWithEdits.includes("Measured North wall"));
+let authorWhere = null;
+const authors = await withAuthors(mixed, { companyId: "co1", prisma: { member: { findMany: async ({ where }) => { authorWhere = where; return [{ userId: "u1", user: { name: "Emilio" } }]; } } } });
+ok("names come from this company's members only", authorWhere?.companyId === "co1" && authors.u1 === "Emilio");
+const viewHist = await planReadView({ ...readRow, messages: mixed }, { companyId: "co1", canSeeMoney: true, authors, prisma: { companyServiceCategory: { findMany: async () => [] } } });
+ok("the screen gets one timeline, edits included, each with who and when", viewHist.messages.map((m) => m.role).join() === "user,assistant,edit" && viewHist.messages.every((m) => m.author === "Emilio" && m.createdAt) && viewHist.messages[2].changes.length === 2);
+const patchSrc = code("app/api/plan-reads/[id]/route.js");
+ok("PATCH writes the edit and its history row in ONE transaction", /db\.\$transaction\(\[[\s\S]*planRead\.updateMany[\s\S]*planReadMessage\.create\(\{ data: log \}\)/.test(patchSrc) && /editLogEntry\(\{ changes/.test(patchSrc));
+ok("…renames and the client's wording are logged too", /Renamed the project/.test(patchSrc) && /Changed what the client wants/.test(patchSrc));
+ok("the chat route sends chatHistory(), not the raw rows", /history: chatHistory\(read\.messages\)/.test(code("app/api/plan-reads/[id]/messages/route.js")));
+ok("a chat reply records who asked", /userId: member\.userId \|\| null,\s*\}/.test(code("app/api/plan-reads/[id]/messages/route.js").replace(/\n\s*/g, " ").replace(/ +/g, " ")) || /chargedCents: turn\.chargedCents,[\s\S]{0,40}userId: member\.userId/.test(code("app/api/plan-reads/[id]/messages/route.js")));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("19. P0 cache by file hash: the same PDF is not paid for twice — within ONE company");
+// ═══════════════════════════════════════════════════════════════════════════
+
+const bytesA = churchSet();
+ok("the hash is the bytes' SHA-256", contentHashOf(bytesA) === createHash("sha256").update(bytesA).digest("hex") && contentHashOf(bytesA) !== contentHashOf(new Uint8Array([...bytesA, 32])));
+const H = contentHashOf(bytesA);
+const curDocs = [{ id: "dnew", companyId: "co1", planReadId: "pnew", kind: "plan", mimeType: "application/pdf", supersedesId: null, contentHash: H, pages: [] }];
+const cur = { id: "pnew", companyId: "co1", trade: "painting", clientRequest: "Repaint the church", status: "draft", documents: curDocs, sheets: [1, 2].map((i) => ({ ...sheetN(i), docId: "dnew" })), photoRead: null, excelRows: null };
+// The same file as the 5th and 6th sheets of an earlier read (keys renumbered).
+const earlierSheets = [1, 2].map((i) => {
+  const s = { ...sheetN(i + 4), docId: "dold", docPage: i };
+  return { ...s, read: { relevant: true, summary: `old ${i}`, areas: [{ name: "Wall", side: "exterior", dimRefs: [`p${i + 4}.d1`, `p${i + 4}.d2`], note: null }], heights: [{ label: "eave", dimRef: `p${i + 4}.d3` }], finishes: [], access: [], at: "2026-10-01T00:00:00Z" }, scanDims: [{ id: `p${i + 4}.v1`, raw: "10'", feet: 10 }] };
+});
+const src = (over) => ({ id: "pold", companyId: "co1", title: "Church — first try", trade: "painting", clientRequest: "Repaint the church", readAt: "2026-10-01T00:00:00Z", sheets: earlierSheets, documents: [{ id: "dold", companyId: "co1", contentHash: H, planReadId: "pold" }], ...over });
+const offers = reusableSheets({
+  read: cur,
+  companyId: "co1",
+  sources: [
+    src(),
+    src({ id: "prival", companyId: "co2", title: "Rival's read of the same tender" }),
+    src({ id: "pstain", trade: "staining" }),
+    src({ id: "pother", documents: [{ id: "dold", companyId: "co1", contentHash: "f".repeat(64) }] }),
+  ],
+});
+ok("an earlier read of the same bytes in the same company is offered, sheet for sheet", offers.length === 1 && offers[0].fromId === "pold" && offers[0].sheets.map((x) => `${x.key}<${x.fromKey}`).join() === "p1<p5,p2<p6" && offers[0].sameRequest, offers);
+ok("ANOTHER COMPANY's read of the identical file is never offered", !offers.some((o) => o.fromId === "prival"));
+ok("nor a read for another trade, nor a different file", !offers.some((o) => o.fromId === "pstain" || o.fromId === "pother"));
+ok("a read in another company is offered nothing at all", reusableSheets({ read: cur, companyId: "co2", sources: [src({ companyId: "co2" })] }).length === 0);
+ok("a failed or differently-extracted sheet is read fresh", reusableSheets({ read: cur, companyId: "co1", sources: [src({ sheets: [{ ...earlierSheets[0], read: { ...earlierSheets[0].read, failed: true } }, { ...earlierSheets[1], dims: earlierSheets[1].dims.slice(1) }] })] }).length === 0);
+ok("a different client request is said, not hidden", reusableSheets({ read: { ...cur, clientRequest: "Exterior only" }, companyId: "co1", sources: [src()] })[0].sameRequest === false);
+const applied = applySheetReuse(cur.sheets, offers[0], src());
+const a1 = applied.sheets[0];
+ok("reused passes are renumbered onto this read's sheets", applied.reused === 2 && a1.read.areas[0].dimRefs.join() === "p1.d1,p1.d2" && a1.read.heights[0].dimRef === "p1.d3" && a1.scanDims[0].id === "p1.v1" && a1.reusedFrom.planReadId === "pold");
+ok("…and a sheet read since the offer keeps its own", applySheetReuse([{ ...cur.sheets[0], read: { summary: "mine" } }, cur.sheets[1]], offers[0], src()).sheets[0].read.summary === "mine");
+const wheres = [];
+const fakePrisma = {
+  quoteDocument: { findMany: async ({ where }) => { wheres.push(["quoteDocument", where]); return [{ id: "dold", companyId: "co1", contentHash: H, planReadId: "pold" }, { id: "dx", companyId: "co2", contentHash: H, planReadId: "prival" }]; } },
+  // A query that leaked another company's row would still be dropped.
+  planRead: { findMany: async ({ where }) => { wheres.push(["planRead", where]); return [src(), src({ id: "prival", companyId: "co2" })]; } },
+};
+const found = await findSheetCache(cur, { companyId: "co1", prisma: fakePrisma });
+ok("both lookups are keyed by the member's company", wheres.length === 2 && wheres.every(([, w]) => w.companyId === "co1"), wheres);
+ok("…and a leaked row from another company is dropped in code too", found.offers.length === 1 && found.offers[0].fromId === "pold");
+ok("no lookup at all when nothing unread has a hash", (await findSheetCache({ ...cur, sheets: cur.sheets.map((s) => ({ ...s, read: { x: 1 } })) }, { companyId: "co1", prisma: { quoteDocument: { findMany: async () => { throw new Error("queried"); } } } })).offers.length === 0);
+const sav = reuseSavings({ ...cur, documents: curDocs }, offers[0]);
+ok(`the offer states what it saves: ${sav?.savesCents} credits`, sav && sav.savesCents > 0 && sav.afterCents === estimateRead({ sheets: 2, sheetsAlreadyRead: 2 }).cents, sav);
+const docSrc = code("lib/planRead/documents.js");
+ok("the hash is computed by the server from the bytes it fetched, never taken from the browser", /contentHash: contentHashOf\(file\.buffer\)/.test(docSrc) && !/raw\??\.contentHash/.test(docSrc) && !("contentHash" in (validateQuoteDocument({ kind: "plan", url: url("a.pdf"), mimeType: "application/pdf", contentHash: H }, { companyId: "co1", canSeeMoney: true, cloudName }).data || {})));
+const reuseSrc = code("app/api/plan-reads/[id]/reuse/route.js");
+ok("reuse recomputes the offer server-side, scoped, under the row lock, and logs it", /findSheetCache\(read, \{ companyId: member\.companyId/.test(reuseSrc) && /FOR UPDATE/.test(reuseSrc) && /editLogEntry\(/.test(reuseSrc) && /await params/.test(reuseSrc));
+ok("the column is additive and indexed per company", /contentHash String\?/.test(readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8")) && /@@index\(\[companyId, contentHash\]\)/.test(readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8")));
 
 console.log(`\ncheck-plan-deep-read: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
