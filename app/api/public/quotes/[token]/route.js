@@ -19,6 +19,7 @@ import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
 import { notifyEvent } from "@/lib/notifications/notify";
 import { recordActivity } from "@/lib/activity/log";
 import { canPreviewCompanyDocument } from "@/lib/quotes/previewAccess";
+import { clientFileHref } from "@/lib/media/fileOpen";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { isTextLine } from "@/lib/quotes/textBlocks";
@@ -632,6 +633,9 @@ export async function GET(request, { params }) {
         company: quote.company,
         language: presented.language,
         presentation: quote.presentation,
+        // Each document opens through this quote's own token route — the
+        // stored Cloudinary PDF URL answers 401 (lib/media/fileOpen.js).
+        fileHref: (d) => clientFileHref({ scope: "quote", token, kind: "document", id: d.id }),
       }),
       loadWorkPlan({ quote, companyId: quote.companyId }),
       loadQuoteWaivers({ quoteId: quote.id, companyId: quote.companyId }),

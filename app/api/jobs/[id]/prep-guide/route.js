@@ -24,6 +24,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { prepGuideDecision, clampLeadDays } from "@/lib/prepGuide/schedule";
 import { sendPrepGuide, PREP_GUIDE_DOCUMENT_KIND } from "@/lib/prepGuide/send";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { staffFileLink } from "@/lib/media/fileOpen";
 
 const JOB_SELECT = {
   id: true,
@@ -44,7 +45,7 @@ async function ownJob(id, companyId, member) {
   return db.job.findFirst({ where: { id, companyId, ...assignedJobWhere(member) }, select: JOB_SELECT });
 }
 
-async function statusFor(job, full) {
+async function statusFor(job, full, member) {
   const decision = prepGuideDecision({ job, company: job.company, client: job.client, now: new Date() });
   const lastDocument = await db.jobDocument.findFirst({
     where: { jobId: job.id, kind: PREP_GUIDE_DOCUMENT_KIND, supersededBy: { is: null } },
@@ -66,7 +67,9 @@ async function statusFor(job, full) {
     // One name per trade, not per scope group — two rooms of painting are
     // one trade, and the builder sends one section for them.
     trades: [...new Set((job.quote?.scopeGroups || []).map((g) => g.category?.label).filter(Boolean))],
-    document: lastDocument,
+    // openUrl: the filed PDF has no extension and its Cloudinary URL answers
+    // 401 from this account; it opens through /api/files/open (lib/media/fileOpen.js).
+    document: lastDocument ? { ...lastDocument, openUrl: staffFileLink(member, { kind: "job-document", id: lastDocument.id }) } : null,
     canSend: hasLevel(full, "jobs", "view_create_edit"),
   };
 }
@@ -87,7 +90,7 @@ export async function GET(request, { params }) {
 
   const job = await ownJob(id, member.companyId, full);
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(await statusFor(job, full));
+  return NextResponse.json(await statusFor(job, full, member));
 }
 
 export async function POST(request, { params }) {
@@ -119,7 +122,7 @@ export async function POST(request, { params }) {
     );
   }
   const fresh = await ownJob(id, member.companyId, full);
-  return NextResponse.json({ ...(await statusFor(fresh, full)), result });
+  return NextResponse.json({ ...(await statusFor(fresh, full, member)), result });
 }
 
 export async function PATCH(request, { params }) {
@@ -158,5 +161,5 @@ export async function PATCH(request, { params }) {
   });
 
   const fresh = await ownJob(id, member.companyId, full);
-  return NextResponse.json(await statusFor(fresh, full));
+  return NextResponse.json(await statusFor(fresh, full, member));
 }

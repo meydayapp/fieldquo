@@ -184,7 +184,7 @@ function seed({ startOffset = 3, leadDays = 3, email = "marie@example.com", lang
   mailState.fail = false;
   mailState.skip = false;
   rows.company.push({ id: "co1", name: "Northline Refinishing", email: "hi@northline.ca", phone: "613 555 0100", website: "northline.ca", logoUrl: null, brandColor: "#06356b", defaultLanguage: "en", currency: "CAD", prepGuideLeadDays: leadDays, emailDomainStatus: null, emailDomain: null, emailFromLocal: null, taxIdName: null, taxIdNumber: null });
-  rows.client.push({ id: "cl1", name: "Marie Tremblay", email, language });
+  rows.client.push({ id: "cl1", companyId: "co1", name: "Marie Tremblay", email, language });
   rows.serviceCategory.push({ id: "cat_cab", key: "cabinet_refinishing", label: "Cabinet Refinishing", labelTranslations: { fr: "Refinition d'armoires" }, companySettings: [{ companyId: "co1", prepGuide: null, includedItems: null, processSteps: null, scopeDescription: null, accentColor: null }] });
   rows.serviceCategory.push({ id: "cat_top", key: "countertop", label: "Countertop Installation", labelTranslations: {}, companySettings: [] });
   rows.member.push({ id: "m1", userId: "u1", companyId: "co1", role: "owner", permissions: null });
@@ -230,12 +230,30 @@ const calls = [];
 const originalUpdateMany = db.job.updateMany;
 db.job.updateMany = async (a) => { calls.push("claim"); return originalUpdateMany(a); };
 const origSend = sendEmailFixture;
+// The client's document links are absolute portal-route links (lib/prepGuide/
+// send.js), so the sender needs to know this site's address.
+process.env.NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.example.test";
 const result = await sendPrepGuide({ jobId: "job1", companyId: "co1" }, { db, send: async (p) => { calls.push("send"); return origSend(p); }, cloudName: "democloud" });
 ok("sent", result.sent === true && result.to === "marie@example.com" && result.language === "fr", JSON.stringify(result));
 ok("the stamp is claimed BEFORE the mail goes", calls[0] === "claim" && calls.indexOf("send") > calls.indexOf("claim"));
 const s1 = sent[0];
 ok("from the company, to the client, reply-to the company", /Northline Refinishing/.test(s1.from) && s1.to === "marie@example.com" && s1.replyTo === "hi@northline.ca" && s1.companyId === "co1");
 ok("guide PDF attached plus the documents under the cap (30 MB sheet linked only)", s1.attachments.length === 2 && s1.attachments[0].filename === "Guide-de-preparation.pdf" && s1.attachments[1].filename === "Care-card.pdf" && result.attached === 1);
+// The account answers a PDF's plain Cloudinary URL with 401 — the email
+// links each document through the client's portal file route instead
+// (lib/media/fileOpen.js), and the stored URL never reaches the client.
+{
+  const token = rows.client.find((c) => c.id === "cl1")?.portalToken;
+  ok(
+    "the sent email links each document through the client's portal token route, never Cloudinary",
+    typeof token === "string" &&
+      s1.html.includes(`/api/portal/${token}/files/guide/sd1`) &&
+      s1.html.includes(`/api/portal/${token}/files/guide/sd2`) &&
+      s1.text.includes(`/api/portal/${token}/files/guide/sd2`) &&
+      !/res\.cloudinary\.com/.test(s1.html) &&
+      !/res\.cloudinary\.com/.test(s1.text),
+  );
+}
 ok("filed on the job as kind prep_guide, source prep_guide, PDF", writes.some((w) => w.model === "jobDocument" && w.data.kind === "prep_guide" && w.data.source === "prep_guide" && w.data.mimeType === "application/pdf" && w.data.jobId === "job1"));
 ok("uploaded to the company's prep-guides folder", uploads[0]?.folder === "fieldquo/co1/prep-guides");
 ok("activity written on the job, keyed for the reader's language", writes.some((w) => w.model === "activityLog" && w.data.action === "job.prep_guide_sent" && w.data.entityType === "job" && w.data.metadata?.i18n?.key === "app.activity.event.prepGuideSentScheduled"));

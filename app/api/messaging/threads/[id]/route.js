@@ -31,6 +31,7 @@ import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/service
 import { offersTemplates } from "@/lib/messaging/platforms";
 import { publicTemplateShape } from "@/lib/messaging/templates";
 import { publicAttachments } from "@/lib/messaging/attachments";
+import { messageOpenUrl } from "@/lib/media/fileOpen";
 import { demoThreads } from "@/lib/messaging/demoThreads";
 import { resumeCandidate } from "@/lib/aiEmployee/routing";
 import {
@@ -278,7 +279,9 @@ async function readThread({ id, member }) {
       messages: thread.messages.map(({ externalId, ...m }) => {
         const shaped = {
           ...m,
-          attachments: publicAttachments(m.attachments),
+          // openUrl: a customer's PDF opens through /api/files/open — its
+          // stored Cloudinary URL answers 401 (lib/media/fileOpen.js).
+          attachments: publicAttachments(m.attachments, { openUrl: messageOpenUrl(member, m.id) }),
           sms: m.direction === "out" ? receipts.get(externalId) || null : null,
         };
         return support ? supportViewMessage(shaped) : shaped;

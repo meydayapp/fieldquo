@@ -190,24 +190,42 @@ export function CompanySections({ proposal, sectionKeys, copy, theme, rule, wash
       {proposal.documents?.length > 0 && on("documents") && (
         <ProposalSection id={ids.documents} kicker={copy.proposal.importantDocuments} title={copy.proposal.documentsHeading} theme={theme}>
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-            {proposal.documents.map((d, i) => (
-              <a
-                key={i}
-                href={d.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-black/10 p-3 hover:border-black/25 flex flex-col"
-              >
-                <div className="h-14 rounded-md border border-black/10 flex items-center justify-center" style={{ backgroundColor: wash.bg, color: wash.accent }}>
-                  <FileText size={22} />
-                </div>
-                <p className="text-sm font-semibold text-[#2d2520] mt-2 leading-snug">{d.title}</p>
-                {d.summary && <p className="text-xs text-[#2d2520]/70 mt-0.5">{d.summary}</p>}
-                <span className="text-xs font-bold mt-auto pt-2" style={{ color: theme.accentText }}>
-                  {copy.proposal.viewDocument}
-                </span>
-              </a>
-            ))}
+            {proposal.documents.map((d, i) => {
+              const card = (
+                <>
+                  <div className="h-14 rounded-md border border-black/10 flex items-center justify-center" style={{ backgroundColor: wash.bg, color: wash.accent }}>
+                    <FileText size={22} />
+                  </div>
+                  <p className="text-sm font-semibold text-[#2d2520] mt-2 leading-snug">{d.title}</p>
+                  {d.summary && <p className="text-xs text-[#2d2520]/70 mt-0.5">{d.summary}</p>}
+                </>
+              );
+              // d.url is the page's own token route (lib/media/fileOpen.js
+              // clientFileHref), never the stored Cloudinary URL, which this
+              // account answers with 401 for a PDF. A document the server could
+              // not link is shown without "View document" — never a dead link.
+              if (!d.url) {
+                return (
+                  <div key={i} className="rounded-lg border border-black/10 p-3 flex flex-col">
+                    {card}
+                  </div>
+                );
+              }
+              return (
+                <a
+                  key={i}
+                  href={d.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-black/10 p-3 hover:border-black/25 flex flex-col"
+                >
+                  {card}
+                  <span className="text-xs font-bold mt-auto pt-2" style={{ color: theme.accentText }}>
+                    {copy.proposal.viewDocument}
+                  </span>
+                </a>
+              );
+            })}
           </div>
         </ProposalSection>
       )}

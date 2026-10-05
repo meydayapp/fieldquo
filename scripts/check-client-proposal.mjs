@@ -301,7 +301,10 @@ section("8. Wiring the fixtures cannot execute");
   const pkg = JSON.parse(read("package.json"));
   ok("check:client-proposal is wired into check:all", typeof pkg.scripts["check:client-proposal"] === "string" && pkg.scripts["check:all"].includes("check:client-proposal"));
   const portal = strip(read("app/api/portal/[token]/route.js"));
-  ok("the portal lists signed waivers with the filed URL and pending ones with the sign link", /signToken: r\.status === "signed" \? null : r\.token/.test(portal) && /urlById\.get\(r\.jobDocumentId\)/.test(portal));
+  // The signed copy opens through the portal's own token route — the filed
+  // Cloudinary PDF URL answers 401 from this account (lib/media/fileOpen.js),
+  // so the old `urlById.get(...)` link looked like it worked and didn't.
+  ok("the portal lists signed waivers with a link to the filed copy and pending ones with the sign link", /signToken: r\.status === "signed" \? null : r\.token/.test(portal) && /clientFileHref\(\{ scope: "portal", token: _params\.token, kind: "waiver", id: r\.jobDocumentId \}\)/.test(portal) && !/urlById/.test(portal));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

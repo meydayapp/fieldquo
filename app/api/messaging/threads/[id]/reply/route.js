@@ -47,6 +47,7 @@ import { sendOnChannel, sendMockOnChannel } from "@/lib/messaging/send";
 import { renderTemplateBody } from "@/lib/messaging/templates";
 import { prepareOutboundMedia } from "@/lib/messaging/whatsappMedia";
 import { publicAttachments } from "@/lib/messaging/attachments";
+import { messageOpenUrl } from "@/lib/media/fileOpen";
 import { safeFilename } from "@/lib/media/validate";
 import { responseStamps } from "@/lib/messaging/waiting";
 import { readStatus } from "@/lib/messaging/outcomes";
@@ -457,7 +458,7 @@ export async function POST(request, { params }) {
   // `sourceUrl` and `mediaId` are fetcher-only fields and never reach a
   // browser. There are none on an outbound row today, and the shaping is what
   // keeps that true if that ever changes.
-  const shaped = { ...message, attachments: publicAttachments(message.attachments) };
+  const shaped = { ...message, attachments: publicAttachments(message.attachments, { openUrl: messageOpenUrl(member, message.id) }) };
 
   if (!result.ok) {
     return NextResponse.json(
