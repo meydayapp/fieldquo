@@ -1697,7 +1697,10 @@ section("16. A conversation that names a business hangs on its lead");
     const composer = decomment(read("app/components/chat/Composer.js"));
     ok("the composer never shrinks and starts at two rows", /shrink-0 border-t border-border bg-card" data-chat-composer/.test(composer) && /rows=\{2\}/.test(composer));
     const thread = decomment(read("app/components/chat/Thread.js"));
-    ok("the thread is the flex-1 min-h-0 child and its rows are findable", /min-h-0 flex-1 overflow-y-auto/.test(thread) && /data-chat-row="message"/.test(thread) && /displayBody\(m\.body\)/.test(thread));
+    // Bodies are drawn through ChatText since b56afe5f (tappable links), which
+    // folds the blank lines with displayBody before linkifying — the same fold.
+    ok("the thread is the flex-1 min-h-0 child and its rows are findable", /min-h-0 flex-1 overflow-y-auto/.test(thread) && /data-chat-row="message"/.test(thread) &&
+      (/displayBody\(m\.body\)/.test(thread) || (/linkParts\(displayBody\(text\)\)/.test(thread) && /<ChatText text=\{m\.body\} \/>/.test(thread) && !/\{m\.body\}<\/p>/.test(thread))));
     ok("displayBody folds a run of blank lines and touches nothing else",
       displayBody("a\n\n\n\n\nReply STOP") === "a\n\nReply STOP" && displayBody("a\n\nb") === "a\n\nb" && displayBody("a\nb") === "a\nb" && displayBody("a\n \n\t\n\nb") === "a\n\nb" && displayBody(null) === "");
     const langs = Object.keys(APP_MESSAGES);

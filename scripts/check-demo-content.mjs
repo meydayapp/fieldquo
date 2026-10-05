@@ -32,7 +32,7 @@ import { dirname, join } from "node:path";
 import { db } from "@/lib/db";
 import { seedDemoCompany, CLIENT_COUNT } from "@/lib/demo/seedContent";
 import { rateFor, unitFor } from "@/lib/demo/seedDemo";
-import { hasPriceBook } from "@/app/data/tradePriceBooks";
+import { hasPriceBook, keepsOwnRate } from "@/app/data/tradePriceBooks";
 import { INDUSTRIES, INDUSTRY_KEYS } from "@/lib/demo/industries";
 import { PROFILES, PROFILE_KEYS } from "@/lib/demo/profiles";
 import { STAFF, FICTIONAL_PHONE, EXAMPLE_EMAIL, allSeedNames, rng, person, business } from "@/lib/demo/people";
@@ -196,10 +196,20 @@ for (const key of INDUSTRY_KEYS) {
 
   const leads = of("leadRequest", id);
   ok("leads in every score band", ["hot", "warm", "cold"].every((t) => leads.some((l) => l.temperature === t)), leads.map((l) => l.temperature));
-  ok("leads from every source", ["self_quote", "meta_lead_form", "phone_assistant", "referral"].every((s) => leads.some((l) => l.source === s)));
+  ok("leads from every source", ["self_quote", "meta_lead_form", "phone_agent", "referral"].every((s) => leads.some((l) => l.source === s)));
   ok("leads new, contacted, converted, lost", ["new", "contacted", "converted", "lost"].every((s) => leads.some((l) => l.status === s)));
   ok("the converted lead points at its quote", leads.some((l) => l.status === "converted" && l.quoteId && quotes.some((q) => q.id === l.quoteId)));
-  ok("a phone lead is not scored against the budget it could not ask", leads.filter((l) => l.source === "phone_assistant").every((l) => !l.scoreReasons?.some((r) => /budget/i.test(r.label))));
+  // Positively: the budget's points left the denominator (the scorer's weight-0
+  // "the phone can't ask" line), and no budget band was credited. The old form
+  // — "no reason mentions budget" — passed on the wrong source word
+  // ("phone_assistant", the booking source) that the scorer never treated as
+  // the phone, and failed once 1db5027f began saying "not counted" out loud.
+  const phoneLeads = leads.filter((l) => l.source === "phone_agent");
+  ok("a phone lead is not scored against the budget it could not ask",
+    phoneLeads.length > 0 &&
+    phoneLeads.every((l) =>
+      l.scoreReasons?.some((r) => r.key === "app.leads.reason.noBudgetPhone" && r.weight === 0) &&
+      !l.scoreReasons?.some((r) => /^app\.leads\.reason\.budget/.test(r.key || "") && r.weight > 0)));
 
   const clients = of("client", id);
   ok(`${CLIENT_COUNT} clients`, clients.length === CLIENT_COUNT, clients.length);
@@ -291,7 +301,10 @@ section("2b. The category rows a demo gets are rows a real company could hold");
     for (const cat of preset.categories) {
       const rate = rateFor(preset, cat);
       const unit = unitFor(preset, cat);
-      if (hasPriceBook(cat)) {
+      // A book of items BESIDE the trade's own rate (drywall's repair book,
+      // e6639b5d) keeps the rate box in Settings > Services, so a real company
+      // can hold that rate and the demo seeds it — judged as a single-rate trade.
+      if (hasPriceBook(cat) && !keepsOwnRate(cat)) {
         bookTrades += 1;
         ok(`${key}/${cat}: a book trade is seeded with NO default rate`, rate === null && unit === null, { rate, unit });
       } else {
