@@ -309,7 +309,9 @@ console.log("\nServices & Pricing: the panels' own rows fit a phone\n");
   const rate = read("app/app/settings/services/RateCard.js");
   ok(
     "RateCard: the flex-1 field label is min-w-0",
-    /className="flex-1 min-w-0[^"]*"[^>]*>\s*\{field\.label\}/.test(rate),
+    // The label is the book field's, or (2026-10-05) a labour preset's
+    // translated label — the same span, the same min-w-0 guard.
+    /className="flex-1 min-w-0[^"]*"[^>]*>\s*\{(?:field\.preset \? presetLabel\(field\.preset, t\) : )?field\.label\}/.test(rate),
   );
 }
 {

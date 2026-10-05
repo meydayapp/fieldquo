@@ -27,6 +27,8 @@ import { tradeMaterialsFor } from "@/lib/costing/tradeMaterials";
 import { paintTakeoff, PAINT_TAKEOFF_DEFAULTS } from "@/lib/pricing/paintTakeoff";
 import { getRecipe, sanitiseRecipeOverrides } from "@/app/data/materialRecipes";
 import { getPriceBook, PRICE_BOOK_FIELDS, PRICE_BOOK_GROUPS, readField } from "@/app/data/tradePriceBooks";
+import { sanitiseRates, PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
+import { presetsForCategory, PRESET_HOME_CATEGORIES } from "@/lib/pricing/labourPresets";
 import { PREFILLABLE, prefillMaterial, suggestedQuantity } from "@/lib/receipts/prefill";
 import { deriveSourcingLines } from "@/lib/jobs/sourcingList";
 
@@ -255,7 +257,40 @@ ok("...and leaves the other products' coverage alone", readField(getPriceBook("i
 // quote review's "Update my costing" writes through the same one; the
 // settings route imports it rather than keeping a copy.
 const svc = code("lib/pricing/sanitiseRates.js");
-ok("sanitiseRates keeps exactly the PRICE_BOOK_FIELDS paths (so the coverage row is saved, and nothing else new is)", /for \(const field of fields\) \{\s*const value = readPath\(rates, field\.path\);/.test(svc));
+ok("sanitiseRates walks the PRICE_BOOK_FIELDS paths (so the coverage row is saved)", /for \(const field of fields \|\| \[\]\) \{\s*const value = readPath\(rates, field\.path\);/.test(svc));
+// Exactly the declared paths survive — the book's PRICE_BOOK_FIELDS plus,
+// since 2026-10-05, the trade's labour presets (`presets.<key>`, enumerated
+// from lib/pricing/labourPresets.js) — and nothing else: run, not read, on
+// every trade that has either, with a stray path beside each kind.
+{
+  const leafPaths = (o, pre = "") =>
+    Object.entries(o || {}).flatMap(([k, v]) => (v && typeof v === "object" && !Array.isArray(v) ? leafPaths(v, `${pre}${k}.`) : [`${pre}${k}`]));
+  const writeAt = (obj, p, v) => {
+    const parts = p.split(".");
+    let n = obj;
+    for (const k of parts.slice(0, -1)) n = n[k] && typeof n[k] === "object" ? n[k] : (n[k] = {});
+    n[parts[parts.length - 1]] = v;
+  };
+  const trades = [...new Set([...Object.keys(PRICE_BOOK_FIELDS), ...PRESET_HOME_CATEGORIES])].filter((k) => !PAINT_TAKEOFF_CATEGORIES.includes(k));
+  const wrong = [];
+  for (const trade of trades) {
+    const allowed = new Set([...(PRICE_BOOK_FIELDS[trade] || []).map((f) => f.path), ...presetsForCategory(trade).map((p) => `presets.${p.key}`)]);
+    const sent = {};
+    for (const p of allowed) writeAt(sent, p, 1);
+    writeAt(sent, "strayTopLevel", 1);
+    writeAt(sent, "presets.notAPreset", 1);
+    writeAt(sent, "labour.notALabourField", 1);
+    const kept = new Set(leafPaths(sanitiseRates(trade, sent) || {}));
+    const extra = [...kept].filter((p) => !allowed.has(p));
+    const lost = [...allowed].filter((p) => !kept.has(p) && (PRICE_BOOK_FIELDS[trade] || []).find((f) => f.path === p)?.type !== "text");
+    if (extra.length || lost.length) wrong.push({ trade, extra, lost: lost.slice(0, 5) });
+  }
+  ok("sanitiseRates keeps exactly the PRICE_BOOK_FIELDS paths plus the trade's labour presets — a stray path, a stray preset key, a stray labour field all dropped", wrong.length === 0, wrong);
+  ok("…and the presets it allows are the ones labourPresets.js declares (electrical keeps panelSwap, drops a made-up key)", (() => {
+    const c = sanitiseRates("electrical", { presets: { panelSwap: 12, madeUp: 3 } });
+    return c?.presets?.panelSwap === 12 && !("madeUp" in c.presets) && Object.keys(c).length === 1;
+  })());
+}
 ok("...and the settings route uses that one, not a copy", /import \{ sanitiseRates \} from "@\/lib\/pricing\/sanitiseRates"/.test(code("app/api/settings/service-categories/route.js")));
 
 // The paint calibration through the pure function, with the book as the rate source.
