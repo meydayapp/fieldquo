@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 5 October 2026, night (four gaps from testing: drawing read "Read again" — a confirmed, credit-showing full re-read of a finished read, edit permission only — and MEASURE_VERSION so sheets measured by an older measurement pass are measured again and the read says so; a no-show outcome for past appointments — Held / No-show / Rescheduled / Cancelled one tap on the calendar, a daily "Did this visit happen?" nudge to the assignee, no-show rate and a corrected adjusted close rate in the agency metrics and Marketing results; and booking-page / AI bookings with no prior enquiry now become leads (source booking_page, no extra alert, linked not duplicated within 180 days). Schema additive — NOT applied; apply BEFORE deploying. See "Read again, no-shows, and bookings as leads" below.)
 Last updated: 5 October 2026 (marketing agency access: Settings › Marketing agency access keys + sharing switches, the /api/v1 marketing API and REST-hook events, a Zapier app in integrations/zapier (not pushed), and Marketing › Marketing results from the same code — see "Marketing agency access" below. Schema additive, NOT applied; SQL in that section.)
 Last updated: 5 October 2026, late (painting presets against NPC — picket fence, exterior stain, cabinet boxes, French doors, built-ins sprayed/brushed, finished suggested rates, cabinet enamel coverage — and coats change labour time: hours × coats ÷ standard coats, prep never scaled, one extra-coat rule, a dry-time wait charged only when the crew waits on site, a company toggle. No schema change. See "Painting presets against NPC, and coats change labour time" below.)
 Last updated: 5 October 2026 (TrueFinish's remaining quotes and voiding a test payment. (1) scripts/import-truefinish-quotes.mjs — DRY by default, not yet applied — brings over TrueFinish's 46 sent and 60 declined quotes as historical quotes (createRecordedQuote kinds "sent"/"declined": source createdAt/sentAt/language, declinedAt null because TrueFinish never recorded it, "Old system: Q2026-0134" on the internal note and on the quote page, no job/invoice/payment/share token/message), matches clients by email → phone → exact name with the name required to agree or be one typo away (ties and identifier-only matches are refused for a person), and links an EMPTY LeadRequest.quoteId so the KPI funnel counts lead → quote; lead status untouched. Imported quotes carry a real sentAt, so the manual "Call about this quote" gate and the quotes list's follow-up group now refuse historicalImportedAt too. check:truefinish-quote-import. (2) Void payment — owner/admin only, with a reason: removes a payment recorded BY HAND (cash, cheque, e-transfer, Zelle… card-taken-elsewhere) and any hand refunds against it, reopens the invoice through refreshFamilyLedger({ reopen }), writes the audit row in the same transaction; anything the card processor touched is refused (refund instead). The invoice / client / job delete refusals now say exactly what to clear; the client page gets the delete control it never had. Help: Refunds › Voiding a payment recorded by mistake (en/fr/es). check:void-manual-payment.)
@@ -100,6 +101,127 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Read again, no-shows, and bookings as leads (5 October 2026)
+
+Three gaps found in testing; the owner asked for the outcomes and left the
+details to the build. Choices are stated so they can be overruled.
+
+### A. Drawing read — "Read again"
+
+- A finished read of the same files and scope refused to run
+  ("nothing_to_read"), so improvements to the reader never reached it.
+- Now: **Read again** on a finished read → a confirm that says what it
+  **holds** ("Hold N credits and read again", the forced estimate: every
+  routed sheet, the photos, every planned measurement) → the whole read again
+  with the current reader. When there is also new work, the primary button
+  still runs just that, with **Read everything again** beside it.
+- `POST /api/plan-reads/[id]/run` takes `{ force: true }` only through
+  `readAgainFlag` (lib/planRead/run.js): the body's own boolean AND the
+  caller's quotes `view_create_edit`, checked in its own right (403
+  `read_again_denied` otherwise). Only on a `ready` read (409 `not_finished`).
+  Never automatic.
+- The forced run is marked `usage.forceRun = <its hold ref>`; each pass it
+  makes is stamped `run: <ref>`, so a forced run that pauses (Vercel's
+  300 s) resumes where it stopped rather than re-reading. An ordinary run
+  afterwards is ordinary again.
+
+### B. Re-measuring when the reader improved
+
+- `MEASURE_VERSION` (lib/planRead/measurePrompts.js) — **2** now; an
+  unstamped measurement counts as **1** (everything measured before today,
+  including the church's pre-5a300fc9f inside heights). **Bump it whenever
+  the measurement prompt, schema or takeoff/photo-height logic changes.**
+- Every measurement is stamped with it; `measureNeeded` is true for an older
+  one (never for a permanent failure — no page picture, nothing a prompt can
+  fix), so any re-read measures those sheets again and keeps the sheet
+  readings already paid for. The read card says **"Measured with an older
+  version — Read again to update."** (`view.staleMeasures`).
+
+### C. Appointments — a no-show outcome
+
+- Model: `Appointment` (the estimate / sales visit; `JobVisit` is the work).
+  Reused `completed` (= held) and `cancelled`; added **`no_show`** and
+  **`rescheduled`** to `AppointmentStatus`. Rescheduled = it did not happen
+  at that time; the new time is its own appointment, so the past row stays a
+  fact about that day.
+- One tap: a past open appointment's row asks **Did this visit happen?** —
+  Held · No-show · Rescheduled · Cancelled — through its own route
+  `POST /api/appointments/[id]/outcome` (never the PATCH, whose cancel
+  writes the client a letter and a text). **Rescheduled** then opens New
+  appointment prefilled with the client. A wrong answer → **Reopen**.
+- Crew mark their own visits only (assignee or schedule `edit_all`; a
+  colleague's → blind 404, an unassigned one → 403); never a future visit
+  (409).
+- Daily nudge: `/api/cron/appointment-outcomes` (13:30 UTC) → notification
+  `appointment.outcomeNeeded` "Did this visit happen? {client}, {when}" to
+  the assignee, else whoever booked it; once per visit (the NotificationEvent
+  is the guard — no new column); only visits over ≥2 h and ≤7 days ago, so
+  launch does not ask about years of unmarked visits. Tap → the calendar
+  opens on that visit (`/app/appointments?appointment=<id>`).
+- Metrics: `noShows`, `noShowRate` (= no-shows ÷ past visits marked held or
+  no-show; unmarked never counted either way), and **adjusted close rate**
+  now divides by held + past-unmarked (no-show, rescheduled, upcoming,
+  cancelled left out). On the agency API, the Marketing results strip
+  (beside adjusted close rate), and `appointment.outcome` events now carry
+  no_show / rescheduled. A rescheduled visit gives way to its new time when
+  picking a lead's appointment.
+
+### D. Booking-page bookings count as leads
+
+- `lib/booking/bookingLead.js` `ensureBookingLead`, called when a booking is
+  confirmed: the free booking-page path, the paid path once the fee settles
+  (never for an unpaid hold), and the AI booking (receptionist + AI employee).
+- Links to the person's existing lead — same email or phone (normalised; the
+  booking's or its client's) or the estimate it came from — created in the
+  last **180 days**; otherwise creates one through `createScoredLead`
+  (normal scoring) with source **`booking_page`** (an AI booking keeps its
+  own source, `phone_agent` / `ai_employee`, so a call is never "website"),
+  the booking notes as message, its service as category, and the booking
+  page visit's landing (UTMs, fbc → fbclid, gclid) as attribution.
+- **No notification**: `createScoredLead({ notify: false })` skips the "New
+  enquiry" alert (the booking already alerted); the agency's lead.created
+  event still goes. The AI path also puts the lead on the VoiceCall so
+  save_caller updates it rather than making a second.
+- `Booking.leadRequestId` (SetNull) is read by lib/agency/leadFacts.js: the
+  booking's appointment is that lead's even when the client matching would
+  not join them. `booking_page` is the "website" channel; label "Booked on
+  your booking page" (9 languages); not held against the score for budget or
+  timeline.
+
+### Schema (additive — NOT applied; apply BEFORE deploying)
+
+```sql
+ALTER TYPE "AppointmentStatus" ADD VALUE IF NOT EXISTS 'no_show';
+ALTER TYPE "AppointmentStatus" ADD VALUE IF NOT EXISTS 'rescheduled';
+ALTER TABLE "Booking" ADD COLUMN "leadRequestId" TEXT;
+CREATE INDEX "Booking_leadRequestId_idx" ON "Booking"("leadRequestId");
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_leadRequestId_fkey" FOREIGN KEY ("leadRequestId") REFERENCES "LeadRequest"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+```
+
+Before, not after: Prisma reads every Booking column by default, so code
+deployed before the column exists would fail every booking read, settlement
+included.
+
+### Checks
+
+`check:plan-read-first-pass` §20 (24 new: force only with flag + permission,
+not on an unfinished read, the held figure, every sheet and measurement read
+again, resume of a paused forced run, stale vs current measureVersion, the
+stale notice); `check:appointment-outcomes` (new, 49 incl. 5 mutants: rules,
+buttons, the route as Crew / Dispatcher, the cron, wiring);
+`check:booking-leads` (new, 38 incl. 8 mutants: matching, create/link/no
+duplicate, attribution, no alert, paid path, AI source, funnel);
+`check:marketing-metrics` (89, +3 mutants: no-show rate, adjusted close rate,
+rescheduled → new time, booking-linked appointment);
+`check:notifications` and `check:appointment-status` updated.
+
+### Owed / open
+
+- Apply the SQL, then deploy.
+- A booking's "When do you need this done?" answer is in the booking notes,
+  not mapped to the lead's timeline (so it scores as not asked, not as
+  declined). Mapping it would lift booking leads' scores — a product call.
 
 ## Marketing agency access, the agency API + Zapier app, and Marketing results (5 October 2026)
 
@@ -239,12 +361,11 @@ ALTER TABLE "AgencyHookDelivery" ADD CONSTRAINT "AgencyHookDelivery_subscription
   write paths' nudges fail soft without them, logged).
 - **Zapier**: the owner runs the README's register → push → `users:links`
   (FieldQuo's Zapier account, Node 22). Until then agencies use the API.
-- **No-show** is not recorded by FieldQuo; outcomes say "unmarked". Adding a
-  no-show status to appointments is a product decision (calendar, three
-  vocabularies, availability).
-- **A booking made straight on the booking page by someone who never sent an
-  enquiry is not a lead**, so it is not in the agency funnel. Creating a lead
-  from a booking is a product decision.
+- ~~No-show not recorded~~ — done 2026-10-05: appointments record held /
+  no-show / rescheduled / cancelled; see "Read again, no-shows, and bookings
+  as leads".
+- ~~A booking with no enquiry is not a lead~~ — done 2026-10-05: it becomes
+  one (source booking_page), or is linked to the enquiry it follows.
 - Marketing-site copy (compare pages, `lib/marketing/competitors.js`) still
   says FieldQuo has no Zapier — true of general integrations until the app is
   listed; revisit when it is.

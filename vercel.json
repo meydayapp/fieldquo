@@ -153,6 +153,10 @@
       "schedule": "40 7 * * *"
     },
     {
+      "path": "/api/cron/appointment-outcomes",
+      "schedule": "30 13 * * *"
+    },
+    {
       "path": "/api/cron/availability-apply",
       "schedule": "0 5 * * *"
     },

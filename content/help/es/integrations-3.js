@@ -57,9 +57,9 @@ export const ARTICLES = {
         id: "zapier-and-events",
         heading: "Zapier y eventos en vivo",
         blocks: [
-          { p: "Además de leer, una agencia puede suscribirse a **eventos**, para que su tablero se actualice en cuanto algo pasa: llega una solicitud, se califica o cambia de etapa; se reserva una visita (una estimación en sitio) o se marca como realizada o cancelada; se envía, ve, acepta o rechaza una cotización; se termina un trabajo; se paga una factura; se recibe un pago. Cada evento lleva la misma fila privada." },
+          { p: "Además de leer, una agencia puede suscribirse a **eventos**, para que su tablero se actualice en cuanto algo pasa: llega una solicitud, se califica o cambia de etapa; se reserva una visita (una estimación en sitio) o se marca como realizada, no se presentó, reprogramada o cancelada; se envía, ve, acepta o rechaza una cotización; se termina un trabajo; se paga una factura; se recibe un pago. Cada evento lleva la misma fila privada." },
           { p: "Tu agencia puede usar la app de Zapier de FieldQuo, o llamar a la API desde cualquier herramienta que haga solicitudes web. Los eventos salen cuando ya terminó la acción que los causó, así que nada de lo que hace tu equipo espera a la agencia." },
-          { note: "FieldQuo no registra las ausencias. Una cita cuya fecha pasó y que nadie marcó como realizada o cancelada se reporta como **sin marcar**, no como ausencia." },
+          { note: "Cuando pasa la hora de una visita, el calendario pregunta qué ocurrió — **Realizada**, **No se presentó**, **Reprogramada** o **Cancelada** — y la persona asignada recibe en el plazo de un día un recordatorio «¿Se realizó esta visita?». Una visita pasada que nadie marcó se reporta como **sin marcar**, nunca como realizada ni como ausencia." },
         ],
       },
       {

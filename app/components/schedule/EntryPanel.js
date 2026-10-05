@@ -54,7 +54,7 @@ function kindLabel(kind, t) {
  * @param serviceText  what it is for, already translated by the page
  * @param canAct       mayActOnEntry(entry, …)
  */
-export default function EntryPanel({ entry, card, serviceText, canAct, onClose, onChanged, t, language }) {
+export default function EntryPanel({ entry, card, serviceText, canAct, onClose, onChanged, onRebook, t, language }) {
   const closeRef = useRef(null);
 
   useEffect(() => {
@@ -209,6 +209,7 @@ export default function EntryPanel({ entry, card, serviceText, canAct, onClose, 
                 // row carries a name and an address and no email key.
                 client={card.kind === "visit" ? { name: entry.client?.name || null } : entry.client || null}
                 onChanged={onChanged}
+                onRebook={card.kind !== "visit" && onRebook ? () => onRebook(entry) : undefined}
               />
             </div>
           )}

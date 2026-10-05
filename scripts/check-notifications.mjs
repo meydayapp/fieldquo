@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 40, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 41, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, the team-chat mention, and the conversation follow-up",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, the team-chat mention, the conversation follow-up, and \"Did this visit happen?\"",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -373,6 +373,9 @@ ok(
         "timeclock.stillClockedIn",
         "timeclock.stillClockedInManager",
         "attendance.noShow",
+        // "Did this visit happen?" (2026-10-05): a past appointment with no
+        // outcome, to its one assignee (app/api/cron/appointment-outcomes).
+        "appointment.outcomeNeeded",
         // The HR file (2026-09-13): a document lapsing, a checklist, a
         // policy or a note to sign. Named recipients on the worker-facing
         // five — scripts/check-hr.mjs executes the seam.
@@ -553,6 +556,10 @@ const EXPECTED = {
   // The manager's copies: user:manage, the same audience as leave.requested.
   "timeclock.stillClockedInManager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "attendance.noShow": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  // "Did this visit happen?" sits on the schedule floor every preset holds —
+  // a crew member asked about their own visit must be inside it — and is
+  // always narrowed to the one assignee (or booker) by the cron.
+  "appointment.outcomeNeeded": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   // ── The HR file (2026-09-13) ────────────────────────────────────────────
   // Worker-facing types on the schedule floor (always called with the one
   // worker named through notifyEvent's recipientUserIds); the manager-facing

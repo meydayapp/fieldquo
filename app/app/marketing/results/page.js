@@ -4,7 +4,7 @@
 // agency's client dashboard is (the owner, 2026-10-05: "so the company they
 // deal with has a ROI of 40x because of the quality data"): cards with the
 // change against the previous equal period, a period picker, the upcoming
-// appointments and adjusted close rate strip, conversion timing, the funnel,
+// appointments, adjusted close rate and no-show strip, conversion timing, the funnel,
 // and the split by source and by campaign.
 //
 // ONE copy of the arithmetic: GET /api/marketing/results runs
@@ -33,7 +33,9 @@ const CHANNEL_KEYS = ["facebook_ad", "instagram_ad", "whatsapp_ad", "google_ads"
 
 // The agency dashboard's cards, in its order.
 const CARDS = ["adSpend", "leads", "costPerLead", "appointments", "appointmentSetRate", "costPerAppointment", "closes", "closeRate", "costPerClose", "revenue", "roas", "averageJobSize"];
-const STRIP = ["upcomingAppointments", "adjustedCloseRate", "closesWithoutVisit", "collected"];
+// No-shows beside the adjusted close rate: the owner, 2026-10-05 — reply
+// speed and no-shows "show where the lost money is".
+const STRIP = ["upcomingAppointments", "adjustedCloseRate", "noShows", "noShowRate", "closesWithoutVisit", "collected"];
 const TIMING = ["medianDaysLeadToAppointment", "medianDaysAppointmentToQuote", "medianDaysQuoteToClose", "medianDaysLeadToClose"];
 const FUNNEL_RATES = ["messagesFromAds", "realConversations", "adLeads", "adQualifiedLeads", "messageToLeadRate", "leadToQualifiedRate", "speedToLeadMinutes"];
 
@@ -274,7 +276,7 @@ function Results() {
             ))}
           </section>
 
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {STRIP.map((k) => (
               <Figure key={k} id={k} m={m[k]} big={false} />
             ))}

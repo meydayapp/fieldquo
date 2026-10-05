@@ -411,6 +411,21 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "visit-outcome",
+        heading: "Después de una visita: ¿se realizó?",
+        blocks: [
+          { p: "Cuando pasa la hora de una cita, su fila pregunta **¿Se realizó esta visita?** con cuatro botones, de un toque cada uno: **Realizada**, **No se presentó**, **Reprogramada** y **Cancelada**. No se envía nada al cliente — la visita ya pasó, así que no sale ninguna carta de cancelación — y la hora no se mueve." },
+          { steps: [
+            "**Realizada** la marca como completada, igual que **Marcar como completada**.",
+            "**No se presentó** registra que el cliente no estaba.",
+            "**Reprogramada** registra que no ocurrió a esa hora y luego abre **Nueva cita** para el mismo cliente, para reservar la nueva hora. La nueva hora es una cita aparte.",
+            "**Cancelada** registra que se canceló. Use **Cancelar visita** antes del día si hay que avisar al cliente.",
+          ] },
+          { p: "La persona asignada a la visita — o quien la reservó, si no hay nadie asignado — recibe una notificación **¿Se realizó esta visita?** en el plazo de un día de una visita sin respuesta, una vez por visita. Al tocarla se abre el calendario en esa visita." },
+          { note: "El equipo solo puede marcar sus propias visitas; una visita sin asignar la marca alguien que edita el horario de todos. Una respuesta equivocada se deshace con **Reabrir**. Las respuestas alimentan la tasa de ausencias y la tasa de cierre ajustada en **Resultados de marketing**." },
+        ],
+      },
+      {
         id: "who-sees-what",
         heading: "Quién ve qué",
         blocks: [

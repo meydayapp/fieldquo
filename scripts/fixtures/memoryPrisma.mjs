@@ -55,6 +55,10 @@ const RELATIONS = {
     client: { table: "client", kind: "one", localKey: "clientId" },
     booking: { table: "booking", kind: "one", foreignKey: "appointmentId" },
     assignedTo: { table: "user", kind: "one", localKey: "assignedToId" },
+    // The visit outcome route and its nudge (scripts/check-appointment-
+    // outcomes.mjs) read the quote it is about and the company's zone.
+    quote: { table: "quote", kind: "one", localKey: "quoteId" },
+    company: { table: "company", kind: "one", localKey: "companyId" },
   },
   jobVisit: {
     job: { table: "job", kind: "one", localKey: "jobId" },

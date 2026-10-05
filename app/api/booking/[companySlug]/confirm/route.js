@@ -30,7 +30,9 @@ import {
 } from "@/lib/booking/bookingModes";
 import { verifySlotTravel, nextVerifiedSlot, travelRefusal } from "@/lib/booking/verifyTravel";
 import { findVisit, linkVisitToBooking } from "@/lib/tracking/visits";
+import { attributionFromVisit } from "@/lib/tracking/attribution";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { ensureBookingLead } from "@/lib/booking/bookingLead";
 
 // The one refusal this route makes in the visitor's own language: the "when
 // do you need this done?" question is required, and a homeowner reading the
@@ -40,15 +42,18 @@ import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 /**
  * The booking page's visit made this booking. Best-effort by construction:
  * a visit that cannot be found or written costs the report one row, never
- * the visitor their booking.
+ * the visitor their booking. Returns the visit (or null), whose landing is
+ * the attribution of a lead made from this booking.
  */
 async function linkBookingVisit(companyId, visitToken, bookingId) {
+  let visit = null;
   try {
-    const visit = await findVisit({ companyId, surface: "booking", token: visitToken });
+    visit = await findVisit({ companyId, surface: "booking", token: visitToken });
     await linkVisitToBooking(visit, bookingId);
   } catch (err) {
     console.error("[booking] visit not linked:", err?.message);
   }
+  return visit;
 }
 
 const WHEN_REQUIRED = {
@@ -606,11 +611,17 @@ export async function POST(request, { params }) {
     },
   });
 
-  await linkBookingVisit(company.id, visitToken, booking.id);
+  const visit = await linkBookingVisit(company.id, visitToken, booking.id);
 
   // The confirmation email, consent record and reminder — shared with the paid
   // path so the two can't drift. Best-effort: the booking already exists.
   await finalizeBooking({ company, eventType, booking, clientId: client.id });
+
+  // A booker who never enquired is a lead too: linked to their enquiry when
+  // there is one, else made here with the page's landing as its attribution
+  // — no alert, the booking already told the company (lib/booking/
+  // bookingLead.js). Never throws.
+  await ensureBookingLead({ booking, companyId: company.id, clientId: client.id, attribution: attributionFromVisit(visit) });
 
   // appointment.booked / estimate.scheduled for the marketing agency.
   nudgeAgencyEvents(company.id);

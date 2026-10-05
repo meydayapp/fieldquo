@@ -93,7 +93,9 @@ const VISIT_STATUSES = Object.keys(VISIT_STATUS_LABELS);
 
 // Anchors. If a regex silently stops matching, every loop below iterates over
 // an empty array and the whole check passes while asserting nothing.
-ok(APPOINTMENT_STATUSES.length === 4, `AppointmentStatus parsed 4 values (got ${APPOINTMENT_STATUSES.length})`);
+// Six since 2026-10-05: no_show and rescheduled, the outcomes of a past
+// visit (lib/appointments/outcome.js).
+ok(APPOINTMENT_STATUSES.length === 6, `AppointmentStatus parsed 6 values (got ${APPOINTMENT_STATUSES.length})`);
 ok(APPOINTMENT_STATUSES.includes("needs_supervisor"), "the AppointmentStatus parse reaches needs_supervisor");
 ok(BOOKING_STATUSES.length === 4, `BookingStatus parsed 4 values (got ${BOOKING_STATUSES.length})`);
 ok(BOOKING_STATUSES.includes("pending_payment"), "the BookingStatus parse reaches pending_payment");

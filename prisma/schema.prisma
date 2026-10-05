@@ -7660,6 +7660,9 @@ model LeadRequest {
   /// client on file. Each one can be undone ("Not the same person").
   identityLinks LeadIdentityLink[]
 
+  /// Bookings linked to this lead (Booking.leadRequestId).
+  bookings Booking[]
+
   /// The lead's stable pseudonymous reference for a marketing agency
   /// (lib/agency/leadRef.js): random, never derived from a phone or an email,
   /// assigned once and never changed, so a lead that closes two months later
@@ -8304,6 +8307,18 @@ model Booking {
   latitude  Decimal? @db.Decimal(9, 6)
   longitude Decimal? @db.Decimal(9, 6)
 
+  /// The lead this booking belongs to — the person's earlier enquiry (same
+  /// email, phone or estimate, within 180 days), or the lead created FROM the
+  /// booking when there was none (source "booking_page", or the AI channel's
+  /// own). Written by lib/booking/bookingLead.js when the booking is
+  /// confirmed; read by lib/agency/leadFacts.js so the booking's appointment
+  /// is that lead's, whatever the client matching makes of the contact
+  /// details. SetNull: deleting a lead never takes a booking with it.
+  /// Added 2026-10-05.
+  leadRequestId String?
+  leadRequest   LeadRequest? @relation(fields: [leadRequestId], references: [id], onDelete: SetNull)
+
+  @@index([leadRequestId])
 }
 
 // ============================================================
@@ -11154,8 +11169,16 @@ enum DocumentTemplateType {
 enum AppointmentStatus {
   scheduled
   needs_supervisor
+  /// Also the "held" outcome of a past visit (lib/appointments/outcome.js).
   completed
   cancelled
+  /// A past visit the client was not there for. Recorded by the assignee (or
+  /// the office) from the calendar or the "Did this visit happen?" nudge, and
+  /// counted by the agency metrics' no-show rate. Added 2026-10-05.
+  no_show
+  /// A past visit that did not happen at that time and was booked again —
+  /// the new time is its own appointment. Added 2026-10-05.
+  rescheduled
 }
 
 enum TaskStatus {

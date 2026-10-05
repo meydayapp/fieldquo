@@ -223,6 +223,15 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  // The client a "rescheduled" outcome is booking a new time for — the form
+  // opens on them (lib/appointments/outcome.js: the new time is its own
+  // appointment). Null for the ordinary "+ New appointment".
+  const [rebookClient, setRebookClient] = useState(null);
+  const rebook = (appt) => {
+    const c = appt?.client;
+    setRebookClient(c?.id ? { id: c.id, name: c.name || "", address: c.address || appt?.location || "" } : null);
+    setShowForm(true);
+  };
   const [filter, setFilter] = useState("all");
   // The month on screen, anchored to its 1st. Separate from the selected day so
   // paging away from a selection doesn't silently drop the filter under the
@@ -332,6 +341,27 @@ export default function AppointmentsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // ── `?appointment=<id>`: the "Did this visit happen?" nudge's link ──────
+  //
+  // The notification knows the appointment, not its day (lib/notifications/
+  // render.js hrefFor), so the page finds the row once the feed is in, picks
+  // its day and opens it — the outcome buttons are on the open row. Once:
+  // after that the person drives the page. An id the feed does not hold (not
+  // theirs, or gone) leaves the calendar as it was.
+  const linkedAppointment = searchParams?.get("appointment") || "";
+  const linkedDone = useRef(false);
+  useEffect(() => {
+    if (linkedDone.current || !linkedAppointment || !Array.isArray(appointments)) return;
+    linkedDone.current = true;
+    const hit = appointments.find((a) => (a.kind || "appointment") === "appointment" && a.id === linkedAppointment);
+    if (!hit) return;
+    const at = new Date(hit.scheduledAt);
+    if (Number.isNaN(at.getTime())) return;
+    setMonthAnchor(new Date(at.getFullYear(), at.getMonth(), 1));
+    setSelectedDay(dayKey(at));
+    setOpenRows((prev) => new Set(prev).add(`appointment-${hit.id}`));
+  }, [linkedAppointment, appointments]);
 
   // `appointments` is null until the fetch answers. Everything downstream of
   // this line wants a list, and every one of them treats "nothing yet" and
@@ -601,6 +631,7 @@ export default function AppointmentsPage() {
           initialDay={selectedDay}
           weekStartsOn={weekStartsOn}
           onChanged={load}
+          onRebook={rebook}
           t={t}
           language={language}
         />
@@ -1201,6 +1232,7 @@ export default function AppointmentsPage() {
                       scheduledAt={appt.scheduledAt}
                       client={appt.client || null}
                       onChanged={load}
+                      onRebook={() => rebook(appt)}
                     />
                   )}
             {appt.cancelReason && appt.status === "cancelled" && (
@@ -1238,10 +1270,15 @@ export default function AppointmentsPage() {
           members={members}
           canAssign={canAssign}
           myUserId={myUserId}
-          onClose={() => setShowForm(false)}
+          initialClient={rebookClient}
+          onClose={() => {
+            setShowForm(false);
+            setRebookClient(null);
+          }}
           onCreated={(appt) => {
             setAppointments((prev) => [appt, ...prev]);
             setShowForm(false);
+            setRebookClient(null);
           }}
         />
       )}
@@ -1782,10 +1819,11 @@ function AboutPicker({ client, value, onPick, t }) {
   );
 }
 
-function NewAppointmentModal({ members, canAssign, myUserId, onClose, onCreated }) {
+function NewAppointmentModal({ members, canAssign, myUserId, onClose, onCreated, initialClient = null }) {
   const { t } = useTranslation();
   // The person who rang: an existing client, or a name to create one with.
-  const [client, setClient] = useState(null);
+  // A rescheduled visit's client when the form opens to book its new time.
+  const [client, setClient] = useState(initialClient);
   // The record it is about, and whether the office has answered the
   // "keep both?" question for a record in somebody else's name.
   const [about, setAbout] = useState(null);
@@ -1793,7 +1831,7 @@ function NewAppointmentModal({ members, canAssign, myUserId, onClose, onCreated 
   const [form, setForm] = useState({
     clientPhone: "",
     scheduledAt: "",
-    location: "",
+    location: initialClient?.address || "",
     requiresSupervisor: false,
     assignedToId: "",
   });

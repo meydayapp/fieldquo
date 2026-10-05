@@ -412,6 +412,21 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "visit-outcome",
+        heading: "After a visit: did it happen?",
+        blocks: [
+          { p: "Once an appointment's time has passed, its row asks **Did this visit happen?** with four buttons, one tap each: **Held**, **No-show**, **Rescheduled** and **Cancelled**. Nothing is sent to the client — the visit is over, so no \"cancelled\" letter goes out — and the time does not move." },
+          { steps: [
+            "**Held** marks it completed, as **Mark complete** does.",
+            "**No-show** records that the client was not there.",
+            "**Rescheduled** records that it did not happen at that time, then opens **New appointment** for the same client so you can book the new time. The new time is its own appointment.",
+            "**Cancelled** records that it was called off. Use **Cancel visit** before the day if the client should be told.",
+          ] },
+          { p: "The person the visit is assigned to — or whoever booked it, when nobody is assigned — gets a **Did this visit happen?** notification within a day of a visit that has no answer, once per visit. Tapping it opens the calendar on that visit." },
+          { note: "Crew can mark their own visits only; an unassigned visit is marked by someone who edits everyone's schedule. A wrong answer is undone with **Reopen**. The answers feed the no-show rate and the adjusted close rate on **Marketing results**." },
+        ],
+      },
+      {
         id: "who-sees-what",
         heading: "Who sees what",
         blocks: [

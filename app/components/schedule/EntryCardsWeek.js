@@ -46,6 +46,9 @@ export default function EntryCardsWeek({
   initialDay,
   weekStartsOn,
   onChanged,
+  // Called with the entry after a past visit is marked "rescheduled": the
+  // page opens the new-appointment form for the same client.
+  onRebook,
   t,
   language,
 }) {
@@ -192,6 +195,7 @@ export default function EntryCardsWeek({
           canAct={mayActOnEntry(open.entry, { caller, myUserId })}
           onClose={close}
           onChanged={onChanged}
+          onRebook={onRebook}
           t={t}
           language={language}
         />

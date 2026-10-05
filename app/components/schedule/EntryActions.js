@@ -71,12 +71,15 @@ const primary =
  *                               and stamp the phone's position on the tap
  * @param {function} onChanged   called after any successful change
  */
-export default function EntryActions({ kind, id, jobId, status, scheduledAt, client, crew = false, onChanged }) {
+export default function EntryActions({ kind, id, jobId, status, scheduledAt, client, crew = false, onChanged, onRebook }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(null);
   const [dialog, setDialog] = useState(null); // "move" | "cancel" | null
 
-  const all = kind === "visit" ? visitActions(status) : appointmentActions(status);
+  // An appointment whose time has passed gets its outcome row instead of the
+  // office moves (lib/appointments/statusLabels.js appointmentActions).
+  const all = kind === "visit" ? visitActions(status) : appointmentActions(status, { scheduledAt });
+  const asksOutcome = all.some((a) => a.outcome);
   // The calendar is not the van: "on my way" is a crew member's move, texts a
   // stranger, and wants the phone's position. Only the job page offers it.
   //
@@ -122,6 +125,32 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
     }
   }
 
+  // What happened at a past visit — one tap, its own route
+  // (app/api/appointments/[id]/outcome): nobody is written to, nothing moves.
+  // A reschedule then offers to book the new time, which is its own
+  // appointment (lib/appointments/outcome.js).
+  async function markOutcome(action) {
+    setBusy(action.to);
+    try {
+      const res = await fetch(`/api/appointments/${id}/outcome`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outcome: action.outcome }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.visitAction.failed", "Couldn't update the visit."));
+        return;
+      }
+      showToast({ message: t("app.visitOutcome.saved", "Saved: {outcome}.", { outcome: visitActionLabel(action, t) }), tone: "success" });
+      onChanged?.();
+      if (action.outcome === "rescheduled") onRebook?.();
+    } catch {
+      showError(t("app.visitAction.failedNetwork", "Couldn't update the visit. Check your connection."));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const textsGoTo = client?.restricted
     ? t("app.visitAction.textsRestricted")
     : client?.phone
@@ -130,7 +159,10 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      {canMove && (
+      {asksOutcome && (
+        <span className="text-sm font-medium text-foreground basis-full">{t("app.visitOutcome.question", "Did this visit happen?")}</span>
+      )}
+      {canMove && !asksOutcome && (
         <button type="button" onClick={() => setDialog("move")} disabled={busy !== null} className={quiet}>
           <CalendarClock size={13} />
           {t("app.visitAction.reschedule", "Reschedule")}
@@ -140,7 +172,7 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
         <button
           key={a.to}
           type="button"
-          onClick={() => (a.cancels ? setDialog("cancel") : move(a.to))}
+          onClick={() => (a.outcome ? markOutcome(a) : a.cancels ? setDialog("cancel") : move(a.to))}
           disabled={busy !== null}
           title={a.texts ? textsGoTo : undefined}
           className={a.tone === "primary" ? primary : quiet}

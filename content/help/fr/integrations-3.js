@@ -57,9 +57,9 @@ export const ARTICLES = {
         id: "zapier-and-events",
         heading: "Zapier et les événements en direct",
         blocks: [
-          { p: "En plus de lire, une agence peut s'abonner à des **événements** pour que son tableau de bord se mette à jour dès que quelque chose arrive : une demande arrive, devient qualifiée ou change d'étape; une visite est réservée (une estimation sur place) ou marquée faite ou annulée; une soumission est envoyée, vue, acceptée ou refusée; des travaux sont terminés; une facture est payée; un paiement est reçu. Chaque événement porte la même ligne privée." },
+          { p: "En plus de lire, une agence peut s'abonner à des **événements** pour que son tableau de bord se mette à jour dès que quelque chose arrive : une demande arrive, devient qualifiée ou change d'étape; une visite est réservée (une estimation sur place) ou marquée tenue, absence, reportée ou annulée; une soumission est envoyée, vue, acceptée ou refusée; des travaux sont terminés; une facture est payée; un paiement est reçu. Chaque événement porte la même ligne privée." },
           { p: "Votre agence peut utiliser l'application Zapier de FieldQuo, ou appeler l'API depuis n'importe quel outil capable de faire une requête Web. Les événements partent une fois l'action qui les a causés terminée; rien de ce que fait votre équipe n'attend l'agence." },
-          { note: "FieldQuo n'enregistre pas les absences. Un rendez-vous dont la date est passée et que personne n'a marqué fait ou annulé est déclaré **non marqué**, pas comme une absence." },
+          { note: "Une fois l'heure d'une visite passée, le calendrier demande ce qui s'est passé — **Tenue**, **Absence**, **Reportée** ou **Annulée** — et la personne assignée reçoit dans la journée qui suit un rappel « Cette visite a-t-elle eu lieu? ». Une visite passée que personne n'a marquée est déclarée **non marquée**, jamais comme tenue ni comme une absence." },
         ],
       },
       {

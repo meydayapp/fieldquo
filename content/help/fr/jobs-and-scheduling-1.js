@@ -411,6 +411,21 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "visit-outcome",
+        heading: "Après une visite : a-t-elle eu lieu?",
+        blocks: [
+          { p: "Une fois l'heure d'un rendez-vous passée, sa ligne demande **Cette visite a-t-elle eu lieu?** avec quatre boutons, d'une touche chacun : **Tenue**, **Absence**, **Reportée** et **Annulée**. Rien n'est envoyé au client — la visite est passée, donc aucune lettre d'annulation ne part — et l'heure ne bouge pas." },
+          { steps: [
+            "**Tenue** la marque comme terminée, comme **Marquer comme terminée**.",
+            "**Absence** indique que le client n'était pas là.",
+            "**Reportée** indique qu'elle n'a pas eu lieu à cette heure, puis ouvre **Nouveau rendez-vous** pour le même client afin de réserver la nouvelle heure. La nouvelle heure est un rendez-vous à part.",
+            "**Annulée** indique qu'elle a été annulée. Utilisez **Annuler la visite** avant le jour même si le client doit être prévenu.",
+          ] },
+          { p: "La personne assignée à la visite — ou celle qui l'a réservée, si personne n'est assigné — reçoit une notification **Cette visite a-t-elle eu lieu?** dans la journée qui suit une visite sans réponse, une fois par visite. La toucher ouvre le calendrier sur cette visite." },
+          { note: "L'équipe ne peut marquer que ses propres visites; une visite sans personne assignée est marquée par quelqu'un qui modifie l'horaire de tout le monde. Une mauvaise réponse s'annule avec **Rouvrir**. Les réponses alimentent le taux d'absence et le taux de conclusion ajusté dans **Résultats marketing**." },
+        ],
+      },
+      {
         id: "who-sees-what",
         heading: "Qui voit quoi",
         blocks: [

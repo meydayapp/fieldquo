@@ -184,6 +184,33 @@ ok("… but cost per lead (spend) still shown", hidden.values.costPerLead === 10
   ok("every label and definition in every language", missing.length === 0, missing.slice(0, 5));
 }
 
+// ── 2b. No-shows (2026-10-05) ──────────────────────────────────────────────
+// The calendar now records what happened at a past visit: held (completed),
+// no-show, rescheduled or cancelled (lib/appointments/outcome.js). A no-show
+// and a reschedule did not happen, so neither divides the adjusted close
+// rate; the no-show rate divides only by visits someone marked.
+if (!MUTANT) console.log("\nNo-shows and the adjusted close rate");
+{
+  const outcomes = [
+    fact(201, { appointment: appt("b1", "2026-09-06T10:00:00Z", "completed"), quote: { id: "qb1", sentAt: d("2026-09-07T10:00:00Z"), status: "accepted", amount: 1000 }, won: true, wonAt: d("2026-09-09T10:00:00Z"), wonAmount: 1000 }),
+    fact(202, { appointment: appt("b2", "2026-09-07T10:00:00Z", "completed") }),
+    fact(203, { appointment: appt("b3", "2026-09-08T10:00:00Z", "no_show") }),
+    fact(204, { appointment: appt("b4", "2026-09-09T10:00:00Z", "rescheduled") }),
+    fact(205, { appointment: appt("b5", "2026-09-10T10:00:00Z") }),
+    fact(206, { appointment: appt("b6", "2026-10-12T10:00:00Z") }),
+    fact(207, { appointment: appt("b7", "2026-09-11T10:00:00Z", "cancelled") }),
+  ];
+  const r = computeMetrics({ facts: outcomes, spend: { amount: null, connected: false }, now: NOW });
+  ok("no-shows = the one marked no-show", r.values.noShows === 1, r.values.noShows);
+  ok("no-show rate = no-shows (1) ÷ marked held or no-show (2 + 1) — the unmarked visit is not counted either way", near(r.values.noShowRate, 0.3333), r.values.noShowRate);
+  ok("adjusted close rate = closes after a visit (1) ÷ happened (2 held + 1 unmarked) — no-show, rescheduled, upcoming and cancelled left out", near(r.values.adjustedCloseRate, 0.3333), r.values.adjustedCloseRate);
+  ok("the counts say which is which", r.counts.heldAppointments === 2 && r.counts.noShowAppointments === 1 && r.counts.rescheduledAppointments === 1 && r.counts.unmarkedAppointments === 1 && r.counts.occurredAppointments === 3 && r.counts.cancelledAppointments === 1, r.counts);
+  ok("appointments booked still counts all seven (each was booked)", r.values.appointments === 7);
+  const none = computeMetrics({ facts: [fact(208, { appointment: appt("b8", "2026-09-10T10:00:00Z") })], spend: null, now: NOW });
+  ok("nothing marked → no-show rate null (nothing to divide), never 0%", none.values.noShowRate === null && none.reasons.noShowRate === "nothing_to_divide" && none.values.noShows === 0);
+  ok("the Marketing results page shows the no-shows beside the adjusted close rate", /const STRIP = \[[^\]]*"adjustedCloseRate", "noShows", "noShowRate"/.test(readFileSync(join(ROOT, "app/app/marketing/results/page.js"), "utf8")));
+}
+
 // ── 3. The funnel is monotonic ─────────────────────────────────────────────
 if (!MUTANT) console.log("\nThe funnel");
 const funnel = buildFunnel({ facts: sept, adMessages: { threads: 40, realConversations: 25 } });
@@ -245,6 +272,30 @@ const organic = await loadMarketingResults({ db, companyId: CO, range, filters: 
 ok("source=website: no paid channel, so no spend to divide", organic.metrics.adSpend.value === null && organic.metrics.costPerLead.value === null);
 ok("an unknown source is refused", !parseFilters({ source: "tv" }).ok);
 
+// A rescheduled visit is replaced by its new time; a booking that names its
+// lead (Booking.leadRequestId, lib/booking/bookingLead.js) is that lead's
+// appointment even when the contact details would not match a client.
+{
+  const c3 = await db.client.create({ data: { companyId: CO, name: "Cy Dube", email: "cy@example.com", createdAt: d("2026-09-01T00:00:00Z") } });
+  const l3 = await db.leadRequest.create({ data: { companyId: CO, name: "Cy Dube", email: "cy@example.com", source: "self_quote", temperature: "warm", createdAt: d("2026-09-12T10:00:00Z"), updatedAt: d("2026-09-12T10:00:00Z") } });
+  await db.appointment.create({ data: { companyId: CO, clientId: c3.id, scheduledAt: d("2026-09-14T10:00:00Z"), status: "rescheduled", createdAt: d("2026-09-12T11:00:00Z") } });
+  await db.appointment.create({ data: { companyId: CO, clientId: c3.id, scheduledAt: d("2026-09-16T10:00:00Z"), status: "no_show", createdAt: d("2026-09-14T11:00:00Z") } });
+  // Booked on the page under a different email than the client record holds:
+  // only the booking's own link says whose it is.
+  const c4 = await db.client.create({ data: { companyId: CO, name: "Di Roy", email: "di.work@example.com", createdAt: d("2026-09-01T00:00:00Z") } });
+  const l4 = await db.leadRequest.create({ data: { companyId: CO, name: "Di Roy", email: "di@example.com", source: "booking_page", temperature: "cold", createdAt: d("2026-09-15T10:00:01Z"), updatedAt: d("2026-09-15T10:00:01Z") } });
+  const a4 = await db.appointment.create({ data: { companyId: CO, clientId: c4.id, scheduledAt: d("2026-09-18T10:00:00Z"), status: "completed", createdAt: d("2026-09-15T10:00:00Z") } });
+  await db.booking.create({ data: { appointmentId: a4.id, mode: "visit", clientName: "Di Roy", clientEmail: "di@example.com", leadRequestId: l4.id } });
+  const res2 = await loadMarketingResults({ db, companyId: CO, range, filters: parseFilters({}), now: NOW, deps });
+  const { loadLeadFacts } = await import("@/lib/agency/leadFacts");
+  const { facts } = await loadLeadFacts({ db, companyId: CO, where: { id: { in: [l3.id, l4.id] } }, now: NOW, assignRefs: false });
+  const f3 = facts.find((f) => f.id === l3.id);
+  const f4 = facts.find((f) => f.id === l4.id);
+  ok("a rescheduled visit gives way to its new time (here a no-show)", f3?.appointment?.status === "no_show", f3?.appointment);
+  ok("a booking's own lead link makes its appointment the lead's, though the client's email differs", f4?.appointment?.id === a4.id && f4?.appointment?.status === "completed", f4?.appointment);
+  ok("…so the loader counts both new visits beside the first lead's, and the no-show", res2.metrics.appointments.value === 3 && res2.metrics.noShows.value === 1 && near(res2.metrics.noShowRate.value, 0.3333), [res2.metrics.appointments.value, res2.metrics.noShows.value, res2.metrics.noShowRate.value]);
+}
+
 // ── 5. Mutations (cp backups only — never git checkout) ────────────────────
 // A mutation pass over a check that already fails proves nothing — every
 // mutant would "fail" for the baseline's reason.
@@ -264,6 +315,9 @@ if (!MUTANT && !fails.length) {
     ["spend missing becomes 0", "const spendKnown = spendAmount !== null;", "const spendKnown = true;"],
     ["average job over leads", "averageJobSize: revenue !== null ? ratio(revenue, closes) : null", "averageJobSize: revenue !== null ? ratio(revenue, leads) : null"],
     ["money switch ignored", "  if (!includeMoney) {", "  if (false) {"],
+    ["no-show counted as happened", 'else if (outcome === "no_show") noShows++;', ""],
+    ["rescheduled counted as happened", 'else if (outcome === "rescheduled") rescheduled++;', ""],
+    ["no-show rate over every appointment", "noShowRate: ratio(noShows, held + noShows, round4)", "noShowRate: ratio(noShows, appointments, round4)"],
   ];
   const escaped = [];
   let caught = 0;

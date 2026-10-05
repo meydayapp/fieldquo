@@ -59,9 +59,9 @@ export const ARTICLES = {
         id: "zapier-and-events",
         heading: "Zapier and live events",
         blocks: [
-          { p: "Besides reading, an agency can subscribe to **events**, so its dashboard updates the moment something happens: a lead arrives, becomes qualified or moves stage; a visit is booked (an on-site estimate) or marked held or cancelled; a quote is sent, viewed, accepted or declined; a job is completed; an invoice is paid; a payment is received. Each event carries the same private row." },
+          { p: "Besides reading, an agency can subscribe to **events**, so its dashboard updates the moment something happens: a lead arrives, becomes qualified or moves stage; a visit is booked (an on-site estimate) or marked held, no-show, rescheduled or cancelled; a quote is sent, viewed, accepted or declined; a job is completed; an invoice is paid; a payment is received. Each event carries the same private row." },
           { p: "Your agency can use FieldQuo's Zapier app, or call the API from any tool that can make a web request. Events leave after the action that caused them has finished, so nothing your team does waits on the agency." },
-          { note: "FieldQuo does not record no-shows. An appointment whose date has passed and that nobody marked as done or cancelled is reported as **unmarked**, not as a no-show." },
+          { note: "After a visit's time has passed, the calendar asks what happened — **Held**, **No-show**, **Rescheduled** or **Cancelled** — and the person it is assigned to gets a \"Did this visit happen?\" reminder within a day. A past visit nobody marked is reported as **unmarked**, never as held or as a no-show." },
         ],
       },
       {
