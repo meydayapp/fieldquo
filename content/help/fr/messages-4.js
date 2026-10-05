@@ -106,8 +106,8 @@ export const ARTICLES = {
           { steps: [
             "Il lit l'équipement enregistré du client, si la conversation appartient à un client connu : marque, modèle, date d'installation et date de garantie au dossier. Il ne voit jamais de prix, de facture ni de solde, et ne lit jamais un numéro de série à voix haute.",
             "Il ne demande que ce qui manque, puis cherche le code et donne au plus deux ou trois gestes sûrs tirés de votre manuel ou des références de FieldQuo, en disant d'où ils viennent.",
-            "Il note ce qu'il a proposé, et la réponse se termine par : **Si le problème persiste, écrivez-nous de nouveau et nous planifierons un appel avec l'un de nos techniciens.** — ajouté par FieldQuo, dans la langue du client, pour qu'il soit là à chaque fois.",
-            "Si le client réécrit que le problème continue, il note le rappel aussitôt — la note dit quel est l'appareil, le code et ce qui a déjà été essayé. Si cela semble maintenant urgent, cela passe en premier.",
+            "Il note ce qu'il a proposé, et la réponse se termine par : **Si le problème persiste, écrivez-nous de nouveau et nous vous trouverons un moment avec l'un de nos techniciens.** — ajouté par FieldQuo, dans la langue du client, pour qu'il soit là à chaque fois. (Avec **Proposer de vraies plages avec un technicien** désactivé, il dit plutôt **…nous planifierons un appel avec l'un de nos techniciens.**)",
+            "Si le client réécrit que le problème continue, il propose aussitôt de vraies plages libres de votre calendrier de réservation — les mêmes que votre page de réservation — et réserve celle qu'il choisit, en appel avec un technicien ou en visite. Ce n'est que si rien n'est libre (ou si les vraies plages sont désactivées) qu'il note plutôt un rappel ; la note dit quel est l'appareil, le code et ce qui a déjà été essayé. Si cela semble maintenant urgent, cela passe en premier — voir [[ai-employee-urgent-problems-and-safety|Problèmes urgents et sécurité]].",
           ] },
         ],
       },
@@ -126,7 +126,64 @@ export const ARTICLES = {
         id: "reply-limit",
         heading: "La limite de réponses",
         blocks: [
-          { p: "**Nombre maximal de réponses dans une conversation** s'applique toujours. Une seule exception : quand l'assistant a dit au client de réécrire si le problème persiste, son message suivant reçoit une réponse même si la limite est atteinte — une seule fois — et cette réponse ne peut que noter le rappel ou confier la conversation à une personne. Une limite de 0 (en pause) n'est jamais dépassée." },
+          { p: "**Nombre maximal de réponses dans une conversation** s'applique toujours. Une seule exception : quand l'assistant a dit au client de réécrire si le problème persiste, son message suivant reçoit une réponse même si la limite est atteinte — une seule fois — et cette réponse ne peut que réserver une plage avec un technicien, noter le rappel ou confier la conversation à une personne. Une limite de 0 (en pause) n'est jamais dépassée." },
+        ],
+      },
+    ],
+  },
+  "ai-employee-urgent-problems-and-safety": {
+    title: "Problèmes urgents et sécurité : ce que fait l'employé IA, et qui reçoit un texto",
+    summary:
+      "Le gaz, c'est sortir d'abord ; un tuyau éclaté envoie un texto à votre personne de garde ; un goutte-à-goutte n'est qu'un goutte-à-goutte — et chaque élément est un réglage que vous contrôlez.",
+    updated: "2026-10-04",
+    intro: [
+      "**Réglages → Employé IA → Problèmes urgents et sécurité** regroupe un seul ensemble de choix pour toute votre équipe IA : ce qui est urgent pour votre entreprise, qui reçoit un texto quand c'est le cas, si l'assistant peut donner un premier geste sûr, et trois autres. Chaque choix est affiché avec sa valeur actuelle, et les valeurs par défaut sont décrites ci-dessous.",
+    ],
+    sections: [
+      {
+        id: "three-kinds",
+        heading: "Urgence vitale, urgent, et tout le reste",
+        blocks: [
+          { bullets: [
+            "**Urgence vitale** — une odeur de gaz ou une alarme de monoxyde de carbone, le feu ou la fumée, une personne blessée, de l'eau sur l'électricité. Pour le gaz ou le CO, l'assistant commence par dire de faire sortir tout le monde, de ne toucher ni aux interrupteurs ni au téléphone à l'intérieur, et d'appeler la ligne d'urgence du fournisseur de gaz ou le 911 une fois dehors — et il ne demande rien d'autre tant qu'ils ne sont pas sortis. Pour le reste, il dit d'appeler le 911. Ce réglage ne peut pas être désactivé.",
+            "**Urgent** — une fuite d'eau active ou un tuyau éclaté, pas de chauffage par temps de gel, un toit qui coule pendant une tempête, un refoulement d'égout, une prise chaude, qui grésille ou fait des étincelles. Urgent pour votre entreprise, pas pour le 911 : votre personne de garde reçoit un texto (ci-dessous) et le client reçoit le numéro de votre entreprise pour appeler tout de suite.",
+            "**Tout le reste** — un robinet qui goutte, un drain lent, un bruit sans odeur. Traité calmement, comme une question ou un rappel ordinaire.",
+          ] },
+          { p: "**Poser une question rapide avant de juger que c'est urgent** (activé par défaut) fait vérifier l'assistant d'abord — « L'eau entre-t-elle en ce moment, ou est-ce un goutte-à-goutte ? », « Voyez-vous la valve d'arrêt ? », « Est-ce une odeur de gaz, ou seulement un bruit ? » — pour qu'un robinet qui goutte ne soit pas traité comme une urgence. Une odeur de gaz n'est jamais remise en question : sortir passe en premier." },
+          { p: "Sous **Ce qui est urgent**, vous pouvez désactiver n'importe laquelle des cinq situations urgentes — un peintre ne voudra peut-être pas de texto à 2 h du matin pour un toit. Une situation désactivée est traitée comme un rappel ordinaire, jamais comme un appel au 911." },
+        ],
+      },
+      {
+        id: "on-call",
+        heading: "Qui reçoit un texto",
+        blocks: [
+          { steps: [
+            "Ajoutez des personnes à la liste de garde et mettez-les en ordre. Chacune a besoin d'un numéro de cellulaire à son profil d'équipe — la liste affiche **aucun numéro de cellulaire à son profil** à côté de quiconque n'en a pas.",
+            "Quand une conversation est urgente, la première personne de la liste reçoit un texto avec ce que le client a dit et un lien, ainsi que la cloche et une notification push.",
+            "Si personne n'appuie sur **Je m'en occupe** dans le délai que vous avez fixé (10 minutes par défaut), la personne suivante reçoit un texto, et ainsi de suite. Après la dernière, vous recevez la cloche.",
+          ] },
+          { p: "**Quand ils sont de garde** peut être à toute heure, en dehors de vos heures d'ouverture, ou aux jours et heures que vous choisissez — une fin plus tôt que le début passe minuit, donc de 18 h à 8 h, c'est le quart de nuit." },
+          { p: "Chaque texto est payé avec votre crédit téléphone et textos, au même tarif que vos textos d'équipe — jamais moins de 2 ¢ le texto. La carte affiche le prix et votre solde." },
+          { note: "Quand aucun texto ne peut partir — personne sur la liste, pas de crédit, en dehors des heures de garde — la carte dit exactement pourquoi sous **Les textos urgents ne partent pas en ce moment**. Le client reçoit quand même votre numéro, un rappel urgent est inscrit et vous recevez la cloche." },
+        ],
+      },
+      {
+        id: "safe-steps",
+        heading: "Premiers gestes sûrs",
+        blocks: [
+          { p: "Avec **Donner des premiers gestes sûrs** activé (par défaut), l'assistant peut dire de faire une ou deux choses sûres pour un propriétaire — fermer la valve principale d'eau, couper un disjoncteur une fois (jamais à répétition), mettre le thermostat à arrêt — ou un geste tiré de vos propres manuels. **Voir les gestes qu'il peut donner** les liste avec leur source. Il ne dit jamais d'ouvrir un panneau ou un couvercle, de toucher une valve de gaz ou une veilleuse, d'utiliser une échelle ou de monter sur le toit, ni de manipuler des fils sous tension ; une réponse qui le ferait est retenue pour une personne au lieu d'être envoyée." },
+          { p: "Désactivez-le et l'assistant ne donne aucun geste — il fait appel à votre équipe. Les consignes de sortir de la maison et d'appeler le 911 s'appliquent toujours." },
+        ],
+      },
+      {
+        id: "more",
+        heading: "Clavardage du site, manuels de FieldQuo, vraies plages",
+        blocks: [
+          { bullets: [
+            "**Reconnaître les clients dans le clavardage de votre site** — quand un visiteur tape un courriel ou un numéro que vous avez au dossier, la conversation est liée à ce client pour utiliser son équipement et son historique. La conversation affiche **Lié à … par votre assistant IA** avec **Pas ce client** pour annuler ; une paire annulée n'est plus jamais liée. Un numéro familial partagé avec un autre nom n'est jamais lié.",
+            "**Utiliser la bibliothèque de manuels de FieldQuo** — des manuels de fabricants que FieldQuo conserve pour toutes les entreprises, lus après vos propres téléversements. Vous pouvez y partager un de vos manuels de fabricant depuis la [[ai-employee-reference-library|bibliothèque de référence]] ; FieldQuo le vérifie d'abord, et rien d'autre de ce que vous téléversez n'est jamais partagé.",
+            "**Proposer de vraies plages avec un technicien** — le dépanneur propose des plages libres de votre calendrier de réservation quand un problème n'est pas réglé, et réserve celle que choisit le client. Désactivé : il inscrit plutôt un rappel.",
+          ] },
         ],
       },
     ],

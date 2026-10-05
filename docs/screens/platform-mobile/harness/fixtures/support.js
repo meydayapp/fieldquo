@@ -746,6 +746,19 @@ function auditLog(url) {
   };
 }
 
+// ── /platform/manuals ──────────────────────────────────────────────────────
+// The shared manual library: one FieldQuo upload, live; one company share
+// waiting for review; one retired.
+const MANUALS = {
+  manuals: [
+    { id: "man_1", title: "Rheem power-vent gas water heater — use & care", tags: { brand: "Rheem", modelPattern: "PROG", category: "water heater", trade: "plumbing" }, origin: "platform", status: "live", pageCount: 44, pagesRead: 44, bytes: 3_100_000, originalFilename: "rheem-ap16882.pdf", sharedByCompanyId: null, sharedByCompanyName: null, failureReason: null, createdAt: "2026-10-04T14:00:00.000Z", reviewedAt: "2026-10-04T14:00:00.000Z" },
+    { id: "man_2", title: "Carrier 59SC5 troubleshooting guide", tags: { brand: "Carrier", modelPattern: "59SC", category: "furnace", trade: "hvac" }, origin: "company_share", status: "pending", pageCount: 42, pagesRead: 41, bytes: 2_400_000, originalFilename: "tg-gfc80.pdf", sharedByCompanyId: "co_north", sharedByCompanyName: "Northline Heating", failureReason: null, createdAt: "2026-10-04T16:30:00.000Z", reviewedAt: null },
+    { id: "man_3", title: "Goodman GM9S96 service manual", tags: { brand: "Goodman", modelPattern: "GM9S", category: "furnace", trade: "hvac" }, origin: "platform", status: "retired", pageCount: 53, pagesRead: 53, bytes: 5_800_000, originalFilename: "rs6612022.pdf", sharedByCompanyId: null, sharedByCompanyName: null, failureReason: null, createdAt: "2026-10-04T12:00:00.000Z", reviewedAt: "2026-10-04T12:00:00.000Z" },
+  ],
+  companiesOptedOut: 2,
+  canManage: true,
+};
+
 // ── /platform/service-categories ───────────────────────────────────────────
 const CATEGORIES = [
   ["interior_painting", "Interior painting", "Walls, ceilings, trim and doors inside the home", "paintbrush"],
@@ -990,6 +1003,11 @@ export default function answer({ method, path, url, body }) {
 
   // /platform/audit-log
   if (path === "/api/platform/audit-log") return auditLog(url);
+
+  // /platform/manuals — FieldQuo's shared manual library
+  if (path === "/api/platform/manuals") return MANUALS;
+  m = path.match(/^\/api\/platform\/manuals\/([^/]+)$/);
+  if (m) return { manual: { ...MANUALS.manuals.find((x) => x.id === m[1]), ...(body?.status ? { status: body.status } : {}) } };
 
   // /platform/service-categories
   if (path === "/api/platform/service-categories") {

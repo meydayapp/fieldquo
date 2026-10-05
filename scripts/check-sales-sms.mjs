@@ -570,6 +570,13 @@ section("3. Every tenant-scoped SMS path passes companyId");
     ["lib/booking/finalizeBooking.js", "textConfirmation"],
     ["lib/jobs/changeOrderSend.js", "sendChangeOrderToClient"],
     ["lib/messaging/ownSend.js", "sendSmsChatMessage"],
+    // The urgent alert to a company's own on-call person (2026-10-04,
+    // lib/aiEmployee/urgentAlerts.js): sent from FieldQuo's system number ON
+    // BEHALF OF the company — so it passes companyId (the demo guard and the
+    // trial phone gate both fire), paid from that company's phone & text
+    // credit (urgent_alert_text), and maySms() is asked first so a STOP is
+    // honoured. textFrom() is the one function that sends.
+    ["lib/aiEmployee/urgentAlerts.js", "textFrom"],
   ];
 
   for (const [file, fn] of SITES) {

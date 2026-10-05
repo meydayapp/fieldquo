@@ -53,8 +53,13 @@ const flat = full.replace(/\s+/g, " ");
 // stopping. See scripts/check-crisis-handling.mjs for the full assertion
 // suite on that shared rule; this file just proves it actually reached the
 // receptionist's prompt, which is this file's job.
-ok(/EMERGENCY/i.test(flat) && /gas, fire, a live wire/i.test(flat),
+// 2026-10-04: the rule became three tiers (leave first for gas, 911 for
+// fire/injury/water on the electrics, urgent-not-911 for a leak) and asks
+// before deciding — the receptionist must carry every tier.
+ok(/EMERGENCIES/i.test(flat) && /LEAVE FIRST/.test(flat) && /smell gas/i.test(flat) && /Fire or smoke/i.test(flat) && /plainly means they or somebody else is in danger/i.test(flat),
    "the shared crisis rule (job-site AND personal) reaches the receptionist prompt");
+ok(/URGENT, NOT 911/.test(flat) && /ASK BEFORE YOU DECIDE/.test(flat),
+   "…with the water-leak-is-urgent-not-911 tier and the ask-first line");
 ok(/call 911/i.test(flat), "and it names 911, not a script it has to work through first");
 ok(/carry on/i.test(flat) && !/none of it matters right now/i.test(flat),
    "…and tells the model to carry on afterward, not stop the questionnaire — that's the 2026-08-31 change");

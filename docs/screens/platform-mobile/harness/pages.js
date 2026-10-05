@@ -33,6 +33,7 @@ import GrowthPage from "@/app/platform/growth/page";
 import HelpPage from "@/app/platform/help/page";
 import JenniferPage from "@/app/platform/jennifer/page";
 import LoginPage from "@/app/platform/login/page";
+import ManualLibraryPage from "@/app/platform/manuals/page";
 import MigrationsPage from "@/app/platform/migrations/page";
 import MigrationDetailPage from "@/app/platform/migrations/[id]/page";
 import PromoCodesPage from "@/app/platform/promo-codes/page";
@@ -124,6 +125,7 @@ export const PAGES = {
   "/platform/help": { render: page(HelpPage) },
   "/platform/jennifer": { render: page(JenniferPage) },
   "/platform/login": { render: page(LoginPage) },
+  "/platform/manuals": { render: page(ManualLibraryPage) },
   "/platform/migrations": { render: page(MigrationsPage) },
   [`/platform/migrations/${MIGRATION_ID}`]: { render: asyncPage(MigrationDetailPage, { id: MIGRATION_ID }), params: { id: MIGRATION_ID }, file: "migrations/[id]" },
   "/platform/promo-codes": { render: page(PromoCodesPage) },
