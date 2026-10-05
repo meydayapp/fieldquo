@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 352; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 353 articles in the tree; written: en 353, fr 353, es 353; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -120,7 +120,7 @@ _Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 
 | `glossary` — Glossary | ✓ | ✓ | ✓ |  |  |  |
 | `what-your-clients-get` — What your clients get out of it | ✓ | ✓ | ✓ |  | client_portal |  |
 
-### leads-and-quotes (40)
+### leads-and-quotes (41)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -164,6 +164,7 @@ _Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 
 | `references-and-photos-in-the-quote-email` — References and before-and-after photos in the quote email | ✓ | ✓ | ✓ | settings-quote-email | quote_email_wording |  |
 | `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
 | `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |
+| `start-from-drawings` — Start from drawings: the drawing read | ✓ | ✓ | ✓ |  | ai_vision |  |
 
 ### jobs-and-scheduling (32)
 

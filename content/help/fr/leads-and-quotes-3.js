@@ -882,4 +882,91 @@ export const ARTICLES = {
       { q: "Le montant est-il avant ou après taxes ?", a: "Elle compare le total de la soumission — le chiffre au bas de la soumission, taxes incluses quand la taxe s'applique." },
     ],
   },
+
+  "start-from-drawings": {
+    title: "Partir des plans : la lecture de plans",
+    summary:
+      "Téléversez un jeu de plans, un tableau de quantités et des photos : FieldQuo lit les feuilles dont le service de votre soumission a besoin, mesure chaque quantité avec sa source et un niveau de confiance, la chiffre à vos propres tarifs et recommande un prix qui tient votre marge cible.",
+    updated: "2026-10-04",
+    intro: [
+      "Une lecture de plans transforme un jeu de plans en brouillon de soumission chiffré. Elle lit la peinture, les cloisons sèches, la charpente, la toiture, l'électricité, la plomberie et les revêtements de sol. Le modèle ne fixe jamais un prix : il désigne les cotes imprimées, les lignes de tableau et les symboles, et FieldQuo calcule les quantités et les chiffre à vos propres tarifs.",
+    ],
+    sections: [
+      {
+        id: "what-it-reads",
+        heading: "Elle lit ce pour quoi est votre soumission",
+        blocks: [
+          { p: "Il n'y a pas de choix de métier à part. La lecture reprend le service de la soumission d'où vous l'avez lancée, ou celui de la demande. Sans l'un ni l'autre, choisissez un de vos propres services sous **Pour quoi est cette soumission**. Une soumission de toiture lit le plan de toit et les élévations, jamais les pièces. Une soumission de peinture intérieure lit l'intérieur, jamais les élévations." },
+          { p: "Seules les feuilles dont vos services ont besoin sont envoyées à l'IA. Une feuille d'électricité n'est jamais payée sur une soumission de cloisons sèches. Les pages de garde et de code ne sont jamais envoyées. Les pages de devis descriptif sont lues comme texte, gratuitement. La carte de lecture indique combien de feuilles elle lit et lesquelles elle laisse de côté." },
+          { note: "Quand un jeu n'a pas de feuilles d'électricité ou de plomberie, comme pour beaucoup de maisons, ces métiers lisent plutôt les plans d'étage de l'architecte, et leurs comptes sont marqués à faible confiance." },
+        ],
+      },
+      {
+        id: "quantities",
+        heading: "Chaque quantité a une source et un niveau de confiance",
+        blocks: [
+          { table: {
+            head: ["D'où vient la quantité", "Confiance"],
+            rows: [
+              ["Mesurée par vous sur la feuille", "Élevée"],
+              ["Cotes imprimées sur un plan au texte réel", "Élevée"],
+              ["Une ligne de tableau (panneau, appareils, portes) dont la quantité imprimée figure dans cette ligne", "Élevée"],
+              ["Une cellule de votre tableau de quantités", "Moyenne"],
+              ["Des symboles comptés sur la feuille, liés à sa légende, les quarts concordant avec la feuille entière", "Moyenne"],
+              ["Une feuille numérisée, une unité qu'il a fallu supposer, un compte sans légende, une photo ou une estimation", "Faible"],
+            ],
+          } },
+          { p: "Chaque métier a sa propre carte : les cloisons sèches par niveau de finition GA-214, la charpente en pieds linéaires, le toit en carrés selon la pente imprimée, l'électricité en appareils, panneaux et circuits, la plomberie en appareils sanitaires, les revêtements par matériau. Deux sources sûres qui ne concordent pas deviennent une question pour vous. Vérifiez les quantités à faible confiance avant d'envoyer." },
+        ],
+      },
+      {
+        id: "pricing",
+        heading: "Comment c'est chiffré",
+        blocks: [
+          { steps: [
+            "**Vos tarifs** — votre propre grille de tarifs, par le même moteur que vos soumissions saisies : la peinture, la grille des cloisons sèches (pose plus niveau de finition) et la grille de toiture.",
+            "**Votre service** — vos propres services dans Paramètres → Services dont les lignes sont liées à la mesure de l'élément, avec leur rendement pour les heures.",
+            "**Suggestion FieldQuo — pas encore votre prix** — les chiffres publiés de FieldQuo, chacun affiché avec sa source : les unités de main-d'œuvre NECA pour l'électricité (telles que publiées pour le commercial, avec le facteur résidentiel pour les maisons), le barème de charpente, les recettes de cloisons sèches et de revêtements.",
+          ] },
+          { p: "Un élément que rien ne couvre indique **Aucun tarif — ajoutez-en un**. Il n'est jamais chiffré à zéro. Les lignes suggérées n'arrivent sur la soumission que si vous appuyez sur **Mettre les lignes suggérées par FieldQuo sur la soumission** pour ce métier, et chacune est signalée comme suggestion." },
+        ],
+      },
+      {
+        id: "target-margin",
+        heading: "Le prix à votre marge cible",
+        blocks: [
+          { p: "La carte **Prix à votre marge cible** montre le calcul : la main-d'œuvre au coût horaire de votre équipe, les matériaux, les coûts de ligne de vos services, l'équipement, les frais généraux, le coût, le prix qui tient votre cible et ce que donnent vos propres tarifs." },
+          { p: "Les frais généraux sont la juste part de votre mois que prend ce chantier en temps d'équipe : vos coûts fixes mensuels × (les heures d'équipe de ce chantier ÷ les heures d'équipe facturables que vous avez indiquées dans Paramètres → Frais généraux). Un chantier de deux semaines pour deux personnes (160 heures d'équipe) dans un mois de 320 heures porte la moitié du mois. Sans heures facturables, ils sont répartis par chantiers par mois, et sans l'un ni l'autre ils valent 10 % du prix. La carte dit lequel elle a utilisé." },
+          { steps: [
+            "Quand vos tarifs tiennent votre cible, la recommandation est votre prix.",
+            "Quand ils la manquent, la carte montre l'écart et le bouton **Ajouter une ligne d'ajustement de marge**, qui met l'écart sur la soumission comme ligne visible à part. Vos tarifs ne sont jamais modifiés en douce.",
+            "Quand une lecture terminée manque la cible, le propriétaire et les gestionnaires reçoivent une notification dans la cloche et en notification poussée, tout comme la personne assignée à la soumission ou à la demande.",
+          ] },
+        ],
+      },
+      {
+        id: "conversation",
+        heading: "Changer le chiffrage depuis la conversation",
+        blocks: [
+          { p: "Donnez vos chiffres à la conversation, par exemple « mon équipe pose 600 pi² par jour » ou « la main-d'œuvre nous coûte 42 $ de l'heure ». Puis appuyez sur **Mettre à jour le chiffrage depuis cette conversation**. Elle ne retient que les chiffres écrits dans vos propres messages, montre ce qu'ils changent et n'applique rien avant que vous appuyiez sur **Appliquer à cette lecture**. Les chiffres restent sur cette lecture et ne changent jamais vos paramètres." },
+        ],
+      },
+      {
+        id: "cost",
+        heading: "Ce que coûte une lecture",
+        blocks: [
+          { p: "Le coût est affiché avant de commencer, retenu sur votre crédit IA, puis réglé à ce que la lecture a vraiment utilisé. Une lecture qui échoue est remboursée en entier. Moins de feuilles lues, c'est une facture plus petite. Chaque métier en plus de la peinture ajoute une synthèse." },
+          { table: {
+            head: ["Jeu de plans", "Facturé d'habitude"],
+            rows: [
+              ["13 feuilles et 10 photos, peinture", "environ 1,85 $ US"],
+              ["Le même jeu, un autre métier qui en lit 8 feuilles", "environ 1,46 $ US"],
+              ["Le même jeu, trois métiers", "environ 2,80 $ US"],
+              ["40 feuilles, trois métiers qui en lisent 25", "environ 3,37 $ US"],
+            ],
+          } },
+        ],
+      },
+    ],
+  },
 };
