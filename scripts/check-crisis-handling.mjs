@@ -420,5 +420,81 @@ ok(!/app\.receptionist\.noDraft\.crisis_detected/.test(messagesSrc),
 ok(!/app\.callDraft\.reason\.crisis_detected/.test(messagesSrc),
   "app.callDraft.reason.crisis_detected no longer appears anywhere in appMessages.js");
 
+/* ═══ 9. 2026-10-04: three tiers, leave FIRST for gas, and ask before deciding ═══ */
+
+section("The owner's 2026-10-04 tiers — water is urgent not 911, gas means leave first, probe first");
+
+{
+  const flat = CRISIS_RULE.replace(/\s+/g, " ");
+  const leaveAt = flat.indexOf("LEAVE FIRST.");
+  const callAt = flat.indexOf("CALL 911.");
+  const urgentAt = flat.indexOf("URGENT, NOT 911.");
+  const askAt = flat.indexOf("ASK BEFORE YOU DECIDE.");
+  ok(leaveAt > -1 && callAt > leaveAt && urgentAt > callAt && askAt > urgentAt, "the rule reads in order: leave first, call 911, urgent-not-911, ask before deciding");
+
+  const leave = flat.slice(leaveAt, callAt);
+  ok(/smell gas/i.test(leave) && /carbon-monoxide \(CO\) alarm/i.test(leave), "gas smells and CO alarms are in the leave-first paragraph");
+  ok(/get everyone out of the house now/i.test(leave) && /not to touch light switches, appliances or the phone while inside/i.test(leave),
+    "leave FIRST — and don't touch switches or the phone inside (PSC Wisconsin; FEMA P-234 p.10)");
+  ok(/gas company's emergency line or 911 once they are outside/i.test(leave), "…then call the gas company or 911 from OUTSIDE (CPSC CO Q&A)");
+  ok(/Ask nothing else until they say they are out/i.test(leave), "…and nothing else is asked until they are out — no chatting inside a house that smells of gas");
+
+  const call = flat.slice(callAt, urgentAt);
+  ok(!/water pouring|leak/i.test(call), "a water leak is NOT in the 911 paragraph any more (owner: 'not an emergency for 911')", call);
+  ok(/water touching the electrical panel or outlets/i.test(call), "…water on the electrics still is (FEMA P-234)");
+
+  const urgent = flat.slice(urgentAt, askAt);
+  ok(/Water actively leaking or a burst pipe/i.test(urgent) && /no heat in freezing weather/i.test(urgent) && /roof leaking in a storm/i.test(urgent),
+    "water leaking, no heat in freezing weather and a roof in a storm are URGENT");
+  ok(/Do not tell them to call 911 for these alone/i.test(urgent), "…and explicitly not 911");
+
+  const ask = flat.slice(askAt);
+  for (const q of ["Is water actively coming in right now, or is it a drip?", "How much", "Can you see the shut-off valve?", "Is anyone hurt?", "Is there a gas smell, or is it just a noise?"]) {
+    ok(ask.includes(q), `the probing question is in the rule: "${q}"`);
+  }
+  ok(/A dripping tap[\s\S]*ordinary problems[\s\S]*never with alarm/i.test(ask), "a dripping tap is named as ordinary — not over-sensitive (CDC CERC: alarm in proportion)");
+  ok(!/number for the gas company|gas company at \d/i.test(flat) && /never make up a phone number for anyone/i.test(flat), "the gas company is a PLACE, never a made-up number");
+}
+
+section("The AI employee carries the same rule, byte for byte, in every role");
+{
+  const { buildEmployeePrompt, AI_EMPLOYEE_ROLES } = await import("@/lib/aiEmployee/roles");
+  for (const role of AI_EMPLOYEE_ROLES) {
+    const p = buildEmployeePrompt({ employee: { role }, company: { name: "Sunset Roofing" } });
+    ok(p.includes(CRISIS_RULE), `AI employee (${role}): contains CRISIS_RULE verbatim`);
+    ok(!p.includes("988"), `AI employee (${role}): 988 does not reach the prompt`);
+  }
+}
+
+section("The deterministic triage — probing cases, executed (lib/aiEmployee/triage.js)");
+{
+  const { classifyMessage } = await import("@/lib/aiEmployee/triage");
+  const CASES = [
+    ["The kitchen faucet is dripping", "routine", null],
+    ["There's a slow leak under the bathroom sink", "routine", null],
+    ["There's a leak under the sink", "unclear", null],
+    ["Water is gushing out of the pipe under the sink", "urgent", "water"],
+    ["A pipe burst in the basement", "urgent", "water"],
+    ["Water is pouring through the ceiling light", "urgent", "water"],
+    ["A few drips from the ceiling", "unclear", null],
+    ["I smell gas in the kitchen", "emergency", "gas_co"],
+    ["It smells like rotten eggs near the stove", "emergency", "gas_co"],
+    ["The furnace is making a loud banging noise", "routine", null],
+    ["There's a weird smell by the furnace", "unclear", null],
+    ["Our CO alarm is going off", "emergency", "gas_co"],
+    ["The outlet is hot and buzzing", "urgent", "electrical"],
+    ["The outlet is sparking and smoking", "emergency", "fire"],
+    ["Water is dripping into the outlet", "emergency", "water_electrics"],
+    ["We have no heat", "unclear", null],
+    ["No heat and it's minus 25 outside", "urgent", "heat"],
+    ["We had a small fire in the garage last week and need the drywall redone", "none", null],
+  ];
+  for (const [text, tier, category] of CASES) {
+    const got = classifyMessage(text);
+    ok(got.tier === tier && (category === null || got.category === category), `"${text}" → ${tier}${category ? ` (${category})` : ""}`, got);
+  }
+  ok(classifyMessage("I smell gas").leaveFirst === true && classifyMessage("the furnace is noisy").leaveFirst === false, "only a gas smell or a CO alarm sets leave-first");
+}
+
 console.log(`\n${fail === 0 ? `ALL PASS (${checks} checks)` : `${fail} FAILED of ${checks}`}`);
 process.exit(fail ? 1 : 0);

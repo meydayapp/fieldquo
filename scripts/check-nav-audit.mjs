@@ -278,6 +278,7 @@ const DRILL_INS = {
   "/app/plans/new": "opened from the Plans list page's own New button",
   "/app/tickets/[id]": "one client ticket — opened from the Client tickets list and from its notification",
   "/app/quote-approval/[id]": "opened from a quote's own detail page",
+  "/app/urgent/[id]": "the link in an on-call text (lib/aiEmployee/urgentAlerts.js), and Recent urgent conversations on Settings › AI employee",
   "/app/quotes/[id]": "quote document — opened from the quotes list, clients, leads, dashboard",
   "/app/quotes/[id]/edit": "opened from the quote detail page's own Edit button",
   "/app/quotes/[id]/kitchen": "kitchen designer — opened from the quote detail page",

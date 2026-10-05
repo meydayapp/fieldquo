@@ -47,7 +47,7 @@ import {
   MODE_SENTENCE_EN,
   FLOOR_LIST_KEYS,
 } from "../lib/aiEmployee/permission.js";
-import { AI_EMPLOYEE_VOICES, voiceLine, disclosureLine, DISCLOSURE_LANGUAGES } from "../lib/aiEmployee/roles.js";
+import { AI_EMPLOYEE_VOICES, voiceLine, disclosureLine, DISCLOSURE_LANGUAGES, switchableToolsForRole as switchableFor } from "../lib/aiEmployee/roles.js";
 import { CHANNELS, pickEmployee, channelConflicts } from "../lib/aiEmployee/employees.js";
 import { WEB_CHAT_LANGUAGES, webChatCopy } from "../lib/aiEmployee/webChatCopy.js";
 import { AI_BEST_MODEL, tierForModel, modelForTier } from "../lib/ai/provider.js";
@@ -448,7 +448,10 @@ for (const role of AI_EMPLOYEE_ROLES) {
 }
 ok("the closer books and quotes", toolsForRole("closer").includes("book_appointment") && toolsForRole("closer").includes("send_instant_quote_link"));
 ok("the receptionist books but never quotes", toolsForRole("receptionist").includes("book_appointment") && !toolsForRole("receptionist").includes("send_instant_quote_link") && !toolsForRole("receptionist").includes("create_instant_quote"));
-ok("the troubleshooter neither books nor quotes", !toolsForRole("troubleshooter").includes("book_appointment") && !toolsForRole("troubleshooter").includes("send_instant_quote_link"));
+// Owner, 2026-10-04: "book a call with a tech" is a REAL time — the
+// troubleshooter reads the calendar and books, and still never quotes.
+ok("the troubleshooter books a real time with a tech but never quotes", toolsForRole("troubleshooter").includes("book_appointment") && toolsForRole("troubleshooter").includes("check_availability") && !toolsForRole("troubleshooter").includes("send_instant_quote_link") && !toolsForRole("troubleshooter").includes("create_instant_quote"));
+ok("...and the company can switch the calendar off for it (they are switchable, not fixed)", switchableFor("troubleshooter").includes("book_appointment") && !toolsForRole("troubleshooter", { disabledTools: ["check_availability", "book_appointment"] }).includes("book_appointment"));
 ok("custom is as narrow as the troubleshooter", !toolsForRole("custom").includes("book_appointment"));
 
 // ── The platform list and the inbox ────────────────────────────────────────
@@ -866,6 +869,10 @@ for (const role of AI_EMPLOYEE_ROLES) {
       count: async ({ where } = {}) => store[name].filter((x) => matches(x, where)).length,
       create: async ({ data }) => { const row = { id: `${name}_${++seq}`, createdAt: new Date(), ...data }; store[name].push(row); return row; },
       update: async ({ where, data }) => { const row = store[name].find((x) => matches(x, where)); if (!row) throw new Error(`no ${name} ${JSON.stringify(where)}`); Object.assign(row, data); return row; },
+      // The web-chat match points a thread "only while clientId is null"
+      // (lib/aiEmployee/webChatMatch.js) — a compare-and-set, so the store
+      // needs the many-row form too.
+      updateMany: async ({ where, data }) => { const rows = store[name].filter((x) => matches(x, where)); for (const r of rows) Object.assign(r, data); return { count: rows.length }; },
       // The AI wallet's balance is a SUM (lib/voice/credits.js balanceFor).
       aggregate: async ({ where, _sum = {} } = {}) => {
         const rows = store[name].filter((x) => matches(x, where));
@@ -1235,7 +1242,7 @@ for (const role of AI_EMPLOYEE_ROLES) {
   // re-asking anything → a third message gets nothing.
   // ═════════════════════════════════════════════════════════════════════════
   {
-    const { closeTheLoopLine, CLOSE_THE_LOOP_LANGUAGES, pendingAttempt, shouldCloseLoop, FOLLOW_UP_TOOLS } = await import("../lib/aiEmployee/troubleshooting.js");
+    const { closeTheLoopLine, CLOSE_THE_LOOP_LANGUAGES, pendingAttempt, shouldCloseLoop, FOLLOW_UP_TOOLS, FOLLOW_UP_SLOT_TOOLS } = await import("../lib/aiEmployee/troubleshooting.js");
     const T = { id: "T", role: "troubleshooter", enabled: true, createdAt: "2026-01-01", metaEnabled: true, webChatEnabled: true, smsEnabled: true, intents: [], displayName: "Tess", companyId: "C1", name: "Tess", mode: "auto", maxRepliesPerThread: 1, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f" };
     const future = new Date("2029-03-01T00:00:00Z");
     const seed = {
@@ -1280,7 +1287,9 @@ for (const role of AI_EMPLOYEE_ROLES) {
     const lookup = toolResults.find((x) => x.n === "look_up_error_code")?.r;
     ok("the lookup found the brand from the record, with any casing and spacing", lookup?.ok === true && lookup?.matched >= 1 && /off-balance/.test(lookup?.fenced || ""), lookup);
     ok("...with the FieldQuo source cited", /TSG10000997/.test(lookup?.fenced || ""));
-    ok("the reply was sent with the close-the-loop line, in the client's language", first.replied === true && h.sent[0]?.text.endsWith(closeTheLoopLine("es")), h.sent[0]?.text);
+    // Real times are on by default (bookTechSlots), so the promise is "we'll
+    // find you a time", not "we'll book a call".
+    ok("the reply was sent with the close-the-loop line, in the client's language", first.replied === true && h.sent[0]?.text.endsWith(closeTheLoopLine("es", { slots: true })), h.sent[0]?.text);
     const row1 = db.$store.aiEmployeeReply.find((r) => r.id === first.replyId);
     const logged = (row1?.toolsUsed || []).find((t) => t.name === "log_troubleshooting");
     ok("the attempt is recorded on the reply row, equipment checked against the card", logged?.detail?.equipmentId === "eq1" && logged?.detail?.stepsGiven?.length === 2 && pendingAttempt([row1])?.symptom === "washer shows UE", logged);
@@ -1291,7 +1300,9 @@ for (const role of AI_EMPLOYEE_ROLES) {
     h2.deps.runToolLoop = (() => { const inner = h2.deps.runToolLoop; return async (args) => inner(args); })();
     const second = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m2", channel: "sms", language: "es", send: h2.send, deps: h2.deps });
     ok("one reply past the cap for the customer who was told to write back", second.replied === true, second);
-    ok("...offered ONLY the callback and the hand-off", JSON.stringify([...(h2.composed[0]?.names || [])].sort()) === JSON.stringify([...FOLLOW_UP_TOOLS].sort()), h2.composed[0]?.names);
+    ok("...offered ONLY a real time with a tech, the callback and the hand-off", JSON.stringify([...(h2.composed[0]?.names || [])].sort()) === JSON.stringify([...FOLLOW_UP_SLOT_TOOLS].sort()), h2.composed[0]?.names);
+    ok("...and told to check the calendar first, the callback only when nothing is free", /call check_availability/.test(h2.composed[0]?.system || "") && /Only if it returns no times, call book_callback/.test(h2.composed[0]?.system || ""));
+    ok("the callback-only set is still exactly the callback and the hand-off", JSON.stringify([...FOLLOW_UP_TOOLS].sort()) === JSON.stringify(["book_callback", "hand_off_to_human"]));
     ok("...with what was tried in the prompt, so nothing is re-asked", /WHAT WAS ALREADY TRIED/.test(h2.composed[0]?.system || "") && /Spread the load evenly/.test(h2.composed[0]?.system || ""));
     const ticket = db.$store.clientTicket[0];
     ok("the callback became a ticket on the client's record, not a lead", db.$store.clientTicket.length === 1 && ticket.clientId === "cl1" && ticket.companyId === "C1", db.$store.clientTicket);
@@ -1364,6 +1375,111 @@ for (const role of AI_EMPLOYEE_ROLES) {
       ["closer", "custom"].every((r) => !toolsForRole(r).includes("look_up_error_code") && !toolsForRole(r).includes("log_troubleshooting")));
   }
 
+  // ═════════════════════════════════════════════════════════════════════════
+  // ── Urgent, executed through the real responder (owner, 2026-10-04) ──────
+  //
+  // The triage decides from the customer's own words AND the model's urgency
+  // (the higher wins), the company's list of what is urgent applies, the
+  // alert is raised BEFORE the reply goes, and the line the customer reads
+  // says what actually happened. raiseUrgentAlert is injected: no database,
+  // no Twilio — its own behaviour is executed further down this file.
+  // ═════════════════════════════════════════════════════════════════════════
+  {
+    const { urgentLine, leaveFirstLine } = await import("../lib/aiEmployee/triage.js");
+    const { UNSAFE_STEP_REASON } = await import("../lib/aiEmployee/knowledge/firstSteps.js");
+    const { WEB_MATCH_NOTE } = await import("../lib/aiEmployee/clientContext.js");
+    const REC = { id: "R", role: "receptionist", enabled: true, createdAt: "2026-01-01", metaEnabled: true, webChatEnabled: true, smsEnabled: true, intents: [], displayName: "Rosa", companyId: "C1", name: "Rosa", mode: "auto", maxRepliesPerThread: 5, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f" };
+    const phoneCo = { ...company, phone: "613-555-0199" };
+    const run = async ({ body, text = "Okay — let's stop the water first.", toolCalls = [], settings = null, raised = { alertId: "a1", alerted: "sms", status: "open", deduped: false }, employee = REC, extraSeed = {} }) => {
+      const db = makeDb({
+        aiEmployee: [employee],
+        messageThread: [thread({ clientId: null })],
+        message: [inbound("m1", body, 0)],
+        company: [phoneCo],
+        clientEquipment: [], job: [], client: [], clientTicket: [], aiEmployeeSourcePage: [], referenceCode: [], threadClientMatch: [],
+        leadRequest: [],
+        ...(settings ? { aiEmployeeCompanySettings: [{ id: "s1", companyId: "C1", ...settings }] } : {}),
+        ...extraSeed,
+      });
+      const h = harness(db, { text, toolCalls });
+      const alerts = [];
+      h.deps.raiseUrgentAlert = async (args) => { alerts.push(args); return raised; };
+      const out = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", language: "en", send: h.send, deps: h.deps });
+      return { out, db, h, alerts };
+    };
+
+    const gush = await run({ body: "Water is gushing out from under the kitchen sink!" });
+    ok("gushing water: the alert is raised, urgent, water", gush.alerts.length === 1 && gush.alerts[0].tier === "urgent" && gush.alerts[0].category === "water", gush.alerts);
+    ok("...with the customer's words and the company's settings handed over", /gushing/.test(gush.alerts[0]?.summary || "") && Array.isArray(gush.alerts[0]?.settings?.urgentCategories));
+    ok("...and the reply ends with what really happened, plus the company's own number", gush.h.sent[0]?.text.endsWith(urgentLine({ alerted: "sms", phone: "613-555-0199", company: "Acme Painting", language: "en" })), gush.h.sent[0]?.text);
+    ok("...which names the number and nothing invented", /613-555-0199/.test(gush.h.sent[0]?.text || "") && !/911/.test(gush.h.sent[0]?.text || ""));
+
+    const drip = await run({ body: "My kitchen faucet is dripping a little, can someone look at it next week?", text: "Sure — a drip like that is usually a worn washer." });
+    ok("a dripping tap raises NOTHING and gets no urgent line", drip.alerts.length === 0 && !/on-call|right now, call/.test(drip.h.sent[0]?.text || ""), drip.h.sent[0]?.text);
+
+    const leak = await run({ body: "I have a leak under the sink", text: "Is water actively coming in right now, or is it a drip?" });
+    ok("a plain 'leak' is a question first, never an alert", leak.alerts.length === 0 && /actively coming in/.test(leak.h.sent[0]?.text || ""));
+
+    const probed = await run({ body: "yes it's coming in fast", toolCalls: [{ name: "hand_off_to_human", args: { reason: "active leak", urgency: "urgent", category: "water" } }] });
+    ok("the answer to the probe becomes urgent through the MODEL's urgency (the higher wins)", probed.alerts.length === 1 && probed.alerts[0].tier === "urgent" && probed.alerts[0].category === "water", probed.alerts);
+
+    const under = await run({ body: "Water is pouring through the ceiling light", toolCalls: [{ name: "hand_off_to_human", args: { reason: "minor", urgency: "routine" } }] });
+    ok("a model that under-calls cannot downgrade what the customer's words said", under.alerts.length === 1 && under.alerts[0].tier === "urgent");
+
+    const gas = await run({ body: "I smell gas in the basement and the furnace is clicking", text: "Please get out first." });
+    ok("a gas smell: an EMERGENCY alert, gas_co", gas.alerts.length === 1 && gas.alerts[0].tier === "emergency" && gas.alerts[0].category === "gas_co");
+    ok("...and the fixed leave-the-house line is in the reply, before the model's words", (gas.h.sent[0]?.text || "").indexOf(leaveFirstLine("en")) > -1 && (gas.h.sent[0]?.text || "").indexOf(leaveFirstLine("en")) < (gas.h.sent[0]?.text || "").indexOf("Please get out first."), gas.h.sent[0]?.text);
+
+    const noise = await run({ body: "The furnace is making a weird banging noise", text: "Is there a gas smell, or is it just a noise?" });
+    ok("a furnace NOISE is not an emergency and gets no leave-the-house line", noise.alerts.length === 0 && !(noise.h.sent[0]?.text || "").includes(leaveFirstLine("en")));
+
+    const off = await run({ body: "Water is gushing out from under the kitchen sink!", settings: { urgentCategories: ["heat", "roof"] } });
+    ok("a company that took water OFF its urgent list: no alert, never 911 (an ordinary callback)", off.alerts.length === 0 && !/911/.test(off.h.sent[0]?.text || ""));
+
+    // In `ask` so the callback the responder books becomes a proposal on the
+    // scripted store rather than a real lead write.
+    const noOnCall = await run({
+      body: "Water is gushing out from under the kitchen sink! I'm Sam, 613-555-0142",
+      employee: { ...REC, mode: "ask" },
+      raised: { alertId: "a2", alerted: "bell", status: "not_sent", reason: "no_on_call", deduped: false },
+      extraSeed: { aiEmployeeProposal: [] },
+    });
+    const row = noOnCall.db.$store.aiEmployeeReply[0];
+    const autoCb = (row?.toolsUsed || []).find((t) => t.name === "book_callback");
+    ok("nobody on call: the responder books the urgent callback itself when the model didn't", Boolean(autoCb) && noOnCall.db.$store.aiEmployeeProposal.some((p) => p.tool === "book_callback" && p.args?.urgency === "urgent"), row?.toolsUsed);
+    ok("...and says 'flagged as urgent' (not 'alerted the on-call team') with the company number", /flagged this as urgent/.test(row?.draftText || "") && !/on-call team/.test(row?.draftText || "") && /613-555-0199/.test(row?.draftText || ""), row?.draftText);
+
+    const dup = await run({ body: "Water is gushing out from under the kitchen sink!", raised: { alertId: "a1", alerted: "sms", status: "open", deduped: true } });
+    ok("the same conversation again: no second alert line", !/on-call team/.test(dup.h.sent[0]?.text || ""));
+
+    const unsafe = await run({ body: "The furnace won't start", text: "Remove the front panel of the furnace and hold the reset button for ten seconds." });
+    ok("a draft telling them to open a panel is HELD, never sent", unsafe.out.replied === false && unsafe.out.reason === UNSAFE_STEP_REASON && unsafe.h.sent.length === 0, unsafe.out);
+    ok("...and the thread goes to a person", unsafe.db.$store.aiEmployeeReply[0]?.handedOff === true && unsafe.db.$store.aiEmployeeReply[0]?.suppressedReason === UNSAFE_STEP_REASON);
+    const safe = await run({ body: "The basement is flooding", text: "Shut off the main water valve where the pipe comes in, and don't go near the electrical panel." });
+    ok("...but the vetted step, said with its warning, goes out", safe.out.replied === true && /main water valve/.test(safe.h.sent[0]?.text || ""));
+
+    // ── The web-chat match, through the responder ────────────────────────
+    const TS = { id: "T", role: "troubleshooter", enabled: true, createdAt: "2026-01-01", metaEnabled: true, webChatEnabled: true, smsEnabled: true, intents: [], displayName: "Tess", companyId: "C1", name: "Tess", mode: "auto", maxRepliesPerThread: 3, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f" };
+    const web = await run({
+      body: "Hi, my washer shows UE again — I'm Jane Doe, jane@example.com",
+      text: "Thanks Jane — is the code still UE?",
+      employee: TS,
+      extraSeed: {
+        client: [
+          { id: "cl1", companyId: "C1", name: "Jane Doe", email: "jane@example.com", phone: null, address: null, city: null, province: null, country: null, language: null, createdAt: new Date("2024-01-01") },
+          { id: "clX", companyId: "C2", name: "Jane Doe", email: "jane@example.com", phone: null, address: null, city: null, province: null, country: null, language: null, createdAt: new Date("2024-01-01") },
+        ],
+        clientEquipment: [{ id: "eq1", companyId: "C1", clientId: "cl1", name: "Washer", manufacturer: "Samsung", modelNumber: "WF45", createdAt: new Date(), services: [] }],
+      },
+    });
+    ok("web chat: a visitor who typed a client's email is linked to THIS company's client", web.db.$store.messageThread[0].clientId === "cl1", web.db.$store.messageThread[0]);
+    ok("...recorded as a reversible match, never another tenant's client", web.db.$store.threadClientMatch.length === 1 && web.db.$store.threadClientMatch[0].clientId === "cl1" && web.db.$store.threadClientMatch[0].status === "linked");
+    ok("...with a line in the conversation, attributed to nobody", web.db.$store.message.some((m) => m.activity?.type === "linked" && m.activity?.kind === "client" && !m.activity?.by));
+    ok("...and the card reaches the troubleshooter marked as an unconfirmed web match", (web.h.composed[0]?.system || "").includes(WEB_MATCH_NOTE) && /Samsung · Washer/.test(web.h.composed[0]?.system || ""));
+    const webOff = await run({ body: "I'm Jane Doe, jane@example.com", employee: TS, settings: { matchWebChatClients: false }, extraSeed: { client: [{ id: "cl1", companyId: "C1", name: "Jane Doe", email: "jane@example.com", createdAt: new Date() }] } });
+    ok("...and nothing is linked when the company switched matching off", webOff.db.$store.messageThread[0].clientId === null && webOff.db.$store.threadClientMatch.length === 0);
+  }
+
   // ── The responder's structure ────────────────────────────────────────────
   {
     const respond = code("lib/aiEmployee/respond.js");
@@ -1375,7 +1491,11 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("the composed-then-superseded reply is recorded, not sent", /suppressedReason: SKIP\.BURST_MERGED/.test(respond));
     // onlyTools (2026-10-04): the follow-up past the cap may only book the
     // callback or fetch a person — narrowed in BOTH places, like disabledTools.
-    ok("disabledTools reach both the definitions and the executor", /definitionsForRole\(employee\.role, \{\s*disabledTools: employee\.disabledTools,\s*afterHandOff,\s*onlyTools,\s*\}\)/.test(respond) && /disabledTools: employee\.disabledTools,\s*threadId,\s*employeeId: employee\.id,\s*afterHandOff,\s*prisma,[\s\S]{0,200}onlyTools,/.test(respond));
+    // 2026-10-04: the list is the employee's switches PLUS the company's
+    // "offer real times" switch for the troubleshooter — one value, built
+    // once, handed to both.
+    ok("disabledTools reach both the definitions and the executor", /const disabledTools = \[\s*\.\.\.\(Array\.isArray\(employee\.disabledTools\) \? employee\.disabledTools : \[\]\),/.test(respond) && /definitionsForRole\(employee\.role, \{\s*disabledTools,\s*afterHandOff,\s*onlyTools,\s*\}\)/.test(respond) && /disabledTools,\s*threadId,\s*employeeId: employee\.id,\s*afterHandOff,\s*prisma,[\s\S]{0,200}onlyTools,/.test(respond));
+    ok("...and the company's bookTechSlots switch narrows the troubleshooter's calendar off", /!safety\.bookTechSlots && employee\.role === "troubleshooter" \? \["check_availability", "book_appointment"\]/.test(respond));
     ok("the sender is told which employee is sending", /send\(text, \{ employeeId: employee\.id \}\)/.test(respond));
   }
 }
@@ -1504,6 +1624,288 @@ for (const role of AI_EMPLOYEE_ROLES) {
   const dRoute = code("app/api/ai-employee/disclosure/route.js");
   ok("the disclosure switch is owner/admin, audited, and takes only on/off/default", /requirePermission\(member\.role, "user:manage"\)/.test(dRoute) && /ai_employee\.disclosure_changed/.test(dRoute) && /value === true \|\| value === false \|\| value === null/.test(dRoute));
   ok("the screen calls the disclosure route", /\/api\/ai-employee\/disclosure/.test(code("app/app/settings/ai-employee/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Urgent problems & safety: the company's own switches (2026-10-04) ──────
+//
+// The owner's decisions, each a company setting with a stated default:
+// probing triage, the on-call ladder (texts paid from the phone & text
+// credit, escalating on no acknowledgement), vetted first steps, web-chat
+// client matching, the shared manual library, real appointment times.
+// Executed against hostile input; no database, no Twilio, no model.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { mergeSettings, planSafetySave, SAFETY_DEFAULTS, toMinute } = await import("../lib/aiEmployee/companySettings.js");
+  const { onCallNow, buildLadder, alertSmsBody, alertTextCents, escalationStep, deliveryProblems, e164, ALERT_TEXT_FLOOR_CENTS } = await import("../lib/aiEmployee/onCall.js");
+  const { raiseUrgentAlert, advanceUrgentAlerts, acknowledgeUrgentAlert, ALERT_LEDGER_KIND, alertLink } = await import("../lib/aiEmployee/urgentAlerts.js");
+  const { classifyMessage, turnTriage, effectiveTier, triageBlock, urgentLine, leaveFirstLine, TRIAGE_LINE_LANGUAGES, URGENT_CATEGORIES } = await import("../lib/aiEmployee/triage.js");
+  const { VETTED_FIRST_STEPS, forbiddenInstruction, screenStep, firstStepsBlock, unsafeInstructionRefusal } = await import("../lib/aiEmployee/knowledge/firstSteps.js");
+  const { cleanTroubleshootingLog } = await import("../lib/aiEmployee/troubleshooting.js");
+  const { decideWebMatch, nameFromText, carriesContact, matchWebChatThread, undoWebMatch } = await import("../lib/aiEmployee/webChatMatch.js");
+  const { SPEND_KINDS } = await import("../lib/voice/spendGate.js");
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+
+  // ── Defaults: the owner's, and never a person nobody chose ──────────────
+  const d = mergeSettings(null);
+  ok("defaults: probe first, all five urgent, texts on, steps on, matching on, library on, real times on", d.triageProbeFirst && d.urgentCategories.length === 5 && d.urgentAlertsEnabled && d.safeStepsEnabled && d.matchWebChatClients && d.useSharedManuals && d.bookTechSlots);
+  ok("...and NOBODY on call — absence is not a rota", Array.isArray(d.onCallMemberIds) && d.onCallMemberIds.length === 0 && SAFETY_DEFAULTS.onCallMemberIds.length === 0);
+  ok("a corrupt row fails towards the defaults, never towards a person", mergeSettings({ urgentCategories: ["water", "lava"], onCallMemberIds: [5, null, "m1", "m1"], onCallHours: "sometimes", ackTimeoutMinutes: "x" }).urgentCategories.join() === "water" && mergeSettings({ onCallMemberIds: [5, null, "m1", "m1"] }).onCallMemberIds.join() === "m1" && mergeSettings({ onCallHours: "sometimes" }).onCallHours === "always" && mergeSettings({ ackTimeoutMinutes: "x" }).ackTimeoutMinutes === 10);
+  ok("the wait is clamped to 2–120 minutes", mergeSettings({ ackTimeoutMinutes: 0 }).ackTimeoutMinutes === 2 && mergeSettings({ ackTimeoutMinutes: 9999 }).ackTimeoutMinutes === 120);
+
+  // ── One save: only the keys sent, refused by name ────────────────────────
+  const mine = ["m1", "m2", "m3"];
+  ok("a save touches only the fields in the body", JSON.stringify(planSafetySave({ current: d, body: { safeStepsEnabled: false }, memberIds: mine }).data) === JSON.stringify({ safeStepsEnabled: false }));
+  ok("an on-call id from another company is refused, never kept", planSafetySave({ current: d, body: { onCallMemberIds: ["m1", "other-tenant"] }, memberIds: mine }).ok === false);
+  ok("an unknown category is refused", planSafetySave({ current: d, body: { urgentCategories: ["water", "gas_co"] }, memberIds: mine }).field === "urgentCategories");
+  ok("the emergency tier is NOT a company switch (no field for it)", !Object.keys(SAFETY_DEFAULTS).some((k) => /emergency|gas|crisis/i.test(k)) && !URGENT_CATEGORIES.includes("gas_co"));
+  ok("a custom window with no times is refused rather than stored as a trap", planSafetySave({ current: d, body: { onCallHours: "custom", onCallDays: [1] }, memberIds: mine }).ok === false);
+  ok("…and a whole one saves, times read as HH:MM", planSafetySave({ current: d, body: { onCallHours: "custom", onCallDays: [1, 2], onCallStartMinute: "18:00", onCallEndMinute: "08:00" }, memberIds: mine }).data.onCallStartMinute === 1080 && toMinute("24:00") === null && toMinute("7:5") === null);
+  ok("a non-boolean switch is refused", planSafetySave({ current: d, body: { bookTechSlots: "yes" }, memberIds: mine }).ok === false);
+
+  // ── Who is on call right now — timezones, midnight, missing hours ───────
+  const custom = { onCallHours: "custom", onCallDays: [1, 2, 3, 4, 5], onCallStartMinute: 18 * 60, onCallEndMinute: 8 * 60 };
+  // 2026-10-05 is a Monday. 23:00 Toronto (EDT, UTC-4) = 03:00Z Tuesday.
+  ok("custom night shift: Monday 23:00 Toronto is on call", onCallNow({ settings: custom, timezone: "America/Toronto", now: new Date("2026-10-06T03:00:00Z") }).on === true);
+  ok("...Tuesday 07:30 (the morning half of Monday's shift) is on call", onCallNow({ settings: custom, timezone: "America/Toronto", now: new Date("2026-10-06T11:30:00Z") }).on === true);
+  ok("...Tuesday noon is not", onCallNow({ settings: custom, timezone: "America/Toronto", now: new Date("2026-10-06T16:00:00Z") }).on === false);
+  ok("...Saturday 07:00 (Friday's shift ran over) is on call, Sunday 07:00 is not", onCallNow({ settings: custom, timezone: "America/Toronto", now: new Date("2026-10-10T11:00:00Z") }).on === true && onCallNow({ settings: custom, timezone: "America/Toronto", now: new Date("2026-10-11T11:00:00Z") }).on === false);
+  ok("...and the same UTC instant in Vancouver is a different local hour", onCallNow({ settings: { ...custom, onCallDays: [1] }, timezone: "America/Vancouver", now: new Date("2026-10-06T03:00:00Z") }).on === true);
+  ok("after hours with NO business hours saved: on call, with a warning — never silence for a leak", onCallNow({ settings: { onCallHours: "after_hours" }, businessHoursOpen: null }).on === true && onCallNow({ settings: { onCallHours: "after_hours" }, businessHoursOpen: null }).warning === "no_business_hours");
+  ok("after hours while the office is open: off hours", onCallNow({ settings: { onCallHours: "after_hours" }, businessHoursOpen: true }).reason === "off_hours");
+  ok("a corrupt custom window is named, never guessed", onCallNow({ settings: { onCallHours: "custom", onCallDays: [], onCallStartMinute: null } }).reason === "custom_incomplete");
+
+  // ── The ladder ───────────────────────────────────────────────────────────
+  const members = [
+    { id: "m1", userId: "u1", name: "Sam", phone: null, active: true },
+    { id: "m2", userId: "u2", name: "Lee", phone: "(613) 555-0101", active: true },
+    { id: "m3", userId: "u3", name: "Kim", phone: "+16135550102", active: true },
+    { id: "m4", userId: "u4", name: "Gone", phone: "+16135550103", active: false },
+  ];
+  const lad = buildLadder({ onCallMemberIds: ["m1", "m2", "m3", "m4", "stranger"] }, members);
+  ok("the ladder keeps the owner's order and skips — by name — who can't be texted", lad.ladder.map((p) => p.memberId).join() === "m2,m3" && lad.skipped.map((s) => `${s.memberId}:${s.reason}`).join() === "m1:no_phone,m4:not_on_team,stranger:not_on_team");
+  ok("phones are normalised to E.164", lad.ladder[0].phone === "+16135550101" && e164("555-0101") === null);
+
+  // ── The text and its price ───────────────────────────────────────────────
+  const body = alertSmsBody({ companyName: "Acme Plumbing", tier: "urgent", category: "water", customerName: "Jane D.", summary: "x".repeat(500), link: alertLink("https://app.fieldquo.com/", "a1") });
+  ok("the text names the company, says urgent and what, clips the customer's words, carries the link", body.startsWith("Acme Plumbing: URGENT (water leak)") && body.includes("https://app.fieldquo.com/app/urgent/a1") && body.length < 320, body);
+  ok("a short alert text costs the floor (2¢) — cost × 2 is settled later", alertTextCents("short") === ALERT_TEXT_FLOOR_CENTS && ALERT_TEXT_FLOOR_CENTS === 2);
+  ok("a two-segment text costs two floors", alertTextCents("y".repeat(200)) === 4);
+  ok("the spend is a declared kind on the phone balance", Boolean(SPEND_KINDS[ALERT_LEDGER_KIND]));
+  ok("…and the French text is French", alertSmsBody({ companyName: "Acme", category: "water", language: "fr" }).includes("fuite d'eau"));
+
+  // ── Escalation decisions ─────────────────────────────────────────────────
+  const t0x = new Date("2026-10-04T10:00:00Z");
+  const open = { status: "open", step: 0, ladder: ["m2", "m3"], nextAt: new Date(t0x.getTime() + 10 * 60_000), acknowledgedAt: null };
+  ok("before the wait runs out: wait", escalationStep(open, { now: new Date(t0x.getTime() + 9 * 60_000) }).action === "wait");
+  ok("no acknowledgement within the wait: text the next person", escalationStep(open, { now: new Date(t0x.getTime() + 10 * 60_000) }).action === "text_next" && escalationStep(open, { now: new Date(t0x.getTime() + 11 * 60_000) }).nextIndex === 1);
+  ok("after the last person: exhausted", escalationStep({ ...open, step: 1 }, { now: new Date(t0x.getTime() + 60 * 60_000) }).action === "exhausted");
+  ok("acknowledged: nothing more", escalationStep({ ...open, acknowledgedAt: t0x }, { now: new Date(t0x.getTime() + 60 * 60_000) }).action === "done");
+
+  // ── Why texts aren't going — every reason named ──────────────────────────
+  const probs = deliveryProblems({ settings: { urgentAlertsEnabled: true, onCallMemberIds: [] }, ladder: [], skipped: [], balanceCents: 0, smsNumber: false, onCall: { on: false, reason: "off_hours" } });
+  ok("no on-call person, no credit, no SMS number and off hours are all named", ["no_on_call", "no_credit", "no_sms_number", "off_hours"].every((r) => probs.some((p) => p.reason === r)), probs);
+  ok("every reason the screen can show has a sentence in all nine languages", Object.keys(APP_MESSAGES).length === 9 && ["alerts_off", "no_on_call", "no_phone", "member_no_phone", "member_not_on_team", "no_credit", "no_sms_number", "off_hours", "custom_incomplete", "bad_timezone", "no_business_hours", "send_failed", "opted_out", "nobody_acknowledged", "error"].every((r) => Object.keys(APP_MESSAGES).every((l) => typeof APP_MESSAGES[l][`app.aiEmployee.safety.problem.${r}`] === "string")));
+
+  // ── The ladder, EXECUTED against a scripted store ────────────────────────
+  function store() {
+    const s = { member: members.map((m) => ({ ...m, companyId: "C1", user: { name: m.name } })), urgentAlert: [], urgentAlertStep: [], company: [{ id: "C1", name: "Acme Plumbing", defaultLanguage: "en", timezone: "America/Toronto", businessHours: null }] };
+    let n = 0;
+    const where = (row, w = {}) => Object.entries(w).every(([k, v]) => {
+      if (v && typeof v === "object" && !(v instanceof Date) && !Array.isArray(v)) {
+        if ("gte" in v) return new Date(row[k]) >= new Date(v.gte);
+        if ("lte" in v) return row[k] && new Date(row[k]) <= new Date(v.lte);
+        if ("in" in v) return v.in.includes(row[k]);
+        return true;
+      }
+      // Prisma reads an unset column as null.
+      return v === null ? row[k] == null : row[k] === v;
+    });
+    const model = (name) => ({
+      findMany: async ({ where: w, take } = {}) => s[name].filter((r) => where(r, w)).slice(0, take || 1e9),
+      findFirst: async ({ where: w, select } = {}) => {
+        const r = s[name].filter((x) => where(x, w)).at(-1);
+        if (!r) return null;
+        if (name === "urgentAlert" && (select?.steps || true)) return { ...r, steps: s.urgentAlertStep.filter((st) => st.alertId === r.id && st.channel === "sms" && st.ok) };
+        return r;
+      },
+      findUnique: async ({ where: w }) => s[name].find((r) => where(r, w)) || null,
+      create: async ({ data }) => { const row = { id: `${name}${++n}`, createdAt: new Date(), ...data }; s[name].push(row); return row; },
+      update: async ({ where: w, data }) => { const r = s[name].find((x) => where(x, w)); Object.assign(r, data); return r; },
+      updateMany: async ({ where: w, data }) => { const rows = s[name].filter((x) => where(x, w)); rows.forEach((r) => Object.assign(r, data)); return { count: rows.length }; },
+    });
+    const prisma = { $s: s };
+    for (const k of Object.keys(s)) prisma[k] = model(k);
+    return prisma;
+  }
+  function deps({ balance = 500, optedOut = [], noNumber = false } = {}) {
+    const log = { sms: [], debits: [], usage: [], notes: [] };
+    return {
+      log,
+      deps: {
+        sendSms: async ({ to, body }) => {
+          if (noNumber) throw new Error("No SMS 'from' number: FieldQuo holds no system number and TWILIO_PHONE_NUMBER is unset");
+          log.sms.push({ to, body });
+          return { success: true, sid: `SM${log.sms.length}` };
+        },
+        maySms: async ({ phone }) => !optedOut.includes(phone),
+        balanceFor: async () => balance,
+        debitCredit: async (e) => { log.debits.push(e); return { id: "d" }; },
+        enqueueUsage: async (e) => { log.usage.push(e); return null; },
+        notify: async (e) => { log.notes.push(e); return {}; },
+        origin: () => "https://app.example.test",
+        businessHoursOpen: () => null,
+      },
+    };
+  }
+  const S = { ...mergeSettings(null), onCallMemberIds: ["m1", "m2", "m3"], ackTimeoutMinutes: 10 };
+  const T0 = new Date("2026-10-04T10:00:00Z");
+  {
+    const prisma = store();
+    const { log, deps: dp } = deps();
+    const r = await raiseUrgentAlert({ companyId: "C1", threadId: "th1", tier: "urgent", category: "water", summary: "water everywhere", customerName: "Jane", settings: S, company: prisma.$s.company[0], now: T0, prisma, deps: dp });
+    const a = prisma.$s.urgentAlert[0];
+    ok("raised: Sam has no phone, so Lee is texted first — at once, not after a wait", r.alerted === "sms" && log.sms.length === 1 && log.sms[0].to === "+16135550101" && a.step === 1, { r, sms: log.sms });
+    ok("...the skip is logged by name", prisma.$s.urgentAlertStep.some((st) => st.memberId === "m1" && st.reason === "no_phone"));
+    ok("...charged to the phone & text credit as its own kind, idempotent on the SID", log.debits.length === 1 && log.debits[0].kind === ALERT_LEDGER_KIND && log.debits[0].ref === "urgent_out:SM1" && log.debits[0].cents === 2);
+    ok("...queued to settle at cost × 2", log.usage.length === 1 && log.usage[0].ledgerKind === ALERT_LEDGER_KIND && log.usage[0].direction === "out");
+    ok("...Lee also gets the bell and a push, named", log.notes.some((n) => n.type === "ai_employee.urgent" && n.recipientUserIds?.join() === "u2"));
+    ok("...and the next step is due when the company's wait runs out", a.nextAt.getTime() === T0.getTime() + 10 * 60_000);
+    const again = await raiseUrgentAlert({ companyId: "C1", threadId: "th1", tier: "urgent", category: "water", settings: S, company: prisma.$s.company[0], now: new Date(T0.getTime() + 60_000), prisma, deps: dp });
+    ok("the same conversation again inside the window: one alert, one text", again.deduped === true && prisma.$s.urgentAlert.length === 1 && log.sms.length === 1);
+    const early = await advanceUrgentAlerts({ prisma, now: new Date(T0.getTime() + 5 * 60_000), loadSettings: async () => S, deps: dp });
+    ok("the cron before the wait is up: nobody else is texted", early.checked === 0 && log.sms.length === 1);
+    await advanceUrgentAlerts({ prisma, now: new Date(T0.getTime() + 10 * 60_000), loadSettings: async () => S, deps: dp });
+    ok("no acknowledgement in 10 minutes: Kim (next on the list) is texted", log.sms.length === 2 && log.sms[1].to === "+16135550102" && a.step === 2);
+    await advanceUrgentAlerts({ prisma, now: new Date(T0.getTime() + 20 * 60_000), loadSettings: async () => S, deps: dp });
+    ok("nobody after the last: exhausted, and the owner gets the bell", a.status === "exhausted" && log.notes.some((n) => n.type === "ai_employee.urgent_unrouted" && n.params?.reason === "nobody_acknowledged") && log.sms.length === 2);
+  }
+  {
+    const prisma = store();
+    const { log, deps: dp } = deps();
+    const r = await raiseUrgentAlert({ companyId: "C1", threadId: "th2", tier: "urgent", category: "heat", settings: S, company: prisma.$s.company[0], now: T0, prisma, deps: dp });
+    const ack = await acknowledgeUrgentAlert({ prisma, companyId: "C1", alertId: r.alertId, memberId: "m2", now: new Date(T0.getTime() + 60_000) });
+    await advanceUrgentAlerts({ prisma, now: new Date(T0.getTime() + 30 * 60_000), loadSettings: async () => S, deps: dp });
+    ok("'I've got it' stops the ladder — nobody else is texted", ack.ok && log.sms.length === 1 && prisma.$s.urgentAlert[0].status === "acknowledged" && prisma.$s.urgentAlert[0].acknowledgedByMemberId === "m2");
+    const twice = await acknowledgeUrgentAlert({ prisma, companyId: "C1", alertId: r.alertId, memberId: "m3" });
+    ok("...a second press keeps the first name", twice.already === true && prisma.$s.urgentAlert[0].acknowledgedByMemberId === "m2");
+    const foreign = await acknowledgeUrgentAlert({ prisma, companyId: "C2", alertId: r.alertId, memberId: "x" });
+    ok("...and another company can't acknowledge it", foreign.ok === false && foreign.status === 404);
+  }
+  for (const [label, opts, settings, reason] of [
+    ["no phone & text credit", { balance: 0 }, S, "no_credit"],
+    ["nobody on call", {}, { ...S, onCallMemberIds: [] }, "no_on_call"],
+    ["alerts switched off", {}, { ...S, urgentAlertsEnabled: false }, "alerts_off"],
+    ["outside the custom on-call hours", {}, { ...S, onCallHours: "custom", onCallDays: [0], onCallStartMinute: 600, onCallEndMinute: 660 }, "off_hours"],
+    ["no system SMS number", { noNumber: true }, S, "no_sms_number"],
+  ]) {
+    const prisma = store();
+    const { log, deps: dp } = deps(opts);
+    const r = await raiseUrgentAlert({ companyId: "C1", threadId: "th3", tier: "urgent", category: "water", settings, company: prisma.$s.company[0], now: T0, prisma, deps: dp });
+    ok(`${label}: no text, nothing charged, the alert says why and the owner gets the bell`, r.alerted === "bell" && r.reason === reason && log.sms.length === 0 && log.debits.length === 0 && prisma.$s.urgentAlert[0].status === "not_sent" && log.notes.some((n) => n.type === "ai_employee.urgent_unrouted"), { r, sms: log.sms.length });
+  }
+  {
+    const prisma = store();
+    const { log, deps: dp } = deps({ optedOut: ["+16135550101"] });
+    await raiseUrgentAlert({ companyId: "C1", threadId: "th4", tier: "urgent", category: "water", settings: S, company: prisma.$s.company[0], now: T0, prisma, deps: dp });
+    ok("a person who replied STOP is skipped at once and the next one texted — no ten-minute wait on a dead number", log.sms.length === 1 && log.sms[0].to === "+16135550102" && prisma.$s.urgentAlertStep.some((st) => st.reason === "opted_out"));
+  }
+
+  // ── Triage, pure: the probing cases ──────────────────────────────────────
+  const tierOf = (t) => classifyMessage(t).tier;
+  ok("dripping vs gushing: a drip is routine, gushing is urgent", tierOf("the bathroom tap keeps dripping") === "routine" && tierOf("water is gushing from the pipe under the sink") === "urgent");
+  ok("a bare 'leak' is a question (unclear), with the probing questions", tierOf("there's a leak in the basement") === "unclear" && classifyMessage("there's a leak in the basement").probes.includes("water_active"));
+  ok("a gas SMELL is an emergency to leave; a furnace NOISE is not", classifyMessage("I can smell gas near the stove").leaveFirst === true && tierOf("the furnace makes a loud banging noise") === "routine" && classifyMessage("the furnace makes a loud banging noise").probes.includes("gas_or_noise"));
+  ok("an odd smell near the furnace is asked about, not escalated", tierOf("there's a weird smell by the furnace") === "unclear");
+  ok("a CO alarm is leave-first", classifyMessage("our carbon monoxide alarm is going off").leaveFirst === true);
+  ok("no heat alone is a question; no heat at minus 20 is urgent", tierOf("we have no heat") === "unclear" && tierOf("we have no heat and it's minus 20") === "urgent");
+  ok("a roof leaking in a storm is urgent; a roof leak on its own is a question", classifyMessage("the roof is leaking and it's raining hard").category === "roof" && tierOf("the roof is leaking and it's raining hard") === "urgent" && tierOf("I think the roof leaks") === "unclear");
+  ok("past-tense trouble is not an emergency today", tierOf("we had a small fire in the garage last week") === "none" && tierOf("my basement flooded last year, can you redo the drywall") === "none");
+  ok("a wet day is not a flood", tierOf("it's pouring outside, can you quote new gutters?") === "none");
+  ok("French and Spanish", classifyMessage("ça sent le gaz dans la cuisine").leaveFirst && tierOf("le tuyau a éclaté") === "urgent" && classifyMessage("hay una fuga de gas").leaveFirst && tierOf("se rompió la tubería") === "urgent");
+  ok("the company's list applies: water switched off → routine; the emergency tier never moves", effectiveTier({ tier: "urgent", category: "water" }, { urgentCategories: ["heat"] }) === "routine" && effectiveTier({ tier: "emergency", category: "gas_co" }, { urgentCategories: [] }) === "emergency");
+  ok("the higher signal wins: the model cannot downgrade the words, the words cannot hide the model's call", turnTriage({ text: "water is pouring through the ceiling", tools: [{ name: "hand_off_to_human", ok: true, urgency: "routine" }] }).tier === "urgent" && turnTriage({ text: "ok yes", tools: [{ name: "book_callback", ok: true, urgency: "urgent" }] }).tier === "urgent");
+  ok("triage block: probing on by default, decisive when switched off", /ask one or two of the short questions/.test(triageBlock(d)) && /Decide from what they have said/.test(triageBlock({ ...d, triageProbeFirst: false })));
+  ok("triage block: a switched-off category is named as an ordinary callback, never 911", /Not urgent for this business[\s\S]*never 911[\s\S]*roof/.test(triageBlock({ ...d, urgentCategories: ["water"] })));
+  ok("the customer-facing lines exist in nine languages, and the urgent line never invents a number", TRIAGE_LINE_LANGUAGES.length === 9 && !/\d/.test(urgentLine({ alerted: "sms", phone: null, company: "X" })) && leaveFirstLine("xx") === leaveFirstLine("en"));
+  ok("the urgent line only claims a text when a text went", /alerted/.test(urgentLine({ alerted: "sms", company: "X" })) && !/alerted/.test(urgentLine({ alerted: "bell", company: "X" })) && urgentLine({ alerted: null, phone: null }) === "");
+
+  // ── Vetted steps: the whitelist and the guard ────────────────────────────
+  ok("every vetted step passes the guard it is held to", VETTED_FIRST_STEPS.every((s) => forbiddenInstruction(s.text) === null), VETTED_FIRST_STEPS.filter((s) => forbiddenInstruction(s.text)).map((s) => s.id));
+  ok("every vetted step names its public source", VETTED_FIRST_STEPS.every((s) => typeof s.source === "string" && s.source.length > 5));
+  ok("the owner's three examples are vetted: main valve, one breaker once, thermostat off", ["water.main_shutoff", "electrical.breaker_once", "heat.thermostat_off"].every((id) => VETTED_FIRST_STEPS.some((s) => s.id === id)) && /once/.test(VETTED_FIRST_STEPS.find((s) => s.id === "electrical.breaker_once").text) && /Never reset it over and over/.test(VETTED_FIRST_STEPS.find((s) => s.id === "electrical.breaker_once").text));
+  for (const bad of ["Remove the access panel and check the flame sensor", "Relight the pilot light", "Turn the gas valve off behind the dryer", "Climb onto the roof and clear the ice", "Grab a ladder and clean the gutter", "Reset the breaker a few times until it holds", "Touch the two wires together to test it", "Use a torch to thaw the pipe", "Enlevez le couvercle du panneau", "Suba al techo"]) {
+    ok(`not vetted: "${bad}"`, unsafeInstructionRefusal(bad) !== null && screenStep(bad).ok === false);
+  }
+  ok("a negated warning is what a safe step SAYS, and passes", forbiddenInstruction("Don't go up a ladder or onto the roof.") === null && forbiddenInstruction("Never take the cover off the panel.") === null);
+  ok("…but a negation in another clause does not excuse the instruction", forbiddenInstruction("Don't worry, just climb onto the roof") !== null);
+  const cleaned = cleanTroubleshootingLog({ symptom: "no heat", steps_given: ["Turn the thermostat to OFF.", "Remove the front panel of the furnace"] });
+  ok("log_troubleshooting records only the vetted step and reports the other", cleaned.stepsGiven.join() === "Turn the thermostat to OFF." && cleaned.refusedSteps.length === 1);
+  ok("steps switched off: the prompt says to give none", /not to give any steps yourself/.test(firstStepsBlock({ enabled: false, canStep: true })) && !/main water valve/.test(firstStepsBlock({ enabled: false, canStep: true })));
+  ok("…on: the steps are named, worded as given, with the never-list", /Shut off the main water valve/.test(firstStepsBlock({ enabled: true, canStep: true })) && /panel or cover opened, a gas valve or pilot light touched, a ladder or the roof/.test(firstStepsBlock({ enabled: true, canStep: true })));
+  ok("the closer and a custom employee give no steps and pass it on", /Do not walk anyone through/.test(firstStepsBlock({ canStep: false })));
+  const tsPrompt = buildEmployeePrompt({ employee: { role: "troubleshooter" }, company: { name: "Acme" } });
+  const tsOff = buildEmployeePrompt({ employee: { role: "troubleshooter" }, company: { name: "Acme" }, safety: { ...d, safeStepsEnabled: false } });
+  ok("the troubleshooter's old 'do not talk them through it' is gone; vetted steps replace it", !/do not talk them through it/.test(tsPrompt) && /SAFE FIRST STEPS/.test(tsPrompt) && /only ever one from SAFE FIRST STEPS/.test(tsPrompt.replace(/\s+/g, " ")));
+  ok("…and the company's switch reaches the built prompt", /not to give any steps yourself/.test(tsOff) && !/- \[water\] Shut off the main water valve/.test(tsOff));
+  ok("every role's prompt carries the company's urgent block after the shared rule", AI_EMPLOYEE_ROLES.every((r) => { const p = buildEmployeePrompt({ employee: { role: r }, company: {} }); return p.indexOf("URGENT PROBLEMS — HOW THIS BUSINESS HANDLES THEM") > p.indexOf("LEAVE FIRST"); }));
+  ok("the troubleshooter is told to book a REAL time, and to fall back to a callback only when none", /BOOKING A TECH[\s\S]*check_availability[\s\S]*book_appointment[\s\S]*If it returns no times, or you have no\s+check_availability tool, call book_callback/.test(tsPrompt));
+
+  // ── Web-chat matching, pure: the Facebook matcher's rules ────────────────
+  const cl = (over) => ({ id: "c1", companyId: "C1", name: "Jane Doe", email: "jane@example.com", phone: "+16135550100", address: null, city: null, province: null, createdAt: new Date("2024-01-01"), ...over });
+  ok("an exact email links", decideWebMatch({ companyId: "C1", contacts: { email: "JANE@example.com" }, clients: [cl()] }).link === true);
+  ok("the family landline — same phone, a different name — does NOT link", decideWebMatch({ companyId: "C1", contacts: { name: "John Smith", phone: "613-555-0100" }, clients: [cl()] }).link === false);
+  ok("a name alone does not link (nothing to match without an email or phone)", decideWebMatch({ companyId: "C1", contacts: { name: "Jane Doe" }, clients: [cl()] }).link === false);
+  ok("two clients tied: neither", decideWebMatch({ companyId: "C1", contacts: { phone: "613-555-0100" }, clients: [cl({ id: "a", name: null }), cl({ id: "b", name: null, email: "b@x.y" })] }).link === false);
+  ok("another tenant's client is never a match, even if a query returned it", decideWebMatch({ companyId: "C1", contacts: { email: "jane@example.com" }, clients: [cl({ companyId: "C2" })] }).link === false);
+  ok("a pair a person undid is never proposed again", decideWebMatch({ companyId: "C1", contacts: { email: "jane@example.com" }, clients: [cl()], rejectedClientIds: ["c1"] }).link === false);
+  ok("names are read from what they typed", nameFromText("hi, I'm Jane Doe and my sink leaks") === "Jane Doe" && nameFromText("my name is jane doe") === "jane doe" && nameFromText("je m'appelle Marie Tremblay") === "Marie Tremblay" && nameFromText("im fine thanks") === null);
+  ok("a message with no email or phone costs no client scan", carriesContact("my sink leaks") === false && carriesContact("reach me at 613-555-0100") === true);
+  {
+    // The undo, against a scripted store.
+    const rows = { messageThread: [{ id: "th9", companyId: "C1", clientId: "c1" }], threadClientMatch: [{ id: "tm1", companyId: "C1", threadId: "th9", clientId: "c1", status: "linked" }], message: [] };
+    const w = (r, q) => Object.entries(q).every(([k, v]) => r[k] === v);
+    const p = {};
+    for (const k of Object.keys(rows)) p[k] = {
+      findFirst: async ({ where }) => rows[k].find((r) => w(r, where)) || null,
+      findMany: async ({ where }) => rows[k].filter((r) => w(r, where)),
+      update: async ({ where, data }) => Object.assign(rows[k].find((r) => w(r, where)), data),
+      updateMany: async ({ where, data }) => { const m = rows[k].filter((r) => w(r, where)); m.forEach((r) => Object.assign(r, data)); return { count: m.length }; },
+      create: async ({ data }) => { rows[k].push({ id: `${k}${rows[k].length}`, ...data }); return data; },
+    };
+    const u = await undoWebMatch({ prisma: p, companyId: "C1", threadId: "th9", matchId: "tm1", userId: "u1", actorName: "Owner" });
+    ok("'Not this client' removes the link and marks the match undone", u.ok && u.unlinked && rows.messageThread[0].clientId === null && rows.threadClientMatch[0].status === "undone" && rows.message.some((m) => m.activity?.type === "unlinked"));
+    const other = await undoWebMatch({ prisma: p, companyId: "C2", threadId: "th9", matchId: "tm1" });
+    ok("…and another company cannot undo it", other.ok === false);
+    // Re-run the matcher on the same thread: the undone pair stays rejected.
+    rows.client = [cl()];
+    p.client = { findMany: async ({ where }) => rows.client.filter((r) => r.companyId === where.companyId) };
+    rows.message.push({ threadId: "th9", direction: "in", private: false, body: "it's jane@example.com" });
+    p.message.findMany = async () => rows.message.filter((m) => m.direction === "in");
+    const re = await matchWebChatThread({ prisma: p, companyId: "C1", thread: { id: "th9", clientId: null, channel: { platform: "web" } }, inboundText: "it's jane@example.com", settings: d });
+    ok("…and the matcher never links that pair again", re.linked === false && rows.messageThread[0].clientId === null, re);
+  }
+
+  // ── The wiring: routes, the screen, the cron ─────────────────────────────
+  const route = code("app/api/ai-employee/safety/route.js");
+  ok("the settings route plans every save through planSafetySave, owner/admin only, read-only for support", /planSafetySave\(/.test(route) && /requirePermission\(member\.role, "user:manage"\)/.test(route) && /member\.impersonation\)\s*\{?\s*return \{ response: NextResponse\.json\(\{ error: "Support sessions are read-only\." \}/.test(route));
+  ok("…and the screen's status is the server's own verdict (deliveryProblems)", /deliveryProblems\(/.test(route) && /problems/.test(code("app/components/aiEmployee/UrgentSafety.js")));
+  ok("the settings page mounts the card, and the card saves through the route", /<UrgentSafety/.test(code("app/app/settings/ai-employee/page.js")) && /\/api\/ai-employee\/safety/.test(code("app/components/aiEmployee/UrgentSafety.js")));
+  const alertRoute = code("app/api/ai-employee/alerts/[id]/route.js");
+  ok("'I've got it' is a POST behind a button — a GET (a link preview) never acknowledges", /export async function POST/.test(alertRoute) && alertRoute.indexOf("acknowledgeUrgentAlert(") > alertRoute.indexOf("export async function POST") && /onClick=\{acknowledge\}/.test(code("app/app/urgent/[id]/page.js")));
+  const vercel = JSON.parse(read("vercel.json"));
+  ok("the escalation cron is scheduled every two minutes, behind the cron secret", vercel.crons.some((c) => c.path === "/api/cron/urgent-alerts" && c.schedule === "*/2 * * * *") && /requireCronSecret\(request\)/.test(code("app/api/cron/urgent-alerts/route.js")));
+  ok("the undo route exists and the conversation shows the bar", /undoWebMatch\(/.test(code("app/api/messaging/threads/[id]/client-match/route.js")) && /<WebMatchBar/.test(code("app/app/messages/page.js")));
+  ok("the two urgent notification types are in the catalog, the on-call one on the floor every preset holds", NOTIFICATION_TYPES["ai_employee.urgent"]?.audience?.category === "schedule" && NOTIFICATION_TYPES["ai_employee.urgent_unrouted"]?.audience?.capability === "user:manage");
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    const need = [
+      "app.notif.type.ai_employee.urgent", "app.notif.type.ai_employee.urgent_unrouted", "app.aiEmployee.skip.unsafe_step",
+      ...URGENT_CATEGORIES.map((c) => `app.aiEmployee.safety.cat.${c}`), "app.aiEmployee.safety.cat.gas_co",
+      ...["open", "acknowledged", "exhausted", "not_sent"].map((s) => `app.aiEmployee.safety.status.${s}`),
+      "app.urgent.ack", "app.messages.webMatch.undo", "app.aiEmployee.reference.share.offer",
+    ];
+    ok(`${lang}: the urgent & safety sentences are present`, need.every((k) => typeof APP_MESSAGES[lang][k] === "string" && APP_MESSAGES[lang][k].trim()), need.filter((k) => !APP_MESSAGES[lang][k]));
+  }
 }
 
 console.log(`\ncheck-ai-employee: ${passed} passed, ${failed} failed`);

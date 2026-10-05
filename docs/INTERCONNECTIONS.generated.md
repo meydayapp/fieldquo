@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 330 models.
+it cannot drift from the code. 336 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -38,7 +38,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>330 models — expand</summary>
+<details><summary>336 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -234,6 +234,8 @@ tenancy, so it carries no information.
 | `ServicePlanAuthorisation` | ServicePlan | ServicePlan |
 | `ServicePlanOccurrence` | Invoice, ServicePlan | Invoice |
 | `ServicePlanTemplate` | — | QuotePlanOffer |
+| `SharedManual` | — | SharedManualPage |
+| `SharedManualPage` | SharedManual | — |
 | `Shift` | Job, ShiftAttendance, Worker | ShiftAttendance, ShiftBreak, ShiftRequest |
 | `ShiftAttendance` | Shift, Worker | Shift |
 | `ShiftBreak` | Shift | — |
@@ -263,6 +265,8 @@ tenancy, so it carries no information.
 | `TimeEntry` | Invoice, Job, Task, Worker | LocationStamp, TimeEntryBreak, TimeEntryCorrection |
 | `TimeEntryBreak` | TimeEntry | — |
 | `TimeEntryCorrection` | TimeEntry | — |
+| `UrgentAlert` | — | UrgentAlertStep |
+| `UrgentAlertStep` | UrgentAlert | — |
 | `User` | Worker | Account, AccountDevice, Appointment, AvailabilityRequest, AvailabilitySchedule, CallbackEntry, ChangeOrder, DailyObjectiveSheet, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, PushSubscription, Quote, ScheduleEvent, Session, Shift, ShiftRequest, SupplyRequest, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |
 | `VehicleMaintenance` | VehicleDetail | — |
