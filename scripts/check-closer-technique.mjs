@@ -87,12 +87,22 @@ const FIXTURES = [
 // assembling exactly the fixtures above. The closer's pins are of its prompt
 // WITH THE TECHNIQUE SECTION REMOVED — proof the section was added and
 // nothing around it moved.
+//
+// 2026-10-04: every prompt now also carries the assistant playbook
+// (lib/aiEmployee/playbook.js), so every pin is taken of the prompt WITH THE
+// PLAYBOOK REMOVED too — and the closer's and custom's still equal the
+// dd704bee pins, which proves the playbook was the only thing added to them.
+// The receptionist's and troubleshooter's pins were re-taken on that date,
+// deliberately: both roles' own instructions were rewritten for the error-
+// code lookup and the installed-equipment card (lib/aiEmployee/roles.js).
 const PINS = {
   closer: ["6e67e393af32578687f6b6f1554fce67", "2c0a334bfe4909c29db9782fa5c26512"],
-  receptionist: ["77c54d8593466093d1a0ab578a1f5b40", "074883509196ebf2f2841b5d2f2eaf3f"],
-  troubleshooter: ["b77d311ec18fcd4695f094119a952874", "140dd6af9eccbf46189376d83b99dea0"],
+  receptionist: ["f4d19817b23b7728cbfc8e4a85699433", "da85384d34b81824ff4cc1b0419a4eaa"],
+  troubleshooter: ["eccd72efc359aaa2505d446ebfb9d59b", "fbd45fd1867ed1132686ca5e7b99e224"],
   custom: ["929e6bcf3dda8b424bd8674ac5b9901e", "51cf3cb3f97c4e2f65a6790b587827bb"],
 };
+const { ASSISTANT_PLAYBOOK } = await import("@/lib/aiEmployee/playbook");
+const noPlaybook = (p) => p.replace(`\n\n${ASSISTANT_PLAYBOOK}`, "");
 
 const PAINTER = [
   { key: "cabinet_refinishing", label: "Cabinet Refinishing" },
@@ -115,17 +125,23 @@ for (const [i, fixture] of FIXTURES.entries()) {
       if (role === "closer") {
         const section = T.closerTechnique({ trades });
         ok(prompt.includes(`\n\n${section}\n\n`), `closer (fixture ${i}, ${setName}): the technique section is in the prompt, whole`);
-        ok(md5(prompt.replace(`\n\n${section}`, "")) === PINS.closer[i], `closer (fixture ${i}, ${setName}): everything else is byte-identical to main`);
+        ok(md5(noPlaybook(prompt.replace(`\n\n${section}`, ""))) === PINS.closer[i], `closer (fixture ${i}, ${setName}): everything else is byte-identical to main`);
         const at = prompt.indexOf(T.CLOSER_TECHNIQUE_HEADING);
         ok(at > prompt.indexOf("WHAT YOU NEVER DO") && at > prompt.indexOf(CRISIS_RULE) && at > prompt.indexOf("HANDING OFF"), `closer (fixture ${i}, ${setName}): the technique sits after every absolute rule`);
         ok(at < prompt.indexOf("HOW YOU WRITE"), `closer (fixture ${i}, ${setName}): …and before the company's own style, which stays the last word on tone`);
       } else {
-        ok(md5(prompt) === PINS[role][i], `${role} (fixture ${i}, ${setName}): byte-identical to main`);
+        ok(md5(noPlaybook(prompt)) === PINS[role][i], `${role} (fixture ${i}, ${setName}): byte-identical to main`);
         ok(!prompt.includes(T.CLOSER_TECHNIQUE_HEADING) && !prompt.includes(T.CLOSER_TRADES_HEADING), `${role} (fixture ${i}, ${setName}): no technique, no trade list`);
       }
     }
   }
-  ok(md5(buildEmployeePrompt({ ...fixture("nonsense"), trades: PAINTER })) === PINS.custom[i], `an unknown role (fixture ${i}) is still exactly custom's prompt`);
+  ok(md5(noPlaybook(buildEmployeePrompt({ ...fixture("nonsense"), trades: PAINTER }))) === PINS.custom[i], `an unknown role (fixture ${i}) is still exactly custom's prompt`);
+  for (const role of AI_EMPLOYEE_ROLES) {
+    const p = buildEmployeePrompt({ ...fixture(role), trades: PAINTER });
+    const at = p.indexOf(ASSISTANT_PLAYBOOK);
+    ok(at > 0 && p.indexOf(ASSISTANT_PLAYBOOK, at + 1) === -1, `${role} (fixture ${i}): the playbook is in the prompt exactly once`);
+    ok(at > p.indexOf("WHAT YOU NEVER DO") && at < p.indexOf("WHAT COUNTS AS AN INSTRUCTION") && at < p.indexOf(CRISIS_RULE), `${role} (fixture ${i}): after the absolute rules, ahead of the per-thread blocks (cacheable prefix)`);
+  }
 }
 ok(buildEmployeePrompt({ employee: { role: "closer" }, company: {}, sources: [] }).includes("No services are listed"), "a caller that passes no trades gets the stated fallback, not an empty heading");
 

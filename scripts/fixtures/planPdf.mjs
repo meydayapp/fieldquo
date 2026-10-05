@@ -18,7 +18,7 @@ const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replac
  *           texts?: { text: string, x: number, y: number, size?: number }[] }[]} pages
  * @returns {Uint8Array}
  */
-export function buildPlanPdf(pages) {
+export function buildPlanPdf(pages, { encrypt = false } = {}) {
   const objects = [];
   const add = (body) => {
     objects.push(body);
@@ -46,6 +46,12 @@ export function buildPlanPdf(pages) {
       ),
     );
   }
+  // `encrypt`: a Standard-security dictionary whose /U does not match the
+  // empty password, so a reader must ask for one — the "password-protected
+  // manual" a contractor uploads (scripts/check-reference-library.mjs).
+  const encryptId = encrypt
+    ? add(`<< /Filter /Standard /V 1 /R 2 /O <${"a1".repeat(32)}> /U <${"b2".repeat(32)}> /P -4 >>`)
+    : null;
   objects[catalogId - 1] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
   objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((i) => `${i} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
 
@@ -58,7 +64,8 @@ export function buildPlanPdf(pages) {
   const xref = Buffer.byteLength(out, "latin1");
   out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   for (const o of offsets) out += `${String(o).padStart(10, "0")} 00000 n \n`;
-  out += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const encryptRef = encryptId ? ` /Encrypt ${encryptId} 0 R /ID [<${"c3".repeat(16)}> <${"c3".repeat(16)}>]` : "";
+  out += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R${encryptRef} >>\nstartxref\n${xref}\n%%EOF\n`;
   return new Uint8Array(Buffer.from(out, "latin1"));
 }
 

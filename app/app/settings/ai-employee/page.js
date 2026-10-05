@@ -79,6 +79,7 @@ import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { formatCalendarDay } from "@/lib/format/localeDate";
 import BackToHome from "@/app/components/BackToHome";
 import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
+import ReferenceLibrary from "@/app/components/aiEmployee/ReferenceLibrary";
 import AiTeamRoster, { Face } from "./AiTeamRoster";
 import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
@@ -240,12 +241,9 @@ export default function AiEmployeePage() {
   const [testChannel, setTestChannel] = useState("meta");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
-  const [pasteOpen, setPasteOpen] = useState(false);
-  const [paste, setPaste] = useState({ title: "", kind: "policy", text: "" });
   const [hiring, setHiring] = useState(false);
   const [editing, setEditing] = useState({}); // proposalId → edited args JSON text
   const [copied, setCopied] = useState(false);
-  const fileInput = useRef(null);
   const faceInput = useRef(null);
 
   // ── Why the main load reports a REASON and the other loads do not ─────────
@@ -571,45 +569,6 @@ export default function AiEmployeePage() {
       return;
     }
     if (d.url) edit({ avatarUrl: d.url });
-  }
-
-  async function upload(file) {
-    if (!file) return;
-    const body = new FormData();
-    body.append("file", file);
-    body.append("kind", "manual");
-    body.append("title", file.name);
-    const res = await fetch("/api/ai-employee/sources", { method: "POST", body });
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.uploadError", "Couldn't add that file."));
-      return;
-    }
-    await loadSources();
-  }
-
-  async function addPaste() {
-    if (!paste.text.trim()) return;
-    const res = await fetch("/api/ai-employee/sources", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(paste),
-    });
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.uploadError", "Couldn't add that file."));
-      return;
-    }
-    setPaste({ title: "", kind: "policy", text: "" });
-    setPasteOpen(false);
-    await loadSources();
-  }
-
-  async function removeSource(id) {
-    const res = await fetch(`/api/ai-employee/sources/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.deleteError", "Couldn't remove that."));
-      return;
-    }
-    await loadSources();
   }
 
   async function runTest() {
@@ -1464,76 +1423,20 @@ export default function AiEmployeePage() {
       {/* ── Material ─────────────────────────────────────────────────────── */}
       <Card
         id="material"
-        title={t("app.aiEmployee.materialTitle", "What it reads")}
+        title={t("app.aiEmployee.materialTitle", "Reference library")}
         icon={FileText}
-        hint={t("app.aiEmployee.materialHintShared", "Your policy, your troubleshooting notes, a tool manual. Every employee reads the same material and says which document an answer came from.")}
+        hint={t("app.aiEmployee.materialHintShared", "Your policy, your troubleshooting notes and your manufacturers' manuals. Every employee reads the same library and says which document — and page — an answer came from.")}
       >
-        <Notice>
-          {t("app.aiEmployee.formatsHonest", "We can read plain text: .txt, .md and .csv, or text you paste in. We cannot read a PDF or a Word file yet — if you upload one it'll show up below marked unread, and the fix is to paste the text or export it as .txt.")}
-        </Notice>
-
-        <div className="flex flex-wrap gap-3 mt-4">
-          <input
-            ref={fileInput}
-            type="file"
-            className="hidden"
-            accept=".txt,.md,.markdown,.csv,text/plain,text/markdown,text/csv"
-            onChange={(e) => {
-              upload(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
-          <button type="button" className={BTN_QUIET} onClick={() => fileInput.current?.click()}>
-            <Upload size={15} /> {t("app.aiEmployee.uploadFile", "Upload a file")}
-          </button>
-          <button type="button" className={BTN_QUIET} onClick={() => setPasteOpen((v) => !v)}>
-            <FileText size={15} /> {t("app.aiEmployee.pasteText", "Paste text instead")}
-          </button>
-        </div>
-
-        {pasteOpen && (
-          <div className="mt-4 space-y-3 rounded-lg border border-border p-3">
-            <input className={FIELD} placeholder={t("app.aiEmployee.pasteTitle", "What is this? e.g. Warranty policy")} value={paste.title} onChange={(e) => setPaste((p) => ({ ...p, title: e.target.value }))} />
-            <select className={FIELD} value={paste.kind} onChange={(e) => setPaste((p) => ({ ...p, kind: e.target.value }))}>
-              {data.sourceKinds.map((k) => (
-                <option key={k} value={k}>
-                  {t(`app.aiEmployee.kind.${k}`, k)}
-                </option>
-              ))}
-            </select>
-            <textarea className={`${FIELD} min-h-[160px]`} value={paste.text} onChange={(e) => setPaste((p) => ({ ...p, text: e.target.value }))} />
-            <button type="button" className={BTN_PRIMARY} onClick={addPaste}>
-              {t("app.aiEmployee.pasteAdd", "Add it")}
-            </button>
-          </div>
-        )}
-
-        <ul className="mt-4 space-y-2">
-          {sources.length === 0 && (
-            <li className="text-sm text-muted-foreground">
-              {t("app.aiEmployee.noMaterial", "Nothing yet. Without material it answers from your instructions and your price book only — which is fine for a receptionist and not enough for a troubleshooter.")}
-            </li>
-          )}
-          {sources.map((s) => (
-            <li key={s.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
-              <div className="min-w-0">
-                <p className="text-sm text-foreground break-words">{s.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t(`app.aiEmployee.kind.${s.kind}`, s.kind)}
-                  {s.status === "ready" ? ` · ${t("app.aiEmployee.sourceReady", "read, about {n} tokens", { n: s.tokenCount })}` : ""}
-                </p>
-                {s.status === "failed" && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                    {t(s.failureReason || "app.aiEmployee.source.failed.other", "We couldn't read this one.")}
-                  </p>
-                )}
-              </div>
-              <button type="button" className={`${BTN_QUIET} shrink-0`} onClick={() => removeSource(s.id)} aria-label={t("app.aiEmployee.removeSource", "Remove")}>
-                <Trash2 size={15} />
-              </button>
-            </li>
-          ))}
-        </ul>
+        {/* The library itself — uploads, page counts, the two paid actions
+            and the extracted codes — app/components/aiEmployee/ReferenceLibrary.js. */}
+        <ReferenceLibrary
+          t={t}
+          language={language}
+          sources={sources}
+          sourceKinds={data.sourceKinds}
+          reload={loadSources}
+          ui={{ FIELD, BTN_PRIMARY, BTN_QUIET }}
+        />
       </Card>
 
       {/* ── The test box ─────────────────────────────────────────────────── */}

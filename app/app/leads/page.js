@@ -749,18 +749,30 @@ function CameFrom({ attribution, t }) {
 // "this doesn't look right" control (app/api/instant-quote/[slug]/callback).
 // The preferred time and the note ride in the intake; the flag is the column.
 function CallbackBadge({ lead, t, detail = false }) {
+  // Two sources set callbackRequestedAt: the instant estimate's "this
+  // doesn't look right" (a measurement dispute, with a fixed time-of-day
+  // choice) and, since 2026-10-04, the AI employee's book_callback (the
+  // customer's own words for when, and an urgency hint) — told apart by
+  // intake.capturedBy, which book_callback writes.
+  const fromAi = lead.intake?.capturedBy === "ai_employee";
   const when = lead.intake?.callbackPreferredTime;
-  const whenLabel = when
-    ? t(`app.leads.callbackTime.${when}`, { morning: "morning", afternoon: "afternoon", evening: "evening", anytime: "any time" }[when] || when)
-    : null;
+  const whenLabel = fromAi
+    ? lead.intake?.preferredTimes || null
+    : when
+      ? t(`app.leads.callbackTime.${when}`, { morning: "morning", afternoon: "afternoon", evening: "evening", anytime: "any time" }[when] || when)
+      : null;
+  const urgent = fromAi && lead.intake?.callbackUrgency === "urgent";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 font-semibold ${
-        detail ? "text-xs px-2.5 py-1" : "mt-2 text-[11px] px-2 py-0.5"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full font-semibold ${
+        urgent ? "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200" : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+      } ${detail ? "text-xs px-2.5 py-1" : "mt-2 text-[11px] px-2 py-0.5"}`}
     >
       <PhoneCall size={detail ? 13 : 11} />
-      {t("app.leads.callbackRequested", "Call back requested — measurement disputed")}
+      {urgent ? `${t("app.leads.callbackUrgent", "Urgent")} · ` : ""}
+      {fromAi
+        ? t("app.leads.callbackRequestedAi", "Call back requested through your AI assistant")
+        : t("app.leads.callbackRequested", "Call back requested — measurement disputed")}
       {whenLabel ? ` · ${whenLabel}` : ""}
       {detail && lead.intake?.callbackNote ? `: ${lead.intake.callbackNote}` : ""}
     </span>

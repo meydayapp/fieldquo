@@ -216,8 +216,12 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
   // The thread and the calling employee ride in the same way, for the
   // hand-off: the model names a ROLE, and the executor supplies which thread
   // moves and who let go of it.
-  ok("1. executeFor injects companyId AFTER the model's args", /impl\(\{ \.\.\.args, companyId, source, language, threadId, employeeId, prisma \}\)/.test(tools));
-  ok("1b. runToolForCompany injects it the same way", (tools.match(/\{ \.\.\.args, companyId, source, language \}/g) || []).length === 1);
+  // `context` (2026-10-04) is the known client's record and the waiting
+  // troubleshooting attempt — injected after the args like the rest.
+  ok("1. executeFor injects companyId AFTER the model's args", /impl\(\{ \.\.\.args, companyId, source, language, threadId, employeeId, prisma, context \}\)/.test(tools));
+  // The proposal executor now passes the PROPOSAL ROW's threadId, so an
+  // approved callback on a known client's thread becomes their ticket.
+  ok("1b. runToolForCompany injects it the same way", (tools.match(/\{ \.\.\.args, companyId, source, language, threadId \}/g) || []).length === 1);
   ok("1c. the visitor's companyId is not in the args hash, so it cannot be smuggled through an edit",
     argsHash({ name: "a", companyId: "X" }) === argsHash({ name: "a", companyId: "Y" }) && argsHash({ name: "a" }) === argsHash({ name: "a", companyId: "Z" }));
   // 2. Web-chat and SMS threads resolve to exactly one company before any tool runs.
@@ -238,7 +242,10 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
   ok("3d. a support session cannot approve", /member\.impersonation/.test(approveRoute));
   // 4. sources.js reads only that company's documents.
   const respond = code("lib/aiEmployee/respond.js");
-  ok("4. the material is read under companyId", /aiEmployeeSource\.findMany\(\{\s*where: \{ companyId, status: "ready" \}/.test(respond));
+  // "partial" (2026-10-04): a manual with scanned pages unread — its read
+  // pages are material. Still one company, still the only read.
+  ok("4. the material is read under companyId", /aiEmployeeSource\.findMany\(\{\s*where: \{ companyId, status: \{ in: \["ready", "partial"\] \} \}/.test(respond));
+  ok("4b. a manual's pages are read under companyId too", /aiEmployeeSourcePage\.findMany\(\{\s*where: \{ companyId, sourceId: \{ in: ids \}/.test(respond));
   // 5. The prompt never carries another tenant's data — roles.js is pure assembly,
   //    so a foreign source handed in is the CALLER's fault and the query above is
   //    the only caller. Executed: a prompt built with no sources says none.
@@ -1215,6 +1222,148 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("every intent has a label in every language", Object.keys(APP_MESSAGES).every((l) => INTENTS.every((i) => typeof APP_MESSAGES[l][`app.aiEmployee.intent.${i}`] === "string")));
   }
 
+  // ═════════════════════════════════════════════════════════════════════════
+  // ── Troubleshooting, executed (2026-10-04) ───────────────────────────────
+  //
+  // The owner's flow through the real responder and a scripted database: a
+  // known client's washer shows UE → the card names their Samsung, the
+  // lookup answers from the record's brand, the attempt is logged and the
+  // reply ends with "if the problem persists…" in the client's language →
+  // the client writes back on a thread already at its cap → ONE more reply,
+  // with only book_callback and hand_off_to_human, which files a WARRANTY
+  // ticket on their record (not a lead), linked to the install job, without
+  // re-asking anything → a third message gets nothing.
+  // ═════════════════════════════════════════════════════════════════════════
+  {
+    const { closeTheLoopLine, CLOSE_THE_LOOP_LANGUAGES, pendingAttempt, shouldCloseLoop, FOLLOW_UP_TOOLS } = await import("../lib/aiEmployee/troubleshooting.js");
+    const T = { id: "T", role: "troubleshooter", enabled: true, createdAt: "2026-01-01", metaEnabled: true, webChatEnabled: true, smsEnabled: true, intents: [], displayName: "Tess", companyId: "C1", name: "Tess", mode: "auto", maxRepliesPerThread: 1, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f" };
+    const future = new Date("2029-03-01T00:00:00Z");
+    const seed = {
+      aiEmployee: [T],
+      messageThread: [thread({ clientId: "cl1", channel: { platform: "sms" } })],
+      message: [inbound("m1", "My washer is showing ue again", 0)],
+      company: [company],
+      client: [
+        { id: "cl1", companyId: "C1", name: "Jane Doe", phone: "+15555550100", email: "jane@example.com", balance: 999.99 },
+        { id: "cl1", companyId: "C2", name: "Other Tenant", phone: "+1", email: "x@y.z" },
+      ],
+      clientEquipment: [
+        { id: "eq1", companyId: "C1", clientId: "cl1", name: "Washer", manufacturer: "Samsung", modelNumber: "WF45R6100AW", serialNumber: "SN-123", installedAt: new Date("2024-03-10"), warrantyEndsAt: future, installedByJobId: "j1", createdAt: new Date(), services: [{ servicedAt: new Date("2025-01-02"), description: "Drain filter cleaned", underWarranty: true, jobId: null }], price: 4250 },
+        { id: "eqX", companyId: "C2", clientId: "cl1", name: "Furnace", manufacturer: "Lennox", modelNumber: "SECRET-OTHER", createdAt: new Date(), services: [] },
+        { id: "eqY", companyId: "C1", clientId: "cl2", name: "Dryer", manufacturer: "LG", modelNumber: "NOT-THIS-CLIENT", createdAt: new Date(), services: [] },
+      ],
+      job: [
+        { id: "j1", companyId: "C1", clientId: "cl1", title: "Laundry install", status: "completed", completedAt: new Date("2024-03-10"), total: 4250, invoiceTotal: 4250 },
+      ],
+      clientTicket: [],
+      aiEmployeeSourcePage: [],
+      referenceCode: [],
+    };
+    const db = makeDb(seed);
+    const toolResults = [];
+    const h = harness(db, {
+      text: "Spread the load evenly and run it again.",
+      toolCalls: [
+        { name: "look_up_error_code", args: { code: " u e " } },
+        { name: "log_troubleshooting", args: { symptom: "washer shows UE", code: "UE", equipment_id: "eq1", steps_given: ["Spread the load evenly", "Restart the cycle"] } },
+      ],
+    });
+    const loop = h.deps.runToolLoop;
+    h.deps.runToolLoop = async (args) => loop({ ...args, execute: async (n, a) => { const r = await args.execute(n, a); toolResults.push({ n, r }); return r; } });
+    const first = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "sms", language: "es", send: h.send, deps: h.deps });
+    const sys = h.composed[0]?.system || "";
+    ok("troubleshooter: the card names the client's own Samsung washer", /INSTALLED EQUIPMENT/.test(sys) && /Samsung · Washer · model WF45R6100AW/.test(sys) && /warranty on file runs to 2029-03-01/.test(sys), sys.slice(-1200));
+    ok("...never another tenant's or another client's equipment", !/SECRET-OTHER|NOT-THIS-CLIENT|Lennox/.test(sys));
+    ok("...never money", !/4250|4,250|999\.99|balance|invoiceTotal/.test(sys));
+    ok("...and the serial is marked never to be read out", /serial on file: SN-123 — for the team's note only/.test(sys));
+    ok("...and the playbook is in the prompt", /HOW A GOOD ASSISTANT ANSWERS/.test(sys));
+    const lookup = toolResults.find((x) => x.n === "look_up_error_code")?.r;
+    ok("the lookup found the brand from the record, with any casing and spacing", lookup?.ok === true && lookup?.matched >= 1 && /off-balance/.test(lookup?.fenced || ""), lookup);
+    ok("...with the FieldQuo source cited", /TSG10000997/.test(lookup?.fenced || ""));
+    ok("the reply was sent with the close-the-loop line, in the client's language", first.replied === true && h.sent[0]?.text.endsWith(closeTheLoopLine("es")), h.sent[0]?.text);
+    const row1 = db.$store.aiEmployeeReply.find((r) => r.id === first.replyId);
+    const logged = (row1?.toolsUsed || []).find((t) => t.name === "log_troubleshooting");
+    ok("the attempt is recorded on the reply row, equipment checked against the card", logged?.detail?.equipmentId === "eq1" && logged?.detail?.stepsGiven?.length === 2 && pendingAttempt([row1])?.symptom === "washer shows UE", logged);
+
+    // The client writes back — the thread is already at its cap of 1.
+    db.$store.message.push(inbound("m2", "still not working", 120));
+    const h2 = harness(db, { text: "I've passed this to the team.", toolCalls: [{ name: "book_callback", args: {} }] });
+    h2.deps.runToolLoop = (() => { const inner = h2.deps.runToolLoop; return async (args) => inner(args); })();
+    const second = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m2", channel: "sms", language: "es", send: h2.send, deps: h2.deps });
+    ok("one reply past the cap for the customer who was told to write back", second.replied === true, second);
+    ok("...offered ONLY the callback and the hand-off", JSON.stringify([...(h2.composed[0]?.names || [])].sort()) === JSON.stringify([...FOLLOW_UP_TOOLS].sort()), h2.composed[0]?.names);
+    ok("...with what was tried in the prompt, so nothing is re-asked", /WHAT WAS ALREADY TRIED/.test(h2.composed[0]?.system || "") && /Spread the load evenly/.test(h2.composed[0]?.system || ""));
+    const ticket = db.$store.clientTicket[0];
+    ok("the callback became a ticket on the client's record, not a lead", db.$store.clientTicket.length === 1 && ticket.clientId === "cl1" && ticket.companyId === "C1", db.$store.clientTicket);
+    ok("...typed warranty (the record's warranty runs to 2029), linked to the install job", ticket?.type === "warranty" && ticket?.jobId === "j1", ticket);
+    ok("...with the attempt written out for the team", /UE washer shows UE — still happening after: Spread the load evenly; Restart the cycle/.test(ticket?.body || ""), ticket?.body);
+    ok("...and no close-the-loop line on a reply that booked the callback", !h2.sent[0]?.text.includes(closeTheLoopLine("es")));
+    db.$store.message.push(inbound("m3", "hello?", 240));
+    const h3 = harness(db);
+    const third = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m3", channel: "sms", send: h3.send, deps: h3.deps });
+    ok("a third message gets nothing: the exception is used once", third.replied === false && third.reason === SKIP.CAP_REACHED && h3.composed.length === 0, third);
+
+    // Pure rules of the flow.
+    ok("the close-the-loop line exists in all nine languages, each different", CLOSE_THE_LOOP_LANGUAGES.length === 9 && new Set(CLOSE_THE_LOOP_LANGUAGES.map(closeTheLoopLine)).size === 9 && DISCLOSURE_LANGUAGES.every((l) => CLOSE_THE_LOOP_LANGUAGES.includes(l)));
+    ok("...and falls back to English", closeTheLoopLine("xx") === closeTheLoopLine("en"));
+    const routine = [{ name: "log_troubleshooting", ok: true, detail: { urgency: "routine", symptom: "x" } }];
+    ok("close the loop on a routine attempt only", shouldCloseLoop({ tools: routine, text: "Try this." }) && !shouldCloseLoop({ tools: [{ ...routine[0], detail: { urgency: "urgent", symptom: "x" } }], text: "Try this." }));
+    ok("...not when the turn booked, handed off or passed it on", ["book_callback", "hand_off_to_human", "hand_off_to_employee"].every((n) => !shouldCloseLoop({ tools: [...routine, { name: n, ok: true }], text: "x" })));
+    ok("...not on an empty reply, and never twice", !shouldCloseLoop({ tools: routine, text: "" }) && !shouldCloseLoop({ tools: routine, text: `x ${closeTheLoopLine("en")}` }));
+    ok("an attempt followed by a callback is no longer pending", pendingAttempt([{ toolsUsed: [{ name: "book_callback", ok: true }] }, { toolsUsed: routine }]) === null);
+    ok("...nor one booked in the same reply after it", pendingAttempt([{ toolsUsed: [...routine, { name: "book_callback", ok: true }] }]) === null);
+    ok("...but one logged after a callback is", pendingAttempt([{ toolsUsed: [{ name: "book_callback", ok: true }, ...routine] }])?.symptom === "x");
+    ok("a failed log is not an attempt", pendingAttempt([{ toolsUsed: [{ ...routine[0], ok: false }] }]) === null);
+    ok("garbage toolsUsed is no attempt, never a throw", pendingAttempt([{ toolsUsed: "x" }, null, { toolsUsed: [null] }]) === null);
+
+    // The cap exception, pure.
+    const E = { enabled: true, role: "troubleshooter", mode: "auto", maxRepliesPerThread: 2 };
+    const base = { employee: E, message: { direction: "in", body: "still broken" }, quota: { allowed: true }, aiConfigured: true, thread: { status: "open" } };
+    ok("at the cap with an attempt pending: one follow-up reply", shouldReply({ ...base, repliesSoFar: 2, troubleshootingFollowUp: true }).followUpOnly === true);
+    ok("...past it: none", shouldReply({ ...base, repliesSoFar: 3, troubleshootingFollowUp: true }).reason === SKIP.CAP_REACHED);
+    ok("...at the cap with no attempt: none", shouldReply({ ...base, repliesSoFar: 2 }).reason === SKIP.CAP_REACHED);
+    ok("...a cap of 0 (paused) is never overridden", shouldReply({ ...base, employee: { ...E, maxRepliesPerThread: 0 }, repliesSoFar: 0, troubleshootingFollowUp: true }).reason === SKIP.CAP_REACHED);
+    ok("...a hand-off still wins over it", shouldReply({ ...base, repliesSoFar: 2, troubleshootingFollowUp: true, handedOff: true }).reason === SKIP.HANDED_OFF);
+    ok("...and under the cap the reply is ordinary", shouldReply({ ...base, repliesSoFar: 1, troubleshootingFollowUp: true }).followUpOnly === undefined);
+    let refused = null;
+    try { await executeFor({ companyId: "C1", role: "troubleshooter", mode: "auto", onlyTools: [...FOLLOW_UP_TOOLS], onTool: () => {} })("look_up_error_code", { code: "UE" }); } catch (e) { refused = e.message; }
+    ok("a follow-up cannot call anything else, by name", refused === "Unknown tool: look_up_error_code" && definitionsForRole("troubleshooter", { onlyTools: [...FOLLOW_UP_TOOLS] }).map((d) => d.name).sort().join(",") === "book_callback,hand_off_to_human");
+  }
+
+  // ── Any role's callback on a known client's thread is a ticket ───────────
+  {
+    const closer = { ...C, companyId: "C1", name: "Cal", mode: "auto", maxRepliesPerThread: 3, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f", metaEnabled: true, webChatEnabled: true };
+    const db = makeDb({
+      aiEmployee: [closer],
+      messageThread: [thread({ clientId: "cl7" })],
+      message: [inbound("m1", "Can someone call me about another deck?", 0)],
+      company: [company],
+      client: [{ id: "cl7", companyId: "C1", name: "Pat", phone: "+15555550111", email: null }],
+      clientEquipment: [],
+      job: [],
+      clientTicket: [],
+      aiEmployeeSourcePage: [],
+      referenceCode: [],
+    });
+    const h = harness(db, { text: "Done — the team will call you.", toolCalls: [{ name: "book_callback", args: { summary: "Another deck", urgency: "routine" } }] });
+    const r = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    ok("the closer's callback on a known client's thread is a ticket on their record too", r.replied === true && db.$store.clientTicket.length === 1 && db.$store.clientTicket[0].clientId === "cl7" && db.$store.clientTicket[0].type === "repair", db.$store.clientTicket);
+    ok("...and the closer's prompt carries no equipment card", !/INSTALLED EQUIPMENT/.test(h.composed[0]?.system || ""));
+  }
+
+  // ── book_callback writes what the board reads ────────────────────────────
+  {
+    const tools = code("lib/aiEmployee/tools.js");
+    ok("an AI-booked callback sets callbackRequestedAt, the column the board badges", /callbackRequestedAt: new Date\(\)/.test(tools) && /input\.callbackRequestedAt instanceof Date/.test(code("lib/leads/createLead.js")));
+    ok("...and stores the urgency hint the board shows", /callbackUrgency: level/.test(tools) && /lead\.intake\?\.callbackUrgency === "urgent"/.test(code("app/app/leads/page.js")) && /capturedBy === "ai_employee"/.test(code("app/app/leads/page.js")));
+    ok("a known client's callback goes through the ONE ticket creator", /openTicket\(\{/.test(tools) && !/clientTicket\.create/.test(tools));
+    ok("an approved proposal carries its own thread, so it can become a ticket too", /threadId: row\.threadId \|\| null/.test(code("lib/aiEmployee/proposals.js")));
+    ok("the ticket priority is set only by a caller that knows it — never by a portal body", /priority = null/.test(code("lib/clientTickets/service.js")) && !/priority/.test(code("app/api/portal/[token]/tickets/route.js") || ""));
+    ok("look_up_error_code and log_troubleshooting are the troubleshooter's and the receptionist's only",
+      ["troubleshooter", "receptionist"].every((r) => toolsForRole(r).includes("look_up_error_code") && toolsForRole(r).includes("log_troubleshooting")) &&
+      ["closer", "custom"].every((r) => !toolsForRole(r).includes("look_up_error_code") && !toolsForRole(r).includes("log_troubleshooting")));
+  }
+
   // ── The responder's structure ────────────────────────────────────────────
   {
     const respond = code("lib/aiEmployee/respond.js");
@@ -1224,7 +1373,9 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("the colleague's turn is the same function at depth 1", /handOffDepth: handOffDepth \+ 1/.test(respond));
     ok("the introduction is prepended at depth 1 only", /if \(text && afterHandOff\)/.test(respond) && /introductionLine\(/.test(respond));
     ok("the composed-then-superseded reply is recorded, not sent", /suppressedReason: SKIP\.BURST_MERGED/.test(respond));
-    ok("disabledTools reach both the definitions and the executor", /definitionsForRole\(employee\.role, \{\s*disabledTools: employee\.disabledTools,\s*afterHandOff,\s*\}\)/.test(respond) && /disabledTools: employee\.disabledTools,\s*threadId,\s*employeeId: employee\.id,\s*afterHandOff,\s*prisma,/.test(respond));
+    // onlyTools (2026-10-04): the follow-up past the cap may only book the
+    // callback or fetch a person — narrowed in BOTH places, like disabledTools.
+    ok("disabledTools reach both the definitions and the executor", /definitionsForRole\(employee\.role, \{\s*disabledTools: employee\.disabledTools,\s*afterHandOff,\s*onlyTools,\s*\}\)/.test(respond) && /disabledTools: employee\.disabledTools,\s*threadId,\s*employeeId: employee\.id,\s*afterHandOff,\s*prisma,[\s\S]{0,200}onlyTools,/.test(respond));
     ok("the sender is told which employee is sending", /send\(text, \{ employeeId: employee\.id \}\)/.test(respond));
   }
 }
