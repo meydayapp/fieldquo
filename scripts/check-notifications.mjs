@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 34, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 35, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, the three supply types, the two client-ticket types, and the new-services notice",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, the three supply types, the two client-ticket types, the new-services notice, and the team-chat mention",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -389,6 +389,11 @@ ok(
         // New seeded services for a company's trades (2026-09-24), raised
         // once per release by scripts/notify-new-service-seeds.mjs.
         "services.new_seeds",
+        // Team chat (2026-10-04): an @mention lands in the bell too —
+        // lib/company/chat/store.js names the people, minus anybody who set
+        // the room to "none" or is looking at it; scripts/check-company-
+        // chat.mjs executes the narrowing against the real notifyEvent.
+        "chat.mention",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -505,6 +510,10 @@ const EXPECTED = {
   "availability.requested": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "availability.decided": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   "shoutout.received": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  // The floor every preset holds, like the shout-out: the store narrows it
+  // to the people named in the room, and a crew member named in their job
+  // room must be inside the audience.
+  "chat.mention": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   // The AI employee's two are user:manage, like leave.requested: a proposal a
   // crew member cannot approve is a badge on the wrong person.
   "ai_employee.proposal": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],

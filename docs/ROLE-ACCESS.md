@@ -8,11 +8,11 @@ address, and never prices, cost or margin.
 the real server code as a member of that role and reading exactly what came
 back. Checking only what the screen draws would not be enough: a hidden column
 can still be sent to the phone. The proof is
-`npm run check:role-access`, 277 checks, all passing (168 on 3 October;
+`npm run check:role-access`, 336 checks, all passing (168 on 3 October;
 §9–§11 and the richer §3 were added on 4 October from the live test with
 Joe on the Crew preset — see "4 October: the live test" below; §12–§13 and
 the phone/activity-log rows the same evening, from your four decisions —
-see "4 October: your decisions, built"). Before the
+see "4 October: your decisions, built"; the team-chat channel sections landed alongside). Before the
 3 October fixes, **40 of those checks failed**. "Leaks found and fixed" at
 the bottom says what they were.
 
@@ -121,10 +121,81 @@ From a quote, Send → **Share with staff** posts into your team chat:
   a room, both links go, the crew's line **first**, each labelled ("For the
   crew — work order, no prices" / "For the office — quote …")
   (`check:share-staff`).
+- **4 October (phase 3):** the share is now a **card** — a work-order card
+  once the quote is a job, a quote card before. Each reader's chat draws it
+  with their own access: crew on the job open the work order, people who
+  can open quotes also get the quote, everybody else "Office only". The
+  text links above are what is posted if the card is refused.
 
 The job page itself has no share button yet. The job's chat room already
 includes everyone booked on it — on a visit or, since 4 October, a published
 shift (`check:company-chat` §2b).
+
+---
+
+## Team chat: channels and group chats (4 October 2026)
+
+Owner decisions: only the office makes, renames and archives channels;
+anybody starts a group chat. Checked by the server on every change
+(`lib/company/chat/rules.js`), executed per role by `check:role-access`
+("Team chat channels and groups") and `check:company-chat` §15–25.
+
+| Action | Owner / Admin | Manager / Dispatcher | Estimator / Crew |
+|---|---|---|---|
+| Make a channel | Yes | Yes | **No** (403 `not_allowed`, nothing written) |
+| Start a group chat (no size limit) | Yes | Yes | Yes |
+| Join a public channel | Yes | Yes | Yes |
+| Rename, topic, public/private, office-only posting, include everyone, archive | Any channel they are in | Only channels they manage (made) | **No** |
+| Add / remove people in a channel | Any channel they are in | Channels they manage | **No** |
+| Rename a group, add people to it | Anybody in the group | Anybody in the group | Anybody in the group |
+| Remove people from a group | Yes, when in it | If they started it | If they started it |
+| Post in an office-only channel (#announcements) | Yes | Yes | **No** — reads only (403 `office_only`) |
+| Post in an archived channel | No | No | No — archived is read-only |
+| See a private channel they are not in | **No — 404**, owner included | No — 404 | No — 404 |
+| "Seen by" on a message | Room members only | Room members only | Room members only |
+
+- A private channel is invisible to anybody not in it: not listed, not in
+  Browse channels, its thread, members, Seen by and bell link all answer
+  404 — the same as a room that does not exist.
+- "Manage" is re-read from the session's role each time: a supervisor
+  demoted to Crew stops managing the channels they made.
+- A read-only support session sees every room and changes nothing (403
+  `read_only` on every write); it gets no Seen by and no unread digit.
+- Crew see: their job rooms, #general, the channels they are in (and public
+  ones in Browse), their DMs and groups. Nothing else is listed.
+- Anyone at the company can read a public channel, crew included — the
+  create dialog says so. Free text cannot be policed; client details belong
+  in the job's room.
+
+### Photos, files, cards, edit, remove, pins, search (4 October 2026, phases 3–4)
+
+Executed per role through the shipped routes by `check:role-access` ("Team
+chat phases 3–4") and against the store by `check:company-chat` §26–36.
+
+| Action | Owner / Admin | Manager / Dispatcher | Estimator / Crew | Support session (read-only) |
+|---|---|---|---|---|
+| Send photos / documents in a room they can post in | Yes | Yes | Yes | No |
+| Open a chat photo or file | Rooms they are in | Rooms they are in | Rooms they are in | Every room (read) |
+| …in a private channel they are not in | **No — 404**, owner included | No — 404 | No — 404 | Yes (read) |
+| …with somebody else's link, or an expired one | No (404 / 410) | No | No | No |
+| Save a chat photo to job photos | Any company job | Jobs they see | **Crew: only jobs they are on** | No |
+| …and feature it on the website | No — saved unfeatured | No | No | No |
+| Share a job / work order card | Jobs they see | Jobs they see | Their jobs | No |
+| Share a quote card | Yes | Yes (quotes view) | Estimator yes; **Crew no** (`bad_card`) | No |
+| See a quote card's number and client | Yes | Yes | Estimator yes; **Crew: "Office only"** | Yes |
+| See any price on any card | **No — no card carries money** | No | No | No |
+| Reply | Where they can post | Where they can post | Where they can post | No |
+| Edit a message | Own, ≤ 15 min (server clock) | Own, ≤ 15 min | Own, ≤ 15 min | No |
+| Remove a message | Own any time; others' in channels they are in | Own; others' in channels they manage | Own only | No |
+| Read a removed message | **No — nobody**, owner included | No | No | **No** |
+| Pin / unpin | Any room they are in | Any room they are in | DMs and groups (and groups/channels they manage) | No |
+| Search | Rooms they are in | Rooms they are in | Rooms they are in — never a private channel they are not in | Every room (read) |
+
+- A file link is bound to the reader and expires after an hour; the
+  Cloudinary link it redirects to expires after five minutes. The stored
+  Cloudinary URL is never sent to a browser.
+- Removing somebody else's message is in the activity log ("removed
+  somebody's message in #…") — who and where, never the words.
 
 ---
 

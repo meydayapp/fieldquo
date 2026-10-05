@@ -1,8 +1,11 @@
 // app/components/quotes/ShareWithStaffModal.js
 //
-// "Share with staff": a link to this quote's back-office page, posted into
-// the company's own crew chat — a room (#general, a job room) or a direct
-// message to one person — with an optional line from the sender.
+// "Share with staff": this quote — or, once it is a job, its work order —
+// posted into the company's own crew chat as a CARD (since 2026-10-04: ids
+// only, drawn per reader with their own access; the text links below are
+// the fallback when the server refuses the card) — to a room (#general, a
+// job room) or a direct message to one person — with an optional line from
+// the sender.
 //
 // ── Who the links open for (2026-10-03) ─────────────────────────────────────
 //
@@ -30,7 +33,7 @@ import { Share2, X, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { workOrderPath } from "@/lib/workOrder/url";
-import { shareMessageBody, shareVerdict } from "@/lib/quotes/shareWithStaff";
+import { shareMessageBody, shareVerdict, shareCard } from "@/lib/quotes/shareWithStaff";
 
 export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNumber, workOrderJobId = null, onShared }) {
   const { t } = useTranslation();
@@ -47,10 +50,16 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
     setError("");
     setTarget("");
     setMessage("");
-    Promise.all([fetchJson("/api/chat/rooms"), fetchJson("/api/chat/directory")])
+    // ?sync=1: a one-off read when the dialog opens, so a company whose chat
+    // nobody has opened yet still has its #general and job rooms to pick
+    // (the 15-second chat poll no longer seeds — lib/company/chat/store.js).
+    Promise.all([fetchJson("/api/chat/rooms?sync=1"), fetchJson("/api/chat/directory")])
       .then(([r, d]) => {
         if (cancelled) return;
-        const list = Array.isArray(r?.rooms) ? r.rooms : [];
+        // An archived channel is read-only, so it is not somewhere to share
+        // to; the server would refuse the post (lib/company/chat/rules.js
+        // canPost) and the picker should not offer what will be refused.
+        const list = (Array.isArray(r?.rooms) ? r.rooms : []).filter((x) => !x.archived);
         setRooms(list);
         setPeople((Array.isArray(d?.people) ? d.people : []).filter((p) => !p.isYou));
         // #general first when it exists — the one room everybody is in.
@@ -125,11 +134,25 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
           : null,
         accessNote: t("app.shareStaff.accessNote", "This link opens for people with access to quotes. The crew get the work order once the quote is a job."),
       });
-      await fetchJson(`/api/chat/rooms/${roomId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      });
+      // A CARD, not URL text (lib/quotes/shareWithStaff.js shareCard): each
+      // reader's thread draws it with their own access — the crew open the
+      // work order, the office the quote too, "Office only" for a quote the
+      // reader cannot open. The text links are the fallback if the server
+      // refuses the card (`bad_card`: the sharer cannot open the job).
+      try {
+        await fetchJson(`/api/chat/rooms/${roomId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: message.trim(), card: shareCard({ quoteId, workOrderJobId }) }),
+        });
+      } catch (err) {
+        if (err?.code !== "bad_card") throw err;
+        await fetchJson(`/api/chat/rooms/${roomId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        });
+      }
       onShared?.(roomId);
       onClose();
     } catch (err) {
@@ -143,7 +166,8 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
   // (lib/company/chat/rules.js roomListRow), which carry the job's or the
   // other person's name as `title` and no `name` at all — reading `name`
   // printed every job room as "#job" and every DM as "Direct message".
-  const roomLabel = (r) => (r.kind === "general" ? "#general" : r.kind === "job" ? `#${r.title || t("app.shareStaff.jobRoom", "job")}` : r.title || t("app.shareStaff.direct", "Direct message"));
+  // A channel is "#estimating"; a group is its name or its people.
+  const roomLabel = (r) => (r.kind === "general" ? "#general" : r.kind === "job" ? `#${r.title || t("app.shareStaff.jobRoom", "job")}` : r.kind === "channel" ? `#${r.title}` : r.title || t("app.shareStaff.direct", "Direct message"));
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true" onClick={busy ? undefined : onClose}>

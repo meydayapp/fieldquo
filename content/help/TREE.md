@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 344; “Only in FieldQuo”: 34._
+_Generated 2026-10-04 — 349 articles in the tree; written: en 349, fr 349, es 349; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -318,7 +318,7 @@ _Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 
 | `influencer-programme` — Influencer programme | ✓ | ✓ | ✓ | influencer | referrals |  |
 | `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
-### messages (21)
+### messages (26)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -339,6 +339,11 @@ _Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 
 | `quote-callbacks` — Quote callbacks | ✓ | ✓ | ✓ |  | voice_callbacks | ✓ |
 | `the-crew-inbox` — The crew inbox: photos and updates by text | ✓ | ✓ | ✓ | crew-inbox | crew_inbox | ✓ |
 | `team-chat` — Team chat | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
+| `channels-and-group-chats` — Channels and group chats | ✓ | ✓ | ✓ |  | team_chat |  |
+| `chat-notifications-and-mute` — Chat notifications and mute | ✓ | ✓ | ✓ |  | team_chat |  |
+| `seen-by-in-team-chat` — Seen by in team chat | ✓ | ✓ | ✓ |  | team_chat |  |
+| `photos-and-files-in-team-chat` — Photos, files and shared jobs in team chat | ✓ | ✓ | ✓ |  | team_chat |  |
+| `reply-pin-edit-and-search-in-team-chat` — Reply, pin, edit, remove and search in team chat | ✓ | ✓ | ✓ |  | team_chat |  |
 | `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 | `fetch-older-facebook-and-instagram-history` — Fetch older Facebook and Instagram history | ✓ | ✓ | ✓ |  | page_messaging |  |
 | `photos-and-videos-from-facebook-and-instagram` — Photos and videos from Facebook and Instagram | ✓ | ✓ | ✓ |  | page_messaging |  |

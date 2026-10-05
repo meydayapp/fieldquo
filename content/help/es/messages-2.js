@@ -646,7 +646,7 @@ export const ARTICLES = {
     title: "Chat del equipo",
     summary:
       "La empresa hablando entre sí: #general para todos, una sala por trabajo activo para la cuadrilla asignada y la oficina, mensajes directos, @menciones que llegan a un teléfono — y nada que salga de la empresa.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Chat** es la conversación propia de la empresa, dentro de FieldQuo. Todos los de la lista están en **#general**; cada trabajo del calendario tiene una sala para la cuadrilla asignada y la oficina; y dos personas cualesquiera pueden escribirse directamente. Las menciones avisan a la persona nombrada, y en un teléfono Chat es la pestaña propia de la cuadrilla al pie de la pantalla.",
       "Nada de esto llega a un cliente, y nada llega a FieldQuo — la sesión de solo lectura del equipo de soporte puede ver las salas y no puede publicar en ellas.",
@@ -656,7 +656,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La pantalla es el mismo kit de chat que **Mensajes**: la lista de conversaciones a la izquierda, el hilo en el centro con separadores de día y una línea de no leídos, los **Miembros** de la sala a la derecha, y el cuadro de redacción abajo. Las salas sin leer suben al principio de la lista, porque la lista existe para responder «quién me está esperando». Las salas las crea y mantiene FieldQuo a partir de su lista de personal y su agenda — nadie añade ni quita a nadie a mano, y por eso la lista nunca puede desviarse de quién está realmente en un trabajo." },
+          { p: "La pantalla es el mismo kit de chat que **Mensajes**: la lista de conversaciones a la izquierda, el hilo en el centro con separadores de día y una línea de no leídos, los **Miembros** de la sala a la derecha, y el cuadro de redacción abajo. Las salas sin leer suben al principio de la lista, porque la lista existe para responder «quién me está esperando». #general y las salas de trabajo las crea y mantiene FieldQuo a partir de su lista de personal y su agenda — nadie añade a nadie a ellas a mano, y por eso nunca pueden desviarse de quién está realmente en un trabajo. Los canales y los chats de grupo son las salas que crean las personas: vea [[channels-and-group-chats|Canales y chats de grupo]]." },
         ],
       },
       {
@@ -665,12 +665,12 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Sin leer** — cualquier sala con algo que usted no ha visto, con las menciones contadas aparte.",
-            "**Empresa** — **#general**, «Todo el equipo».",
+            "**Canales** — **#general** («Todo el equipo») primero, luego los canales en los que está, con **Explorar canales** debajo.",
             "**Trabajos** — una sala por trabajo programado o en curso, con su nombre, «La cuadrilla asignada a este trabajo, y la oficina», con **Abrir trabajo** en su cabecera.",
-            "**Mensajes directos** — «Solo ustedes dos. Nadie más puede leer esto.»",
+            "**Mensajes directos** — las conversaciones entre dos («Solo ustedes dos. Nadie más puede leer esto.») y los chats de grupo, los más recientes primero.",
             "**Trabajos terminados** — las salas de trabajos completados o cancelados, conservadas con su historial: «Este trabajo está terminado. La sala se conserva como registro.»",
           ] },
-          { p: "**Nuevo mensaje**, arriba, abre un mensaje directo: busque en el equipo por nombre o correo y elija a una persona. El cuadro de redacción dice **Mensaje a #general** o **Mensaje a Ana**; escribir **@** abre **Mencionar a alguien** con las personas de esa sala — ↑↓ para elegir, Tab para insertar." },
+          { p: "**Nuevo mensaje**, arriba, abre una conversación: busque en el equipo por nombre o correo y elija a una persona para un mensaje directo, o a dos o más para un chat de grupo. El cuadro de redacción dice **Mensaje a #general** o **Mensaje a Ana**; escribir **@** abre **Mencionar a alguien** con las personas de esa sala — ↑↓ para elegir, Tab para insertar." },
         ],
       },
       {
@@ -710,14 +710,14 @@ export const ARTICLES = {
             "Para hablar con una persona en privado, pulse **Nuevo mensaje**, busque su nombre y envíe.",
             "Cuando el trabajo termina, su sala pasa a **Trabajos terminados** — «qué acordamos sobre la cocina Nguyen» sigue teniendo respuesta en marzo.",
           ] },
-          { figure: "harness:chat", caption: "Chat — las salas agrupadas en Sin leer, Empresa, Trabajos, Mensajes directos y Trabajos terminados, el hilo de una sala de trabajo, y sus Miembros." },
+          { figure: "harness:chat", caption: "Chat — las salas agrupadas en Sin leer, Canales, Trabajos, Mensajes directos y Trabajos terminados, el hilo de una sala de trabajo, y sus Miembros." },
         ],
       },
       {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "Todos los de la lista, incluidos los accesos de Cuadrilla — el chat es la pantalla propia de la cuadrilla y no tiene un nivel de acceso propio. Lo que cada persona ve son las salas en las que está: #general, los trabajos a los que está asignada y sus mensajes directos. El propietario, los administradores y los gerentes están en todas las salas de trabajo." },
+          { p: "Todos los de la lista, incluidos los accesos de Cuadrilla — el chat es la pantalla propia de la cuadrilla y no tiene un nivel de acceso propio. Lo que cada persona ve son las salas en las que está: #general, los trabajos a los que está asignada, los canales a los que se unió o a los que la agregaron, y sus mensajes directos y chats de grupo. Un canal privado es invisible para quien no está en él, el propietario incluido. El propietario, los administradores y los gerentes están en todas las salas de trabajo." },
         ],
       },
       {

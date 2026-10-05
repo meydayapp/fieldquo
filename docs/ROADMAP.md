@@ -1,6 +1,9 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every currency's companies; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
+Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
+Last updated: 4 October 2026 (drawing read P0 — every sheet pass in one bounded wave (13) with the photo pass beside it, md5-identical results; each stage's clock on the read and on /platform/ai-usage → Drawing reads; `/api/cron/plan-reads` resumes reads a closed tab left paused, never charging; the estimator's own edits logged beside the chat's; the same PDF bytes reuse an earlier read's sheet passes within the company only — `QuoteDocument.contentHash` SQL owed before deploy, see "Start from drawings")
+Last updated: 4 October 2026 (team chat channels and group chats — phases 1 and 2 of the channels plan: the office makes channels (public/private, office-only posting, include everyone, archive), anybody starts a group chat with no size limit, per-room notifications and mute, "Seen by", and @mentions in the bell. Schema is additive and NOT yet applied — the SQL is in "Team chat: channels and group chats" below)
 Last updated: 4 October 2026 (the live crew test, owner + Joe on the Crew preset at TrueFinish Cabinets — eleven gaps closed, one commit each: a PUBLISHED SHIFT on a job now grants the job like a visit (assignedJobWhere is visit OR published shift, from publication to 14 days after it ends; drafts/open/other people's shifts grant nothing) across the job page and routes, work order, job chat membership, clock picker, receipts and photo mentions, and My schedule links the job and its work order; My schedule shows the person's job visits from the same read as My day (GET /api/me/visits); Share with staff sends a crew DM the work order only and puts the crew's line first in rooms; the work order carries quantities and units, cabinet door/drawer counts, colour/sheen/coats, what's included, the options the client chose, the materials list, checklist, visit notes and hours (the quote's labour estimate as fallback) — still no money; the crew job page gets job wording on the upload box, the website star/tags/stage words and controls for curators only, and no client preparation guide (GET refuses crew); Jennifer's launcher steps aside on /app/chat and /app/messages; /app/scheduler reads "My shifts" for people who can't assign them; Add visit clears an error when its field changes; with no leave policies crew can still request UNPAID time off (LeavePolicy.systemUnpaid, additive — SQL in the commit, not applied); the correction form always offers a job picker scoped to their jobs; /app/timesheets is an alias. docs/ROLE-ACCESS.md has the table; open decisions 5–6 there: the shift window, and unpaid-with-no-policies.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
@@ -365,6 +368,196 @@ prompt failure through `respondToMessage`.
 **Deploy order:** the SQL in items 2 and 4 is applied in production, so the code can deploy (every Plan read selects `aiMonthlyAllowanceCents`, and the gate selects the Company columns).
 
 ---
+## Team chat: channels and group chats (4 October 2026)
+
+Phases 1 and 2 of the channels plan, on the owner's decisions of 4 October:
+channels and group chats yes; only the office (owner, admin, supervisor —
+Manager and Dispatcher map to supervisor) creates, renames and archives
+channels; anybody starts a group chat, no maximum size; "Seen by" yes, room
+members only; @everyone stays the office's; an @mention also lands in the
+notification bell. #general and job rooms stay derived from the roster and
+the schedule.
+
+- **Schema (additive — apply by hand, then `prisma db push` should say "in
+  sync"; never `--accept-data-loss`).** CompanyChatRoom: topic, private,
+  postingPolicy, autoJoin, createdByMemberId, archivedAt,
+  archivedByMemberId. CompanyChatMember: role, notify, mutedUntil,
+  lastOpenedAt, hiddenAt, starredAt, addedByMemberId. CompanyChatMessage:
+  attachments, card, replyToId, editedAt, deletedAt, deletedByMemberId,
+  pinnedAt, pinnedByMemberId — **reserved for phases 3–4, written and read by
+  nothing yet**. Channel keys are `channel:<slug>` on the existing unique
+  (companyId, key) — no new unique index. SQL:
+
+  ```sql
+  ALTER TABLE "CompanyChatRoom" ADD COLUMN "archivedAt" TIMESTAMP(3),
+  ADD COLUMN "archivedByMemberId" TEXT,
+  ADD COLUMN "autoJoin" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "createdByMemberId" TEXT,
+  ADD COLUMN "postingPolicy" TEXT NOT NULL DEFAULT 'everyone',
+  ADD COLUMN "private" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "topic" TEXT;
+  ALTER TABLE "CompanyChatMember" ADD COLUMN "addedByMemberId" TEXT,
+  ADD COLUMN "hiddenAt" TIMESTAMP(3),
+  ADD COLUMN "lastOpenedAt" TIMESTAMP(3),
+  ADD COLUMN "mutedUntil" TIMESTAMP(3),
+  ADD COLUMN "notify" TEXT NOT NULL DEFAULT 'default',
+  ADD COLUMN "role" TEXT NOT NULL DEFAULT 'member',
+  ADD COLUMN "starredAt" TIMESTAMP(3);
+  ALTER TABLE "CompanyChatMessage" ADD COLUMN "attachments" JSONB,
+  ADD COLUMN "card" JSONB,
+  ADD COLUMN "deletedAt" TIMESTAMP(3),
+  ADD COLUMN "deletedByMemberId" TEXT,
+  ADD COLUMN "editedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedByMemberId" TEXT,
+  ADD COLUMN "replyToId" TEXT;
+  CREATE INDEX "CompanyChatRoom_companyId_kind_private_archivedAt_idx" ON "CompanyChatRoom"("companyId", "kind", "private", "archivedAt");
+  CREATE INDEX "CompanyChatMember_roomId_open_lastSeenAt_idx" ON "CompanyChatMember"("roomId", "open", "lastSeenAt");
+  CREATE INDEX "CompanyChatMessage_roomId_pinnedAt_idx" ON "CompanyChatMessage"("roomId", "pinnedAt");
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_createdByMemberId_fkey" FOREIGN KEY ("createdByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_archivedByMemberId_fkey" FOREIGN KEY ("archivedByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatMessage" ADD CONSTRAINT "CompanyChatMessage_replyToId_fkey" FOREIGN KEY ("replyToId") REFERENCES "CompanyChatMessage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ```
+
+  **Until it is applied, the deployed chat errors**: the list and thread
+  queries select the new columns. Ship the SQL with (or before) this code.
+- **Rules** (`lib/company/chat/rules.js`, pure): the role matrix
+  (canCreateChannel, canManage, canRename, canAddMembers, canRemoveMembers,
+  canArchive, canLeave, canPost, isJoinable); the notify table — DMs and
+  groups push every message, #general / channels / job rooms only mentions;
+  "none" silences everything; a snooze lets mentions through; nobody is
+  pushed while looking at the room (lastOpenedAt < 30 s) or about their own
+  words. "Seen by" is derived from each member's existing `lastSeenAt` (one
+  indexed count), not a row per message per reader. The channel-name rule
+  is shared with the staff chat in `lib/chat/channelName.js` (Unicode slugs
+  for the company chat, the staff chat's ASCII slugs byte-identical).
+- **Store and routes** — create channel / group (one pick = the DM), rename,
+  topic, private, office-only, include-everyone, archive/unarchive (kept,
+  read-only), join (public only; a private channel is a 404 to non-members,
+  the owner included), leave and remove (rows closed, never deleted), add
+  (closed rows reopen), your settings (notify, snooze, hide, star), Seen by,
+  locate-a-message; a system line and an activity-log row for every change.
+  Big groups: 4 members per listed room plus the viewer's own row and a
+  grouped head-count; members 50 a page with a name search; ≤ 200 members
+  inline in a thread; pushes in slices of 500; seeding on open, not every
+  poll. Realtime stays polling: the open room is a `?after=` delta every
+  4 s (15 s after two quiet minutes), the list every 15 s.
+- **Bell** — catalog type `chat.mention` (entity `chatMessage` →
+  `/app/chat?message=<id>`), written by `notifyEvent` with the new
+  `push: false` so the chat's own push is the only one; never for a DM or a
+  room set to "none"; the row stores who and where, not the words.
+- **Screen** — Channels / Jobs / Direct messages (groups with DMs), crew
+  order My jobs first with 64 px rows and one big New message; "+" and
+  Browse channels; New channel; the settings panel (name, topic, public /
+  private, office-only, include everyone, your notifications, mute 1 h /
+  until 7 AM, star, hide, people paged with Add / Remove, Archive, Leave);
+  "Seen by n" under your last message; office-only and archived notes in
+  place of the composer. 121 keys in all nine languages. Help: three new
+  articles (channels-and-group-chats, chat-notifications-and-mute,
+  seen-by-in-team-chat) and team-chat / chat-on-your-phone brought up to
+  date, en/fr/es.
+- **Checks** — `check:company-chat` §15–25 (447 passed),
+  `check:role-access` (+28, the shipped routes per role),
+  `check:chat-kit`, `check:notifications` (35 types).
+- **Phases 3–4 — built 4 October**, next section. The screenshot set in
+  `docs/screens/company-chat` predates channels and should be re-captured.
+
+## Team chat: photos, files, cards, reply, pins, edit, remove, search (4 October 2026)
+
+Phases 3 and 4 of the channels plan, on the owner's decisions of 4 October:
+chat photos use **private signed links like HR documents**; a removed
+message is hidden from **everybody, the owner included** (soft — the row
+and its words stay in the database, never deleted, never served).
+
+**No schema change.** Every column was added with phases 1–2 (its SQL is
+applied in production) and is now written AND read: `attachments`, `card`,
+`replyToId`, `editedAt`, `deletedAt`, `deletedByMemberId`, `pinnedAt`,
+`pinnedByMemberId`. The offline outbox uses the existing `OfflineSyncItem`
+ledger (kind `"chat"`).
+
+- **Photos and files** — the camera (big on the crew's phone shell) and the
+  paperclip upload through `uploadFile(file, { purpose: "chat" })` — sign →
+  Cloudinary → verify. `chat` is a PRIVATE purpose
+  (`lib/media/directUpload.js` PRIVATE_MEMBER_PURPOSES, like `hr`): signed
+  `type=authenticated`, so Cloudinary refuses the plain URL. Photos (shrunk
+  to 2,560 px, GPS stripped, in the browser), PDF / Word / Excel /
+  PowerPoint / text up to 25 MB, at most 10 per message, no video. The post
+  re-checks every entry is one of OUR cloud's authenticated files inside THIS
+  company's chat folder (`lib/company/chat/attachments.js`); a foreign or
+  public file refuses the whole message (`bad_attachment`).
+- **Opening a file** — the thread never carries a storage URL or public id.
+  Each file is `/api/chat/files/<message>/<n>?v=thumb|full&exp&sig`: an HMAC
+  over (reader, message, file, size, expiry) with `BETTER_AUTH_SECRET`, valid
+  1 hour, for THAT reader only (`lib/company/chat/fileLinks.js`). The route
+  checks the link (expired → 410 `link_expired`, the screen re-reads the
+  thread for fresh links; someone else's link → 404), then re-reads room
+  membership (non-member, private channel, other company, removed message
+  → 404), then: `full` → 302 to Cloudinary's download link that expires in
+  5 minutes (the HR signer); `thumb` → a 640 px JPEG fetched server-side from
+  a signed transformation URL that never leaves the server, streamed with
+  `private, max-age=3600`.
+- **Save to job photos** — from the photo viewer or the message menu; in a
+  job room to that job, elsewhere pick from the jobs you can see. The same
+  door as POST /api/jobs/[id]/photos: jobs `view_only` + `assignedJobWhere`
+  (crew on the job can; not on it → `no_job`). Saved as a progress photo,
+  **never featured** (the website stays a curation decision). The private
+  chat file is COPIED to the company's public jobs folder
+  (`chat-<message>-<n>`, so saving twice is one photo).
+- **Cards** — `card` stores `{ type, id }` only (job | work_order | quote);
+  every reader's thread resolves it with their own access
+  (`lib/company/chat/cards.js`): crew on the job open the job / work order,
+  others see "For the people on this job"; a quote card shows number and
+  client to people who can open quotes and "Office only" to everybody else.
+  No card carries a price for anybody. The poster must be able to open what
+  they share (`bad_card`). Share with staff now posts a work-order card (or
+  a quote card before there is a job), with the text links as the fallback
+  if the card is refused; the composer's briefcase shares one of your jobs.
+- **Reply-quote** (one level, same room only — `bad_reply` otherwise; a
+  removed original quotes "Message removed" with no words).
+- **Pins** — office in any room they are in, a channel's or group's manager
+  in theirs, anybody in a DM or group; max 50 per room; a system line says
+  who; the pinned bar under the header lists them.
+- **Edit** — your own, within 15 minutes, on the SERVER's clock
+  (`too_late`), "(edited)" from then on; mentions re-parsed, nobody pushed
+  again.
+- **Remove** — your own any time; somebody else's only in a channel you
+  manage (owner/admin in any channel they are in), logged as moderation
+  without the words; nobody removes another's words in DMs, groups,
+  #general or job rooms. Soft: `deletedAt` + `deletedByMemberId`; the body
+  is dropped in `rules.js threadMessages` — the one door every thread
+  payload goes through — and excluded from the list preview, unread counts,
+  search, the pinned bar, reply quotes and the file route, for everybody
+  including the owner and a support session.
+- **Search** — `GET /api/chat/search?q=[&room=]`, server-side ILIKE scoped by
+  company then OPEN membership (support session: every room, read-only),
+  never removed messages or system lines, newest 50, at least 2 letters.
+- **Refresh** — the 4-second delta also returns `changed` (messages edited
+  or removed since the previous payload's `changesCursor`, 5 s overlap) and
+  the room's `pinned` list on every read (so an unpin is seen as an
+  absence).
+- **Offline** — text typed with no signal waits in a per-member outbox
+  (`lib/company/chat/outbox.js`, localStorage keyed by member id), is drawn
+  as "Sending…" / "Waiting for a connection", and is sent on `online`, on
+  return to the tab and on every poll, with `X-Offline-Key` — a replay is
+  ONE message (`withOfflineKey`, kind `chat`), pushed once. Photos need a
+  connection (the bytes go straight to Cloudinary) and the composer says so.
+- **Cost (Cloudinary, named for the owner)** — a typical 5–15 person company
+  sending 200–600 chat photos a month at ~0.5–1 MB each (after the 2,560 px
+  shrink) adds ~0.1–0.6 GB of storage a month, cumulative; thumbnails are one
+  derived image per photo plus bandwidth per view. Roughly 0.5–1 Cloudinary
+  credit in month one, growing ~0.3–0.6 credit a month as storage
+  accumulates — about **$0.20–0.50 a month per company at first, ~$2–4 a
+  month after a year** at paid-plan credit prices (~$0.40–0.90/credit).
+  Save to job photos copies a photo (double storage for saved ones only).
+- **Checks** — `check:company-chat` §26–36 (589 passed): private scope,
+  hostile attachment lists, link expiry and binding, no storage URL in any
+  payload, cards per reader with no money key, reply, edit window, removal
+  absent from every response (owner, author, support, delta, list, search,
+  file route), pins, search scope, outbox replay = one message, Save to job
+  photos; `check:role-access` (+31, 286 in all, through the routes per role).
+  `scripts/fixtures/memoryPrisma.mjs`'s interactive `$transaction` now hands
+  the callback the client with models (it handed a bare object).
+
 ## Team chat: seven live bugs fixed (3 October 2026)
 
 Phase 0 of the channels plan — what was broken in the crew chat, fixed
@@ -1237,13 +1430,59 @@ lead) reads them as one project. Code in `lib/planRead/`; check: `npm run check:
   per call through the wallet meter. provider.js now reports cached tokens; usage.js prices them at
   the cached rate (cost-REDUCING for any wallet feature whose call hits the cache).
 
+### P0 of the multi-trade plan — measure, speed, reliability (4 October 2026)
+
+No owner decision needed; all cost-neutral or cost-reducing. Check: `npm run check:plan-deep-read`
+sections 14–19 (scripted provider with real millisecond delays, never the live API).
+
+- **Measured, per stage** — every read records its clock on `PlanRead.usage.timing`
+  (`lib/planRead/timing.js`): the click, first/last upload landing, each slice that took the lease,
+  each sheet's start/end/attempts, sheets/photos/synthesis start and end, outcome. In `usage`, not a
+  new column, so no deploy-order risk. `/platform/ai-usage` → "Drawing reads" shows the last 40
+  reads with time and tokens/vendor $ per stage and the medians (`/api/platform/plan-reads`, view
+  only); the estimator sees "Took 3m 05s".
+- **Faster** — sheet passes all in flight at once, bounded by `SHEET_CONCURRENCY = 13` (was 4 per
+  batch), and the photo pass runs beside them instead of after; the synthesis still waits for both.
+  Answers go into each sheet's own slot, so the synthesis prompt, the model, every stored pass and the
+  charge are md5-identical to the old order for the same answers (proved in the check). A 429 that
+  survives the SDK's own retries backs off 4 s / 8 s and gets a third attempt; a sheet that runs out
+  of time is left unread for the next slice, never written off. Expected on the 13-sheet reference
+  set: sheets 2–4 min → ~45–75 s (one wave), photos 45–110 s now overlapped — about 2–4 min off a
+  5–9 min machine total, before the per-trade synthesis work of P5.
+- **Backstop cron** — `/api/cron/plan-reads` every 2 minutes (`lib/planRead/backstop.js`) resumes
+  reads whose lease has lapsed, so a closed tab no longer stalls a paid read. It never holds or
+  charges: it only calls `advanceRead`, which takes the lease first. Settling now writes only while
+  the row is still that run (status reading + the same `reservationRef`), the refund rides the
+  ledger's unique `refund:<ref>`, and the start's claim takes a 30-second lease until the hold is
+  written (closing a window where a poll could start a worker against no hold). A read still running
+  45 min after its click is given up and refunded in full.
+- **One history** — the estimator's own edits (PATCH: measure, equipment price, leave out / put back,
+  photo split/merge, rename, the client's wording) and sheet reuse are `PlanReadMessage` rows with
+  role `"edit"` (who, when, what), written in the same transaction as the edit, shown in the chat
+  card's timeline with names; never sent to the model (`chatHistory()`). Chat replies now record who
+  asked.
+- **Cache by file hash** — the server stores the SHA-256 of each drawing file it fetched
+  (`QuoteDocument.contentHash`, never from the browser). A read with unread sheets is offered "N of
+  these sheets were already read in “X” — reuse, saves about Y credits" when an earlier read in the
+  SAME company (same trade, same page, same sheet number, same extracted dimension count) has them;
+  `POST /api/plan-reads/[id]/reuse` recomputes the offer server-side under the row lock and remaps
+  the dimension ids. Another company's read of the identical file is never offered.
+- **Schema (additive, NOT applied — must be run before this deploys, or every drawing-read load
+  fails on the missing column):**
+  `ALTER TABLE "QuoteDocument" ADD COLUMN IF NOT EXISTS "contentHash" TEXT;`
+  `CREATE INDEX IF NOT EXISTS "QuoteDocument_companyId_contentHash_idx" ON "QuoteDocument"("companyId", "contentHash");`
+- Also fixed in passing: the settle wrote `similar: null` when the similar-jobs lookup threw — a bare
+  null on a Json column, which Prisma refuses, would have left a finished, paid read stuck
+  "reading". It now leaves `similar` as it was.
+
 ### Owed
 
 - Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
-  `PlanRead.usage` (per step) and as AiUsage `plan_read*` rows — read them after the first live read
-  and correct `READ_TOKENS` in lib/planRead/billing.js.
+  `PlanRead.usage` (per step, now with the stage clock) and as AiUsage `plan_read*` rows — read them
+  on /platform/ai-usage → Drawing reads after the first live read and correct `READ_TOKENS` in
+  lib/planRead/billing.js.
 - Phase 2: siding, roofing and other trades (their own catalogues/engines), equipment rental rates,
-  deductions for openings, a cron backstop for reads abandoned mid-way (today a poll resumes them).
+  deductions for openings. (The cron backstop shipped in P0 above.)
 
 ## Referrals need a chosen plan (3 October 2026)
 

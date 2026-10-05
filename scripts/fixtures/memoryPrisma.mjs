@@ -358,8 +358,14 @@ export function fakeDb() {
   }
 
   const delegates = {};
+  // The interactive form hands the callback the PROXY (`client`, below), as
+  // Prisma hands it a transaction client with every model on it. Handing it
+  // this bare object gave the callback no models at all — invisible until a
+  // store (lib/company/chat/store.js postMessage, 2026-10-04) wrote through
+  // `tx.<model>` instead of the array form.
+  let client = null;
   const db = {
-    $transaction: async (arg) => (Array.isArray(arg) ? Promise.all(arg) : arg(db)),
+    $transaction: async (arg) => (Array.isArray(arg) ? Promise.all(arg) : arg(client)),
     $queryRaw: async () => [],
     $disconnect: async () => {},
     /** Row counts per table — what the idempotency assertion compares. */
@@ -369,13 +375,14 @@ export function fakeDb() {
       for (const k of Object.keys(tables)) delete tables[k];
     },
   };
-  return new Proxy(db, {
+  client = new Proxy(db, {
     get(target, prop) {
       if (prop in target || typeof prop === "symbol") return target[prop];
       if (typeof prop !== "string" || prop.startsWith("$")) return undefined;
       return (delegates[prop] ||= delegate(prop));
     },
   });
+  return client;
 }
 
 /** The singleton served as `@/lib/db` under memory-db-loader.mjs. */

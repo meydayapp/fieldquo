@@ -3004,6 +3004,10 @@ model Member {
   // companies is two participants, and neither may see the other's rooms.
   chatMemberships CompanyChatMember[]
   chatMessages    CompanyChatMessage[] @relation("CompanyChatAuthor")
+  // Channels this member made and channels they archived — see
+  // CompanyChatRoom.createdByMemberId / archivedByMemberId.
+  chatRoomsCreated  CompanyChatRoom[] @relation("CompanyChatRoomCreatedBy")
+  chatRoomsArchived CompanyChatRoom[] @relation("CompanyChatRoomArchivedBy")
   shoutOutsSent   ShoutOut[]           @relation("ShoutOutFrom")
 
   // The person's own Google Calendar, connected from Settings → My calendar.
@@ -20723,12 +20727,17 @@ model CompanyChatRoom {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// "general" | "job" | "dm" — CHAT_ROOM_KINDS in lib/company/chat/rules.js.
+  /// "general" | "job" | "dm" | "channel" | "group" — CHAT_ROOM_KINDS in
+  /// lib/company/chat/rules.js. A String, not an enum, so a new kind is a
+  /// rules change and never an enum migration.
   kind String
 
   /// The one identity a room has inside its company, and the unique index
   /// that stops a second one: "general" for the everybody room, "job:<jobId>"
-  /// for a job's room, "dm:<memberId>|<memberId>" (sorted) for a direct pair.
+  /// for a job's room, "dm:<memberId>|<memberId>" (sorted) for a direct pair,
+  /// "channel:<slug>" for a channel (so the SAME index refuses a second
+  /// #estimating — no new unique index, which Prisma will not add to a live
+  /// table without a fight), "group:<random>" for a group chat.
   /// The DATABASE refuses the duplicate — two tabs opening the same DM at the
   /// same instant get one room because the second insert fails, never because
   /// a read-then-write happened to win.
@@ -20750,6 +20759,45 @@ model CompanyChatRoom {
   /// the message so it cannot describe a message that failed to save.
   lastMessageAt DateTime?
 
+  // ── Channels and groups (2026-10-04) ─────────────────────────────────────
+  //
+  // The owner reversed "nobody makes a group": the office makes channels,
+  // anybody makes a group chat. #general and job rooms stay derived. Every
+  // column below is read — lib/company/chat/rules.js says by what.
+
+  /// Channels only. The line under the name in the thread header.
+  topic String?
+
+  /// Channels only. A private channel is invisible to non-members: unlisted
+  /// in Browse channels, not joinable, and a 404 to anybody not in it —
+  /// exactly the answer a room that does not exist gets. Groups are private
+  /// by construction (there is no "browse groups").
+  private Boolean @default(false)
+
+  /// "everyone" | "office". An office-only channel (#announcements) is
+  /// posted in by owner / admin / supervisor and read by everybody; the
+  /// store refuses anybody else's post with `office_only`.
+  postingPolicy String @default("everyone")
+
+  /// Public channels only. Every active member is put in it — the ones who
+  /// exist now and every new hire on their first chat read — the way
+  /// #general works. A member who was removed is NOT put back: the row
+  /// exists, closed, and only a row that never existed is created.
+  autoJoin Boolean @default(false)
+
+  /// Who made the channel or group. The maker is its first manager
+  /// (CompanyChatMember.role); this column is the record of who, read by the
+  /// settings panel ("Made by Dana"). SetNull: a departed maker does not take
+  /// the channel with them.
+  createdByMemberId String?
+  createdBy         Member? @relation("CompanyChatRoomCreatedBy", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+
+  /// Archived: read-only, kept, listed under "Archived". NEVER deleted — the
+  /// house rule, and "what did we decide in #estimating" outlives the channel.
+  archivedAt         DateTime?
+  archivedByMemberId String?
+  archivedBy         Member?   @relation("CompanyChatRoomArchivedBy", fields: [archivedByMemberId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   members  CompanyChatMember[]
@@ -20757,6 +20805,8 @@ model CompanyChatRoom {
 
   @@unique([companyId, key])
   @@index([companyId, kind, lastMessageAt])
+  // Browse channels: the company's public, unarchived channels.
+  @@index([companyId, kind, private, archivedAt])
 }
 
 /// One member's membership of one room — the subscription that holds THAT
@@ -20788,10 +20838,53 @@ model CompanyChatMember {
 
   removedAt DateTime?
 
+  // ── Per-person settings for this room (2026-10-04) ───────────────────────
+
+  /// "member" | "manager". The maker of a channel or group is its manager:
+  /// lib/company/chat/rules.js canManage reads it (a supervisor manages the
+  /// channels they manage; owner and admin manage every channel).
+  role String @default("member")
+
+  /// "default" | "all" | "mentions" | "none" — what this person is pushed
+  /// for in this room. "default" follows the room's kind (a DM or a group
+  /// pushes every message; a channel, #general or a job room only mentions)
+  /// — rules.js effectiveNotify. "none" silences mentions too, and takes
+  /// the room out of the Chat tab's digit.
+  notify String @default("default")
+
+  /// Snoozed until then: behaves like "mentions" (a mention still gets
+  /// through) and the room's count is drawn grey and left out of the tab's
+  /// digit. Null = not snoozed. "Until I turn it back on" is notify "none".
+  mutedUntil DateTime?
+
+  /// When the thread was last DRAWN for them — the open, and every poll
+  /// while it stays open. Not the read boundary (that is lastSeenAt, which
+  /// only moves as far as the last message shown): this says "looking at
+  /// it now", and a push for words already on their screen is noise. Same
+  /// column and reason as StaffRoomMember.lastOpenedAt
+  /// (lib/staff/directPush.js).
+  lastOpenedAt DateTime?
+
+  /// A DM or group they closed from THEIR list. Derived back into view by the
+  /// next message (room.lastMessageAt > hiddenAt), so hiding is never
+  /// leaving and nothing is missed.
+  hiddenAt DateTime?
+
+  /// Pinned to the top of their own list ("Starred"). Null = not starred.
+  starredAt DateTime?
+
+  /// Who put them in (null = they joined, or the system did). A loose
+  /// pointer, not a relation: the members panel prints "added by Dana", and
+  /// a departed adder simply prints nothing.
+  addedByMemberId String?
+
   createdAt DateTime @default(now())
 
   @@unique([roomId, memberId])
   @@index([companyId, memberId, open])
+  // "Seen by": the open members whose read boundary is at or past a
+  // message — a count over this index, not a row per message per reader.
+  @@index([roomId, open, lastSeenAt])
 }
 
 model CompanyChatMessage {
@@ -20824,10 +20917,41 @@ model CompanyChatMessage {
   /// the reader's language. `body` keeps an English sentence for logs.
   meta Json?
 
+  // ── Phases 3–4 of the channels plan (2026-10-04) ────────────────────────
+  //
+  // Added with the channels columns so photos, cards, replies, pins, edits
+  // and removal needed no second migration; written and read since phases
+  // 3–4 landed (lib/company/chat/store.js postMessage, editMessage,
+  // removeMessage, pinMessage; rules.js threadMessages draws them).
+
+  /// Phase 3. Verified PRIVATE (Cloudinary "authenticated") entries in this
+  /// company's chat folder: [{ type: "photo"|"document", url, publicId,
+  /// mimeType, filename, bytes, width?, height? }]. `url` never leaves the
+  /// server — readers get a short-lived link (lib/company/chat/fileLinks.js).
+  attachments Json?
+  /// Phase 3. { type: "work_order"|"quote"|"job", id } — ids only, never
+  /// text or money; resolved per reader on read (lib/company/chat/cards.js).
+  card        Json?
+  /// Phase 4. A reply-quote of another message in the same room.
+  replyToId   String?
+  replyTo     CompanyChatMessage?  @relation("CompanyChatReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     CompanyChatMessage[] @relation("CompanyChatReply")
+  /// Phase 4. Set by an edit inside the edit window; the row says "(edited)".
+  editedAt    DateTime?
+  /// Phase 4. Soft removal: the row and its body STAY (never delete data),
+  /// and the body is hidden from EVERY reader — the owner included (owner
+  /// decision 2026-10-04: the owner cannot read removed messages).
+  deletedAt         DateTime?
+  deletedByMemberId String?
+  /// Phase 4. Pinned to the room's pinned bar.
+  pinnedAt          DateTime?
+  pinnedByMemberId  String?
+
   createdAt DateTime @default(now())
 
   @@index([roomId, createdAt])
   @@index([companyId, createdAt])
+  @@index([roomId, pinnedAt])
 }
 
 // ============================================================
@@ -21941,6 +22065,14 @@ model QuoteDocument {
   /// lib/media/validate.js). Null for anything that is not a PDF.
   pages Json?
 
+  /// SHA-256 (hex) of the file's bytes, computed by the server from the copy
+  /// it fetched to read (lib/planRead/documents.js) — never sent by the
+  /// browser. Lets a drawing read reuse an earlier read's sheet passes of the
+  /// SAME file, within the same company only (lib/planRead/sheetCache.js).
+  /// Null for files the server never fetched (photos) and for uploads made
+  /// before it existed.
+  contentHash String?
+
   supersedesId String?        @unique
   supersedes   QuoteDocument? @relation("QuoteDocumentRevision", fields: [supersedesId], references: [id])
   supersededBy QuoteDocument? @relation("QuoteDocumentRevision")
@@ -21952,6 +22084,7 @@ model QuoteDocument {
   @@index([companyId, quoteId])
   @@index([companyId, leadId])
   @@index([planReadId])
+  @@index([companyId, contentHash])
 }
 
 /// "Start from drawings": one project overview read from a drawing set, a
@@ -22006,7 +22139,9 @@ model PlanRead {
   reservationRef String?
   chargedCents   Int     @default(0)
   /// Token totals across every call: { promptTokens, cachedTokens,
-  /// completionTokens, calls, vendorMicros, byStep }.
+  /// completionTokens, calls, vendorMicros, byStep }, this run's spend
+  /// (`run`), and this run's stage-by-stage clock (`timing` —
+  /// lib/planRead/timing.js).
   usage          Json?
 
   readAt    DateTime?
@@ -22028,7 +22163,10 @@ model PlanReadMessage {
   company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   planReadId   String
   planRead     PlanRead @relation(fields: [planReadId], references: [id], onDelete: Cascade)
-  /// "user" | "assistant"
+  /// "user" | "assistant" | "edit" — "edit" is the estimator's own change
+  /// through PATCH /api/plan-reads/[id] (or a reuse of earlier sheet
+  /// passes), logged in the same timeline and never sent to the model
+  /// (lib/planRead/history.js).
   role         String
   text         String
   /// The applied changes, as the server summarised them.

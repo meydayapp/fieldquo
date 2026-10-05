@@ -116,6 +116,9 @@ export function DayBubble({ children, className = "" }) {
  *                    the caller's. Returning null falls back to the default.
  * @param hoverActions(item)  optional: a node for the hover toolbar on a
  *                    message row (copy, retry, …)
+ * @param renderFooter(item)  optional: a node under a message row's words —
+ *                    the team chat's "Seen by 3". Drawn in both variants;
+ *                    null draws nothing.
  * @param onRetry(item)  for failed rows — puts the words back in the box
  * @param initialsFor(item)  optional: initials for an inbound row (a room
  *                    with many authors); defaults to `them`
@@ -143,6 +146,7 @@ export default function Thread({
   renderSystem = null,
   renderBody = null,
   hoverActions = null,
+  renderFooter = null,
   onRetry = null,
   initialsFor = null,
   empty = null,
@@ -310,6 +314,7 @@ export default function Thread({
             const who = inbound ? m.who || them : m.who || me;
             const initials = inbound ? (initialsFor ? initialsFor(m) : initialsOf(who)) : initialsOf(who);
             const actions = hoverActions ? hoverActions(m) : null;
+            const footer = renderFooter ? renderFooter(m) : null;
 
             // ── Bubbles: the client inbox's layout (see `variant`) ─────────
             //
@@ -326,6 +331,7 @@ export default function Thread({
                 <div
                   key={row.key}
                   data-chat-row="message"
+                  data-message-id={m.id || undefined}
                   data-bubble={inbound ? "them" : "us"}
                   data-own={inbound ? undefined : "true"}
                   data-sequential={row.sequential ? "true" : undefined}
@@ -356,6 +362,7 @@ export default function Thread({
                       ) : null}
                       {!failed && !pending && !inbound && m.deliveryNote ? <span>· {m.deliveryNote}</span> : null}
                     </p>
+                    {footer ? <div className="px-1">{footer}</div> : null}
                     {failed ? (
                       <div className="px-1">
                         <p className="flex items-start gap-1.5 text-xs text-red-700 dark:text-red-300 break-words">
@@ -390,6 +397,7 @@ export default function Thread({
               <div
                 key={row.key}
                 data-chat-row="message"
+                data-message-id={m.id || undefined}
                 data-own={inbound ? undefined : "true"}
                 data-sequential={row.sequential ? "true" : undefined}
                 data-unread={row.unread ? "true" : undefined}
@@ -456,6 +464,8 @@ export default function Thread({
                   {!failed && !pending && !inbound && m.deliveryNote ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{m.deliveryNote}</p>
                   ) : null}
+
+                  {footer ? <div className="mt-0.5">{footer}</div> : null}
 
                   {failed ? (
                     <div className="mt-1">

@@ -322,7 +322,28 @@ section("6. The components: every string is translated, nothing sends itself");
   ok("…and opens on Enter", /e\.key === "Enter"/.test(list));
   ok("a selected room gets the left accent bar", /selected \?[\s\S]{0,200}left-0 w-1[^"]*bg-primary/.test(list));
   ok("an unread room is bold", /unread \? "font-semibold/.test(list));
-  ok("the group header sums unread", /reduce\(\(n, r\) => n \+ \(Number\(r\.unread\) \|\| 0\), 0\)/.test(list));
+  // A muted room's count is drawn grey on its row and left out of the
+  // section's total — the same rule as the Chat tab's digit (2026-10-04).
+  ok("the group header sums unread, leaving muted rooms out", /reduce\(\(n, r\) => n \+ \(r\.muted \? 0 : Number\(r\.unread\) \|\| 0\), 0\)/.test(list));
+  ok("a muted row's badge is drawn quiet (grey), not hidden", /quiet=\{Boolean\(room\.muted\)\}/.test(list) && /quiet \? "bg-secondary text-muted-foreground"/.test(list));
+  {
+    // The quiet badge's pair, MEASURED from app/globals.css in both themes
+    // (AGENTS.md failure class 6): muted-foreground on secondary.
+    const css = read("app/globals.css");
+    const tokens = (block) => Object.fromEntries([...block.matchAll(/--([a-z-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)].map((m) => [m[1], m[2]]));
+    const light = tokens(css.slice(0, css.indexOf("--background: #0a1220")));
+    const dark = tokens(css.slice(css.indexOf("--background: #0a1220")));
+    const lum = (hex) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+    const l = ratio(light["muted-foreground"], light.secondary);
+    const d = ratio(dark["muted-foreground"], dark.secondary);
+    ok(`the quiet badge clears 4.5:1 in both themes (light ${l.toFixed(2)}, dark ${d.toFixed(2)})`, l >= 4.5 && d >= 4.5, [light["muted-foreground"], light.secondary, dark["muted-foreground"], dark.secondary]);
+  }
+  ok("a group header's action sits BESIDE its toggle, not inside it (no button in a button)", /<\/button>\s*\{group\.action \|\| null\}/.test(list));
+  ok("the thread offers a footer slot under a message (Seen by)", /renderFooter = null/.test(read(`${dir}/Thread.js`)) && /data-message-id=\{m\.id \|\| undefined\}/.test(read(`${dir}/Thread.js`)));
 
   const index = read(`${dir}/index.js`);
   for (const name of ["ChatLayout", "RoomList", "RoomListGroup", "RoomListItem", "Thread", "Composer", "ContextBar", "Avatar"]) {

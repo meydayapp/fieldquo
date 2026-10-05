@@ -259,6 +259,19 @@ function delegate(model) {
       reads.push({ model, action: "count", args });
       return find({ where: args.where }).length;
     },
+    // One column, `_count: { _all: true }` — the shape the chat stores count
+    // unread and head-counts with (lib/chat/unreadQuery.js countByRoomArgs).
+    // Anything else throws by name, the stub's rule.
+    async groupBy(args = {}) {
+      reads.push({ model, action: "groupBy", args });
+      if (!Array.isArray(args.by) || args.by.length !== 1 || args._count?._all !== true) {
+        throw new Error(`prismaShapeStub: db.${model}.groupBy models by:[one column] with _count:{_all:true} only`);
+      }
+      const [col] = args.by;
+      const counts = new Map();
+      for (const r of find({ where: args.where })) counts.set(r[col], (counts.get(r[col]) || 0) + 1);
+      return [...counts].map(([k, n]) => ({ [col]: k, _count: { _all: n } }));
+    },
     async aggregate(args = {}) {
       reads.push({ model, action: "aggregate", args });
       const list = find({ where: args.where });
