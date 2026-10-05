@@ -224,7 +224,10 @@ function AttachmentItem({ messageId, attachment, onRetry, media, t }) {
   if (attachment.state === "ready" && attachment.type === "image") {
     return (
       <a
-        href={attachment.url}
+        // Opened through our route when the server minted one (the full file,
+        // under its real name — lib/media/fileOpen.js); the photo's own URL
+        // otherwise, which Cloudinary does deliver for an image.
+        href={attachment.openUrl || attachment.url}
         target="_blank"
         rel="noreferrer"
         // A 44px minimum even though the thumbnail is far taller: the rule is
@@ -274,18 +277,30 @@ function AttachmentItem({ messageId, attachment, onRetry, media, t }) {
     // customer's phone gave it, and a size, so a contractor on a driveway
     // connection knows whether to open the 40 MB one now or later.
     const size = formatBytes(attachment.bytes);
-    return (
-      <a
-        href={attachment.url}
-        target="_blank"
-        rel="noreferrer"
-        className="flex min-h-[44px] items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs font-medium"
-      >
+    const row = (
+      <>
         <AttachmentIcon type={attachment.type} />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {/* Never "0 KB": formatBytes returns null for anything it has not
             actually measured, and no size at all beats a wrong one. */}
         {size && <span className="shrink-0 tabular-nums opacity-80">{size}</span>}
+      </>
+    );
+    // openUrl, never attachment.url: a customer's PDF stored in Cloudinary
+    // answers 401 from its plain URL (lib/media/signedFile.js), so the old
+    // link looked like it worked and didn't. No openUrl, no link — the name
+    // and size still say what arrived.
+    if (!attachment.openUrl) {
+      return <span className="flex min-h-[44px] items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs font-medium">{row}</span>;
+    }
+    return (
+      <a
+        href={attachment.openUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="flex min-h-[44px] items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs font-medium"
+      >
+        {row}
         <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
       </a>
     );

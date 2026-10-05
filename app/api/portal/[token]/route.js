@@ -18,6 +18,7 @@ import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
 import { shapePlanForPortal, shapeVisits, changeRequestPrefix, isoDay, canRequestChange, HIDDEN_PHOTO_STAGES, PAST_PHOTOS_PER_VISIT } from "@/lib/portal/view";
 import { openChangeRequestKeys } from "@/lib/portal/changeRequest";
 import { demoSafeContact, demoSafeHowToPay } from "@/lib/demo/clientFacing";
+import { clientFileHref } from "@/lib/media/fileOpen";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -587,14 +588,21 @@ export async function GET(request, { params }) {
     });
     const filedIds = rows.map((r) => r.jobDocumentId).filter(Boolean);
     const filed = filedIds.length
-      ? await db.jobDocument.findMany({ where: { id: { in: filedIds } }, select: { id: true, url: true } })
+      ? await db.jobDocument.findMany({ where: { id: { in: filedIds }, companyId: client.companyId }, select: { id: true, url: true } })
       : [];
-    const urlById = new Map(filed.map((f) => [f.id, f.url]));
+    // The View link is our own token route, never the stored Cloudinary URL:
+    // this account refuses to deliver a PDF from that (lib/media/signedFile.js),
+    // so the old link answered 401. The route re-checks that THIS client
+    // signed it (lib/media/fileOpen.js resolveClientFile).
+    const hasFile = new Set(filed.filter((f) => f.url).map((f) => f.id));
     documents = rows.map((r) => ({
       title: r.document?.title || "",
       status: r.status === "signed" ? "signed" : "pending",
       signedAt: r.signedAt,
-      url: r.status === "signed" ? urlById.get(r.jobDocumentId) || null : null,
+      url:
+        r.status === "signed" && hasFile.has(r.jobDocumentId)
+          ? clientFileHref({ scope: "portal", token: _params.token, kind: "waiver", id: r.jobDocumentId })
+          : null,
       signToken: r.status === "signed" ? null : r.token,
     }));
   } catch (err) {

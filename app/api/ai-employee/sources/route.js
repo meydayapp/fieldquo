@@ -57,6 +57,7 @@ import {
   REFERENCE_FOLDER,
 } from "@/lib/aiEmployee/reference";
 import { unreadOf } from "@/lib/aiEmployee/referencePages";
+import { canShare } from "@/lib/aiEmployee/sharedLibrary";
 import { fetchOwnPrivateFile } from "@/lib/planRead/ingest";
 import { PLAN_DOCUMENT_MAX_BYTES } from "@/lib/media/validate";
 
@@ -110,6 +111,16 @@ function publicSource(row, extras = {}) {
     ocrEstimateCents: unread.length ? ocrEstimateCents(unread.length) : 0,
     codeExtractEstimateCents: extras.codeExtractEstimateCents ?? 0,
     codeCount: extras.codeCount ?? 0,
+    // Sharing with FieldQuo's manual library (lib/aiEmployee/sharedLibrary.js):
+    // whether this one is shared, what the library did with it, and — when
+    // it can't be shared — why, so the screen says so instead of offering a
+    // switch the server would refuse.
+    share: {
+      on: Boolean(row.sharedAt),
+      libraryStatus: extras.libraryStatus || null,
+      eligible: canShare(row).ok,
+      reason: canShare(row).ok ? null : canShare(row).reason,
+    },
   };
 }
 
@@ -117,7 +128,7 @@ function publicSource(row, extras = {}) {
 const LIST_SELECT = {
   id: true, kind: true, title: true, originalFilename: true, bytes: true, tokenCount: true, status: true,
   failureReason: true, createdAt: true, storageKey: true, fileHash: true, pageCount: true, pagesRead: true, unreadPages: true,
-  trade: true, brand: true, modelPattern: true, category: true,
+  trade: true, brand: true, modelPattern: true, category: true, sharedAt: true, sharedManualId: true,
 };
 
 /**
@@ -167,12 +178,18 @@ export async function GET(request) {
     bySource.get(p.sourceId).push(p);
   }
   const codeCount = new Map(counts.map((c) => [c.sourceId, c._count?._all || 0]));
+  // What FieldQuo's library did with the ones this company shared — read by
+  // the library row's own id, which only this company's sources carry.
+  const sharedIds = [...new Set(rows.map((r) => r.sharedManualId).filter(Boolean))];
+  const library = sharedIds.length ? await db.sharedManual.findMany({ where: { id: { in: sharedIds } }, select: { id: true, status: true } }) : [];
+  const libraryStatus = new Map(library.map((m) => [m.id, m.status]));
 
   return NextResponse.json({
     sources: rows.map((r) =>
       publicSource(r, {
         codeExtractEstimateCents: bySource.has(r.id) ? codeExtractEstimateCents(codeTableCandidates(bySource.get(r.id))) : 0,
         codeCount: codeCount.get(r.id) || 0,
+        libraryStatus: r.sharedManualId ? libraryStatus.get(r.sharedManualId) || null : null,
       }),
     ),
   });

@@ -106,8 +106,8 @@ export const ARTICLES = {
           { steps: [
             "Lee el equipo registrado del cliente, si la conversación pertenece a un cliente conocido: marca, modelo, fecha de instalación y la fecha de garantía del registro. Nunca ve precios, facturas ni saldos, y nunca dice en voz alta un número de serie.",
             "Solo pregunta lo que falta; luego busca el código y da como mucho dos o tres pasos seguros de su manual o de las referencias de FieldQuo, diciendo de dónde salen.",
-            "Anota lo que sugirió, y la respuesta termina con: **Si el problema continúa, escríbanos de nuevo y programaremos una llamada con uno de nuestros técnicos.** —lo agrega FieldQuo, en el idioma del cliente, para que esté siempre.",
-            "Si el cliente vuelve a escribir que sigue pasando, agenda la devolución de llamada de inmediato: la nota dice qué equipo es, el código y lo que ya se intentó. Si ahora suena urgente, eso va primero.",
+            "Anota lo que sugirió, y la respuesta termina con: **Si el problema continúa, escríbanos de nuevo y le buscaremos un horario con uno de nuestros técnicos.** —lo agrega FieldQuo, en el idioma del cliente, para que esté siempre. (Con **Ofrecer horarios reales con un técnico** desactivado, dice en cambio **…programaremos una llamada con uno de nuestros técnicos.**)",
+            "Si el cliente vuelve a escribir que sigue pasando, le ofrece de inmediato horarios libres reales de su calendario de reservas —los mismos que muestra su página de reservas— y reserva el que elija, como llamada con un técnico o como visita. Solo si no hay nada libre (o los horarios reales están desactivados) agenda una devolución de llamada; la nota dice qué equipo es, el código y lo que ya se intentó. Si ahora suena urgente, eso va primero: vea [[ai-employee-urgent-problems-and-safety|Problemas urgentes y seguridad]].",
           ] },
         ],
       },
@@ -126,7 +126,64 @@ export const ARTICLES = {
         id: "reply-limit",
         heading: "El límite de respuestas",
         blocks: [
-          { p: "**Máximo de respuestas en una conversación** sigue aplicándose. La única excepción: cuando el asistente le dijo al cliente que volviera a escribir si el problema continuaba, su siguiente mensaje recibe una respuesta aunque se haya llegado al límite —una sola vez— y esa respuesta solo puede agendar la devolución de llamada o entregar la conversación a una persona. Un límite de 0 (en pausa) nunca se supera." },
+          { p: "**Máximo de respuestas en una conversación** sigue aplicándose. La única excepción: cuando el asistente le dijo al cliente que volviera a escribir si el problema continuaba, su siguiente mensaje recibe una respuesta aunque se haya llegado al límite —una sola vez— y esa respuesta solo puede reservar un horario con un técnico, agendar la devolución de llamada o entregar la conversación a una persona. Un límite de 0 (en pausa) nunca se supera." },
+        ],
+      },
+    ],
+  },
+  "ai-employee-urgent-problems-and-safety": {
+    title: "Problemas urgentes y seguridad: qué hace el empleado de IA y a quién se le envía un mensaje",
+    summary:
+      "El gas significa salir primero, una tubería rota avisa por mensaje a su persona de guardia, un goteo es solo un goteo, y cada parte es una opción que usted controla.",
+    updated: "2026-10-04",
+    intro: [
+      "**Configuración → Empleado de IA → Problemas urgentes y seguridad** reúne un solo conjunto de opciones para todo su equipo de IA: qué es urgente para su empresa, a quién se le envía un mensaje cuando lo es, si el asistente puede dar un primer paso seguro, y tres más. Cada opción se muestra con su valor actual, y los valores predeterminados se describen abajo.",
+    ],
+    sections: [
+      {
+        id: "three-kinds",
+        heading: "Emergencia, urgente y todo lo demás",
+        blocks: [
+          { bullets: [
+            "**Emergencia**: olor a gas o una alarma de monóxido de carbono, fuego o humo, una persona herida, agua sobre la electricidad. Con gas o CO, lo primero que dice el asistente es que saquen a todos de la casa, que no toquen interruptores ni el teléfono adentro y que llamen a la línea de emergencias de la compañía de gas o al 911 una vez afuera; y no pregunta nada más hasta que digan que salieron. En los demás casos, les dice que llamen al 911. Esto no se puede desactivar.",
+            "**Urgente**: agua saliendo activamente o una tubería rota, sin calefacción con temperaturas bajo cero, un techo con goteras durante una tormenta, aguas negras que se regresan, un enchufe caliente, que zumba o echa chispas. Urgente para su empresa, no para el 911: se avisa por mensaje a su persona de guardia (abajo) y al cliente se le da el número de su empresa para llamar de inmediato.",
+            "**Todo lo demás**: un grifo que gotea, un desagüe lento, un ruido sin olor. Se trata con calma, como una pregunta o una devolución de llamada normal.",
+          ] },
+          { p: "**Hacer una pregunta rápida antes de decidir que es urgente** (activado por defecto) hace que el asistente compruebe primero —«¿Está entrando agua ahora mismo o es un goteo?», «¿Ve la llave de paso?», «¿Hay olor a gas o es solo un ruido?»— para que un grifo que gotea no se trate como una emergencia. Un olor a gas nunca se cuestiona: salir es lo primero." },
+          { p: "En **Qué cuenta como urgente** puede desactivar cualquiera de las cinco situaciones urgentes; a un pintor quizá no le interese un mensaje a las 2 a. m. por un techo. Una que desactive se trata como una devolución de llamada normal, nunca como una llamada al 911." },
+        ],
+      },
+      {
+        id: "on-call",
+        heading: "A quién se le envía un mensaje",
+        blocks: [
+          { steps: [
+            "Agregue personas a la lista de guardia y póngalas en orden. Cada una necesita un número de móvil en su perfil del equipo; la lista muestra **sin número de móvil en su perfil** junto a quien no lo tenga.",
+            "Cuando una conversación es urgente, la primera persona de la lista recibe un mensaje con lo que dijo el cliente y un enlace, además de la campana y una notificación push.",
+            "Si nadie pulsa **Yo me encargo** dentro de la espera que usted fije (10 minutos por defecto), se avisa a la siguiente persona, y así sucesivamente. Después de la última, usted recibe la campana.",
+          ] },
+          { p: "**Cuándo están de guardia** puede ser a todas horas, fuera de su horario de atención o en los días y horas que elija; una hora de fin anterior al inicio pasa de la medianoche, así que de 18:00 a 08:00 es el turno de noche." },
+          { p: "Cada mensaje se paga con su crédito de teléfono y mensajes, con la misma tarifa que los mensajes del equipo: nunca menos de 2 ¢ por mensaje. La tarjeta muestra el precio y su saldo." },
+          { note: "Cuando no puede salir ningún mensaje (nadie en la lista, sin crédito, fuera del horario de guardia), la tarjeta dice exactamente por qué en **Ahora mismo no se están enviando los mensajes urgentes**. Aun así, el cliente recibe su número, se registra una devolución de llamada urgente y usted recibe la campana." },
+        ],
+      },
+      {
+        id: "safe-steps",
+        heading: "Primeros pasos seguros",
+        blocks: [
+          { p: "Con **Dar primeros pasos seguros** activado (por defecto), el asistente puede decir que hagan una o dos cosas seguras para un propietario —cerrar la llave principal de agua, bajar un interruptor una vez (nunca una y otra vez), apagar el termostato— o un paso de sus propios manuales. **Ver los pasos que puede dar** los muestra con su fuente. Nunca dice que abran un panel o una tapa, toquen una válvula de gas o el piloto, usen una escalera o suban al techo, ni manipulen cables con corriente; una respuesta que lo haga se retiene para una persona en lugar de enviarse." },
+          { p: "Si lo desactiva, el asistente no da ningún paso: llama a su equipo. Las indicaciones de salir de la casa y de llamar al 911 siguen aplicándose." },
+        ],
+      },
+      {
+        id: "more",
+        heading: "Chat del sitio, manuales de FieldQuo, horarios reales",
+        blocks: [
+          { bullets: [
+            "**Reconocer a los clientes en el chat de su sitio web**: cuando un visitante escribe un correo o un teléfono que usted tiene registrado, el chat se vincula a ese cliente para usar su equipo e historial. La conversación muestra **Vinculado a … por su asistente de IA** con **No es este cliente** para deshacerlo; un par deshecho nunca se vuelve a vincular. Un número familiar compartido con otro nombre nunca se vincula.",
+            "**Usar la biblioteca de manuales de FieldQuo**: manuales de fabricantes que FieldQuo guarda para todas las empresas, leídos después de sus propios archivos. Puede compartir con ella uno de sus manuales de fabricante desde la [[ai-employee-reference-library|biblioteca de referencia]]; FieldQuo lo revisa primero, y nada más de lo que suba se comparte nunca.",
+            "**Ofrecer horarios reales con un técnico**: el técnico de diagnóstico ofrece horarios libres de su calendario de reservas cuando un problema no se resuelve, y reserva el que elija el cliente. Desactivado: registra una devolución de llamada.",
+          ] },
         ],
       },
     ],

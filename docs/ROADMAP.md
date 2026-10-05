@@ -1,6 +1,8 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 4 October 2026, late (subscription priced in local money for the UK and the EU — GBP and EUR plan rows at the AUD "same numbers" (£/€99, 169, 269, 369; annual ×10), VAT on top for £/€, the pricing page's "Show prices in" picker; AI credit plans sold to every company in USD on the separate USD add-on customer, and plan credit now RESETS monthly while top-ups persist. Schema additive — NOT applied; rows NOT seeded. See "Local-currency subscription, and AI plan credit that resets (4 October 2026)" below.)
+Last updated: 4 October 2026 (Google Ads spend: report upload (CSV / Excel CSV / .xlsx) that works today, a Google Ads API connection on Settings › Google Ads that waits on Google's developer-token approval, and Google spend over FieldQuo's own gclid leads on the Spend page, the KPI page and the monthly summary — see "Google Ads spend" below. Schema additive, NOT applied; SQL in that section.)
+Last updated: 4 October 2026 (AI employee knowledge, phase 2 — the owner's six decisions, each a company switch on Settings › AI employee › Urgent problems & safety: three-tier triage that asks first (water is urgent not 911; gas/CO = leave first), urgent texts to an ordered on-call list with no-ack escalation paid from phone & text credit, vetted safe first steps with a reply guard, web-chat client matching with undo, FieldQuo's shared manual library on /platform/manuals, and real appointment times for the troubleshooter. Schema additive — applied in production 2026-10-05. See "AI employee knowledge, phase 2" below.)
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
 Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
@@ -302,6 +304,115 @@ the numbers before it ships.**
   offered list), plus form-look, booking-language, estimate-report, lawn-care,
   service-area, gutter-instant, booking-questions, roofing-example, lead-language,
   public-payload, translations — all passing.
+## Google Ads spend (4 October 2026)
+
+Owner: *"we have meta ads in fieldquo what if we want to import the google ads
+expenditure too for analysis"*. Full write-up, owner steps and SQL:
+`docs/GOOGLE-ADS-INTEGRATION.md`.
+
+### What shipped (not deployed — unpushed branch, three commits)
+
+1. **Report upload, works today.** Settings › Google Ads and Marketing › Spend
+   → **Import Google Ads report**: the Campaigns report as Google downloads it
+   (title rows, date-range line, totals rows, UTF-16 "Excel CSV", .xlsx, comma
+   decimals, device-segmented lines), preview with possible duplicates, import
+   as `source: "google_ads_csv"`. Re-import updates, never doubles.
+2. **Google Ads API sync.** Settings › Google Ads (beside Meta Ads, same
+   "billing" gate, same layout): Connect (shared Google OAuth client + adwords
+   scope), ad-account picker (manager accounts via login-customer-id),
+   Sync now, daily cron `/api/cron/google-ads-sync`. Without
+   `GOOGLE_ADS_DEVELOPER_TOKEN`, or before `GOOGLE_ADS_API_APPROVED=1`, the
+   screen says exactly what is missing and draws no Connect button.
+3. **Analytics.** Spend page "Google Ads" section (per campaign: spend,
+   Google's clicks/impressions/conversions, YOUR leads from Google ad clicks,
+   cost per lead, won jobs, cost per won job, invoiced, paid); a Google line on
+   the KPI page's marketing tile; a Google Ads block in the monthly summary
+   email. Leads are LeadRequests with `attribution.clickNetwork =
+   "google_ads"`; Google's conversions are never a denominator. Currency
+   converted at read time, ≈.
+
+Platform is the existing `google` enum value, not a new `google_ads` (one
+channel row, and hand-typed Google rows stay visible to the duplicate check) —
+named as a deviation from the brief in the doc.
+
+### Schema (additive — NOT applied)
+
+`MarketingSpend.conversionsExact DECIMAL(12,2)`; new `GoogleAdsConnection`
+table (unique companyId, FK Company ON DELETE CASCADE). Exact SQL in
+`docs/GOOGLE-ADS-INTEGRATION.md`.
+
+### Owed (owner)
+
+- Google Ads manager account → API Center → developer token → apply for
+  Basic access; set `GOOGLE_ADS_DEVELOPER_TOKEN`; on approval set
+  `GOOGLE_ADS_API_APPROVED=1`.
+- Cloud project "fieldquo": enable Google Ads API; add redirect
+  `https://www.fieldquo.com/api/google-ads/callback` to the Web OAuth client;
+  add the `adwords` scope on the consent screen's Data access and submit for
+  verification.
+- Apply the SQL above before deploying.
+
+### Checks
+
+`npm run check:google-ads` (171: real-shaped exports in en/fr/de, UTF-16,
+.xlsx, idempotency, never-overwrite-manual/Meta/other-tenant, REST fixtures,
+error bodies, picker and sync over fakes, read-time currency, not-configured
+states, rollup and monthly summary). `check:kpis`, `check:campaign-rollup`
+(outcome helpers extracted, Meta output md5-identical), `check:monthly-summary`,
+`check:impersonation`, `check:settings-access`, `check:refusal-shape`.
+## Stored PDFs open again — signed, streamed, tenant-fenced (4 October 2026)
+
+**Why:** the production Cloudinary account refuses to deliver a PDF from its
+plain URL (401 on `raw/upload/…pdf` and `image/upload/…pdf`), and a raw file
+stored without an extension (every auto-filed quote/contract/invoice PDF)
+arrives as octet-stream named after its random id. Every link to a stored file
+looked like it worked and didn't.
+
+### What shipped (not deployed — unpushed branch)
+
+- `lib/media/signedFile.js` — the parser and signer lifted out of
+  `lib/hr/documentFile.js` (which now re-exports them, same functions), plus the
+  tenant fence (`fieldquo/companies/<id>/`, `fieldquo/<id>/`,
+  `fieldquo/satellite/<id>/`, `messaging/<id>/`, `mailbox/<id>/`, `crew/<id>/`),
+  magic-byte sniffing, safe download names, markup never served inline.
+- `lib/media/fileOpen.js` — three doors, all streaming through a five-minute
+  signed download link:
+  - **staff** `GET /api/files/open` — an HMAC link bound to the reader, the row
+    and a 12-hour expiry, minted by the route that LISTED the file after its own
+    gate; the row is re-read inside the session's company. Works under
+    read-only impersonation (a read).
+  - **client** `GET /api/portal/<token>/files/<waiver|guide>/<id>` and
+    `GET /api/public/quotes/<token>/files/document/<id>` — the page's own token,
+    and only that document's files.
+  - **platform** `GET /api/platform/files/open` — migration uploads and payout
+    receipts, each in its own fence.
+- Surfaces now linked through them: quote files and drawing reads, job documents
+  (and the job's linked documents), inbox PDFs and filed emails, receipts,
+  service documents, company documents, subcontractor and vehicle documents, the
+  prep-guide card, the portal's signed waivers, the proposal's documents (quote
+  page and instant-estimate report), the prep-guide email and PDF (portal token
+  links), the staff prep-guide preview PDF, the platform's migration documents
+  and payout receipts.
+- Server-side reads moved to the signed link too: the drawing read's PDF/sheet
+  ingest, the receipt PDF read, and prep-guide attachments.
+
+### Checks
+
+`check:file-open` (new, in check:all) — hostile URLs, other companies' folders,
+traversal, tokens, reader binding, streaming headers; mutation-tested.
+
+### Owed
+
+- The sales rep / influencer / agency **Earnings** panel still links a payout
+  receipt by its Cloudinary URL (`app/components/sales/EarningsPanel.js`) — it
+  needs a rep-session route; FieldQuo's own sales inbox attachments
+  (`app/sales/…`, folders `sales-inbound/`, `sales-mailbox/`) likewise.
+- Not verified against the live account from this session (production reads
+  were blocked); verify one quote drawing, one inbox PDF and one portal waiver
+  after deploy.
+
+---
+
 ## Owner decisions 4 October 2026 (evening)
 
 ### 1. Crew access — the four "Owed" decisions in docs/ROLE-ACCESS.md
@@ -455,6 +566,174 @@ Proposed dollars keep FieldQuo's worst-case model cost under ~1.4% of each
 plan's price, and the copilot's fair-use ceiling (lib/ai/featurePayer.js, the
 same size as the allowance, FieldQuo-paid) moves with them — that is the
 cost-increasing half, hence approval first.
+## AI employee knowledge, phase 2 — the owner's six decisions (4 October 2026)
+
+The owner decided every open item from phase 1, each as a **company setting**
+with a stated default ("this can be manually selected by the company"). All
+six are on one card, **Settings › AI employee › Urgent problems & safety**
+(`app/components/aiEmployee/UrgentSafety.js`, `GET/PUT
+/api/ai-employee/safety`, row `AiEmployeeCompanySettings`; no row = the
+owner's defaults, every one shown as a switch; nobody is ever on call by
+default).
+
+### What shipped (not deployed — unpushed branch)
+
+- **(a) Triage — three tiers, ask first.** `lib/ai/crisisRule.js` rewritten
+  (the ONE rule every public-facing prompt carries — receptionist, outbound,
+  sales line, copilot, AI employee): **LEAVE FIRST** for a gas smell / CO
+  alarm (get out, no switches or phone inside, call the gas company's
+  emergency line or 911 from outside, ask nothing else until they're out);
+  **CALL 911** for fire/smoke, injury/shock, water on the electrics,
+  hypothermia, personal danger; **URGENT, NOT 911** for an active leak/burst
+  pipe, no heat in freezing weather, a roof leaking in a storm, sewage
+  backing up; **ASK BEFORE YOU DECIDE** with the owner's probing questions,
+  and a dripping tap named as ordinary. 911 is still the only digit sequence;
+  the gas company is a place, never a number. Sources cited in the file
+  (PSC Wisconsin, FEMA P-234, CPSC CO Q&A, USDA FB 2202, Ready.gov, UMN
+  Extension, CDC CERC, FEMA IS-242.b). `lib/aiEmployee/triage.js`: a free
+  deterministic matcher over the customer's own words (en/fr/es; strong
+  phrases only — "leak" alone is a question, past-tense fires and "pouring
+  outside" are nothing) + the model's `urgency` on hand_off_to_human /
+  book_callback / log_troubleshooting — **the higher wins**, so a model that
+  under-calls can't downgrade the words. Company switches: which of the five
+  urgent situations count (one switched off = an ordinary callback, never
+  911) and probe-first. The emergency tier is not a switch.
+- **(b) Urgent → text the on-call person.** `lib/aiEmployee/onCall.js` (pure:
+  who is on call now — always / outside business hours / custom days+times
+  in the company's timezone, wrapping midnight; the ordered ladder, skipping
+  by name anyone with no phone; the text; its price) and
+  `lib/aiEmployee/urgentAlerts.js`: the first person is texted at once from
+  FieldQuo's system number, with the bell + push (`ai_employee.urgent`,
+  named); `/api/cron/urgent-alerts` (every 2 min) texts the next person when
+  nobody presses **I've got it** (`/app/urgent/[id]`, a POST button — a link
+  preview can't acknowledge) within the company's wait (default 10 min);
+  after the last, the owner gets `ai_employee.urgent_unrouted`. STOP'd or
+  failed numbers are skipped at once. Paid from the **phone & text credit**
+  as ledger kind `urgent_alert_text` (`lib/voice/spendGate.js`): the floor
+  (2¢/segment) at send, settled to Twilio cost × 2 by `lib/phoneUsage/
+  settle.js`; English alerts are kept ASCII and inside one segment. One alert
+  per conversation per 6 h. No credit / nobody on call / off hours / alerts
+  off / no system number → no text, nothing charged, the alert says why, the
+  owner gets the bell, and the responder **books the urgent callback itself**
+  when the model didn't. The customer's reply ends with a fixed, translated
+  line built from what actually happened ("I've alerted X's on-call team"
+  only when a text went; "flagged as urgent" otherwise) plus the company's
+  own number (`Company.phone`; omitted, never invented, when blank). The
+  card shows, from the same functions, why texts aren't going out.
+- **(c) Vetted safe first steps.** `lib/aiEmployee/knowledge/firstSteps.js`:
+  11 steps with sources (main water valve, the one fixture's valve, protect
+  belongings, keep clear of electrics, **one breaker off once — never
+  repeatedly**, stop using a hot outlet, thermostat check / **thermostat
+  OFF**, protect pipes from freezing, roof drip, stop using water on a
+  sewage backup). The troubleshooter's old "do not talk them through it" is
+  replaced by "only vetted steps — this list, the company's material or a
+  code-lookup result — never a panel, gas valve/pilot, ladder/roof or live
+  wiring". Two belts: `log_troubleshooting` refuses to record an unvetted
+  step; a reply that instructs one is **held for a person** (stop reason
+  `unsafe_step`), with negated warnings ("don't go up a ladder") passing.
+  Switch: `safeStepsEnabled` (off = no steps at all; leave-first/911 stand).
+- **(d) Web-chat client matching.** `lib/aiEmployee/webChatMatch.js` — the
+  Facebook leads' matcher (`lib/leads/identityMatch.js`) over the visitor's
+  typed name/email/phone, only on a web thread with no client and only when
+  the message carries an email or phone; links `thread.clientId` only while
+  it is null, records `ThreadClientMatch`, writes a "Client linked" line in
+  the conversation. **Not this client** (`WebMatchBar`, `POST
+  /api/messaging/threads/[id]/client-match`) undoes it; an undone pair is
+  never proposed again. Family landline (same phone, different name), name
+  alone and ties never link. A web-matched equipment card tells the model
+  not to volunteer the record. Switch: `matchWebChatClients`.
+- **(e) FieldQuo's manual library.** `SharedManual` + `SharedManualPage`,
+  unique by file SHA-256; `lib/aiEmployee/sharedLibrary.js`. In: FieldQuo
+  uploads on **/platform/manuals** (own private folder
+  `fieldquo/companies/fieldquo-library/reference`, sign/verify under
+  `manual_library:manage`, admin + superadmin, audited — live at once), or a
+  company ticks **Share with FieldQuo's manual library** on a read,
+  brand-tagged `manual` PDF after confirming it's the manufacturer's own
+  unmodified document — its page text is copied as **pending** (its file
+  never moves) and nothing reaches another company until FieldQuo approves.
+  Retrieval: live manuals only, only the ones the equipment or message
+  names (max 3 per reply), after the company's own uploads at the same tier,
+  skipping any whose hash the company uploaded itself; same 8,000-char
+  budget. Private uploads, SOPs, policies never cross. Switch:
+  `useSharedManuals`.
+- **(f) Real times with a tech.** The troubleshooter now has
+  `check_availability` + `book_appointment` (the public booking page's own
+  slots, so the company's booking settings decide; a known client's name,
+  phone and only site address fill in). The follow-up after "still broken"
+  offers real times and books one, falling back to `book_callback` only when
+  nothing is free; the close-the-loop line becomes "…we'll find you a time
+  with one of our techs." Switch: `bookTechSlots` (off = the callback flow
+  and the old line).
+- Help: `ai-employee-urgent-problems-and-safety` (en/fr/es); the
+  troubleshooting article updated for real times. 132 new strings × 9
+  languages.
+
+### Costs
+
+- Prompt: the triage + first-steps blocks add ~800 tokens per model round
+  for the troubleshooter and receptionist (~350 for the closer/custom),
+  static per company so they sit in the cached prefix: ~$0.0004 a round
+  cached, ~$0.004 uncached at gpt-5.5's $0.50 / $5 per M input. The
+  rewritten CRISIS_RULE is 2.3 kB (was 1.1 kB, ~300 more tokens) in every
+  public-facing prompt — voice receptionist, outbound, sales line, copilot,
+  AI employee.
+- Urgent texts: 2¢ a segment at send (floor), settled to Twilio cost × 2
+  — paid by the COMPANY from phone & text credit. A typical urgent alert is
+  one text, two if nobody answers the first person.
+- Shared library: no per-conversation cost beyond the existing budget;
+  platform uploads are one-off unpdf reads (free) and private storage.
+- Web-chat matching: one client scan per message that carries an email or
+  phone (no model call).
+
+### Schema (additive — APPLIED in production 2026-10-05; the reference-library
+### list selects the two new AiEmployeeSource columns)
+
+```sql
+ALTER TABLE "AiEmployeeSource" ADD COLUMN "sharedAt" TIMESTAMP(3), ADD COLUMN "sharedManualId" TEXT;
+-- plus CREATE TABLE "AiEmployeeCompanySettings", "UrgentAlert",
+-- "UrgentAlertStep", "ThreadClientMatch", "SharedManual", "SharedManualPage"
+-- and their indexes/foreign keys — the full script is in the agent report
+-- (prisma migrate diff from origin/main's schema; nothing dropped or altered).
+```
+
+### Checks
+
+`check:ai-employee` (884: the probing cases through the real responder —
+gushing alerts, dripping/“leak” don't, the model's urgency on a probe answer,
+under-calling can't downgrade, gas prepends leave-first, a furnace noise
+doesn't, a company's switched-off category, no on-call → auto urgent callback
++ honest line, dedupe, an unsafe draft held; the on-call ladder executed —
+skip-by-name, 10-minute no-ack escalation, exhausted → owner, acknowledge
+stops it, no credit / nobody / alerts off / off hours / no SMS number /
+STOP; custom windows across midnight and timezones; settings refusals; the
+vetted-steps whitelist and guard; web-chat matching and undo through the
+responder), `check:crisis` (122: tier order, leave-first wording, water out
+of the 911 paragraph, the probing questions, every AI-employee role carries
+the rule, 18 classifier cases), `check:error-codes` (every curated step
+passes the guard), `check:reference-library` (135: shared-library isolation
+— A can't share B's manual, an SOP never, pending is invisible, dedupe by
+hash, own copy wins, pages only for named manuals, company before library),
+`check:closer-technique` (closer/receptionist/custom pins unchanged with the
+three safety changes put back; troubleshooter re-pinned deliberately),
+`check:notifications`, `check:prompt`, `check:platform-console`,
+`check:product-analytics`, `check:route-callers`, `check:interconnections`,
+`check:help-centre`, `check:phone-usage` (catalogue clean).
+
+### Owed
+
+- Deploy (the SQL is applied). On a real company: put one person with a
+  mobile on call, send "water is pouring through the ceiling" in the web
+  chat, confirm the text arrives (and the ledger shows `urgent_alert_text`),
+  press I've got it, and confirm the cron didn't text the next person.
+- Reply-by-SMS ("1") to acknowledge is not built — the text carries the
+  link; inbound texts to the system number are the AI employee's channel.
+- Automatic customer follow-up when someone acknowledges ("Sam from X has
+  your message") is not built — a decision for the owner.
+- A trade technician's review of the 11 vetted steps and the triage phrases;
+  the matcher covers en/fr/es only (the model's urgency covers the rest).
+- Counsel's one-line review before FieldQuo uploads manufacturers' manuals
+  to the shared library (copyright: stored privately, paraphrased, cited).
+
 ## AI employee knowledge, phase 1 (4 October 2026)
 
 The owner approved the direction in the research plan (AI employee knowledge +

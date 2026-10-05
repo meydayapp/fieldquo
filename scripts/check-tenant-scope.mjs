@@ -81,6 +81,23 @@ const ok = (name, cond, got) => {
 // point: adding an unscoped lookup requires writing down why, in a file that
 // gets read in review, rather than it passing silently.
 // ───────────────────────────────────────────────────────────────────────────
+
+// Prospect gained a nullable companyId on 2026-09-21 (0302279b3) — "the
+// company this signup BECAME" — and from that day the schema-derived tenant
+// list counted FieldQuo's own cold-call pool as tenant data. It is not: no
+// contractor owns a Prospect, no /app route reads one, and scoping a sales
+// read by companyId would be scoping by the wrong owner. The boundary on the
+// sales floor is the REP (queueWhere(rep.id), or the rep's own SalesLead the
+// prospect hangs off, or an explicit assignedRepId === rep.id check). Declared
+// per file rather than dropped from the tenant list as a model, so a
+// contractor-side route that ever looks a Prospect up by id still fails here.
+const PROSPECT_REP_SCOPED =
+  "Prospect is FieldQuo's own sales pool, not a contractor's data (its " +
+  "companyId says which company a signup became, not who owns the row). Every " +
+  "lookup here is held to the REP the session gate resolved: queueWhere(rep.id), " +
+  "the rep's own SalesLead's prospectId, or assignedRepId === rep.id checked " +
+  "before anything is returned.";
+
 const GLOBAL_BY_DESIGN = {
   "app/api/instant-quote/[companySlug]/callback/route.js": {
     leadRequest:
@@ -218,6 +235,71 @@ const GLOBAL_BY_DESIGN = {
       "Called by Retell mid-call, authenticated by the call context rather than " +
       "a session. The lead is one this call created or was already bound to; " +
       "ctx.companyId comes from the verified call, never from the tool payload.",
+  },
+
+  // ── Ids taken from a row this handler already scoped (verified 2026-10-04) ──
+  // The scanner proves `const x = findFirst({ where: { id, companyId } })` but
+  // not a loop variable over a scoped findMany, nor `jobId: job.id` where `job`
+  // is the scoped read — so these are declared, each with where the scope is.
+  "app/api/ai-employee/route.js": {
+    aiEmployee:
+      "Both updates key off rows from db.aiEmployee.findMany({ where: { companyId } }) " +
+      "in the same function: `r` in loadOrCreate's default-face/name backfill, " +
+      "`other` in the PATCH intents hand-off (rows read with " +
+      "member.companyId). The browser names an employee only through " +
+      "targetEmployee(rows, id), which picks from that scoped list.",
+  },
+  "app/api/jobs/[id]/change-orders/route.js": {
+    task:
+      "The step lookup is { id: input.taskId, jobId: job.id, planStep: true }, " +
+      "and `job` was read two blocks up with { id, companyId: member.companyId, " +
+      "...assignedJobWhere(full) } — a step on another company's job matches " +
+      "nothing and the route answers 400.",
+  },
+  "app/api/jobs/[id]/plan/route.js": {
+    task:
+      "reorder: every id is first proved by db.task.findMany({ where: { jobId: " +
+      "job.id, planStep: true, id: { in: ids } } }) with `job` from loadJob " +
+      "(companyId-scoped), and refused unless the count matches the distinct ids. " +
+      "Only then does the per-id sortOrder update run.",
+  },
+  "app/api/time-clock/route.js": {
+    task:
+      "resolveTaskId(rawTaskId, jobId) looks the step up with { id, jobId, " +
+      "planStep: true } and every caller passes resolved.jobId from " +
+      "resolveJobId(), which reads the job through clockableJobWhere({ companyId: " +
+      "member.companyId, … }) — never the browser's jobId.",
+  },
+  "app/api/portal/[token]/route.js": {
+    client:
+      "Token route. `client` is the row the portal token resolved to at the top " +
+      "of the handler; this findUnique re-reads THAT row's address for the visit " +
+      "cards (id: client.id), never an id from the request.",
+  },
+
+  // ── FieldQuo's own sales pool (see PROSPECT_REP_SCOPED above) ──
+  "app/api/sales/calls/history/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/calls/numbers/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/calls/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/leads/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/messages/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/playbook/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/queue/people/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/queue/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/sales/voicemail/[id]/audio/route.js": { prospect: PROSPECT_REP_SCOPED },
+  "app/api/platform/sales/campaigns/[id]/review/route.js": {
+    prospect:
+      "FieldQuo's console reviewing its OWN discovery campaign, behind " +
+      "superadminOrRefusal. The prospect is refused unless prospect.campaignId " +
+      "matches the campaign in the URL. Prospect is FieldQuo's sales pool, not a " +
+      "contractor's record (see PROSPECT_REP_SCOPED).",
+  },
+  "app/api/platform/sales/campaigns/[id]/route.js": {
+    prospect:
+      "FieldQuo's console, behind superadminOrRefusal: the review card reads the " +
+      "row a campaign prospect was flagged as a possible duplicate OF " +
+      "(p.possibleDuplicateOfId off this campaign's own rows) — FieldQuo's own " +
+      "sales pool, not a contractor's record.",
   },
 };
 
@@ -436,6 +518,11 @@ const PLATFORM_MAY_WRITE = {
     "as demoHostAvailability. Not the company's quote/invoice/job/client data; " +
     "see the section below for the ONE declared path that touches those.",
   feedback: "Answering a support message the customer sent us.",
+  prospect:
+    "FieldQuo's own cold-call / discovery pool — the campaign review and the " +
+    "retry pool. Same family as platformErrorLog: Prospect.companyId (added " +
+    "2026-09-21) says which company a signup became, not who owns the row. No " +
+    "contractor owns or edits a Prospect.",
   platformErrorLog:
     "FieldQuo's own error log. It carries a companyId to say where an error came " +
     "from, which is why it looks like tenant data and is not.",

@@ -15,6 +15,7 @@ import { uploadFile } from "@/lib/media/uploadClient";
 import { showError } from "@/lib/clientErrors";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { formatBytes } from "@/lib/jobs/documents";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 /**
  * @param categoryId  null for the company-level list
@@ -107,9 +108,9 @@ export default function ServiceDocuments({ categoryId = null, documents, onChang
       {rows.map((d) => (
         <div key={d.id} className="flex items-center gap-2 rounded border border-border px-2.5 py-1.5 text-sm">
           <FileText size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-          <a href={d.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate underline-offset-2 hover:underline">
+          <OpenFileLink href={d.openUrl} className="min-w-0 flex-1 truncate underline-offset-2 hover:underline">
             {d.title}
-          </a>
+          </OpenFileLink>
           <span className="shrink-0 text-xs text-muted-foreground">
             {[d.language ? d.language.toUpperCase() : null, formatBytes(d.sizeBytes)].filter(Boolean).join(" · ")}
           </span>

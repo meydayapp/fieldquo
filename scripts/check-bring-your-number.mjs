@@ -528,8 +528,15 @@ const platformSrc = strip(read("app/api/platform/business-numbers/route.js"));
 ok("the platform console writes no customer row (non-negotiable #3)", !/broughtNumber\.(update|create|upsert|delete)/.test(platformSrc) && !/company\.(update|create)/.test(platformSrc));
 ok("…its only write is FieldQuo's own PortFiling log", /portFiling\.create/.test(platformSrc));
 ok("…opening a package needs the superadmin-only permission and is audited", /porting:handle/.test(platformSrc) && /port_package_opened/.test(platformSrc));
-const perms = read("lib/platform/permissions.js");
-ok("porting:handle is superadmin-only", /SUPERADMIN_ONLY_PERMISSIONS = \[\s*"porting:handle"/.test(perms));
+// Executed, not grepped for position: the first version asserted porting:handle
+// was the FIRST entry of SUPERADMIN_ONLY_PERMISSIONS, and failed the day
+// company:unlock and company:mark_test were listed above it (2026-10-03) while
+// the permission itself stayed exactly as restricted as before.
+const { canPlatform, SUPERADMIN_ONLY_PERMISSIONS } = await import("@/lib/platform/permissions");
+ok("porting:handle is superadmin-only",
+  SUPERADMIN_ONLY_PERMISSIONS.includes("porting:handle") &&
+  canPlatform("superadmin", "porting:handle") &&
+  ["admin", "support", "sales", "viewer"].every((r) => !canPlatform(r, "porting:handle")));
 const voiceSrc = strip(read("app/api/business-number/voice/route.js"));
 ok("an inbound call resolves its company from the dialled number, signature first", voiceSrc.indexOf("verifyTwilioWebhook") < voiceSrc.indexOf("broughtNumberByE164"));
 const legSrc = strip(read("app/api/business-number/bridge/route.js"));

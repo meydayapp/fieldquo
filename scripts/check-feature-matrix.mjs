@@ -713,37 +713,47 @@ ok(
 // ── The claim that was false, kept false-proof ─────────────────────────────
 //
 // Twelve industry pages said "No credit card required." under the Start free
-// trial button, in six languages. createTrialCheckoutSession runs
-// mode: "subscription" with a trial and does NOT pass
-// payment_method_collection: "if_required" — so Stripe's default, "always",
-// applies and the card is taken before the free month begins.
+// trial button, in six languages, while signup ran createTrialCheckoutSession
+// — mode: "subscription" with no payment_method_collection: "if_required", so
+// Stripe's default ("always") took the card before the free month began.
 //
-// It is asserted from BOTH ends, because either end alone rots: the copy must
-// not re-acquire the promise, and the Stripe call must not quietly start
-// collecting a card again under corrected copy that says it doesn't.
+// The owner then made the promise TRUE by a different route than the one this
+// comment used to predict (owner decisions 2026-09-24, re-confirmed
+// 2026-09-29): signup opens NO checkout at all. The trial runs on
+// Company.trialEndsAt alone (lib/pricing.js TRIAL_CARD_REQUIRED = false), and
+// the card is asked for later, from Account & Billing's "Choose plan". The
+// copy was rewritten to say so the same day (4eaaeaa4), and this assertion
+// went red on it — correctly by its old wording, wrongly by the product's.
 //
-// If the owner decides the promise should be TRUE, the fix is
-// payment_method_collection: "if_required" on that session, and then this
-// assertion is what has to change — deliberately, with the copy, in one commit.
+// Still asserted from BOTH ends, because either end alone rots: the promise is
+// allowed only while TRIAL_CARD_REQUIRED is false AND the signup page's
+// POST /api/companies names no planId (a planId is what reaches the checkout).
+// Flip either and every page that promises "no card" fails here.
 {
   const { readdirSync, readFileSync: rf } = await import("node:fs");
-  const billing = rf("lib/platform/stripeBilling.js", "utf8");
-  const trial = billing.slice(billing.indexOf("export async function createTrialCheckoutSession"));
-  const collectsCard = !/payment_method_collection:\s*"if_required"/.test(
-    trial.slice(0, trial.indexOf("\n}\n")),
-  );
+  const { TRIAL_CARD_REQUIRED } = await import("@/lib/pricing");
+  const signup = rf("app/signup/page.js", "utf8");
+  const at = signup.indexOf('fetch("/api/companies"');
+  const signupCall = at >= 0 ? signup.slice(at, signup.indexOf("}).catch", at)) : "";
+  const signupTakesCard = TRIAL_CARD_REQUIRED !== false || at < 0 || /\bplanId\s*:/.test(signupCall);
+  ok("signup creates the company without opening a checkout (no planId posted)", at >= 0 && !/\bplanId\s*:/.test(signupCall));
 
   for (const file of readdirSync("app/i18n/industries").filter((f) => f !== "index.js")) {
     const src = rf(`app/i18n/industries/${file}`, "utf8");
-    const promises = /no credit card|aucune carte|no se requiere tarjeta|картка не потрібна|ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਦੀ ਲੋੜ ਨਹੀਂ|walang kailangang credit card/i.test(src);
+    const promises = /no credit card|no card needed|aucune carte|no se requiere tarjeta|no hace falta tarjeta|картка не потрібна|ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਦੀ ਲੋੜ ਨਹੀਂ|walang kailangang credit card/i.test(src);
     ok(
-      `${file}: does not promise "no credit card" while checkout collects one`,
-      !(promises && collectsCard),
+      `${file}: does not promise "no credit card" while signup collects one`,
+      !(promises && signupTakesCard),
     );
   }
+  // The checkout a plan choice opens later is still the subscription one; read
+  // to the end of the function rather than a fixed 2,000 characters, which
+  // the referral comment above the call outgrew on 2026-10-03.
+  const billing = rf("lib/platform/stripeBilling.js", "utf8");
+  const trial = billing.slice(billing.indexOf("export async function createTrialCheckoutSession"));
   ok(
     "…and the trial checkout still is the thing being described",
-    /mode: "subscription"/.test(trial.slice(0, 2000)),
+    /mode: "subscription"/.test(trial.slice(0, trial.indexOf("\n}\n"))),
   );
 }
 

@@ -678,6 +678,29 @@ export default function KpiDashboardPage() {
                         {/* The owner's ask, verbatim: a way from this figure to the
                             campaigns behind it. #campaigns is the section id on the
                             Spend page (app/app/marketing/spend/page.js). */}
+                        {/* Google Ads' cost per lead and per won job, on
+                            FieldQuo's own leads that arrived with a Google
+                            click id — never Google's conversions
+                            (lib/analytics/kpis.js buildAdChannelCosts). */}
+                        {finance.marketing.googleAds && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {finance.marketing.googleAds.costPerLead.value != null
+                              ? t("app.kpis.finance.googleAdsLine", {
+                                  cpl: `${finance.marketing.googleAds.approximate ? "≈ " : ""}${money(finance.marketing.googleAds.costPerLead.value)}`,
+                                  cpwj: finance.marketing.googleAds.costPerWonJob.value != null
+                                    ? `${finance.marketing.googleAds.approximate ? "≈ " : ""}${money(finance.marketing.googleAds.costPerWonJob.value)}`
+                                    : t("app.kpis.finance.googleAdsNoWonJob"),
+                                  leads: finance.marketing.googleAds.leads,
+                                })
+                              : t("app.kpis.finance.googleAdsNoLeads")}{" "}
+                            <Link href="/app/marketing/spend#google-campaigns" className="underline text-foreground">
+                              {t("app.kpis.finance.googleAdsLink")}
+                            </Link>
+                          </p>
+                        )}
+                        {finance.marketing.googleAdsError && (
+                          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{t("app.kpis.finance.googleAdsError")}</p>
+                        )}
                         <Link href="/app/marketing/spend#campaigns" className="mt-2 inline-block text-xs underline text-foreground">
                           {t("app.kpis.finance.marketingCampaignsLink", "See campaigns →")}
                         </Link>

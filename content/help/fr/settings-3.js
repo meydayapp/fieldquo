@@ -1128,4 +1128,78 @@ export const ARTICLES = {
       { q: "Puis-je modifier la légende ?", a: "Oui — appuyez sur Modifier le texte. Changer le texte retire l'approbation ; le visuel est donc approuvé de nouveau avant de partir." },
     ],
   },
+  // Paramètres → Google Ads (2026-10-04) — app/app/settings/google-ads/page.js,
+  // lib/googleAds/*, docs/GOOGLE-ADS-INTEGRATION.md.
+  "settings-google-ads": {
+    title: "Google Ads",
+    summary:
+      "Amenez vos dépenses Google Ads dans FieldQuo — téléversez dès aujourd'hui le rapport téléchargé de Google Ads, ou connectez le compte une fois l'accès de FieldQuo approuvé par Google — et voyez ce que chaque prospect et chaque chantier gagné venus de Google vous ont coûté.",
+    updated: "2026-10-04",
+    intro: [
+      "**Paramètres → Google Ads** est l'endroit où vos dépenses Google Ads entrent dans FieldQuo, à côté de **Paramètres → Meta Ads**. Il y a deux façons : **Importer un rapport Google Ads**, qui fonctionne dès aujourd'hui, et **Connecter Google Ads**, qui relit les mêmes chiffres chaque matin une fois FieldQuo approuvé par Google. Dans les deux cas, les dépenses arrivent dans **Dépenses marketing** comme lignes Google, et FieldQuo les divise par VOS prospects venus de Google — jamais par le décompte de conversions de Google.",
+    ],
+    sections: [
+      {
+        id: "states",
+        heading: "Ce que l'écran affiche",
+        blocks: [
+          { bullets: [
+            "**Pas encore configuré** — il manque à ce déploiement de FieldQuo un élément pour communiquer avec Google; l'écran le nomme. Rien à faire de votre côté; le téléversement de rapport ci-dessous fonctionne quand même.",
+            "**En attente de l'approbation de Google** — tout est configuré, mais Google n'a pas encore approuvé FieldQuo pour les vrais comptes publicitaires; il n'y a donc pas de bouton de connexion. Téléversez votre rapport en attendant.",
+            "**Non connecté** — avec **Connecter Google Ads**.",
+            "**Quel compte publicitaire?** — après votre autorisation, chaque compte Google Ads que votre identifiant Google peut lire, y compris les comptes clients sous un compte administrateur. Choisissez-en un et appuyez sur **Importer de ce compte**.",
+            "Le compte connecté — son nom, son numéro et sa devise, la dernière synchronisation, **Synchroniser maintenant** et **Déconnecter**. **À reconnecter** signifie que Google a retiré l'accès de FieldQuo; appuyez sur **Reconnecter**.",
+          ] },
+          { note: "**Comment vos prospects venus de Google sont comptés** s'affiche dans tous les cas, avec le modèle de suivi à coller dans Google Ads." },
+        ],
+      },
+      {
+        id: "report",
+        heading: "Importer un rapport Google Ads (dès aujourd'hui)",
+        blocks: [
+          { steps: [
+            "Dans Google Ads, ouvrez **Campagnes** et choisissez les dates.",
+            "Segmentez par **Période → Jour**, et gardez les colonnes **Campagne**, **Coût** et **Code de la devise** affichées.",
+            "Téléchargez en .csv, .csv Excel ou .xlsx.",
+            "Dans FieldQuo, appuyez sur **Importer un rapport Google Ads** (ici ou dans **Dépenses marketing**), choisissez le fichier et appuyez sur **Vérifier le rapport**.",
+            "Lisez l'aperçu — nouvelles lignes, lignes mises à jour depuis une importation précédente et doublons possibles — puis appuyez sur **Importer**.",
+          ] },
+          { note: "Téléverser de nouveau le même rapport met à jour les lignes qu'il a écrites; il ne les ajoute jamais deux fois. Les lignes qui semblent déjà inscrites pour la même campagne et le même jour sont ignorées, sauf si vous décochez la case. Les lignes de totaux sont laissées de côté, et un rapport divisé par appareil ou par réseau est additionné par jour." },
+        ],
+      },
+      {
+        id: "connect",
+        heading: "Connecter Google Ads",
+        blocks: [
+          { steps: [
+            "Appuyez sur **Connecter Google Ads** et connectez-vous avec l'identifiant Google que vous utilisez pour Google Ads.",
+            "Autorisez FieldQuo à voir vos données Google Ads. FieldQuo ne fait que lire; il ne crée ni ne modifie jamais d'annonce.",
+            "De retour à l'écran, choisissez le compte sous **Quel compte publicitaire?** et appuyez sur **Importer de ce compte**. Les 90 derniers jours arrivent tout de suite.",
+            "Ensuite, FieldQuo relit les 30 derniers jours chaque matin. **Synchroniser maintenant** le fait sur demande.",
+          ] },
+          { note: "**Déconnecter** retire l'accès de FieldQuo chez Google. Les dépenses déjà importées restent dans votre historique. Les jours déjà couverts par un rapport téléversé ne sont pas importés une deuxième fois par la connexion." },
+        ],
+      },
+      {
+        id: "leads",
+        heading: "Comment vos prospects et chantiers gagnés venus de Google sont comptés",
+        blocks: [
+          { p: "Un prospect compte pour Google quand la personne est arrivée par un clic sur une annonce Google — le marquage automatique de Google Ads ajoute l'identifiant du clic, et FieldQuo le garde sur le prospect. Le **coût par prospect** de Google est votre dépense Google divisée par ces prospects; le **coût par chantier gagné** est la dépense divisée par les chantiers issus de ces prospects. Les **conversions** de Google sont affichées comme celles de Google et ne sont jamais comptées comme vos prospects." },
+          { p: "Pour voir les prospects par campagne, collez le modèle de suivi affiché à l'écran dans Google Ads (Paramètres → Paramètres du compte → Suivi). Sans lui, les prospects Google comptent quand même dans les totaux Google, sur une ligne **campagne non marquée**." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Qui peut le voir",
+        blocks: [
+          { p: "Les propriétaires et les administrateurs — comme **Paramètres → Meta Ads** et **Paiements**. **Importer un rapport Google Ads** dans **Dépenses marketing** est ouvert à toute personne qui voit cette page." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Pourquoi n'y a-t-il pas de bouton de connexion?", a: "Soit ce déploiement n'est pas encore configuré pour Google Ads, soit Google n'a pas encore approuvé FieldQuo pour les vrais comptes publicitaires. L'écran indique lequel. Le téléversement de rapport fonctionne dans les deux cas." },
+      { q: "Mon compte Google Ads facture en dollars américains et mon entreprise est en dollars canadiens.", a: "Les montants sont gardés en dollars américains, tels que Google les a rapportés, et convertis au calcul des totaux, marqués ≈ avec le taux utilisé." },
+      { q: "Pourquoi mes prospects ne correspondent-ils pas aux conversions de Google?", a: "Ils ne mesurent pas la même chose. Google compte le déclenchement de sa balise; FieldQuo compte les demandes réellement reçues de personnes qui ont cliqué sur une annonce Google. Le coût par prospect utilise les vôtres." },
+    ],
+  },
 };

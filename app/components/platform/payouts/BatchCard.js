@@ -16,6 +16,7 @@ import { useState } from "react";
 import { CheckCircle2, Clock3, ExternalLink, Pencil } from "lucide-react";
 import { centsToMoney } from "@/lib/sales/money";
 import MarkPaidForm from "./MarkPaidForm";
+import { platformFileHref } from "@/lib/media/fileHrefs";
 
 function day(value) {
   return value ? new Date(value).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—";
@@ -41,9 +42,11 @@ export function ProofLines({ batch }) {
       </dd>
       <dt className="text-muted-foreground">Receipt</dt>
       <dd>
-        {batch.proofUrl ? (
+        {/* Through our route, not the stored Cloudinary URL, which answers
+            401 for a PDF receipt (lib/media/fileOpen.js). */}
+        {batch.proofUrl && platformFileHref("payout-proof", batch.id) ? (
           <a
-            href={batch.proofUrl}
+            href={platformFileHref("payout-proof", batch.id)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 underline text-foreground"

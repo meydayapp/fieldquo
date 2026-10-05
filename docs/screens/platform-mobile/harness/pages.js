@@ -16,6 +16,7 @@ import BillingPlansPage from "@/app/platform/billing/plans/page";
 import BillingPromotionsPage from "@/app/platform/billing/promotions/page";
 import BillingSubscriptionsPage from "@/app/platform/billing/subscriptions/page";
 import BillingTaxPage from "@/app/platform/billing/tax/page";
+import BusinessNumbersPage from "@/app/platform/business-numbers/page";
 import ChatPage from "@/app/platform/chat/page";
 import CompaniesPage from "@/app/platform/companies/page";
 import CompanyDetailPage from "@/app/platform/companies/[id]/page";
@@ -32,6 +33,7 @@ import GrowthPage from "@/app/platform/growth/page";
 import HelpPage from "@/app/platform/help/page";
 import JenniferPage from "@/app/platform/jennifer/page";
 import LoginPage from "@/app/platform/login/page";
+import ManualLibraryPage from "@/app/platform/manuals/page";
 import MigrationsPage from "@/app/platform/migrations/page";
 import MigrationDetailPage from "@/app/platform/migrations/[id]/page";
 import PromoCodesPage from "@/app/platform/promo-codes/page";
@@ -106,6 +108,7 @@ export const PAGES = {
   "/platform/billing/promotions": { render: page(BillingPromotionsPage) },
   "/platform/billing/subscriptions": { render: page(BillingSubscriptionsPage) },
   "/platform/billing/tax": { render: page(BillingTaxPage) },
+  "/platform/business-numbers": { render: page(BusinessNumbersPage) },
   "/platform/chat": { render: page(ChatPage) },
   "/platform/companies": { render: page(CompaniesPage) },
   [`/platform/companies/${COMPANY_ID}`]: { render: asyncPage(CompanyDetailPage, { id: COMPANY_ID }), params: { id: COMPANY_ID }, file: "companies/[id]" },
@@ -122,6 +125,7 @@ export const PAGES = {
   "/platform/help": { render: page(HelpPage) },
   "/platform/jennifer": { render: page(JenniferPage) },
   "/platform/login": { render: page(LoginPage) },
+  "/platform/manuals": { render: page(ManualLibraryPage) },
   "/platform/migrations": { render: page(MigrationsPage) },
   [`/platform/migrations/${MIGRATION_ID}`]: { render: asyncPage(MigrationDetailPage, { id: MIGRATION_ID }), params: { id: MIGRATION_ID }, file: "migrations/[id]" },
   "/platform/promo-codes": { render: page(PromoCodesPage) },

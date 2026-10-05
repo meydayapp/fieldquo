@@ -17,6 +17,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle } from "@/lib/permissions/enforce";
 import { loadPlanRead } from "@/lib/planRead/load";
 import { addPlanReadDocument } from "@/lib/planRead/documents";
+import { cloudinarySigner } from "@/lib/media/cloudinarySign";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -37,6 +38,9 @@ export async function POST(request, { params }) {
     raw,
     canSeeMoney: hasToggle(full, "showPricing"),
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    // The drawing is read through a signed download link: this Cloudinary
+    // account answers a PDF's plain URL with 401 (lib/media/signedFile.js).
+    sign: cloudinarySigner(),
   });
   if (!result.ok) return NextResponse.json({ error: result.error, code: result.code }, { status: result.status || 400 });
   return NextResponse.json({ document: result.document, ingest: result.ingest }, { status: 201 });

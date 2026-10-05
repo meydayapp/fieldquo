@@ -49,7 +49,7 @@ export async function GET(request, { params }) {
   // not learn which ones exist.
   if (!receipt) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(await receiptDetail({ receipt, full, userId: member.userId }));
+  return NextResponse.json(await receiptDetail({ receipt, full, userId: member.userId, member }));
 }
 
 export async function PATCH(request, { params }) {

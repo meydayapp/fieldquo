@@ -1128,4 +1128,78 @@ export const ARTICLES = {
       { q: "¿Puedo editar el texto?", a: "Sí — pulsa Editar el texto. Cambiar el texto retira la aprobación, así que el diseño se vuelve a aprobar antes de salir." },
     ],
   },
+  // Configuración → Google Ads (2026-10-04) — app/app/settings/google-ads/page.js,
+  // lib/googleAds/*, docs/GOOGLE-ADS-INTEGRATION.md.
+  "settings-google-ads": {
+    title: "Google Ads",
+    summary:
+      "Traiga su gasto de Google Ads a FieldQuo — suba hoy mismo el informe que descarga de Google Ads, o conecte la cuenta cuando Google apruebe el acceso de FieldQuo — y vea cuánto le costó cada prospecto y cada trabajo ganado que vino de Google.",
+    updated: "2026-10-04",
+    intro: [
+      "**Configuración → Google Ads** es donde su gasto de Google Ads entra en FieldQuo, junto a **Configuración → Meta Ads**. Hay dos formas: **Importar informe de Google Ads**, que funciona hoy, y **Conectar Google Ads**, que vuelve a leer las mismas cifras cada mañana cuando Google haya aprobado a FieldQuo. En ambos casos el gasto llega a **Gasto en marketing** como filas de Google, y FieldQuo lo divide entre SUS prospectos de Google — nunca entre el conteo de conversiones de Google.",
+    ],
+    sections: [
+      {
+        id: "states",
+        heading: "Qué muestra la pantalla",
+        blocks: [
+          { bullets: [
+            "**Aún no está configurado** — a esta instalación de FieldQuo le falta algo para hablar con Google; la pantalla lo nombra. Usted no tiene nada que hacer; la subida de informes de abajo funciona igual.",
+            "**Esperando la aprobación de Google** — todo está configurado, pero Google aún no aprobó a FieldQuo para cuentas publicitarias reales, así que no hay botón para conectar. Mientras tanto, suba su informe.",
+            "**No conectado** — con **Conectar Google Ads**.",
+            "**¿Qué cuenta publicitaria?** — después de permitir el acceso, cada cuenta de Google Ads que su inicio de sesión puede leer, incluidas las cuentas de clientes bajo una cuenta de administrador. Elija una y pulse **Importar de esta cuenta**.",
+            "La cuenta conectada — su nombre, número y moneda, la última sincronización, **Sincronizar ahora** y **Desconectar**. **Hay que reconectar** significa que Google retiró el acceso de FieldQuo; pulse **Reconectar**.",
+          ] },
+          { note: "**Cómo se cuentan sus prospectos de Google** aparece en todos los casos, con la plantilla de seguimiento para pegar en Google Ads." },
+        ],
+      },
+      {
+        id: "report",
+        heading: "Importar un informe de Google Ads (funciona hoy)",
+        blocks: [
+          { steps: [
+            "En Google Ads, abra **Campañas** y elija las fechas.",
+            "Segmente por **Tiempo → Día** y deje visibles las columnas **Campaña**, **Costo** y **Código de moneda**.",
+            "Descárguelo como .csv, .csv de Excel o .xlsx.",
+            "En FieldQuo pulse **Importar informe de Google Ads** (aquí o en **Gasto en marketing**), elija el archivo y pulse **Revisar el informe**.",
+            "Lea la vista previa — filas nuevas, filas actualizadas de una importación anterior y posibles duplicados — y luego pulse **Importar**.",
+          ] },
+          { note: "Subir de nuevo el mismo informe actualiza las filas que escribió; nunca las agrega dos veces. Las filas que parecen ya registradas para la misma campaña y día se omiten, salvo que desmarque la casilla. Las filas de totales se dejan fuera, y un informe dividido por dispositivo o red se suma por día." },
+        ],
+      },
+      {
+        id: "connect",
+        heading: "Conectar Google Ads",
+        blocks: [
+          { steps: [
+            "Pulse **Conectar Google Ads** e inicie sesión con la cuenta de Google que usa para Google Ads.",
+            "Permita que FieldQuo vea sus datos de Google Ads. FieldQuo solo lee; nunca crea ni cambia un anuncio.",
+            "De vuelta en la pantalla, elija la cuenta en **¿Qué cuenta publicitaria?** y pulse **Importar de esta cuenta**. Los últimos 90 días llegan enseguida.",
+            "Desde entonces FieldQuo vuelve a leer los últimos 30 días cada mañana. **Sincronizar ahora** lo hace cuando usted quiera.",
+          ] },
+          { note: "**Desconectar** retira el acceso de FieldQuo en Google. El gasto ya importado se queda en su historial. Los días que ya cubre un informe subido no se importan por segunda vez desde la conexión." },
+        ],
+      },
+      {
+        id: "leads",
+        heading: "Cómo se cuentan sus prospectos y trabajos ganados de Google",
+        blocks: [
+          { p: "Un prospecto cuenta como de Google cuando la persona llegó por un clic en un anuncio de Google — el etiquetado automático de Google Ads agrega el identificador del clic, y FieldQuo lo guarda en el prospecto. El **costo por prospecto** de Google es su gasto en Google dividido entre esos prospectos; el **costo por trabajo ganado** es el gasto dividido entre los trabajos que salieron de esos prospectos. Las **conversiones** de Google se muestran como de Google y nunca se cuentan como sus prospectos." },
+          { p: "Para ver prospectos por campaña, pegue en Google Ads la plantilla de seguimiento que muestra la pantalla (Configuración → Configuración de la cuenta → Seguimiento). Sin ella, los prospectos de Google igual cuentan en los totales de Google, en una fila **campaña sin etiquetar**." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Quién puede verlo",
+        blocks: [
+          { p: "Propietarios y administradores — igual que **Configuración → Meta Ads** y **Pagos**. **Importar informe de Google Ads** en **Gasto en marketing** está abierto a todos los que ven esa página." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Por qué no hay botón para conectar?", a: "O esta instalación aún no está configurada para Google Ads, o Google aún no aprobó a FieldQuo para cuentas publicitarias reales. La pantalla dice cuál. La subida de informes funciona en ambos casos." },
+      { q: "Mi cuenta de Google Ads factura en dólares estadounidenses y mi empresa está en dólares canadienses.", a: "Los montos se guardan en dólares estadounidenses tal como Google los informó y se convierten al calcular los totales, marcados con ≈ y la tasa usada." },
+      { q: "¿Por qué mis prospectos no coinciden con las conversiones de Google?", a: "Miden cosas distintas. Google cuenta cuándo se activa su etiqueta; FieldQuo cuenta las solicitudes que usted realmente recibió de personas que hicieron clic en un anuncio de Google. El costo por prospecto usa las suyas." },
+    ],
+  },
 };

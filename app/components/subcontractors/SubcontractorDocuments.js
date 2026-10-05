@@ -20,6 +20,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
 import { formatBytes } from "@/lib/jobs/documents";
 import { DOCUMENT_KINDS } from "@/lib/subcontractors/payload";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 export default function SubcontractorDocuments({ subcontractorId, onExpiryChanged }) {
   const { t } = useTranslation();
@@ -121,9 +122,13 @@ export default function SubcontractorDocuments({ subcontractorId, onExpiryChange
           {documents.map((doc) => (
             <li key={doc.id} className="py-2.5 flex items-start justify-between gap-3">
               <span className="min-w-0">
-                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block text-sm font-semibold text-foreground underline truncate">
+                <OpenFileLink
+                  href={doc.openUrl}
+                  className="block text-sm font-semibold text-foreground underline truncate"
+                  plainClassName="block text-sm font-semibold text-foreground truncate"
+                >
                   {doc.name}
-                </a>
+                </OpenFileLink>
                 <span className="block text-xs text-muted-foreground">
                   {kindLabel(doc.kind)}
                   {doc.sizeBytes ? ` · ${formatBytes(doc.sizeBytes)}` : ""}

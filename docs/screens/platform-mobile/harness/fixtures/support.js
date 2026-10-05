@@ -746,6 +746,19 @@ function auditLog(url) {
   };
 }
 
+// ── /platform/manuals ──────────────────────────────────────────────────────
+// The shared manual library: one FieldQuo upload, live; one company share
+// waiting for review; one retired.
+const MANUALS = {
+  manuals: [
+    { id: "man_1", title: "Rheem power-vent gas water heater — use & care", tags: { brand: "Rheem", modelPattern: "PROG", category: "water heater", trade: "plumbing" }, origin: "platform", status: "live", pageCount: 44, pagesRead: 44, bytes: 3_100_000, originalFilename: "rheem-ap16882.pdf", sharedByCompanyId: null, sharedByCompanyName: null, failureReason: null, createdAt: "2026-10-04T14:00:00.000Z", reviewedAt: "2026-10-04T14:00:00.000Z" },
+    { id: "man_2", title: "Carrier 59SC5 troubleshooting guide", tags: { brand: "Carrier", modelPattern: "59SC", category: "furnace", trade: "hvac" }, origin: "company_share", status: "pending", pageCount: 42, pagesRead: 41, bytes: 2_400_000, originalFilename: "tg-gfc80.pdf", sharedByCompanyId: "co_north", sharedByCompanyName: "Northline Heating", failureReason: null, createdAt: "2026-10-04T16:30:00.000Z", reviewedAt: null },
+    { id: "man_3", title: "Goodman GM9S96 service manual", tags: { brand: "Goodman", modelPattern: "GM9S", category: "furnace", trade: "hvac" }, origin: "platform", status: "retired", pageCount: 53, pagesRead: 53, bytes: 5_800_000, originalFilename: "rs6612022.pdf", sharedByCompanyId: null, sharedByCompanyName: null, failureReason: null, createdAt: "2026-10-04T12:00:00.000Z", reviewedAt: "2026-10-04T12:00:00.000Z" },
+  ],
+  companiesOptedOut: 2,
+  canManage: true,
+};
+
 // ── /platform/service-categories ───────────────────────────────────────────
 const CATEGORIES = [
   ["interior_painting", "Interior painting", "Walls, ceilings, trim and doors inside the home", "paintbrush"],
@@ -942,6 +955,26 @@ export default function answer({ method, path, url, body }) {
 
   // /platform/ai-usage
   if (path === "/api/platform/ai-usage") return method === "PATCH" ? { id: body?.companyId, name: "", aiMonthlyTokenCap: body?.cap ?? null } : aiUsage();
+  // The "Drawing reads" card on the same page (app/components/platform/
+  // PlanReadTimings.js) — one finished read, so the 900px table is on the
+  // frame inside its scroll container.
+  if (path === "/api/platform/plan-reads") {
+    const step = (calls, promptTokens, cachedTokens, completionTokens, vendorMicros) => ({ calls, promptTokens, cachedTokens, completionTokens, vendorMicros });
+    const timing = {
+      outcome: "ready", totalMs: 214000, sheetsMs: 151000, photosMs: 88000, synthesisMs: 41000, idleMs: 6000,
+      invocations: 3, uploadSpanMs: 95000, waitBeforeReadMs: 12000, slowestSheetMs: 47000, retriedSheets: 1,
+    };
+    return {
+      limit: 40,
+      medians: { reads: 1, totalMs: timing.totalMs, sheetsMs: timing.sheetsMs, photosMs: timing.photosMs, synthesisMs: timing.synthesisMs, idleMs: timing.idleMs },
+      reads: [{
+        id: "pr_harness_1", companyId: COMPANY_ID, companyName: "Easy Roofers", title: "Kitchen addition — A-101 to A-104",
+        status: "ready", stage: null, sheets: 4, photos: 6, timing,
+        byStep: { sheets: step(4, 48210, 12000, 6120, 182000), photos: step(6, 30440, 0, 3900, 96000), synthesis: step(1, 18800, 9000, 4100, 61000) },
+        chargedCents: 300, estimateCents: 400,
+      }],
+    };
+  }
 
   // /platform/sales-agent
   if (path === "/api/platform/sales-agent") return method === "POST" ? { ok: true, provision: { ok: true } } : salesAgent();
@@ -970,6 +1003,11 @@ export default function answer({ method, path, url, body }) {
 
   // /platform/audit-log
   if (path === "/api/platform/audit-log") return auditLog(url);
+
+  // /platform/manuals — FieldQuo's shared manual library
+  if (path === "/api/platform/manuals") return MANUALS;
+  m = path.match(/^\/api\/platform\/manuals\/([^/]+)$/);
+  if (m) return { manual: { ...MANUALS.manuals.find((x) => x.id === m[1]), ...(body?.status ? { status: body.status } : {}) } };
 
   // /platform/service-categories
   if (path === "/api/platform/service-categories") {

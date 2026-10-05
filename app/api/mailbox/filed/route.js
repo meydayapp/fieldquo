@@ -24,6 +24,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel, assignedJobWhere } from "@/lib/permissions/enforce";
 import { publicAttachments } from "@/lib/messaging/attachments";
+import { messageOpenUrl } from "@/lib/media/fileOpen";
 import {
   inSupportView,
   isGoogleEmail,
@@ -137,7 +138,7 @@ export async function GET(request) {
     to: hide(m.email?.toAddresses || null),
     cc: hide(m.email?.ccAddresses || null),
     sentVia: m.email?.sentVia || null,
-    attachments: publicAttachments(m.attachments),
+    attachments: publicAttachments(m.attachments, { openUrl: messageOpenUrl(member, m.id) }),
   });
   const shapeForSupport = (m) =>
     isGoogleEmail(m.email)

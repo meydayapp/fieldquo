@@ -313,5 +313,129 @@ function scriptedDb(seed) {
   ok("…and a re-picked PDF is checked against the stored hash before a page is rendered", ui.indexOf("fileSha256(file)") < ui.indexOf("renderPagesAsJpeg(file") && /hash !== s\.fileHash/.test(ui));
 }
 
+// ── 11. FieldQuo's shared manual library (owner, 2026-10-04) ──────────────
+//
+// Manufacturer manuals shared across companies as READ-ONLY defaults,
+// deduplicated by file hash — and a company's private upload NEVER crosses
+// a tenant without its own tick. Executed against a scripted store holding
+// two companies' rows.
+{
+  const SL = await import("@/lib/aiEmployee/sharedLibrary");
+  const { canShare, shareSource, withdrawShare, liveSharedManuals, sharedPagesFor, asSource, canMove, SHARED_LIBRARY_SCOPE, LIBRARY_LABEL } = SL;
+
+  const src = (over = {}) => ({ id: "s1", companyId: "A", kind: "manual", title: "Rheem power vent manual", status: "ready", fileHash: "h-rheem", storageKey: "https://x/fieldquo/companies/A/reference/r.pdf", pageCount: 2, pagesRead: 2, unreadPages: [], brand: "Rheem", modelPattern: "PROG", category: "water heater", trade: "plumbing", originalFilename: "r.pdf", bytes: 1000, sharedManualId: null, sharedAt: null, ...over });
+  ok("only a read, brand-tagged PDF filed as a manual can be shared", canShare(src()).ok && canShare(src({ kind: "policy" })).reason === "not_a_manual" && canShare(src({ kind: "troubleshooting" })).ok === false && canShare(src({ brand: null })).reason === "no_brand" && canShare(src({ pageCount: null })).reason === "not_a_pdf" && canShare(src({ status: "failed" })).reason === "not_read" && canShare(src({ fileHash: null })).reason === "no_file");
+
+  function store() {
+    const s = {
+      aiEmployeeSource: [src(), src({ id: "s2", companyId: "A", kind: "policy", title: "Our warranty SOP", fileHash: "h-sop", brand: null }), src({ id: "sB", companyId: "B", title: "B's private Carrier manual", fileHash: "h-carrier", brand: "Carrier" })],
+      aiEmployeeSourcePage: [
+        { companyId: "A", sourceId: "s1", page: 1, text: "Rheem manual page one: 4 flashes means excessive temperature.", method: "text" },
+        { companyId: "A", sourceId: "s1", page: 2, text: "Rheem manual page two.", method: "text" },
+        { companyId: "B", sourceId: "sB", page: 1, text: "SECRET B PAGE: Carrier code 33", method: "text" },
+      ],
+      sharedManual: [],
+      sharedManualPage: [],
+    };
+    let n = 0;
+    const m = (row, w = {}) => Object.entries(w).every(([k, v]) => {
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        if ("in" in v) return v.in.includes(row[k]);
+        if ("notIn" in v) return !v.notIn.includes(row[k]);
+        if ("not" in v) return v.not === null ? row[k] != null : row[k] !== v.not;
+        if ("lte" in v) return row[k] <= v.lte;
+        return true;
+      }
+      return v === null ? row[k] == null : row[k] === v;
+    });
+    const reads = [];
+    const model = (name) => ({
+      findFirst: async ({ where }) => { reads.push({ name, where }); return s[name].find((r) => m(r, where)) || null; },
+      findUnique: async ({ where }) => { reads.push({ name, where }); return s[name].find((r) => m(r, where)) || null; },
+      findMany: async ({ where = {}, take } = {}) => {
+        reads.push({ name, where });
+        const { OR, ...rest } = where;
+        let rows = s[name].filter((r) => m(r, rest));
+        if (OR) rows = rows.filter((r) => OR.some((o) => Object.entries(o).every(([k, v]) => String(r[k] || "").toLowerCase().includes(String(v.contains).toLowerCase()))));
+        return rows.slice(0, take || 1e9);
+      },
+      create: async ({ data }) => { const row = { id: `${name}${++n}`, ...data }; s[name].push(row); return row; },
+      createMany: async ({ data }) => { for (const d of data) s[name].push({ id: `${name}${++n}`, ...d }); return { count: data.length }; },
+      update: async ({ where, data }) => Object.assign(s[name].find((r) => m(r, where)), data),
+      updateMany: async ({ where, data }) => { const rows = s[name].filter((r) => m(r, where)); rows.forEach((r) => Object.assign(r, data)); return { count: rows.length }; },
+    });
+    const prisma = { $s: s, $reads: reads };
+    for (const k of Object.keys(s)) prisma[k] = model(k);
+    prisma.$transaction = async (fn) => fn(prisma);
+    return prisma;
+  }
+
+  {
+    const p = store();
+    const refused = await shareSource({ prisma: p, companyId: "A", sourceId: "s1", confirmed: false });
+    ok("sharing needs the company to confirm it is the manufacturer's own manual", refused.ok === false && refused.reason === "not_confirmed" && p.$s.sharedManual.length === 0);
+    const sop = await shareSource({ prisma: p, companyId: "A", sourceId: "s2", confirmed: true });
+    ok("a company SOP can never be shared", sop.ok === false && sop.reason === "not_a_manual" && p.$s.sharedManual.length === 0);
+    const foreign = await shareSource({ prisma: p, companyId: "A", sourceId: "sB", confirmed: true });
+    ok("company A cannot share company B's manual — it is not even found", foreign.ok === false && foreign.status === 404 && p.$s.sharedManual.length === 0);
+    const shared = await shareSource({ prisma: p, companyId: "A", sourceId: "s1", confirmed: true });
+    const lib = p.$s.sharedManual[0];
+    ok("a confirmed share writes ONE library row, PENDING review, attributed to the company", shared.ok && p.$s.sharedManual.length === 1 && lib.status === "pending" && lib.origin === "company_share" && lib.sharedByCompanyId === "A" && lib.fileHash === "h-rheem");
+    ok("…its page TEXT is copied — the company's file is not (storageKey null)", p.$s.sharedManualPage.length === 2 && lib.storageKey === null && p.$s.sharedManualPage.every((x) => x.manualId === lib.id));
+    ok("…only company A's pages were read, never company B's", !p.$s.sharedManualPage.some((x) => /SECRET B/.test(x.text)) && p.$reads.filter((r) => r.name === "aiEmployeeSourcePage").every((r) => r.where.companyId === "A"));
+    ok("…and the company's source is marked shared", p.$s.aiEmployeeSource[0].sharedAt instanceof Date && p.$s.aiEmployeeSource[0].sharedManualId === lib.id);
+
+    const none = await liveSharedManuals(p, {});
+    ok("PENDING is visible to nobody — no other company reads it until FieldQuo approves", none.length === 0);
+    ok("only a platform admin's move can make it live, and a withdrawn share stays withdrawn", canMove("pending", "live") && canMove("live", "retired") && canMove("retired", "live") && !canMove("withdrawn", "live") && !canMove("pending", "pending"));
+    lib.status = "live";
+    const live = await liveSharedManuals(p, {});
+    ok("live: every company's assistant can read it, labelled as FieldQuo's library", live.length === 1 && live[0].shared === true && live[0].title.includes(LIBRARY_LABEL) && live[0].kind === "manual");
+    ok("…but a company that uploaded the same file reads its OWN copy, never both", (await liveSharedManuals(p, { ownHashes: ["h-rheem"] })).length === 0);
+    ok("…the library read touches only the library tables, never a company's sources", p.$reads.filter((r) => r.name === "sharedManual").length > 0 && !p.$reads.some((r) => r.name === "aiEmployeeSource" && !r.where.companyId));
+
+    // Dedupe: B uploads the SAME PDF and shares it — one library row.
+    p.$s.aiEmployeeSource.push(src({ id: "sB2", companyId: "B", fileHash: "h-rheem" }));
+    const dup = await shareSource({ prisma: p, companyId: "B", sourceId: "sB2", confirmed: true });
+    ok("the same file shared by a second company is deduplicated by its hash — nothing stored twice", dup.ok && dup.deduplicated === true && p.$s.sharedManual.length === 1 && p.$s.sharedManualPage.length === 2);
+
+    // Retrieval reads pages only for manuals the plan signalled.
+    const libSrc = live.map((x) => x);
+    const plan = pageReadPlan(libSrc, { query: "my Rheem water heater flashes 4 times", equipment: [] });
+    const pages = await sharedPagesFor(p, { manuals: libSrc, plan });
+    ok("a reply reads library pages only for a manual the message or the equipment names", pages.get(libSrc[0].id)?.length >= 1);
+    const quiet = await sharedPagesFor(p, { manuals: libSrc, plan: pageReadPlan(libSrc, { query: "do you paint decks?", equipment: [] }) });
+    ok("…and none for a message that names nothing in it (never a scan of the whole library)", quiet.size === 0);
+    const chunks = selectChunks({
+      sources: [
+        { id: "own", title: "Our Rheem notes", kind: "manual", brand: "Rheem", pageCount: 1, pages: [{ page: 1, text: "Rheem flashes: call us." }] },
+        { ...libSrc[0], pages: pages.get(libSrc[0].id) },
+      ],
+      query: "Rheem flashes",
+      role: "troubleshooter",
+    });
+    ok("the company's own material comes before FieldQuo's library at the same tier", chunks[0]?.id === "own" && chunks.some((c) => String(c.id).startsWith("shared:")));
+
+    // Withdraw while pending; a live one stays (it's the manufacturer's).
+    lib.status = "pending";
+    const w = await withdrawShare({ prisma: p, companyId: "A", sourceId: "s1" });
+    ok("withdrawing a pending share withdraws the library copy, never deletes it", w.ok && w.manualStatus === "withdrawn" && p.$s.sharedManual.length === 1 && p.$s.aiEmployeeSource[0].sharedAt === null);
+    const wB = await withdrawShare({ prisma: p, companyId: "B", sourceId: "s1" });
+    ok("another company cannot withdraw it", wB.ok === false && wB.status === 404);
+  }
+
+  // The platform side: its own folder, its own permission, audited.
+  const libRoute = read("app/api/platform/manuals/route.js");
+  ok("FieldQuo's uploads live in a folder no company id can name", SHARED_LIBRARY_SCOPE === "fieldquo-library" && !/^c[a-z0-9]{20,}$/.test(SHARED_LIBRARY_SCOPE) && uploadScope("member", { companyId: SHARED_LIBRARY_SCOPE, purpose: "reference" }).deliveryType === "authenticated");
+  ok("the platform routes need manual_library:manage, and every write is on the audit log", /requirePlatformPermission\(admin\.role, "manual_library:manage"\)/.test(libRoute) && /platformAuditLog\.create/.test(libRoute) && /requirePlatformPermission\(admin\.role, "manual_library:manage"\)/.test(read("app/api/platform/manuals/[id]/route.js")) && /requirePlatformPermission\(admin\.role, "manual_library:manage"\)/.test(read("app/api/platform/manuals/upload/sign/route.js")));
+  ok("the platform upload is deduplicated by SHA-256 and refuses an untagged manual", /sharedManual\.findUnique\(\{ where: \{ fileHash \}/.test(libRoute) && /Tag the brand/.test(libRoute));
+  ok("the platform never reads or writes a company's sources", !/aiEmployeeSource\b|aiEmployeeSourcePage/.test(libRoute.replace(/\/\/.*$/gm, "")) && !/aiEmployeeSource\b|aiEmployeeSourcePage/.test(read("app/api/platform/manuals/[id]/route.js").replace(/\/\/.*$/gm, "")));
+  ok("support can see the page but not the buttons", (await import("@/lib/platform/permissions")).canPlatform("support", "manual_library:manage") === false && (await import("@/lib/platform/permissions")).canPlatform("admin", "manual_library:manage") === true);
+  const share = read("app/api/ai-employee/sources/[id]/share/route.js");
+  ok("the share route is owner/admin, refuses a support session, and is audited", /requirePermission\(member\.role, "user:manage"\)/.test(share) && /member\.impersonation/.test(share) && /ai_employee\.manual_shared/.test(share));
+  ok("the screen offers the share only behind a confirmation, and calls the route", /\/share`/.test(read("app/components/aiEmployee/ReferenceLibrary.js")) && /share\.confirm/.test(read("app/components/aiEmployee/ReferenceLibrary.js")) && /disabled=\{!shareAsk\[s\.id\]\?\.confirmed/.test(read("app/components/aiEmployee/ReferenceLibrary.js")));
+  ok("the platform page uploads through its own sign/verify pair", /endpoint: "\/api\/platform\/manuals\/upload"/.test(read("app/platform/manuals/page.js")));
+}
+
 console.log(`\ncheck-reference-library: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

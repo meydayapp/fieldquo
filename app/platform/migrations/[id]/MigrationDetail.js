@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { platformFileHref } from "@/lib/media/fileHrefs";
 import {
   Loader2,
   ArrowLeft,
@@ -222,7 +223,9 @@ export default function MigrationDetail({ migrationId: id }) {
           {request.documents?.map((d) => (
             <li key={d.id} className="py-2 flex items-center gap-2 text-sm">
               <FileText size={14} className="text-muted-foreground shrink-0" />
-              <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-foreground hover:underline truncate">
+              {/* Through our route — the stored Cloudinary URL answers 401 for
+                  a PDF (lib/media/fileOpen.js). */}
+              <a href={platformFileHref("migration-document", d.id)} target="_blank" rel="noopener noreferrer" className="text-foreground hover:underline truncate">
                 {d.filename || "(unnamed file)"}
               </a>
               <span className="text-xs text-muted-foreground shrink-0 ml-auto">

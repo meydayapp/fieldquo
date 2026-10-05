@@ -339,8 +339,11 @@ ok("every file that calls uploadFile imports it", callsWithoutImport.length === 
 // lib/planRead/ingest.js names the API host only to CHECK a signed private
 // DOWNLOAD link before a server-side GET (fetchOwnPrivateFile) — it uploads
 // nothing, and it is server code, so it is allowed by name rather than by
-// loosening the pattern for everyone.
-ok("no call site constructs its own XHR to Cloudinary", files.filter((f) => /api\.cloudinary\.com/.test(readFileSync(f, "utf8"))).every((f) => /directUploadServer\.js$|uploadClient\.js$|lib\/planRead\/ingest\.js$/.test(f)));
+// loosening the pattern for everyone. lib/media/signedFile.js is the same case
+// (signedLinkBase: the host every signed open/download link must point at,
+// checked before lib/media/fileOpen.js fetches one) — named for the same
+// reason.
+ok("no call site constructs its own XHR to Cloudinary", files.filter((f) => /api\.cloudinary\.com/.test(readFileSync(f, "utf8"))).every((f) => /directUploadServer\.js$|uploadClient\.js$|lib\/planRead\/ingest\.js$|lib\/media\/signedFile\.js$/.test(f)));
 for (const r of ["app/api/upload/sign/route.js", "app/api/upload/verify/route.js"]) {
   const src = readFileSync(r, "utf8");
   ok(`${r} is behind memberOrRefusal and takes the company from the session`, /memberOrRefusal\(request\)/.test(src) && /companyId: member\.companyId/.test(src));

@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 352; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 354 articles in the tree; written: en 354, fr 354, es 354; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -318,7 +318,7 @@ _Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 
 | `influencer-programme` — Influencer programme | ✓ | ✓ | ✓ | influencer | referrals |  |
 | `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
-### messages (29)
+### messages (30)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -351,6 +351,7 @@ _Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 
 | `ai-employee-reference-library` — The AI employee's reference library: the manuals it reads | ✓ | ✓ | ✓ |  | ai_employee |  |
 | `ai-employee-error-codes` — Error codes: what the AI employee says when a display shows one | ✓ | ✓ | ✓ |  | ai_employee |  |
 | `how-ai-employee-troubleshooting-works` — How AI troubleshooting works: from a code to a callback | ✓ | ✓ | ✓ |  | ai_employee |  |
+| `ai-employee-urgent-problems-and-safety` — Urgent problems and safety: what the AI employee does, and who gets texted | ✓ | ✓ | ✓ |  | ai_employee |  |
 
 ### mobile-and-crew (17)
 
@@ -400,7 +401,7 @@ _Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (50)
+### settings (51)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -438,6 +439,7 @@ _Generated 2026-10-05 — 352 articles in the tree; written: en 352, fr 352, es 
 | `settings-work-email` — Work email | ✓ | ✓ | ✓ | settings-work-email |  |  |
 | `settings-payments` — Payments | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |
 | `settings-meta-ads` — Meta Ads | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
+| `settings-google-ads` — Google Ads | ✓ | ✓ | ✓ | settings-google-ads | marketing_spend |  |
 | `settings-tiktok` — TikTok | ✓ | ✓ | ✓ | settings-tiktok | proof |  |
 | `settings-expense-tracking` — Expense Tracking | ✓ | ✓ | ✓ | settings-expense-tracking | expenses |  |
 | `settings-ai-credit` — AI credit | ✓ | ✓ | ✓ | settings-ai-credit | ai_copilot |  |

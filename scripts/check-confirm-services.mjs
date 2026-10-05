@@ -506,7 +506,9 @@ console.log("\n12. Who stops offering a removed service — every reader\n");
   const strip = (p) => read(p).replace(/^\s*\/\/.*$/gm, "");
   // The screens that load the whole book through GET /api/products.
   for (const [file, pattern] of [
-    ["app/components/quotes/builder/QuoteBuilder.js", /const products = useMemo\(\(\) => offeredOnly\(boot\.products\), \[boot\.products\]\)/],
+    // The quote builder's list also folds in services saved from "Create
+    // custom item" this session (f3a78638) — still all through offeredOnly.
+    ["app/components/quotes/builder/QuoteBuilder.js", /const products = useMemo\(\s*\(\) => offeredOnly\((?:boot\.products|savedProducts\.length \? \[\.\.\.\(boot\.products \|\| \[\]\), \.\.\.savedProducts\] : boot\.products)\),/],
     ["app/components/invoices/builder/InvoiceBuilder.js", /const products = useMemo\(\(\) => offeredOnly\(boot\.products\), \[boot\.products\]\)/],
     ["app/app/settings/services/ServiceSeedsCard.js", /const mine = offeredOnly\(seededHere\)/],
     ["app/app/settings/services/ServiceTemplatesCard.js", /return offeredOnly\(products\)/],
