@@ -95,10 +95,12 @@ export default function PlanReadWorkspace({ id }) {
     }
   }
 
-  async function run() {
+  // `force`: "Read again" — the whole read, after the confirm in ReadAgain
+  // (lib/planRead/run.js startRead). A plain run sends no body, as before.
+  async function run({ force = false } = {}) {
     setStarting(true);
     try {
-      await fetchJson(`/api/plan-reads/${id}/run`, { method: "POST" });
+      await fetchJson(`/api/plan-reads/${id}/run`, force ? { method: "POST", headers: { "Content-Type": "application/json" }, body: jsonBody({ force: true }) } : { method: "POST" });
       await load();
     } catch (err) {
       if (err.status === 402 && err.data?.topup) topup.open(err.data);
@@ -324,6 +326,64 @@ function ReuseOffer({ reuse, t, language, credits, onReuse, reusing }) {
   );
 }
 
+/**
+ * "Read again" — the whole read, with the current reader. A confirm first,
+ * saying what it holds: it is paid, and it replaces what the chat changed.
+ * Rendered only when the server says the read can be read again and priced
+ * it (view.canReadAgain, credits.readAgainCents).
+ */
+function ReadAgain({ view, t, credits, starting, onRun, primary = false }) {
+  const [asking, setAsking] = useState(false);
+  const c = view.credits || {};
+  if (!view.canReadAgain || !c.readAgainCents) return null;
+  if (!asking) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAsking(true)}
+        disabled={starting}
+        className={
+          primary
+            ? "inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60"
+            : "inline-flex items-center gap-2 min-h-[44px] px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted disabled:opacity-60"
+        }
+      >
+        <History className="w-4 h-4" aria-hidden />
+        {primary ? t("app.planRead.runAgain", "Read again") : t("app.planRead.readAgainAll", "Read everything again")}
+      </button>
+    );
+  }
+  return (
+    <div role="group" aria-label={t("app.planRead.readAgainConfirmTitle", "Read the whole project again?")} className="w-full rounded-lg border border-border bg-muted/40 p-3 text-sm">
+      <p className="font-medium">{t("app.planRead.readAgainConfirmTitle", "Read the whole project again?")}</p>
+      <p className="mt-1 text-muted-foreground">
+        {t("app.planRead.readAgainConfirmBody", "FieldQuo reads every sheet, photo and measurement again with its current reader and puts the project together again. Changes made in the chat are replaced. This holds up to {max} of your AI credit (balance {balance}), usually about {expected}; you're charged what it actually uses.", {
+          max: credits(c.readAgainCents),
+          expected: credits(c.readAgainExpectedCents || c.readAgainCents),
+          balance: credits(c.balanceCents ?? 0),
+        })}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setAsking(false);
+            onRun({ force: true });
+          }}
+          disabled={starting}
+          className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60"
+        >
+          {starting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Sparkles className="w-4 h-4" aria-hidden />}
+          {t("app.planRead.readAgainConfirm", "Hold {max} and read again", { max: credits(c.readAgainCents) })}
+        </button>
+        <button type="button" onClick={() => setAsking(false)} className="inline-flex items-center min-h-[44px] px-3 rounded-lg border border-border text-sm font-medium hover:bg-muted">
+          {t("app.planRead.readAgainCancel", "Not now")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusing }) {
   const c = view.credits || {};
   const p = view.progress || {};
@@ -356,6 +416,12 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
       {view.status === "failed" && (
         <p className="mb-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300"><AlertTriangle className="w-4 h-4 mt-0.5" aria-hidden />{view.error || t("app.planRead.failed", "The read couldn't finish. Nothing was charged.")}</p>
       )}
+      {view.staleMeasures > 0 && (
+        <p className="mb-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
+          {t("app.planRead.measureStale", "Measured with an older version — Read again to update.")}
+        </p>
+      )}
       {view.canRead && view.reuse && <ReuseOffer reuse={view.reuse} t={t} language={language} credits={credits} onReuse={onReuse} reusing={reusing} />}
       {view.canRead ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -381,12 +447,17 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
             <RoutedSheets view={view} t={t} />
             {took && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.lastReadTook", "The last read took {time}.", { time: took })}</p>}
           </div>
-          <button type="button" onClick={onRun} disabled={starting} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60">
-            {starting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Sparkles className="w-4 h-4" aria-hidden />}
-            {view.status === "ready" ? t("app.planRead.runAgain", "Read again") : t("app.planRead.run", "Read the project")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => onRun()} disabled={starting} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60">
+              {starting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Sparkles className="w-4 h-4" aria-hidden />}
+              {view.status === "ready" ? t("app.planRead.runAgain", "Read again") : t("app.planRead.run", "Read the project")}
+            </button>
+            {/* The new work above is a part of the read; this is all of it. */}
+            {view.status === "ready" && <ReadAgain view={view} t={t} credits={credits} starting={starting} onRun={onRun} />}
+          </div>
         </div>
       ) : view.status === "ready" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {/* The read AND its chat — the chat is debited per message, not
               onto the read (lib/planRead/billing.js chatSpendCents). */}
@@ -399,6 +470,10 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
               })}
           {took ? ` ${t("app.planRead.took", "Took {time}.", { time: took })}` : ""}
         </p>
+        {/* Nothing new to read — but FieldQuo's reader may have improved
+            since. The whole read again, after a confirm (never automatic). */}
+        <ReadAgain view={view} t={t} credits={credits} starting={starting} onRun={onRun} primary />
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">
           {hasFiles ? t("app.planRead.nothingReadable", "None of these files can be read yet — add a drawing PDF, a scope sheet or photos.") : t("app.planRead.addFiles", "Add the drawing set, the scope sheet and any site photos to begin. Reading the files' text is free; the deep read's cost is shown before you start it.")}

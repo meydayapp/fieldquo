@@ -1003,6 +1003,18 @@ export const ARTICLES = {
           } },
         ],
       },
+      {
+        id: "read-again",
+        heading: "Reading a finished read again",
+        blocks: [
+          { p: "FieldQuo's reader keeps improving. A finished read keeps what it found until you ask for more, so nothing changes under a quote you are working on." },
+          { steps: [
+            "**Measured with an older version — Read again to update** appears on the read when its sheets were measured by an earlier version of the measuring step. **Read again** measures those sheets again and puts the project together again. The sheet readings you already paid for are kept.",
+            "**Read again** on a finished read with nothing new reads the whole project again: every sheet, photo and measurement, with the current reader. You confirm first, and the confirm shows the credit it holds. You are charged what it actually uses, and a read that fails is refunded in full.",
+          ] },
+          { note: "Reading again rebuilds the overview from the files. Changes made in the chat are replaced. Only someone who can edit quotes can read a project again, and it never happens on its own." },
+        ],
+      },
     ],
   },
 };

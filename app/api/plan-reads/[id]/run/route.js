@@ -13,18 +13,31 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can } from "@/lib/permissions";
 import { publicTopupOffer } from "@/lib/ai/topupOffer";
-import { startRead, advanceRead } from "@/lib/planRead/run";
+import { hasLevel } from "@/lib/permissions/enforce";
+import { startRead, advanceRead, readAgainFlag } from "@/lib/planRead/run";
 
 export async function POST(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const { response: denied } = await levelOrRefusal(member, "quotes", "view_create_edit", "run a drawing read");
+  const { full, response: denied } = await levelOrRefusal(member, "quotes", "view_create_edit", "run a drawing read");
   if (denied) return denied;
 
-  const started = await startRead({ planReadId: id, companyId: member.companyId, userId: member.userId || null });
+  // "Read again" (lib/planRead/run.js): `{ force: true }`, honoured only for
+  // someone who may edit the read — checked here in its own right, not
+  // inferred from the gate above. No body (every other caller) is no force.
+  const body = await request.json().catch(() => null);
+  const force = readAgainFlag(body, { canEdit: hasLevel(full, "quotes", "view_create_edit") });
+  if (body?.force === true && !force) {
+    return NextResponse.json({ error: "Only someone who can edit this read can read it again.", code: "read_again_denied" }, { status: 403 });
+  }
+
+  const started = await startRead({ planReadId: id, companyId: member.companyId, userId: member.userId || null, force });
   if (!started.ok) {
     if (started.error === "not_found") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (started.error === "not_finished") {
+      return NextResponse.json({ error: "Read again is for a finished read. Start or finish this one first. Nothing was charged.", code: "not_finished" }, { status: 409 });
+    }
     if (started.error === "files_unreadable") {
       // The set WAS added; FieldQuo could not read it. Say which file and
       // what to do, never "add a drawing set first".

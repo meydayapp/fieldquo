@@ -985,6 +985,18 @@ export const ARTICLES = {
           } },
         ],
       },
+      {
+        id: "read-again",
+        heading: "Leer de nuevo una lectura terminada",
+        blocks: [
+          { p: "El lector de FieldQuo sigue mejorando. Una lectura terminada conserva lo que encontró hasta que usted pida más, así que nada cambia bajo una cotización en la que está trabajando." },
+          { steps: [
+            "**Medido con una versión anterior — Lea de nuevo para actualizar** aparece en la lectura cuando sus hojas se midieron con una versión anterior del paso de medición. **Leer de nuevo** vuelve a medir esas hojas y arma el proyecto otra vez. Las lecturas de hojas que ya pagó se conservan.",
+            "**Leer de nuevo** en una lectura terminada sin nada nuevo vuelve a leer todo el proyecto: cada hoja, foto y medición, con el lector actual. Primero confirma, y la confirmación muestra el crédito que se reserva. Solo se cobra lo que realmente se usa, y una lectura que falla se reembolsa por completo.",
+          ] },
+          { note: "Leer de nuevo rehace el resumen a partir de los archivos. Los cambios hechos en el chat se reemplazan. Solo alguien que puede editar cotizaciones puede leer de nuevo un proyecto, y nunca ocurre por sí solo." },
+        ],
+      },
     ],
   },
 };

@@ -985,6 +985,18 @@ export const ARTICLES = {
           } },
         ],
       },
+      {
+        id: "read-again",
+        heading: "Relire une lecture terminée",
+        blocks: [
+          { p: "Le lecteur de FieldQuo s'améliore sans cesse. Une lecture terminée garde ce qu'elle a trouvé jusqu'à ce que vous en demandiez plus : rien ne change sous une soumission en cours." },
+          { steps: [
+            "**Mesuré avec une version antérieure — Relire pour mettre à jour** s'affiche sur la lecture quand ses feuilles ont été mesurées par une version précédente de l'étape de mesure. **Relire** mesure ces feuilles de nouveau et reconstitue le projet. Les lectures de feuilles déjà payées sont gardées.",
+            "**Relire** sur une lecture terminée sans rien de nouveau relit tout le projet : chaque feuille, photo et mesure, avec le lecteur actuel. Vous confirmez d'abord, et la confirmation montre le crédit réservé. Seul ce qui est réellement utilisé est facturé, et une lecture qui échoue est remboursée en entier.",
+          ] },
+          { note: "Relire reconstitue l'aperçu à partir des fichiers. Les changements faits dans la conversation sont remplacés. Seule une personne qui peut modifier les soumissions peut relire un projet, et cela ne se fait jamais tout seul." },
+        ],
+      },
     ],
   },
 };

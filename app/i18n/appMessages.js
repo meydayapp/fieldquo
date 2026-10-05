@@ -19105,6 +19105,12 @@ const en = {
   "app.serviceTemplates.measure_hvacSystems": "HVAC systems to commission and balance",
   "app.serviceTemplates.measure_baseCabinetFt": "Base cabinets (linear ft)",
   "app.serviceTemplates.measure_wallCabinetFt": "Wall cabinets (linear ft)",
+  "app.planRead.readAgainAll": "Read everything again",
+  "app.planRead.readAgainConfirmTitle": "Read the whole project again?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo reads every sheet, photo and measurement again with its current reader and puts the project together again. Changes made in the chat are replaced. This holds up to {max} of your AI credit (balance {balance}), usually about {expected}; you're charged what it actually uses.",
+  "app.planRead.readAgainConfirm": "Hold {max} and read again",
+  "app.planRead.readAgainCancel": "Not now",
+  "app.planRead.measureStale": "Measured with an older version — Read again to update.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -37707,6 +37713,12 @@ const fr = {
   "app.serviceTemplates.measure_hvacSystems": "Systèmes CVC à mettre en service et équilibrer",
   "app.serviceTemplates.measure_baseCabinetFt": "Armoires du bas (pi linéaires)",
   "app.serviceTemplates.measure_wallCabinetFt": "Armoires du haut (pi linéaires)",
+  "app.planRead.readAgainAll": "Tout relire",
+  "app.planRead.readAgainConfirmTitle": "Relire tout le projet ?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo relit chaque feuille, photo et mesure avec son lecteur actuel et reconstitue le projet. Les changements faits dans le clavardage sont remplacés. Cela réserve jusqu'à {max} de votre crédit IA (solde {balance}), habituellement environ {expected}; seul ce qui est réellement utilisé vous est facturé.",
+  "app.planRead.readAgainConfirm": "Réserver {max} et relire",
+  "app.planRead.readAgainCancel": "Pas maintenant",
+  "app.planRead.measureStale": "Mesuré avec une version antérieure — Relire pour mettre à jour.",
 };
 
 
@@ -56659,6 +56671,12 @@ const es = {
   "app.serviceTemplates.measure_hvacSystems": "Sistemas HVAC a poner en marcha y balancear",
   "app.serviceTemplates.measure_baseCabinetFt": "Gabinetes bajos (pies lineales)",
   "app.serviceTemplates.measure_wallCabinetFt": "Gabinetes altos (pies lineales)",
+  "app.planRead.readAgainAll": "Leer todo de nuevo",
+  "app.planRead.readAgainConfirmTitle": "¿Leer todo el proyecto de nuevo?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo vuelve a leer cada hoja, foto y medición con su lector actual y arma el proyecto de nuevo. Los cambios hechos en el chat se reemplazan. Esto reserva hasta {max} de su crédito de IA (saldo {balance}), normalmente unos {expected}; solo se le cobra lo que realmente use.",
+  "app.planRead.readAgainConfirm": "Reservar {max} y leer de nuevo",
+  "app.planRead.readAgainCancel": "Ahora no",
+  "app.planRead.measureStale": "Medido con una versión anterior — Lea de nuevo para actualizar.",
 };
 
 const uk = {
@@ -75091,6 +75109,12 @@ const uk = {
   "app.serviceTemplates.measure_hvacSystems": "Системи ОВК для пуску та балансування",
   "app.serviceTemplates.measure_baseCabinetFt": "Нижні шафи (погонні фути)",
   "app.serviceTemplates.measure_wallCabinetFt": "Верхні шафи (погонні фути)",
+  "app.planRead.readAgainAll": "Прочитати все знову",
+  "app.planRead.readAgainConfirmTitle": "Прочитати весь проєкт знову?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo знову прочитає кожен аркуш, фото й вимір своїм поточним читачем і заново складе проєкт. Зміни, зроблені в чаті, буде замінено. Це резервує до {max} вашого кредиту ШІ (баланс {balance}), зазвичай близько {expected}; списується лише те, що фактично використано.",
+  "app.planRead.readAgainConfirm": "Зарезервувати {max} і прочитати знову",
+  "app.planRead.readAgainCancel": "Не зараз",
+  "app.planRead.measureStale": "Виміряно старішою версією — прочитайте знову, щоб оновити.",
 };
 
 const pa = {
@@ -93453,6 +93477,12 @@ const pa = {
   "app.serviceTemplates.measure_hvacSystems": "ਚਾਲੂ ਅਤੇ ਸੰਤੁਲਿਤ ਕਰਨ ਲਈ HVAC ਸਿਸਟਮ",
   "app.serviceTemplates.measure_baseCabinetFt": "ਹੇਠਲੀਆਂ ਅਲਮਾਰੀਆਂ (ਲੀਨੀਅਰ ਫੁੱਟ)",
   "app.serviceTemplates.measure_wallCabinetFt": "ਕੰਧ ਵਾਲੀਆਂ ਅਲਮਾਰੀਆਂ (ਲੀਨੀਅਰ ਫੁੱਟ)",
+  "app.planRead.readAgainAll": "ਸਭ ਕੁਝ ਦੁਬਾਰਾ ਪੜ੍ਹੋ",
+  "app.planRead.readAgainConfirmTitle": "ਕੀ ਸਾਰਾ ਪ੍ਰੋਜੈਕਟ ਦੁਬਾਰਾ ਪੜ੍ਹਨਾ ਹੈ?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo ਆਪਣੇ ਮੌਜੂਦਾ ਰੀਡਰ ਨਾਲ ਹਰ ਸ਼ੀਟ, ਫੋਟੋ ਅਤੇ ਮਾਪ ਦੁਬਾਰਾ ਪੜ੍ਹਦਾ ਹੈ ਅਤੇ ਪ੍ਰੋਜੈਕਟ ਨੂੰ ਦੁਬਾਰਾ ਜੋੜਦਾ ਹੈ। ਚੈਟ ਵਿੱਚ ਕੀਤੀਆਂ ਤਬਦੀਲੀਆਂ ਬਦਲ ਦਿੱਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। ਇਹ ਤੁਹਾਡੇ AI ਕ੍ਰੈਡਿਟ ਵਿੱਚੋਂ {max} ਤੱਕ ਰੋਕਦਾ ਹੈ (ਬਕਾਇਆ {balance}), ਆਮ ਤੌਰ 'ਤੇ ਲਗਭਗ {expected}; ਤੁਹਾਡੇ ਤੋਂ ਸਿਰਫ਼ ਓਨਾ ਹੀ ਲਿਆ ਜਾਂਦਾ ਹੈ ਜਿੰਨਾ ਅਸਲ ਵਿੱਚ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ।",
+  "app.planRead.readAgainConfirm": "{max} ਰੋਕੋ ਅਤੇ ਦੁਬਾਰਾ ਪੜ੍ਹੋ",
+  "app.planRead.readAgainCancel": "ਹੁਣ ਨਹੀਂ",
+  "app.planRead.measureStale": "ਪੁਰਾਣੇ ਵਰਜਨ ਨਾਲ ਮਾਪਿਆ ਗਿਆ — ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਦੁਬਾਰਾ ਪੜ੍ਹੋ।",
 };
 
 const tl = {
@@ -111825,6 +111855,12 @@ const tl = {
   "app.serviceTemplates.measure_hvacSystems": "HVAC system na ikokomisyon at ibabalanse",
   "app.serviceTemplates.measure_baseCabinetFt": "Base cabinet (linear ft)",
   "app.serviceTemplates.measure_wallCabinetFt": "Wall cabinet (linear ft)",
+  "app.planRead.readAgainAll": "Basahin muli ang lahat",
+  "app.planRead.readAgainConfirmTitle": "Basahin muli ang buong proyekto?",
+  "app.planRead.readAgainConfirmBody": "Babasahin muli ng FieldQuo ang bawat sheet, larawan at sukat gamit ang kasalukuyang reader nito at bubuuin muli ang proyekto. Papalitan ang mga pagbabagong ginawa sa chat. Magrereserba ito ng hanggang {max} ng iyong AI credit (balanse {balance}), karaniwang mga {expected}; sisingilin ka lang sa talagang nagamit.",
+  "app.planRead.readAgainConfirm": "Ireserba ang {max} at basahin muli",
+  "app.planRead.readAgainCancel": "Hindi ngayon",
+  "app.planRead.measureStale": "Sinukat gamit ang mas lumang bersyon — Basahin muli para ma-update.",
 };
 
 const de = {
@@ -130083,6 +130119,12 @@ const de = {
   "app.serviceTemplates.measure_hvacSystems": "HLK-Anlagen zur Inbetriebnahme und Einregulierung",
   "app.serviceTemplates.measure_baseCabinetFt": "Unterschränke (laufende Fuß)",
   "app.serviceTemplates.measure_wallCabinetFt": "Hängeschränke (laufende Fuß)",
+  "app.planRead.readAgainAll": "Alles neu lesen",
+  "app.planRead.readAgainConfirmTitle": "Das ganze Projekt neu lesen?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo liest jedes Blatt, jedes Foto und jedes Maß mit seinem aktuellen Leser neu und setzt das Projekt neu zusammen. Änderungen aus dem Chat werden ersetzt. Dafür werden bis zu {max} Ihres KI-Guthabens reserviert (Stand {balance}), meist etwa {expected}; berechnet wird nur, was tatsächlich verbraucht wird.",
+  "app.planRead.readAgainConfirm": "{max} reservieren und neu lesen",
+  "app.planRead.readAgainCancel": "Nicht jetzt",
+  "app.planRead.measureStale": "Mit einer älteren Version gemessen — neu lesen, um zu aktualisieren.",
 };
 
 const zh = {
@@ -148333,6 +148375,12 @@ const zh = {
   "app.serviceTemplates.measure_hvacSystems": "需调试与平衡的暖通系统",
   "app.serviceTemplates.measure_baseCabinetFt": "地柜（延长英尺）",
   "app.serviceTemplates.measure_wallCabinetFt": "吊柜（延长英尺）",
+  "app.planRead.readAgainAll": "全部重新读取",
+  "app.planRead.readAgainConfirmTitle": "重新读取整个项目？",
+  "app.planRead.readAgainConfirmBody": "FieldQuo 会用当前的读取器重新读取每张图纸、照片和测量，并重新整理项目。在聊天中所做的更改将被替换。这会预留最多 {max} 的 AI 额度（余额 {balance}），通常约为 {expected}；只按实际用量收费。",
+  "app.planRead.readAgainConfirm": "预留 {max} 并重新读取",
+  "app.planRead.readAgainCancel": "暂不",
+  "app.planRead.measureStale": "使用旧版本测量 — 重新读取以更新。",
 };
 
 const it = {
@@ -166885,6 +166933,12 @@ const it = {
   "app.serviceTemplates.measure_hvacSystems": "Impianti HVAC da avviare e bilanciare",
   "app.serviceTemplates.measure_baseCabinetFt": "Basi (piedi lineari)",
   "app.serviceTemplates.measure_wallCabinetFt": "Pensili (piedi lineari)",
+  "app.planRead.readAgainAll": "Rileggi tutto",
+  "app.planRead.readAgainConfirmTitle": "Rileggere l'intero progetto?",
+  "app.planRead.readAgainConfirmBody": "FieldQuo rilegge ogni tavola, foto e misura con il suo lettore attuale e ricompone il progetto. Le modifiche fatte nella chat vengono sostituite. Vengono trattenuti fino a {max} del tuo credito IA (saldo {balance}), di solito circa {expected}; paghi solo ciò che viene effettivamente usato.",
+  "app.planRead.readAgainConfirm": "Trattieni {max} e rileggi",
+  "app.planRead.readAgainCancel": "Non ora",
+  "app.planRead.measureStale": "Misurato con una versione precedente — Rileggi per aggiornare.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

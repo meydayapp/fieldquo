@@ -41,11 +41,12 @@ import { createHash } from "node:crypto";
 import { ST_PAULS_SHEETS } from "./fixtures/stPaulsSheets.mjs";
 import { presetFixtures, SAME, MOVES } from "./fixtures/paintPresetFixtures.mjs";
 import { sheetKind, isMeasurableKind } from "@/lib/planRead/sheetKinds";
-import { MEASURE_SCHEMA, MEASURE_SYSTEM, measurePrompt } from "@/lib/planRead/measurePrompts";
+import { MEASURE_SCHEMA, MEASURE_SYSTEM, MEASURE_VERSION, measurePrompt } from "@/lib/planRead/measurePrompts";
 import { SYNTHESIS_SCHEMA, SYNTHESIS_SYSTEM, projectContext } from "@/lib/planRead/prompts";
 import { sanitiseMeasure, buildTakeoff, takeoffForPrompt, printedAreasIn, faceQuantity, cleanBox, wallHeight, heightKind, solidPerimeter, ARCH_SHARE, WALL_HEIGHT_TOLERANCE } from "@/lib/planRead/takeoff";
 import { buildDimIndex, computeProject, applyOps, sanitiseSynthesis } from "@/lib/planRead/projectModel";
-import { startRead, advanceRead, readEstimate, measureNeeded, measurePlanned, hasWorkToRead } from "@/lib/planRead/run";
+import { startRead, advanceRead, readEstimate, measureNeeded, measurePlanned, hasWorkToRead, measureStale, readAgainFlag, readInputs } from "@/lib/planRead/run";
+import { planReadView } from "@/lib/planRead/view";
 import { estimateRead, READ_TOKENS } from "@/lib/planRead/billing";
 import { priceProject } from "@/lib/planRead/pricing";
 import { firstPassOptions, crewSettings, daysFor, priceAccessLine, surfacePrep, usdFx, heightRow, figuresBook, missingAccess } from "@/lib/planRead/firstPass";
@@ -851,6 +852,88 @@ const ladderPriced = priceProject(ladderRooms, books, { firstPass: fpOpts });
 ok("…one ladder line per job, covering the rooms that needed one", ladderPriced.access.filter((a) => a.equipment === "step_ladder").length === 1 && ladderPriced.access[0].covers.length === 2 && ladderPriced.access[0].price === 0 && /one set for the job/.test(ladderPriced.access[0].why));
 ok("…and the first pass adds at most one ladder line for the areas without access", (() => { const c = { areas: [{ id: "r1", name: "Kitchen" }, { id: "r2", name: "Store" }], access: [], surfaces: [{ id: "s1", areaId: "r1", active: true, bands: [0.8, 0.2, 0, 0, 0, 0], topFt: 10 }, { id: "s2", areaId: "r2", active: true, bands: [0.8, 0.2, 0, 0, 0, 0], topFt: 10 }] }; return missingAccess(c).filter((a) => a.equipment === "step_ladder").length === 1; })());
 ok("…the access status says it: \"you own these, no rental (FieldQuo assumes so)\" with the link", accessStatus(ladderPriced.access, null).some((l) => l.status === "owned" && /you own these, no rental \(FieldQuo assumes so\)/.test(l.text) && l.href === "/app/settings/services#equipment-access"));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("20. Read again, and measuring again when the reader improved");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  // The flag: the body's own boolean AND edit permission — nothing else.
+  ok("readAgainFlag: { force: true } from someone who may edit → force", readAgainFlag({ force: true }, { canEdit: true }) === true);
+  ok("…without edit permission → no force", readAgainFlag({ force: true }, { canEdit: false }) === false && readAgainFlag({ force: true }) === false);
+  ok("…without the flag, or with a look-alike (\"true\", 1, a missing body) → no force", [{}, { force: "true" }, { force: 1 }, null, undefined, "force"].every((b) => readAgainFlag(b, { canEdit: true }) === false));
+
+  // A finished read of the same files and scope.
+  const m20 = memDb({ planRead: [churchRead("pc20")], quoteDocument: docs("pc20") });
+  await startRead({ planReadId: "pc20", companyId: "co1" }, { ...deps, db: m20 });
+  await advanceRead("pc20", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: m20, complete: provider(zeroSynthesis) });
+  const done = () => ({ ...m20.t.planRead[0], documents: docs("pc20") });
+  ok("a finished read stamps every measurement with the current MEASURE_VERSION", done().status === "ready" && done().sheets.filter((s) => s.measure && !s.measure.failed).length >= 7 && done().sheets.filter((s) => s.measure && !s.measure.failed).every((s) => s.measure.version === MEASURE_VERSION));
+  ok("…so there is nothing new to read (the refusal the owner hit)", hasWorkToRead(done()) === false);
+  const plain = await startRead({ planReadId: "pc20", companyId: "co1" }, { ...deps, db: m20 });
+  ok("…and a plain run is refused \"nothing_to_read\", nothing held", plain.ok === false && plain.error === "nothing_to_read" && m20.t.planRead[0].status === "ready");
+
+  // force only on a finished read
+  const mDraft = memDb({ planRead: [churchRead("pc21")], quoteDocument: docs("pc21") });
+  const draftForce = await startRead({ planReadId: "pc21", companyId: "co1", force: true }, { ...deps, db: mDraft });
+  ok("force on a read that never finished is refused (not_finished), nothing held", draftForce.ok === false && draftForce.error === "not_finished" && mDraft.t.planRead[0].status === "draft");
+  ok("…and a truthy non-boolean force is not force", (await startRead({ planReadId: "pc20", companyId: "co1", force: "yes" }, { ...deps, db: m20 })).error === "nothing_to_read");
+
+  // Read again: the whole read, priced up front.
+  const forcedEstimate = readEstimate(done(), { force: true });
+  const inp20 = readInputs(done());
+  const routedSheets = inp20.routed.length;
+  const routedKeys = new Set(inp20.routed.map((s) => s.key));
+  const planned = inp20.routed.filter((s) => measurePlanned(s, done(), inp20.routes.get(s.key))).length;
+  ok(`the confirm's figure is the whole read: every sheet (${forcedEstimate.breakdown.sheetsToRead}) and every planned measurement (${forcedEstimate.breakdown.measureSheets})`, forcedEstimate.breakdown.sheetsToRead === routedSheets && forcedEstimate.breakdown.measureSheets === planned && forcedEstimate.cents > readEstimate(done()).cents);
+  const ledgerBefore = ledger.length;
+  const again = await startRead({ planReadId: "pc20", companyId: "co1", force: true }, { ...deps, db: m20 });
+  const r20 = m20.t.planRead[0];
+  ok("force on the finished read starts it, holding exactly what the confirm showed", again.ok === true && again.forced === true && again.heldCents === forcedEstimate.cents && r20.status === "reading" && ledger.length === ledgerBefore + 1 && ledger.at(-1).cents === -forcedEstimate.cents);
+  ok("…and marks THIS run as forced (usage.forceRun = its hold)", r20.usage.forceRun === r20.reservationRef && Boolean(r20.reservationRef));
+  const callsBefore = calls.length;
+  const fin = await advanceRead("pc20", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: m20, complete: provider(zeroSynthesis) });
+  const made = calls.slice(callsBefore);
+  const ref20 = ledger.at(-1).ref;
+  ok(`every sheet is read again (${made.filter((c) => c.schemaName === "plan_read_sheet").length} of ${routedSheets}) and every planned sheet measured again (${made.filter((c) => c.schemaName === "plan_read_measure").length} of ${planned})`, fin.state === "ready" && made.filter((c) => c.schemaName === "plan_read_sheet").length === routedSheets && made.filter((c) => c.schemaName === "plan_read_measure").length === planned && made.filter((c) => c.schemaName === "plan_read_synthesis").length === 1);
+  ok("…each pass stamped with the forced run, so a resumed forced run never repeats one", m20.t.planRead[0].sheets.filter((s) => routedKeys.has(s.key)).every((s) => s.read?.run === ref20) && m20.t.planRead[0].sheets.filter((s) => routedKeys.has(s.key) && measurePlanned(s, done(), inp20.routes.get(s.key))).every((s) => s.measure?.run === ref20));
+  ok("…and the next plain run is an ordinary one again (the marker names that run only)", (await startRead({ planReadId: "pc20", companyId: "co1" }, { ...deps, db: m20 })).error === "nothing_to_read");
+
+  // A forced run that runs out of time resumes where it stopped.
+  const m22 = memDb({ planRead: [{ ...JSON.parse(JSON.stringify(m20.t.planRead[0])), id: "pc22" }], quoteDocument: docs("pc22") });
+  await startRead({ planReadId: "pc22", companyId: "co1", force: true }, { ...deps, db: m22 });
+  let clock22 = 0;
+  const slow = { ...deps, db: m22, now: () => clock22, sheetConcurrency: 1, complete: async (a) => { clock22 += 60_000; return provider(zeroSynthesis)(a); } };
+  const first22 = await advanceRead("pc22", { companyId: "co1", budgetMs: 300_000 }, slow);
+  const readFirst = m22.t.planRead[0].sheets.filter((s) => s.read?.run === m22.t.planRead[0].reservationRef).length;
+  const c22 = calls.length;
+  m22.t.planRead[0].leaseUntil = null;
+  clock22 += 1;
+  const second22 = await advanceRead("pc22", { companyId: "co1", budgetMs: 10_000_000 }, { ...slow, now: () => clock22 });
+  const secondSheetCalls = calls.slice(c22).filter((c) => c.schemaName === "plan_read_sheet").length;
+  ok(`a forced run that pauses (${readFirst} sheets read) resumes with only the rest (${secondSheetCalls})`, first22.state === "more" && readFirst > 0 && second22.state === "ready" && secondSheetCalls === routedSheets - readFirst, { first: first22.state, readFirst, secondSheetCalls, second: second22.state });
+
+  // measureVersion: an older measurement is measured again; the current one is not.
+  const routeAll = { send: true, trades: ["painting"], reason: "unknown" };
+  const readNow = done();
+  const sheet = readNow.sheets.find((s) => s.measure && !s.measure.failed);
+  const { version: _v, ...unstamped } = sheet.measure;
+  ok("measureNeeded: a sheet measured under an older version (an unstamped one is version 1) is measured again", measureNeeded({ ...sheet, measure: unstamped }, readNow, routeAll) === true && measureNeeded({ ...sheet, measure: { ...sheet.measure, version: MEASURE_VERSION - 1 } }, readNow, routeAll) === true && measureStale({ ...sheet, measure: unstamped }, readNow, routeAll) === true);
+  ok("…the current version is not", measureNeeded({ ...sheet, measure: { ...sheet.measure, version: MEASURE_VERSION } }, readNow, routeAll) === false && measureStale(sheet, readNow, routeAll) === false);
+  ok("…a permanent failure is never re-offered (no picture of the page — a newer prompt cannot help)", measureNeeded({ ...sheet, measure: { failed: true, permanent: true } }, readNow, routeAll) === false && measureStale({ ...sheet, measure: { failed: true, permanent: true } }, readNow, routeAll) === false);
+  const staleRead = { ...readNow, sheets: readNow.sheets.map((s) => (s.key === sheet.key ? { ...s, measure: unstamped } : s)) };
+  ok("…so a finished read with one stale sheet has work again, priced as that one measurement", hasWorkToRead(staleRead) === true && readEstimate(staleRead).breakdown.measureSheets === 1 && readEstimate(staleRead).breakdown.sheetsToRead === 0);
+
+  // The screen: the notice, and the confirm's numbers.
+  const v = await planReadView(staleRead, { companyId: "co1", canSeeMoney: true, prisma: m20, balanceCents: 5000 });
+  ok("the read says how many sheets were measured with an older version, and offers Read again with its held credit", v.staleMeasures === 1 && v.canReadAgain === true && v.credits.readAgainCents === readEstimate(staleRead, { force: true }).cents && v.firstPass?.measureMissing === false);
+  const vNow = await planReadView(readNow, { companyId: "co1", canSeeMoney: true, prisma: m20, balanceCents: 5000 });
+  ok("…and none when every measurement is current", vNow.staleMeasures === 0 && vNow.canRead === false && vNow.canReadAgain === true);
+  const ws = code("app/components/planRead/PlanReadWorkspace.js");
+  ok("the stale notice renders on the read card from view.staleMeasures, in the owner's words", /view\.staleMeasures > 0 &&/.test(ws) && /app\.planRead\.measureStale", "Measured with an older version — Read again to update\."/.test(ws));
+  ok("\"Read again\" asks first, showing what it holds, then posts { force: true }", /function ReadAgain\(/.test(ws) && /readAgainConfirmBody/.test(ws) && /c\.readAgainCents/.test(ws) && /jsonBody\(\{ force: true \}\)/.test(ws) && /onRun\(\{ force: true \}\)/.test(ws));
+  const route = code("app/api/plan-reads/[id]/run/route.js");
+  ok("the route takes force only through readAgainFlag with the caller's own edit level, and refuses a flag it will not honour", /readAgainFlag\(body, \{ canEdit: hasLevel\(full, "quotes", "view_create_edit"\) \}\)/.test(route) && /read_again_denied/.test(route) && /startRead\(\{[^}]*force \}/.test(route));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("19. Wiring");
