@@ -372,10 +372,11 @@ export async function GET(request) {
     // choice (null = automatic), what the automatic rule would pick today,
     // and the two candidate URLs so the screen can say what each choice
     // means rather than offering "FieldQuo site" to a company with none.
-    // Which language pills the public form draws. `chosen` is what was
-    // saved ([] = never chosen), `offered` what a visitor actually sees —
-    // all three until the first save (lib/estimate/instantQuoteLanguages.js
-    // says why unset is not "the default language only").
+    // Which language pills the public form draws. `all` is every language
+    // the form can be read in (eight), `chosen` what was saved ([] = never
+    // chosen), `offered` what a visitor actually sees — English, French and
+    // Spanish until the first save (lib/estimate/instantQuoteLanguages.js
+    // says why unset is neither "the default language only" nor all eight).
     languages: {
       all: INSTANT_QUOTE_LANGUAGES,
       chosen: sanitiseInstantLanguages(company?.instantQuoteLanguages),

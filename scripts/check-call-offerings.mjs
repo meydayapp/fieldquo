@@ -179,10 +179,14 @@ for (const [name, value] of [
   ["soft-close hinge rate", book.addOns.softCloseHingesPerDoor],
   ["handle hole rate", book.addOns.handleHolesPerDoor],
   ["two-tone flat", book.addOns.twoToneFlat],
-  ["stain finish rate", `${book.addOns.stainFinishPerUnit}`],
+  // Money-shaped and whole since the liquid rate became $10 and the gel rate
+  // $20 (2026-10-03): a bare "10" or "20" is in any prompt that counts doors,
+  // and "$10" is the head of "$100". Checked by the regex below.
+  ["stain finish rate", new RegExp(`\\$${book.addOns.stainFinishPerUnit}(?![0-9])`)],
+  ["gel stain rate", new RegExp(`\\$${book.addOns.gelStainPerUnit}(?![0-9])`)],
   ["job minimum", book.minimumTotal],
 ]) {
-  ok(`no ${name} (${value}) in the prompt`, !PROMPT.includes(String(value)));
+  ok(`no ${name} (${value}) in the prompt`, value instanceof RegExp ? !value.test(PROMPT) : !PROMPT.includes(String(value)));
 }
 
 /* ═════════════════ 3. The scope survives a caller correcting themselves ═══ */

@@ -187,7 +187,10 @@ section("6. The sentences, in three languages, with no English in fr/es");
   const outsideNoRadius = outsideServiceAreaSentence(prefixOnly, "en");
   ok(!/km/.test(outsideNoRadius), "outside line for a prefix-only area prints no radius");
   ok(serviceAreaCopy("FR-CA").outsideBadge === SERVICE_AREA_COPY.fr.outsideBadge, "language codes are cut to two letters");
-  ok(serviceAreaCopy("de").outsideBadge === SERVICE_AREA_COPY.en.outsideBadge, "an unknown language falls back to English");
+  // German has its own row since the instant form went to eight languages
+  // (2026-10-03); "zh" is a code the app shell knows and this table does not.
+  ok(serviceAreaCopy("zh").outsideBadge === SERVICE_AREA_COPY.en.outsideBadge && serviceAreaCopy("xx").outsideBadge === SERVICE_AREA_COPY.en.outsideBadge, "an unknown language falls back to English");
+  ok(["uk", "pa", "tl", "de", "it"].every((l) => SERVICE_AREA_COPY[l] && serviceAreaCopy(l).outsideBadge !== SERVICE_AREA_COPY.en.outsideBadge), "the five later languages answer in their own words");
   ok(serviceAreaCopy("__proto__") === SERVICE_AREA_COPY.en, "a prototype key falls back to English rather than reaching Object.prototype");
 }
 

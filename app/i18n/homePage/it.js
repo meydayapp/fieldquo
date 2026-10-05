@@ -1,11 +1,13 @@
 // app/i18n/homePage/it.js — see en.js for what may and may not be typed here.
 export const HOME_PAGE_IT = {
-  "home.hero.title": "Gestisca tutta la sua impresa di servizi sul campo da un solo posto.",
+  "home.hero.title":
+    "Gestisca tutta la sua impresa di servizi sul campo da un solo posto.",
   "home.hero.subtitle":
     "Prepari i preventivi. Organizzi la squadra. Fatturi ai clienti. Incassi. Faccia crescere l'impresa — senza destreggiarsi tra cinque app diverse.",
   "home.hero.ctaPrimary": "Inizi la prova gratuita",
   "home.hero.ctaSecondary": "Guardi come funziona",
-  "home.hero.flow": "Dalla prima chiamata → al preventivo → al lavoro → al pagamento.",
+  "home.hero.flow":
+    "Dalla prima chiamata → al preventivo → al lavoro → al pagamento.",
   "home.trial.days": "{days} giorni gratis",
   "home.trial.noCard": "nessuna carta richiesta",
   "home.trial.allFeatures": "tutte le funzioni in ogni piano",
@@ -22,7 +24,8 @@ export const HOME_PAGE_IT = {
   "home.demo.subtitle":
     "L'ufficio vede tutta la pipeline. La squadra vede i lavori di oggi sul telefono. È lo stesso lavoro in entrambi i posti.",
   "home.demo.sample": "Dati di esempio — non sono clienti reali.",
-  "home.demo.figureLabel": "Illustrazione di FieldQuo con lavori di esempio, dal nuovo contatto alla fattura pagata",
+  "home.demo.figureLabel":
+    "Illustrazione di FieldQuo con lavori di esempio, dal nuovo contatto alla fattura pagata",
   "home.demo.nav.pipeline": "Pipeline",
   "home.demo.nav.schedule": "Calendario",
   "home.demo.nav.clients": "Clienti",
@@ -45,46 +48,61 @@ export const HOME_PAGE_IT = {
   "home.demo.phone.onMyWay": "Sto arrivando",
   "home.demo.phone.startJob": "Inizia",
 
-  "home.results.promise.volume": "Gestisca più lavoro senza assumere altre persone.",
-  "home.results.promise.overhead": "I sistemi di una grande azienda, senza i costi di una grande azienda.",
+  "home.results.promise.volume":
+    "Gestisca più lavoro senza assumere altre persone.",
+  "home.results.promise.overhead":
+    "I sistemi di una grande azienda, senza i costi di una grande azienda.",
   "home.results.promise.techs": "Ottenga di più da ogni tecnico sul campo.",
-  "home.results.title": "Cosa riferiscono le imprese dopo il passaggio a un'unica piattaforma collegata",
+  "home.results.title":
+    "Cosa riferiscono le imprese dopo il passaggio a un'unica piattaforma collegata",
   "home.results.intro":
     "Una ricerca di settore, non risultati di clienti FieldQuo. Ogni cifra è la quota di imprese intervistate che ha riferito il miglioramento — non la sua entità.",
-  "home.results.stat.volume": "dicono che il loro ufficio gestisce più lavoro senza assumere",
+  "home.results.stat.volume":
+    "dicono che il loro ufficio gestisce più lavoro senza assumere",
   "home.results.stat.revenuePerTech": "riferiscono più ricavi per tecnico",
   "home.results.stat.margins": "riferiscono margini migliori",
   "home.results.stat.growth": "riferiscono una crescita dei ricavi",
   "home.results.stat.invoicing": "riferiscono una fatturazione più rapida",
-  "home.results.stat.quoteTurnaround": "riferiscono preventivi inviati più in fretta",
+  "home.results.stat.quoteTurnaround":
+    "riferiscono preventivi inviati più in fretta",
   "home.results.stat.winRate": "riferiscono più preventivi accettati",
   "home.results.stat.tools": "strumenti separati sostituiti, in media",
-  "home.results.source": "Fonte: {report} ({count} imprese commerciali, {date}).",
+  "home.results.source":
+    "Fonte: {report} ({count} imprese commerciali, {date}).",
   "home.results.fact.onePlatform": "Un'unica piattaforma invece di sei app",
   "home.results.fact.allFeatures": "Tutte le funzioni in ogni piano",
 
   "home.how.title": "Un lavoro. Un flusso semplice.",
-  "home.how.subtitle": "Sei passaggi, un'unica scheda, niente da digitare due volte.",
+  "home.how.subtitle":
+    "Sei passaggi, un'unica scheda, niente da digitare due volte.",
   "home.how.lead.title": "Riceva il contatto",
-  "home.how.lead.body": "Chiamate, moduli web, la sua pagina di prenotazione e i passaparola arrivano in un solo posto.",
+  "home.how.lead.body":
+    "Chiamate, moduli web, la sua pagina di prenotazione e i passaparola arrivano in un solo posto.",
   "home.how.quote.title": "Invii il preventivo",
-  "home.how.quote.body": "Lo prepari sul posto con i suoi prezzi e lo invii prima di lasciare il vialetto.",
+  "home.how.quote.body":
+    "Lo prepari sul posto con i suoi prezzi e lo invii prima di lasciare il vialetto.",
   "home.how.schedule.title": "Programmi il lavoro",
-  "home.how.schedule.body": "Il preventivo approvato diventa un lavoro. Lo metta in calendario e assegni la squadra.",
+  "home.how.schedule.body":
+    "Il preventivo approvato diventa un lavoro. Lo metta in calendario e assegni la squadra.",
   "home.how.work.title": "Esegua il lavoro",
-  "home.how.work.body": "La squadra timbra, aggiunge foto e completa la checklist dal telefono.",
+  "home.how.work.body":
+    "La squadra timbra, aggiunge foto e completa la checklist dal telefono.",
   "home.how.paid.title": "Incassi",
-  "home.how.paid.body": "Fatturi direttamente dal lavoro e incassi online, direttamente sul suo conto bancario.",
+  "home.how.paid.body":
+    "Fatturi direttamente dal lavoro e incassi online, direttamente sul suo conto bancario.",
   "home.how.numbers.title": "Conosca i suoi numeri",
-  "home.how.numbers.body": "Veda quanto ha reso davvero ogni lavoro rispetto al preventivo.",
+  "home.how.numbers.body":
+    "Veda quanto ha reso davvero ogni lavoro rispetto al preventivo.",
 
   "home.trades.title": "Pensato per il suo mestiere",
-  "home.trades.subtitle": "Scelga il suo mestiere per vedere il tipo di preventivo che invierebbe da FieldQuo.",
+  "home.trades.subtitle":
+    "Scelga il suo mestiere per vedere il tipo di preventivo che invierebbe da FieldQuo.",
   "home.trades.pick": "Scelga un mestiere",
   "home.trades.example": "Esempio",
   "home.trades.estimate": "Stima",
   "home.trades.send": "Invia preventivo",
-  "home.trades.note": "Cifre a scopo illustrativo, non un listino — in FieldQuo i prezzi li decide lei.",
+  "home.trades.note":
+    "Cifre a scopo illustrativo, non un listino — in FieldQuo i prezzi li decide lei.",
   "home.trades.more": "Scopra FieldQuo per questo mestiere",
   "home.trades.painting.job": "Tinteggiatura interni",
   "home.trades.painting.scope": "3 stanze · 1.450 sq ft",
@@ -97,14 +115,17 @@ export const HOME_PAGE_IT = {
   "home.trades.electrical.job": "Adeguamento del quadro elettrico",
   "home.trades.electrical.scope": "Da 100 A a 200 A · permesso incluso",
   "home.trades.plumbing.job": "Sostituzione dello scaldabagno",
-  "home.trades.plumbing.scope": "Serbatoio a gas da 50 galloni · vecchio apparecchio rimosso",
+  "home.trades.plumbing.scope":
+    "Serbatoio a gas da 50 galloni · vecchio apparecchio rimosso",
   "home.trades.handyman.job": "Lista di piccoli lavori",
   "home.trades.handyman.scope": "8 piccole riparazioni · circa 6 ore",
   "home.trades.construction-contracting.job": "Finitura del seminterrato",
-  "home.trades.construction-contracting.scope": "750 sq ft · dall'orditura alla tinteggiatura",
+  "home.trades.construction-contracting.scope":
+    "750 sq ft · dall'orditura alla tinteggiatura",
 
   "home.outcomes.title": "Cosa l'aiuta a fare FieldQuo",
-  "home.outcomes.subtitle": "Tutto in un solo sistema, raggruppato per ciò che porta a termine.",
+  "home.outcomes.subtitle":
+    "Tutto in un solo sistema, raggruppato per ciò che porta a termine.",
   "home.outcomes.win": "Ottenere più lavori",
   "home.outcomes.run": "Gestire ogni lavoro",
   "home.outcomes.paid": "Incassare",
@@ -136,7 +157,8 @@ export const HOME_PAGE_IT = {
   "home.ai.title": "Chieda qualsiasi cosa alla sua impresa.",
   "home.ai.body":
     "Chieda con parole semplici e ottenga una risposta dai suoi preventivi, lavori, fatture e spese. Risponde solo sui dati della sua impresa — mai su quelli di un'altra.",
-  "home.ai.q.profitable": "Quali lavori sono stati i più redditizi questo mese?",
+  "home.ai.q.profitable":
+    "Quali lavori sono stati i più redditizi questo mese?",
   "home.ai.q.followUp": "Quali preventivi non sono ancora stati sollecitati?",
   "home.ai.q.materials": "Quanto abbiamo speso in materiali?",
   "home.ai.q.owed": "Quali clienti ci devono ancora dei soldi?",
@@ -161,7 +183,8 @@ export const HOME_PAGE_IT = {
 
   "home.pricing.title": "Tutte le funzioni. In ogni piano.",
   "home.pricing.question": "Quante persone mandano avanti la sua impresa?",
-  "home.pricing.body": "I piani si distinguono solo per quante persone li usano. Niente è riservato a un piano più grande.",
+  "home.pricing.body":
+    "I piani si distinguono solo per quante persone li usano. Niente è riservato a un piano più grande.",
   "home.pricing.audience.solo": "Solo io",
   "home.pricing.audience.crew": "Piccola squadra",
   "home.pricing.audience.shop": "In crescita",
@@ -169,11 +192,13 @@ export const HOME_PAGE_IT = {
   "home.pricing.compare": "Confronta i piani",
 
   "home.faq.trial.q": "Quanto dura la prova gratuita?",
-  "home.faq.trial.a": "{days} giorni, con tutte le funzioni attive — abbastanza per inviare preventivi veri a clienti veri.",
+  "home.faq.trial.a":
+    "{days} giorni, con tutte le funzioni attive — abbastanza per inviare preventivi veri a clienti veri.",
   "home.faq.card.q": "Serve una carta di credito per iniziare?",
   "home.faq.card.aNoCard":
     "No. Si registri senza carta. Quando è pronto, scelga un piano e aggiunga una carta in Account e fatturazione. Se la prova finisce senza un piano, l'account resta in sola lettura per {grace} giorni e poi si blocca — non viene cancellato nulla.",
-  "home.faq.card.aCard": "Sì — la carta viene richiesta all'iscrizione e non viene addebitato nulla fino alla fine della prova di {days} giorni.",
+  "home.faq.card.aCard":
+    "Sì — la carta viene richiesta all'iscrizione e non viene addebitato nulla fino alla fine della prova di {days} giorni.",
   "home.faq.cancel.q": "Posso disdire quando voglio?",
   "home.faq.cancel.a":
     "Sì, da Account e fatturazione. Un piano pagato resta attivo fino alla fine del periodo che copre — un mese, o un anno con l'impegno annuale — e non viene addebitato altro.",

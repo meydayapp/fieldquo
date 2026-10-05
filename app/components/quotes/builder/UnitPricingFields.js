@@ -20,10 +20,22 @@ import {
   COMPLEXITY_REASONS,
   finalUnitPrice,
   groupUnits,
+  unitPricingSubtotal,
 } from "@/app/data/cabinetPricing";
 import { formatAppMoney } from "@/lib/format/money";
 import { currencyMeta } from "@/lib/currency";
 import { cabinetAddOnLines } from "@/lib/pricing/tradeScope";
+import {
+  normaliseStainType,
+  STAIN_TYPES,
+  STRIP_METHODS,
+  normaliseStripMethod,
+  cabinetNeedsStripping,
+  cabinetStrippingHours,
+  stainedPieceCount,
+  stainPremiumPerUnit,
+  stainedUnitRate,
+} from "@/lib/pricing/stainFinish";
 import ComplexityPicker from "@/app/components/pricing/ComplexityPicker";
 import {
   COMPLEXITY_MODEL,
@@ -112,13 +124,18 @@ const ADD_ONS = [
     // it — refinishing; a refaced door arrives finished — so refacing never
     // shows a box that adds nothing.
     key: "stainFinish",
-    label: "Stain finish instead of paint (strip and re-stain)",
+    label: "Stained instead of painted — priced all-in per piece",
     needsDrawers: false,
     countsKey: "stainFinish",
     defaultUnits: (d, dr) => d + dr,
     unitWord: "pieces",
+    // Offered while the book sells stain (the bare-wood difference above 0,
+    // lib/pricing/offerings.js). The hint names the ALL-IN stained rate per
+    // piece (owner, 2026-10-04: the painting rate plus the stain difference,
+    // stripping included — lib/pricing/stainFinish.js), never a bare premium.
     onlyWhenPriced: (a) => Number(a?.stainFinishPerUnit) > 0,
-    hint: (a, money) => `${money(a.stainFinishPerUnit)} more per piece`,
+    hint: (a, money, group, paintRate, book) =>
+      `${money(stainedUnitRate(paintRate, stainPremiumPerUnit(group, book)))} a piece all-in, instead of ${money(paintRate)} painted`,
   },
 ];
 
@@ -165,6 +182,15 @@ export default function UnitPricingFields({
     { doors, drawers, ...group },
     book,
   ).reduce((sum, i) => sum + i.amount, 0);
+
+  // The stain (lib/pricing/stainFinish.js): stained pieces are priced ALL-IN
+  // on the unit line — the base total below is unitPricingSubtotal, which
+  // carries them — and the stripping method only moves the crew's hours.
+  const setStain = (patch) => onPricingChange(patch);
+  const stainConfig = { ...group, doors, drawers };
+  const needsStrip = cabinetNeedsStripping(stainConfig);
+  const stainedPieces = stainedPieceCount(group, units);
+  const baseTotal = unitPricingSubtotal(group, book);
 
   const upcharge = factors
     ? finalPrice - (Number(group.baseUnitPrice) || 0)
@@ -470,10 +496,17 @@ export default function UnitPricingFields({
           // override at save time is how a screen comes to disagree with the
           // document it produces.
           const own = cabinetAddOnLines(
-            { doors, drawers, [addOn.key]: true, addOnUnits: units },
+            { doors, drawers, [addOn.key]: true, addOnUnits: units, stainType: group.stainType },
             book,
           );
-          const amount = own.reduce((sum, i) => sum + i.amount, 0);
+          // The stain is not an add-on line: its row shows what the stained
+          // pieces add over painting them — the all-in stained rate less the
+          // painting rate, × the pieces stained (the base total carries it).
+          const amount =
+            addOn.key === "stainFinish"
+              ? stainedPieceCount({ ...group, stainFinish: true }, doors + drawers) *
+                (stainedUnitRate(finalPrice, stainPremiumPerUnit(group, book)) - finalPrice)
+              : own.reduce((sum, i) => sum + i.amount, 0);
           const applicable = addOn.needsDrawers ? drawers > 0 : doors > 0;
           return (
             <label
@@ -486,7 +519,7 @@ export default function UnitPricingFields({
                 checked={on}
                 disabled={!applicable}
                 onChange={(e) =>
-                  onPricingChange({ [addOn.key]: e.target.checked })
+                  addOn.key === "stainFinish" ? setStain({ stainFinish: e.target.checked }) : onPricingChange({ [addOn.key]: e.target.checked })
                 }
               />
               <span className="min-w-0 flex-1">
@@ -508,7 +541,7 @@ export default function UnitPricingFields({
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   {applicable
-                    ? addOn.hint(book?.addOns || {}, money)
+                    ? addOn.hint(book?.addOns || {}, money, group, finalPrice, book)
                     : addOn.needsDrawers
                       ? "Enter a drawer count above"
                       : "Enter a door count above"}
@@ -550,6 +583,138 @@ export default function UnitPricingFields({
                     </span>
                   </span>
                 )}
+
+                {/* ── Gel or liquid (owner, 2026-10-03) ───────────────────
+                    Buttons, not radios: this row is a <label> around the
+                    tick, and a nested label would toggle the tick. Each
+                    names its own rate so the choice shows what it moves. */}
+                {on && addOn.key === "stainFinish" && (
+                  // This block sits inside the row's <label>: a click on its
+                  // words would otherwise reach the label and untick the
+                  // stain. Cancelled here — except on the Field work link.
+                  <span
+                    className="mt-2 block"
+                    data-stain-type
+                    onClick={(e) => {
+                      if (!(e.target instanceof Element && e.target.closest("a"))) e.preventDefault();
+                    }}
+                  >
+                    <span className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.stain.typeLabel", "Which stain")}>
+                      {STAIN_TYPES.map((type) => {
+                        const active = normaliseStainType(group.stainType) === type;
+                        // The ALL-IN rate a piece is quoted at with this stain.
+                        const rate = stainedUnitRate(finalPrice, stainPremiumPerUnit({ ...group, stainType: type }, book));
+                        return (
+                          <button
+                            key={type}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setStain({ stainType: type });
+                            }}
+                            className={`rounded-lg border px-2.5 py-1 text-xs min-h-8 ${
+                              active
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-foreground"
+                            }`}
+                          >
+                            {type === "gel"
+                              ? t("app.stain.gel", "Gel stain — over the existing finish")
+                              : t("app.stain.liquid", "Liquid (penetrating) stain — bare wood")}
+                            {" · "}
+                            {t("app.stain.perPieceAllIn", "{rate} a piece all-in", { rate: money(rate) })}
+                          </button>
+                        );
+                      })}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {normaliseStainType(group.stainType) === "gel"
+                        ? t(
+                            "app.stain.gelHint",
+                            "Gel sits on top of the old finish after a clean and a light scuff — no stripping — and does not blotch on maple or birch. Slower per piece: more hand-wiped coats and longer drying between them.",
+                          )
+                        : t(
+                            "app.stain.liquidHint",
+                            "Liquid stain soaks into bare wood, so the existing finish has to come off first. It can blotch on maple, birch, cherry and pine.",
+                          )}
+                    </span>
+
+                    {/* ── Stripping to bare wood (owner, 2026-10-03) ─────────
+                        Its own labour line, hours × the labour rate; shown
+                        here with where each number comes from. */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={group.stainDarkToLight === true}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setStain({ stainDarkToLight: group.stainDarkToLight !== true });
+                      }}
+                      className="mt-2 flex items-start gap-2 text-left text-xs text-foreground min-h-8"
+                      data-stain-dark-to-light
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded-sm border ${
+                          group.stainDarkToLight === true ? "border-foreground bg-foreground" : "border-border"
+                        }`}
+                      />
+                      {t("app.stain.darkToLight", "Going lighter than the current colour (dark → light) — needs bare wood, even with gel")}
+                    </button>
+                    {needsStrip ? (
+                      <span className="mt-2 block rounded-md border border-border p-2" data-stripping>
+                        <span className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.stain.stripTitle", "Stripping to bare wood")}>
+                          {STRIP_METHODS.map((method) => {
+                            const active = normaliseStripMethod(group.stripMethod) === method;
+                            const h = cabinetStrippingHours({ ...stainConfig, stripMethod: method }, book);
+                            return (
+                              <button
+                                key={method}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setStain({ stripMethod: method });
+                                }}
+                                className={`rounded-lg border px-2.5 py-1 text-xs min-h-8 ${
+                                  active
+                                    ? "border-foreground bg-foreground text-background"
+                                    : "border-border text-foreground"
+                                }`}
+                              >
+                                {method === "sanding"
+                                  ? t("app.stain.stripSanding", "Sanding")
+                                  : t("app.stain.stripChemical", "Chemical stripper")}
+                                {" · "}
+                                {t("app.stain.hours", "{hours} h", { hours: h })}
+                              </button>
+                            );
+                          })}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground" data-stripping-included>
+                          {t(
+                            "app.stain.stripIncluded",
+                            "Stripping is included in the stained price — the client is never charged for it twice. The method only sets your crew's hours in Cost & margin: {hours} h on this job.",
+                            { hours: cabinetStrippingHours(stainConfig, book) },
+                          )}
+                        </span>
+                        <span className="mt-1 block text-[11px] text-muted-foreground">
+                          {t(
+                            "app.stain.stripDefaults",
+                            "Hours per door and drawer front come from your rate card (Settings → Services). FieldQuo's researched defaults: chemical 0.75 h a door, 0.25 h a drawer front; sanding 0.4 h and 0.15 h.",
+                          )}
+                        </span>
+                      </span>
+                    ) : (
+                      normaliseStainType(group.stainType) === "gel" && (
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {t("app.stain.noStrip", "Gel over the existing finish: no stripping.")}
+                        </span>
+                      )
+                    )}
+                  </span>
+                )}
               </span>
             </label>
           );
@@ -566,12 +731,22 @@ export default function UnitPricingFields({
 
       <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
         <span className="text-sm text-muted-foreground">
-          {units} unit{units === 1 ? "" : "s"} ×{" "}
-          {money(finalPrice)}
+          {stainedPieces > 0 ? (
+            <>
+              {units - stainedPieces > 0 && `${units - stainedPieces} × ${money(finalPrice)} + `}
+              {stainedPieces} × {money(stainedUnitRate(finalPrice, stainPremiumPerUnit(group, book)))}{" "}
+              {t("app.stain.stainedAllIn", "stained, all-in")}
+            </>
+          ) : (
+            <>
+              {units} unit{units === 1 ? "" : "s"} ×{" "}
+              {money(finalPrice)}
+            </>
+          )}
           {addOnTotal > 0 && " + add-ons"}
         </span>
         <span className="text-base font-bold text-foreground">
-          {money(units * finalPrice + addOnTotal)}
+          {money(baseTotal + addOnTotal)}
         </span>
       </div>
     </div>

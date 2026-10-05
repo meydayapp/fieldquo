@@ -41,12 +41,8 @@ import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { taxLineHeadline } from "@/lib/tax/taxLine";
 import { INDUSTRY_MESSAGES } from "@/app/i18n/industries";
 import { payloadBands } from "./houseFixture";
-import { showcasePresentation } from "./showcaseLanguage";
-import {
-  INSTANT_QUOTE_LANGUAGES,
-  instantTradeLabel,
-  instantTradeBlurb,
-} from "@/lib/i18n/instantQuoteCopy";
+import { showcasePresentation, SHOWCASE_DOCUMENT_LANGUAGES } from "./showcaseLanguage";
+import { instantTradeLabel, instantTradeBlurb } from "@/lib/i18n/instantQuoteCopy";
 
 const TRADE = "roofing";
 
@@ -243,6 +239,6 @@ export function buildRoofingShowcase() {
     // and the review queue (steps 2 and 3) name the option in the READER's
     // language from these, as the app does from namespace materialLabel.
     materialLabels: Object.fromEntries(Object.keys(INDUSTRY_MESSAGES).map((code) => [code, materialLabelsFor(code)])),
-    payloads: Object.fromEntries(INSTANT_QUOTE_LANGUAGES.map((code) => [code, showcasePayload(code, config)])),
+    payloads: Object.fromEntries(SHOWCASE_DOCUMENT_LANGUAGES.map((code) => [code, showcasePayload(code, config)])),
   };
 }

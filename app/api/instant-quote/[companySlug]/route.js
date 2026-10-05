@@ -13,7 +13,7 @@ import { effectivePixels } from "@/lib/funnels/pixels";
 
 export async function GET(request, { params }) {
   const { companySlug } = await params;
-  // ?lang=fr|es|en — the visitor's pick (the pills on the form, or a link a
+  // ?lang=<one of the eight> — the visitor's pick (the pills on the form, or a link a
   // contractor put on their French page). Anything else — or a language the
   // company does not offer — falls back to the company's language inside
   // loadCompanyInstantTrades.
@@ -54,7 +54,8 @@ export async function GET(request, { params }) {
     // created in the language the form was read in (non-negotiable #6).
     language,
     // The language pills the page draws — the company's choice under
-    // Settings › Instant quotes, or all three when it never chose. `language`
+    // Settings › Instant quotes, or English, French and Spanish when it never
+    // chose. `language`
     // above is always one of these.
     languages,
     // Whether the company itself is French/Spanish/English — the selector's

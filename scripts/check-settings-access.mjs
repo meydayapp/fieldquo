@@ -728,6 +728,11 @@ const IMPERSONATION_STILL_REFUSED = [
   "app/api/salaries/route.js", // gated on the payroll grid, which "viewer" fails
   "app/api/overhead/fixed-costs/route.js",
   "app/api/analytics/minimum-price/route.js",
+  // Its hourly twin (2026-10-03, lib/analytics/hourlyFloor.js): the same
+  // "minimumPrice" cost-basis gate on the same screen, dark to a support
+  // session for the same reason as the line above — one decision, in
+  // lib/permissions/costBasis.js.
+  "app/api/analytics/hourly-floor/route.js",
   // The two panels added to the same screen, refusing support for the same
   // reason as the three lines above them rather than for a new one. The asset
   // register shares the "fixedCosts" cost-basis gate with the fixed-cost route

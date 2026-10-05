@@ -25,7 +25,7 @@ import { industryShowcaseFor, industryChromeFor, INDUSTRY_MESSAGES } from "@/app
 import { summitRidgeContentFor } from "@/app/(marketing)/industries/[slug]/showcase/summitRidgeContent";
 import { documentLanguageFor, fixtureInLanguage } from "@/app/(marketing)/industries/[slug]/showcase/showcaseLanguage";
 import { LANGUAGE_CODES } from "@/app/i18n/languages";
-import { instantQuoteCopy, instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
+import { instantQuoteCopy } from "@/lib/i18n/instantQuoteCopy";
 import { moneyFormatter } from "@/lib/format/money";
 
 let pass = 0;
@@ -68,7 +68,9 @@ for (const lang of LANGUAGE_CODES) {
     continue;
   }
   const copy = industryShowcaseFor(lang);
-  const flowLang = instantQuoteLanguage(lang) || "en";
+  // The walk-through's document language, by its own rule — the form can be
+  // read in eight, the walk-through shows three (showcaseLanguage.js).
+  const flowLang = documentLanguageFor(lang);
   const run = runRequest(fixture, defaultBody(fixture, flowLang));
   const money = moneyFormatter(fixture.company.currency, lang);
   ok(`${lang}: the section carries the ad anchor`, html.includes(`id="${ANCHOR}"`));
@@ -95,7 +97,7 @@ for (const lang of LANGUAGE_CODES) {
 section("2. Approve moves the mini quote from Draft to ready to send");
 for (const lang of ["en", "fr", "pa"]) {
   const copy = industryShowcaseFor(lang);
-  const run = runRequest(fixture, defaultBody(fixture, instantQuoteLanguage(lang) || "en"));
+  const run = runRequest(fixture, defaultBody(fixture, documentLanguageFor(lang)));
   const before = render(createElement(MiniQuote, { fixture, run, approved: false, copy }), lang);
   const after = render(createElement(MiniQuote, { fixture, run, approved: true, copy }), lang);
   ok(`${lang}: unapproved says Draft and waits for step 3`, before.includes('data-sample-status="draft"') && before.includes(esc(copy.waitingApproval)) && !before.includes(esc(copy.statusApproved)));

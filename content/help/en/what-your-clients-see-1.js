@@ -706,7 +706,7 @@ export const ARTICLES = {
     title: "The instant estimate page",
     summary:
       "What a homeowner sees on your instant-estimate link: the questions per trade, the photos it requires, the range it shows — or deliberately does not — the email they get, and the review your team does before any of it becomes a quote.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Your instant-estimate link opens a page headed **Get an instant estimate**: a form on the left, a **Your estimate** panel on the right. The homeowner picks a trade, describes the job, adds photos and their details, and — depending on what you chose for that trade — sees an estimated range as they type, after they submit, or not at all. Every submission lands on your **Estimate Reviews** screen and cannot be sent as a quote until a person confirms the price.",
       "Two things are never on this page: a rate card, and a single figure. The public endpoint returns your services and their questions, never your rates; what the homeowner sees is a range priced on the server from your own numbers.",
@@ -718,7 +718,7 @@ export const ARTICLES = {
         blocks: [
           { p: "The page carries your logo, your name and your colour, and — unlike a quote or portal link — is not hidden from search engines. Through the embed snippet on **Settings → Instant Quotes** it also sits inside any website you already have. A trade appears on it only when its card is **On** and FieldQuo can actually produce a number from the rates you saved." },
           { figure: "harness:client-instant-estimate", caption: "The instant estimate as a homeowner sees it — the company's logo and Instant estimate, Get an instant estimate, What do you need?, Tell us about the property, Your budget, Where's the job?, Your details, and the Your estimate panel waiting on the right." },
-          { note: "The page and its email exist in English and French only, chosen by your company's default language — and in French, the form's questions stay in English while the estimate panel, the messages and the email are translated. A company whose default is Spanish gets the English page." },
+          { note: "The page, its email and the report can be read in English, French, Spanish, Ukrainian, Punjabi, Tagalog, German and Italian. The homeowner picks one at the top of the form from the languages **you** offer — **Settings → Instant Quotes → Languages on your instant estimate**. Until you choose, English, French and Spanish are offered, as they always were; tick others you can answer in and save. A language you do not offer is never served, whatever the link or the browser asks for." },
         ],
       },
       {
@@ -803,7 +803,7 @@ export const ARTICLES = {
       { q: "Can a homeowner see my rates?", a: "No. The page receives services, questions, material names and budget bands; every figure is worked out on the server from rates that never leave it." },
       { q: "Why does one trade not appear on the page?", a: "Its card is Off, or its rates cannot produce a number yet — the card says what is missing — or, for painting, neither Interior nor Exterior Painting is on under Services & Pricing." },
       { q: "Is the range a quote?", a: "No. It is a draft marked Needs review; a person confirms the price on Estimate Reviews before it can be sent, and the page and the email both say so to the homeowner." },
-      { q: "Why is the page in English for my French-speaking company?", a: "It follows your company's default language, and exists in English and French. Set the default to French under Settings → Language and the estimate panel, the messages and the email switch; the form's questions stay in English." },
+      { q: "Which languages can a homeowner read the page in?", a: "The ones you tick under Settings → Instant Quotes → Languages on your instant estimate, out of eight: English, French, Spanish, Ukrainian, Punjabi, Tagalog, German and Italian. Until you save a choice, English, French and Spanish are offered. The page opens in the visitor's browser language when you offer it, otherwise in your company's default language, otherwise in the first language you offer — and the draft, the email and the report are written in the language they used." },
     ],
   },
 };

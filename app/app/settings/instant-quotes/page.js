@@ -776,11 +776,13 @@ function ReportWebsiteCard({ reportWebsite, canEdit, onSaved }) {
 /**
  * Which languages the public instant-estimate form offers a visitor.
  *
- * Until the company saves a choice, every language is offered — what the
+ * The boxes are every language the form can be read in (eight). Until the
+ * company saves a choice, English, French and Spanish are offered — what the
  * form has always done (lib/estimate/instantQuoteLanguages.js says why that
- * is the unset reading), and the card says so rather than showing boxes
- * that look like a decision somebody made. With one language ticked the
- * form draws no pills at all; the save refuses none ticked.
+ * is the unset reading, and why it did not become all eight) — and the card
+ * says so rather than showing boxes that look like a decision somebody
+ * made. With one language ticked the form draws no pills at all; the save
+ * refuses none ticked.
  */
 function LanguagesCard({ languages, canEdit, onSaved }) {
   const { t } = useTranslation();
@@ -834,8 +836,8 @@ function LanguagesCard({ languages, canEdit, onSaved }) {
       {!languages.chosen.length && (
         <p className="text-xs text-muted-foreground mt-2">
           {t(
-            "app.setInstantQuotes.languages.unset",
-            "You haven't chosen yet, so all of them are offered.",
+            "app.setInstantQuotes.languages.unsetThree",
+            "You haven't chosen yet, so English, French and Spanish are offered. Tick any others you can answer in and save.",
           )}
         </p>
       )}

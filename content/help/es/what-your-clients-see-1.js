@@ -702,7 +702,7 @@ export const ARTICLES = {
     title: "La página de estimación instantánea",
     summary:
       "Lo que ve un cliente en su enlace de estimación instantánea: las preguntas por oficio, las fotos que exige, el rango que muestra — o que a propósito no muestra — el correo que recibe, y la revisión que hace su equipo antes de que algo se convierta en presupuesto.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Su enlace de estimación instantánea abre una página titulada «Get an instant estimate»: un formulario a la izquierda, un panel de estimación a la derecha. El cliente elige un oficio, describe el trabajo, agrega fotos y sus datos, y — según lo que usted eligió para ese oficio — ve un rango estimado mientras escribe, después de enviar, o nunca. Cada envío aterriza en su pantalla de **Revisión de estimaciones** y no puede enviarse como presupuesto hasta que una persona confirme el precio.",
       "Dos cosas nunca están en esta página: una lista de tarifas, y una cifra única. El punto de acceso público devuelve sus servicios y sus preguntas, nunca sus tarifas; lo que ve el cliente es un rango calculado en el servidor a partir de sus propios números.",
@@ -714,7 +714,7 @@ export const ARTICLES = {
         blocks: [
           { p: "La página lleva su logotipo, su nombre y su color, y — a diferencia de un enlace de presupuesto o de portal — no está oculta de los buscadores. Mediante el fragmento para insertar de **Configuración → Cotizaciones instantáneas** también se coloca dentro de cualquier sitio web que ya tenga. Un oficio aparece en ella solo cuando su tarjeta está **Activado** y FieldQuo puede producir realmente un número a partir de las tarifas que usted guardó." },
           { figure: "harness:client-instant-estimate", caption: "La estimación instantánea tal como la ve un cliente — el logotipo de la empresa, el título «Get an instant estimate», la elección del oficio, las preguntas sobre la propiedad, los rangos de presupuesto, la dirección del trabajo, los datos de contacto, y el panel de estimación que espera a la derecha." },
-          { note: "La página y su correo existen solo en inglés y en francés, según el idioma predeterminado de su empresa — y en francés, las preguntas del formulario se quedan en inglés mientras el panel de estimación, los mensajes y el correo se traducen. Una empresa cuyo idioma predeterminado es el español recibe la página en inglés." },
+          { note: "La página, su correo y el informe se pueden leer en inglés, francés, español, ucraniano, panyabí, tagalo, alemán e italiano. El propietario elige uno arriba del formulario entre los idiomas que **usted** ofrece — **Configuración → Cotizaciones instantáneas → Idiomas de su estimación instantánea**. Mientras no elija, se ofrecen inglés, francés y español, como siempre; marque otros en los que pueda responder y guarde. Un idioma que usted no ofrece nunca se sirve, pida lo que pida el enlace o el navegador." },
         ],
       },
       {
@@ -799,7 +799,7 @@ export const ARTICLES = {
       { q: "¿Un cliente puede ver mis tarifas?", a: "No. La página recibe servicios, preguntas, nombres de materiales y rangos de presupuesto; cada cifra se calcula en el servidor a partir de tarifas que nunca salen de él." },
       { q: "¿Por qué un oficio no aparece en la página?", a: "Su tarjeta está Desactivado, o sus tarifas aún no pueden producir un número — la tarjeta dice qué falta — o, para pintura, ni Pintura interior ni Pintura exterior está activada en Servicios y precios." },
       { q: "¿El rango es un presupuesto?", a: "No. Es un borrador marcado Requiere revisión; una persona confirma el precio en Revisión de estimaciones antes de que pueda enviarse, y tanto la página como el correo se lo dicen al cliente." },
-      { q: "¿Por qué la página está en inglés para mi empresa hispanohablante?", a: "Sigue el idioma predeterminado de su empresa, y existe solo en inglés y en francés. Con el predeterminado en español, la página y su correo se muestran en inglés; hoy FieldQuo no tiene una versión en español de esta página." },
+      { q: "¿En qué idiomas puede leer la página un propietario?", a: "En los que usted marque en Configuración → Cotizaciones instantáneas → Idiomas de su estimación instantánea, de entre ocho: inglés, francés, español, ucraniano, panyabí, tagalo, alemán e italiano. Mientras no guarde una elección, se ofrecen inglés, francés y español. La página se abre en el idioma del navegador del visitante si usted lo ofrece; si no, en el idioma predeterminado de su empresa; si no, en el primer idioma que ofrece — y el borrador, el correo y el informe se escriben en el idioma que usó." },
     ],
   },
 };

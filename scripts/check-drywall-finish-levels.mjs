@@ -577,7 +577,7 @@ section("I. New groups");
   const at = raw.indexOf("Only what the caller actually said");
   const fromCall = at >= 0 ? raw.slice(Math.max(0, at - 400), at + 1600) : "";
   ok("builder: the phone-call prefill does not ask for defaults, and names the language", fromCall.includes("newScopeGroup(") && !fromCall.includes("fieldDefaults") && fromCall.includes("language: bootstrap.companyLanguage"));
-  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label(, addOns = \[\])?\)[\s\S]{0,400}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
+  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label(, addOns = \[\])?(, route = null)?\)[\s\S]{0,500}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
 }
 
 /* ══ J. Materials ══════════════════════════════════════════════════════ */
@@ -594,6 +594,37 @@ ok("no live drywall material recipe yet — compound scaling is owed when one la
   const compound = INTERIOR_RECIPES.drywall_install?.materials?.compound_allpurpose;
   ok("…the staged recipe's costs are two-currency objects, which no costing reader takes yet", compound && typeof compound.cost?.cad === "object" && typeof compound.cost?.usd === "object");
   ok("…and it states Level 4 coverage only — no per-level figure to scale by", INTERIOR_RECIPES.drywall_install?.consumption?.compoundSqftOfBoardPerBoxLevel4 === 475 && !Object.keys(INTERIOR_RECIPES.drywall_install?.consumption || {}).some((k) => /Level5/.test(k)));
+}
+
+/* ══ K. The repair intake asks no room (owner, 2026-10-03) ═════════════ */
+section("K. Drywall repairs: no square footage, no ceiling height");
+{
+  const keys = (k) => getIntakeFields(k).map((f) => f.key);
+  ok("plain drywall (repairs) no longer asks Square Footage", !keys("drywall").includes("squareFootage"), keys("drywall"));
+  ok("…nor Ceiling Height", !keys("drywall").includes("ceilingHeight"), keys("drywall"));
+  ok("…and still asks the finish level and demo", keys("drywall").includes("finishLevel") && keys("drywall").includes("demoExisting"));
+  ok("drywall_install keeps Square Footage — it is the hang and finishing quantity", keys("drywall_install").includes("squareFootage"));
+  ok("interior painting keeps its ceiling height (untouched)", keys("interior_painting").includes("ceilingHeight"));
+  ok("the public form for drywall shows the finish level only", JSON.stringify(publicIntakeFields("drywall").map((f) => f.key)) === JSON.stringify(["finishLevel"]), publicIntakeFields("drywall"));
+
+  // Proof the two answers never fed a repair price: the same group with and
+  // without them produces identical lines (a new group and a resize sync).
+  // The full payload, repair items included, was also md5-compared against
+  // origin/main b75c8639's intake file when this landed: identical.
+  const repairBook = getPriceBook("drywall");
+  const cat = { id: "c", key: "drywall", label: "Drywall", unit: "sqft", defaultRate: 3.25 };
+  const lines = (iv) => {
+    const g = newScopeGroup(cat, "Drywall", null, { tempId: "t", fieldDefaults: true, language: "en", intakeValues: iv });
+    return syncFinishLine({ ...g, intakeValues: { ...g.intakeValues, ...iv } }, { book: repairBook, mode: "resize" }).lineItems;
+  };
+  const bare = JSON.stringify(lines({}));
+  for (const iv of [{ squareFootage: 400, ceilingHeight: 9 }, { squareFootage: 1e9, ceilingHeight: -3 }, { squareFootage: "x", ceilingHeight: null }]) {
+    ok(`stored ${JSON.stringify(iv)} changes no drywall line`, JSON.stringify(lines(iv)) === bare, lines(iv));
+  }
+  ok("the repair book bills no board, so square feet could never write a line", bookBillsBoard(repairBook) === false);
+  for (const f of ["lib/costing/estimateJobCost.js", "lib/costing/quoteCosting.js", "lib/services/productionRates.js", "app/data/materialRecipes.js"]) {
+    ok(`${f} reads no ceilingHeight`, !/ceilingHeight/.test(code(f)));
+  }
 }
 
 console.log(`\ncheck-drywall-finish-levels: ${pass} passed, ${fails.length} failed`);

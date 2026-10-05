@@ -110,10 +110,10 @@ export async function POST(request, { params }) {
 
   // ── The document's language is the visitor's choice ──────────────────────
   //
-  // The form carries three pills; whichever was lit when they pressed submit
-  // is the language the draft, the lead and the email are created in, and
-  // it never changes afterwards (non-negotiable #6). Validated to the three
-  // the page offers rather than trusted — `language || company.default…`
+  // The form carries the company's pills; whichever was lit when they pressed
+  // submit is the language the draft, the lead and the email are created in,
+  // and it never changes afterwards (non-negotiable #6). Validated to the
+  // ones the page offers rather than trusted — `language || company.default…`
   // would have stored whatever string a hand-crafted POST sent — and the
   // company's language stands in when the browser sent nothing.
   //

@@ -126,7 +126,8 @@ function flatten(obj, prefix = "") {
 }
 const en = flatten(TRADE_QUESTION_COPY.en);
 const enKeys = Object.keys(en).sort().join("|");
-for (const lang of ["fr", "es"]) {
+// Every language the instant estimate can be read in asks these too.
+for (const lang of ["fr", "es", "uk", "pa", "tl", "de", "it"]) {
   const table = flatten(TRADE_QUESTION_COPY[lang] || {});
   check(Object.keys(table).sort().join("|") === enKeys, `${lang} has exactly the en key set`);
   const untranslated = Object.entries(table)

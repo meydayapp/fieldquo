@@ -23,11 +23,12 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
+import { instantQuoteLocale } from "@/lib/i18n/instantQuoteCopy";
 import { formatMoney } from "@/lib/currency";
 
 export default function LawnCareOffer({ offer, priced, pick, onPick, language = "en", currency, theme, solid }) {
   const t = lawnEstimateCopy(language);
-  const locale = language === "fr" ? "fr-CA" : language === "es" ? "es" : "en-CA";
+  const locale = instantQuoteLocale(language);
   const money = (n) => estimateMoneyCents(n, currency, locale);
   const [open, setOpen] = useState({});
 

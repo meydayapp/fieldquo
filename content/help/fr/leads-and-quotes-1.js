@@ -763,7 +763,7 @@ export const ARTICLES = {
     title: "Types de soumission et relevés",
     summary:
       "Réglages → Services et tarifs : les types de soumission que vous activez, les quatre façons dont un type chiffre — relevé, grille d'unités, forfaits ou questions — la grille tarifaire derrière chacun, et les types personnalisés.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Un **type de soumission** est ce que représente une tuile de service dans le générateur : un genre de travail, les questions qu'il pose et la grille tarifaire d'où il tire ses prix. **Réglages → Services et tarifs** est l'endroit où vous activez et désactivez les types, fixez les tarifs et écrivez ce que la soumission dit de chacun. Les tuiles de **Nouvelle soumission** sont exactement les types activés ici.",
       "Certains types chiffrent à partir d'un **relevé** — un formulaire structuré qui mesure le travail et écrit les lignes pour vous. D'autres chiffrent à l'unité, à partir d'un menu de forfaits, ou d'une courte série de questions et d'un tarif forfaitaire.",
@@ -807,6 +807,19 @@ export const ARTICLES = {
             ],
           } },
           { p: "Seize métiers portent une grille tarifaire complète ; les autres ont un seul **Tarif** par unité. Quelle que soit la méthode, le résultat est le même genre de ligne — une description et un montant — et la page, le courriel et le PDF destinés au client ne lisent que cela. Les taux de production, les formules et les taux de vente restent de votre côté." },
+        ],
+      },
+      {
+        id: "stain-gel-or-liquid",
+        heading: "Teinture : gel ou liquide",
+        blocks: [
+          { p: "Partout où une soumission teint du bois — l'option **Stained instead of painted** de la refinition d'armoires, et chaque escalier — vous choisissez la teinture :" },
+          { bullets: [
+            "**Teinture liquide (pénétrante) — bois nu.** Elle pénètre dans le bois : le fini existant doit d'abord être enlevé. Elle peut faire des taches sur l'érable, le bouleau, le cerisier et le pin.",
+            "**Teinture en gel — sur le fini existant.** Elle se pose sur l'ancien fini après nettoyage et léger égrenage, sans décapage, et ne fait pas de taches. Elle est plus lente par pièce : davantage de couches à la main et un séchage plus long entre elles.",
+          ] },
+          { p: "**Les armoires se chiffrent tout compris par porte ou façade de tiroir teinte** — une seule ligne sur la soumission, jamais un extra de teinture ni un décapage facturé à part. Le tarif teint est votre tarif de peinture plus l'écart de teinture de votre grille tarifaire : jusqu'au bois nu (liquide, ou toute teinture qui passe du **foncé au pâle**) **+45 $**, donc **195 $** la pièce sur le défaut de 150 $ — environ 30 % de plus que la peinture, décapage ou ponçage jusqu'au bois nu compris; gel sur le fini existant **+0 $**, donc les mêmes **150 $** que la peinture. Les deux écarts sont des valeurs par défaut documentées de la grille; inscrivez les vôtres. Un îlot teint à côté d'armoires peintes donne deux lignes : les pièces peintes au tarif de peinture et les pièces teintes tout compris." },
+          { p: "**Le décapage n'est jamais facturé deux fois.** Pour les armoires, il est compris dans le tarif teint; les boutons **Décapant chimique** / **Ponçage** ne fixent que les heures de votre équipe dans **Coût et marge** (valeurs par défaut documentées : chimique 0,75 h par porte et 0,25 h par façade de tiroir, ponçage 0,4 et 0,15 — des lignes internes de la grille). Pour les escaliers, le tarif des marches comprend déjà le ponçage d'un vernis; un escalier **peint** teint jusqu'au bois nu (**Ce qu'il y a dessus maintenant → De la peinture**) se chiffre au niveau **Élevé**, dont les tarifs incluent le décapage de la peinture — la section le dit et propose **Passer au niveau Élevé**. Le tarif des marches est le même pour le liquide et le gel, et le choix est imprimé sous la ligne des marches. **Staining → Stairs** ouvre l'escalier sur la teinture liquide." },
         ],
       },
       {
@@ -863,6 +876,7 @@ export const ARTICLES = {
       { q: "Un client peut-il voir mes tarifs ?", a: "Jamais. Le formulaire public ne renvoie que les services et les questions ; le relevé, la formule et la grille tarifaire ne sont envoyés à aucune page destinée au client." },
       { q: "Quelle est la différence entre la grille tarifaire et Produits et services ?", a: "La grille tarifaire chiffre la portée principale d'un métier — par porte, par carré, par pied — et écrit les lignes de base. Produits et services contient les extras ponctuels que vous déposez sur n'importe quelle soumission. Voir [[lines-from-your-price-book|Des lignes tirées de votre catalogue de prix]]." },
       { q: "Pourquoi mon métier n'a-t-il pas de grille tarifaire ?", a: "Seuls seize métiers sont livrés avec une grille complète. Les autres prennent ici un seul Tarif par unité et chiffrent leurs lignes à la main ou depuis le catalogue de prix." },
+      { q: "Pourquoi une soumission de gypse ne demande-t-elle ni la superficie ni la hauteur du plafond ?", a: "**Drywall** est le type de soumission pour les réparations : chaque réparation est un article à prix fixe du panneau **Repairs** — petite, moyenne ou grande retouche, remplacement d'une feuille — chiffré depuis votre grille tarifaire, quelle que soit la taille de la pièce. Ces deux questions ne changeaient aucun prix de réparation ; elles ont été retirées (3 octobre 2026). **Drywall Installation** demande toujours la superficie, car les lignes de pose et de finition sont facturées au pied carré." },
     ],
   },
 
