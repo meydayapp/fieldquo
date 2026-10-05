@@ -50,10 +50,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { zipSync, strToU8 } from "fflate";
 
-import { churchSet } from "./fixtures/planPdf.mjs";
+import { churchSet, ukChurchSet, buildPlanPdf } from "./fixtures/planPdf.mjs";
 import { findDimensions, parseScale, feetPerPixelFromScale, formatFeet } from "@/lib/planRead/dimensions";
-import { sheetFacts } from "@/lib/planRead/sheetFacts";
-import { pdfSheets, spreadsheetRows } from "@/lib/planRead/ingest";
+import { sheetFacts, isScaleBarLine } from "@/lib/planRead/sheetFacts";
+import { pdfSheets, spreadsheetRows, fetchPlanFile } from "@/lib/planRead/ingest";
+import { splitPdfBytes, partName, pagesPerPart, PdfSplitError } from "@/lib/planRead/pdfSplit";
+import { sheetNeedsPass, sheetPassDone } from "@/lib/planRead/sheetState";
 import { parseScopeSheets, scopeSheetDigest } from "@/lib/planRead/excel";
 import {
   sanitiseSynthesis,
@@ -85,7 +87,7 @@ import {
   CHAT_DYNAMIC_MARK,
 } from "@/lib/planRead/prompts";
 import { estimateRead, settlement, addUsage } from "@/lib/planRead/billing";
-import { startRead, advanceRead, scanDimsFrom, retryPlan, SHEET_CONCURRENCY, MAX_READ_MS } from "@/lib/planRead/run";
+import { startRead, advanceRead, scanDimsFrom, retryPlan, SHEET_CONCURRENCY, MAX_READ_MS, readEstimate, hasWorkToRead, readInputs } from "@/lib/planRead/run";
 import { startTiming, timingSummary, timingMedians, formatDuration } from "@/lib/planRead/timing";
 import { resumeStalledReads, stalledWhere } from "@/lib/planRead/backstop";
 import { editLogEntry, chatHistory, withAuthors } from "@/lib/planRead/history";
@@ -1080,6 +1082,131 @@ ok("the hash is computed by the server from the bytes it fetched, never taken fr
 const reuseSrc = code("app/api/plan-reads/[id]/reuse/route.js");
 ok("reuse recomputes the offer server-side, scoped, under the row lock, and logs it", /findSheetCache\(read, \{ companyId: member\.companyId/.test(reuseSrc) && /FOR UPDATE/.test(reuseSrc) && /editLogEntry\(/.test(reuseSrc) && /await params/.test(reuseSrc));
 ok("the column is additive and indexed per company", /contentHash String\?/.test(readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8")) && /@@index\(\[companyId, contentHash\]\)/.test(readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8")));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("20. The first live read (2026-10-04): storage, size, retries, a UK set");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The deep read had never run in production. The first real attempt — a
+// 13-sheet UK church set — failed five ways. Each is executed here.
+
+// ── 20a. A UK planning set, read in code ──────────────────────────────────
+const uk = await pdfSheets(ukChurchSet(), { firstIndex: 1 });
+const [p43, p52, e01] = uk.sheets || [];
+ok("the UK fixture is read", uk.ok && uk.sheets.length === 3, uk);
+ok("the sheet number is the value under \"Drawing No.\" — P43, not the paper size A3", p43?.sheetNumber === "P-43" && p52?.sheetNumber === "P-52" && e01?.sheetNumber === "E-01", [p43?.sheetNumber, p52?.sheetNumber, e01?.sheetNumber]);
+ok("a Title Case drawing title is kept (the capitals-only rule dropped it)", p43?.title === "Scheme C4 - Extension Floor Plan" && e01?.title === "Plan - as existing", [p43?.title, e01?.title]);
+ok("…and a Title Case heading at heading size is a title too", (p52?.titles || []).includes("Block Plan") && (p52?.titles || []).includes("Location Plan"), p52?.titles);
+ok("P52 takes the title block's 1:500, not the location plan's 1:1250 printed above it", p52?.scale?.ratio === 500, p52?.scale);
+ok("UK letters are STATUS, not discipline: P43 is not plumbing, E01 not electrical", p43?.discipline === null && e01?.discipline === null, [p43?.discipline, e01?.discipline]);
+const ukDim = (raw) => (p43?.dims || []).find((d) => d.raw === raw);
+ok("\"6.75 metres\" → 6.75 m (the spelled-out unit was read as nothing)", ukDim("6.75 metres")?.metres === 6.75 && !ukDim("6.75 metres").unitAssumed, ukDim("6.75 metres"));
+ok("\"2.1 metres\" and \"4 metres\" → 2.1 m and 4 m", ukDim("2.1 metres")?.metres === 2.1 && ukDim("4 metres")?.metres === 4);
+ok("a bare \"4.7\" and \"5.2\" on a metric plan → the kitchen's 4.7 × 5.2 m, unit flagged as assumed metres", ukDim("4.7")?.metres === 4.7 && ukDim("5.2")?.metres === 5.2 && ukDim("4.7").unitAssumed && ukDim("4.7").assumedUnit === "m", [ukDim("4.7"), ukDim("5.2")]);
+ok("the meeting room's bare 6.8 × 3.1 m too", ukDim("6.8")?.metres === 6.8 && ukDim("3.1")?.metres === 3.1);
+ok("the scale bar's ticks (0m 1m 2m … 10m) are not dimensions", !(p43?.dims || []).some((d) => /^\d+m$/.test(d.raw)) && !(e01?.dims || []).length, (p43?.dims || []).map((d) => d.raw));
+ok("…nor a location plan's bars and a lone 2-pt \"5m\"", !(p52?.dims || []).length, (p52?.dims || []).map((d) => d.raw));
+ok("the project number 21047 in the title block is not read as 21.047 m", !(p43?.dims || []).some((d) => d.raw === "21047"), (p43?.dims || []).map((d) => d.raw));
+ok("…while a bare 12500 on a plan (outside a title block) still is 12.5 m", planDim("12500")?.metres === 12.5);
+ok("\"1.01\" (a UK room number) is not a dimension; \"350 millimetres\" is 0.35 m", findDimensions("1.01", { metric: true }).length === 0 && findDimensions("350 millimetres")[0]?.metres === 0.35);
+ok("a scale bar line is recognised; a dimension line is not", isScaleBarLine("0m 1m 2m 3m 4m 5m 10m") && isScaleBarLine("0 1 2 3 4 5 6 7 8 9 10 metres") && isScaleBarLine("50m 40m 30m 20m 10m 0m") && !isScaleBarLine("2.1 metres") && !isScaleBarLine("6.8 North", 18));
+const kitchen = computeProject(
+  sanitiseSynthesis({ summary: "", buildingType: "church", commercial: false, areas: [{ id: "a1", name: "Kitchen", level: null, side: "interior", include: true }], surfaces: [{ id: "s1", areaId: "a1", label: "Kitchen ceiling", itemKey: "ceiling", coats: null, productKey: null, lengthRefs: [ukDim("4.7")?.id], widthRefs: [ukDim("5.2")?.id], multiplier: 1, count: null, excelSheet: null, excelRow: null, excelCol: null, photoSurfaceId: null, estimate: null, estimateBasis: null, sheet: "P-43", note: null }], access: [], complexity: { level: "low", factors: [] }, assumptions: [], exclusions: [], questions: [] }, { dimIds: new Set(buildDimIndex(uk.sheets).keys()), itemKeys, productKeys, photoIds: new Set(), excel: null }),
+  { dims: buildDimIndex(uk.sheets), book: books.interior_painting },
+);
+ok("the kitchen ceiling = 4.7 m × 5.2 m = 24.44 m² ≈ 263 sq ft — plausible against the architect's 135.22 m² annexe", kitchen.surfaces[0].quantity.value === Math.round(4.7 * 5.2 * 10.7639104) && kitchen.surfaces[0].quantity.estimated && /m assumed from the metric scale/.test(kitchen.surfaces[0].quantity.sourceText), kitchen.surfaces[0].quantity);
+const usE = sheetFacts([{ str: "ELECTRICAL POWER PLAN", x: 300, y: 1500, fontSize: 28 }, { str: "E-101", x: 2400, y: 80, fontSize: 30 }, { str: "1/4\" = 1'-0\"", x: 300, y: 1460, fontSize: 12 }], { page: 1, pageWidth: 2592, pageHeight: 1728 });
+const usBareE = sheetFacts([{ str: "GROUND FLOOR PLAN", x: 300, y: 1500, fontSize: 28 }, { str: "E-1", x: 2400, y: 80, fontSize: 30 }, { str: "SOME MORE TEXT ON THE SHEET", x: 300, y: 300, fontSize: 9 }], { page: 1, pageWidth: 2592, pageHeight: 1728 });
+ok("a US E-sheet titled ELECTRICAL is electrical; an E-sheet with no electrical words is unknown", usE.discipline === "electrical" && usBareE.discipline === null, [usE.discipline, usBareE.discipline]);
+ok("the US fixture is unchanged: A-201 / A-101, architectural, its own titles", elev.sheetNumber === "A-201" && elev.discipline === "architectural" && elev.title === "NORTH ELEVATION");
+
+// ── 20b. A set bigger than the storage plan's file limit is split ─────────
+const sixPages = buildPlanPdf(Array.from({ length: 6 }, (_, i) => ({ texts: [{ text: `SHEET ${i + 1} FLOOR PLAN`, x: 300, y: 1500, size: 28 }, { text: `A-${101 + i}`, x: 2400, y: 80, size: 30 }, { text: "x".repeat(400), x: 100, y: 600, size: 6 }] })));
+const tinyCap = Math.ceil(sixPages.length * 0.45);
+const parts = await splitPdfBytes(sixPages, tinyCap);
+ok(`a ${sixPages.length}-byte set under a ${tinyCap}-byte limit is split into ${parts.length} parts, every one under it`, parts.length >= 2 && parts.every((p) => p.bytes.length <= tinyCap), parts.map((p) => [p.firstPage, p.lastPage, p.bytes.length]));
+ok("…covering every page exactly once, in page order", parts.map((p) => `${p.firstPage}-${p.lastPage}`).join(",") === (() => { const out = []; let n = 1; for (const p of parts) { out.push(`${n}-${p.lastPage}`); n = p.lastPage + 1; } return out.join(","); })() && parts[0].firstPage === 1 && parts[parts.length - 1].lastPage === 6);
+const reread = [];
+for (const p of parts) {
+  const r = await pdfSheets(p.bytes, { firstIndex: reread.length + 1 });
+  reread.push(...(r.sheets || []).map((s) => s.sheetNumber));
+}
+ok("each part is a real PDF whose text reads back — A-101 … A-106, in order", reread.join(",") === "A-101,A-102,A-103,A-104,A-105,A-106", reread);
+let tooBig = null;
+try {
+  await splitPdfBytes(sixPages, 200);
+} catch (e) {
+  tooBig = e;
+}
+ok("one page bigger than the limit on its own is refused with its page number, never truncated", tooBig instanceof PdfSplitError && tooBig.code === "page_too_large" && tooBig.page === 1, tooBig);
+ok("parts are named in order with their sheets", partName("Church set.pdf", 2, 3, 8, 13) === "Church set — part 2 of 3 (sheets 8–13).pdf" && partName("x.PDF", 1, 2, 1, 1) === "x — part 1 of 2 (sheet 1).pdf");
+ok("pages per part from the average page weight", pagesPerPart({ fileBytes: 13_400_000, pageCount: 13, maxBytes: 10_485_760 }) === 9 && pagesPerPart({ fileBytes: 1, pageCount: 1, maxBytes: 5 }) === 1);
+const filesCard = code("app/components/planRead/QuoteFilesCard.js");
+ok("the Files card splits a too-large PDF and files each part on the read", /err\?\.code === "too_large"/.test(filesCard) && /splitPdfFile\(file, Number\(err\.maxBytes\)\)/.test(filesCard) && /supersedesId: i === 0/.test(filesCard));
+ok("the documents route no longer claims a 100 MB drawing set is fetched", !/A 100 MB drawing set is fetched/.test(readFileSync(new URL("../app/api/plan-reads/[id]/documents/route.js", import.meta.url), "utf8")));
+
+// ── 20c. The server reads its own PDF through the signed download ─────────
+const planUrl = "https://res.cloudinary.com/demo/raw/upload/v17/fieldquo/companies/co1/plans/0b7f3c2e-1111-4a4a-9c9c-123456789abc.pdf";
+const signCalls = [];
+const fakeSign = (publicId, format, options) => {
+  signCalls.push({ publicId, format, options });
+  return `https://api.cloudinary.com/v1_1/demo/raw/download?public_id=${encodeURIComponent(publicId)}&type=${options.type}&signature=x`;
+};
+const fetched = [];
+const fetchDeniesPdf = async (u) => {
+  fetched.push(u);
+  if (u.startsWith("https://res.cloudinary.com/")) return { ok: false, status: 401, url: u, headers: { get: () => null }, arrayBuffer: async () => new ArrayBuffer(0) };
+  return { ok: true, status: 200, url: u, headers: { get: () => "4" }, arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer };
+};
+const viaSigned = await fetchPlanFile(planUrl, { companyId: "co1", sign: fakeSign, cloudName: "demo", fetchImpl: fetchDeniesPdf });
+ok("an account that answers the PDF's public URL 401 is read through the signed download", viaSigned.ok && viaSigned.via === "signed" && fetched[0].startsWith("https://api.cloudinary.com/v1_1/demo/") && signCalls[0].publicId === "fieldquo/companies/co1/plans/0b7f3c2e-1111-4a4a-9c9c-123456789abc.pdf" && signCalls[0].options.type === "upload" && signCalls[0].options.resource_type === "raw", { viaSigned, fetched, signCalls });
+fetched.length = 0;
+const otherCo = await fetchPlanFile(planUrl.replace("/co1/", "/co2/"), { companyId: "co1", sign: fakeSign, cloudName: "demo", fetchImpl: fetchDeniesPdf });
+ok("another company's file is never signed (the tenant fence), and the public URL still answers 401", !otherCo.ok && signCalls.length === 1, otherCo);
+const noSecret = await fetchPlanFile(planUrl, { companyId: "co1", sign: null, cloudName: "demo", fetchImpl: async (u) => ({ ok: true, status: 200, url: u, headers: { get: () => "4" }, arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer }) });
+ok("with no API secret (local dev) the public URL is the only road, as before", noSecret.ok && noSecret.via === "public");
+const docRoute = code("app/api/plan-reads/[id]/documents/route.js");
+ok("the documents route passes Cloudinary's private_download_url as the signer", /private_download_url\(publicId, format, options\)/.test(docRoute) && /sign:/.test(docRoute) && /fetchPlanFile\(/.test(code("lib/planRead/documents.js")));
+
+// ── 20d. A failed sheet is read again by the next run, never synthesised blank
+ok("sheet state: unread and earlier-run failures need a pass; this run's failure and a permanent one do not", sheetNeedsPass({ read: null }) && sheetNeedsPass({ read: { failed: true, failedRun: "r1" } }, "r2") && !sheetNeedsPass({ read: { failed: true, failedRun: "r2" } }, "r2") && !sheetNeedsPass({ read: { failed: true, permanent: true } }, "r2") && !sheetNeedsPass({ read: { summary: "ok" } }, "r2"));
+ok("…and only a real pass counts as done", sheetPassDone({ read: { summary: "ok" } }) && !sheetPassDone({ read: { failed: true } }) && !sheetPassDone({}));
+const allFail = Object.fromEntries(Array.from({ length: 4 }, (_, k) => [`p${k + 1}`, { left: 2, reason: "refused" }]));
+const memR = memDb({ planRead: [setRead("pretry", 4)], quoteDocument: setDocs("pretry", 4) });
+const lgR = uniqueLedger();
+const st1 = await startRead({ planReadId: "pretry", companyId: "co1" }, { ...p0Deps(lgR), db: memR });
+const prov1 = scriptedProvider({ sheetDelay: () => 1, failures: allFail });
+const run1 = await advanceRead("pretry", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lgR), db: memR, complete: prov1.complete });
+const rowR = memR.t.planRead[0];
+ok("a run in which NO sheet could be read fails instead of synthesising blank notes", run1.state === "failed" && !prov1.calls.includes("plan_read_synthesis") && rowR.status === "failed" && /None of the drawing sheets could be read/.test(rowR.error), { run1, error: rowR.error, calls: prov1.calls });
+ok("…and is refunded in full", lgR.rows.some((r) => r.refund && r.cents === st1.heldCents));
+ok("its failed sheets carry the run that wrote them off", rowR.sheets.every((s) => s.read?.failed && s.read.failedRun && s.read.failedRun === lgR.rows[0].ref));
+const est2 = readEstimate({ ...rowR, documents: memR.t.quoteDocument });
+ok("the retry is estimated for all four sheets again (not as already read)", est2.breakdown.sheetsToRead === 4, est2.breakdown);
+await startRead({ planReadId: "pretry", companyId: "co1" }, { ...p0Deps(lgR), db: memR });
+const prov2 = scriptedProvider({ sheetDelay: () => 1 });
+const run2 = await advanceRead("pretry", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lgR), db: memR, complete: prov2.complete });
+ok("\"try again\" READS the sheets again (4 sheet calls), then synthesises from real notes", run2.state === "ready" && prov2.calls.filter((c) => c === "plan_read_sheet").length === 4 && memR.t.planRead[0].sheets.every(sheetPassDone), { run2, calls: prov2.calls });
+const memOne = memDb({ planRead: [setRead("pone", 3)], quoteDocument: setDocs("pone", 3) });
+const lgO = uniqueLedger();
+await startRead({ planReadId: "pone", companyId: "co1" }, { ...p0Deps(lgO), db: memOne });
+await advanceRead("pone", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lgO), db: memOne, complete: scriptedProvider({ sheetDelay: () => 1, failures: { p2: { left: 2, reason: "refused" } } }).complete });
+const rowO = memOne.t.planRead[0];
+ok("one bad sheet still never sinks the read (P0's rule holds)", rowO.status === "ready" && rowO.sheets[1].read.failed && sheetPassDone(rowO.sheets[0]));
+ok("…and the finished read offers to read that sheet again", hasWorkToRead({ ...rowO, documents: memOne.t.quoteDocument }) && readEstimate({ ...rowO, documents: memOne.t.quoteDocument }).breakdown.sheetsToRead === 1);
+await startRead({ planReadId: "pone", companyId: "co1" }, { ...p0Deps(lgO), db: memOne });
+const provO = scriptedProvider({ sheetDelay: () => 1 });
+await advanceRead("pone", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lgO), db: memOne, complete: provO.complete });
+ok("…which reads ONLY that sheet (one call), not the two already read", provO.calls.filter((c) => c === "plan_read_sheet").length === 1 && memOne.t.planRead[0].sheets.every(sheetPassDone), provO.calls);
+const permanentRead = { ...memOne.t.planRead[0], documents: memOne.t.quoteDocument, sheets: memOne.t.planRead[0].sheets.map((s, i) => (i === 1 ? { ...s, read: { failed: true, permanent: true } } : s)) };
+ok("a sheet with nothing to send is permanent — never offered as a retry, so a paid synthesis is never re-run for it", permanentRead.status === "ready" && readInputs(permanentRead).sheets.length === 3 && !hasWorkToRead(permanentRead));
+
+// ── 20e. "Couldn't read your file" is said as that ─────────────────────────
+const memU = memDb({ planRead: [{ ...baseRead, id: "punread", sheets: [], excelRows: { byDoc: {}, failed: { dbad: "not_ours" } } }], quoteDocument: [{ id: "dbad", companyId: "co1", planReadId: "punread", kind: "plan", name: "Church set.pdf", mimeType: "application/pdf", supersedesId: null, url: "https://res.cloudinary.com/x/raw/upload/a.pdf", pages: [] }] });
+const unread = await startRead({ planReadId: "punread", companyId: "co1" }, { ...ledgerDeps, db: memU });
+ok("a set that was added but couldn't be read is named, not \"add a drawing set first\"", unread.ok === false && unread.error === "files_unreadable" && unread.names[0] === "Church set.pdf", unread);
+const runRoute = code("app/api/plan-reads/[id]/run/route.js");
+ok("…and the run route says why, by name, with nothing charged", /files_unreadable/.test(runRoute) && /couldn't read \$\{started\.names\.join/.test(runRoute));
 
 console.log(`\ncheck-plan-deep-read: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -103,3 +103,79 @@ export function churchSet() {
     { scanned: true },
   ]);
 }
+
+/**
+ * Two A3 sheets laid out as the first REAL set read in production was (St
+ * Paul's, Egham Hythe — Nye Saunders, 2026-10-04): positions, sizes and text
+ * copied from pdf.js's reading of the architect's file, not the file itself
+ * (it is theirs). What it pins: the title block's labelled fields ("Drawing
+ * No." over P43, "Paper Size" over A3, "Scale" over 1:100), bare metres on a
+ * metric plan ("4.7", "5.2"), the unit spelled out ("6.75 metres"), a scale
+ * bar's ticks, the project number 21047 in the title block, and a sheet with
+ * a location plan at 1:1250 above its block plan at 1:500.
+ */
+export function ukChurchSet() {
+  const block = (number, title, scale) => [
+    { text: "Project", x: 492, y: 73, size: 5 },
+    { text: "Project No.", x: 775, y: 73, size: 5 },
+    { text: "Drawing No.", x: 818, y: 73, size: 5 },
+    { text: "Revision.", x: 860, y: 73, size: 5 },
+    { text: "Date", x: 903, y: 73, size: 5 },
+    { text: "St. Paul's, Egham Hythe", x: 492, y: 58, size: 10 },
+    { text: "21047", x: 775, y: 58, size: 10 },
+    { text: number, x: 818, y: 58, size: 10 },
+    { text: "Oct '23", x: 902, y: 57, size: 10 },
+    { text: "Drawing Title", x: 492, y: 45, size: 5 },
+    { text: "Scale", x: 775, y: 45, size: 5 },
+    { text: "Paper Size", x: 818, y: 45, size: 5 },
+    { text: "Drawn By", x: 860, y: 45, size: 5 },
+    { text: title, x: 492, y: 29, size: 10 },
+    { text: scale, x: 775, y: 29, size: 10 },
+    { text: "A3", x: 818, y: 29, size: 10 },
+    { text: "DB", x: 860, y: 29, size: 10 },
+    { text: "14/11/23", x: 261, y: 62, size: 10 },
+  ];
+  return buildPlanPdf([
+    {
+      width: 1191,
+      height: 842,
+      texts: [
+        { text: "135.22 sq.m. / 1,454", x: 1033, y: 776, size: 14 },
+        { text: "Kitchen", x: 440, y: 731, size: 14 },
+        { text: "5.2", x: 648, y: 725, size: 10 },
+        { text: "4.7", x: 603, y: 713, size: 10 },
+        { text: "6.75 metres", x: 877, y: 692, size: 10 },
+        { text: "Meeting", x: 686, y: 575, size: 12 },
+        { text: "3.1", x: 788, y: 556, size: 10 },
+        { text: "6.8", x: 718, y: 538, size: 10 },
+        { text: "2.1 metres", x: 277, y: 427, size: 10 },
+        { text: "4 metres", x: 375, y: 129, size: 10 },
+        { text: "0m 1m 2m 3m 4m 5m 10m", x: 837, y: 108, size: 7 },
+        { text: "Scale 1:100", x: 837, y: 95, size: 9 },
+        ...block("P43", "Scheme C4 - Extension Floor Plan", "1:100"),
+      ],
+    },
+    {
+      width: 1191,
+      height: 842,
+      texts: [
+        { text: "50m 40m 30m 20m 10m 0m", x: 1008, y: 346, size: 4 },
+        { text: "5m", x: 1113, y: 347, size: 2 },
+        { text: "Location Plan", x: 891, y: 219, size: 24 },
+        { text: "Scale 1:1250", x: 891, y: 189, size: 24 },
+        { text: "Block Plan", x: 545, y: 175, size: 24 },
+        { text: "Scale 1:500", x: 545, y: 146, size: 24 },
+        ...block("P52", "Location and Block Plan - as proposed", "1:500"),
+      ],
+    },
+    {
+      width: 1191,
+      height: 842,
+      texts: [
+        { text: "North", x: 612, y: 679, size: 20 },
+        { text: "0m 1m 2m 3m 4m 5m 10m", x: 21, y: 131, size: 7 },
+        ...block("E01", "Plan - as existing", "1:100"),
+      ],
+    },
+  ]);
+}
