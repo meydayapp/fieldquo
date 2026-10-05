@@ -142,6 +142,13 @@ const RESOLVES_ITS_OWN = {
     "mid-flow, impersonation) becomes a 302 back to Settings › TikTok with an " +
     "error code the card explains. Every other app/api/tiktok/* route is a " +
     "normal fetch() route using memberOrRefusal.",
+  "app/api/google-ads/callback/route.js":
+    "Google's OAuth redirect target for Settings → Google Ads — the same " +
+    "shape as the Business Profile callback below, on the same OAuth client " +
+    "with the adwords scope: the browser lands here off accounts.google.com, " +
+    "so every failed resolution is a 302 back to Settings → Google Ads with a " +
+    "named reason. The signed state must verify, the member must be the one " +
+    "who started, and must still be an owner or admin.",
   "app/api/reviews/google/callback/route.js":
     "Google's OAuth redirect target for the company's Business Profile — " +
     "the same shape as the calendar callback below, on the same OAuth " +

@@ -165,8 +165,10 @@ export default function FiledEmails({ clientId = null, jobId = null }) {
                         <ul className="flex flex-wrap gap-2">
                           {m.attachments.map((a) => (
                             <li key={a.index} className="text-xs">
-                              {a.url ? (
-                                <a href={a.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 underline underline-offset-2 text-foreground">
+                              {/* openUrl, not the stored Cloudinary URL, which
+                                  answers 401 for a PDF (lib/media/fileOpen.js). */}
+                              {a.openUrl ? (
+                                <a href={a.openUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 underline underline-offset-2 text-foreground">
                                   <Paperclip size={12} /> {a.filename || t("app.filedEmail.attachment")}
                                 </a>
                               ) : (

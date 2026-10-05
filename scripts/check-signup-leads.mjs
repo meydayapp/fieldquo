@@ -68,6 +68,7 @@ import {
   sweepSignupProspects,
 } from "@/lib/signup/salesFloor";
 import { CLAIMABLE_STATUSES, claimCandidateWhere } from "@/lib/sales/prospectView";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 import { REVIEW_STATUSES } from "@/lib/sales/discovery/reviewFolder";
 import { decideSignupNudge, planSignupNudges } from "@/lib/signup/abandoned";
 import { SIGNUP_OPENERS, signupOpenerFor } from "@/lib/sales/playbook/signupOpener";
@@ -1093,7 +1094,10 @@ section("15. A finished card-free trial on /platform/signups — what it is, nev
 {
   const api = read("app/api/platform/signups/route.js");
   ok("the incomplete list is incompleteSignupWhere (no row AND no trial date); trials come back as their own array",
-    /where: \{ isDemo: false, \.\.\.incompleteSignupWhere\(\) \}/.test(api) && /where: \{ isDemo: false, \.\.\.cardFreeTrialWhere\(\) \}/.test(api) && /\n    trials,\n/.test(api));
+    // Demos AND test companies out since 046e37e2 (owner, 2026-10-03): the
+    // shared METRICS_COMPANY_WHERE, which is { isDemo: false, isTestCompany: false }.
+    /where: \{ \.\.\.METRICS_COMPANY_WHERE, \.\.\.incompleteSignupWhere\(\) \}/.test(api) && /where: \{ \.\.\.METRICS_COMPANY_WHERE, \.\.\.cardFreeTrialWhere\(\) \}/.test(api) &&
+    METRICS_COMPANY_WHERE.isDemo === false && METRICS_COMPANY_WHERE.isTestCompany === false && /\n    trials,\n/.test(api));
   ok("a finished row carries no step and the trial state from trialAccessFor", /stepLabel: finished \? null/.test(api) && /trialAccessFor\(c, now\)/.test(api));
   const page = read("app/platform/signups/page.js");
   ok("the page splits 'Signed up — on free trial' from 'Incomplete signups — never finished'", /Signed up — on free trial/.test(page) && /Incomplete signups — never finished/.test(page));
@@ -1103,7 +1107,7 @@ section("15. A finished card-free trial on /platform/signups — what it is, nev
   // so its link lands on `card_free`, which the route resolves with the same
   // isCardFreeTrial predicate — not on the Trialing·no-plan BUCKET, which
   // holds only the ones still inside their thirty days.
-  ok("the trial section links to the companies list filtered to the same population", /\/platform\/companies\?status=card_free/.test(page) && /status === "card_free"\) return \(c\) => isCardFreeTrial\(c\)/.test(read("app/api/platform/companies/route.js")));
+  ok("the trial section links to the companies list filtered to the same population", /\/platform\/companies\?status=card_free/.test(page) && /status === "card_free"\) return \(c\) => (?:visible\(c\) && )?isCardFreeTrial\(c\)/.test(read("app/api/platform/companies/route.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

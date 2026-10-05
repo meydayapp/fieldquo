@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 4 October 2026 (drawing read P1 + P2 — the read is scoped by the quote's own service (no trade picker), sends only the sheets that service needs, reads drywall/framing/roofing/electrical/plumbing/flooring with every quantity sourced and confidence-rated, prices them by the ladder (your rate card → your services → cited FieldQuo suggestions, framing book switched on, NECA ×1.0 commercial), recommends a price at your target margin with overhead as the job's share of the month's crew time, offers a margin adjustment line and notifies owner/managers/assignee when below target, and takes pricing figures from the chat only through a manual, diffed button; plus the first live read's five fixes (signed PDF fetch, browser split over 10 MB, failed sheets retried, unreadable-file message, UK/metric parsing). Schema: `PlanRead.scope` and `ForecastSettings.billableHoursPerMonth` (Int, shared with the hourly floor) are already in production — see "Start from drawings" and "Overhead by crew time".)
+Last updated: 4 October 2026 (Google Ads spend: report upload (CSV / Excel CSV / .xlsx) that works today, a Google Ads API connection on Settings › Google Ads that waits on Google's developer-token approval, and Google spend over FieldQuo's own gclid leads on the Spend page, the KPI page and the monthly summary — see "Google Ads spend" below. Schema additive, NOT applied; SQL in that section.)
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
 Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
@@ -223,6 +224,115 @@ the numbers before it ships.**
   offered list), plus form-look, booking-language, estimate-report, lawn-care,
   service-area, gutter-instant, booking-questions, roofing-example, lead-language,
   public-payload, translations — all passing.
+## Google Ads spend (4 October 2026)
+
+Owner: *"we have meta ads in fieldquo what if we want to import the google ads
+expenditure too for analysis"*. Full write-up, owner steps and SQL:
+`docs/GOOGLE-ADS-INTEGRATION.md`.
+
+### What shipped (not deployed — unpushed branch, three commits)
+
+1. **Report upload, works today.** Settings › Google Ads and Marketing › Spend
+   → **Import Google Ads report**: the Campaigns report as Google downloads it
+   (title rows, date-range line, totals rows, UTF-16 "Excel CSV", .xlsx, comma
+   decimals, device-segmented lines), preview with possible duplicates, import
+   as `source: "google_ads_csv"`. Re-import updates, never doubles.
+2. **Google Ads API sync.** Settings › Google Ads (beside Meta Ads, same
+   "billing" gate, same layout): Connect (shared Google OAuth client + adwords
+   scope), ad-account picker (manager accounts via login-customer-id),
+   Sync now, daily cron `/api/cron/google-ads-sync`. Without
+   `GOOGLE_ADS_DEVELOPER_TOKEN`, or before `GOOGLE_ADS_API_APPROVED=1`, the
+   screen says exactly what is missing and draws no Connect button.
+3. **Analytics.** Spend page "Google Ads" section (per campaign: spend,
+   Google's clicks/impressions/conversions, YOUR leads from Google ad clicks,
+   cost per lead, won jobs, cost per won job, invoiced, paid); a Google line on
+   the KPI page's marketing tile; a Google Ads block in the monthly summary
+   email. Leads are LeadRequests with `attribution.clickNetwork =
+   "google_ads"`; Google's conversions are never a denominator. Currency
+   converted at read time, ≈.
+
+Platform is the existing `google` enum value, not a new `google_ads` (one
+channel row, and hand-typed Google rows stay visible to the duplicate check) —
+named as a deviation from the brief in the doc.
+
+### Schema (additive — NOT applied)
+
+`MarketingSpend.conversionsExact DECIMAL(12,2)`; new `GoogleAdsConnection`
+table (unique companyId, FK Company ON DELETE CASCADE). Exact SQL in
+`docs/GOOGLE-ADS-INTEGRATION.md`.
+
+### Owed (owner)
+
+- Google Ads manager account → API Center → developer token → apply for
+  Basic access; set `GOOGLE_ADS_DEVELOPER_TOKEN`; on approval set
+  `GOOGLE_ADS_API_APPROVED=1`.
+- Cloud project "fieldquo": enable Google Ads API; add redirect
+  `https://www.fieldquo.com/api/google-ads/callback` to the Web OAuth client;
+  add the `adwords` scope on the consent screen's Data access and submit for
+  verification.
+- Apply the SQL above before deploying.
+
+### Checks
+
+`npm run check:google-ads` (171: real-shaped exports in en/fr/de, UTF-16,
+.xlsx, idempotency, never-overwrite-manual/Meta/other-tenant, REST fixtures,
+error bodies, picker and sync over fakes, read-time currency, not-configured
+states, rollup and monthly summary). `check:kpis`, `check:campaign-rollup`
+(outcome helpers extracted, Meta output md5-identical), `check:monthly-summary`,
+`check:impersonation`, `check:settings-access`, `check:refusal-shape`.
+## Stored PDFs open again — signed, streamed, tenant-fenced (4 October 2026)
+
+**Why:** the production Cloudinary account refuses to deliver a PDF from its
+plain URL (401 on `raw/upload/…pdf` and `image/upload/…pdf`), and a raw file
+stored without an extension (every auto-filed quote/contract/invoice PDF)
+arrives as octet-stream named after its random id. Every link to a stored file
+looked like it worked and didn't.
+
+### What shipped (not deployed — unpushed branch)
+
+- `lib/media/signedFile.js` — the parser and signer lifted out of
+  `lib/hr/documentFile.js` (which now re-exports them, same functions), plus the
+  tenant fence (`fieldquo/companies/<id>/`, `fieldquo/<id>/`,
+  `fieldquo/satellite/<id>/`, `messaging/<id>/`, `mailbox/<id>/`, `crew/<id>/`),
+  magic-byte sniffing, safe download names, markup never served inline.
+- `lib/media/fileOpen.js` — three doors, all streaming through a five-minute
+  signed download link:
+  - **staff** `GET /api/files/open` — an HMAC link bound to the reader, the row
+    and a 12-hour expiry, minted by the route that LISTED the file after its own
+    gate; the row is re-read inside the session's company. Works under
+    read-only impersonation (a read).
+  - **client** `GET /api/portal/<token>/files/<waiver|guide>/<id>` and
+    `GET /api/public/quotes/<token>/files/document/<id>` — the page's own token,
+    and only that document's files.
+  - **platform** `GET /api/platform/files/open` — migration uploads and payout
+    receipts, each in its own fence.
+- Surfaces now linked through them: quote files and drawing reads, job documents
+  (and the job's linked documents), inbox PDFs and filed emails, receipts,
+  service documents, company documents, subcontractor and vehicle documents, the
+  prep-guide card, the portal's signed waivers, the proposal's documents (quote
+  page and instant-estimate report), the prep-guide email and PDF (portal token
+  links), the staff prep-guide preview PDF, the platform's migration documents
+  and payout receipts.
+- Server-side reads moved to the signed link too: the drawing read's PDF/sheet
+  ingest, the receipt PDF read, and prep-guide attachments.
+
+### Checks
+
+`check:file-open` (new, in check:all) — hostile URLs, other companies' folders,
+traversal, tokens, reader binding, streaming headers; mutation-tested.
+
+### Owed
+
+- The sales rep / influencer / agency **Earnings** panel still links a payout
+  receipt by its Cloudinary URL (`app/components/sales/EarningsPanel.js`) — it
+  needs a rep-session route; FieldQuo's own sales inbox attachments
+  (`app/sales/…`, folders `sales-inbound/`, `sales-mailbox/`) likewise.
+- Not verified against the live account from this session (production reads
+  were blocked); verify one quote drawing, one inbox PDF and one portal waiver
+  after deploy.
+
+---
+
 ## Owner decisions 4 October 2026 (evening)
 
 ### 1. Crew access — the four "Owed" decisions in docs/ROLE-ACCESS.md
@@ -1772,9 +1882,11 @@ planning set, 13 sheets, 13.4 MB) failed five ways; each is fixed in its own com
 `check:plan-deep-read` §20, ahead of P1/P2 so they can ship first.
 
 - **The server could not read its own PDFs** — Cloudinary answered the raw PDF's public URL 401
-  ("deny or ACL failure"; the account blocks PDF delivery). `fetchPlanFile` reads plan files through
-  the API-signed `private_download_url` (the HR / reference-library path), inside this company's
-  `plans` folder only; the public URL is only the no-secret fallback.
+  ("deny or ACL failure"; the account blocks PDF delivery). Shipped on main as the Cloudinary PDF
+  fix (3fe7ee1c): plan files are read through `fetchTenantFile` (lib/media/fileOpen.js) on the one
+  shared signer, lib/media/signedFile.js, fenced to this company's folders; the plain URL only when
+  no signer is configured (local dev). This branch's own copy (`fetchPlanFile`) was folded into
+  that path on merge — one signer, no second copy.
 - **Sets over 10 MB were refused** — the Free plan's `raw_max_size_bytes` binds. The Files card now
   splits a too-large PDF in the browser with **pdf-lib** (new dependency, MIT, loaded only then) into
   parts under the binding limit, page order kept; each part is its own document on the read and one

@@ -46,6 +46,7 @@ import {
   buildOnTimeCompletion,
   buildUtilisationRate,
   buildBlendedCostPerLead,
+  buildAdChannelCosts,
   buildReworkCallbackRate,
   buildChangeOrderRate,
   mergeCallbackReasons,
@@ -404,6 +405,24 @@ const blendedZeroSpendRealLeads = buildBlendedCostPerLead({
 ok("zero spend with real leads is an honest $0, not null — a referral-only month is a real zero",
   blendedZeroSpendRealLeads.value === 0 && blendedZeroSpendRealLeads.reason === null,
   blendedZeroSpendRealLeads);
+
+// One ad channel (Google Ads): FieldQuo's own click-id leads, never the
+// platform's conversions — lib/analytics/kpis.js buildAdChannelCosts.
+const adReal = buildAdChannelCosts({ spend: 900, approximate: true, leads: 6, wonJobs: 2 });
+ok("ad channel: 900 / 6 leads = 150 per lead, 900 / 2 won jobs = 450 per won job, approximate carried",
+  adReal.costPerLead.value === 150 && adReal.costPerWonJob.value === 450 && adReal.costPerLead.approximate === true,
+  adReal);
+const adNoLeads = buildAdChannelCosts({ spend: 300, leads: 0, wonJobs: 0 });
+ok("ad channel: spend with no click-id leads is a refusal with a reason, never $300 per lead",
+  adNoLeads.costPerLead.value === null && adNoLeads.costPerLead.reason === "no_ad_click_leads");
+const adNoWon = buildAdChannelCosts({ spend: 300, leads: 4, wonJobs: 0 });
+ok("ad channel: leads but no job yet → cost per lead, and 'no won jobs yet' (not 'no leads')",
+  adNoWon.costPerLead.value === 75 && adNoWon.costPerWonJob.reason === "no_ad_won_jobs");
+const adNoSpend = buildAdChannelCosts({ spend: null, leads: 3, wonJobs: 1 });
+ok("ad channel: no spend recorded is said, not shown as $0 per lead",
+  adNoSpend.costPerLead.value === null && adNoSpend.costPerLead.reason === "no_ad_spend");
+const adIncomplete = buildAdChannelCosts({ spend: 100, spendIncomplete: true, leads: 1, wonJobs: 1 });
+ok("ad channel: refused-currency spend marks the figure incomplete", adIncomplete.costPerLead.incomplete === true);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 4 — the sample floor, at the boundary
@@ -917,6 +936,11 @@ for (const [label, result] of [
   ["blendedOnlyManual", blendedOnlyManual],
   ["blendedReal", blendedReal],
   ["blendedZeroSpendRealLeads", blendedZeroSpendRealLeads],
+  ["adReal.cpl", adReal.costPerLead],
+  ["adReal.cpwj", adReal.costPerWonJob],
+  ["adNoLeads.cpl", adNoLeads.costPerLead],
+  ["adNoWon.cpwj", adNoWon.costPerWonJob],
+  ["adNoSpend.cpl", adNoSpend.costPerLead],
   ["reworkKnown", reworkKnown],
   ["changeOrderKnown", changeOrderKnown],
   ["reworkWithOrphan", reworkWithOrphan],

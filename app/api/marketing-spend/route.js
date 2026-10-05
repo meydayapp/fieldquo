@@ -106,7 +106,9 @@ export async function POST(request) {
       notes: notes || null,
       // Every entry through THIS route is a human typing it in — the sync in
       // app/api/meta-ads/sync/route.js is the only writer of source:
-      // "meta_api", and it never calls this route.
+      // "meta_api", the Google Ads report import and sync
+      // (lib/googleAds/spendPlan.js) the only writers of "google_ads_csv" /
+      // "google_ads_api", and none of them calls this route.
       source: "manual",
     },
   });

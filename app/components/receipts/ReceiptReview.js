@@ -248,18 +248,28 @@ export default function ReceiptReview({ id, onClose, onChanged, onOpen }) {
             {/* ── The paper ─────────────────────────────────────────────── */}
             <div className="space-y-2">
               {r.files.map((f, i) =>
+                // A PDF receipt opens through f.openUrl: its stored Cloudinary
+                // URL answers 401 from this account (lib/media/fileOpen.js).
+                // A photo still draws from its own URL, which Cloudinary
+                // delivers.
                 f.kind === "document" ? (
-                  <a
-                    key={f.url + i}
-                    href={f.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-foreground hover:bg-muted"
-                  >
-                    <FileText size={16} /> {f.filename || "PDF"} <ExternalLink size={12} className="ml-auto" />
-                  </a>
+                  f.openUrl ? (
+                    <a
+                      key={f.url + i}
+                      href={f.openUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-foreground hover:bg-muted"
+                    >
+                      <FileText size={16} /> {f.filename || "PDF"} <ExternalLink size={12} className="ml-auto" />
+                    </a>
+                  ) : (
+                    <span key={f.url + i} className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-foreground">
+                      <FileText size={16} /> {f.filename || "PDF"}
+                    </span>
+                  )
                 ) : (
-                  <a key={f.url + i} href={f.url} target="_blank" rel="noreferrer" className="block">
+                  <a key={f.url + i} href={f.openUrl || f.url} target="_blank" rel="noreferrer" className="block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={f.url} alt={t("app.receipts.review.photoAlt", { n: i + 1 })} className="w-full rounded-lg border border-border" />
                   </a>

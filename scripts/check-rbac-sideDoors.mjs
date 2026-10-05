@@ -104,14 +104,25 @@ function walk(dir, out = []) {
   return out;
 }
 const root = new URL("../", import.meta.url).pathname;
+// Files whose Prisma handle is not literally named `db`, by file, with why.
+// Team chat threads its handle through as `client` (= db by default, or a
+// transaction) in every function of lib/company/chat — enforceableFor(client,
+// member) passes it on as loadEnforceableMember(client, member.id), which is
+// the right arity. Named per file, not accepted everywhere, because `client`
+// elsewhere in this codebase is usually a Client ROW, and passing a row where
+// the handle belongs is exactly the mistake this test exists to catch.
+const DB_HANDLE_ALIAS = { "lib/company/chat/cards.js": "client" };
 const bad = [];
 for (const f of [...walk(join(root, "app")), ...walk(join(root, "lib"))]) {
   const src = readFileSync(f, "utf8");
+  const rel = f.replace(root, "");
   for (const m of src.matchAll(/loadEnforceableMember\(([^)]*)\)/g)) {
     const args = m[1].trim();
     if (!args || args.startsWith("db,") || args.startsWith("db ,")) continue;
     if (/^db\b/.test(args)) continue;
-    bad.push(`${f.replace(root, "")}: loadEnforceableMember(${args})`);
+    const alias = DB_HANDLE_ALIAS[rel];
+    if (alias && new RegExp(`^${alias}\\s*,\\s*\\S`).test(args)) continue;
+    bad.push(`${rel}: loadEnforceableMember(${args})`);
   }
 }
 t(`every call site passes (db, …)${bad.length ? " — " + bad.join("; ") : ""}`, bad.length, 0);

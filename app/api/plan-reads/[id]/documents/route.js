@@ -22,7 +22,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle } from "@/lib/permissions/enforce";
 import { loadPlanRead } from "@/lib/planRead/load";
 import { addPlanReadDocument } from "@/lib/planRead/documents";
-import { cloudinary } from "@/lib/cloudinary";
+import { cloudinarySigner } from "@/lib/media/cloudinarySign";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -43,13 +43,9 @@ export async function POST(request, { params }) {
     raw,
     canSeeMoney: hasToggle(full, "showPricing"),
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    // The signed download path: this account refuses to deliver PDFs from
-    // their public URL (401), so the server reads its own upload through the
-    // API-signed endpoint (lib/planRead/ingest.js fetchPlanFile).
-    sign:
-      process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET
-        ? (publicId, format, options) => cloudinary.utils.private_download_url(publicId, format, options)
-        : null,
+    // The drawing is read through a signed download link: this Cloudinary
+    // account answers a PDF's plain URL with 401 (lib/media/signedFile.js).
+    sign: cloudinarySigner(),
   });
   if (!result.ok) return NextResponse.json({ error: result.error, code: result.code }, { status: result.status || 400 });
   return NextResponse.json({ document: result.document, ingest: result.ingest }, { status: 201 });

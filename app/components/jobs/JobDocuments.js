@@ -44,6 +44,7 @@ import {
   formatBytes,
   revisionCount,
 } from "@/lib/jobs/documents";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 export default function JobDocuments({ jobId }) {
   const { t, language } = useTranslation();
@@ -178,14 +179,13 @@ export default function JobDocuments({ jobId }) {
               <li key={chain.id} className="py-3 first:pt-0">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <OpenFileLink
+                      href={doc.openUrl}
                       className="text-sm font-medium text-foreground underline break-words"
+                      plainClassName="text-sm font-medium text-foreground break-words"
                     >
                       {doc.name}
-                    </a>
+                    </OpenFileLink>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {t(`app.jobDocuments.kind.${doc.kind}`, doc.kind)}
                       {" · "}
@@ -246,14 +246,13 @@ export default function JobDocuments({ jobId }) {
                       const oldSize = formatBytes(old.sizeBytes);
                       return (
                         <li key={old.id} className="text-xs">
-                          <a
-                            href={old.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <OpenFileLink
+                            href={old.openUrl}
                             className="text-muted-foreground underline break-words"
+                            plainClassName="text-muted-foreground break-words"
                           >
                             {old.name}
-                          </a>
+                          </OpenFileLink>
                           <span className="text-muted-foreground">
                             {" · "}
                             {new Date(old.uploadedAt).toLocaleDateString(language)}

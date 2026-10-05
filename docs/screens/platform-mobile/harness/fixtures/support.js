@@ -942,6 +942,26 @@ export default function answer({ method, path, url, body }) {
 
   // /platform/ai-usage
   if (path === "/api/platform/ai-usage") return method === "PATCH" ? { id: body?.companyId, name: "", aiMonthlyTokenCap: body?.cap ?? null } : aiUsage();
+  // The "Drawing reads" card on the same page (app/components/platform/
+  // PlanReadTimings.js) — one finished read, so the 900px table is on the
+  // frame inside its scroll container.
+  if (path === "/api/platform/plan-reads") {
+    const step = (calls, promptTokens, cachedTokens, completionTokens, vendorMicros) => ({ calls, promptTokens, cachedTokens, completionTokens, vendorMicros });
+    const timing = {
+      outcome: "ready", totalMs: 214000, sheetsMs: 151000, photosMs: 88000, synthesisMs: 41000, idleMs: 6000,
+      invocations: 3, uploadSpanMs: 95000, waitBeforeReadMs: 12000, slowestSheetMs: 47000, retriedSheets: 1,
+    };
+    return {
+      limit: 40,
+      medians: { reads: 1, totalMs: timing.totalMs, sheetsMs: timing.sheetsMs, photosMs: timing.photosMs, synthesisMs: timing.synthesisMs, idleMs: timing.idleMs },
+      reads: [{
+        id: "pr_harness_1", companyId: COMPANY_ID, companyName: "Easy Roofers", title: "Kitchen addition — A-101 to A-104",
+        status: "ready", stage: null, sheets: 4, photos: 6, timing,
+        byStep: { sheets: step(4, 48210, 12000, 6120, 182000), photos: step(6, 30440, 0, 3900, 96000), synthesis: step(1, 18800, 9000, 4100, 61000) },
+        chargedCents: 300, estimateCents: 400,
+      }],
+    };
+  }
 
   // /platform/sales-agent
   if (path === "/api/platform/sales-agent") return method === "POST" ? { ok: true, provision: { ok: true } } : salesAgent();

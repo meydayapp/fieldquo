@@ -138,6 +138,7 @@ const FLOORS = {
 const SHARED_LITERALS = new Set([
   "FieldQuo AI", // the product's own assistant, unbranded nowhere
   "Meta Ads", // Meta's product name; localised nowhere in their own console
+  "Google Ads", // Google's product name, the same in every Google Ads locale
   "WhatsApp Business", // ditto — Meta ships the same two words in every locale
   // Interac's own product name. It is what a rep sees inside their banking
   // app and what they would have to search for, so renaming it would send

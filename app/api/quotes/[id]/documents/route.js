@@ -20,6 +20,10 @@ import { hasToggle, hasLevel } from "@/lib/permissions/enforce";
 import { revisionChains, visibleDocuments, formatBytes } from "@/lib/jobs/documents";
 import { validateQuoteDocument, revisionTarget, QUOTE_DOCUMENT_SELECT } from "@/lib/quotes/quoteDocuments";
 import { fileQuoteDocumentsOnJob } from "@/lib/jobs/documentAutofile";
+// The stored URL is a Cloudinary PDF this account will not deliver; each file
+// opens through /api/files/open on a link minted here, after this route's own
+// gate (lib/media/fileOpen.js).
+import { withOpenUrls } from "@/lib/media/fileOpen";
 
 async function ownQuote(id, companyId) {
   return db.quote.findFirst({ where: { id, companyId }, select: { id: true, companyId: true } });
@@ -44,7 +48,7 @@ export async function GET(request, { params }) {
   const { documents, hiddenCount } = visibleDocuments(rows, { canSeeMoney });
   const job = await db.job.findFirst({ where: { companyId: member.companyId, quoteId: quote.id }, select: { id: true } });
   return NextResponse.json({
-    chains: revisionChains(documents).map((c) => ({ ...c, current: { ...c.current, pages: undefined, size: formatBytes(c.current.sizeBytes) } })),
+    chains: revisionChains(withOpenUrls(member, "quote-document", documents)).map((c) => ({ ...c, current: { ...c.current, pages: undefined, size: formatBytes(c.current.sizeBytes) } })),
     hiddenCount,
     canUpload: hasLevel(full, "quotes", "view_create_edit"),
     canSeeMoney,

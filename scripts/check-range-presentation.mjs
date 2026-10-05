@@ -211,7 +211,9 @@ console.log("\n3. The quote and the estimate draw the company with the same comp
   ok("one projection for both pages (projectProposal)", /export function projectProposal/.test(load) && /\.\.\.projectProposal\(\{ content, sections \}\)/.test(route) && /projectProposal\(loaded\)/.test(pres));
   ok("the projection publishes only rendered sections' content", /about: on\("about"\) \? content\?\.about \|\| null : null/.test(load) && /gallery: on\("beforeAfter"\) \? content\?\.gallery \|\| \[\] : \[\]/.test(load));
   ok("ReportView reads no database module", !/@\/lib\/db"|report\/presentation"/.test(view));
-  ok("the page loads the presentation and hands it down", /loadEstimatePresentation\(\{ quote: loaded\.quote, language: loaded\.report\.language \}\)/.test(strip(read("app/estimate-report/[token]/page.js"))));
+  // `token` since 2026-10-04: each company document opens through the
+  // share token's own file route (lib/media/fileOpen.js clientFileHref).
+  ok("the page loads the presentation and hands it down", /loadEstimatePresentation\(\{ quote: loaded\.quote, language: loaded\.report\.language, token \}\)/.test(strip(read("app/estimate-report/[token]/page.js"))));
   ok("the model never reads the stored point or breakdown for the range", /publicEstimate\(data\.range, "range"\)/.test(strip(read("lib/estimate/report/model.js"))) && !/data\.range\.point|data\.breakdown/.test(strip(read("lib/estimate/report/model.js"))));
 }
 

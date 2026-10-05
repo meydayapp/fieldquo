@@ -81,6 +81,7 @@ const WRITE_SHAPED_GET_PATHS = [
   "/api/meta-ads/callback", "/api/stripe/connect/refresh",
   "/api/settings/voice/topup", "/api/settings/voice/auto-topup",
   "/api/tiktok/connect", "/api/tiktok/callback",
+  "/api/google-ads/connect", "/api/google-ads/callback",
 ];
 import { rows, writes, resetImpersonationDb, db } from "./fixtures/impersonationDb.mjs";
 import { authStub } from "./fixtures/authStub.mjs";
@@ -492,6 +493,10 @@ const EXCLUDED_GET = /^\/api\/(platform|sales|cron|webhooks|public|portal|auth)(
 const DELIBERATE_GET_REFUSALS = {
   ...Object.fromEntries(WRITE_SHAPED_GET_PATHS.map((p) => [p, "acts rather than reads (lib/platform/impersonationToken.js)"])),
   "/api/migrations/x/checkout": "settles a Stripe payment for the company (Stripe return URL)",
+  // Lists the company's ad accounts by spending ITS Google credential on a
+  // live call (and stamps the connection when Google refuses). Everything
+  // support needs to see is on /api/google-ads/status, which admits it.
+  "/api/google-ads/accounts": "calls Google with the company's credential; /api/google-ads/status is the read",
   // Pre-dates this change and is NOT a decision: the route's one loader
   // refuses support for its upload POST and so for the list GET too. Named
   // here so it is visible; a follow-up, not this fix.

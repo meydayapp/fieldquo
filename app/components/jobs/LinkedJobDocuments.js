@@ -30,6 +30,7 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { AUTOFILED_KINDS, revisionCount } from "@/lib/jobs/documents";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 export default function LinkedJobDocuments({ jobId }) {
   const { t, language } = useTranslation();
@@ -90,14 +91,13 @@ export default function LinkedJobDocuments({ jobId }) {
             const revs = revisionCount(chain);
             return (
               <li key={chain.id} className="py-2 first:pt-0 flex items-baseline justify-between gap-3 flex-wrap">
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <OpenFileLink
+                  href={doc.openUrl}
                   className="text-sm font-medium text-foreground underline break-words"
+                  plainClassName="text-sm font-medium text-foreground break-words"
                 >
                   {doc.name}
-                </a>
+                </OpenFileLink>
                 <span className="text-xs text-muted-foreground">
                   {t(`app.jobDocuments.kind.${doc.kind}`, doc.kind)}
                   {" · "}

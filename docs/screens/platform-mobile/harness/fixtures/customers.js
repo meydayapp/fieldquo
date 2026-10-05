@@ -1553,6 +1553,35 @@ export default function answer({ method, path, url, body }) {
   if (path === "/api/platform/email-health") return EMAIL_HEALTH;
   if (path === "/api/platform/ai-health") return AI_HEALTH;
   if (path === "/api/platform/voice-health") return VOICE_HEALTH;
+  // The exchange-rate strip only paints when unhealthy; the dashboard frame
+  // is the healthy one (the route's own shape, nothing to report).
+  if (path === "/api/platform/fx-health") {
+    return { healthy: true, refused: false, rates: [], updates: [], problems: [], remedy: "" };
+  }
+  // /platform/business-numbers — the route's list shape: one Canadian port
+  // waiting on the Twilio form (the row that gets the "Open package" control)
+  // and one hosted landline already live.
+  if (path === "/api/platform/business-numbers" && method === "GET" && !url.searchParams.get("package")) {
+    return {
+      canHandle: true,
+      rows: [
+        {
+          id: "bn_port_ca", e164: "+16135550142", country: "CA", lineType: "mobile", path: "port", status: "submitted",
+          providerStatus: null, failureReason: null, submitChannel: "twilio_form", submittedAt: ago(2), expectedAt: null,
+          activatedAt: null, simulated: false, secretsPurgedAt: null,
+          company: { id: COMPANY_ID, name: "Easy Roofers" },
+          filings: [{ action: "filed", note: null, portDate: null, createdAt: ago(1) }],
+        },
+        {
+          id: "bn_hosted_us", e164: "+12125550188", country: "US", lineType: "landline", path: "hosted", status: "active",
+          providerStatus: "completed", failureReason: null, submitChannel: "twilio_api", submittedAt: ago(9), expectedAt: null,
+          activatedAt: ago(6), simulated: false, secretsPurgedAt: null,
+          company: { id: "cmp_harness_2", name: "Northside Painting" },
+          filings: [],
+        },
+      ],
+    };
+  }
   // The Stripe webhooks strip: the last verified event per endpoint and the
   // two event destinations as Stripe lists them. Written out rather than
   // run through lib/platform/stripeDestinations.js, whose module imports the

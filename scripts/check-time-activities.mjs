@@ -569,8 +569,12 @@ section("7. Crew see only their own log; a manager sees everyone");
 
   seed({ member: CREW, entries: [{ id: "w1", workerId: "wrk_crew", clockIn: ago(2), clockOut: null, activity: "general", paid: true, status: "pending" }] });
   const w = await call(weekGET, new Request("http://x/api/time-clock/week"));
+  // Paid hours follow the payroll rule (a shift belongs to the week it STARTED
+  // in), so a run in the first two hours of a Monday sees last week's shift: 0.
+  const weekFrom = weekStartInZone(new Date(), TZ, 1);
+  const expectHours = ago(2) >= weekFrom ? 2 : 0;
   ok("GET /api/time-clock/week: the person's own week, hours only — no rate, no money",
-    w.status === 200 && Math.abs(w.body.hours - 2) < 0.02 && !/rate|amount|pay\b|earn/i.test(Object.keys(w.body).join(",")), w.body);
+    w.status === 200 && Math.abs(w.body.hours - expectHours) < 0.02 && !/rate|amount|pay\b|earn/i.test(Object.keys(w.body).join(",")), w.body);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

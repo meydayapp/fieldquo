@@ -127,7 +127,9 @@ const readers = [
   ["Manage Team no-login section", "app/app/settings/team/page.js", /personTitle\(w\)/],
   ["Workers list", "app/app/settings/team/workers/page.js", /personTitle\(worker\)/],
   ["Team schedule", "app/app/schedule/page.js", /personTitle\(m\)\s*\|\|\s*ROLE_LABEL\[m\.role\]/],
-  ["Staff chat directory / Members bar", "app/components/company/CompanyChat.js", /personTitle\(p\)\s*\|\|\s*t\(LABEL_KEYS/],
+  // The helper moved out of CompanyChat.js into chat/parts.js (2c4dc70c);
+  // that the screen still draws its people through it is asserted below.
+  ["Staff chat directory / Members bar", "app/components/company/chat/parts.js", /personTitle\(p\)\s*\|\|\s*t\(LABEL_KEYS/],
   ["Timesheets worker picker", "app/app/settings/team/timesheets/page.js", /personOptionLabel\(w\)/],
   ["Appointments assignee picker", "app/app/appointments/page.js", /personOptionLabel\(m,\s*m\.user\.name\)/],
   ["Tasks assignee picker", "app/app/tasks/page.js", /personOptionLabel\(m,/],
@@ -139,6 +141,11 @@ for (const [name, rel, re] of readers) {
   const src = code(rel);
   t(`${name} imports from lib/team/personLabel`, /from "@\/lib\/team\/personLabel"/.test(src));
   t(`${name} prints the title through the helper`, re.test(src));
+}
+{
+  const chat = code("app/components/company/CompanyChat.js");
+  t("Staff chat directory / Members bar: CompanyChat draws people through personLine",
+    /import \{[^}]*\bpersonLine\b[^}]*\} from "\.\/chat\/parts"/.test(chat) && /personLine\(t, m\)/.test(chat));
 }
 // The APIs those lists read from must actually carry the word.
 const members = code("app/api/settings/members/route.js");

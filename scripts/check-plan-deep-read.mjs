@@ -53,7 +53,8 @@ import { zipSync, strToU8 } from "fflate";
 import { churchSet, ukChurchSet, buildPlanPdf } from "./fixtures/planPdf.mjs";
 import { findDimensions, parseScale, feetPerPixelFromScale, formatFeet } from "@/lib/planRead/dimensions";
 import { sheetFacts, isScaleBarLine } from "@/lib/planRead/sheetFacts";
-import { pdfSheets, spreadsheetRows, fetchPlanFile } from "@/lib/planRead/ingest";
+import { pdfSheets, spreadsheetRows } from "@/lib/planRead/ingest";
+import { fetchTenantFile } from "@/lib/media/fileOpen";
 import { splitPdfBytes, partName, pagesPerPart, PdfSplitError } from "@/lib/planRead/pdfSplit";
 import { sheetNeedsPass, sheetPassDone } from "@/lib/planRead/sheetState";
 import {
@@ -1171,6 +1172,11 @@ ok("the Files card splits a too-large PDF and files each part on the read", /err
 ok("the documents route no longer claims a 100 MB drawing set is fetched", !/A 100 MB drawing set is fetched/.test(readFileSync(new URL("../app/api/plan-reads/[id]/documents/route.js", import.meta.url), "utf8")));
 
 // ── 20c. The server reads its own PDF through the signed download ─────────
+// ONE signer for every server-side read of a tenant's file: main's
+// lib/media/signedFile.js, reached through lib/media/fileOpen.js
+// fetchTenantFile. The drawing read used to carry its own copy
+// (ingest.js fetchPlanFile); it was folded into this path on the merge with
+// the Cloudinary PDF fix, so these tests pin the drawing PDF through it.
 const planUrl = "https://res.cloudinary.com/demo/raw/upload/v17/fieldquo/companies/co1/plans/0b7f3c2e-1111-4a4a-9c9c-123456789abc.pdf";
 const signCalls = [];
 const fakeSign = (publicId, format, options) => {
@@ -1183,15 +1189,19 @@ const fetchDeniesPdf = async (u) => {
   if (u.startsWith("https://res.cloudinary.com/")) return { ok: false, status: 401, url: u, headers: { get: () => null }, arrayBuffer: async () => new ArrayBuffer(0) };
   return { ok: true, status: 200, url: u, headers: { get: () => "4" }, arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer };
 };
-const viaSigned = await fetchPlanFile(planUrl, { companyId: "co1", sign: fakeSign, cloudName: "demo", fetchImpl: fetchDeniesPdf });
-ok("an account that answers the PDF's public URL 401 is read through the signed download", viaSigned.ok && viaSigned.via === "signed" && fetched[0].startsWith("https://api.cloudinary.com/v1_1/demo/") && signCalls[0].publicId === "fieldquo/companies/co1/plans/0b7f3c2e-1111-4a4a-9c9c-123456789abc.pdf" && signCalls[0].options.type === "upload" && signCalls[0].options.resource_type === "raw", { viaSigned, fetched, signCalls });
+const viaSigned = await fetchTenantFile(planUrl, { companyId: "co1", sign: fakeSign, cloudName: "demo", fetchImpl: fetchDeniesPdf });
+ok("an account that answers the PDF's public URL 401 is read through the signed download", viaSigned.ok && fetched.length === 1 && fetched[0].startsWith("https://api.cloudinary.com/v1_1/demo/") && signCalls[0].publicId === "fieldquo/companies/co1/plans/0b7f3c2e-1111-4a4a-9c9c-123456789abc.pdf" && signCalls[0].options.type === "upload" && signCalls[0].options.resource_type === "raw", { viaSigned, fetched, signCalls });
 fetched.length = 0;
-const otherCo = await fetchPlanFile(planUrl.replace("/co1/", "/co2/"), { companyId: "co1", sign: fakeSign, cloudName: "demo", fetchImpl: fetchDeniesPdf });
-ok("another company's file is never signed (the tenant fence), and the public URL still answers 401", !otherCo.ok && signCalls.length === 1, otherCo);
-const noSecret = await fetchPlanFile(planUrl, { companyId: "co1", sign: null, cloudName: "demo", fetchImpl: async (u) => ({ ok: true, status: 200, url: u, headers: { get: () => "4" }, arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer }) });
-ok("with no API secret (local dev) the public URL is the only road, as before", noSecret.ok && noSecret.via === "public");
+const otherCo = await fetchTenantFile(planUrl.replace("/co1/", "/co2/"), { companyId: "co1", sign: fakeSign, cloudName: "demo", fetchImpl: fetchDeniesPdf });
+ok("another company's drawing is never signed or fetched (the tenant fence)", !otherCo.ok && otherCo.reason === "not_ours" && signCalls.length === 1 && fetched.length === 0, otherCo);
+const overCap = await fetchTenantFile(planUrl, { companyId: "co1", sign: fakeSign, cloudName: "demo", maxBytes: 3, fetchImpl: fetchDeniesPdf });
+ok("a drawing over the ingest ceiling is named too_large, never truncated", !overCap.ok && overCap.reason === "too_large");
+const docLib = code("lib/planRead/documents.js");
+const ingestSrc = code("lib/planRead/ingest.js");
 const docRoute = code("app/api/plan-reads/[id]/documents/route.js");
-ok("the documents route passes Cloudinary's private_download_url as the signer", /private_download_url\(publicId, format, options\)/.test(docRoute) && /sign:/.test(docRoute) && /fetchPlanFile\(/.test(code("lib/planRead/documents.js")));
+ok("the documents route injects the one shared signer", /sign: cloudinarySigner\(\)/.test(docRoute) && /from "@\/lib\/media\/cloudinarySign"/.test(docRoute) && !/private_download_url/.test(docRoute));
+ok("adding a drawing reads it through fetchTenantFile at the ingest ceiling, the plain URL only with no signer (local dev)", /fetchTenantFile\(document\.url, \{ companyId, cloudName, sign, maxBytes: MAX_INGEST_BYTES/.test(docLib) && /: await fetchOwnFile\(document\.url/.test(docLib));
+ok("no second copy of the drawing signer survives in ingest.js", !/fetchPlanFile/.test(ingestSrc) && !/fetchPlanFile/.test(docLib));
 
 // ── 20d. A failed sheet is read again by the next run, never synthesised blank
 ok("sheet state: unread and earlier-run failures need a pass; this run's failure and a permanent one do not", sheetNeedsPass({ read: null }) && sheetNeedsPass({ read: { failed: true, failedRun: "r1" } }, "r2") && !sheetNeedsPass({ read: { failed: true, failedRun: "r2" } }, "r2") && !sheetNeedsPass({ read: { failed: true, permanent: true } }, "r2") && !sheetNeedsPass({ read: { summary: "ok" } }, "r2"));

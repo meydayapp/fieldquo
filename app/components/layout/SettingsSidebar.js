@@ -83,6 +83,7 @@ import {
   Activity,
   ChevronDown,
   Share2,
+  Target,
   Clapperboard,
   ArrowUpDown,
 } from "lucide-react";
@@ -198,6 +199,9 @@ export const GROUPS = [
       // its own money/spend to, not a price charged to a client. See
       // lib/permissions/settingsAccess.js: gated "billing", same as Payments.
       { key: "app.settings.metaAds", href: "/app/settings/meta-ads", icon: Share2, helpArticle: "settings-meta-ads" },
+      // Google Ads beside Meta Ads — the same kind of connection (the
+      // company's own ad account, spend imported), the same "billing" gate.
+      { key: "app.settings.googleAds", href: "/app/settings/google-ads", icon: Target, helpArticle: "settings-google-ads" },
       // TikTok's own row, directly under Meta Ads — the owner's placement: the
       // same kind of connection (an account the company's designs post to),
       // but not a Meta account, so not a card on Meta's screen. Gated "billing"

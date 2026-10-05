@@ -25,6 +25,7 @@ import { hasToggle } from "@/lib/permissions/enforce";
 import { aiBalanceFor } from "@/lib/voice/credits";
 import { loadPlanRead } from "@/lib/planRead/load";
 import { planReadView } from "@/lib/planRead/view";
+import { withOpenUrls } from "@/lib/media/fileOpen";
 import { advanceRead, readInputs, loadPaintBooks } from "@/lib/planRead/run";
 import { applyOps, buildDimIndex } from "@/lib/planRead/projectModel";
 import { planSubstrateKeys } from "@/lib/planRead/catalogue";
@@ -84,7 +85,9 @@ export async function GET(request, { params }) {
         return null;
       })
     : null;
-  const view = await planReadView(read, {
+  // Each file opens through /api/files/open on a link minted here, after the
+  // quotes gate above (lib/media/fileOpen.js).
+  const view = await planReadView({ ...read, documents: withOpenUrls(member, "quote-document", read.documents) }, {
     companyId: member.companyId,
     canSeeMoney,
     balanceCents,

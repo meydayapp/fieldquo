@@ -29,7 +29,7 @@ function parseExpiry(value) {
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  return NextResponse.json({ documents: await listDocuments(member.companyId) });
+  return NextResponse.json({ documents: await listDocuments(member.companyId, { member }) });
 }
 
 export async function POST(request) {
@@ -99,5 +99,5 @@ export async function POST(request) {
         sourceLanguage: await companyWritingLanguage(member.companyId),
       });
 
-  return NextResponse.json({ document: presentForStaff(created), autoTranslate }, { status: 201 });
+  return NextResponse.json({ document: presentForStaff(created, new Date(), { member }), autoTranslate }, { status: 201 });
 }

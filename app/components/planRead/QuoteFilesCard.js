@@ -27,6 +27,7 @@ import { revisionCount, formatBytes } from "@/lib/jobs/documents";
 import { showToast } from "@/lib/toast";
 import { splitPdfFile } from "@/lib/planRead/pdfSplit";
 import { renderAndUploadPages } from "./pdfPages";
+import OpenFileLink from "@/app/components/files/OpenFileLink";
 
 /** The kinds a person may file on a quote. The system-filed ones (quote,
  *  contract, invoice) are FieldQuo's to file — see lib/quotes/quoteDocuments.js. */
@@ -219,9 +220,9 @@ export default function QuoteFilesCard({ endpoint, chains = [], canUpload = true
                 <div className="flex items-start gap-2">
                   <Icon className="w-5 h-5 mt-0.5 text-muted-foreground shrink-0" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <a href={doc.url} target="_blank" rel="noreferrer" className="text-sm font-medium break-words hover:underline">
+                    <OpenFileLink href={doc.openUrl} className="text-sm font-medium break-words hover:underline">
                       {doc.name}
-                    </a>
+                    </OpenFileLink>
                     <p className="text-xs text-muted-foreground">
                       {t(`app.planRead.files.kind.${doc.kind}`, doc.kind)}
                       {doc.size ? ` · ${doc.size}` : ""}
@@ -259,9 +260,9 @@ export default function QuoteFilesCard({ endpoint, chains = [], canUpload = true
                   <ul className="mt-2 space-y-1">
                     {c.history.map((h) => (
                       <li key={h.id} className="text-xs">
-                        <a href={h.url} target="_blank" rel="noreferrer" className="hover:underline">
+                        <OpenFileLink href={h.openUrl} className="hover:underline">
                           {h.name}
-                        </a>
+                        </OpenFileLink>
                       </li>
                     ))}
                   </ul>

@@ -48,6 +48,7 @@ import {
   publicAttachments,
 } from "@/lib/messaging/attachments";
 import { rateLimit } from "@/lib/rateLimit";
+import { messageOpenUrl } from "@/lib/media/fileOpen";
 
 export async function POST(request, { params }) {
   // params is a Promise in Next 16.
@@ -115,7 +116,7 @@ export async function POST(request, { params }) {
     // Already here. Not an error — two people looking at the same thread, one
     // of them a minute behind — so it answers with the truth rather than a
     // refusal the second person would read as a fault.
-    return NextResponse.json({ attachments: publicAttachments(message.attachments) });
+    return NextResponse.json({ attachments: publicAttachments(message.attachments, { openUrl: messageOpenUrl(member, message.id) }) });
   }
   if (target.state === "unavailable") {
     return NextResponse.json(
@@ -147,7 +148,7 @@ export async function POST(request, { params }) {
       {
         fetched: false,
         error: after?.fetchError || "The file could not be fetched.",
-        attachments: publicAttachments(result.attachments),
+        attachments: publicAttachments(result.attachments, { openUrl: messageOpenUrl(member, message.id) }),
       },
       { status: 409 },
     );
@@ -155,6 +156,6 @@ export async function POST(request, { params }) {
 
   return NextResponse.json({
     fetched: true,
-    attachments: publicAttachments(result.attachments),
+    attachments: publicAttachments(result.attachments, { openUrl: messageOpenUrl(member, message.id) }),
   });
 }

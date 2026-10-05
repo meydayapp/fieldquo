@@ -2005,6 +2005,9 @@ model Company {
   receipts              Receipt[]
   marketingSpends       MarketingSpend[]
   metaAdConnection      MetaAdConnection?
+  // The company's Google Ads account (lib/googleAds/connection.js) — its own
+  // grant, beside the Meta one, never folded into it.
+  googleAdsConnection   GoogleAdsConnection?
   // Facebook Page / Instagram business messaging. A DIFFERENT connection from
   // metaAdConnection above and deliberately not folded into it: that row holds
   // an ads_read token for one ad account, this one holds a per-PAGE messaging
@@ -9254,7 +9257,7 @@ model MarketingSpend {
   // a manual entry and a later Meta-imported row for the same
   // platform/date/campaign are recognised as a possible duplicate, never
   // silently double-counted.
-  source       String            @default("manual") // "manual" | "meta_api"
+  source       String            @default("manual") // "manual" | "meta_api" | "google_ads_csv" | "google_ads_api"
   // Meta's own composite id for the insights row this came from
   // (`<campaignId>:<date>`) — lets a re-run of the sync UPDATE the same row
   // instead of inserting a duplicate. Null for every manual entry; Postgres
@@ -9293,6 +9296,16 @@ model MarketingSpend {
   /// The full `actions` array as Meta sent it, for anything above that a
   /// later screen wants without another sync. Raw, never read for totals.
   actionsRaw              Json?
+  /// Google Ads' own "Conversions" for the row, exactly as Google reported
+  /// it — fractional under data-driven attribution (2.5 is a real value).
+  /// `conversions` above is an Int and gets the rounded figure so every
+  /// existing reader keeps working; the Google campaign table reads this one.
+  /// Written by lib/googleAds/spendPlan.js only (sources "google_ads_csv" and
+  /// "google_ads_api"); null on every Meta and manual row. It is GOOGLE'S
+  /// claim about its own tag — never FieldQuo's lead count, which comes from
+  /// LeadRequest rows that arrived with a gclid
+  /// (lib/analytics/googleAdsRollup.js).
+  conversionsExact        Decimal?          @db.Decimal(12, 2)
 
   @@index([companyId, campaignId, date])
 
@@ -9337,6 +9350,53 @@ model MetaAdConnection {
   connectedByUserId String?
   connectedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+// ── Google Ads connection ───────────────────────────────────────────────────
+//
+// One company's OWN Google Ads account, connected with the company's consent
+// on FieldQuo's existing Google OAuth web client plus the `adwords` scope
+// (docs/GOOGLE-ADS-INTEGRATION.md). Company-level, one per company, the same
+// shape as MetaAdConnection above and CompanyGoogleBusiness below — and a
+// separate row from both because the three are different grants that may be
+// made by different Google/Meta accounts.
+//
+// `refreshTokenEnc` is AES-256-GCM under META_TOKEN_ENCRYPTION_KEY
+// (lib/meta/tokenCrypto.js), exactly like the calendar and Business Profile
+// rows; access tokens are minted per sync and never stored. `customerId` is
+// null between consent and the account pick (a Google user can reach several
+// ad accounts); `loginCustomerId` is set only when the account was reached
+// THROUGH a manager (MCC) account and Google needs the manager named on every
+// call. `status` is written by the sync, never by the connect flow's optimism:
+// a revoked grant becomes "needs_reauth" on the next attempt. Disconnect
+// deletes this row — the spend rows it imported stay (they are the company's
+// history; deleting a connection must never delete data).
+model GoogleAdsConnection {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  refreshTokenEnc String
+  /// The Google account that granted access, for "Connected as {email}".
+  email           String?
+
+  /// 10 digits, no dashes. Null until the account is picked.
+  customerId      String?
+  /// The manager (MCC) the account is reached through, or null for direct access.
+  loginCustomerId String?
+  customerName    String?
+  /// ISO 4217 as Google reports it for the account (customer.currency_code) —
+  /// may differ from Company.currency; MarketingSpend.currency carries it on
+  /// each row when it does.
+  currencyCode    String?
+
+  status        String    @default("connected") // "connected" | "needs_reauth" | "error"
+  lastSyncedAt  DateTime?
+  lastSyncError String?
+
+  connectedByMemberId String?
+  connectedAt         DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 // ── Google Calendar, per member ────────────────────────────────────────────
