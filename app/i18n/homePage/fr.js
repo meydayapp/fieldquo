@@ -59,7 +59,7 @@ export const HOME_PAGE_FR = {
   "home.results.title":
     "Ce que rapportent les entrepreneurs après être passés à une plateforme connectée",
   "home.results.intro":
-    "Une étude du secteur. Chaque chiffre est la part des entrepreneurs sondés qui ont constaté l'amélioration — pas son ampleur.",
+    "Une étude du secteur, pas des résultats de clients FieldQuo. Chaque chiffre est la part des entrepreneurs sondés qui ont constaté l'amélioration — pas son ampleur.",
   "home.results.stat.volume":
     "disent que leur bureau gère plus de travail sans embaucher",
   "home.results.stat.revenuePerTech":

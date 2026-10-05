@@ -50,7 +50,7 @@ export const HOME_PAGE_ZH = {
   "home.results.promise.techs": "让每个外勤师傅发挥更大作用。",
   "home.results.title": "承包商换用一个互联平台后的反馈",
   "home.results.intro":
-    "这是行业调研。每个数字是受访承包商中反馈有改善的比例——不是改善的幅度。",
+    "这是行业调研，不是 FieldQuo 客户的成果。每个数字是受访承包商中反馈有改善的比例——不是改善的幅度。",
   "home.results.stat.volume": "表示办公室不加人也能处理更多工作",
   "home.results.stat.revenuePerTech": "反馈每位师傅的收入更高",
   "home.results.stat.margins": "反馈利润率更好",

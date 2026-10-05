@@ -58,7 +58,7 @@ export const HOME_PAGE_DE = {
   "home.results.title":
     "Was Betriebe nach dem Wechsel auf eine vernetzte Plattform berichten",
   "home.results.intro":
-    "Branchenstudie. Jede Zahl ist der Anteil der befragten Betriebe, die die Verbesserung berichtet haben — nicht ihre Größe.",
+    "Branchenstudie, keine Ergebnisse von FieldQuo-Kunden. Jede Zahl ist der Anteil der befragten Betriebe, die die Verbesserung berichtet haben — nicht ihre Größe.",
   "home.results.stat.volume":
     "sagen, dass ihr Büro mehr Arbeit ohne zusätzliches Personal bewältigt",
   "home.results.stat.revenuePerTech": "berichten mehr Umsatz pro Techniker",

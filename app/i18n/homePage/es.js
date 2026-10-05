@@ -58,7 +58,7 @@ export const HOME_PAGE_ES = {
   "home.results.title":
     "Lo que informan los contratistas tras pasarse a una plataforma conectada",
   "home.results.intro":
-    "Un estudio del sector. Cada cifra es la proporción de contratistas encuestados que informaron la mejora — no su tamaño.",
+    "Un estudio del sector, no resultados de clientes de FieldQuo. Cada cifra es la proporción de contratistas encuestados que informaron la mejora — no su tamaño.",
   "home.results.stat.volume":
     "dicen que su oficina atiende más trabajo sin contratar a más gente",
   "home.results.stat.revenuePerTech": "informan más ingresos por técnico",

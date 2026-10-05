@@ -56,7 +56,7 @@ export const HOME_PAGE_TL = {
   "home.results.title":
     "Ang iniuulat ng mga contractor matapos lumipat sa iisang konektadong platform",
   "home.results.intro":
-    "Pananaliksik ng industriya. Ang bawat numero ay bahagi ng mga contractor na sinurbey na nag-ulat ng pagbuti — hindi ang laki ng pagbuti.",
+    "Pananaliksik ng industriya, hindi resulta ng mga customer ng FieldQuo. Ang bawat numero ay bahagi ng mga contractor na sinurbey na nag-ulat ng pagbuti — hindi ang laki ng pagbuti.",
   "home.results.stat.volume":
     "ang nagsabing mas maraming trabaho ang kaya ng opisina nila nang hindi nagdadagdag ng tao",
   "home.results.stat.revenuePerTech":

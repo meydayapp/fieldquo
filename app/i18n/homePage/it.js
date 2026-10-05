@@ -56,7 +56,7 @@ export const HOME_PAGE_IT = {
   "home.results.title":
     "Cosa riferiscono le imprese dopo il passaggio a un'unica piattaforma collegata",
   "home.results.intro":
-    "Una ricerca di settore. Ogni cifra è la quota di imprese intervistate che ha riferito il miglioramento — non la sua entità.",
+    "Una ricerca di settore, non risultati di clienti FieldQuo. Ogni cifra è la quota di imprese intervistate che ha riferito il miglioramento — non la sua entità.",
   "home.results.stat.volume":
     "dicono che il loro ufficio gestisce più lavoro senza assumere",
   "home.results.stat.revenuePerTech": "riferiscono più ricavi per tecnico",

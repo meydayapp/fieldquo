@@ -72,7 +72,7 @@ export const HOME_PAGE_EN = {
   "home.results.title":
     "What contractors report after moving to one connected platform",
   "home.results.intro":
-    "Industry research. Each figure is the share of surveyed contractors who reported the improvement — not the size of it.",
+    "Industry research, not FieldQuo customer results. Each figure is the share of surveyed contractors who reported the improvement — not the size of it.",
   "home.results.stat.volume":
     "say their office handles more volume without adding headcount",
   "home.results.stat.revenuePerTech": "report more revenue per tech",
