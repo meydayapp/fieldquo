@@ -1120,15 +1120,28 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
       .filter((l) => l !== "")
       .join("\n");
 
-    await sendEmail({
+    const signedSubject = `${dc.approvedTitle} — ${updated.quoteNumber}`;
+    const signedResult = await sendEmail({
       companyId: updated.companyId,
       from,
       replyTo,
       to: clientTo,
-      subject: `${dc.approvedTitle} — ${updated.quoteNumber}`,
+      subject: signedSubject,
       html,
       text,
       attachments,
+    });
+    // The client's signed copy as it went, for the History tab
+    // (lib/email/sentEmailHistory.js). Sent by the approval, not a person.
+    const { recordSentEmail } = await import("@/lib/email/sentEmailHistory");
+    await recordSentEmail(db, {
+      companyId: updated.companyId,
+      kind: "quote_signed_copy",
+      clientId: quote.clientId || quote.client?.id || null,
+      quoteId: updated.id,
+      mail: { to: clientTo, from, replyTo, subject: signedSubject, html, text, attachments },
+      result: signedResult,
+      language,
     });
   }
 

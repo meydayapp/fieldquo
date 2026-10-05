@@ -1169,7 +1169,7 @@ export const ARTICLES = {
     "faq": [
       {
         "q": "L'historique lie-t-il les conversations dans Messages ?",
-        "a": "Non. Une conversation associée par téléphone ou courriel s'affiche dans l'historique du client, mais dans Messages elle reste telle quelle jusqu'à ce que quelqu'un la lie, ou appuie sur **Lier à ce client** sur une correspondance possible."
+        "a": "Oui, quand le numéro ou le courriel appartient à un seul de vos clients : elle est liée dans Messages dès son arrivée, et **Pas ce client** l'annule — voir [[conversations-linked-to-clients-automatically|Conversations liées automatiquement aux clients]]. Un numéro partagé par deux clients reste une correspondance possible jusqu'à ce que quelqu'un appuie sur **Lier à ce client**."
       },
       {
         "q": "Pourquoi une conversation venant du numéro de mon client est-elle sous Correspondances possibles ?",
@@ -1177,7 +1177,156 @@ export const ARTICLES = {
       },
       {
         "q": "Le courriel d'une soumission envoyée s'affiche-t-il au complet ?",
-        "a": "L'historique montre que la soumission ou la facture a été envoyée, quand, à qui et par qui, avec un lien vers le document. Le courriel s'affiche au complet seulement s'il est passé par votre boîte connectée et a été classé."
+        "a": "Depuis le 5 octobre 2026, oui : **Voir le courriel** l'ouvre exactement tel qu'il a été envoyé, et l'onglet **Historique** les liste tous — voir [[sent-email-history|Historique des courriels envoyés]]. Un courriel envoyé avant cette date indique quand, à qui et par qui, et précise que son texte n'a pas été conservé."
+      }
+    ]
+  },
+  // 2026-10-05: lib/conversations/autoLink.js and lib/email/sentEmailHistory.js.
+  "conversations-linked-to-clients-automatically": {
+    "title": "Conversations liées automatiquement aux clients",
+    "summary": "Une conversation par texto, WhatsApp, courriel ou Facebook/Instagram est liée au client à qui appartient le numéro ou le courriel, et chaque nouveau message au travail qu'il concerne, ou il demande lequel.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Quand une conversation arrive d'un numéro de téléphone ou d'une adresse courriel qui appartient à **un seul** de vos clients, FieldQuo la lie à ce client dans **Messages** — personne n'a à appuyer sur Lier. Chaque nouveau message de ce client est aussi classé dans le travail qu'il concerne quand FieldQuo peut le déterminer, et demande **Quel travail?** sinon."
+    ],
+    "sections": [
+      {
+        "id": "how-a-conversation-is-linked",
+        "heading": "Comment une conversation est liée",
+        "blocks": [
+          {
+            "p": "Une conversation est liée à un client quand son numéro ou son courriel appartient à ce client et à aucun autre de vos clients :"
+          },
+          {
+            "bullets": [
+              "**Textos et WhatsApp** — le numéro d'où vient le message, comparé sous sa forme internationale complète; **+1 (514) 555-0101** et **514-555-0101** sont donc le même numéro.",
+              "**Courriel** — l'adresse de l'expéditeur, comparée sans majuscules.",
+              "**Facebook et Instagram** — le numéro ou le courriel que la personne a donné dans la conversation."
+            ]
+          },
+          {
+            "p": "Quand deux de vos clients partagent le numéro ou le courriel (un couple saisi deux fois, un propriétaire et un locataire), rien n'est lié : la conversation apparaît sur la page de chaque client sous **Correspondances possibles**, pour qu'une personne décide. Une conversation déjà liée par une personne n'est jamais modifiée. Le clavardage du site garde sa propre association, à partir de ce que le visiteur a tapé."
+          }
+        ]
+      },
+      {
+        "id": "which-job",
+        "heading": "Le travail que concerne un message",
+        "blocks": [
+          {
+            "p": "Une fois la conversation liée, chaque nouveau message du client est classé dans un de ses travaux actifs — planifié, en cours, en attente d'une date, ou terminé depuis moins de 30 jours :"
+          },
+          {
+            "bullets": [
+              "**Un propriétaire avec un seul travail actif** — ce travail.",
+              "**Plusieurs travaux actifs** — celui dont la visite ou les dates prévues incluent le jour du message, s'il n'y en a qu'un.",
+              "**Un client entrepreneur** (un client enregistré comme entreprise) n'est jamais classé selon « un seul travail » : un entrepreneur écrit souvent au sujet du prochain travail avant qu'il existe; seules les dates décident."
+            ]
+          },
+          {
+            "p": "Sinon, le message affiche **Quel travail?** dans Messages : touchez-le et choisissez le travail, ou **Ne concerne pas un travail**. Un message classé affiche **Travail : …** en dessous, avec **Changer**. Sur la page du travail, un message classé figure toujours dans la conversation de ce travail, quelle que soit sa date."
+          }
+        ]
+      },
+      {
+        "id": "undo-and-switch-off",
+        "heading": "Annuler un lien et désactiver la fonction",
+        "blocks": [
+          {
+            "p": "Une conversation liée automatiquement affiche **Lié à … automatiquement** au-dessus de la zone de réponse dans Messages, avec **Pas ce client**. Ce bouton retire le lien, et cette conversation n'est plus jamais liée à ce client — ni automatiquement, ni par le rattrapage unique des anciennes conversations."
+          },
+          {
+            "p": "Pour arrêter la liaison automatique, désactivez **Lier automatiquement les conversations aux clients** dans **Paramètres › Messages aux clients**. Plus rien n'est alors lié ni classé tout seul; **Quel travail?** fonctionne toujours quand vous choisissez vous-même."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Un message peut-il être classé dans le travail d'un autre client ?",
+        "a": "Non. Seuls les travaux du client lié à la conversation sont proposés, et seuls les clients de votre entreprise sont comparés."
+      },
+      {
+        "q": "Est-ce que cela modifie un lien fait à la main ?",
+        "a": "Non. Une conversation liée par une personne reste telle quelle, et un message qu'une personne a classé dans un travail, ou marqué **Ne concerne pas un travail**, n'est jamais reclassé."
+      }
+    ]
+  },
+  // 2026-10-05: lib/conversations/autoLink.js and lib/email/sentEmailHistory.js.
+  "sent-email-history": {
+    "title": "Historique des courriels envoyés : chaque soumission et facture, telle qu'envoyée",
+    "summary": "L'onglet Historique d'un client et d'un travail conserve le texte complet de chaque courriel de soumission, relance, facture, demande d'acompte, rappel et reçu, avec qui l'a envoyé, à qui et quand.",
+    "updated": "2026-10-05",
+    "intro": [
+      "À côté de **Conversation**, sur un client et sur un travail, **Historique** liste chaque courriel de document envoyé à ce client — le texte complet tel que le client l'a reçu, qui l'a envoyé, de quelle adresse, à qui et quand."
+    ],
+    "sections": [
+      {
+        "id": "whats-kept",
+        "heading": "Ce qui est conservé",
+        "blocks": [
+          {
+            "p": "Chaque courriel est conservé au moment de l'envoi, exactement tel qu'il est parti — une modification ultérieure de la soumission, de votre formulation ou de votre logo ne le change jamais. **Voir le courriel** l'ouvre, avec le nom des fichiers joints."
+          },
+          {
+            "bullets": [
+              "**Soumissions** — le courriel de soumission, les relances, et la copie signée envoyée quand le client approuve.",
+              "**Factures** — le courriel de facture et les demandes d'acompte ou d'étape.",
+              "**Rappels** — les rappels de paiement que vous envoyez et ceux envoyés automatiquement.",
+              "**Reçus** — le reçu qu'un plan d'entretien envoie après un paiement."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "older-emails",
+        "heading": "Courriels envoyés avant le 5 octobre 2026",
+        "blocks": [
+          {
+            "p": "Le texte des courriels n'était pas conservé avant le 5 octobre 2026. Ces envois restent listés — quand, à qui et par qui — avec la mention **Le texte du courriel n'était pas conservé avant le 5 octobre 2026.** Rien n'est reconstitué : un courriel reconstitué pourrait ne pas dire ce que le client a réellement reçu."
+          }
+        ]
+      },
+      {
+        "id": "who-can-see-it",
+        "heading": "Qui peut le voir",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Pour",
+                "Il faut"
+              ],
+              "rows": [
+                [
+                  "Voir l'Historique",
+                  "Un accès bureau — un membre d'équipe qui ne voit que ses propres travaux n'a pas l'onglet"
+                ],
+                [
+                  "Voir les courriels de soumission ou de facture",
+                  "**Soumissions** ou **Factures** en consultation ou plus"
+                ],
+                [
+                  "Lire l'objet et le texte",
+                  "**Afficher les prix** activé — chaque courriel de document mentionne un montant"
+                ]
+              ]
+            }
+          },
+          {
+            "p": "Sans **Afficher les prix**, vous voyez quand même ce qui a été envoyé, quand et à qui, avec une note indiquant que le texte est masqué pour votre rôle. Une session de soutien FieldQuo peut lire l'Historique et ne modifie rien."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "L'Historique est-il la même chose que la conversation ?",
+        "a": "La conversation montre une ligne pour chaque courriel de document parmi les messages du client, avec **Voir le courriel** quand le texte a été conservé. L'Historique est la liste de ces courriels seuls."
+      },
+      {
+        "q": "L'Historique comprend-il les courriels que j'écris moi-même depuis ma boîte ?",
+        "a": "Non. Les courriels échangés par une boîte de travail connectée sont classés dans la conversation et dans Messages. L'Historique conserve les courriels de documents que FieldQuo envoie."
       }
     ]
   },

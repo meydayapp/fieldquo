@@ -26,6 +26,7 @@ import { planOrRefusal } from "@/lib/signup/planGate";
 import { recordActivity } from "@/lib/activity/log";
 import { recordFeatureUse } from "@/lib/analytics/product/server";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { recordSentEmail, actorName } from "@/lib/email/sentEmailHistory";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
@@ -376,6 +377,21 @@ export async function POST(request, { params }) {
   // Usage count — see lib/analytics/product/server.js.
   await recordFeatureUse("invoice_sent", { companyId: member.companyId, memberId: member.id });
 
+  // The email as it went, for the History tab (lib/email/sentEmailHistory.js).
+  const sentEmailId = await recordSentEmail(db, {
+    companyId: member.companyId,
+    kind: ask.stage ? "deposit" : "invoice",
+    clientId: invoice.clientId || null,
+    jobId: invoice.jobId || null,
+    quoteId: invoice.quoteId || null,
+    invoiceId: invoice.id,
+    mail: { to, from, replyTo, subject, html, text },
+    result,
+    sentByUserId: member.userId || null,
+    sentByName: await actorName(db, member.userId),
+    language: invoiceLanguage,
+  });
+
   await recordActivity(member, {
     action: "invoice.sent",
     entityType: "invoice",
@@ -383,7 +399,7 @@ export async function POST(request, { params }) {
     summary: ask.stage
       ? `Sent invoice ${invoice.invoiceNumber} to ${to}, asking for ${ask.stage.label} (${(ask.requestCents / 100).toFixed(2)})`
       : `Sent invoice ${invoice.invoiceNumber} to ${to}`,
-    metadata: { to, total: invoice.total, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? ask.stage.label : null },
+    metadata: { to, total: invoice.total, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? ask.stage.label : null, ...(sentEmailId ? { sentEmailId } : {}) },
   });
 
   // A person sent it — with the PO, or deliberately without. Whatever was held

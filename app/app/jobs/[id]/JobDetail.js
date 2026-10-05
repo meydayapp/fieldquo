@@ -41,7 +41,7 @@ import JobDocuments from "@/app/components/jobs/JobDocuments";
 import WaiversCard from "@/app/components/waivers/WaiversCard";
 import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
 import FiledEmails from "@/app/components/mailbox/FiledEmails";
-import ClientConversation from "@/app/components/conversations/ClientConversation";
+import ConversationTabs from "@/app/components/conversations/ConversationTabs";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import JobCommissions from "@/app/components/commissions/JobCommissions";
 import DailyLog from "@/app/components/jobs/DailyLog";
@@ -870,7 +870,11 @@ export default function JobDetail({ jobId }) {
           days), with "All of this client's messages" to lift it. The route
           asks the inbox's read rung as well as the job's own scope, so a crew
           member who cannot read Messages gets nothing drawn here. */}
-      <ClientConversation jobId={job.id} />
+      {/* …and "History": the quote, invoice, reminder and receipt emails
+          about this job as they were sent. Office only — GET
+          /api/jobs/[id]/email-history refuses a member scoped to their own
+          jobs, and the tab is then not drawn. */}
+      <ConversationTabs jobId={job.id} />
 
       {/* What actually happened, one row per day. Above Visits deliberately:
           a visit is what was PLANNED for a day and this is what came of it,

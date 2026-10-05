@@ -1169,7 +1169,7 @@ export const ARTICLES = {
     "faq": [
       {
         "q": "¿El historial vincula las conversaciones en Mensajes?",
-        "a": "No. Una conversación asociada por teléfono o correo aparece en el historial del cliente, pero en Mensajes sigue igual hasta que alguien la vincule allí o pulse **Vincular a este cliente** en una posible coincidencia."
+        "a": "Sí, cuando el número o el correo pertenece a uno solo de sus clientes: se vincula en Mensajes al llegar, y **No es este cliente** lo deshace; vea [[conversations-linked-to-clients-automatically|Conversaciones vinculadas a los clientes automáticamente]]. Un número que comparten dos clientes sigue siendo una posible coincidencia hasta que alguien pulse **Vincular a este cliente**."
       },
       {
         "q": "¿Por qué una conversación del número de mi cliente está en Posibles coincidencias?",
@@ -1177,7 +1177,156 @@ export const ARTICLES = {
       },
       {
         "q": "¿Se muestra completo el correo de una cotización enviada?",
-        "a": "El historial muestra que la cotización o factura se envió, cuándo, a quién y por quién, con un enlace al documento. El correo completo solo aparece si salió por su buzón conectado y se archivó."
+        "a": "Desde el 5 de octubre de 2026, sí: **Ver correo** lo abre exactamente como se envió, y la pestaña **Historial** los lista todos; vea [[sent-email-history|Historial de correos enviados]]. Un correo enviado antes muestra cuándo, a quién y por quién, e indica que su texto no se guardó."
+      }
+    ]
+  },
+  // 2026-10-05: lib/conversations/autoLink.js and lib/email/sentEmailHistory.js.
+  "conversations-linked-to-clients-automatically": {
+    "title": "Conversaciones vinculadas a los clientes automáticamente",
+    "summary": "Una conversación por SMS, WhatsApp, correo o Facebook/Instagram se vincula al cliente dueño del número o del correo, y cada mensaje nuevo al trabajo del que trata, o pregunta cuál.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Cuando llega una conversación desde un número de teléfono o una dirección de correo que pertenece a **uno solo** de sus clientes, FieldQuo la vincula a ese cliente en **Mensajes**, sin que nadie pulse Vincular. Cada mensaje nuevo de ese cliente también se asigna al trabajo del que trata cuando FieldQuo puede saberlo, y pregunta **¿Qué trabajo?** cuando no."
+    ],
+    "sections": [
+      {
+        "id": "how-a-conversation-is-linked",
+        "heading": "Cómo se vincula una conversación",
+        "blocks": [
+          {
+            "p": "Una conversación se vincula a un cliente cuando su número o su correo es de ese cliente y de ningún otro de sus clientes:"
+          },
+          {
+            "bullets": [
+              "**SMS y WhatsApp**: el número desde el que llegó el mensaje, comparado en su forma internacional completa; **+1 (514) 555-0101** y **514-555-0101** son el mismo número.",
+              "**Correo**: la dirección del remitente, comparada sin mayúsculas.",
+              "**Facebook e Instagram**: el número o el correo que la persona dio en la conversación."
+            ]
+          },
+          {
+            "p": "Cuando dos de sus clientes comparten el número o el correo (una pareja registrada dos veces, un propietario y un inquilino), no se vincula nada: la conversación aparece en la página de cada cliente en **Posibles coincidencias** para que decida una persona. Una conversación que ya vinculó una persona nunca se cambia. El chat del sitio web conserva su propia asociación, a partir de lo que escribió el visitante."
+          }
+        ]
+      },
+      {
+        "id": "which-job",
+        "heading": "De qué trabajo trata un mensaje",
+        "blocks": [
+          {
+            "p": "Una vez vinculada la conversación, cada mensaje nuevo del cliente se asigna a uno de sus trabajos activos: programado, en curso, a la espera de fecha o terminado en los últimos 30 días:"
+          },
+          {
+            "bullets": [
+              "**Un propietario con un solo trabajo activo**: ese trabajo.",
+              "**Varios trabajos activos**: aquel cuya visita o fechas programadas incluyen el día del mensaje, si solo hay uno.",
+              "**Un cliente contratista** (un cliente guardado como empresa) nunca se asigna por «un solo trabajo»: un contratista suele escribir sobre el próximo trabajo antes de que exista, así que solo deciden las fechas."
+            ]
+          },
+          {
+            "p": "Si no, el mensaje muestra **¿Qué trabajo?** en Mensajes: tóquelo y elija el trabajo, o **No es sobre un trabajo**. Un mensaje asignado muestra **Trabajo: …** debajo, con **Cambiar**. En la página del trabajo, un mensaje asignado siempre aparece en la conversación de ese trabajo, sea cual sea su fecha."
+          }
+        ]
+      },
+      {
+        "id": "undo-and-switch-off",
+        "heading": "Deshacer un vínculo y desactivarlo",
+        "blocks": [
+          {
+            "p": "Una conversación vinculada automáticamente muestra **Vinculado a … automáticamente** encima del cuadro de respuesta en Mensajes, con **No es este cliente**. Al pulsarlo se quita el vínculo, y esa conversación no se vuelve a vincular a ese cliente, ni automáticamente ni con la puesta al día única de las conversaciones antiguas."
+          },
+          {
+            "p": "Para dejar de vincular automáticamente, desactive **Vincular las conversaciones a los clientes automáticamente** en **Ajustes › Mensajes a clientes**. Ya no se vincula ni se asigna nada solo; **¿Qué trabajo?** sigue funcionando cuando elige usted el trabajo."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿Se puede asignar un mensaje al trabajo de otro cliente?",
+        "a": "No. Solo se ofrecen los trabajos del cliente vinculado a la conversación, y solo se comparan los clientes de su propia empresa."
+      },
+      {
+        "q": "¿Cambia un vínculo que alguien hizo a mano?",
+        "a": "No. Una conversación que vinculó una persona se queda como está, y un mensaje que alguien asignó a un trabajo, o marcó **No es sobre un trabajo**, nunca se reasigna."
+      }
+    ]
+  },
+  // 2026-10-05: lib/conversations/autoLink.js and lib/email/sentEmailHistory.js.
+  "sent-email-history": {
+    "title": "Historial de correos enviados: cada cotización y factura, tal como se envió",
+    "summary": "La pestaña Historial de un cliente y de un trabajo guarda el texto completo de cada correo de cotización, seguimiento, factura, solicitud de anticipo, recordatorio y recibo, con quién lo envió, a quién y cuándo.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Junto a **Conversación**, en un cliente y en un trabajo, **Historial** lista cada correo de documento que envió a ese cliente: el texto completo tal como lo recibió el cliente, quién lo envió, desde qué dirección, a quién y cuándo."
+    ],
+    "sections": [
+      {
+        "id": "whats-kept",
+        "heading": "Qué se guarda",
+        "blocks": [
+          {
+            "p": "Cada correo se guarda en el momento del envío, exactamente como salió; un cambio posterior en la cotización, su redacción o su logotipo nunca lo modifica. **Ver correo** lo abre, con los nombres de los archivos adjuntos."
+          },
+          {
+            "bullets": [
+              "**Cotizaciones**: el correo de la cotización, los seguimientos y la copia firmada que se envía cuando el cliente la aprueba.",
+              "**Facturas**: el correo de la factura y las solicitudes de anticipo o de etapa.",
+              "**Recordatorios**: los recordatorios de pago que envía usted y los automáticos.",
+              "**Recibos**: el recibo que envía un plan de mantenimiento después de un pago."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "older-emails",
+        "heading": "Correos enviados antes del 5 de octubre de 2026",
+        "blocks": [
+          {
+            "p": "El texto de los correos no se guardaba antes del 5 de octubre de 2026. Esos envíos siguen en la lista (cuándo, a quién y por quién) con la línea **El texto del correo no se guardaba antes del 5 de octubre de 2026.** No se reconstruye nada: un correo reconstruido podría no decir lo que el cliente recibió de verdad."
+          }
+        ]
+      },
+      {
+        "id": "who-can-see-it",
+        "heading": "Quién puede verlo",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Para",
+                "Necesita"
+              ],
+              "rows": [
+                [
+                  "Ver el Historial",
+                  "Acceso de oficina: un miembro del equipo que solo ve sus propios trabajos no tiene la pestaña"
+                ],
+                [
+                  "Ver correos de cotizaciones o facturas",
+                  "**Cotizaciones** o **Facturas** en solo lectura o más"
+                ],
+                [
+                  "Leer el asunto y el texto",
+                  "**Mostrar precios** activado: cada correo de documento menciona un importe"
+                ]
+              ]
+            }
+          },
+          {
+            "p": "Sin **Mostrar precios** sigue viendo qué se envió, cuándo y a quién, con una nota de que el texto está oculto para su rol. Una sesión de soporte de FieldQuo puede leer el Historial y no cambia nada."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿El Historial es lo mismo que la conversación?",
+        "a": "La conversación muestra una línea por cada correo de documento entre los mensajes del cliente, con **Ver correo** cuando se guardó el texto. El Historial es la lista de esos correos por separado."
+      },
+      {
+        "q": "¿El Historial incluye los correos que escribo yo desde mi buzón?",
+        "a": "No. Los correos que intercambia por un buzón de trabajo conectado se archivan en la conversación y en Mensajes. El Historial guarda los correos de documentos que envía FieldQuo."
       }
     ]
   },

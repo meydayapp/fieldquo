@@ -1174,7 +1174,7 @@ export const ARTICLES = {
     "faq": [
       {
         "q": "Does the timeline link conversations in Messages?",
-        "a": "No. A conversation matched by phone or email shows in the client's timeline, but in Messages it stays as it was until somebody links it there or presses **Link to this client** on a possible match."
+        "a": "Yes, when the phone number or email belongs to exactly one of your clients: it is linked in Messages as it arrives, and **Not this client** there undoes it — see [[conversations-linked-to-clients-automatically|Conversations linked to clients automatically]]. A number two clients share stays a possible match until somebody presses **Link to this client**."
       },
       {
         "q": "Why is a conversation from my client's number under Possible matches?",
@@ -1182,7 +1182,156 @@ export const ARTICLES = {
       },
       {
         "q": "Is the email of a quote I sent shown in full?",
-        "a": "The timeline shows that the quote or invoice was emailed, when, to whom and by whom, with a link to the document. The email itself is shown in full only when it went through your connected mailbox and was filed."
+        "a": "Since 5 October 2026, yes: **View email** opens the email exactly as it was sent, and the **History** tab lists them all — see [[sent-email-history|Sent email history]]. An email sent before then shows when, to whom and by whom, and says its text was not kept."
+      }
+    ]
+  },
+  // 2026-10-05: lib/conversations/autoLink.js and lib/email/sentEmailHistory.js.
+  "conversations-linked-to-clients-automatically": {
+    "title": "Conversations linked to clients automatically",
+    "summary": "A text, WhatsApp, email or Facebook/Instagram conversation is linked to the client whose phone number or email it is, and each new message to the job it is about, or it asks which job.",
+    "updated": "2026-10-05",
+    "intro": [
+      "When a conversation arrives from a phone number or email address that belongs to **exactly one** of your clients, FieldQuo links it to that client in **Messages** — no one has to press Link. Each new message from that client is also filed to the job it is about when FieldQuo can tell, and asks **Which job?** when it can't."
+    ],
+    "sections": [
+      {
+        "id": "how-a-conversation-is-linked",
+        "heading": "How a conversation is linked",
+        "blocks": [
+          {
+            "p": "A conversation is linked to a client when its phone number or email belongs to that client and to no other client of yours:"
+          },
+          {
+            "bullets": [
+              "**Texts and WhatsApp** — the number the message came from, compared in full international form, so **+1 (514) 555-0101** and **514-555-0101** are the same number.",
+              "**Email** — the sender's address, compared without capitals.",
+              "**Facebook and Instagram** — the phone number or email the person gave in the conversation."
+            ]
+          },
+          {
+            "p": "When two of your clients share the number or the email (a couple entered twice, a landlord and a tenant), nothing is linked: the conversation shows on each client's page under **Possible matches** for a person to decide. A conversation a person already linked is never changed. Website chat keeps its own matching, from what the visitor typed."
+          }
+        ]
+      },
+      {
+        "id": "which-job",
+        "heading": "Which job a message is about",
+        "blocks": [
+          {
+            "p": "Once a conversation is linked, each new message from the client is filed to one of their active jobs — scheduled, in progress, waiting for a date, or completed in the last 30 days:"
+          },
+          {
+            "bullets": [
+              "**A homeowner with one active job** — that job.",
+              "**Several active jobs** — the one whose visit or scheduled dates include the day the message was sent, if only one does.",
+              "**A contractor client** (a client saved as a company) is never filed by \"only one job\": a contractor often writes about the next job before it exists, so only the dates decide."
+            ]
+          },
+          {
+            "p": "Otherwise the message shows **Which job?** in Messages: tap it and pick the job, or **Not about a job**. A filed message shows **Job: …** under it, with **Change**. On the job's page, a filed message is always in that job's conversation, whatever its date."
+          }
+        ]
+      },
+      {
+        "id": "undo-and-switch-off",
+        "heading": "Undoing a link, and switching it off",
+        "blocks": [
+          {
+            "p": "A conversation linked automatically shows **Linked to … automatically** above the reply box in Messages, with **Not this client**. Pressing it removes the link, and that conversation is never linked to that client again — automatically or by the one-time catch-up of older conversations."
+          },
+          {
+            "p": "To stop automatic linking, turn off **Link conversations to clients automatically** in **Settings › Client messages**. Nothing is then linked or filed by itself; **Which job?** still works when you pick a job yourself."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Can a message be filed to another client's job?",
+        "a": "No. Only the jobs of the client the conversation is linked to are offered, and only your own company's clients are ever compared."
+      },
+      {
+        "q": "Does it change a link someone made by hand?",
+        "a": "No. A conversation a person linked stays as it is, and a message someone filed to a job, or marked **Not about a job**, is never refiled."
+      }
+    ]
+  },
+  // 2026-10-05: lib/conversations/autoLink.js and lib/email/sentEmailHistory.js.
+  "sent-email-history": {
+    "title": "Sent email history: every quote and invoice email, as it was sent",
+    "summary": "The History tab on a client and on a job keeps the full text of every quote, follow-up, invoice, deposit request, reminder and receipt email, with who sent it, to whom and when.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Next to **Conversation** on a client and on a job, **History** lists every document email you sent to that client — the full text as the client received it, who sent it, from which address, to whom and when."
+    ],
+    "sections": [
+      {
+        "id": "whats-kept",
+        "heading": "What is kept",
+        "blocks": [
+          {
+            "p": "Each email is kept at the moment it is sent, exactly as it left — later edits to the quote, your wording or your logo never change it. **View email** opens it, with the names of the attached files."
+          },
+          {
+            "bullets": [
+              "**Quotes** — the quote email, follow-ups, and the signed copy sent when the client approves.",
+              "**Invoices** — the invoice email and deposit or stage requests.",
+              "**Reminders** — the payment reminders you send and the automatic ones.",
+              "**Receipts** — the receipt a maintenance plan sends after a payment."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "older-emails",
+        "heading": "Emails sent before 5 October 2026",
+        "blocks": [
+          {
+            "p": "The text of emails was not kept before 5 October 2026. Those sends are still listed — when, to whom and by whom — with the line **The email text wasn't kept before 5 October 2026.** Nothing is rebuilt: a rebuilt email might not say what the client actually received."
+          }
+        ]
+      },
+      {
+        "id": "who-can-see-it",
+        "heading": "Who can see it",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "To",
+                "You need"
+              ],
+              "rows": [
+                [
+                  "See History",
+                  "Office access — a crew member who sees only their own jobs does not get the tab"
+                ],
+                [
+                  "See quote or invoice emails",
+                  "**Quotes** or **Invoices** at view only or above"
+                ],
+                [
+                  "Read the subject and text",
+                  "**Show pricing** on — every document email names an amount"
+                ]
+              ]
+            }
+          },
+          {
+            "p": "Without **Show pricing** you still see what was sent, when and to whom, with a note that the text is hidden for your role. A FieldQuo support session can read History and changes nothing."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Is History the same as the Conversation timeline?",
+        "a": "The timeline shows a line for each document email among the client's messages, with **View email** when the text was kept. History is the list of those emails on their own."
+      },
+      {
+        "q": "Does History include emails I wrote myself from my mailbox?",
+        "a": "No. Email you exchange through a connected work mailbox is filed in the Conversation timeline and in Messages. History keeps the document emails FieldQuo sends."
       }
     ]
   },

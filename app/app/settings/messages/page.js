@@ -87,10 +87,109 @@ export default function ClientMessagesPage() {
         </div>
       )}
 
+      <ConversationLinking />
+
       {(types || []).map((type) => (
         <MessageEditor key={type.key} type={type} onSaved={load} />
       ))}
     </div>
+  );
+}
+
+/**
+ * "Link conversations to clients automatically" (owner, 2026-10-05) —
+ * Company.autoLinkConversations, read by lib/conversations/autoLink.js on
+ * every message that arrives. Optimistic, reconciled from the server's
+ * answer, put back with the server's sentence on a refusal. A member who may
+ * not change it (the route answers 403) sees the state and no live switch.
+ */
+function ConversationLinking() {
+  const { t } = useTranslation();
+  const [enabled, setEnabled] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/settings/conversation-linking")
+      .then(async (res) => {
+        if (!res.ok) {
+          const msg = await reportResponseError(res, t("app.setMessages.autoLink.loadError"));
+          if (live) setError(msg);
+          return;
+        }
+        const d = await res.json();
+        if (live) setEnabled(d.enabled !== false);
+      })
+      .catch(() => live && setError(t("app.setMessages.autoLink.loadError")));
+    return () => {
+      live = false;
+    };
+  }, [t]);
+
+  async function toggle() {
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/conversation-linking", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (!res.ok) {
+        setEnabled(!next);
+        const d = await res.json().catch(() => null);
+        setError(d?.error || t("app.setMessages.saveError"));
+        return;
+      }
+      const d = await res.json().catch(() => null);
+      if (typeof d?.enabled === "boolean") setEnabled(d.enabled);
+    } catch {
+      setEnabled(!next);
+      setError(t("app.setMessages.saveError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5" data-conversation-linking>
+      <h2 className="text-sm font-bold text-foreground">{t("app.setMessages.autoLink.title")}</h2>
+      {enabled === null && !error ? (
+        <div className="mt-3 h-6 w-40 rounded bg-accent animate-pulse" />
+      ) : null}
+      {enabled !== null ? (
+        <div className="mt-3 flex items-start gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label={t("app.setMessages.autoLink.title")}
+            disabled={saving}
+            onClick={toggle}
+            className={`shrink-0 mt-0.5 relative inline-flex h-6 w-11 items-center rounded-full border transition-colors disabled:opacity-60 ${
+              enabled ? "bg-inverted border-inverted" : "bg-muted border-border"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-card shadow transition-transform ${
+                enabled ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">
+              {enabled ? t("app.setMessages.autoLink.on") : t("app.setMessages.autoLink.off")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t("app.setMessages.autoLink.hint")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("app.setMessages.autoLink.jobsHint")}</p>
+          </div>
+        </div>
+      ) : null}
+      {error ? <p className="text-xs text-red-600 dark:text-red-400 mt-2">{error}</p> : null}
+    </section>
   );
 }
 

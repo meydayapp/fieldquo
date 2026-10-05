@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 357 articles in the tree; written: en 357, fr 357, es 357; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 359 articles in the tree; written: en 359, fr 359, es 359; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -236,7 +236,7 @@ _Generated 2026-10-05 — 357 articles in the tree; written: en 357, fr 357, es 
 | `booking-fees-and-visit-deposits` — Booking fees and visit deposits | ✓ | ✓ | ✓ | settings-booking-page | booking_deposit |  |
 | `money-owed-and-receivables-aging` — Money owed and receivables aging | ✓ | ✓ | ✓ | home | dashboard |  |
 
-### clients (15)
+### clients (17)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -255,6 +255,8 @@ _Generated 2026-10-05 — 357 articles in the tree; written: en 357, fr 357, es 
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 | `a-clients-conversation-on-every-channel` — A client's conversation on every channel | ✓ | ✓ | ✓ |  | clients |  |
+| `conversations-linked-to-clients-automatically` — Conversations linked to clients automatically | ✓ | ✓ | ✓ |  | clients |  |
+| `sent-email-history` — Sent email history: every quote and invoice email, as it was sent | ✓ | ✓ | ✓ |  | clients |  |
 
 ### team-and-access (28)
 
