@@ -325,18 +325,18 @@ export const ARTICLES = {
   "settings-overhead": {
     title: "Gastos generales",
     summary:
-      "Todo lo que cuesta mantener el negocio funcionando en un mes — costos fijos, salarios, deuda, activos — y el precio mínimo que un trabajo tiene que alcanzar para cubrirlo.",
-    updated: "2026-09-12",
+      "Todo lo que cuesta mantener el negocio funcionando en un mes — costos fijos, salarios, deuda, activos — el precio mínimo que un trabajo tiene que alcanzar para cubrirlo, y la parte justa de cada presupuesto según el tiempo de cuadrilla que ocupa.",
+    updated: "2026-10-04",
     intro: [
       "**Configuración → Servicios y precios → Gastos generales** es donde anota lo que cuesta su empresa gane o no un trabajo: el alquiler, el seguro, su propio retiro, el préstamo de la camioneta, el equipo de pintura que algún día reemplazará. Dividido entre cuántos trabajos puede asumir, eso se convierte en el precio más bajo al que puede salir un trabajo y aun así cubrir el negocio.",
-      "Esa cifra — **Precio mínimo** — es la que un contratista más quiere y menos veces tiene. También alimenta el panel de Costo y margen de cada presupuesto como gastos generales reales por trabajo, en lugar de un porcentaje adivinado.",
+      "Esa cifra — **Precio mínimo** — es la que un contratista más quiere y menos veces tiene. El mismo total mensual alimenta el panel de Costo y margen de cada presupuesto como gastos generales reales, en lugar de un porcentaje adivinado — y en cuanto ingresa sus **horas-equipo facturables al mes**, cada presupuesto lleva su parte del mes según el tiempo de cuadrilla que ocupa: un trabajo de dos semanas lleva más que una reparación de medio día.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Qué hay en la pantalla",
         blocks: [
-          { p: "De arriba abajo: **Tu precio mínimo** (dos casillas y cuatro mosaicos), **Horas pagadas que nunca llegaron a un trabajo**, y luego cinco registros — **Costos fijos**, **Salarios**, **Deuda**, **Activos y depreciación** y **Facturas por pagar**." },
+          { p: "De arriba abajo: **Tu precio mínimo** (trabajos por semana o por mes, **Margen objetivo %** y **Horas-equipo facturables al mes (todo el personal de campo, en conjunto)**, luego cuatro mosaicos, y tres más cuando las horas están ingresadas), **Horas pagadas que nunca llegaron a un trabajo**, y luego cinco registros — **Costos fijos**, **Salarios**, **Deuda**, **Activos y depreciación** y **Facturas por pagar**." },
           { figure: "live:app-settings-overhead", caption: "Configuración → Gastos generales — Trabajos por semana y Margen objetivo, los cuatro mosaicos, luego los registros que los alimentan." },
         ],
       },
@@ -350,6 +350,20 @@ export const ARTICLES = {
             "Lea la nota debajo: dice qué registros incluye el total, y suma la depreciación de sus activos y los intereses de sus préstamos.",
           ] },
           { p: "Trabajos por mes es trabajos por semana × 4.33; el costo por trabajo es el total mensual dividido entre eso; el precio mínimo es el costo por trabajo dividido entre (1 − margen). El mínimo cubre solo los gastos generales — los materiales y la mano de obra del trabajo concreto van encima. Las facturas por pagar no lo cambian: son flujo de caja, no costo." },
+        ],
+      },
+      {
+        id: "billable-crew-hours",
+        heading: "Horas-equipo facturables: la parte justa de cada trabajo",
+        blocks: [
+          { p: "**Horas-equipo facturables al mes** son las horas que toda su cuadrilla de campo puede facturar de verdad en un mes, todos juntos — no las horas trabajadas, porque los traslados, los presupuestos y las vueltas al proveedor no se facturan. Dos personas que facturan 160 horas cada una son 320. Ingréselas junto a los trabajos y el margen y pulse **Guardar**." },
+          { p: "Una vez ingresadas, los gastos generales de un presupuesto son los costos fijos del mes × (las horas-equipo del trabajo ÷ las horas-equipo facturables del mes). Digamos que sus costos fijos son $8,000 al mes y sus dos personas facturan 320 horas: cada hora-equipo lleva $25. Un trabajo de dos semanas para ambos son 160 horas-equipo — la mitad del mes — así que lleva $4,000, la mitad de los gastos generales del mes. Una reparación de medio día para una persona, 4 horas-equipo, lleva $100. Repartido por trabajo, una empresa que hace 2 trabajos al mes cargaría $4,000 a ambos, y una con capacidad para 4 les cargaría $2,000 a cada uno, sin importar su tamaño." },
+          { bullets: [
+            "**Horas ingresadas y el presupuesto tiene horas de mano de obra** — la parte por tiempo de arriba. El panel del presupuesto muestra toda la cuenta: costos mensuales ÷ horas-equipo facturables = la tarifa por hora × las horas de este trabajo, y qué parte de su mes es.",
+            "**Horas sin ingresar (o el presupuesto aún no tiene horas), trabajos por semana o por mes ingresados** — el total mensual dividido entre sus trabajos al mes, como antes, con la etiqueta **parte de este trabajo**. El panel le sugiere ingresar sus horas facturables.",
+            "**Ninguno de los dos** — el 10 % del precio, con la etiqueta **estimado**, y una nota que dice que es una suposición.",
+          ] },
+          { note: "Con las horas ingresadas aparecen tres mosaicos más: **Horas-equipo facturables al mes**, **Gastos generales por hora-equipo** (lo que cada hora facturable tiene que generar para los costos fijos, antes de mano de obra y materiales) y **Mínimo por hora-equipo** (esa cifra a su margen objetivo). Aparecen aunque los trabajos por semana estén vacíos. Deje la casilla en blanco para volver al reparto por trabajo; FieldQuo nunca adivina sus horas a partir del número de personas." },
         ],
       },
       {
@@ -388,6 +402,7 @@ export const ARTICLES = {
       { q: "¿Por qué mi precio mínimo está «sin definir»?", a: "Trabajos por semana está vacío. El piso necesita una capacidad entre la que dividir; ingrese una y pulse Guardar." },
       { q: "¿Debo poner los sueldos de mis pintores en Salarios?", a: "No. Sus horas se cargan a cada trabajo como mano de obra. Salarios es solo para el pago de gastos generales — su retiro, la oficina, un contador." },
       { q: "¿Registrar una factura aquí la paga?", a: "No. Páguela como siempre y luego pulse Marcar pagada." },
+      { q: "¿Qué pongo en Horas-equipo facturables al mes?", a: "Las horas que su gente de campo puede facturar en un mes, todas sumadas — no las horas marcadas en el reloj. Dos personas que facturan unas 160 horas cada una son 320. Cada presupuesto lleva entonces gastos generales en proporción a sus horas-equipo." },
     ],
   },
 

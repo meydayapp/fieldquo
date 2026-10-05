@@ -325,18 +325,18 @@ export const ARTICLES = {
   "settings-overhead": {
     title: "Frais généraux",
     summary:
-      "Tout ce que l'entreprise coûte à faire tourner en un mois — coûts fixes, salaires, dettes, actifs — et le prix minimum qu'un chantier doit rapporter pour le couvrir.",
-    updated: "2026-09-12",
+      "Tout ce que l'entreprise coûte à faire tourner en un mois — coûts fixes, salaires, dettes, actifs — le prix minimum qu'un chantier doit rapporter pour le couvrir, et la juste part de chaque soumission selon le temps d'équipe qu'elle prend.",
+    updated: "2026-10-04",
     intro: [
       "**Paramètres → Services et tarifs → Frais généraux** est l'endroit où vous notez ce que votre entreprise coûte, que vous décrochiez un chantier ou non : le loyer, l'assurance, votre propre retrait, le prêt du camion, le pulvérisateur que vous remplacerez un jour. Divisé par le nombre de chantiers que vous pouvez prendre, cela devient le prix le plus bas auquel un chantier peut sortir tout en couvrant l'entreprise.",
-      "Ce chiffre — **Prix minimum** — est celui qu'un entrepreneur veut le plus et a le moins souvent. Il alimente aussi le panneau Coût et marge de chaque soumission comme frais généraux réels par chantier, à la place d'un pourcentage deviné.",
+      "Ce chiffre — **Prix minimum** — est celui qu'un entrepreneur veut le plus et a le moins souvent. Le même total mensuel alimente le panneau Coût et marge de chaque soumission comme frais généraux réels, à la place d'un pourcentage deviné — et dès que vous saisissez vos **heures-équipe facturables par mois**, chaque soumission porte sa part du mois selon le temps d'équipe qu'elle prend : un chantier de deux semaines porte plus qu'une réparation d'une demi-journée.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Ce qu'il y a à l'écran",
         blocks: [
-          { p: "De haut en bas : **Votre prix minimum** (deux cases et quatre tuiles), **Heures payées qui n'ont jamais atteint un chantier**, puis cinq registres — **Coûts fixes**, **Salaires**, **Dette**, **Actifs et amortissement** et **Factures à payer**." },
+          { p: "De haut en bas : **Votre prix minimum** (chantiers par semaine ou par mois, **Marge cible %** et **Heures-équipe facturables par mois (toute l'équipe terrain, ensemble)**, puis quatre tuiles, et trois de plus une fois les heures saisies), **Heures payées qui n'ont jamais atteint un chantier**, puis cinq registres — **Coûts fixes**, **Salaires**, **Dette**, **Actifs et amortissement** et **Factures à payer**." },
           { figure: "live:app-settings-overhead", caption: "Paramètres → Frais généraux — Chantiers par semaine et Marge cible, les quatre tuiles, puis les registres qui les alimentent." },
         ],
       },
@@ -350,6 +350,20 @@ export const ARTICLES = {
             "Lisez la note en dessous : elle dit quels registres le total inclut, et ajoute l'amortissement de vos actifs et les intérêts de vos prêts.",
           ] },
           { p: "Chantiers par mois = chantiers par semaine × 4,33; le coût par chantier est le total mensuel divisé par ce nombre; le prix minimum est le coût par chantier divisé par (1 − marge). Le minimum ne couvre que les frais généraux — les matériaux et la main-d'œuvre du chantier en question s'ajoutent par-dessus. Les factures à payer ne le changent pas : c'est de la trésorerie, pas du coût." },
+        ],
+      },
+      {
+        id: "billable-crew-hours",
+        heading: "Heures-équipe facturables : la juste part de chaque chantier",
+        blocks: [
+          { p: "**Heures-équipe facturables par mois**, ce sont les heures que toute votre équipe terrain peut réellement facturer en un mois, tout le monde ensemble — pas les heures travaillées, parce que la route, les soumissions et les passages chez le fournisseur ne se facturent pas. Deux personnes qui facturent 160 heures chacune, c'est 320. Saisissez-le à côté des chantiers et de la marge, puis appuyez sur **Enregistrer**." },
+          { p: "Une fois saisi, les frais généraux d'une soumission sont les coûts fixes du mois × (les heures-équipe du chantier ÷ les heures-équipe facturables du mois). Disons que vos coûts fixes sont de 8 000 $ par mois et que vos deux personnes facturent 320 heures : chaque heure-équipe porte 25 $. Un chantier de deux semaines pour les deux, c'est 160 heures-équipe — la moitié du mois — donc il porte 4 000 $, la moitié des frais généraux du mois. Une réparation d'une demi-journée pour une personne, 4 heures-équipe, porte 100 $. Réparti par chantier, une entreprise qui fait 2 chantiers par mois imputerait 4 000 $ aux deux, et une qui a la capacité d'en faire 4 leur imputerait 2 000 $ chacun, quelle que soit leur taille." },
+          { bullets: [
+            "**Heures saisies et la soumission a des heures de main-d'œuvre** — la part de temps ci-dessus. Le panneau de la soumission montre tout le calcul : coûts mensuels ÷ heures-équipe facturables = le taux horaire × les heures de ce chantier, et la part de votre mois que cela représente.",
+            "**Heures non saisies (ou la soumission n'a pas encore d'heures), chantiers par semaine ou par mois saisis** — le total mensuel divisé par vos chantiers par mois, comme avant, sous l'étiquette **part de ce chantier**. Le panneau vous suggère de saisir vos heures facturables.",
+            "**Ni l'un ni l'autre** — 10 % du prix, sous l'étiquette **estimé**, avec une note qui dit que c'est une supposition.",
+          ] },
+          { note: "Avec les heures saisies, trois tuiles de plus apparaissent : **Heures-équipe facturables par mois**, **Frais généraux par heure-équipe** (ce que chaque heure facturable doit rapporter pour les coûts fixes, avant main-d'œuvre et matériaux) et **Minimum par heure-équipe** (ce chiffre à votre marge cible). Elles apparaissent même si les chantiers par semaine sont vides. Laissez la case vide pour revenir à la répartition par chantier; FieldQuo ne devine jamais vos heures à partir du nombre de personnes." },
         ],
       },
       {
@@ -388,6 +402,7 @@ export const ARTICLES = {
       { q: "Pourquoi mon prix minimum est-il « non défini »?", a: "Chantiers par semaine est vide. Le plancher a besoin d'une capacité par laquelle diviser; saisissez-en une et appuyez sur Enregistrer." },
       { q: "Dois-je mettre les salaires de mes peintres sous Salaires?", a: "Non. Leurs heures sont imputées à chaque chantier comme main-d'œuvre. Salaires ne sert qu'à la paie de frais généraux — votre retrait, le bureau, un comptable." },
       { q: "Enregistrer une facture ici la paie-t-elle?", a: "Non. Payez-la comme d'habitude, puis appuyez sur Marquer payée." },
+      { q: "Que dois-je mettre dans Heures-équipe facturables par mois?", a: "Les heures que vos gens sur le terrain peuvent facturer en un mois, toutes additionnées — pas les heures pointées. Deux personnes qui facturent chacune environ 160 heures, c'est 320. Chaque soumission porte ensuite des frais généraux en proportion de ses heures-équipe." },
     ],
   },
 
