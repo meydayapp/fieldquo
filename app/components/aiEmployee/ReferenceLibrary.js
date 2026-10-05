@@ -58,6 +58,9 @@ export default function ReferenceLibrary({ t, language, sources, sourceKinds = [
   const [openCodes, setOpenCodes] = useState({});
   const [tagDraft, setTagDraft] = useState({});
   const [editCode, setEditCode] = useState({});
+  // The two-step "share with FieldQuo's library": open the confirmation,
+  // tick that it's the manufacturer's own manual, then share.
+  const [shareAsk, setShareAsk] = useState({});
 
   const credits = (cents) => t("app.planRead.credits", "{n} credits ({money})", { n: cents, money: formatAppMoney(cents / 100, CREDIT_CURRENCY, language) });
 
@@ -143,6 +146,49 @@ export default function ReferenceLibrary({ t, language, sources, sourceKinds = [
     }
     files.current.delete(id);
     await Promise.all([reload(), loadCodes()]);
+  }
+
+  // ── Share a manufacturer's manual with FieldQuo's library ───────────────
+  async function share(s) {
+    setBusy({ id: s.id, what: "share" });
+    try {
+      const res = await fetch(`/api/ai-employee/sources/${s.id}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: shareAsk[s.id]?.confirmed === true }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.aiEmployee.reference.share.error", "Couldn't share it."));
+        return;
+      }
+      setShareAsk((a) => without(a, s.id));
+      setNote({ id: s.id, text: t("app.aiEmployee.reference.share.done", "Shared — FieldQuo will review it before other companies can use it.") });
+      await reload();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function unshare(s) {
+    setBusy({ id: s.id, what: "share" });
+    try {
+      const res = await fetch(`/api/ai-employee/sources/${s.id}/share`, { method: "DELETE" });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.aiEmployee.reference.share.stopError", "Couldn't stop sharing it."));
+        return;
+      }
+      const out = await res.json().catch(() => ({}));
+      setNote({
+        id: s.id,
+        text:
+          out.libraryStatus === "live"
+            ? t("app.aiEmployee.reference.share.stoppedLive", "No longer marked as shared. FieldQuo had already added it to the library, where it stays — it's the manufacturer's document.")
+            : t("app.aiEmployee.reference.share.stopped", "No longer shared."),
+      });
+      await reload();
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function saveTags(s) {
@@ -425,6 +471,51 @@ export default function ReferenceLibrary({ t, language, sources, sourceKinds = [
                   <Tag size={15} /> {t("app.aiEmployee.reference.tags", "Tags")}
                 </button>
               </div>
+
+              {/* Sharing a plain manufacturer's manual with FieldQuo's library
+                  (lib/aiEmployee/sharedLibrary.js). Only a read, brand-tagged
+                  PDF filed as a manual — the server's own canShare verdict
+                  decides whether the button exists at all. */}
+              {s.kind === "manual" && s.pageCount > 0 && s.share && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {s.share.on ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>
+                        {t(`app.aiEmployee.reference.share.status.${s.share.libraryStatus || "pending"}`, "Shared with FieldQuo's library")}
+                      </span>
+                      <button type="button" className={BTN_QUIET} disabled={Boolean(busy)} onClick={() => unshare(s)}>
+                        {t("app.aiEmployee.reference.share.stop", "Stop sharing")}
+                      </button>
+                    </div>
+                  ) : s.share.eligible ? (
+                    shareAsk[s.id] ? (
+                      <div className="rounded-lg border border-border p-2 space-y-2">
+                        <label className="flex items-start gap-2 min-h-[44px]">
+                          <input type="checkbox" className="mt-1 h-5 w-5" checked={Boolean(shareAsk[s.id]?.confirmed)} onChange={(e) => setShareAsk((a) => ({ ...a, [s.id]: { confirmed: e.target.checked } }))} />
+                          <span className="text-sm text-foreground">
+                            {t("app.aiEmployee.reference.share.confirm", "This is the manufacturer's own, unmodified manual — not our notes, procedures or a marked-up copy.")}
+                          </span>
+                        </label>
+                        <p>{t("app.aiEmployee.reference.share.explain", "Its text is copied to FieldQuo's library and reviewed before other companies' assistants can read it. Your file stays private. Nothing else you've uploaded is shared.")}</p>
+                        <div className="flex gap-2">
+                          <button type="button" className={BTN_PRIMARY} disabled={!shareAsk[s.id]?.confirmed || Boolean(busy)} onClick={() => share(s)}>
+                            {t("app.aiEmployee.reference.share.go", "Share it")}
+                          </button>
+                          <button type="button" className={BTN_QUIET} onClick={() => setShareAsk((a) => without(a, s.id))}>
+                            {t("app.common.cancel", "Cancel")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" className={BTN_QUIET} onClick={() => setShareAsk((a) => ({ ...a, [s.id]: { confirmed: false } }))}>
+                        {t("app.aiEmployee.reference.share.offer", "Share with FieldQuo's manual library")}
+                      </button>
+                    )
+                  ) : s.share.reason === "no_brand" ? (
+                    <span>{t("app.aiEmployee.reference.share.needsBrand", "Tag the brand to be able to share this manual with FieldQuo's library.")}</span>
+                  ) : null}
+                </div>
+              )}
 
               {draft && (
                 <div className="grid gap-2 sm:grid-cols-2 mt-3">

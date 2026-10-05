@@ -80,6 +80,7 @@ import { formatCalendarDay } from "@/lib/format/localeDate";
 import BackToHome from "@/app/components/BackToHome";
 import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
 import ReferenceLibrary from "@/app/components/aiEmployee/ReferenceLibrary";
+import UrgentSafety from "@/app/components/aiEmployee/UrgentSafety";
 import AiTeamRoster, { Face } from "./AiTeamRoster";
 import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
@@ -1374,6 +1375,19 @@ export default function AiEmployeePage() {
           </p>
         </Card>
       )}
+
+      {/* ── Urgent problems & safety — company-wide (owner, 2026-10-04) ─────
+          What counts as urgent, who is texted, safe first steps, website
+          client matching, FieldQuo's manual library, real appointment times:
+          app/components/aiEmployee/UrgentSafety.js. */}
+      <Card
+        id="urgent"
+        title={t("app.aiEmployee.safety.title", "Urgent problems & safety")}
+        icon={AlertTriangle}
+        hint={t("app.aiEmployee.safety.hint", "One set of choices for your whole AI team.")}
+      >
+        <UrgentSafety t={t} language={language} ui={{ FIELD, BTN_PRIMARY, BTN_QUIET }} />
+      </Card>
 
       {/* ── The model and what it costs ──────────────────────────────────── */}
       <Card

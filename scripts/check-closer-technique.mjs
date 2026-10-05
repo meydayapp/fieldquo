@@ -95,14 +95,59 @@ const FIXTURES = [
 // The receptionist's and troubleshooter's pins were re-taken on that date,
 // deliberately: both roles' own instructions were rewritten for the error-
 // code lookup and the installed-equipment card (lib/aiEmployee/roles.js).
+//
+// 2026-10-04 (later the same day): the owner's urgent & safety decisions
+// changed three things in every prompt — the shared CRISIS_RULE was
+// rewritten (lib/ai/crisisRule.js: water is urgent not 911, gas means leave
+// first, ask before deciding), and two company-settings blocks follow it
+// (lib/aiEmployee/triage.js triageBlock, knowledge/firstSteps.js
+// firstStepsBlock). So every pin is now taken with those three put back the
+// way they were: the new rule swapped for the old text below and the two
+// blocks removed — and the closer's, receptionist's and custom's pins still
+// equal the earlier ones, which proves nothing else in their prompts moved.
+// The troubleshooter's pins were re-taken, deliberately: its own SAFETY and
+// BOOKING A TECH instructions were rewritten (vetted steps; real times).
 const PINS = {
   closer: ["6e67e393af32578687f6b6f1554fce67", "2c0a334bfe4909c29db9782fa5c26512"],
   receptionist: ["f4d19817b23b7728cbfc8e4a85699433", "da85384d34b81824ff4cc1b0419a4eaa"],
-  troubleshooter: ["eccd72efc359aaa2505d446ebfb9d59b", "fbd45fd1867ed1132686ca5e7b99e224"],
+  troubleshooter: ["213cc72c74dd7127b7e758fe5409d336", "00a13a63dbbb549af8de9221abd22213"],
   custom: ["929e6bcf3dda8b424bd8674ac5b9901e", "51cf3cb3f97c4e2f65a6790b587827bb"],
 };
 const { ASSISTANT_PLAYBOOK } = await import("@/lib/aiEmployee/playbook");
-const noPlaybook = (p) => p.replace(`\n\n${ASSISTANT_PLAYBOOK}`, "");
+const { triageBlock } = await import("@/lib/aiEmployee/triage");
+const { firstStepsBlock } = await import("@/lib/aiEmployee/knowledge/firstSteps");
+const { mergeSettings } = await import("@/lib/aiEmployee/companySettings");
+const { STEP_ROLES } = await import("@/lib/aiEmployee/roles");
+// The shared rule exactly as it stood before 2026-10-04's rewrite.
+const OLD_CRISIS_RULE = `
+IF IT SOUNDS LIKE AN EMERGENCY — gas, fire, a live wire, water pouring through
+a ceiling, someone hurt on site, or someone who says something that plainly
+means they or somebody else is in danger right now — say, once, calmly and in
+your own words, that they should call 911. Something close to "that sounds
+like it needs 911, please call them right now" is enough, said in whichever
+language the rest of this conversation is in.
+
+Then carry on. Do not say it a second time, do not start checking how they are
+doing, and do not turn the rest of this into a welfare check. If they still
+want a quote, a booking, or anything else about the job or the business, help
+with that next, exactly as you would have anyway. Saying the line once is the
+whole job — it is never a reason to end the conversation, stall, or refuse to
+keep going.
+
+911 is the only number you ever give for this. Never suggest a hotline, a
+counsellor, or anywhere else to call — one clear answer, said once, is what
+actually helps someone who needs it fast.
+`.trim();
+const DEFAULT_SAFETY = mergeSettings(null);
+const withoutSafety = (p, role) => {
+  const r = roleFor(role).key;
+  const canStep = STEP_ROLES.has(r);
+  return p
+    .replace(`\n\n${triageBlock(DEFAULT_SAFETY, { canStep })}`, "")
+    .replace(`\n\n${firstStepsBlock({ enabled: true, canStep, categories: DEFAULT_SAFETY.urgentCategories })}`, "")
+    .replace(CRISIS_RULE, OLD_CRISIS_RULE);
+};
+const noPlaybook = (p, role = "custom") => withoutSafety(p.replace(`\n\n${ASSISTANT_PLAYBOOK}`, ""), role);
 
 const PAINTER = [
   { key: "cabinet_refinishing", label: "Cabinet Refinishing" },
@@ -125,12 +170,12 @@ for (const [i, fixture] of FIXTURES.entries()) {
       if (role === "closer") {
         const section = T.closerTechnique({ trades });
         ok(prompt.includes(`\n\n${section}\n\n`), `closer (fixture ${i}, ${setName}): the technique section is in the prompt, whole`);
-        ok(md5(noPlaybook(prompt.replace(`\n\n${section}`, ""))) === PINS.closer[i], `closer (fixture ${i}, ${setName}): everything else is byte-identical to main`);
+        ok(md5(noPlaybook(prompt.replace(`\n\n${section}`, ""), "closer")) === PINS.closer[i], `closer (fixture ${i}, ${setName}): everything else is byte-identical to main`);
         const at = prompt.indexOf(T.CLOSER_TECHNIQUE_HEADING);
         ok(at > prompt.indexOf("WHAT YOU NEVER DO") && at > prompt.indexOf(CRISIS_RULE) && at > prompt.indexOf("HANDING OFF"), `closer (fixture ${i}, ${setName}): the technique sits after every absolute rule`);
         ok(at < prompt.indexOf("HOW YOU WRITE"), `closer (fixture ${i}, ${setName}): …and before the company's own style, which stays the last word on tone`);
       } else {
-        ok(md5(noPlaybook(prompt)) === PINS[role][i], `${role} (fixture ${i}, ${setName}): byte-identical to main`);
+        ok(md5(noPlaybook(prompt, role)) === PINS[role][i], `${role} (fixture ${i}, ${setName}): byte-identical to main`, md5(noPlaybook(prompt, role)));
         ok(!prompt.includes(T.CLOSER_TECHNIQUE_HEADING) && !prompt.includes(T.CLOSER_TRADES_HEADING), `${role} (fixture ${i}, ${setName}): no technique, no trade list`);
       }
     }

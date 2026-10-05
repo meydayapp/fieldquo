@@ -19,7 +19,19 @@ ok("no card numbers", /card number|banking/i.test(OUTBOUND_RULES));
 // CRISIS_RULE (lib/ai/crisisRule.js) on 2026-08-31 — see
 // scripts/check-crisis-handling.mjs for the full suite on that shared text;
 // this just proves it's actually spliced into OUTBOUND_RULES.
-ok("emergency handling", /gas, fire, a live wire/i.test(OUTBOUND_RULES));
+// 2026-10-04: the shared rule became three tiers — the outbound caller must
+// still carry every one: leave first for gas/CO (then call from outside),
+// 911 for fire / injury / water on the electrics / personal danger, and a
+// leak as urgent-not-911, asked about first.
+{
+  const flatRules = OUTBOUND_RULES.replace(/\s+/g, " ");
+  ok("emergency handling",
+    /LEAVE FIRST/.test(flatRules) && /smell gas/i.test(flatRules) && /get everyone out of the house now/i.test(flatRules) &&
+    /emergency line or 911 once they are outside/i.test(flatRules) &&
+    /CALL 911\. Fire or smoke/.test(flatRules) && /water touching the electrical panel/i.test(flatRules) &&
+    /plainly means they or somebody else is in danger right now/i.test(flatRules) &&
+    /URGENT, NOT 911/.test(flatRules) && /ASK BEFORE YOU DECIDE/.test(flatRules));
+}
 ok("names 911 and tells the model to carry on, not stop the call",
   /call 911/i.test(OUTBOUND_RULES) && /carry on/i.test(OUTBOUND_RULES));
 ok("rules say they override later text", /override anything else/i.test(OUTBOUND_RULES));

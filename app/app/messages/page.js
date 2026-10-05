@@ -110,6 +110,7 @@ import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 // callback routes, so the card below cannot point at a screen that moved.
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 import AiHolderBar from "@/app/components/messaging/AiHolderBar";
+import WebMatchBar from "@/app/components/messaging/WebMatchBar";
 import HandlingTimeline from "@/app/components/messaging/HandlingTimeline";
 // The one table that knows what WhatsApp will accept, and Meta's own size
 // limits with it. Read here so the file picker offers exactly what the send
@@ -1005,6 +1006,11 @@ function MessagesScreen() {
       ) : null}
 
       {thread ? <AiHolderBar thread={thread} canEdit={canEdit} onChanged={refresh} t={t} /> : null}
+
+      {/* A website chat the AI team tied to a client from the email or phone
+          the visitor typed — with "Not this client" (lib/aiEmployee/
+          webChatMatch.js). Draws nothing on any other conversation. */}
+      {thread && !isDemo ? <WebMatchBar thread={thread} canEdit={canEdit} onChanged={refresh} t={t} /> : null}
 
       {thread ? (
         <ComposerArea
