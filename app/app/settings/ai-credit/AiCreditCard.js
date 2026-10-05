@@ -19,6 +19,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 
 export const money = (c) => formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
@@ -132,6 +133,8 @@ export default function AiCreditCard({ ai }) {
       </div>
 
       <p className="text-sm font-medium text-foreground mt-4">{t("app.setAiCredit.addCredit", "Add credit")}</p>
+      {/* AI credit is bought in US dollars — said to a non-USD company. */}
+      <UsdBillingNote className="mt-1" />
       <div className="mt-2 flex flex-wrap gap-2">
         {ai.topups.map((topup) => (
           <button

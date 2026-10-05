@@ -39,6 +39,7 @@ import { AnswerSwitch, VoiceStatusBar } from "./AnswerSwitch";
 // threshold list and the daily cap travel on the settings GET instead. Same
 // trap creditCurrency.js carries a warning about.
 import { buildAutoTopupTerms } from "@/lib/voice/autoTopupConsent";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -1093,6 +1094,10 @@ export default function VoiceSettingsPage() {
         <p className="text-sm font-medium text-foreground mt-4">
           {t("app.voiceSettings.addCredit")}
         </p>
+        {/* Retell and Twilio charge FieldQuo in US dollars, so the credit
+            (and its automatic top-up) is bought in USD — said to a non-USD
+            company (owner, 2026-10-04). */}
+        <UsdBillingNote className="mt-1" />
         <div className="mt-2 flex flex-wrap gap-2">
           {pricing.topups.map((topup) => (
             <button

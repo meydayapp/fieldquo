@@ -25,6 +25,7 @@ import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import BackToHome from "@/app/components/BackToHome";
 import AiCreditCard, { Card, Statement, money } from "./AiCreditCard";
 import AiPlanAdvisor from "@/app/components/billing/AiPlanAdvisor";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 import { bundleCovers } from "@/lib/ai/planAdvice";
 
 // Card, Statement and the credit-currency formatter live in ./AiCreditCard.js
@@ -219,6 +220,8 @@ export default function AiCreditPage() {
             </span>
           )}
         </div>
+        {/* Phone & text credit (Retell voice, Twilio texts) is bought in US dollars. */}
+        <UsdBillingNote className="mt-1" />
         <div className="flex items-center gap-3 mt-2">
           <MessageSquare size={14} className="text-muted-foreground" />
           <span className="text-xs text-muted-foreground">
@@ -251,6 +254,8 @@ export default function AiCreditPage() {
             states, so the UI and the code can never say two different
             things. */}
         <p className="text-sm text-muted-foreground">{ai.bundleRolloverNotice}</p>
+        {/* The AI credit plans are US-dollar subscriptions (owner, 2026-09-06). */}
+        <UsdBillingNote className="mt-2" />
 
         {/* Which AI credit plan fits (owner, 2026-10-04): the AI employee's
             conversations and drawing reads are paid from this credit; quote

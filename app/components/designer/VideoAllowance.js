@@ -18,6 +18,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { formatClipLength, formatPackPrice } from "@/lib/marketing/videoAllowance";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 
 /** "3 of 5 videos used this month" (+ "· 1 uploading"). */
 export function VideoAllowanceLine({ allowance, className = "" }) {
@@ -76,6 +77,7 @@ export function AllowanceUsed({ allowance, returnPath }) {
       ) : (
         <p className="text-muted-foreground">{t("app.videoAllowance.askAdmin")}</p>
       )}
+      {allowance.canAddPack && <UsdBillingNote cents={allowance.packPriceCents} />}
     </div>
   );
 }
@@ -141,6 +143,9 @@ export function VideoPackCard({ returnPath = "/app/settings/account-billing" }) 
               length: formatClipLength(a.maxSeconds),
             })}
           </p>
+          {/* US dollars for every company — said to the ones billed in CAD or
+              AUD (owner, 2026-10-04). */}
+          <UsdBillingNote cents={a.packPriceCents} />
           {/* The one limit that waits on FieldQuo's video plan (Cloudinary):
               how big ONE upload may be. Said with today's figure, from the
               same reading the upload is signed against. */}

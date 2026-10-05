@@ -21,6 +21,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { recommendAiPlan } from "@/lib/ai/planAdvice";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 
 const usd = (cents) => {
   const n = Number(cents) / 100;
@@ -139,6 +140,7 @@ export default function AiPlanAdvisor({
               )}
             </p>
           )}
+          {credit && <UsdBillingNote cents={credit.fits ? credit.bundle?.priceCents : credit.walletCents} />}
         </div>
       )}
       <p className="text-xs text-muted-foreground">

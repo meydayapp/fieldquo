@@ -49,6 +49,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -367,6 +368,7 @@ export function AiCreditTopupDialog({
         </div>
 
         <div className="space-y-4 overflow-y-auto p-4">
+          <UsdBillingNote />
           {outcome?.kind === "credited" && (
             <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
               {t("app.aiTopup.credited", "Added {amount} of AI credit. Your balance is {balance}.", {

@@ -651,17 +651,16 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
           </p>
           {/* The one paid add-on a plan can carry: video posts. Every number
               from lib/marketing/videoAllowance.js — the same constants the
-              upload gate enforces and the pack checkout charges. The price is
-              the same number in every currency a plan bills in, and the pack
-              bills in the plan's currency (owner, 2026-10-04). */}
+              upload gate enforces and the pack checkout charges — and the
+              price named in US dollars because that is what the pack bills
+              in, whatever the plan's currency (the owner's rule). */}
           <p className="mt-3 text-center text-sm text-muted-foreground max-w-2xl mx-auto" data-pricing-video-pack>
             {t("pricingPage.videoPosts", {
               included: INCLUDED_VIDEOS_PER_MONTH,
-              // No currency code, the way the page names none beside a card
-              // price (check:pricing-page): since 2026-10-04 the pack bills in
-              // the company's own currency at the same number, exactly as the
-              // plans do (lib/marketing/videoAllowance.js PACK_CURRENCIES).
-              price: formatPackPrice(VIDEO_PACK.priceCents),
+              // "<price> USD": the pack bills in US dollars for every company
+              // (owner, 2026-09-06 / 2026-10-04), so unlike a plan card it
+              // names its currency (check:pricing-page).
+              price: `${formatPackPrice(VIDEO_PACK.priceCents)} ${VIDEO_PACK.currency}`,
               videos: VIDEO_PACK.videos,
               length: formatClipLength(VIDEO_MAX_SECONDS),
             })}

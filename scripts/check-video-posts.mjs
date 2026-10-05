@@ -437,34 +437,36 @@ const inv = (sub, endIso, id = `in_${endIso}`) => ({ id, status: "paid", subscri
   ok("an unpaid pack invoice grants nothing", unpaid.handled && unpaid.settled === false && row.paidThrough.toISOString() === "2026-12-01T00:00:00.000Z");
   ok("laterOf ignores junk and keeps the later date", packLib.laterOf("junk", "2026-01-01").toISOString().startsWith("2026-01-01") && packLib.laterOf("2027-01-01", "2026-01-01").toISOString().startsWith("2027"));
 }
-// ── Sold to every company, in its own currency (owner, 2026-10-04) ──────
-// It was USD-only; a Canadian or Australian company could not buy one. Now
-// the pack bills in the company's currency at the same number, so it never
-// meets Stripe's one-currency-per-customer rule.
-ok("packs sell in USD, CAD and AUD — the plans' own currencies", ["USD", "CAD", "AUD", "cad", "aud"].every((c) => packLib.packAvailability(c).ok) && packLib.packAvailability("CAD").currency === "CAD");
-ok("…a currency no plan bills in is refused before Stripe is asked, and says which ones sell", !packLib.packAvailability("GBP").ok && packLib.packAvailability("GBP").code === "currency_locked" && /USD, CAD, AUD/.test(packLib.packAvailability("GBP").reason));
-ok("…an unknown currency on the row reads as USD (the schema's own default for a pack's cost basis)", packLib.packAvailability(null).ok && packLib.packAvailability(null).currency === "USD");
+// ── Sold to every company, billed in US dollars (owner, 2026-10-04) ─────
+// It was refused to CAD/AUD companies. Now every company may buy it, always in
+// USD (the owner's add-ons-are-USD rule), a non-USD company on a SEPARATE
+// Stripe customer so its plan's currency is never touched, and told so beside
+// the price (UsdBillingNote).
+ok("every company may buy a pack — USD, CAD, AUD, anything", ["USD", "CAD", "AUD", "GBP", null].every((c) => packLib.packAvailability(c).ok && packLib.packAvailability(c).currency === "USD"));
+ok("…and a non-USD company is flagged for the USD note; a USD one is not", packLib.packAvailability("CAD").usdNote === true && packLib.packAvailability("USD").usdNote === false);
+ok("a USD company's pack goes on its plan customer; any other on its USD add-on customer", packLib.packCustomerKind("USD") === "plan" && packLib.packCustomerKind("CAD") === "usd_add_ons" && packLib.packCustomerKind("aud") === "usd_add_ons");
 {
   const sessions = [];
+  const used = [];
   const fakeStripe = { checkout: { sessions: { create: async (args) => { sessions.push(args); return { url: "https://checkout.test/s" }; } } } };
-  const cad = await packLib.createVideoPackCheckoutSession({ company: { id: "co_ca", currency: "CAD" }, successUrl: "s", cancelUrl: "c", deps: { stripe: fakeStripe, getOrCreateStripeCustomer: async () => "cus_1" } });
-  ok("a CAD company's checkout is in CAD, at the same 7,700 — not a conversion", cad.ok && sessions[0].line_items[0].price_data.currency === "cad" && sessions[0].line_items[0].price_data.unit_amount === 7700 && sessions[0].metadata.currency === "CAD");
-  const aud = await packLib.createVideoPackCheckoutSession({ company: { id: "co_au", currency: "AUD" }, successUrl: "s", cancelUrl: "c", deps: { stripe: fakeStripe, getOrCreateStripeCustomer: async () => "cus_2" } });
-  ok("an AUD company's in AUD, same number", aud.ok && sessions[1].line_items[0].price_data.currency === "aud" && sessions[1].line_items[0].price_data.unit_amount === 7700);
-  const gbp = await packLib.createVideoPackCheckoutSession({ company: { id: "co_uk", currency: "GBP" }, successUrl: "s", cancelUrl: "c", deps: { stripe: fakeStripe, getOrCreateStripeCustomer: async () => "cus_3" } });
-  ok("a currency no plan bills in never reaches Stripe, even past the route", !gbp.ok && sessions.length === 2);
+  const deps = { stripe: fakeStripe, getOrCreateStripeCustomer: async () => { used.push("plan"); return "cus_plan"; }, getOrCreateUsdAddOnCustomer: async () => { used.push("usd"); return "cus_usd"; } };
+  const cad = await packLib.createVideoPackCheckoutSession({ company: { id: "co_ca", currency: "CAD" }, successUrl: "s", cancelUrl: "c", deps });
+  ok("a CAD company's pack: USD, 7,700 cents, on the USD add-on customer — never its CAD plan customer", cad.ok && sessions[0].line_items[0].price_data.currency === "usd" && sessions[0].line_items[0].price_data.unit_amount === 7700 && sessions[0].customer === "cus_usd" && used[0] === "usd" && sessions[0].metadata.currency === "USD");
+  const usd = await packLib.createVideoPackCheckoutSession({ company: { id: "co_us", currency: "USD" }, successUrl: "s", cancelUrl: "c", deps });
+  ok("a USD company's pack: USD on its one customer, as before", usd.ok && sessions[1].customer === "cus_plan" && sessions[1].line_items[0].price_data.currency === "usd");
 }
 {
-  const al2 = await import("../lib/marketing/videoAllowance.js");
-  ok("the allowance names the company's pack currency (CAD for a CAD company)", al2.packCurrencyFor("CAD") === "CAD" && al2.packCurrencyFor("gbp") === null);
+  const billing = read("lib/platform/stripeBilling.js");
+  ok("the USD add-on customer is tagged usdAddOnsFor — NOT companyId, which finds the plan's customer", /metadata: \{ usdAddOnsFor: company\.id, purpose: "usd_add_ons" \}/.test(billing) && /metadata\['usdAddOnsFor'\]/.test(billing));
   const server = read("lib/marketing/videoPostServer.js");
-  ok("allowanceBody sends the company's currency, not a hard-coded USD", /packCurrency: packCurrencyFor\(a\.currency\) \|\| VIDEO_PACK\.currency/.test(server));
+  ok("allowanceBody names USD, and flags the note for a non-USD company", /packCurrency: VIDEO_PACK\.currency/.test(server) && /usdNote: String\(a\.currency/.test(server));
   const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
   const keys = ["app.videoAllowance.addPack", "app.videoAllowance.addAnotherPack", "app.videoAllowance.explain", "app.videoAllowance.packLine"];
-  ok("every language's pack sentences say {currency}, none says USD", Object.values(APP_MESSAGES).every((m) => keys.every((k) => String(m[k] || "").includes("{currency}") && !/USD/.test(String(m[k] || "")))));
+  ok("every language's pack sentences carry {currency} (USD)", Object.values(APP_MESSAGES).every((m) => keys.every((k) => String(m[k] || "").includes("{currency}"))));
   const card = read("app/components/designer/VideoAllowance.js");
-  ok("…and every place that prints them passes it", (card.match(/currency: (a|allowance)\.packCurrency/g) || []).length === 4);
-  ok("/pricing names no currency beside the pack's price, as beside the plans'", !/VIDEO_PACK\.currency/.test(read("app/(marketing)/pricing/PricingPlans.js")));
+  ok("…every place that prints them passes it", (card.match(/currency: (a|allowance)\.packCurrency/g) || []).length === 4);
+  ok("the pack card and the used-up refusal both carry the USD note", (card.match(/<UsdBillingNote cents=\{(a|allowance)\.packPriceCents\} \/>/g) || []).length === 2);
+  ok("/pricing names USD beside the pack's price", /\$\{VIDEO_PACK\.currency\}/.test(read("app/(marketing)/pricing/PricingPlans.js")));
 }
 // ── The ONE limit that waits on Cloudinary Plus: the size of a single upload ──
 {
@@ -585,7 +587,7 @@ ok("a help article exists in en, fr and es", /A\("video-posts"/.test(helpTree) &
 ok("…and it names the allowance, the pack, the 2:30 limit, Facebook's 90 s, 1080p and the approval", (() => {
   const s = read("content/help/en/marketing-and-website-2.js");
   const a = s.slice(s.indexOf('"video-posts":'));
-  return /5 videos a month/.test(a) && /\$77\/month\*\* \(in your plan's currency\)/.test(a) && /2:30/.test(a) && /3 – 90 seconds/.test(a) && /1080/.test(a) && /Approve/.test(a);
+  return /5 videos a month/.test(a) && /US\$77\/month/.test(a) && /2:30/.test(a) && /3 – 90 seconds/.test(a) && /1080/.test(a) && /Approve/.test(a);
 })());
 
 console.log(`\n${checks - failures}/${checks} checks passed${failures ? ` — ${failures} FAILED` : ""}`);

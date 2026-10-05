@@ -27,6 +27,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 
 // The smallest preset top-up (lib/voice/credits.js TOPUP_OPTIONS). Enough for
 // a couple of hundred codes; the voice page sells the larger amounts.
@@ -208,6 +209,7 @@ export default function VerifyPhonePage() {
                 {topupBusy && <Loader2 size={14} className="animate-spin" />}
                 {t("app.phoneVerify.topupButton", "Add {amount} of phone & text credit", { amount: credit(VERIFY_TOPUP_CENTS, language) })}
               </button>
+              <UsdBillingNote cents={VERIFY_TOPUP_CENTS} />
             </div>
           )}
           <form

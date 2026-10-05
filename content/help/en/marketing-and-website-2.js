@@ -730,7 +730,7 @@ export const ARTICLES = {
     "updated": "2026-09-29",
     "intro": [
       "In the Marketing Designer, every campaign has **New video post**. Pick a clip from your computer or phone (3 seconds to 2:30), give it a cover and a caption, approve it, then tick where it goes: **Instagram Reel**, **Facebook Reel**, **TikTok** — one, two or all three.",
-      "Every plan includes **5 videos a month**. A **Video pack** adds up to **90 more a month** for **$77/month** (in your plan's currency). One video counts once, however long it is and however many places you post it."
+      "Every plan includes **5 videos a month**. A **Video pack** adds up to **90 more a month** for **US$77/month**. One video counts once, however long it is and however many places you post it."
     ],
     "sections": [
       {
@@ -774,13 +774,13 @@ export const ARTICLES = {
         "heading": "The video pack",
         "blocks": [
           {
-            "p": "A **Video pack** is a monthly add-on: **$77/month** (in your plan's currency) for up to **90 more videos a month**, on top of the 5 included. You can hold more than one — each adds another 90. Add one from **Settings → Account & Billing** or from the button that appears when the month is used up; it is a Stripe checkout on the same account as your plan."
+            "p": "A **Video pack** is a monthly add-on: **US$77/month** for up to **90 more videos a month**, on top of the 5 included. You can hold more than one — each adds another 90. Add one from **Settings → Account & Billing** or from the button that appears when the month is used up; it is a Stripe checkout on the same account as your plan."
           },
           {
             "bullets": [
               "It counts from the moment its first payment goes through, and for as long as it is paid for.",
               "**Stop renewing** keeps it counting until the end of the month you have paid for, then it ends. Nothing already posted is touched.",
-              "A video pack is billed in the same currency as your plan, at the same number — $77 USD, $77 CAD or $77 AUD.",
+              "Video packs are billed in US dollars for every company, whatever currency your plan is in: the video storage behind them charges FieldQuo in US dollars. A company billed in Canadian or Australian dollars sees that said beside the price, with an approximate conversion, and its bank converts the charge.",
               "For now one clip can be up to the size the card on **Account & Billing** names to upload — trim a longer recording on the phone first. That limit is about one upload, not how many videos you get."
             ]
           }

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every currency's companies; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
+Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
 Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
 Last updated: 4 October 2026 (drawing read P0 — every sheet pass in one bounded wave (13) with the photo pass beside it, md5-identical results; each stage's clock on the read and on /platform/ai-usage → Drawing reads; `/api/cron/plan-reads` resumes reads a closed tab left paused, never charging; the estimator's own edits logged beside the chat's; the same PDF bytes reuse an earlier read's sheet passes within the company only — `QuoteDocument.contentHash` SQL owed before deploy, see "Start from drawings")
@@ -168,25 +168,45 @@ credit** (Stripe Checkout that returns to the page via an allow-listed
 credit (the 30 free minutes are only granted when a number is bought), so
 every trial now tops up (min $5, preset $10) before it can verify.
 
-### 4. The video pack is sold to every company
+### 4. The video pack is sold to every company — in US dollars
 
 What gated selling it: **only** `packAvailability` — USD companies only, so a
 Canadian or Australian company read "packs aren't available on a non-USD
-account yet" (Stripe allows one currency per customer, and the pack was
-priced in USD beside a CAD/AUD plan). No env flag, Cloudinary check or
-platform switch gated it; the pricing page and Account & Billing already
-offered it. Now the pack bills in the company's own currency at the **same
-number** — the rule every FieldQuo price follows — $77 USD / CAD / AUD
-(`PACK_CURRENCIES`, `packCurrencyFor`); the app's pack sentences say
-`{currency}` in all nine languages; /pricing names no currency beside it, as
-beside the plans. Margin at the worst case (90 × 2:30 ≈ US$38 of Cloudinary):
-USD $77 → ~US$39; CAD $77 ≈ US$56 → ~US$18; AUD $77 ≈ US$51 → ~US$13 (at
-~0.73 / ~0.66 — check the rate). The one limit that really waits on
-Cloudinary Plus — the size of ONE upload (Free 100 MB) — stays, read live
-from the plan, and the pack card now says the figure. **Price owed:** the
-owner's message said US$31; the code, the pricing page and the help all say
-$77 (owner-set 2026-09-29) — unchanged here, needs his word.
-`check:video-posts` 230 → 243. Help en/fr/es.
+account yet" (Stripe allows one currency per customer across subscriptions).
+No env flag, Cloudinary check or platform switch gated it.
+
+**Owner's correction, same day:** the pack stays **US$77 for everyone** (his
+2026-09-06 rule: add-ons and bundles are USD-only — the providers charge us
+in USD). So every company may buy it, in USD; a non-USD company's pack
+subscribes on a **second Stripe customer** kept for its USD add-ons
+(`getOrCreateUsdAddOnCustomer`, tagged `usdAddOnsFor`, never `companyId`), so
+the plan's CAD/AUD customer is never touched (a USD pack on it is refused by
+Stripe, or — before a plan exists — would lock it to USD). A USD company
+uses its one customer as before. Margin unchanged (~US$39 at the worst case).
+The one limit that waits on Cloudinary Plus — the size of ONE upload (Free
+100 MB) — stays, read live, and the pack card states it. **Price owed:** the
+owner's message said US$31; code, pricing page and help say US$77 (set
+2026-09-29) — unchanged.
+
+**"Billed in US dollars" note** (`UsdBillingNote`, all nine languages), shown
+only to a company whose billing currency isn't USD, beside every USD add-on:
+"The companies behind this — video storage, AI, phone and text providers —
+charge us in US dollars, so it's priced in USD; your bank converts it", plus
+"About CA$110 at today's rate (approximate)" from the ExchangeRate table
+(`GET /api/fx/usd`, else the checked-in rate; no AUD rate → no hint). Where,
+and what each bills at Stripe:
+
+| Surface | Stripe currency before | After |
+|---|---|---|
+| Video pack (subscription) | USD (refused to non-USD) → my first commit made it the company's currency | **USD for every company**, non-USD on the USD add-on customer; note on the pack card and the used-up refusal |
+| AI credit plans (subscription) | USD already (still refused to non-USD companies — unchanged) | note on the AI credit plan card |
+| AI credit top-ups (one-time) | USD already | note on the AI credit card and the inline top-up dialog |
+| Phone & text credit top-ups (Retell + Twilio, one-time) | USD already | note on the phone settings page, the AI credit page's phone card, and the verify-phone top-up |
+| Phone & text automatic top-up | USD already | covered by the phone settings note |
+
+The AI advisor's AI-credit sentence carries the note too. `check:video-posts`
+243, new `check:usd-billing-note` (30). Help en/fr/es back to US$77 with the
+reason.
 
 ### 5. AI plans: capped, and a recommendation on the pickers
 
