@@ -25,6 +25,23 @@ export async function POST(request, { params }) {
   const started = await startRead({ planReadId: id, companyId: member.companyId, userId: member.userId || null });
   if (!started.ok) {
     if (started.error === "not_found") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (started.error === "files_unreadable") {
+      // The set WAS added; FieldQuo could not read it. Say which file and
+      // what to do, never "add a drawing set first".
+      const tooBig = (started.reasons || []).includes("too_large");
+      return NextResponse.json(
+        {
+          error: `FieldQuo couldn't read ${started.names.join(", ")}. ${
+            tooBig
+              ? "The file is larger than can be read in one piece — upload it again and it will be split into parts."
+              : "Check that it opens on your computer and isn't password-protected, then upload it again (as a PDF, .xlsx or .csv)."
+          } Nothing was charged.`,
+          code: "files_unreadable",
+          names: started.names,
+        },
+        { status: 400 },
+      );
+    }
     if (started.error === "nothing_to_read") {
       return NextResponse.json({ error: "Add a drawing set, a scope sheet or photos first — or, if nothing is new, use the chat to change the read.", code: "nothing_to_read" }, { status: 400 });
     }
