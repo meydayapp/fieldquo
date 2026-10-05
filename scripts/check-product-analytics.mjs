@@ -338,13 +338,18 @@ section("7. appPages");
   const rowsIn = (file) => [...read(file).matchAll(/\{ key: "(app\.[a-zA-Z.]+)", href: "(\/app[^"]*)"/g)].map((m) => ({ key: m[1], href: m[2] }));
   const sidebar = [...rowsIn("app/components/layout/AdminSidebar.js"), ...rowsIn("app/components/layout/SettingsSidebar.js")].filter((r) => !r.key.startsWith("app.quickAdd."));
   const byHref = new Map(APP_PAGES.map((p) => [p.href, p]));
-  const missing = sidebar.filter((r) => !byHref.has(r.href));
+  // A row that opens a section of a page (/app/settings/services#equipment-access)
+  // is catalogued under the page itself: the fragment is not a page.
+  const pageOf = (href) => href.split("#")[0];
+  const missing = sidebar.filter((r) => !byHref.has(pageOf(r.href)));
   ok("every sidebar and settings row has a catalogue line", missing.length === 0, missing.map((m) => m.href).join(", "));
   // An href both sidebars list under different keys keeps the NAV key (the
   // one on the main rail): that is the word a rep should say.
   const navFirst = new Map();
   for (const r of rowsIn("app/components/layout/AdminSidebar.js")) if (!navFirst.has(r.href)) navFirst.set(r.href, r.key);
-  const wrongKey = sidebar.filter((r) => byHref.has(r.href) && (navFirst.get(r.href) || r.key) !== byHref.get(r.href).navKey);
+  // A section row is a second door into a page whose line keeps the page
+  // row's own key, so only whole-page rows are compared.
+  const wrongKey = sidebar.filter((r) => !r.href.includes("#") && byHref.has(r.href) &&(navFirst.get(r.href) || r.key) !== byHref.get(r.href).navKey);
   ok("…with the sidebar's own key", wrongKey.length === 0, wrongKey.map((w) => `${w.href}:${w.key}`).join(", "));
   ok("every catalogue href is a real route (or a declared prefix with a page beneath it)", APP_PAGES.every((p) => isRoutePattern(p.href) || (PREFIX_ONLY_HREFS.includes(p.href) && ROUTE_PATTERNS.some((r) => r.startsWith(`${p.href}/`)))), APP_PAGES.filter((p) => !isRoutePattern(p.href)).map((p) => p.href).join(", "));
   ok("no duplicate href", new Set(APP_PAGES.map((p) => p.href)).size === APP_PAGES.length);
