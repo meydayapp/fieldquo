@@ -73,6 +73,7 @@ import { aggregateSheetCounts, buildCountIndex, buildScheduleIndex, sanitiseTrad
 import { TRADE_SHEET_SCHEMA, TRADE_SYNTHESIS_SCHEMA } from "@/lib/planRead/tradePrompts";
 import { PRICING_CHAT_SCHEMA, verifyProposals, findPricingInputs, mergeAssumptions, pricingDiff } from "@/lib/planRead/pricingChat";
 import { priceTrade, assumptionsIndex, engineBooks } from "@/lib/planRead/tradePricing";
+import { SOURCE_LABEL } from "@/lib/pricing/labourPresets";
 import { recommendPrice } from "@/lib/planRead/recommendation";
 import { readPricing } from "@/lib/planRead/readPricing";
 import { applyPricingOps } from "@/lib/planRead/pricingOps";
@@ -1606,8 +1607,14 @@ const fixBlock = pricedE.blocks.find((b) => b.rung === "suggestion" && b.itemIds
 ok("rung 3: light fixtures — FieldQuo suggestion, NECA 45 min + 40% trim at the commercial factor 1.0 (published), × complexity", fixBlock && fixBlock.hours === Math.round(12 * (45 / 60) * 1.4 * 1.15 * 100) / 100 && fixBlock.sell === null && fixBlock.coefficients.some((c) => /NECA/.test(c.source) && c.tag === "READ") && fixBlock.coefficients.some((c) => c.name === "Productivity" && c.value === 1), fixBlock);
 const resE = priceTrade({ ...elec, commercial: false }, { ...pctx, commercial: false, labourRate: 40, assumptions: assumptionsIndex([]) });
 const resFix = resE.blocks.find((b) => b.rung === "suggestion" && b.itemIds.includes(elec.items.find((i) => i.label === "light_fixture").id));
-ok("…a house keeps the residential factor 0.456 (cited as fitted to one real rewire)", Math.abs(resFix.hours / fixBlock.hours - 0.456) < 0.01 && resFix.coefficients.some((c) => c.value === 0.456 && c.tag === "DERIVED"));
-ok("no rate anywhere (conduit, data) → \"No rate — add one\", never a $0 line", pricedE.unpriced.some((u) => u.label === "conduit") && !pricedE.blocks.some((b) => b.itemIds.includes(elec.items.find((i) => i.itemKey === "conduit").id)));
+// 2026-10-05: a HOUSE prices each fixture with its wiring run — Craftsman NRI
+// .574 + .802 = 1.376 h — no longer NECA × 0.456 (NRI's economy grade, and a
+// third of NRI's per-device hours because it carried no run).
+ok("…a house prices the fixture WITH its wiring run (Craftsman NRI 1.376 h × complexity), said to be FieldQuo's default", resFix.hours === Math.round(12 * 1.376 * 1.15 * 100) / 100 && resFix.coefficients.some((c) => c.value === 1.376 && c.source.includes(SOURCE_LABEL) && /^FieldQuo default/.test(c.source)) && !resFix.coefficients.some((c) => c.value === 0.456), resFix);
+const condBlock = pricedE.blocks.find((b) => b.itemIds.includes(elec.items.find((i) => i.itemKey === "conduit").id));
+ok("conduit, once \"No rate\", is timed from the NEE table — EMT concealed 3/4 in assumed and SAID (300 ft × 3.75/100 × 1.15)", condBlock && condBlock.rung === "suggestion" && condBlock.hours === Math.round(300 * 0.0375 * 1.15 * 100) / 100 && condBlock.notes.some((n) => /EMT concealed/.test(n)) && condBlock.notes.some((n) => /3\/4 in/.test(n)), condBlock);
+const evOnly = priceTrade({ tradeKey: "electrical", included: true, complexity: { level: "medium" }, items: [{ id: "ev1", itemKey: "ev_charger", label: "EV charger", active: true, attributes: {}, quantity: { value: 2, unit: "each", confidence: "high" } }] }, { ...pctx, commercial: true, labourRate: 40, assumptions: assumptionsIndex([]) });
+ok("an item no Craftsman preview prints (EV charger) → \"No rate — add one\", never a $0 line", evOnly.unpriced.length === 1 && evOnly.blocks.length === 0);
 ok("…and a CAD company gets no USD device cost: labour suggested, the material said to be missing", (() => {
   const cad = priceTrade(tradeOf(elec), { ...pctx, currency: "CAD", commercial: true, labourRate: 40, assumptions: assumptionsIndex([]) });
   const b = cad.blocks.find((x) => x.rung === "suggestion" && x.itemIds.includes(elec.items.find((i) => i.label === "light_fixture").id));
@@ -1617,7 +1624,8 @@ ok("…and a CAD company gets no USD device cost: labour suggested, the material
 const pricedD = priceTrade(dry, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
 const wall = pricedD.blocks.find((b) => b.itemIds.includes(dq("W1 partitions, Level 4").id));
 ok("rung 1: drywall walls priced by the drywall rate card — hang + Level 4 at the standard tier (1,089 × (1.20 + 1.45))", wall.rung === "engine" && !wall.own && Math.abs(wall.sell - 1089 * (1.2 + 1.45)) < 0.02 && /starting rates/.test(wall.source), wall);
-ok("…its cost from the drywall recipe (hours and board, compound, tape, screws), with the figures cited", wall.hours > 0 && wall.materialCost > 0 && wall.costComplete && wall.coefficients.some((c) => /INTERIOR_RECIPES\.drywall_install/.test(c.source)));
+ok("…its cost from the drywall recipe (hours and board, compound, tape, screws) — hours FieldQuo's presets, said to be", wall.hours > 0 && wall.materialCost > 0 && wall.costComplete && wall.coefficients.some((c) => /^FieldQuo default/.test(c.source) && c.source.includes(SOURCE_LABEL)) && wall.coefficients.some((c) => /drywall_install materials/.test(c.source)));
+ok("…1,089 sq ft of 5/8 Type X at Level 4: (hang .010 + Type X .001 + finish .008) × 1,089 = 20.69 h", wall.hours === Math.round(1089 * (0.01 + 0.001 + 0.008) * 100) / 100, wall.hours);
 const ownBookD = priceTrade(dry, { ...pctx, books: engineBooks({ drywall_install: { complexity: { standard: { hangPricePerSqft: 2 } } } }), labourRate: 40, assumptions: assumptionsIndex([]) });
 ok("…the company's OWN drywall rates move the price and say \"Your drywall rate card\"", ownBookD.blocks[0].own && ownBookD.blocks[0].sell !== wall.sell && /^Your drywall rate card \(/.test(ownBookD.blocks[0].source));
 const lvl5 = pricedD.blocks.find((b) => b.itemIds.includes(dq("Lobby ceiling, Level 5").id));
@@ -1628,7 +1636,7 @@ ok("…a wall with no stated level is priced at Level 4 and SAYS it was assumed"
 const pricedF = priceTrade(fr, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
 const fw = pricedF.blocks[0];
 ok("framing: the framing book is switched on — 121 lin ft × $26 (2x6 exterior, standard), labelled FieldQuo's starting rates", fw.rung === "suggestion" && fw.sell === 121 * 26 && /framing price book/.test(fw.source) && fw.coefficients.some((c) => /structural\.js FRAMING/.test(c.source) && c.tag === "READ"), fw);
-ok("…its cost from the framing recipe: 0.16 h/lin ft, studs at 16 in plus plates (stated)", fw.hours === Math.round(121 * 0.16 * 1.15 * 100) / 100 && fw.coefficients.some((c) => c.name === "Plates" && c.tag === "GUESS"));
+ok("…its hours from the carpentry preset: 0.288 h/lin ft for a 2x6 wall (Craftsman NCE), studs at 16 in plus plates (stated)", fw.hours === Math.round(121 * 0.288 * 1.15 * 100) / 100 && fw.coefficients.some((c) => c.name === "Plates" && c.tag === "GUESS") && fw.coefficients.some((c) => c.value === 0.288 && /carpentry rate card/i.test(c.source)), fw);
 ok("…headers from the book, their LVL costed off the printed span", pricedF.blocks[1].sell === 6 * 180 && pricedF.blocks[1].materialCost > 0);
 ok("…and a currency the book does not hold (EUR) gets no framing price", priceTrade(fr, { ...pctx, currency: "EUR", labourRate: 40, assumptions: assumptionsIndex([]) }).unpriced.length === 2);
 
@@ -1639,7 +1647,14 @@ ok("roofing: one roofing takeoff priced by the roofing rate card's own engine �
 ok("…timed by roofLabour, shingle cost from Home Depot, and what the cost leaves out is said", rb.hours > 0 && rb.materialCost > 0 && rb.notes.some((n) => /shingles only/.test(n)));
 
 const pricedP = priceTrade(plb, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
-ok("plumbing: no repo figure for a toilet's hours → no rate; a water heater's 3 h (the benchmark's 2–4 h midpoint)", pricedP.unpriced.some((u) => u.label === "water_closet") && pricedP.blocks.some((b) => b.rung === "suggestion" && b.hours === Math.round(3 * 1.15 * 100) / 100));
+// 2026-10-05: every fixture is priced (Craftsman NPH). This set is
+// commercial, so a toilet is NPH's all-in budget (8 h, plastic piping); the
+// water heater, its type not printed, is a new gas tank (1.00 + 1.75 + 10 ft
+// × .11 = 3.85 h) and says so.
+const wcBlock = pricedP.blocks.find((b) => b.itemIds.includes(plb.items[0].id));
+const whBlock = pricedP.blocks.find((b) => b.itemIds.includes(plb.items[3].id));
+ok("plumbing: 4 commercial toilets at NPH's 8 h budget × complexity, and the budget's branch piping SAID", pricedP.unpriced.length === 0 && wcBlock.hours === Math.round(4 * 8 * 1.15 * 100) / 100 && wcBlock.notes.some((n) => /counted twice/.test(n)), wcBlock);
+ok("…a water heater with no type: a new gas tank (3.85 h × complexity), and asked to choose", whBlock.hours === Math.round(3.85 * 1.15 * 100) / 100 && whBlock.notes.some((n) => /Choose the type/.test(n)), whBlock);
 
 // Overhead: the job's fair share of the month in crew time.
 const rates = overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: 320, jobsPerMonth: 2 });

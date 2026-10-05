@@ -97,6 +97,65 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Trade labour presets calibrated against the Craftsman guides (5 October 2026)
+
+The owner, 2026-10-05: "fill the gaps and fix the mismatches using their
+numbers as reference" — and "this is only for the preset; the company can
+modify them to adjust to their own rates."
+
+### What shipped (not deployed — unpushed branch)
+
+- `lib/pricing/labourPresets.js` — FieldQuo's labour presets for electrical,
+  plumbing, framing (carpentry), drywall and flooring installation, each
+  figure cited (book, year, printed page, row → figure) and editable on the
+  trade's rate card in Settings → Services (`CompanyServiceCategory.rates.
+  presets`, sanitised by `lib/pricing/sanitiseRates.js`; no schema change).
+  A company's figure wins; an unchanged one says "FieldQuo default". The
+  drawing read's third rung and the services' suggested production rates
+  both read them — one copy.
+- Fixes: roofing tear-off 0.5 → 1.0 (+0.67 a further layer, wood/slate/
+  tile/built-up by material), drip edge 0.012 → 0.035, underlayment 0.2 →
+  0.08 (felt/synthetic only — ice-and-water is its own line), steep and
+  >12/12 pitch → ×1.5; drywall Level 4 finish 0.014 → 0.008 (other levels
+  keep their ratio), ceilings ×1.25, corner bead 0.05 → 0.016 install-only,
+  drywall production 12 → 25 sheets a day; a house's electrical devices now
+  carry their wiring run (NRI: receptacle 0.977 h, 3-way 1.95), panel swap
+  8 → 15.9 h, commercial circuit 2.49 h, GFCI/dimmer/3-way premiums;
+  water heater by type (electric 2.95, gas 3.85, gas replacement 5.85,
+  tankless 22.25 h) with a person's type choice on the item; framing walls
+  0.11/0.16 → 0.224/0.288 per ft; flooring laminate 0.030, solid 0.062,
+  engineered 0.051; backer board 0.042; concrete, brick veneer, windows and
+  entry doors in their staged recipes.
+- Fills: conduit by type and size (NEE), THHN, NM-B new/reno, data drops,
+  disconnects, fire-alarm devices, device removal, every plumbing fixture
+  (house set + rough-in; commercial budget), floor drains, cleanouts, gas
+  outlets, pipe per foot with attic/crawl/height factors, drywall patches,
+  removal and textures, blocking and ceiling joists, roof/subfloor
+  sheathing, hardwood tear-out, sheet vinyl and vinyl tile, sand-and-finish,
+  tile/slate/fibre-cement roof labour, tile loading, a 5.5 h roofing job
+  minimum; suggested rates for HVAC (registers, returns, condenser per ton,
+  duct per lb, flex per ft, commission + balance), gates, masonry and
+  cabinet installs.
+- The complexity ladder keeps 1.15/1.35/1.6 and now cites the books'
+  published ranges instead of GUESS.
+
+### Waiting on the owner
+
+- HVAC air handlers: NRR prints 21–27 h (2–5 t) — high for a residential
+  swap; NOT adopted.
+- Painting presets: untouched (the eight corrections are still pending).
+- `check:app-catalogue` fails on twelve English echoes that came in with the
+  drawing-read branch (`app.planRead.equipment.*`, `app.planRead.slices.sqft`,
+  `app.paint.condition.render`, `app.paintPreset.per100`) — not these strings.
+
+### Checks
+
+`check:trade-calibration` (446 assertions; 28 mutations, all caught), in
+check:all. Pins updated with the reason in check:trade-labour, check:rewire,
+check:pricebook-structural, check:pricebook-interior, check:plan-deep-read.
+
+---
+
 ## Delete a lead — one, a selection, and "not a lead" for conversations (5 October 2026)
 
 The owner, 2026-10-05: "There should be a way to delete leads… test ones, and

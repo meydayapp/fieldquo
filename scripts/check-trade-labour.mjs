@@ -198,11 +198,16 @@ check("pitch bands keep the reference calculator's factors on Xactimate's bounda
   assert.equal(pitchBand(6).factor, 1.0, "6/12 is walkable — Xactimate steep starts at 7/12");
   assert.equal(pitchBand(7).factor, 1.3);
   assert.equal(pitchBand(9).factor, 1.3);
-  assert.equal(pitchBand(10).factor, 1.6);
-  assert.equal(pitchBand(12).factor, 1.6);
+  // Steep and very steep moved to the Craftsman book on 2026-10-05:
+  // NRI 2018 p.339, "+50% labour above 8/12" — one figure for both, so a
+  // 14/12 is never quicker than an 11/12.
+  assert.equal(pitchBand(10).factor, 1.5);
+  assert.equal(pitchBand(12).factor, 1.5);
   // And the two bands it has no opinion about.
   assert.equal(pitchBand(1).factor, 0.9);
-  assert.equal(pitchBand(13).factor, 2.0);
+  assert.equal(pitchBand(13).factor, 1.5);
+  // Monotone: a steeper roof is never quicker.
+  for (let i = 1; i < PITCH_BANDS.length; i++) assert.ok(PITCH_BANDS[i].factor >= PITCH_BANDS[i - 1].factor, PITCH_BANDS[i].key);
 });
 
 check("the builder's bands agree with the public estimator's tiers", () => {
@@ -217,45 +222,51 @@ check("the builder's bands agree with the public estimator's tiers", () => {
 });
 
 check("the 2026 calibration defaults are the ones the research doc argues for", () => {
-  // docs/research/ROOFING-RATES-2026.md — the recommended set. Change these
-  // numbers there first, with the evidence, then here.
+  // docs/research/ROOFING-RATES-2026.md — the recommended set — as moved on
+  // 2026-10-05 to the Craftsman books (scripts/check-trade-calibration.mjs
+  // pins each one to its citation). Change them there first, then here.
   assert.equal(ROOF_LABOUR_DEFAULTS.installPerSquare, 1.4);
-  assert.equal(ROOF_LABOUR_DEFAULTS.underlaymentPerSquare, 0.2);
-  assert.equal(ROOF_LABOUR_DEFAULTS.tearOffFirstLayerPerSquare, 0.5, "one-layer strip measures 0.3–0.6 h/sq in the field");
-  assert.equal(ROOF_LABOUR_DEFAULTS.tearOffAdditionalLayerPerSquare, 0.3);
+  assert.equal(ROOF_LABOUR_DEFAULTS.underlaymentPerSquare, 0.08, "felt / synthetic only — ice-and-water is its own line");
+  assert.equal(ROOF_LABOUR_DEFAULTS.tearOffFirstLayerPerSquare, 1.0, "Craftsman NRR 1.00 Sm / NRI 1.02 — the books carry debris to the bin");
+  assert.equal(ROOF_LABOUR_DEFAULTS.tearOffAdditionalLayerPerSquare, 0.67);
   assert.equal(ROOF_LABOUR_DEFAULTS.mobilisationHours, 3.5);
   assert.deepEqual(PITCH_BANDS.map((b) => b.maxRise), [2, 6, 9, 12, Infinity]);
-  assert.deepEqual(PITCH_BANDS.map((b) => b.factor), [0.9, 1.0, 1.3, 1.6, 2.0]);
+  assert.deepEqual(PITCH_BANDS.map((b) => b.factor), [0.9, 1.0, 1.3, 1.5, 1.5]);
 
   // 917 Littlerock St, Ottawa — the roof the calibration was done on. Solar-
   // measured hip, 31.16 sq at 6/12, one layer, the linears the prefill wrote.
-  // Before: 127.72 h (4.1 h/sq), 8.5 days for two. After: 100.2 h (3.2 h/sq)
-  // at the architectural factor, 6.7 days for two and 3.5 for four — a nine-
-  // man crew did a 3,150 sqft north-east house in one day in 2024, which is
-  // ~2.6 h/sq, so this is still the slow side of real and on purpose.
+  // Before: 127.72 h (4.1 h/sq), 8.5 days for two. After 2026-09: 100.2 h
+  // (3.2 h/sq). After the Craftsman calibration (2026-10-05): 116.9 h
+  // (3.75 h/sq), 7.8 days for two and 4.1 for four — the strip doubled to the
+  // books' 1.0 h/sq and drip edge tripled; underlayment fell. A nine-man
+  // crew did a 3,150 sqft house in one day in 2024 (~2.6 h/sq): production
+  // crews beat the book, and a company with one edits its rate card.
   const r = roofLabour({
     squares: 31.16, pitchRise: 6, layers: 1, storeys: "one",
     iceWaterFt: 421, dripEdgeFt: 211, starterFt: 211, valleyFt: 41,
     ridgeHipFt: 163, ridgeVentFt: 51,
   });
   assert.equal(r.pitch.factor, 1.0);
-  assert.ok(r.hoursPerSquare >= 3.0 && r.hoursPerSquare <= 3.4, `917 Littlerock: ${r.hoursPerSquare} h/sq`);
-  assert.ok(r.hours < 110, `917 Littlerock: ${r.hours} h — was 127.72 before the calibration`);
+  assert.ok(r.hoursPerSquare >= 3.6 && r.hoursPerSquare <= 3.9, `917 Littlerock: ${r.hoursPerSquare} h/sq`);
+  assert.ok(r.hours < 127.72, `917 Littlerock: ${r.hours} h — was 127.72 before the 2026-09 calibration`);
   const two = roofCrewDays(r.hours, { crewSize: 2 });
-  assert.ok(two.days >= 6 && two.days <= 7, `two-man crew: ${two.days} days`);
+  assert.ok(two.days >= 7 && two.days <= 8.5, `two-man crew: ${two.days} days`);
   const four = roofCrewDays(r.hours, { crewSize: 4 });
-  assert.ok(four.days >= 3 && four.days <= 4, `four-man crew: ${four.days} days`);
+  assert.ok(four.days >= 3.5 && four.days <= 4.5, `four-man crew: ${four.days} days`);
 });
 
-check("field work agrees with the reference within 20%", () => {
-  // Their 2.0 h/sq is all-in for install + underlayment + one layer stripped,
-  // because they have nowhere else to put the strip. Ours is 2.3 for the same
-  // three. The gap in a real job is the details and the fixed hours, not this.
+check("field work agrees with the Craftsman books within 5%, and the reference within 25%", () => {
+  // Install + underlayment + one layer stripped. The books: Craftsman NRR
+  // 2018 p.360 laminated over deck incl. felt 1.43 (small volume) + p.359
+  // strip 1.00 = 2.43 h/sq. Ours is 2.48. The reference calculator's 2.0
+  // all-in (which has nowhere else to put the strip) is now 24% under — the
+  // strip it implied was a production crew's, which the books are not.
   const ours =
     ROOF_LABOUR_DEFAULTS.installPerSquare +
     ROOF_LABOUR_DEFAULTS.underlaymentPerSquare +
     ROOF_LABOUR_DEFAULTS.tearOffFirstLayerPerSquare;
-  assert.ok(Math.abs(ours - 2.0) / 2.0 < 0.2, `field work is ${ours} h/sq`);
+  assert.ok(Math.abs(ours - 2.43) / 2.43 < 0.05, `field work is ${ours} h/sq vs the books' 2.43`);
+  assert.ok(Math.abs(ours - 2.0) / 2.0 < 0.25, `field work is ${ours} h/sq vs the reference 2.0`);
 });
 
 check("a typical walkable tear-off lands in the published 2.5-3.5 band", () => {

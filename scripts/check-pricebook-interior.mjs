@@ -783,14 +783,16 @@ console.log("\nAnd the cost side of one of them, by hand");
 //   CAD     83 × 17.50 = 1,452.50
 //   USD     83 × 14.50 = 1,203.50
 //   hours   hang 2,400 × 0.010 = 24.0
-//           L4   2,400 × 0.014 = 33.6   ⇒ 57.6 man-hours
+//           L4   2,400 × 0.008 = 19.2   ⇒ 43.2 man-hours
+//   (Level 4 moved to Craftsman NHI 2018 p.242's tape-and-finish DT@.008 on
+//   2026-10-05; it was 0.014 ⇒ 57.6.)
 const dwr = INTERIOR_RECIPES.drywall_install;
 const sheets = Math.ceil((2400 * (1 + dwr.waste.board)) / 32);
 ok("2,400 sqft of board at 10% waste is 83 whole 4x8 sheets", sheets === 83, sheets);
 ok("...costing CAD $1,452.50", near(sheets * interiorCost(dwr.materials.board_half_4x8.cost, "CAD"), 1452.5), (sheets * 17.5).toFixed(2));
 ok("...or USD $1,203.50 — a separately reasoned figure, not a conversion", near(sheets * interiorCost(dwr.materials.board_half_4x8.cost, "USD"), 1203.5));
 const dwHours = 2400 * dwr.labour.hangPerSqft + 2400 * dwr.labour.finishPerSqftByLevel[4];
-ok("...and 57.6 man-hours to hang and finish it to Level 4", near(dwHours, 57.6, 0.001), dwHours.toFixed(2));
+ok("...and 43.2 man-hours to hang and finish it to Level 4", near(dwHours, 43.2, 0.001), dwHours.toFixed(2));
 // The margin sanity check the whole exercise is for: the sell price has to
 // cover the material and leave a real labour rate behind.
 const dwLabourBudget = (basement - sheets * 17.5) / dwHours;

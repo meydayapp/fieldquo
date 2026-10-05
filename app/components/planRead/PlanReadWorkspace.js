@@ -31,6 +31,7 @@ import QuoteFilesCard from "./QuoteFilesCard";
 import SheetMeasure from "./SheetMeasure";
 import { UnmeasuredBanner, MeasuredCard, AssumptionsCard, CrewPlanCard, SlicesCard, PastJobsLine, AccessSource, ConfidenceChip } from "./FirstPassCards";
 import { ReviewPanel, MaterialsCard, AccessReasonPicker } from "./ReviewPanel";
+import { itemDef, ITEM_ATTRIBUTE_CHOICES } from "@/lib/planRead/tradeCatalogue";
 
 const POLL_MS = 4000;
 const card = "bg-card border border-border rounded-xl p-4 sm:p-5";
@@ -727,13 +728,37 @@ function TradeCard({ trade, t, onOp, onMeasure, pricing, recommendation, useSugg
                 <tr key={it.id} className={`border-b border-border/60 align-top ${it.active ? "" : "opacity-50"}`}>
                   <td className="py-2 px-4 sm:px-2">{it.areaName || "—"}</td>
                   <td className="py-2 px-2">
-                    {it.label}
+                    {/* The catalogue's own label is translated; a label the
+                        read wrote ("Kitchen GFCIs") is the read's words. */}
+                    {it.label === itemDef(trade.tradeKey, it.itemKey)?.label ? t(`app.planRead.item.${trade.tradeKey}.${it.itemKey}`, it.label) : it.label}
                     {Object.keys(it.attributes || {}).length > 0 && (
                       <span className="block text-[11px] text-muted-foreground">
                         {Object.entries(it.attributes)
-                          .map(([k, v]) => `${t(`app.planRead.attr.${k}`, k)}: ${typeof v === "boolean" ? (v ? "✓" : "—") : v}`)
+                          .filter(([k]) => !(it.itemKey === "water_heater" && k === "heaterType"))
+                          .map(([k, v]) => `${t(`app.planRead.attr.${k}`, k)}: ${typeof v === "boolean" ? (v ? "✓" : "—") : Object.hasOwn(ITEM_ATTRIBUTE_CHOICES, k) ? t(`app.planRead.choice.${k}.${v}`, String(v).replace(/_/g, " ")) : v}`)
                           .join(" · ")}
                       </span>
+                    )}
+                    {/* A water heater's TYPE moves its hours fivefold (a
+                        tankless is 16–20 h against a tank's 3–6). The read
+                        fills it from the equipment schedule when it can; a
+                        person chooses it when the drawings do not say. */}
+                    {it.itemKey === "water_heater" && (
+                      <label className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        {t("app.planRead.attr.heaterType", "type")}
+                        <select
+                          value={it.attributes?.heaterType || ""}
+                          onChange={(e) => onOp({ op: "set_item_choice", itemId: it.id, attribute: "heaterType", value: e.target.value || null })}
+                          className="min-h-[32px] rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+                        >
+                          <option value="">{t("app.planRead.choice.heaterType.unset", "Not stated — choose")}</option>
+                          {ITEM_ATTRIBUTE_CHOICES.heaterType.map((v) => (
+                            <option key={v} value={v}>
+                              {t(`app.planRead.choice.heaterType.${v}`, { electric: "Electric tank", gas: "Gas tank, new", gas_replacement: "Gas tank, replacing one", tankless: "Tankless" }[v])}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     )}
                   </td>
                   <td className="py-2 px-2 text-right whitespace-nowrap">{it.quantity.value ? `${it.quantity.value.toLocaleString()} ${unitLabel(it.quantity)}` : "—"}</td>

@@ -2079,27 +2079,61 @@ export const INTERIOR_RECIPES = {
       cornerBeadLfPerSqftBoard: null,
     },
 
+    // LABOUR-hours (one person, one hour). Calibrated 2026-10-05 against
+    // Craftsman NHI 2018 p.242–245 (owner: "fix the mismatches using their
+    // numbers as reference"). These are presets: a company edits them on the
+    // drywall rate card (lib/pricing/labourPresets.js), never here.
     labour: {
       // Man-hours per square foot of board. 0.010 ⇒ 32 sqft (one 4x8) in
-      // 0.32 man-hours, about 2.5 sheets per man-hour. ASSUMPTION: a two-hand
-      // crew on 8–9 ft walls with the board stocked in the room. A boxed
-      // production crew beats this by half; this is a small residential
-      // contractor with a screw gun and a lift.
+      // 0.32 man-hours, about 2.5 sheets per man-hour — 25 sheets in an
+      // 8-hour labour day, which is what drywall_install's suggested
+      // production rate says (lib/services/productionRates.js derives it from
+      // this figure). ASSUMPTION: a two-hand crew on 8–9 ft walls with the
+      // board stocked in the room. Craftsman NHI 2018 p.242 prints hang only
+      // at .008 walls / .012 ceilings — this sits 1.25x above it for a small
+      // residential crew, and the book's ceiling ratio (1.5) is within 11% of
+      // the 1.35 below.
       hangPerSqft: 0.01,
       hangCeilingMultiplier: 1.35,
+      // Craftsman NHI 2018 p.242, hang only, 5/8" Type X .009 vs 1/2" .008 → +0.001 mh/sf
+      typeXHangAdderPerSqft: 0.001,
 
       // Finishing, by GA-214 level, per square foot of board. Includes the
       // sanding between coats. The ratios are the point: each level adds a
       // pass, and Level 5's full skim is 1.7× Level 4, which is the published
       // 40–70% premium on the finishing line.
+      //
+      // Level 4 is the book's figure: Craftsman NHI 2018 p.242, "tape and
+      // finish only", walls DT@.008. WAS 0.014 — 1.75x the book on walls. The
+      // other levels keep their ratio to Level 4 (x 0.008 / 0.014), so the
+      // ladder still steps the way GA-214 does; the book prints no other level.
       finishPerSqftByLevel: {
-        1: 0.004, // tape set only
-        2: 0.007, // + one coat over joints, angles, fasteners
-        3: 0.01, // + a second coat on joints and angles
-        4: 0.014, // + a third coat, two over fasteners, sanded smooth
-        5: 0.024, // + a skim coat over the ENTIRE surface, sanded
+        1: 0.0023, // tape set only
+        2: 0.004, // + one coat over joints, angles, fasteners
+        3: 0.0057, // + a second coat on joints and angles
+        // Craftsman NHI 2018 p.242, "tape and finish only, walls" DT@.008 → 0.008 mh/sf
+        4: 0.008, // + a third coat, two over fasteners, sanded smooth
+        5: 0.0137, // + a skim coat over the ENTIRE surface, sanded
       },
-      cornerBeadPerLf: 0.05,
+      // Craftsman NHI 2018 p.242, tape and finish ceilings DT@.010 ÷ walls DT@.008 → ×1.25
+      finishCeilingMultiplier: 1.25,
+      // Craftsman NHI 2018 p.243, "metal or plastic bullnose, 8' piece" DI@.128 → 0.016 mh/LF
+      // INSTALL ONLY. Mudding the bead is inside the finish rate above, as it
+      // is inside the book's tape-and-finish row — counting it here as well
+      // was the double count behind the old 0.05.
+      cornerBeadPerLf: 0.016,
+      // Craftsman NHI 2018 p.244, "patch hole: cut back, backing, 3 coats, sand" BC@1.00 → 1.00 mh/ea
+      patchEach: 1.0,
+      // Craftsman NHI 2026 p.35, "drywall removal" BL@.010 → 0.010 mh/sf (NHI 2018 p.242: walls .008, ceilings .009)
+      demoPerSqft: 0.01,
+      // Craftsman NHI 2018 p.244, texture by type, "orange peel" .006 … "skip trowel" .009, "popcorn" .005 → mh/sf
+      texturePerSqft: {
+        orangePeel: 0.006,
+        spatter: 0.007,
+        knockdown: 0.008,
+        skipTrowel: 0.009,
+        popcorn: 0.005,
+      },
       resilientChannelPerSqft: 0.006,
       setupAndContainmentHours: 1.5,
       debrisHoursPer100SqftBoard: 0.15,
@@ -2345,17 +2379,41 @@ export const INTERIOR_RECIPES = {
         source: SOURCE.TRADE,
       },
     },
+    // Calibrated 2026-10-05 against Craftsman NCE 2018 p.153–157, NRR 2018
+    // and NHI 2026 p.36 (owner: "fix the mismatches using their numbers as
+    // reference"). Presets: a company edits them on the flooring install rate
+    // card (lib/pricing/labourPresets.js), never here.
     labour: {
       // Per square foot, man-hours. LVP at 0.018 ⇒ ~440 sqft in an
       // eight-hour day, which is a competent installer in rooms with a
-      // reasonable number of cuts. ASSUMPTION.
+      // reasonable number of cuts. ASSUMPTION — inside the books' vinyl tile
+      // band (NRR .013–.016, NCE .023); no book prints an LVP row.
       lvpPerSqft: 0.018,
-      laminatePerSqft: 0.016,
-      engineeredNailPerSqft: 0.03,
-      solidNailPerSqft: 0.035,
+      // Craftsman NCE 2018 p.155, "laminate (Pergo), glued tongue and groove" BF@.051 → 0.051 mh/sf; click taken at 0.030
+      // The book's row is GLUED-joint laminate; a click floor drops the glue
+      // and the clamping of every joint, which is most of the gap to a
+      // production click crew (.016–.020 — FieldQuo's old figure and its
+      // LVP). 0.030 is the geometric middle of the two (√(.016 × .051) =
+      // .029): the book's underlayment, undercutting and wall cuts stay; its
+      // joint gluing goes. WAS 0.016.
+      laminatePerSqft: 0.03,
+      // Craftsman NCE 2018 p.155, "floating engineered" FL@.051 → 0.051 mh/sf. WAS 0.030.
+      engineeredNailPerSqft: 0.051,
+      // Craftsman NCE 2018 p.154, "prefinished solid strip 2-1/4", nailed" BF@.062 → 0.062 mh/sf. WAS 0.035 (maple strip's .036).
+      solidNailPerSqft: 0.062,
+      // Craftsman NRR 2018 p.351–353, sheet vinyl FB .145/SY ÷ 9 → 0.016 mh/sf (NCE prints .250/SY = .028)
+      sheetVinylPerSqft: 0.016,
+      // Craftsman NRR 2018 p.351–353, "vinyl tile over wood" FB .016 → 0.016 mh/sf (over concrete .013; NCE glue-down .023)
+      vinylTilePerSqft: 0.016,
+      // Craftsman NCE 2018 p.155, unfinished strip: sand 3 passes .023 + stain/seal .010 + 2 coats urethane .012 → 0.045 mh/sf
+      sandAndFinishPerSqft: 0.045,
       glueDownAdderPerSqft: 0.01,
       tearOutCarpetPerSqft: 0.008,
       tearOutResilientPerSqft: 0.012,
+      // Craftsman NHI 2026 p.36, "hardwood floor, nailed" BL@.290/SY ÷ 9 → 0.032 mh/sf
+      tearOutHardwoodNailedPerSqft: 0.032,
+      // Craftsman NHI 2026 p.36, "hardwood floor, glued" BL@.503/SY ÷ 9 → 0.056 mh/sf
+      tearOutHardwoodGluedPerSqft: 0.056,
       // Four to five times any other tear-out. Thinset does not let go, and
       // this single figure is the reason a tile-to-LVP conversion quoted off a
       // carpet-removal rate loses money.
@@ -2499,7 +2557,8 @@ export const INTERIOR_RECIPES = {
       showerSurroundPerSqft: 0.18,
       waterproofingPerSqft: 0.02,
       uncouplingPerSqft: 0.015,
-      backerBoardPerSqft: 0.02,
+      // Craftsman NHI 2018 p.245, "Durock 1/2"" TL@.042 → 0.042 mh/sf (5/8" .047; DensShield .042). WAS 0.02.
+      backerBoardPerSqft: 0.042,
       groutPerSqft: 0.02,
       patternAdderPerSqft: 0.03, // diagonal, herringbone, basketweave
       heatedFloorPerSqft: 0.035,
@@ -2630,10 +2689,26 @@ export const INTERIOR_RECIPES = {
       // a half hours on site, not a day for one person. Scheduling off these
       // figures without halving them books twice the time.
       insertWindowEach: 2.5,
-      fullFrameWindowEach: 5.0,
+      // Craftsman NRI 2019 p.447, "install window, average size (11 to 16 sf)" 1C@1.39 → 1.39 mh/ea
+      // The full-frame item does NOT include trim or flashing — exterior
+      // capping (cappingPerOpening), interior casing (casingPerOpening) and
+      // the stool and apron are rows of their own below, and removal is
+      // removalAndDisposalEach. So it moves to the book's install figure.
+      // WAS 5.0, 2.5–3.6x every book.
+      fullFrameWindowEach: 1.39,
       interiorPrehungEach: 2.0,
       interiorSlabEach: 1.5,
-      exteriorEntryDoorEach: 6.0,
+      // The entry-door item DOES include flashing and a sill pan ("pre-hung,
+      // flashed & sill pan"), so it is SPLIT rather than cut: the install is
+      // the book's and the flashing is a row of its own, so neither is
+      // counted twice. Casing stays casingPerOpening.
+      // Craftsman NRR 2018 p.139, "entrance door units" 2C 1.33 Lg / 2.05 Sm → 2.05 mh/ea (small-volume residential)
+      exteriorEntryDoorEach: 2.05,
+      // No Craftsman row prices a door's sill pan and flashing. ASSUMPTION:
+      // 1.0 h — the nearest printed figure is a 10 ft drip cap at SW@.350
+      // (Craftsman NCE 2018 p.267); a formed sill pan, two jamb tapes and the
+      // head flashing are about three of those. WAS inside the 6.0.
+      exteriorEntryDoorFlashEach: 1.0,
       patioSliderEach: 7.0,
       stormDoorEach: 2.5,
       cappingPerOpening: 1.0,

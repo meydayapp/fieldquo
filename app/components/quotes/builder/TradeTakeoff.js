@@ -48,7 +48,7 @@ import {
   STAIR_SHAPES,
   DEFAULT_STAIR_SHAPE,
 } from "@/lib/estimate/stairsFromSteps";
-import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
+import { pitchBand, roofLabour, roofCrewDays, TEAR_OFF_MATERIALS } from "@/lib/pricing/roofLabour";
 import { takeoffPatch, summarise, ventilation } from "@/lib/measure/roofGeometry";
 import { gutterTakeoffPatch, summariseGutters } from "@/lib/measure/gutterMeasurement";
 import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
@@ -2793,7 +2793,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
             suffix="/12"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {band.label} · {t("app.takeoff.labourWord", "labour")} ×{band.factor}
+            {band.label} · {t("app.takeoff.labourWord", "labour")} ×{labour.pitch?.factor ?? band.factor}
           </p>
         </Field>
         <Field label={t("app.roof.layersField", "Existing layers to strip")}>
@@ -2807,6 +2807,24 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
               ? t("app.roof.newDeck", "New deck — nothing to tear off")
               : t("app.roof.layerHint", "Each layer adds to the strip, not to the install")}
           </p>
+          {/* What the first layer IS. Slate, tile and wood strip far slower
+              than asphalt (the roofing rate card's labour block, Craftsman-
+              calibrated); asphalt is the default and what an unset takeoff
+              has always been priced as. */}
+          {num(takeoff.layers) > 0 && (
+            <select
+              aria-label={t("app.roof.tearOffMaterial", "What is being stripped")}
+              value={takeoff.tearOffMaterial || "asphalt"}
+              onChange={(e) => set({ tearOffMaterial: e.target.value === "asphalt" ? undefined : e.target.value })}
+              className={`${inputClass} mt-1`}
+            >
+              {TEAR_OFF_MATERIALS.map((k) => (
+                <option key={k} value={k}>
+                  {t(`app.roof.tearOff.${k}`, { asphalt: "Stripping asphalt shingles", wood: "Stripping wood shingles or shakes", slate: "Stripping slate", tile: "Stripping clay or concrete tile", built_up: "Stripping built-up roofing" }[k])}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
       </div>
 

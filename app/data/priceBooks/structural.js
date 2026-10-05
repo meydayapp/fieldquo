@@ -1057,13 +1057,15 @@ const CONCRETE_RECIPE = {
   wasteMeshPct: spec(0.1, "Mesh is lapped one square at every seam.", "read"),
   wasteGravelPct: spec(0.1, "Compaction loss and spillage between the pile and the hole.", "derived"),
 
-  // ── Labour, crew-hours
+  // ── Labour, LABOUR-hours (one person for one hour; Craftsman's manhours)
   labourMobilisationHours: spec(4, "Load, travel, set out, and put away. Half the paving book's 8 because no excavator is floated for flatwork. It does NOT scale with area, which is the whole reason it is separate.", "derived"),
   labourExcavationHoursPerCuYd: spec(0.35, "Machine digging with one hand trimming. Independently the same figure lib/pricing/paverLabour.js measured, because it is the same work.", "read"),
   labourBaseHoursPerCuYd: spec(0.3, "Spreading and compacting granular, lift by lift. Same source and same reasoning.", "read"),
-  labourFormingHoursPerLf: spec(0.07, "Two hands form roughly 110 linear feet of edge form in a day: 16 crew-hours / 110 = 0.145 for one, 0.07 for the pair working a straight run.", "derived"),
-  labourReinforcingHoursPerSqft: spec(0.006, "Rolling mesh or tying a mat: two hands cover roughly 1,300 sqft in a day. 8 / 1,300 = 0.006.", "derived"),
-  labourPlaceFinishHoursPerSqft: spec(0.032, "The big one. A three-person finishing crew places and finishes 800–1,000 sqft of 4-inch broom slab in a day: 24 crew-hours / 850 = 0.028, taken at 0.032 because the last hour of a pour is never productive and it is always charged.", "derived"),
+  // Craftsman NCE 2019 p.615, "driveway apron 4", forms, mesh, finishing" P9@.024 − walkway place & broom .013 − mesh .006 → forms .005/sf; on the book's 12 x 20 apron (44 LF of form) = 0.027 mh/LF
+  labourFormingHoursPerLf: spec(0.027, "Calibrated 2026-10-05 against Craftsman NCE 2019 p.615: a 4-inch driveway apron INCLUDING forms, mesh and finishing is .024 manhours per sq ft; place-and-broom alone (walkway from the chute, no forms) is .013 and mesh .006 below, which leaves .005/sq ft for the forms. On a 12 x 20 apron that is 240 sq ft against 44 ft of edge form: 1.2 h / 44 = 0.027 per linear foot. WAS 0.07, which with the other two put a slab at 1.6-2.5x the book.", "derived"),
+  labourReinforcingHoursPerSqft: spec(0.006, "Rolling mesh or tying a mat: two hands cover roughly 1,300 sqft in a day. 8 / 1,300 = 0.006. Inside Craftsman NCE 2019 p.615's .024 all-in apron (see forming).", "derived"),
+  // Craftsman NCE 2019 p.615, "walkway 4", from chute, broom finish, no forms" P8@.013 → 0.013 mh/sf
+  labourPlaceFinishHoursPerSqft: spec(0.013, "Craftsman NCE 2019 p.615: placing 4-inch flatwork from the chute with a broom finish, no forms, P8@.013 manhours per sq ft (a steel trowel adds .011). WAS 0.032 — a crew's day with the last unproductive hour charged; the book prices the slab, not the hour.", "read"),
   labourStampHoursPerSqft: spec(0.035, "Stamping roughly doubles the finishing half of the pour. Added to place-and-finish, not replacing it.", "derived"),
   labourStripFormsHoursPerLf: spec(0.02, "A separate visit, which is why it is separate hours.", "derived"),
   labourSawCutHoursPerLf: spec(0.02, "Within 12 hours of the pour, usually a night call-out.", "derived"),
@@ -1263,8 +1265,18 @@ const MASONRY_RECIPE = {
   wasteStoneNaturalPct: spec(0.1, "Natural stone is sorted and cut on site and 10% is normal. Ordering it flat is how a job runs out of stone with one elevation left and a dye lot that no longer exists.", "read"),
   wasteMortarPct: spec(0.08, "Board waste and a batch that goes off.", "derived"),
 
-  // ── Labour, crew-hours (a mason plus a tender is 2 crew-hours per hour)
-  labourBrickHoursPerSqft: spec(0.22, "A mason lays 400–600 brick a day on residential veneer. 500 brick is 74 sqft; with a tender that is 16 crew-hours, so 16 / 74 = 0.216.", "derived"),
+  // ── Labour, LABOUR-hours — a mason plus a tender is 2 labour-hours per hour (Craftsman's manhours)
+  // Craftsman NRI 2019 p.240, "brick veneer, standard brick" 4M@.144 → 0.144 mh/sf
+  labourBrickHoursPerSqft: spec(0.144, "Calibrated 2026-10-05: Craftsman NRI 2019 p.240, standard brick veneer, 4M@.144 manhours per sq ft (mason, helper and hod carrier). Running bond; the bond adders below go on top. WAS 0.22, a 500-brick day with a full tender's 8 hours charged against it.", "read"),
+  // Craftsman NRI 2019 p.241, labour add for brick bond patterns (share of running-bond labour)
+  labourBondCommonAdd: spec(0.16, "Craftsman NRI 2019 p.241: common bond adds 16% to running-bond labour.", "read"),
+  labourBondFlemishAdd: spec(0.54, "Craftsman NRI 2019 p.241: Flemish bond adds 54%.", "read"),
+  labourBondEnglishAdd: spec(0.65, "Craftsman NRI 2019 p.241: English bond adds 65%.", "read"),
+  labourBondHerringboneAdd: spec(1.25, "Craftsman NRI 2019 p.241: herringbone adds 125%.", "read"),
+  labourBondBasketweaveAdd: spec(1.22, "Craftsman NRI 2019 p.241: basketweave adds 122%.", "read"),
+  labourBondSoldierAdd: spec(0.15, "Craftsman NRI 2019 p.241: a soldier course adds 15%.", "read"),
+  labourBondStackAdd: spec(0.08, "Craftsman NRI 2019 p.241: stack bond adds 8%.", "read"),
+  labourBondCurvedWallAdd: spec(0.27, "Craftsman NRI 2019 p.241: a curved wall adds 27%.", "read"),
   labourBlockHoursPerSqft: spec(0.11, "150–200 8-inch block a day. 175 block is 155 sqft; 16 crew-hours / 155 = 0.103, taken at 0.11 for cutting.", "derived"),
   labourStoneManufacturedHoursPerSqft: spec(0.2, "60 sqft per mason-day with partial tending: roughly 12 crew-hours / 60 = 0.20.", "derived"),
   labourStoneNaturalHoursPerSqft: spec(0.4, "25–40 sqft per mason-day. 32 sqft with a tender is about 13 crew-hours, so 13 / 32 = 0.40. Sorting and cutting is most of it.", "derived"),
@@ -1402,14 +1414,34 @@ const FRAMING_RECIPE = {
   wasteLumberPct: spec(0.1, "Cuts, crooks and culls. 10% is the standard framing allowance.", "read"),
   wasteSheathingPct: spec(0.12, "Higher than lumber because openings are cut out of full sheets and the offcut is rarely reusable.", "read"),
 
-  // ── Labour, crew-hours
+  // ── Labour, LABOUR-hours (one person for one hour — the Craftsman books'
+  // unit, "16 manhours per 1,000 SF = one 8-hour day for a crew of two",
+  // NCE 2026 p.7). The wall, sheathing, blocking and ceiling-joist figures
+  // were calibrated against Craftsman NCE on 2026-10-05 (owner: "fix the
+  // mismatches using their numbers as reference"); the source of each is in
+  // its basis. They are presets: a company edits them on the carpentry rate
+  // card (lib/pricing/labourPresets.js), never here.
   labourMobilisationHours: spec(4, "Tools, saws, a stock drop and a set-out.", "derived"),
-  labourWallFrameHoursPerLf: spec(0.16, "Two framers lay out, build and stand about 100 linear feet of 8-foot wall a day: 16 / 100 = 0.16.", "derived"),
-  labourPartitionHoursPerLf: spec(0.11, "Interior partitions run faster: no sheathing, no headers, lighter stock.", "derived"),
-  labourFloorFrameHoursPerSqft: spec(0.035, "Two framers set joists, rim and subfloor over about 450 sqft a day: 16 / 450 = 0.036.", "derived"),
+  // Craftsman NCE 2020 p.34, "2x6 wall, 1/2" drywall one side" .054 − .018 → .036 mh/sf × 8 ft = 0.288 mh/LF
+  labourWallFrameHoursPerLf: spec(0.288, "Craftsman NCE 2020 p.34: a 2x6 wall assembly with drywall one side is .054 manhours per sq ft of wall; the drywall side is .018 (the 2x4 one-side vs both-sides pair, .046 vs .064). Framing alone is .036/sq ft, x 8 ft = 0.288 per linear foot, before headers and posts. WAS 0.16 — a production framer's 100 ft a day; NCE's pace is ~55 ft for two.", "derived"),
+  // Craftsman NCE 2020 p.34, "2x4 interior wall, 1/2" drywall one side" .046 − .018 → .028 mh/sf × 8 ft = 0.224 mh/LF
+  labourPartitionHoursPerLf: spec(0.224, "Craftsman NCE 2020 p.34: a 2x4 interior wall with drywall one side is .046 manhours per sq ft, both sides .064, so one side of drywall is .018 and the framing .028/sq ft — x 8 ft = 0.224 per linear foot, no headers. WAS 0.11.", "derived"),
+  labourFloorFrameHoursPerSqft: spec(0.035, "Two framers set joists, rim and subfloor over about 450 sqft a day: 16 / 450 = 0.036. Craftsman NCE 2020 p.40–41 agrees within 13% (2x10 @16 .020 + subfloor .011 = .031).", "derived"),
   labourTrussSetHoursPerSqft: spec(0.028, "Three framers with a crane set and brace a 1,500 sqft truss roof in a day and a half: 36 / 1,500 = 0.024, taken at 0.028 for the bracing and the blocking.", "derived"),
-  labourCutRoofFactor: spec(2.5, "A stick-framed roof against a truss roof. Not a separate rate: expressed as a multiplier so it moves when the truss figure is corrected.", "derived"),
-  labourSheathingHoursPerSqft: spec(0.018, "Two framers sheathe about 900 sqft a day: 16 / 900 = 0.018.", "derived"),
+  // Craftsman NCE 2020 p.37, "conventionally framed gable 2x8 @24, ≤6/12, no hips or valleys" → .028 mh/sf plan
+  labourStickRoofHoursPerSqft: spec(0.028, "Craftsman NCE 2020 p.37: a conventionally framed gable roof, 2x8 at 24 in, 6/12 or flatter, no hips or valleys, no sheathing, is .028 manhours per sq ft of plan — the same as the truss figure above. A SIMPLE stick roof takes this, not the cut-roof factor.", "read"),
+  // Craftsman NCE 2020 p.39, cut-up small-job rafters ×1.95 and slope over 6/12 +38% → .028 × 1.95 × 1.38 = .075 → factor 2.69
+  labourCutRoofFactor: spec(2.69, "ONLY for a cut-up roof steeper than 6/12 (hips, valleys, dormers). Craftsman NCE 2020 p.39: cut-up small-job rafters run 1.95x a larger simple job and a slope over 6/12 adds ~38%, so .028 x 1.95 x 1.38 = .075/sq ft, 2.69x the simple roof. A simple gable is labourStickRoofHoursPerSqft, factor 1. WAS 2.5 applied to every stick roof.", "derived"),
+  // Craftsman NCE 2026 p.7 worked example, "1/2" plywood wall sheathing" B1@.016 → 0.016 mh/sf
+  labourSheathingHoursPerSqft: spec(0.016, "WALL sheathing. Craftsman NCE 2026 p.7 worked example: 1/2 inch plywood wall sheathing B1@.016 — 16 manhours per 1,000 sq ft. WAS 0.018.", "read"),
+  // Craftsman NCE 2020 p.32, "roof sheathing" .010 per sf floor ÷ 1.15 sf of sheet per sf floor → 0.0087 mh/sf
+  labourRoofSheathingHoursPerSqft: spec(0.0087, "ROOF sheathing, per sq ft of sheet. Craftsman NCE 2020 p.32 prints .010 manhours per sq ft of FLOOR for the roof sheathing of its rule-of-thumb house, whose roof is 1.15 sq ft of sheet per sq ft of floor: .010 / 1.15 = .0087.", "derived"),
+  // Craftsman NCE 2020 p.32, "subfloor 5/8" OSB" .011 per sf floor at 1,150 sf of sheet per 1,000 sf → 0.0096 mh/sf
+  labourSubfloorHoursPerSqft: spec(0.0096, "SUBFLOOR, per sq ft of sheet. Craftsman NCE 2020 p.32: 5/8 OSB subfloor is .011 manhours per sq ft of floor at 1,150 sq ft of sheet per 1,000 of floor: .011 / 1.15 = .0096.", "derived"),
+  // Craftsman NCE 2020 p.41, "solid blocking 2x10" .057 each at 16" o.c. → .057 × 12/16 = 0.043 mh/LF
+  labourBlockingHoursPerLf: spec(0.043, "Craftsman NCE 2020 p.41: solid blocking, 2x10, .057 manhours each; one block per 16-inch bay is 0.75 blocks per foot, so 0.043 per linear foot of blocking run (2x6/2x8 blocks are .042 each — 0.032/ft).", "derived"),
+  // Craftsman NCE 2020 p.32, "ceiling joists" .045 per sf floor → 0.045 mh/sf of ceiling
+  labourCeilingJoistHoursPerSqft: spec(0.045, "Craftsman NCE 2020 p.32: ceiling joists are .045 manhours per sq ft of floor in the book's rule-of-thumb house — one sq ft of ceiling per sq ft of floor.", "read"),
   labourHouseWrapHoursPerSqft: spec(0.006, "Roll, staple and tape.", "derived"),
   labourBeamSetHoursPerLf: spec(0.25, "Plying, lifting and bearing an LVL. The lifting is most of it, and it is where the crane decision gets made.", "derived"),
   labourHeaderHoursPerOpening: spec(0.9, "Build, set, and pack out one header with its jacks and cripples.", "derived"),
