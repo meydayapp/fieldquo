@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (drawing read P0 — every sheet pass in one bounded wave (13) with the photo pass beside it, md5-identical results; each stage's clock on the read and on /platform/ai-usage → Drawing reads; `/api/cron/plan-reads` resumes reads a closed tab left paused, never charging; the estimator's own edits logged beside the chat's; the same PDF bytes reuse an earlier read's sheet passes within the company only — `QuoteDocument.contentHash` SQL owed before deploy, see "Start from drawings")
 Last updated: 4 October 2026 (team chat channels and group chats — phases 1 and 2 of the channels plan: the office makes channels (public/private, office-only posting, include everyone, archive), anybody starts a group chat with no size limit, per-room notifications and mute, "Seen by", and @mentions in the bell. Schema is additive and NOT yet applied — the SQL is in "Team chat: channels and group chats" below)
 Last updated: 4 October 2026 (the live crew test, owner + Joe on the Crew preset at TrueFinish Cabinets — eleven gaps closed, one commit each: a PUBLISHED SHIFT on a job now grants the job like a visit (assignedJobWhere is visit OR published shift, from publication to 14 days after it ends; drafts/open/other people's shifts grant nothing) across the job page and routes, work order, job chat membership, clock picker, receipts and photo mentions, and My schedule links the job and its work order; My schedule shows the person's job visits from the same read as My day (GET /api/me/visits); Share with staff sends a crew DM the work order only and puts the crew's line first in rooms; the work order carries quantities and units, cabinet door/drawer counts, colour/sheen/coats, what's included, the options the client chose, the materials list, checklist, visit notes and hours (the quote's labour estimate as fallback) — still no money; the crew job page gets job wording on the upload box, the website star/tags/stage words and controls for curators only, and no client preparation guide (GET refuses crew); Jennifer's launcher steps aside on /app/chat and /app/messages; /app/scheduler reads "My shifts" for people who can't assign them; Add visit clears an error when its field changes; with no leave policies crew can still request UNPAID time off (LeavePolicy.systemUnpaid, additive — SQL in the commit, not applied); the correction form always offers a job picker scoped to their jobs; /app/timesheets is an alias. docs/ROLE-ACCESS.md has the table; open decisions 5–6 there: the shift window, and unpaid-with-no-policies.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
@@ -1202,13 +1203,59 @@ lead) reads them as one project. Code in `lib/planRead/`; check: `npm run check:
   per call through the wallet meter. provider.js now reports cached tokens; usage.js prices them at
   the cached rate (cost-REDUCING for any wallet feature whose call hits the cache).
 
+### P0 of the multi-trade plan — measure, speed, reliability (4 October 2026)
+
+No owner decision needed; all cost-neutral or cost-reducing. Check: `npm run check:plan-deep-read`
+sections 14–19 (scripted provider with real millisecond delays, never the live API).
+
+- **Measured, per stage** — every read records its clock on `PlanRead.usage.timing`
+  (`lib/planRead/timing.js`): the click, first/last upload landing, each slice that took the lease,
+  each sheet's start/end/attempts, sheets/photos/synthesis start and end, outcome. In `usage`, not a
+  new column, so no deploy-order risk. `/platform/ai-usage` → "Drawing reads" shows the last 40
+  reads with time and tokens/vendor $ per stage and the medians (`/api/platform/plan-reads`, view
+  only); the estimator sees "Took 3m 05s".
+- **Faster** — sheet passes all in flight at once, bounded by `SHEET_CONCURRENCY = 13` (was 4 per
+  batch), and the photo pass runs beside them instead of after; the synthesis still waits for both.
+  Answers go into each sheet's own slot, so the synthesis prompt, the model, every stored pass and the
+  charge are md5-identical to the old order for the same answers (proved in the check). A 429 that
+  survives the SDK's own retries backs off 4 s / 8 s and gets a third attempt; a sheet that runs out
+  of time is left unread for the next slice, never written off. Expected on the 13-sheet reference
+  set: sheets 2–4 min → ~45–75 s (one wave), photos 45–110 s now overlapped — about 2–4 min off a
+  5–9 min machine total, before the per-trade synthesis work of P5.
+- **Backstop cron** — `/api/cron/plan-reads` every 2 minutes (`lib/planRead/backstop.js`) resumes
+  reads whose lease has lapsed, so a closed tab no longer stalls a paid read. It never holds or
+  charges: it only calls `advanceRead`, which takes the lease first. Settling now writes only while
+  the row is still that run (status reading + the same `reservationRef`), the refund rides the
+  ledger's unique `refund:<ref>`, and the start's claim takes a 30-second lease until the hold is
+  written (closing a window where a poll could start a worker against no hold). A read still running
+  45 min after its click is given up and refunded in full.
+- **One history** — the estimator's own edits (PATCH: measure, equipment price, leave out / put back,
+  photo split/merge, rename, the client's wording) and sheet reuse are `PlanReadMessage` rows with
+  role `"edit"` (who, when, what), written in the same transaction as the edit, shown in the chat
+  card's timeline with names; never sent to the model (`chatHistory()`). Chat replies now record who
+  asked.
+- **Cache by file hash** — the server stores the SHA-256 of each drawing file it fetched
+  (`QuoteDocument.contentHash`, never from the browser). A read with unread sheets is offered "N of
+  these sheets were already read in “X” — reuse, saves about Y credits" when an earlier read in the
+  SAME company (same trade, same page, same sheet number, same extracted dimension count) has them;
+  `POST /api/plan-reads/[id]/reuse` recomputes the offer server-side under the row lock and remaps
+  the dimension ids. Another company's read of the identical file is never offered.
+- **Schema (additive, NOT applied — must be run before this deploys, or every drawing-read load
+  fails on the missing column):**
+  `ALTER TABLE "QuoteDocument" ADD COLUMN IF NOT EXISTS "contentHash" TEXT;`
+  `CREATE INDEX IF NOT EXISTS "QuoteDocument_companyId_contentHash_idx" ON "QuoteDocument"("companyId", "contentHash");`
+- Also fixed in passing: the settle wrote `similar: null` when the similar-jobs lookup threw — a bare
+  null on a Json column, which Prisma refuses, would have left a finished, paid read stuck
+  "reading". It now leaves `similar` as it was.
+
 ### Owed
 
 - Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
-  `PlanRead.usage` (per step) and as AiUsage `plan_read*` rows — read them after the first live read
-  and correct `READ_TOKENS` in lib/planRead/billing.js.
+  `PlanRead.usage` (per step, now with the stage clock) and as AiUsage `plan_read*` rows — read them
+  on /platform/ai-usage → Drawing reads after the first live read and correct `READ_TOKENS` in
+  lib/planRead/billing.js.
 - Phase 2: siding, roofing and other trades (their own catalogues/engines), equipment rental rates,
-  deductions for openings, a cron backstop for reads abandoned mid-way (today a poll resumes them).
+  deductions for openings. (The cron backstop shipped in P0 above.)
 
 ## Referrals need a chosen plan (3 October 2026)
 

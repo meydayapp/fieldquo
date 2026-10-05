@@ -22056,6 +22056,14 @@ model QuoteDocument {
   /// lib/media/validate.js). Null for anything that is not a PDF.
   pages Json?
 
+  /// SHA-256 (hex) of the file's bytes, computed by the server from the copy
+  /// it fetched to read (lib/planRead/documents.js) — never sent by the
+  /// browser. Lets a drawing read reuse an earlier read's sheet passes of the
+  /// SAME file, within the same company only (lib/planRead/sheetCache.js).
+  /// Null for files the server never fetched (photos) and for uploads made
+  /// before it existed.
+  contentHash String?
+
   supersedesId String?        @unique
   supersedes   QuoteDocument? @relation("QuoteDocumentRevision", fields: [supersedesId], references: [id])
   supersededBy QuoteDocument? @relation("QuoteDocumentRevision")
@@ -22067,6 +22075,7 @@ model QuoteDocument {
   @@index([companyId, quoteId])
   @@index([companyId, leadId])
   @@index([planReadId])
+  @@index([companyId, contentHash])
 }
 
 /// "Start from drawings": one project overview read from a drawing set, a
@@ -22121,7 +22130,9 @@ model PlanRead {
   reservationRef String?
   chargedCents   Int     @default(0)
   /// Token totals across every call: { promptTokens, cachedTokens,
-  /// completionTokens, calls, vendorMicros, byStep }.
+  /// completionTokens, calls, vendorMicros, byStep }, this run's spend
+  /// (`run`), and this run's stage-by-stage clock (`timing` —
+  /// lib/planRead/timing.js).
   usage          Json?
 
   readAt    DateTime?
@@ -22143,7 +22154,10 @@ model PlanReadMessage {
   company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   planReadId   String
   planRead     PlanRead @relation(fields: [planReadId], references: [id], onDelete: Cascade)
-  /// "user" | "assistant"
+  /// "user" | "assistant" | "edit" — "edit" is the estimator's own change
+  /// through PATCH /api/plan-reads/[id] (or a reuse of earlier sheet
+  /// passes), logged in the same timeline and never sent to the model
+  /// (lib/planRead/history.js).
   role         String
   text         String
   /// The applied changes, as the server summarised them.

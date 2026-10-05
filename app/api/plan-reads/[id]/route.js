@@ -5,11 +5,15 @@
 //       picked up again here — the poll that shows progress is what keeps a
 //       read moving across Vercel's per-invocation ceiling (lib/planRead/run.js).
 //   ?sheet=<key> adds that sheet's dimension list for the measure tool.
+//       Also: who wrote each line of the history, and — when an earlier read
+//       of the same drawing file has sheet passes this one still needs — the
+//       offer to reuse them (lib/planRead/sheetCache.js, POST …/reuse).
 // PATCH the estimator's own edits: the title, what the client wants, a
 //       measurement traced on a sheet, a price typed for a lift, a surface or
 //       area switched off, a photo grouping split or merged. The same
 //       applyOps the chat uses, with actor "person" — so only a person can set
-//       a measurement or a price.
+//       a measurement or a price. Each one is logged in the read's history
+//       beside the chat's changes (lib/planRead/history.js).
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -25,6 +29,8 @@ import { advanceRead, readInputs, loadPaintBooks } from "@/lib/planRead/run";
 import { applyOps, buildDimIndex } from "@/lib/planRead/projectModel";
 import { planSubstrateKeys } from "@/lib/planRead/catalogue";
 import { splitPhotoSurface, mergePhotoSurfaces } from "@/lib/planRead/photoScale";
+import { editLogEntry, withAuthors } from "@/lib/planRead/history";
+import { findSheetCache } from "@/lib/planRead/sheetCache";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -44,15 +50,24 @@ export async function GET(request, { params }) {
   }
 
   const sheetKey = new URL(request.url).searchParams.get("sheet");
-  const [balanceCents, company] = await Promise.all([
+  const [balanceCents, company, authors, cache] = await Promise.all([
     aiBalanceFor(member.companyId),
     db.company.findUnique({ where: { id: member.companyId }, select: { currency: true } }),
+    withAuthors(read.messages, { prisma: db, companyId: member.companyId }),
+    // The offer is a convenience: a failed lookup shows no offer, never a
+    // broken page.
+    findSheetCache(read, { companyId: member.companyId, prisma: db }).catch((err) => {
+      console.error("[planRead] sheet cache:", err?.message);
+      return { offers: [] };
+    }),
   ]);
   const view = await planReadView(read, {
     companyId: member.companyId,
     canSeeMoney: hasToggle(full, "showPricing"),
     balanceCents,
     sheetKey,
+    authors,
+    reuseOffer: cache.offers[0] || null,
   });
   return NextResponse.json({ ...view, currency: company?.currency || null });
 }
@@ -73,8 +88,14 @@ export async function PATCH(request, { params }) {
   const raw = await request.json().catch(() => ({}));
   const data = {};
   const changes = [];
-  if (typeof raw?.title === "string") data.title = clip(raw.title, 120) || read.title;
-  if (typeof raw?.clientRequest === "string") data.clientRequest = clip(raw.clientRequest, 2000) || null;
+  if (typeof raw?.title === "string") {
+    data.title = clip(raw.title, 120) || read.title;
+    if (data.title !== read.title) changes.push(`Renamed the project to “${data.title}”`);
+  }
+  if (typeof raw?.clientRequest === "string") {
+    data.clientRequest = clip(raw.clientRequest, 2000) || null;
+    if ((data.clientRequest || "") !== (read.clientRequest || "")) changes.push("Changed what the client wants");
+  }
 
   if (raw?.photo && read.photoRead) {
     const next =
@@ -128,6 +149,14 @@ export async function PATCH(request, { params }) {
   }
 
   if (!Object.keys(data).length) return NextResponse.json({ ok: true, changes: [] });
-  await db.planRead.updateMany({ where: { id: read.id, companyId: member.companyId }, data });
+  // The estimator's own edits go into the same history as the chat's — who,
+  // when, what changed — written in the SAME transaction as the edit, the
+  // messages route's rule: the history and the read can never disagree.
+  // Nothing is logged when nothing changed (a title saved as it was).
+  const log = editLogEntry({ changes, companyId: member.companyId, planReadId: read.id, userId: member.userId || null });
+  await db.$transaction([
+    db.planRead.updateMany({ where: { id: read.id, companyId: member.companyId }, data }),
+    ...(log ? [db.planReadMessage.create({ data: log })] : []),
+  ]);
   return NextResponse.json({ ok: true, changes });
 }

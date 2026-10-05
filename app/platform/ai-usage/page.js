@@ -16,6 +16,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
+import PlanReadTimings from "@/app/components/platform/PlanReadTimings";
 
 // Absent is not zero, here as on every other tile in this console. `n || 0`
 // turned a field that never arrived into a confident "0 tokens · $0.00" — and
@@ -313,6 +314,10 @@ export default function AiUsagePage() {
           </div>
         )}
       </div>
+
+      {/* The deep read's stage-by-stage clock and cost — measured on real
+          reads, against the budgets lib/planRead/run.js was built on. */}
+      <PlanReadTimings />
     </div>
   );
 }
