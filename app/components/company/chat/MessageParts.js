@@ -581,7 +581,11 @@ export function SearchPanel({ roomId, roomTitle, roomNameFor, onOpen, onClose })
   const [scope, setScope] = useState(roomId ? "room" : "all");
   const [state, setState] = useState({ q: null, results: [], loading: false, error: "" });
   const input = useRef(null);
-  useEffect(() => input.current?.focus(), []);
+  // Block body: a method's return value is never the effect's cleanup
+  // (scripts/check-hooks.config.mjs, fieldquo/effect-returns-cleanup).
+  useEffect(() => {
+    input.current?.focus();
+  }, []);
   const term = useMemo(() => searchTerm(q), [q]);
   useEffect(() => {
     if (!term) {

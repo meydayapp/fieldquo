@@ -1246,7 +1246,15 @@ function ChatCard({ view, t, language, credits, money, onSent, onTopup, onApplyP
   const [pending, setPending] = useState(null);
   const end = useRef(null);
   const messages = [...(view.messages || []), ...(pending ? [{ id: "pending", role: "user", text: pending, changes: [] }] : [])];
-  useEffect(() => end.current?.scrollIntoView?.({ block: "nearest" }), [messages.length]);
+  // A block body, never `() => el.scrollIntoView()`: Chrome now returns a
+  // Promise from scrollIntoView, an arrow without braces hands it to React as
+  // the effect's cleanup, and React CALLS it on the next change — "i is not
+  // a function", the whole screen down, on every chat reply, price saved or
+  // edit (each one grows the history) and on leaving the page for the quote
+  // builder (the unmount runs the same cleanup). scripts/check-effect-cleanups.mjs.
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: "nearest" });
+  }, [messages.length]);
 
   async function send(e) {
     e.preventDefault();

@@ -1,6 +1,7 @@
 // scripts/check-hooks.config.mjs
 //
-// One rule, repo-wide: react-hooks/rules-of-hooks.
+// Two rules, repo-wide: react-hooks/rules-of-hooks, and an effect returns a
+// cleanup function or nothing (fieldquo/effect-returns-cleanup, below).
 //
 // ── Why a separate config when eslint.config.mjs already has this rule ───────
 //
@@ -47,11 +48,76 @@ import reactHooks from "eslint-plugin-react-hooks";
 const noop = { create: () => ({}) };
 const stub = (names) => ({ rules: Object.fromEntries(names.map((n) => [n, noop])) });
 
+// ── Second rule: an effect returns a cleanup function or nothing ───────────
+//
+// React calls whatever an effect returns, as its cleanup, on the next change
+// of its dependencies and on unmount. `useEffect(() => el.scrollIntoView())`
+// returned undefined for years — and then Chrome made scrollIntoView return a
+// Promise. The drawing read's chat effect (app/components/planRead/
+// PlanReadWorkspace.js) handed that Promise to React, which called it: "i is
+// not a function", the whole screen behind its error boundary on every chat
+// reply, every price saved, every edit, and on leaving the page for the quote
+// builder (the owner's live test, 2026-10-05). Production only — the dev
+// build warns and carries on.
+//
+// So: an effect's arrow without braces, or its `return`, may hand back only
+// a function, a variable holding one, a plain function CALL (`load()`,
+// `subscribe(fn)` — a helper whose job is to return the cleanup), or nothing.
+// A METHOD call's result (`el.scrollIntoView()`, `input.focus()`,
+// `promise.then()`) is never a cleanup — browsers change what those return —
+// and neither is an async callback (it always returns a Promise).
+const EFFECT_HOOK = /^use(?:Layout|Insertion)?Effect$/;
+const isFunctionNode = (n) => n && (n.type === "ArrowFunctionExpression" || n.type === "FunctionExpression");
+const isEffectCall = (call) =>
+  call?.type === "CallExpression" &&
+  ((call.callee.type === "Identifier" && EFFECT_HOOK.test(call.callee.name)) ||
+    (call.callee.type === "MemberExpression" && EFFECT_HOOK.test(call.callee.property?.name || "")));
+/** Why a returned expression is not a cleanup, or null when it may be one. */
+function notACleanup(expr) {
+  if (!expr) return null;
+  if (expr.type === "ChainExpression") return notACleanup(expr.expression);
+  if (isFunctionNode(expr) || expr.type === "Identifier") return null;
+  if (expr.type === "Literal" && expr.value === null) return null;
+  if (expr.type === "UnaryExpression" && expr.operator === "void") return null;
+  if (expr.type === "CallExpression") return expr.callee.type === "Identifier" ? null : "a method call's result";
+  if (expr.type === "LogicalExpression" || expr.type === "ConditionalExpression") {
+    return notACleanup(expr.type === "LogicalExpression" ? expr.right : expr.consequent) || notACleanup(expr.alternate || null);
+  }
+  return `a ${expr.type}`;
+}
+const effectCleanupRule = {
+  meta: { type: "problem", schema: [] },
+  create(context) {
+    const report = (node, why) =>
+      context.report({ node, message: `An effect may return only a cleanup function or nothing — this returns ${why}, which React will call as a function. Use a block body.` });
+    return {
+      CallExpression(call) {
+        if (!isEffectCall(call)) return;
+        const cb = call.arguments[0];
+        if (!isFunctionNode(cb)) return;
+        if (cb.async) return report(cb, "a Promise (an async callback)");
+        if (cb.body.type !== "BlockStatement") {
+          const why = notACleanup(cb.body);
+          if (why) report(cb.body, why);
+        }
+      },
+      ReturnStatement(ret) {
+        const ancestors = context.sourceCode.getAncestors(ret);
+        const fn = [...ancestors].reverse().find(isFunctionNode) || null;
+        if (!fn || !isEffectCall(fn.parent) || fn.parent.arguments[0] !== fn) return;
+        const why = notACleanup(ret.argument);
+        if (why) report(ret, why);
+      },
+    };
+  },
+};
+
 export default [
   {
     files: ["**/*.js", "**/*.jsx", "**/*.mjs"],
     plugins: {
       "react-hooks": reactHooks,
+      fieldquo: { rules: { "effect-returns-cleanup": effectCleanupRule } },
       "@next/next": stub(["no-img-element"]),
       react: stub(["no-danger"]),
     },
@@ -66,6 +132,7 @@ export default [
     linterOptions: { reportUnusedDisableDirectives: "off" },
     rules: {
       "react-hooks/rules-of-hooks": "error",
+      "fieldquo/effect-returns-cleanup": "error",
     },
   },
 ];
