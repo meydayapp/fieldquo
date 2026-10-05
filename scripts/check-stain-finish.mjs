@@ -221,7 +221,7 @@ section("G. Without a stain: identical to origin/main");
   for (const lang of ["en", "fr"]) pins[`stairs ${lang}`] = md5(buildTradeLineItems("stairs", { sections: [sec], basement: true, basementTreads: 12 }, null, { language: lang }));
   pins["cab hours"] = cabinetRunLabour({ doors: 20, drawers: 8 }, book).hours;
   pins["instant"] = md5(estimateCabinetRefinishing({ doorCount: 20, drawerCount: 8, addOns: ["softCloseHinges"] }, { ...INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing, enabled: true }));
-  if (process.env.PRINT_PINS) console.log(JSON.stringify(pins, null, 1));
+  if (process.argv.includes("--print-pins")) console.log(JSON.stringify(pins, null, 1));
   const EXPECTED = {
     "cab - en": "b414bbd31278ceca5f446f5be3345a0f",
     "cab - fr": "b414bbd31278ceca5f446f5be3345a0f",
