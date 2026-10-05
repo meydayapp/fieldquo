@@ -20,7 +20,7 @@ export const ARTICLES = {
     title: "The Leads board",
     summary:
       "Every enquiry that reaches your company, on one four-column board, scored Hot, Warm or Cold, with the lead panel where you assign it, note it and turn it into a quote.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "**Leads** is the first screen of the pipeline: the place an enquiry lands before it is anyone's client. A stranger fills in your quote form, books a visit, answers an ad, phones the receptionist, or you import a list — and a card appears here. Nothing on this screen is a quote yet; it is the queue of people to call back, ordered so the best one is on top.",
       "The board is a pipeline. A card moves left to right — **New**, **Contacted**, **Won**, **Lost** — and each card opens a panel where the real work happens: read why it scored what it did, assign it to someone, log a note, and convert it into a draft quote that carries everything the person told you.",
@@ -62,6 +62,20 @@ export const ARTICLES = {
           ] },
           { note: "The reason you pick for a lost lead is what separates a real enquiry from a wrong number in your numbers later. A lead marked **Not a real inquiry** is one click from being reopened if you change your mind." },
           { warning: "A card slides back the moment the server refuses the move — a lead never sits in a column it is not really in. If you see a red banner such as “This lead has no quote yet”, nothing changed." },
+        ],
+      },
+      {
+        id: "delete-a-lead",
+        heading: "How to delete a lead",
+        blocks: [
+          { p: "**Lost** is for a real enquiry that went nowhere, and it stays in your win/loss numbers. **Delete** is for a row that should never have counted: a test lead, or a conversation that was never an enquiry. Deleted leads drop out of your lead counts and reports. Only someone whose **Requests** access is **View, create, edit, and delete** sees the delete controls; the owner, administrators and the **Manager** level have it." },
+          { steps: [
+            "One lead: open it and press **Delete lead** at the bottom of the panel, or use the **⋯** menu on its card.",
+            "Several: press **Select** above the board, tap the cards you want, then **Delete N leads**.",
+            "Read the confirmation. It names the lead (or lists the selection), says it cannot be undone, and says what is kept: any quote, client, job or invoice made from it, and the conversation and its messages. They just stop pointing at the lead.",
+            "If the lead came from a Facebook, Instagram, WhatsApp, text or web-chat conversation, tick **Don't create a lead from this conversation again**. Without it, the next message from that person may create a new lead.",
+          ] },
+          { note: "Deleting cannot be undone. The lead and its notes are removed; its photos stay in your media storage, because a quote made from the lead uses the same files. Every deletion is recorded in the **Activity log** with who did it, the lead's name, where it came from and when it arrived. A deleted Facebook lead form is not imported again by the next sync." },
         ],
       },
       {

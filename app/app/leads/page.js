@@ -46,7 +46,11 @@ import {
   MapPinOff,
   BarChart3,
   Megaphone,
+  MoreHorizontal,
+  CheckSquare,
 } from "lucide-react";
+import LeadDeleteDialog from "@/app/components/leads/LeadDeleteDialog";
+import ActionMenu from "@/app/components/mobile/ActionMenu";
 import { describeAttribution, sourceName } from "@/lib/tracking/describe";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -357,6 +361,44 @@ function LeadsPage() {
   // a second standard.
   const canEdit = useHasLevel("requests", "view_create_edit");
 
+  // ── Delete (owner, 2026-10-05) ──────────────────────────────────────────
+  //
+  // The top rung of the requests dial — the same one DELETE /api/leads and
+  // /api/leads/[id] ask (lib/leads/deleteLead.js). Below it nothing about
+  // deleting is drawn: no ⋯ menu, no Select, no button in the panel. The
+  // server refuses regardless; this keeps the screen from offering it.
+  const canDelete = useHasLevel("requests", "view_create_edit_delete");
+  // The leads the confirm is about — one from a card or the panel, or the
+  // selection. Empty = the dialog is closed.
+  const [deleteTargets, setDeleteTargets] = useState([]);
+  // Selection mode: the board's cards become checkboxes. Off by default so a
+  // tap on a card still opens it, which is what the board is for.
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const toggleSelected = useCallback((id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelectedIds(new Set());
+  };
+  // Only what the server confirmed is removed from the board — never the
+  // selection as sent, which may have held an id that was already gone.
+  const onLeadsDeleted = (ids) => {
+    const gone = new Set(ids);
+    setLeads((prev) => (prev ?? []).filter((l) => !gone.has(l.id)));
+    setSelectedIds((prev) => new Set([...prev].filter((id) => !gone.has(id))));
+    if (gone.has(openId)) setOpenId("");
+    setDeleteTargets([]);
+    if (ids.length > 1) setSelecting(false);
+  };
+  const selectedLeads = (leads ?? []).filter((l) => selectedIds.has(l.id));
+
   // The lead mid-drag, by id — DragOverlay reads it for the floating preview
   // and canSetLeadStatus reads it to decide whether each column is a legal
   // drop target while the drag is in progress.
@@ -553,7 +595,49 @@ function LeadsPage() {
           <Flame size={13} className={sort === "score" ? "text-red-500" : "text-muted-foreground"} />
           {sort === "score" ? t("app.leads.sortHottest") : t("app.leads.sortNewest")}
         </button>
+        {canDelete && (leads ?? []).length > 0 && (
+          <button
+            type="button"
+            onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+            aria-pressed={selecting}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-semibold ${
+              selecting ? "bg-inverted text-inverted-foreground border-transparent" : "border-border text-foreground"
+            }`}
+          >
+            <CheckSquare size={13} />
+            {selecting ? t("app.leads.select.done") : t("app.leads.select.toggle")}
+          </button>
+        )}
       </div>
+
+      {/* The selection's own bar. Shown only while selecting, and the delete
+          button is disabled — not hidden — at zero, so it is clear where the
+          action will appear. */}
+      {selecting && (
+        <div className="flex flex-wrap items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+          <span className="text-sm font-medium text-foreground mr-auto">
+            {t("app.leads.select.count", { count: selectedIds.size })}
+          </span>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="min-h-[44px] px-3 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              {t("app.leads.select.clear")}
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={selectedIds.size === 0}
+            onClick={() => setDeleteTargets(selectedLeads)}
+            className="min-h-[44px] px-3 rounded-lg bg-red-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-40"
+          >
+            <Trash2 size={13} />
+            {t("app.leads.delete.confirmMany", { count: selectedIds.size })}
+          </button>
+        </div>
+      )}
 
       {showsMoney && (leads ?? []).length > 0 && (
         <PotentialStrip potential={potential} money={money} t={t} />
@@ -688,9 +772,13 @@ function LeadsPage() {
                 leads={grouped[col.key]}
                 onOpen={setOpenId}
                 t={t}
-                canEdit={canEdit}
+                canEdit={canEdit && !selecting}
                 pendingIds={pendingIds}
                 activeLead={activeLead}
+                selecting={selecting}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelected}
+                onDelete={canDelete ? (lead) => setDeleteTargets([lead]) : null}
               />
             ))}
           </div>
@@ -710,9 +798,17 @@ function LeadsPage() {
           assignees={assignees}
           onClose={() => setOpenId("")}
           onPatched={patchLead}
+          onDelete={canDelete ? (lead) => setDeleteTargets([{ ...openLead, ...lead }]) : null}
           t={t}
         />
       )}
+
+      <LeadDeleteDialog
+        leads={deleteTargets}
+        onDeleted={onLeadsDeleted}
+        onClose={() => setDeleteTargets([])}
+        t={t}
+      />
     </div>
   );
 }
@@ -878,7 +974,7 @@ function TempBadge({ temperature, score, t, size = "sm" }) {
 // green if this drop is legal, red (and the cursor tells the same story) if
 // it isn't, so the refusal is visible from the moment the card crosses the
 // boundary rather than only after it's released.
-function LeadColumn({ col, leads, onOpen, t, canEdit, pendingIds, activeLead }) {
+function LeadColumn({ col, leads, onOpen, t, canEdit, pendingIds, activeLead, selecting = false, selectedIds = null, onToggleSelect = null, onDelete = null }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   // "Lost" always shows as a legal drop target during the drag itself — the
   // reason canSetLeadStatus would refuse it for (no lostReason yet) is
@@ -919,6 +1015,12 @@ function LeadColumn({ col, leads, onOpen, t, canEdit, pendingIds, activeLead }) 
             onOpen={() => onOpen(lead.id)}
             t={t}
             disabled={!canEdit || pendingIds.has(lead.id)}
+            selection={
+              selecting && onToggleSelect
+                ? { selected: Boolean(selectedIds?.has(lead.id)), toggle: () => onToggleSelect(lead.id) }
+                : null
+            }
+            onDelete={onDelete && !selecting ? () => onDelete(lead) : null}
           />
         ))}
       </div>
@@ -933,7 +1035,7 @@ function LeadColumn({ col, leads, onOpen, t, canEdit, pendingIds, activeLead }) 
 // element trying to be both would mean a keyboard user could never reliably
 // open the drawer. Mouse and touch can still pick the card up from anywhere
 // on the handle; the rest of the card stays a normal click target.
-function DraggableLeadCard({ lead, tone, onOpen, t, disabled }) {
+function DraggableLeadCard({ lead, tone, onOpen, t, disabled, selection = null, onDelete = null }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: lead.id,
     disabled,
@@ -950,12 +1052,40 @@ function DraggableLeadCard({ lead, tone, onOpen, t, disabled }) {
             ? null
             : { attributes, listeners, ref: setActivatorNodeRef }
         }
+        selection={selection}
+        onDelete={onDelete}
       />
     </div>
   );
 }
 
-function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
+// The card's ⋯ menu — ActionMenu, the one "More…" menu (a bottom sheet on a
+// phone, a viewport-kept dropdown above that). One item today, Delete, and
+// drawn only for someone who may delete (onDelete is null otherwise), so it
+// is never a menu of nothing.
+function CardMenu({ onDelete, t, offsetRight }) {
+  return (
+    <div className={`absolute top-1.5 z-10 ${offsetRight ? "right-[3.25rem]" : "right-1.5"}`}>
+      <ActionMenu
+        title={t("app.leads.menu")}
+        triggerClassName="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+        triggerProps={{ "aria-label": t("app.leads.menu"), title: t("app.leads.menu") }}
+        trigger={<MoreHorizontal size={15} />}
+        items={[
+          {
+            key: "delete",
+            label: t("app.leads.delete.action"),
+            icon: Trash2,
+            danger: true,
+            onSelect: onDelete,
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
+function LeadCard({ lead, tone, onOpen, t, dragHandle, selection = null, onDelete = null }) {
   const { language } = useTranslation();
   const budgetKey = BUDGET_LABEL_KEY[lead.budgetBand];
   const timelineKey = TIMELINE_LABEL_KEY[lead.timeline];
@@ -971,7 +1101,12 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
   // the two signals, so it gets its own badge rather than being folded in.
   const { visual: photoCount, documents: docCount } = countMediaKinds(lead.clientPhotos);
   return (
-    <div className={`relative bg-card border rounded-xl ${tone} hover:shadow-sm transition-shadow`}>
+    <div
+      className={`relative bg-card border rounded-xl ${tone} hover:shadow-sm transition-shadow ${
+        selection?.selected ? "ring-2 ring-red-500 dark:ring-red-700" : ""
+      }`}
+    >
+      {onDelete && <CardMenu onDelete={onDelete} t={t} offsetRight={Boolean(dragHandle)} />}
       {dragHandle && (
         <button
           type="button"
@@ -985,9 +1120,29 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
           <GripVertical size={14} />
         </button>
       )}
-      <button onClick={onOpen} className="w-full text-left p-4">
-        <div className="flex items-start justify-between gap-2 pr-6">
-          <span className="font-medium text-foreground">{lead.name}</span>
+      {/* While selecting, the whole card is the checkbox — a 44px target on
+          a phone, where a lone box in the corner would not be. */}
+      <button
+        onClick={selection ? selection.toggle : onOpen}
+        role={selection ? "checkbox" : undefined}
+        aria-checked={selection ? selection.selected : undefined}
+        aria-label={selection ? t("app.leads.select.one", { name: lead.name }) : undefined}
+        className="w-full text-left p-4"
+      >
+        <div className={`flex items-start justify-between gap-2 ${onDelete && dragHandle ? "pr-24" : "pr-6"}`}>
+          <span className="flex items-start gap-2 min-w-0">
+            {selection && (
+              <span
+                aria-hidden="true"
+                className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] font-bold ${
+                  selection.selected ? "bg-red-700 border-red-700 text-white" : "border-border bg-card"
+                }`}
+              >
+                {selection.selected ? "✓" : ""}
+              </span>
+            )}
+            <span className="font-medium text-foreground break-words">{lead.name}</span>
+          </span>
           <TempBadge temperature={lead.temperature} score={lead.score} t={t} />
         </div>
         {/* The homeowner pressed "this doesn't look right" under a measured
@@ -1063,7 +1218,7 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
 // walk-through on /industries/roofing). With it the drawer renders that lead
 // instead of fetching one, and every write stays in this component's state —
 // see LeadsSample for why, and patch() below for how.
-function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null }) {
+function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, onDelete = null }) {
   const { language } = useTranslation();
   const [lead, setLead] = useState(sample);
   const [loading, setLoading] = useState(!sample);
@@ -1713,6 +1868,21 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null })
                 </ul>
               )}
             </div>
+
+            {/* Last, and apart from everything above it: the one control in
+                the panel that cannot be taken back. The confirm it opens
+                (LeadDeleteDialog) names the lead and says what is kept. */}
+            {onDelete && !sample && (
+              <div className="pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => onDelete(lead)}
+                  className="min-h-[44px] px-3 rounded-lg border border-red-200 dark:border-red-900 text-sm font-semibold text-red-700 dark:text-red-300 inline-flex items-center gap-1.5 hover:bg-red-50 dark:hover:bg-red-950/40"
+                >
+                  <Trash2 size={14} /> {t("app.leads.delete.action")}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

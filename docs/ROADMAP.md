@@ -177,6 +177,55 @@ killed), plus re-pins in `check:estimate-kind-routing` (the two fixtures above
   US shelf prices shown unconverted (labelled "US shelf price").
 - Access/materials are painting-only; trades do not use the measurement pass.
 
+## Delete a lead — one, a selection, and "not a lead" for conversations (5 October 2026)
+
+The owner, 2026-10-05: "There should be a way to delete leads… test ones, and
+some imported from conversations that may not have been a lead. They should be
+able to be deleted, not just marked lost."
+
+### What shipped (not deployed — unpushed branch)
+
+- `DELETE /api/leads/[id]` and `DELETE /api/leads` (bulk, ≤100, one
+  transaction) — `lib/leads/deleteLead.js`. Gate: the requests dial's top rung,
+  **View, create, edit, and delete** (owner/admin, Manager preset); crew,
+  estimators, dispatchers and support sessions are refused (403, standard
+  refusal shape). Another company's id is 404 and touches nothing.
+- Goes with the lead: its LeadNote rows and LeadIdentityLink rows (both the
+  schema's declared cascades). Survives with only its pointer cleared:
+  MessageThread, VoiceCall, CallConsent, VoiceCallTask (a QUEUED speed-to-lead
+  call is cancelled), FunnelResponse, FunnelVisit, QuoteDocument, PlanRead,
+  another link's `splitLeadId`. Never touched: Client, Quote (its link is
+  `LeadRequest.quoteId`, on the lead's own row), Job, Invoice, payments,
+  messages. Cloudinary files are NOT deleted (the converted quote shares them).
+- One `ActivityLog` row per lead (`lead.deleted`: who, name, source, received
+  date, quote, Meta leadgen ids), written inside the transaction — it is also
+  the tombstone that stops Meta's webhook/poll/backfill re-importing a deleted
+  lead form (`lib/leads/leadTombstone.js`, read by `importMetaLead`).
+- "Don't create a lead from this conversation again" — `MessageThread.
+  leadCapture.notALead` (existing JSON, no column). Honoured by the
+  conversation capture and the AI employee's book_callback; a lead a person
+  links by hand overrules it. book_callback now also links the thread it was
+  booked from (it never did, so its leads had no conversation to find).
+- Call recovery no longer rebuilds a lead it already recovered once
+  (`leadRecoveredAt`), since deleting clears `VoiceCall.leadId`.
+- Board: ⋯ menu on each card (ActionMenu), Select → "Delete N leads", and
+  "Delete lead" at the foot of the panel; one confirm (LeadDeleteDialog)
+  naming the lead and what is kept. No Undo — a hard delete can't honestly
+  offer one. Strings in all nine languages; help "The Leads board" has a new
+  "How to delete a lead" section in en/fr/es.
+- Counts: deleted leads drop out of every lead count (all read LeadRequest
+  live); MarketingSpend.leads is the ad platform's own number and is untouched.
+
+### Schema
+
+None.
+
+### Checks
+
+`check:lead-delete` (95 assertions; 18 mutations, all caught), in check:all.
+
+---
+
 ## Local-currency subscription, and AI plan credit that resets (4 October 2026)
 
 The owner, 2026-10-04: "the only price we do in local currency for CAD, USD,
