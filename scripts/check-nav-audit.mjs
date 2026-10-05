@@ -162,7 +162,9 @@ for (const [name, items] of [
 ]) {
   // A query string ("/app/receipts?snap=1" — the Create menu's Snap receipt)
   // does not change which page.js renders, so it is not part of the path.
-  const missing = items.filter((i) => !exists(`app${i.href.split("?")[0]}/page.js`));
+  // …nor does a #fragment (a row that opens a section of a page, e.g.
+  // /app/settings/services#equipment-access): the page must still exist.
+  const missing = items.filter((i) => !exists(`app${i.href.split(/[?#]/)[0]}/page.js`));
   ok(`${name}: every href has a page.js`, missing.length === 0,
     missing.map((i) => `${i.key} -> ${i.href}`).join(", "));
 }

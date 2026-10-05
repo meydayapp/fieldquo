@@ -194,7 +194,7 @@ export default function PaintHeightPrepSettings({ overrides, onChange }) {
 
       <Section id="equipment-access" title={t("app.paintPreset.accessTitle", "Equipment & access")} customised={["accessRates", "deliveryPerTrip", "frameScaffoldPer100Sqft"].some(set)} t={t}>
         <p className="text-xs text-muted-foreground">
-          {t("app.paintPreset.accessSource", "Your own day / week / month rates in {currency} win. Blank: Craftsman's {year} US$ rental table, sized to the working height and converted at the dated exchange rate.", { currency, year: ACCESS_REFERENCE_YEAR })}
+          {t("app.paintPreset.accessSource", "Your own day / week / month rates in {currency} win. Blank: Craftsman's {year} rental table in US dollars, sized to the working height and converted at the dated exchange rate.", { currency, year: ACCESS_REFERENCE_YEAR })}
         </p>
         {defaults?.error && <p className="text-xs text-amber-800 dark:text-amber-300">{t("app.paintPreset.defaultsFailed", "Couldn't load FieldQuo's default rates to show beside the boxes. Your own rates still save, and quotes still price from them.")}</p>}
         {defaults?.noRate && <p className="text-xs text-amber-800 dark:text-amber-300">{t("app.paintPreset.noFx", "FieldQuo holds no dated exchange rate to {currency}, so the reference can't be used: until you enter your rates here, access lines on your quotes say they are not priced.", { currency })}</p>}
