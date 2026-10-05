@@ -25,7 +25,9 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const MUTANT = process.env.FQ_MUTANT === "1";
+// A mutant run (the pass at the bottom re-runs this file against a changed
+// copy of the code) prints nothing and only exits.
+const MUTANT = process.argv.includes("--mutant");
 
 const { computeMetrics, compareMetrics, buildFunnel, median, DEFINITIONS, METRIC_KEYS, splitByChannel } = await import("@/lib/agency/metrics");
 const { resolvePeriod, previousPeriod, PERIOD_KEYS } = await import("@/lib/agency/periods");
@@ -169,6 +171,19 @@ const hidden = computeMetrics({ facts: sept, spend: { amount: 1000, connected: t
 ok("job values not shared → revenue, ROAS, average job null with the reason", ["revenue", "collected", "roas", "averageJobSize"].every((k) => hidden.values[k] === null && hidden.reasons[k] === "money_not_shared"));
 ok("… but cost per lead (spend) still shown", hidden.values.costPerLead === 100);
 
+// The definition the API returns and the tooltip the page shows are one
+// sentence: the English catalogue entry IS DEFINITIONS[k].en, and every
+// label and definition exists in all nine languages.
+{
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  ok("the English tooltip is the API's definition, word for word", METRIC_KEYS.every((k) => APP_MESSAGES.en[DEFINITIONS[k].key] === DEFINITIONS[k].en), METRIC_KEYS.filter((k) => APP_MESSAGES.en[DEFINITIONS[k].key] !== DEFINITIONS[k].en));
+  const langs = Object.keys(APP_MESSAGES);
+  ok("nine languages", langs.length === 9, langs);
+  const missing = [];
+  for (const l of langs) for (const k of METRIC_KEYS) for (const key of [DEFINITIONS[k].key, `app.agencyMetrics.label.${k}`]) if (!APP_MESSAGES[l][key]) missing.push(`${l}:${key}`);
+  ok("every label and definition in every language", missing.length === 0, missing.slice(0, 5));
+}
+
 // ── 3. The funnel is monotonic ─────────────────────────────────────────────
 if (!MUTANT) console.log("\nThe funnel");
 const funnel = buildFunnel({ facts: sept, adMessages: { threads: 40, realConversations: 25 } });
@@ -261,7 +276,7 @@ if (!MUTANT && !fails.length) {
       writeFileSync(LIB, ORIGINAL.replace(from, to));
       let survived = false;
       try {
-        execFileSync(process.execPath, ["--import", "./scripts/alias-loader.mjs", "--import", "./scripts/db-stub-loader.mjs", "scripts/check-marketing-metrics.mjs"], { cwd: ROOT, env: { ...process.env, FQ_MUTANT: "1" }, stdio: "pipe" });
+        execFileSync(process.execPath, ["--import", "./scripts/alias-loader.mjs", "--import", "./scripts/db-stub-loader.mjs", "scripts/check-marketing-metrics.mjs", "--mutant"], { cwd: ROOT, stdio: "pipe" });
         survived = true;
       } catch {
         survived = false;

@@ -62,7 +62,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "It does not hold your money. Client payments are Stripe charges in your company's name, paid to your bank — see [[payment-processing-fees-and-payouts|fees and payouts]].",
-            "It has no public API and no Zapier connector — see [[no-public-api-or-zapier|Integrations]].",
+            "It has no general public API or Zapier connector; the one exception is read access for the marketing agency that runs your ads — see [[no-public-api-or-zapier|Integrations]].",
             "FieldQuo AI answers questions about your own quotes, invoices, clients and costs. It declines general requests, and it never sees another company's data.",
           ] },
         ],

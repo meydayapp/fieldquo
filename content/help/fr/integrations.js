@@ -8,6 +8,7 @@
 // mêmes figures) ; les mots à l'écran viennent du bloc `fr` de
 // app/i18n/appMessages.js. Registre québécois, vous.
 import { ARTICLES as PART_2 } from "./integrations-2.js";
+import { ARTICLES as PART_3 } from "./integrations-3.js";
 
 const PART_1 = {
   "stripe": {
@@ -788,12 +789,13 @@ const PART_1 = {
   },
 
   "no-public-api-or-zapier": {
-    title: "Pas d'API publique ni de Zapier, pour l'instant",
+    title: "Pas d'API générale ni d'application Zapier, pour l'instant — une exception",
     summary:
-      "FieldQuo n'a ni clés d'API, ni application Zapier, ni webhooks sortants, ni flux de calendrier. Cet article le dit clairement et liste les portes qui existent — intégrations, liens publics, imports CSV, l'import Meta et le service de migration.",
+      "FieldQuo n'a ni API générale, ni application Zapier pour vos propres automatisations, ni webhooks sortants vers vos systèmes. La seule exception est l'accès de l'agence marketing, pour l'agence qui gère vos publicités. Cet article le dit clairement et liste les portes qui existent.",
     updated: "2026-09-12",
     intro: [
-      "Si vous cherchez une clé d'API à coller quelque part, il n'y en a pas. FieldQuo n'a **pas d'API publique**, **pas d'application Zapier ni Make**, **pas de webhooks à pointer vers votre propre système**, et **pas de flux de calendrier** pour Google ni Outlook. Chaque route du produit authentifie une personne connectée, et les webhooks qui existent sont des fournisseurs — Stripe, Meta, Twilio, Retell — qui appellent FieldQuo, pas FieldQuo qui vous appelle.",
+      "Si vous cherchez une clé d'API pour brancher vos propres outils, il n'y en a pas. FieldQuo n'a **pas d'API générale**, **pas d'application Zapier ni Make pour vos propres automatisations**, **pas de webhooks à pointer vers votre propre système**, et **pas de flux de calendrier** pour Google ni Outlook. Chaque route du produit authentifie une personne connectée, et les webhooks qui existent sont des fournisseurs — Stripe, Meta, Twilio, Retell — qui appellent FieldQuo, pas FieldQuo qui vous appelle.",
+      "**La seule exception est votre agence marketing.** Depuis octobre 2026, **Paramètres → Accès de l'agence marketing** crée une clé pour l'agence qui gère vos publicités : elle lit vos résultats marketing (demandes, rendez-vous, contrats et revenus, les coordonnées des clients restant privées sauf si vous les partagez) par une API et l'application Zapier de FieldQuo, et peut recevoir les événements au fur et à mesure. Elle ne peut rien atteindre d'autre. Voir [[settings-agency-access|Donner l'accès à votre agence marketing]].",
       "C'est toute la première moitié. La seconde, c'est ce qui existe, parce que « comment je fais entrer des données, et qu'est-ce que je peux en sortir » a de vraies réponses même sans API.",
     ],
     sections: [
@@ -844,9 +846,9 @@ const PART_1 = {
         heading: "Ce qui n'existe pas, en une liste",
         blocks: [
           { bullets: [
-            "Aucune clé d'API, aucun jeton, aucun réglage de développeur nulle part dans le produit.",
-            "Aucune application Zapier, Make ou d'automatisation semblable.",
-            "Aucun webhook sortant — rien n'appelle votre serveur quand une soumission est approuvée ou une facture payée.",
+            "Aucune clé d'API générale ni réglage de développeur. La seule clé est celle de l'agence marketing, qui lit les résultats marketing et rien d'autre.",
+            "Aucune application Zapier, Make ou semblable pour vos propres automatisations ; l'application Zapier de FieldQuo sert uniquement aux résultats de votre agence marketing.",
+            "Aucun webhook sortant vers vos propres systèmes. Les seuls événements que FieldQuo envoie vont à l'agence marketing à qui vous avez donné une clé.",
             "Aucun flux de calendrier ni synchronisation avec l'agenda Google / Outlook ; le calendrier des rendez-vous vit dans FieldQuo.",
             "Aucune synchronisation comptable en direct avec QuickBooks en ligne, Xero ni QuickBooks Desktop.",
             "Aucun courriel entrant dans FieldQuo ; la réponse d'un client atterrit dans votre propre boîte.",
@@ -863,4 +865,4 @@ const PART_1 = {
   },
 };
 
-export const ARTICLES = { ...PART_1, ...PART_2 };
+export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3 };

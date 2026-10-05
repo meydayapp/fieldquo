@@ -485,7 +485,10 @@ if (!QUIET) {
 console.log("\n5. Every GET handler, as the auditor and as the real owner\n");
 
 const personaHashes = {};
-const EXCLUDED_GET = /^\/api\/(platform|sales|cron|webhooks|public|portal|auth)(\/|$)/;
+// /api/v1 is the marketing-agency API: it authenticates an agency KEY and
+// never reads a session (lib/agency/apiAuth.js), so neither the auditor nor
+// the owner is served by it — a support session has no key to present.
+const EXCLUDED_GET = /^\/api\/(platform|sales|cron|webhooks|public|portal|auth|v1)(\/|$)/;
 // GETs that refuse the auditor ON PURPOSE — each is an act on the company's
 // behalf (an OAuth hand-off that saves a connection, a Stripe onboarding link,
 // a checkout return that credits the account), not a read the console is

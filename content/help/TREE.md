@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 359 articles in the tree; written: en 359, fr 359, es 359; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 361 articles in the tree; written: en 361, fr 361, es 361; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -291,7 +291,7 @@ _Generated 2026-10-05 — 359 articles in the tree; written: en 359, fr 359, es 
 | `the-manager-log-book` — The manager's log book | ✓ | ✓ | ✓ | manager-log | hr_compliance |  |
 | `hr-and-compliance` — HR & compliance overview | ✓ | ✓ | ✓ |  | hr_compliance |  |
 
-### marketing-and-website (26)
+### marketing-and-website (27)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -308,6 +308,7 @@ _Generated 2026-10-05 — 359 articles in the tree; written: en 359, fr 359, es 
 | `pamphlet-routes` — Pamphlet and door-hanger routes | ✓ | ✓ | ✓ |  | door_hanger_routes | ✓ |
 | `email-campaigns-and-subscribers` — Email campaigns and subscribers | ✓ | ✓ | ✓ |  | email_campaigns |  |
 | `marketing-spend` — Marketing spend | ✓ | ✓ | ✓ |  | marketing_spend |  |
+| `marketing-results` — Marketing results | ✓ | ✓ | ✓ |  | marketing_spend |  |
 | `the-marketing-designer` — The Marketing Designer | ✓ | ✓ | ✓ | marketing-designer | marketing_designer | ✓ |
 | `make-a-post-from-a-job` — Make a post from a job | ✓ | ✓ | ✓ |  | marketing_designer |  |
 | `social-posting-and-scheduling` — Post to Facebook and Instagram, now or later | ✓ | ✓ | ✓ |  | page_messaging |  |
@@ -504,7 +505,7 @@ _Generated 2026-10-05 — 359 articles in the tree; written: en 359, fr 359, es 
 | `a-funnel-as-a-visitor` — A funnel | ✓ | ✓ | ✓ |  | funnels |  |
 | `the-texts-clients-receive` — The texts clients receive | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 
-### integrations (12)
+### integrations (13)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -519,6 +520,7 @@ _Generated 2026-10-05 — 359 articles in the tree; written: en 359, fr 359, es 
 | `quickbooks-xero-and-your-bookkeeper` — QuickBooks, Xero and your bookkeeper | ✓ | ✓ | ✓ |  | expenses |  |
 | `stock-photos-on-your-website` — Stock photos on your website (Unsplash) | ✓ | ✓ | ✓ |  | website_builder |  |
 | `data-and-privacy` — Your data, your clients' data, and deletion | ✓ | ✓ | ✓ |  |  |  |
-| `no-public-api-or-zapier` — No public API or Zapier, yet | ✓ | ✓ | ✓ |  |  |  |
+| `no-public-api-or-zapier` — No general API or Zapier app, yet — one exception | ✓ | ✓ | ✓ |  |  |  |
+| `settings-agency-access` — Give your marketing agency access | ✓ | ✓ | ✓ | settings-agency-access | proof |  |
 
 <!-- tree:end -->

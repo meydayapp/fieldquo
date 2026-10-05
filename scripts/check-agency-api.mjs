@@ -30,7 +30,9 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const MUTANT = process.env.FQ_MUTANT === "1";
+// A mutant run (the pass at the bottom re-runs this file against a changed
+// copy of the code) prints nothing and only exits.
+const MUTANT = process.argv.includes("--mutant");
 
 const keys = await import("@/lib/agency/keys");
 const { resolveAgencyKey, runAgencyCall, RATE_LIMIT } = await import("@/lib/agency/apiAuth");
@@ -440,6 +442,28 @@ ok("buildLeadRow defaults to private", rowShape.fullName === null && rowShape.em
 
 ok("no handler ran an unscoped query on a tenant table", unscoped.length === 0, unscoped);
 
+// ── The Zapier app and the OpenAPI file stay in step with the API ─────────
+section("11. The Zapier app (integrations/zapier) and the OpenAPI file");
+{
+  const { createRequire } = await import("node:module");
+  const require = createRequire(join(ROOT, "integrations/zapier/package.json"));
+  const zEvents = require("./triggers/events.js").EVENTS.map((e) => e[0]);
+  const zFields = require("./lib.js").LEAD_FIELDS.map((f) => f[0]);
+  const zCreates = require("./creates/leads.js").creates.map((c) => c.key);
+  const zSearches = require("./searches/leads.js").searches.map((s) => s.key);
+  ok("the Zapier triggers are exactly the API's events", JSON.stringify([...zEvents].sort()) === JSON.stringify([...EVENTS].sort()), zEvents);
+  ok("the Zapier lead fields are exactly the API's lead row", JSON.stringify(zFields) === JSON.stringify(LEAD_ROW_KEYS), zFields.filter((k) => !LEAD_ROW_KEYS.includes(k)));
+  ok("actions: Create Lead, Move Lead to Stage, Update Appointment Request", JSON.stringify(zCreates) === JSON.stringify(["create_lead", "move_lead_stage", "update_appointment_request"]));
+  ok("searches: by reference, by email or phone", JSON.stringify(zSearches) === JSON.stringify(["find_lead_by_ref", "find_lead_by_contact"]));
+  ok("no Zapier action messages a client", ![...zCreates, ...zSearches].some((k) => /message|sms|text|email_client|notify/.test(k)));
+  ok("the Zapier auth test calls /me", /path: "\/me"/.test(readFileSync(join(ROOT, "integrations/zapier/index.js"), "utf8")));
+  const { buildOpenApi, LEAD_FIELD_DOCS } = await import("@/lib/agency/openapi");
+  const spec = buildOpenApi();
+  ok("OpenAPI lists every event", JSON.stringify(spec["x-events"].map((e) => e.event)) === JSON.stringify(EVENTS));
+  ok("OpenAPI documents every lead field", LEAD_ROW_KEYS.every((k) => LEAD_FIELD_DOCS[k] && spec.components.schemas.Lead.properties[k]));
+  ok("OpenAPI has every route the app serves", ["/me", "/marketing/metrics", "/marketing/funnel", "/marketing/leads", "/marketing/leads/search", "/marketing/leads/{ref}", "/marketing/leads/{ref}/stage", "/marketing/leads/{ref}/requested-visit", "/hooks/subscribe", "/hooks/{id}", "/hooks/samples/{event}"].every((p) => spec.paths[p]));
+}
+
 // ── Mutation pass — the privacy boundary ───────────────────────────────────
 if (!MUTANT && fails.length) console.log("\nMutation pass skipped: the baseline fails.");
 if (!MUTANT && !fails.length) {
@@ -474,7 +498,7 @@ if (!MUTANT && !fails.length) {
       writeFileSync(path, original.replace(from, to));
       let survived = false;
       try {
-        execFileSync(process.execPath, ["--import", "./scripts/alias-loader.mjs", "--import", "./scripts/db-stub-loader.mjs", "scripts/check-agency-api.mjs"], { cwd: ROOT, env: { ...process.env, FQ_MUTANT: "1" }, stdio: "pipe" });
+        execFileSync(process.execPath, ["--import", "./scripts/alias-loader.mjs", "--import", "./scripts/db-stub-loader.mjs", "scripts/check-agency-api.mjs", "--mutant"], { cwd: ROOT, stdio: "pipe" });
         survived = true;
       } catch {
         survived = false;

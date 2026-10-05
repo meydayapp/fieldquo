@@ -8,6 +8,7 @@
 // figuras); las palabras en pantalla vienen del bloque `es` de
 // app/i18n/appMessages.js. Español neutro latinoamericano, usted.
 import { ARTICLES as PART_2 } from "./integrations-2.js";
+import { ARTICLES as PART_3 } from "./integrations-3.js";
 
 const PART_1 = {
   "stripe": {
@@ -788,12 +789,13 @@ const PART_1 = {
   },
 
   "no-public-api-or-zapier": {
-    title: "Sin API pública ni Zapier, por ahora",
+    title: "Sin API general ni aplicación de Zapier, por ahora — una excepción",
     summary:
-      "FieldQuo no tiene claves de API, ni aplicación de Zapier, ni webhooks salientes, ni feed de calendario. Este artículo lo dice claro y lista las puertas que sí existen — incrustaciones, enlaces públicos, importaciones CSV, la importación de Meta y el servicio de migración.",
+      "FieldQuo no tiene API general, ni aplicación de Zapier para sus propias automatizaciones, ni webhooks salientes hacia sus sistemas. La única excepción es el acceso de la agencia de marketing, para la agencia que maneja sus anuncios. Este artículo lo dice claro y lista las puertas que sí existen.",
     updated: "2026-09-12",
     intro: [
-      "Si busca una clave de API para pegar en algún lado, no hay ninguna. FieldQuo no tiene **API pública**, **ni aplicación de Zapier o Make**, **ni webhooks que apunten a su propio sistema**, **ni feed de calendario** para Google u Outlook. Cada ruta del producto autentica a una persona con sesión iniciada, y los webhooks que existen son proveedores — Stripe, Meta, Twilio, Retell — que llaman a FieldQuo, no FieldQuo llamándolo a usted.",
+      "Si busca una clave de API para conectar sus propias herramientas, no hay ninguna. FieldQuo no tiene **API general**, **ni aplicación de Zapier o Make para sus propias automatizaciones**, **ni webhooks que apunten a su propio sistema**, **ni feed de calendario** para Google u Outlook. Cada ruta del producto autentica a una persona con sesión iniciada, y los webhooks que existen son proveedores — Stripe, Meta, Twilio, Retell — que llaman a FieldQuo, no FieldQuo llamándolo a usted.",
+      "**La única excepción es su agencia de marketing.** Desde octubre de 2026, **Configuración → Acceso de la agencia de marketing** crea una clave para la agencia que maneja sus anuncios: lee sus resultados de marketing (solicitudes, citas, cierres e ingresos, con los datos de contacto de los clientes privados salvo que los comparta) mediante una API y la aplicación de Zapier de FieldQuo, y puede recibir eventos al momento. No puede llegar a nada más. Vea [[settings-agency-access|Darle acceso a tu agencia de marketing]].",
       "Esa es toda la primera mitad. La segunda mitad es lo que sí existe, porque «cómo meto datos y qué puedo sacar» tiene respuestas reales incluso sin API.",
     ],
     sections: [
@@ -844,9 +846,9 @@ const PART_1 = {
         heading: "Qué no existe, en una lista",
         blocks: [
           { bullets: [
-            "Ninguna clave de API, token ni ajuste de desarrollador en ningún lugar del producto.",
-            "Ninguna aplicación de Zapier, Make ni automatización similar.",
-            "Ningún webhook saliente — nada llama a su servidor cuando se aprueba un presupuesto o se paga una factura.",
+            "Ninguna clave de API general ni ajuste de desarrollador. La única clave es la de la agencia de marketing, que lee resultados de marketing y nada más.",
+            "Ninguna aplicación de Zapier, Make ni similar para sus propias automatizaciones; la aplicación de Zapier de FieldQuo es solo para los resultados de su agencia de marketing.",
+            "Ningún webhook saliente hacia sus propios sistemas. Los únicos eventos que FieldQuo envía van a la agencia de marketing a la que le dio una clave.",
             "Ningún feed de calendario ni sincronización con el calendario de Google / Outlook; el calendario de citas vive en FieldQuo.",
             "Ninguna sincronización contable en vivo con QuickBooks Online, Xero ni QuickBooks Desktop.",
             "Ningún correo entrante en FieldQuo; la respuesta de un cliente cae en su propio buzón.",
@@ -863,4 +865,4 @@ const PART_1 = {
   },
 };
 
-export const ARTICLES = { ...PART_1, ...PART_2 };
+export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3 };

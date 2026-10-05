@@ -1,0 +1,17 @@
+{
+  "name": "fieldquo-marketing-zapier",
+  "version": "1.0.0",
+  "description": "FieldQuo for marketing agencies: a company's leads, appointments, closes and revenue, privacy-safe, with the agency key the company created.",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "test": "node test/definition.test.js",
+    "validate": "zapier-platform validate"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "zapier-platform-core": "19.1.0"
+  }
+}

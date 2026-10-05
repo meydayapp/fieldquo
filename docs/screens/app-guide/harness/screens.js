@@ -308,6 +308,7 @@ export const SCREENS = [
   { slug: "settings-payments", nav: "app.settings.payments", href: "/app/settings/payments", page: "app/app/settings/payments/page.js", settings: true },
   { slug: "settings-meta-ads", nav: "app.settings.metaAds", href: "/app/settings/meta-ads", page: "app/app/settings/meta-ads/page.js", settings: true },
   { slug: "settings-google-ads", nav: "app.settings.googleAds", href: "/app/settings/google-ads", page: "app/app/settings/google-ads/page.js", settings: true },
+  { slug: "settings-agency-access", nav: "app.settings.agencyAccess", href: "/app/settings/agency-access", page: "app/app/settings/agency-access/page.js", settings: true },
   { slug: "settings-tiktok", nav: "app.settings.tiktok", href: "/app/settings/tiktok", page: "app/app/settings/tiktok/page.js", settings: true },
   { slug: "settings-expense-tracking", nav: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", page: "app/app/settings/expense-tracking/page.js", settings: true, sameAs: "expenses" },
   { slug: "settings-ai-credit", nav: "app.settings.aiCredit", href: "/app/settings/ai-credit", page: "app/app/settings/ai-credit/page.js", settings: true },

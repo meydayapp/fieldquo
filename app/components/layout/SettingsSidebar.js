@@ -87,6 +87,7 @@ import {
   Target,
   Clapperboard,
   ArrowUpDown,
+  KeyRound,
 } from "lucide-react";
 import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
@@ -208,6 +209,10 @@ export const GROUPS = [
       // Google Ads beside Meta Ads — the same kind of connection (the
       // company's own ad account, spend imported), the same "billing" gate.
       { key: "app.settings.googleAds", href: "/app/settings/google-ads", icon: Target, helpArticle: "settings-google-ads" },
+      // The agency that RUNS those ad accounts: what it may read of the
+      // results, and its keys (lib/agency/). Beside the two connections it
+      // optimises; owner/admin, like the routes behind it.
+      { key: "app.settings.agencyAccess", href: "/app/settings/agency-access", icon: KeyRound, helpArticle: "settings-agency-access" },
       // TikTok's own row, directly under Meta Ads — the owner's placement: the
       // same kind of connection (an account the company's designs post to),
       // but not a Meta account, so not a card on Meta's screen. Gated "billing"

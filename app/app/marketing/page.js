@@ -14,6 +14,7 @@ import {
   Contact,
   DollarSign,
   Palette,
+  BarChart3,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { NAV_GROUPS, MORE_GROUPS, useNavItems } from "@/app/components/layout/AdminSidebar";
@@ -235,6 +236,17 @@ export default function MarketingPage() {
               className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
             >
               <DollarSign size={14} /> {t("app.marketing.spendLink", "Marketing spend")}
+            </Link>
+          )}
+          {/* What the ads produced, laid out the way a marketing agency's
+              dashboard is — the same figures the agency's API answers with
+              (lib/agency/metricsData.js). Same gate as the spend page. */}
+          {canManageMarketing && (
+            <Link
+              href="/app/marketing/results"
+              className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+            >
+              <BarChart3 size={14} /> {t("app.agencyMetrics.title")}
             </Link>
           )}
           {designer && (

@@ -271,6 +271,7 @@ const DRILL_INS = {
   "/app/settings/expense-tracking/import": "bank-statement CSV import — opened from the Expense Tracking page's own Import button, and deliberately not a nav row: it is a thing you do to expenses, not a place you go",
   "/app/marketing/[id]": "campaign detail — opened from the Marketing list",
   "/app/marketing/spend": "opened from the Marketing hub's own Marketing spend button — a manual entry screen and the blended cost-per-lead figure, not a place someone browses to from the sidebar",
+  "/app/marketing/results": "opened from the Marketing hub's Marketing results button, beside Marketing spend — the agency-dashboard view of what the ads produced, a report reached from where the ads are managed",
   "/app/marketing/designer/[id]": "the canvas editor for one ad creative — opened from the Designer index, and never linked directly because a design has no meaning outside the campaign that owns it",
   "/app/marketing/designer/video/[id]": "one uploaded video post — opened from the Designer index (its Videos row, or straight after an upload finishes); a video has no meaning without the upload that created it, so it gets no sidebar row of its own",
   "/app/marketing/designer/calendar": "opened from the campaign editor's own Calendar button (CampaignEditor.js) — and only rendered there once socialVisible is true (docs/SOCIAL-SCHEDULING.md), so it deliberately has no sidebar row that could reach it before Meta's app is configured",

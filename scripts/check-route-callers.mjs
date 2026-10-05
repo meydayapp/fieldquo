@@ -140,6 +140,28 @@ const EXTERNAL_CALLERS = {
     "inbound SMS routes use. Its own second leg (?stage=after-dial) is the " +
     "only in-repo reference, and it is built inside this file, which is why " +
     "the entry is still needed.",
+  // ── The marketing-agency API (2026-10-05) ──────────────────────────────
+  // Called by a company's marketing agency with the key the company created
+  // in Settings › Marketing agency access — from the agency's own tools, or
+  // through FieldQuo's Zapier app in integrations/zapier (outside app/ and
+  // lib/, so this scan cannot see it). scripts/check-agency-api.mjs executes
+  // every handler behind these and checks the Zapier app calls the same set.
+  "/api/v1/me":
+    "integrations/zapier/index.js authentication.test (the connection test and label); any agency tool checking its key.",
+  "/api/v1/marketing/metrics":
+    "The agency's dashboard (Pulse) polling the period figures; documented at /developers/marketing-api.",
+  "/api/v1/marketing/funnel":
+    "The agency's dashboard polling the funnel; documented at /developers/marketing-api.",
+  "/api/v1/marketing/leads":
+    "GET: the agency's sync of lead rows (cursor-paginated). POST: integrations/zapier/creates/leads.js Create Lead, and the agency's own funnel.",
+  "/api/v1/marketing/leads/search":
+    "integrations/zapier/searches/leads.js Find Lead by Email or Phone.",
+  "/api/v1/hooks/subscribe":
+    "integrations/zapier/triggers/events.js performSubscribe, for each of the thirteen REST-hook triggers.",
+  "/api/v1/hooks":
+    "integrations/zapier/triggers/events.js performUnsubscribe (DELETE /api/v1/hooks/{id}).",
+  "/api/v1/hooks/samples":
+    "integrations/zapier/triggers/events.js performList — Zapier's sample when a Zap is set up.",
   "/api/stripe/webhook":
     "Stripe posts here for Connect and payment events. The endpoint is " +
     "registered in the Stripe dashboard, so no in-app caller can exist.",

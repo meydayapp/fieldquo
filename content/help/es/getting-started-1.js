@@ -63,7 +63,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "No retiene su dinero. Los pagos de los clientes son cargos de Stripe a nombre de su empresa, depositados en su cuenta — vea [[payment-processing-fees-and-payouts|comisiones y depósitos]].",
-            "No tiene API pública ni conector con Zapier — vea [[no-public-api-or-zapier|Integraciones]].",
+            "No tiene API pública general ni conector con Zapier; la única excepción es el acceso de lectura para la agencia de marketing que maneja sus anuncios — vea [[no-public-api-or-zapier|Integraciones]].",
             "FieldQuo IA responde preguntas sobre sus propios presupuestos, facturas, clientes y costos. Rechaza las peticiones generales y nunca ve los datos de otra empresa.",
           ] },
         ],

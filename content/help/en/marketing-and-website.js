@@ -6,5 +6,6 @@
 import { ARTICLES as PART_1 } from "./marketing-and-website-1.js";
 import { ARTICLES as PART_2 } from "./marketing-and-website-2.js";
 import { ARTICLES as PART_3 } from "./marketing-and-website-3.js";
+import { ARTICLES as PART_4 } from "./marketing-and-website-4.js";
 
-export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3 };
+export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3, ...PART_4 };

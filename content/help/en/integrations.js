@@ -11,6 +11,7 @@
 // NOT integrated. "FieldQuo does not do X" is a deliberate sentence, not a
 // gap.
 import { ARTICLES as PART_2 } from "./integrations-2.js";
+import { ARTICLES as PART_3 } from "./integrations-3.js";
 
 const PART_1 = {
   "stripe": {
@@ -791,12 +792,13 @@ const PART_1 = {
   },
 
   "no-public-api-or-zapier": {
-    title: "No public API or Zapier, yet",
+    title: "No general API or Zapier app, yet — one exception",
     summary:
-      "FieldQuo has no API keys, no Zapier app, no outgoing webhooks and no calendar feed. This article says so plainly and lists the doors that do exist — embeds, public links, CSV imports, the Meta import and the migration service.",
+      "FieldQuo has no general API, no Zapier app for your own automations and no outgoing webhooks to your own systems. The one exception is Marketing agency access, for the agency that runs your ads. This article says so plainly and lists the doors that do exist.",
     updated: "2026-09-12",
     intro: [
-      "If you are looking for an API key to paste somewhere, there is none to find. FieldQuo has **no public API**, **no Zapier or Make app**, **no webhooks you can point at your own system**, and **no calendar feed** for Google or Outlook. Every route in the product authenticates a signed-in person, and the webhooks that exist are vendors — Stripe, Meta, Twilio, Retell — calling FieldQuo, not FieldQuo calling you.",
+      "If you are looking for an API key to connect your own tools, there is none. FieldQuo has **no general API**, **no Zapier or Make app for your own automations**, **no webhooks you can point at your own system**, and **no calendar feed** for Google or Outlook. Every route in the product authenticates a signed-in person, and the webhooks that exist are vendors — Stripe, Meta, Twilio, Retell — calling FieldQuo, not FieldQuo calling you.",
+      "**The one exception is your marketing agency.** Since October 2026, **Settings → Marketing agency access** creates a key for the agency that runs your ads: it reads your marketing results (leads, appointments, closes and revenue, with clients' contact details private unless you share them) through an API and FieldQuo's Zapier app, and can receive events as they happen. It cannot reach anything else. See [[settings-agency-access|Give your marketing agency access]].",
       "That is the whole of the first half. The second half is what does exist, because “how do I get data in, and what can I take out” has real answers even without an API.",
     ],
     sections: [
@@ -847,9 +849,9 @@ const PART_1 = {
         heading: "What is not there, in one list",
         blocks: [
           { bullets: [
-            "No API keys, tokens or developer settings anywhere in the product.",
-            "No Zapier, Make or similar automation app.",
-            "No outgoing webhooks — nothing calls your server when a quote is approved or an invoice is paid.",
+            "No general API keys or developer settings. The one key is the marketing agency key, which reads marketing results and nothing else.",
+            "No Zapier, Make or similar app for your own automations; FieldQuo's Zapier app is for your marketing agency's results only.",
+            "No outgoing webhooks to your own systems. The only events FieldQuo sends go to the marketing agency you gave a key to.",
             "No calendar feed or Google / Outlook calendar sync; the appointments calendar lives in FieldQuo.",
             "No live accounting sync with QuickBooks Online, Xero or QuickBooks Desktop.",
             "No inbound email into FieldQuo; a client's reply lands in your own mailbox.",
@@ -866,4 +868,4 @@ const PART_1 = {
   },
 };
 
-export const ARTICLES = { ...PART_1, ...PART_2 };
+export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3 };

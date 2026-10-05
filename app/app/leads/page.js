@@ -885,6 +885,32 @@ function CameFrom({ attribution, t }) {
   );
 }
 
+// "Visit requested · Tue 8 Oct, 9:00 – 12:00 · from your marketing agency" —
+// the window an agency asked the visit to fall in (POST /api/v1/marketing/
+// leads/{ref}/requested-visit, or the agency funnel's own lead), stored on
+// the lead as intake.requestedVisit. A request, not a booking: nothing
+// creates an appointment from it, and the office books the visit as always.
+function RequestedVisitBadge({ visit, t, language }) {
+  const from = new Date(visit.from);
+  const to = visit.to ? new Date(visit.to) : null;
+  if (Number.isNaN(from.getTime())) return null;
+  const day = (d) => d.toLocaleDateString(language || undefined, { weekday: "short", month: "short", day: "numeric" });
+  const time = (d) => d.toLocaleTimeString(language || undefined, { hour: "numeric", minute: "2-digit" });
+  const sameDay = to && to.toDateString() === from.toDateString();
+  const when = !to || Number.isNaN(to.getTime())
+    ? `${day(from)} ${time(from)}`
+    : sameDay
+      ? `${day(from)}, ${time(from)} – ${time(to)}`
+      : `${day(from)} ${time(from)} – ${day(to)} ${time(to)}`;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full font-semibold text-xs px-2.5 py-1 bg-muted text-foreground border border-border">
+      <CalendarClock size={13} />
+      {t("app.leads.requestedVisit", { when })}
+      {visit.setBy === "agency" ? ` · ${t("app.leads.requestedVisitByAgency")}` : ""}
+    </span>
+  );
+}
+
 // "Call back requested · afternoon" — set by the public instant estimate's
 // "this doesn't look right" control (app/api/instant-quote/[slug]/callback).
 // The preferred time and the note ride in the intake; the flag is the column.
@@ -1553,6 +1579,11 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
               {lead.callbackRequestedAt && (
                 <div className="mt-2">
                   <CallbackBadge lead={lead} t={t} detail />
+                </div>
+              )}
+              {lead.intake?.requestedVisit?.from && (
+                <div className="mt-2">
+                  <RequestedVisitBadge visit={lead.intake.requestedVisit} t={t} language={language} />
                 </div>
               )}
               {lead.intake?.outsideServiceArea === true && (

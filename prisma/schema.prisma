@@ -22870,7 +22870,8 @@ model PhoneVerification {
 // A company's marketing agency reads the company's marketing results through
 // a versioned API (/api/v1/marketing/*) and Zapier REST hooks, with a key the
 // owner creates in Settings › Marketing agency access. lib/agency/ holds the
-// rules; docs/AGENCY-API.md the whole design.
+// rules; the public reference is /developers/marketing-api, and docs/ROADMAP.md
+// ("Marketing agency access") the decisions.
 
 /// One agency key. The secret is shown ONCE and never stored — only its
 /// sha256. Read-only unless the owner ticked "may add and update leads"
