@@ -270,15 +270,41 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Guard: don't silently orphan financial records
-  const [quoteCount, invoiceCount] = await Promise.all([
+  const [quoteCount, invoiceCount, jobCount] = await Promise.all([
     db.quote.count({ where: { clientId: id } }),
     db.invoice.count({ where: { clientId: id } }),
+    db.job.count({ where: { clientId: id } }),
   ]);
 
-  if (quoteCount > 0 || invoiceCount > 0) {
+  if (quoteCount > 0 || invoiceCount > 0 || jobCount > 0) {
+    // ── Say what is in the way, and the order to clear it ─────────────────
+    //
+    // Was "Cannot delete a client with existing quotes or invoices", which
+    // left the owner (2026-10-05, clearing his test clients) to work out
+    // which, how many, and in what order. Invoices first: a quote that became
+    // an invoice refuses until the invoice is gone, and an invoice with a
+    // payment refuses until that payment is voided (recorded by hand) or
+    // refunded. Jobs are counted too — Job.client is a required relation, so
+    // a client with a job would otherwise reach the delete below and fail
+    // there as a 500 instead of a sentence.
+    const n = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+    const parts = [
+      invoiceCount ? n(invoiceCount, "invoice", "invoices") : null,
+      jobCount ? n(jobCount, "job", "jobs") : null,
+      quoteCount ? n(quoteCount, "quote", "quotes") : null,
+    ].filter(Boolean);
+    const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
     return NextResponse.json(
-      { error: "Cannot delete a client with existing quotes or invoices" },
-      { status: 400 },
+      {
+        error:
+          `${existing.name} still has ${list}, so the client can't be deleted yet. ` +
+          `Delete them first, from each one's own page — invoices first, then jobs, then quotes. ` +
+          `An invoice with a payment recorded by hand needs that payment voided (owner or admin, under Payment History) before it can go; ` +
+          `a card payment can't be voided and keeps the invoice. Then delete the client.`,
+        code: "client_has_records",
+        counts: { invoices: invoiceCount, jobs: jobCount, quotes: quoteCount },
+      },
+      { status: 409 },
     );
   }
 

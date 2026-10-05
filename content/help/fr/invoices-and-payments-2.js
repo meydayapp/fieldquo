@@ -430,7 +430,7 @@ export const ARTICLES = {
     title: "Remboursements",
     summary:
       "Comment rendre un paiement à un client depuis la facture — par Stripe pour une carte ou un débit bancaire, à la main pour du comptant — ce que FieldQuo enregistre quand vous le faites, et pourquoi les frais de traitement restent déduits.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "Un remboursement rend tout ou partie d'un paiement au client. Vous l'émettez depuis la facture dans FieldQuo — **Rembourser** sur la ligne du paiement — pour le montant complet ou une partie, avec un motif que le client verra sur sa facture. Un paiement par carte ou par débit bancaire repart par où il est venu, par Stripe; un remboursement en comptant, par chèque ou par virement Interac est enregistré sans qu'aucun argent passe par Stripe. FieldQuo inscrit le remboursement comme sa propre ligne sous le paiement, et le solde et l'état de la facture suivent.",
       "Les frais de traitement ne sont pas remboursés. Stripe garde ses frais sur une transaction remboursée, alors les frais déjà déduits restent déduits. Remboursez le montant que le client a payé, pas le net que vous avez reçu.",
@@ -483,6 +483,21 @@ export const ARTICLES = {
         heading: "Rembourser un paiement comptant, par chèque ou par virement Interac",
         blocks: [
           { p: "Un paiement comptant, par chèque ou par virement Interac se rembourse depuis la même action **Rembourser**. Le paiement n'a pas été encaissé par FieldQuo, alors aucun appel à Stripe n'est fait : la ligne enregistre que vous avez rendu le montant à la main, et le solde de la facture remonte d'autant. Le formulaire **Enregistrer un paiement** refuse toujours un montant négatif — un remboursement n'est pas un paiement saisi avec un signe moins. Si la facture doit afficher un total plus petit, modifiez plutôt la facture — voir [[edit-an-invoice-after-sending|Modifier une facture après l'envoi]]." },
+        ],
+      },
+      {
+        id: "void-a-payment",
+        heading: "Annuler un paiement enregistré par erreur",
+        blocks: [
+          { p: "Un paiement que vous avez enregistré à la main pour de l'argent jamais reçu — un test, une faute de frappe, la mauvaise facture — ne se rembourse pas : il n'y a rien à rendre, et un remboursement est une trace d'argent de plus. Il s'**annule**. Ouvrez la facture; dans l'**Historique des paiements**, un paiement comptant, par chèque, par virement Interac (ou Zelle, Venmo, Cash App, PayPal, virement bancaire, carte prise ailleurs) affiche **Annuler** à côté, pour le propriétaire et les administrateurs. Indiquez la raison (« Paiement test — aucun argent reçu ») et appuyez sur **Annuler le paiement**." },
+          { bullets: [
+            "Le paiement est retiré de la facture, avec tout remboursement enregistré à la main sur ce paiement.",
+            "La facture redevient impayée — **Envoyée** si elle a déjà été envoyée, **Brouillon** sinon — avec son solde dû, et les rappels de factures impayées s'y appliquent de nouveau jusqu'à ce que vous la supprimiez.",
+            "Le **journal d'activité** garde l'annulation : qui, quand, le montant, le mode de paiement et la raison. Elle y reste même après la suppression de la facture.",
+            "Une fois qu'aucun paiement n'y est enregistré, la facture peut être supprimée; puis son travail et son devis, puis le client.",
+          ] },
+          { warning: "Un paiement par carte ou bancaire reçu par FieldQuo ne peut jamais être annulé — cet argent a réellement circulé et se trouve dans votre solde Stripe, quoi qu'en dise FieldQuo. Utilisez **Rembourser** pour ceux-là, afin qu'il retourne au client par le même chemin. Des frais de réservation crédités depuis une carte ne peuvent pas non plus être annulés." },
+          { p: "Seuls le propriétaire et les administrateurs peuvent annuler; les niveaux Gestionnaire, Équipe, Estimateur et Répartiteur ne le peuvent pas, quelles que soient leurs options de paiement, et une session de soutien en lecture seule est refusée." },
         ],
       },
       {

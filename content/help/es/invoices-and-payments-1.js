@@ -330,14 +330,14 @@ export const ARTICLES = {
         id: "who-can-edit",
         heading: "Quién puede editar",
         blocks: [
-          { p: "Editar requiere facturas en **View, create, and edit** y el interruptor **See prices** — **Dispatcher**, **Manager**, los administradores y el propietario. Eliminar es otra cosa: solo un **Borrador** se puede eliminar, y solo por alguien con **View, create, edit, and delete** (el perfil **Manager**, los administradores, el propietario). El ícono de papelera está oculto para todos los demás en lugar de atenuado." },
+          { p: "Editar requiere facturas en **View, create, and edit** y el interruptor **See prices** — **Dispatcher**, **Manager**, los administradores y el propietario. Eliminar es otra cosa: cualquier factura sin dinero registrado se puede eliminar, tras una confirmación, y solo por alguien con **View, create, edit, and delete** (el perfil **Manager**, los administradores, el propietario). El ícono de papelera está oculto para todos los demás en lugar de atenuado." },
         ],
       },
     ],
     faq: [
       { q: "¿Puedo corregir una errata sin crear una versión?", a: "En un borrador, sí — Guardar cambios edita en el lugar. En una factura enviada, no: hasta un cambio de una palabra es la versión 2 con un motivo. Esa es la idea; el motivo puede ser «Corregí la ortografía de la calle»." },
       { q: "¿Qué versión muestra la lista?", a: "La actual, con un saldo calculado sobre todos los pagos de la familia. Al abrirla, **v2** aparece en el encabezado del documento." },
-      { q: "¿Puedo eliminar una factura enviada por error?", a: "No — solo los borradores se pueden eliminar. Modifíquela a un total de cero con el motivo, o reembolse lo pagado; de cualquier forma, el registro de lo que se envió se queda." },
+      { q: "¿Puedo eliminar una factura enviada por error?", a: "Sí, mientras no tenga dinero registrado — en cualquier estado, tras una confirmación. Si se registró un pago a mano por error, el propietario o un administrador lo anula primero (vea [[refunds|Reembolsos]], Anular un pago registrado por error). Una factura con dinero cobrado con tarjeta se queda: reembolse ese dinero." },
     ],
   },
 
