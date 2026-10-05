@@ -1,6 +1,7 @@
-// app/app/marketing/spend/GoogleAdsImportDialog.js
+// app/components/marketing/GoogleAdsImportDialog.js
 //
-// "Import Google Ads report" on Marketing › Spend — upload the report a
+// "Import Google Ads report" — on Marketing › Spend and Settings › Google Ads
+// (both open this one dialog). Upload the report a
 // contractor downloads from Google Ads, see exactly what it will do, then
 // import. app/api/marketing-spend/google-ads-import/route.js does the work;
 // this dialog only ever sends the FILE (twice: preview, then commit) and

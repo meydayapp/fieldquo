@@ -34,6 +34,7 @@ import {
   MAX_REPORT_BYTES,
 } from "@/lib/googleAds/reportParse";
 import { buildGoogleSpendPlan, planWindow, GOOGLE_PLATFORM } from "@/lib/googleAds/spendPlan";
+import { writeGoogleSpendPlan } from "@/lib/googleAds/writePlan";
 
 const SOURCE = "google_ads_csv";
 const PREVIEW_ROWS = 300;
@@ -176,26 +177,10 @@ export async function POST(request) {
   }
 
   // ── commit ───────────────────────────────────────────────────────────────
-  for (const row of plan.toCreate) {
-    // upsert, not create: two commits racing (a double click) both planned
-    // this row as new. The loser updates the winner's row with the same
-    // figures from the same file instead of failing on the unique key.
-    await db.marketingSpend.upsert({
-      where: {
-        companyId_source_externalId: { companyId: member.companyId, source: SOURCE, externalId: row.externalId },
-      },
-      create: { companyId: member.companyId, ...row },
-      update: row,
-    });
-  }
-  for (const upd of plan.toUpdate) {
-    // companyId AND source in the where: this can only ever touch a row this
-    // import wrote for this company — never a manual, Meta or API row.
-    await db.marketingSpend.updateMany({
-      where: { id: upd.id, companyId: member.companyId, source: SOURCE },
-      data: upd.data,
-    });
-  }
+  // The same writer the API sync uses (lib/googleAds/writePlan.js): creates
+  // are upserts on (company, source, externalId), updates are scoped to this
+  // company AND this source — never a manual, Meta or API row.
+  await writeGoogleSpendPlan(db, member.companyId, SOURCE, plan);
 
   await recordActivity(member, {
     action: "marketing_spend.google_ads_imported",

@@ -312,6 +312,203 @@ ok("planWindow reaches back far enough to see a range row's start", (() => {
 })());
 ok("isSyncedSource: meta + both Google sources, not manual", isSyncedSource("meta_api") && isSyncedSource("google_ads_csv") && isSyncedSource("google_ads_api") && !isSyncedSource("manual"));
 
+console.log("\n4. Google Ads API — fixtures, errors, the sync against a fake Google\n");
+
+// Run with no Google env at all, then set them one by one.
+for (const k of ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "META_TOKEN_ENCRYPTION_KEY", "GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_API_APPROVED", "GOOGLE_ADS_API_VERSION"]) delete process.env[k];
+const client = await import("@/lib/googleAds/client");
+const { syncGoogleAdsCompany, syncWindow, statusForKind } = await import("@/lib/googleAds/sync");
+const { publicGoogleAdsShape } = await import("@/lib/googleAds/connection");
+
+ok("not configured: all four names missing, not available", JSON.stringify(client.googleAdsMissing()) === JSON.stringify(["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "META_TOKEN_ENCRYPTION_KEY", "GOOGLE_ADS_DEVELOPER_TOKEN"]) && !client.googleAdsAvailable());
+process.env.GOOGLE_OAUTH_CLIENT_ID = "cid.apps.googleusercontent.com";
+process.env.GOOGLE_OAUTH_CLIENT_SECRET = "secret";
+process.env.META_TOKEN_ENCRYPTION_KEY = "a".repeat(64);
+ok("only the developer token missing → names exactly that", JSON.stringify(client.googleAdsMissing()) === JSON.stringify(["GOOGLE_ADS_DEVELOPER_TOKEN"]));
+process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "devtoken";
+ok("everything set but not approved → nothing missing, still NOT available (no Connect button)", client.googleAdsMissing().length === 0 && !client.googleAdsAvailable());
+process.env.GOOGLE_ADS_API_APPROVED = "true";
+ok("approval flag must be exactly '1' — 'true' does not count", !client.googleAdsAvailable());
+process.env.GOOGLE_ADS_API_APPROVED = "1";
+ok("approved → available", client.googleAdsAvailable());
+ok("default API version", client.googleAdsApiVersion() === client.DEFAULT_API_VERSION);
+process.env.GOOGLE_ADS_API_VERSION = "v99; DROP";
+ok("garbage version override is ignored", client.googleAdsApiVersion() === client.DEFAULT_API_VERSION);
+process.env.GOOGLE_ADS_API_VERSION = "v26";
+ok("a real version override is used", client.googleAdsApiVersion() === "v26");
+delete process.env.GOOGLE_ADS_API_VERSION;
+
+{
+  const url = new URL(client.buildGoogleAdsAuthorizeUrl({ redirectUri: "https://www.fieldquo.com/api/google-ads/callback", state: "s" }));
+  ok("authorize URL asks for the adwords scope on the shared client", url.searchParams.get("scope").split(" ").includes("https://www.googleapis.com/auth/adwords") && url.searchParams.get("client_id") === "cid.apps.googleusercontent.com");
+  ok("authorize URL: offline + consent (a refresh token every time)", url.searchParams.get("access_type") === "offline" && url.searchParams.get("prompt") === "consent");
+  ok("authorize URL: redirect is the Google Ads callback", url.searchParams.get("redirect_uri") === "https://www.fieldquo.com/api/google-ads/callback");
+}
+ok("customer id: dashes stripped", client.cleanCustomerId("123-456-7890") === "1234567890");
+ok("customer id: 9 digits refused", client.cleanCustomerId("123456789") === null);
+ok("customer id: injection refused", client.cleanCustomerId("1234567890/../x") === null);
+ok("GAQL refuses a non-date (no injection into the query)", (() => { try { client.campaignDailyQuery({ since: "2026-09-01' OR 1=1", until: "2026-09-30" }); return false; } catch { return true; } })());
+ok("GAQL selects cost_micros, clicks, impressions, conversions by campaign and day",
+  /metrics\.cost_micros/.test(client.campaignDailyQuery({ since: "2026-09-01", until: "2026-09-30" })) && /segments\.date BETWEEN '2026-09-01' AND '2026-09-30'/.test(client.campaignDailyQuery({ since: "2026-09-01", until: "2026-09-30" })));
+
+// searchStream as REST returns it: an ARRAY of batches, int64s as strings,
+// zero-valued metrics omitted.
+const STREAM = [
+  {
+    results: [
+      { campaign: { resourceName: "customers/1234567890/campaigns/111", id: "11111111111", name: "Spring Roofs", advertisingChannelType: "SEARCH" }, metrics: { costMicros: "12340000", clicks: "7", impressions: "1234", conversions: 1.5 }, segments: { date: "2026-09-01" } },
+      { campaign: { id: "11111111111", name: "Spring Roofs", advertisingChannelType: "SEARCH" }, metrics: { costMicros: "1020500000", clicks: "88", impressions: "10500", conversions: 2.5 }, segments: { date: "2026-09-02" } },
+    ],
+    fieldMask: "campaign.id,campaign.name,…",
+    requestId: "r1",
+  },
+  {
+    results: [
+      { campaign: { id: "22222222222", name: "Brand" }, metrics: { impressions: "40" }, segments: { date: "2026-09-01" } },
+      { campaign: { name: "No id" }, metrics: { costMicros: "1" }, segments: { date: "2026-09-01" } },
+    ],
+  },
+];
+{
+  const rows = client.resultRows(STREAM);
+  ok("resultRows flattens every batch", rows.length === 4);
+  const p = rows.map((r) => client.parseCampaignDayRow(r, { currency: "USD" }));
+  ok("cost_micros 12340000 → 12.34", p[0].row?.amount === 12.34);
+  ok("cost_micros 1020500000 → 1020.5", p[1].row?.amount === 1020.5);
+  ok("int64 strings → numbers", p[1].row?.clicks === 88 && p[1].row?.impressions === 10500);
+  ok("fractional conversions kept", p[1].row?.conversions === 2.5);
+  ok("externalKey = campaignId:day", p[0].row?.externalKey === "11111111111:2026-09-01");
+  ok("omitted cost on a returned row is 0 (Google omits zero metrics)", p[2].row?.amount === 0 && p[2].row?.clicks === 0);
+  ok("a row with no campaign id is an error, not a guess", p[3].status === "error");
+  ok("channel type kept as the row's objective", p[0].row?.objective === "SEARCH");
+  ok("account currency carried on every row", p[0].row?.currency === "USD");
+}
+
+// Google's REST error bodies.
+const NOT_APPROVED = { error: { code: 403, message: "The caller does not have permission", status: "PERMISSION_DENIED", details: [{ "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure", errors: [{ errorCode: { authorizationError: "DEVELOPER_TOKEN_NOT_APPROVED" }, message: "The developer token is only approved for use with test accounts." }] }] } };
+const NO_LOGIN_CUSTOMER = { error: { code: 403, status: "PERMISSION_DENIED", details: [{ errors: [{ errorCode: { authorizationError: "USER_PERMISSION_DENIED" }, message: "User doesn't have permission to access customer. Note: If you're accessing a client customer, the manager's customer id must be set in the 'login-customer-id' header." }] }] } };
+ok("DEVELOPER_TOKEN_NOT_APPROVED → developer_token (FieldQuo's side, not a reconnect)", client.classifyGoogleAdsError(403, NOT_APPROVED).kind === "developer_token");
+ok("…and Google's own sentence kept", /test accounts/.test(client.classifyGoogleAdsError(403, NOT_APPROVED).message));
+ok("searchStream's array-wrapped error is read too", client.classifyGoogleAdsError(403, [NOT_APPROVED]).kind === "developer_token");
+ok("USER_PERMISSION_DENIED → permission", client.classifyGoogleAdsError(403, NO_LOGIN_CUSTOMER).kind === "permission");
+ok("401 → auth_error", client.classifyGoogleAdsError(401, { error: { code: 401, status: "UNAUTHENTICATED", message: "Request had invalid authentication credentials." } }).kind === "auth_error");
+ok("RESOURCE_EXHAUSTED → rate_limited", client.classifyGoogleAdsError(429, { error: { status: "RESOURCE_EXHAUSTED", details: [{ errors: [{ errorCode: { quotaError: "RESOURCE_EXHAUSTED" } }] }] } }).kind === "rate_limited");
+ok("404 → api_version (a sunset version)", client.classifyGoogleAdsError(404, null).kind === "api_version");
+ok("CUSTOMER_NOT_ENABLED → customer_not_enabled", client.classifyGoogleAdsError(403, { error: { details: [{ errors: [{ errorCode: { authorizationError: "CUSTOMER_NOT_ENABLED" } }] }] } }).kind === "customer_not_enabled");
+ok("garbage body never throws", client.classifyGoogleAdsError(500, "<html>").kind === "unknown_error");
+ok("auth_error → needs_reauth; rate_limited leaves it connected; anything else → error",
+  statusForKind("auth_error") === "needs_reauth" && statusForKind("rate_limited") === "connected" && statusForKind("developer_token") === "error");
+ok("sync window: 30 days by default", (() => { const w = syncWindow({ now: new Date("2026-10-04T12:00:00Z") }); return w.since === "2026-09-04" && w.until === "2026-10-04"; })());
+ok("sync window: more than 90 days refused", Boolean(syncWindow({ since: "2026-01-01", until: "2026-10-01" }).error));
+
+// ── The account picker against a fake Google ───────────────────────────────
+function fakeGoogle({ failCustomer = null, notApproved = false } = {}) {
+  const calls = [];
+  return {
+    calls,
+    accessTokenFor: async () => ({ ok: true, accessToken: "at" }),
+    listAccessibleCustomers: async () => ({ ok: true, data: { resourceNames: ["customers/1111111111", "customers/2222222222", "customers/3333333333"] } }),
+    search: async ({ customerId, loginCustomerId, query }) => {
+      calls.push({ customerId, loginCustomerId, query: query.slice(0, 30) });
+      if (notApproved) return { ok: false, status: 403, ...client.classifyGoogleAdsError(403, NOT_APPROVED) };
+      if (customerId === failCustomer) return { ok: false, status: 403, ...client.classifyGoogleAdsError(403, { error: { details: [{ errors: [{ errorCode: { authorizationError: "CUSTOMER_NOT_ENABLED" } }] }] } }) };
+      if (query.includes("FROM customer_client")) {
+        return { ok: true, data: { results: [
+          { customerClient: { id: "2222222222", descriptiveName: "Mgr", manager: true, level: 0, status: "ENABLED" } },
+          { customerClient: { id: "4444444444", descriptiveName: "Client Roofing", currencyCode: "CAD", manager: false, level: 1, status: "ENABLED" } },
+          { customerClient: { id: "1111111111", descriptiveName: "Direct Too", currencyCode: "USD", manager: false, level: 1, status: "ENABLED" } },
+          { customerClient: { id: "5555555555", descriptiveName: "Closed", currencyCode: "CAD", manager: false, level: 1, status: "CANCELED" } },
+        ] } };
+      }
+      const byId = {
+        1111111111: { id: "1111111111", descriptiveName: "Direct Painting", currencyCode: "USD", manager: false },
+        2222222222: { id: "2222222222", descriptiveName: "Agency MCC", currencyCode: "CAD", manager: true },
+        3333333333: { id: "3333333333", descriptiveName: "Cancelled one", currencyCode: "CAD", manager: false },
+      };
+      return { ok: true, data: { results: [{ customer: byId[customerId] }] } };
+    },
+    searchStream: async () => ({ ok: true, data: STREAM }),
+  };
+}
+{
+  const api = fakeGoogle({ failCustomer: "3333333333" });
+  const res = await client.listAdAccountOptions({ accessToken: "at", api });
+  const ids = res.options?.map((o) => o.customerId).sort().join();
+  ok("picker: direct account + manager's enabled client; cancelled client and the manager itself left out", ids === "1111111111,4444444444", res);
+  ok("picker: a client reached through a manager carries login-customer-id", res.options.find((o) => o.customerId === "4444444444")?.loginCustomerId === "2222222222");
+  ok("picker: an account reachable directly needs no login-customer-id (direct wins)", res.options.find((o) => o.customerId === "1111111111")?.loginCustomerId === null);
+  ok("picker: one unreadable account doesn't hide the rest", res.failures.length === 1 && res.failures[0].kind === "customer_not_enabled");
+  const refused = await client.listAdAccountOptions({ accessToken: "at", api: fakeGoogle({ notApproved: true }) });
+  ok("picker: a developer-token refusal is returned as such, not as 'no accounts'", refused.ok === false && refused.kind === "developer_token");
+}
+
+// ── The sync against a fake database ───────────────────────────────────────
+function fakeDb({ spend = [], currency = "CAD" } = {}) {
+  const state = { spend: spend.map((r) => ({ ...r })), connectionUpdates: [], nextId: 1 };
+  const inRange = (d, range) => !range || ((!range.gte || d >= range.gte) && (!range.lte || d <= range.lte));
+  return {
+    state,
+    company: { findUnique: async () => ({ currency }) },
+    googleAdsConnection: { update: async ({ data }) => { state.connectionUpdates.push(data); return data; } },
+    marketingSpend: {
+      findMany: async ({ where }) => state.spend.filter((r) => r.companyId === where.companyId && (!where.platform || r.platform === where.platform) && inRange(r.date, where.date)),
+      upsert: async ({ where, create, update }) => {
+        const k = where.companyId_source_externalId;
+        const found = state.spend.find((r) => r.companyId === k.companyId && r.source === k.source && r.externalId === k.externalId);
+        if (found) Object.assign(found, update);
+        else state.spend.push({ id: `new${state.nextId++}`, ...create });
+      },
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const r of state.spend) if (r.id === where.id && r.companyId === where.companyId && r.source === where.source) { Object.assign(r, data); count++; }
+        return { count };
+      },
+    },
+  };
+}
+const CONN = { companyId: "co1", customerId: "1111111111", loginCustomerId: null, currencyCode: "USD", refreshTokenEnc: "x" };
+{
+  const manual = { id: "m1", companyId: "co1", source: "manual", externalId: null, platform: "google", date: new Date("2026-09-02T00:00:00Z"), campaignName: "spring roofs", campaignId: null, amount: 999, leads: 4 };
+  const meta = { id: "f1", companyId: "co1", source: "meta_api", externalId: "11111111111:2026-09-01", platform: "facebook", date: new Date("2026-09-01T00:00:00Z"), campaignName: "Spring Roofs", campaignId: "11111111111", amount: 50 };
+  const other = { id: "o1", companyId: "co2", source: "google_ads_api", externalId: "11111111111:2026-09-01", platform: "google", date: new Date("2026-09-01T00:00:00Z"), campaignName: "Spring Roofs", campaignId: "11111111111", amount: 1 };
+  const db = fakeDb({ spend: [manual, meta, other] });
+  const api = fakeGoogle();
+  const r1 = await syncGoogleAdsCompany(CONN, { db, api, since: "2026-09-01", until: "2026-09-30" });
+  ok("sync ok", r1.ok === true, r1);
+  ok("sync: 2 created (09-01 Spring, 09-01 Brand), the 09-02 day skipped — a hand-typed Google row covers it", r1.summary.created === 2 && r1.summary.skipped === 1, r1.summary);
+  ok("sync: the unreadable row is counted, not imported", r1.summary.errored === 1);
+  ok("sync: manual row untouched (amount, leads)", db.state.spend.find((r) => r.id === "m1").amount === 999 && db.state.spend.find((r) => r.id === "m1").leads === 4);
+  ok("sync: Meta row untouched", db.state.spend.find((r) => r.id === "f1").amount === 50);
+  ok("sync: another company's identical externalId untouched", db.state.spend.find((r) => r.id === "o1").amount === 1);
+  const created = db.state.spend.filter((r) => r.source === "google_ads_api" && r.companyId === "co1");
+  ok("sync: rows carry USD (the account's) on a CAD company, unconverted", created.every((r) => r.currency === "USD") && created.find((r) => r.externalId === "11111111111:2026-09-01")?.amount === 12.34);
+  ok("sync: never writes leads", created.every((r) => !("leads" in r)));
+  ok("sync: connection stamped connected", db.state.connectionUpdates.at(-1)?.status === "connected" && db.state.connectionUpdates.at(-1)?.lastSyncError === null);
+
+  const before = db.state.spend.length;
+  const r2 = await syncGoogleAdsCompany(CONN, { db, api, since: "2026-09-01", until: "2026-09-30" });
+  ok("re-sync is idempotent: no new rows, its own rows updated", db.state.spend.length === before && r2.summary.created === 0 && r2.summary.updated === 2, r2.summary);
+}
+{
+  const db = fakeDb();
+  const denied = { ...fakeGoogle(), searchStream: async () => ({ ok: false, status: 403, ...client.classifyGoogleAdsError(403, NOT_APPROVED) }) };
+  const r = await syncGoogleAdsCompany(CONN, { db, api: denied });
+  ok("token not approved: sync fails with developer_token, status 'error' (not needs_reauth)", r.ok === false && r.kind === "developer_token" && db.state.connectionUpdates.at(-1)?.status === "error");
+  const revoked = { ...fakeGoogle(), accessTokenFor: async () => ({ ok: false, kind: "auth_error", message: "invalid_grant" }) };
+  const r2 = await syncGoogleAdsCompany(CONN, { db, api: revoked });
+  ok("revoked grant: needs_reauth", r2.kind === "auth_error" && db.state.connectionUpdates.at(-1)?.status === "needs_reauth");
+  const broken = { ...fakeGoogle(), accessTokenFor: async () => { throw new Error("bad decrypt"); } };
+  const r3 = await syncGoogleAdsCompany(CONN, { db, api: broken });
+  ok("undecryptable row: 'error', not needs_reauth", r3.kind === "decrypt" && db.state.connectionUpdates.at(-1)?.status === "error");
+  const r4 = await syncGoogleAdsCompany({ ...CONN, customerId: null }, { db, api: fakeGoogle() });
+  ok("no account picked: refused before any call", r4.kind === "no_account");
+}
+{
+  const shape = publicGoogleAdsShape({ companyId: "co1", refreshTokenEnc: "SECRET-CIPHERTEXT", customerId: "1234567890", loginCustomerId: "9999999999", email: "a@b.c", status: "connected" });
+  ok("public shape: no token or ciphertext leaves the server", !JSON.stringify(shape).includes("SECRET") && !("refreshTokenEnc" in shape));
+  ok("public shape: ids formatted the way Google prints them", shape.customerIdFormatted === "123-456-7890" && shape.viaManager === "999-999-9999");
+}
+
 // @@MORE@@
 
 console.log(`\n${pass} passed, ${fails.length} failed`);

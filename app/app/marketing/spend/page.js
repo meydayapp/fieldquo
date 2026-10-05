@@ -31,7 +31,7 @@ import ListState from "@/app/components/ListState";
 import { formatDateOnly } from "@/lib/format/companyDate";
 import { CurrencyNotes, excludedSentence } from "@/app/components/marketing/SpendCurrencyNotes";
 import { isSyncedSource } from "@/lib/googleAds/sources";
-import GoogleAdsImportDialog from "./GoogleAdsImportDialog";
+import GoogleAdsImportDialog from "@/app/components/marketing/GoogleAdsImportDialog";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
 
@@ -598,6 +598,17 @@ export default function MarketingSpendPage() {
           className="flex items-center gap-1.5 text-sm font-semibold text-foreground border border-border rounded-full px-3.5 py-2 shrink-0"
         >
           {t("app.marketingSpend.metaPointerLink", "Meta Ads settings")} <ExternalLink size={13} />
+        </Link>
+      </div>
+      {/* Google Ads' twin of the pointer above: the API connection lives in
+          Settings › Google Ads; the report upload is on both screens. */}
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{t("app.marketingSpend.googlePointer")}</p>
+        <Link
+          href="/app/settings/google-ads"
+          className="flex items-center gap-1.5 text-sm font-semibold text-foreground border border-border rounded-full px-3.5 py-2 shrink-0"
+        >
+          {t("app.marketingSpend.googlePointerLink")} <ExternalLink size={13} />
         </Link>
       </div>
 

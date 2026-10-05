@@ -135,7 +135,7 @@
     "check:messaging": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/route-stub-loader.mjs scripts/check-messaging.mjs",
     "check:migration-service": "node --import ./scripts/alias-loader.mjs scripts/check-migration-service.mjs",
     "check:meta-insights": "node --import ./scripts/alias-loader.mjs scripts/check-meta-insights.mjs",
-    "check:google-ads": "node --import ./scripts/alias-loader.mjs scripts/check-google-ads.mjs",
+    "check:google-ads": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-google-ads.mjs",
     "check:spend-currency": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-spend-currency.mjs",
     "check:campaign-rollup": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-campaign-rollup.mjs",
     "check:meta-pages-connect": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-meta-pages-connect.mjs",

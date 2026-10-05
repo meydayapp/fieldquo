@@ -1127,4 +1127,78 @@ export const ARTICLES = {
       { q: "Can I edit the caption?", a: "Yes — press Edit the words. Changing the words withdraws the approval, so the design is approved again before it goes out." },
     ],
   },
+  // Settings → Google Ads (2026-10-04) — app/app/settings/google-ads/page.js,
+  // lib/googleAds/*, docs/GOOGLE-ADS-INTEGRATION.md.
+  "settings-google-ads": {
+    title: "Google Ads",
+    summary:
+      "Bring your Google Ads spend into FieldQuo — upload the report you download from Google Ads today, or connect the account once FieldQuo's Google access is approved — and see what each lead and each won job from Google cost.",
+    updated: "2026-10-04",
+    intro: [
+      "**Settings → Google Ads** is where your Google Ads spend comes into FieldQuo, beside **Settings → Meta Ads**. There are two ways in: **Import a Google Ads report**, which works today, and **Connect Google Ads**, which reads the same figures every morning once Google has approved FieldQuo. Either way the spend lands on **Marketing Spend** as Google rows, and FieldQuo divides it by YOUR leads from Google — never by Google's own conversion count.",
+    ],
+    sections: [
+      {
+        id: "states",
+        heading: "What the screen shows",
+        blocks: [
+          { bullets: [
+            "**Not set up yet** — this FieldQuo deployment is missing something it needs to talk to Google; the screen names it. Nothing for you to do; the report upload below still works.",
+            "**Waiting on Google's approval** — everything is set up, but Google has not yet approved FieldQuo for real ad accounts, so there is no Connect button. Upload your report meanwhile.",
+            "**Not connected** — with **Connect Google Ads**.",
+            "**Which ad account?** — after you allow access, every Google Ads account your Google login can read, including client accounts under a manager account. Pick one and press **Import from this account**.",
+            "The connected account — its name, number and currency, the last sync, **Sync now** and **Disconnect**. **Needs reconnecting** means Google withdrew FieldQuo's access; press **Reconnect**.",
+          ] },
+          { note: "**How your leads from Google are counted** is on the screen in every state, with the tracking template to paste into Google Ads." },
+        ],
+      },
+      {
+        id: "report",
+        heading: "Import a Google Ads report (works today)",
+        blocks: [
+          { steps: [
+            "In Google Ads, open **Campaigns** and choose the dates.",
+            "Segment by **Time → Day**, and keep the **Campaign**, **Cost** and **Currency code** columns showing.",
+            "Download as .csv, Excel .csv or .xlsx.",
+            "In FieldQuo press **Import Google Ads report** (here, or on **Marketing Spend**), choose the file and press **Check the report**.",
+            "Read the preview — new rows, rows updated from a previous import, and possible duplicates — then press **Import**.",
+          ] },
+          { note: "Uploading the same report again updates the rows it wrote; it never adds them twice. Rows that look like spend you already logged for the same campaign and day are skipped unless you untick the box. Totals rows are left out, and a report split by device or network is added up per day." },
+        ],
+      },
+      {
+        id: "connect",
+        heading: "Connect Google Ads",
+        blocks: [
+          { steps: [
+            "Press **Connect Google Ads** and sign in with the Google login you use for Google Ads.",
+            "Allow FieldQuo to see your Google Ads data. FieldQuo only reads; it never creates or changes an ad.",
+            "Back on the screen, choose the ad account under **Which ad account?** and press **Import from this account**. The last 90 days come in straight away.",
+            "From then on FieldQuo re-reads the last 30 days every morning. **Sync now** does it on demand.",
+          ] },
+          { note: "**Disconnect** removes FieldQuo's access at Google. The spend already imported stays in your history. Days a report upload already covers are not imported a second time by the connection." },
+        ],
+      },
+      {
+        id: "leads",
+        heading: "How your leads and won jobs from Google are counted",
+        blocks: [
+          { p: "A lead counts as Google's when the person arrived from a Google ad click — Google Ads auto-tagging adds the click id, and FieldQuo keeps it on the lead. **Cost per lead** for Google is your Google spend divided by those leads; **cost per won job** is the spend divided by the jobs those leads became. Google's own **conversions** are shown as Google's and are never counted as your leads." },
+          { p: "To see leads per campaign, paste the tracking template from the screen into Google Ads (Settings → Account settings → Tracking). Without it, Google leads still count in the Google totals, on a **campaign not tagged** row." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Who can see it",
+        blocks: [
+          { p: "Owners and admins — the same as **Settings → Meta Ads** and **Payments**. **Import Google Ads report** on **Marketing Spend** is open to everyone who can see that page." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Why is there no Connect button?", a: "Either this deployment is not set up for Google Ads yet, or Google has not yet approved FieldQuo for real ad accounts. The screen says which. The report upload works in both cases." },
+      { q: "My Google Ads account bills in US dollars and my company is in Canadian dollars.", a: "The amounts are kept in US dollars as Google reported them and converted when the totals are worked out, marked ≈ with the rate used." },
+      { q: "Why don't my leads match Google's conversions?", a: "They measure different things. Google counts its tag firing; FieldQuo counts the requests you actually received from people who clicked a Google ad. Cost per lead uses yours." },
+    ],
+  },
 };
