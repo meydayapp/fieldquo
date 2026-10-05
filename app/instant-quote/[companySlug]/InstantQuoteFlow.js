@@ -18,9 +18,9 @@
 //
 // ── The language is the visitor's ──────────────────────────────────────────
 //
-// Pills at the top of the form — English, Français, Español, or whichever of
-// them the company offers (Settings › Instant quotes; the payload's
-// `languages`, all three until the company chooses). Every string
+// Pills at the top of the form — whichever of the eight languages the company
+// offers (Settings › Instant quotes; the payload's `languages`; English,
+// Français and Español until the company chooses). Every string
 // on the page comes from lib/i18n/instantQuoteCopy.js (plus the lawn and
 // "doesn't look right" tables it defers to), so switching re-renders the whole
 // page — and re-fetches the payload, because the trade chips, the budget
@@ -30,7 +30,8 @@
 // (non-negotiable #6). Resolution order on first paint: ?lang= on the link
 // (a contractor's French page links with ?lang=fr), what this browser chose
 // here before (localStorage, per company), the browser's own language when
-// it is one of the three, then the company's.
+// it is one of the eight, then the company's — every one of them then held
+// to the company's offered list by the payload (resolveInstantLanguage).
 //
 // Every price is computed server-side — this component only ever sends an
 // address, a polygon, or a few numbers plus a material key and a band index.
@@ -53,7 +54,7 @@ import { areaText } from "@/lib/estimate/roomDisplay";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import {
-  INSTANT_QUOTE_LANGUAGES,
+  INSTANT_QUOTE_DEFAULT_LANGUAGES,
   instantQuoteCopy,
   instantQuoteLanguage,
   instantQuoteLocale,
@@ -288,7 +289,9 @@ function storeLanguage(slug, code) {
  * Which language the page opens in. `?lang=` wins (a link from a French page
  * must open French whatever this browser chose last month), then what this
  * browser chose here before, then the browser's own language when it is one
- * of the three, then the company's — which the payload carries.
+ * of the eight, then the company's — which the payload carries. Whatever this
+ * returns is only a request: the payload answers with a language the company
+ * offers, and that is the one the page then uses.
  */
 function initialLanguage(slug) {
   if (typeof window === "undefined") return null;
@@ -601,10 +604,12 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   }, [companySlug, language, sample]);
 
   // The pills the company offers. Before the payload lands (the loading and
-  // error screens) all three are drawn: nothing is known yet, and the first
-  // fetch resolves whatever is picked to one the company offers anyway.
+  // error screens) the three a never-chosen form offers are drawn — never
+  // all eight: nothing is known yet, a company that switched a language on
+  // is told apart only by the payload, and the first fetch resolves whatever
+  // is picked to one the company offers anyway.
   const offeredLanguages =
-    Array.isArray(data?.languages) && data.languages.length ? data.languages : INSTANT_QUOTE_LANGUAGES;
+    Array.isArray(data?.languages) && data.languages.length ? data.languages : INSTANT_QUOTE_DEFAULT_LANGUAGES;
 
   function chooseLanguage(code) {
     if (!instantQuoteLanguage(code) || code === language || !offeredLanguages.includes(code)) return;

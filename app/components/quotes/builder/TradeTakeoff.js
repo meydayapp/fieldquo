@@ -61,6 +61,14 @@ import {
 } from "@/lib/pricing/insulation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
+import {
+  stainTypeChosen,
+  normaliseStainType,
+  STRIP_METHODS,
+  normaliseStripMethod,
+  stairNeedsStripping,
+  stairStrippingHours,
+} from "@/lib/pricing/stainFinish";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The factor list (stairs 14, roofing 7) — named apart from this file's own
 // ComplexityPicker, which is the tier tiles and stays exactly as it was.
@@ -436,6 +444,109 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
           placeholder="e.g. Jacobean"
         />
       </Field>
+
+      {/* Gel or liquid (owner, 2026-10-03; lib/pricing/stainFinish.js). Blank
+          is what every staircase was before — a refinish sands the treads
+          and stains them — and prints exactly as it did; a choice is said
+          under the treads line. */}
+      <Field label={t("app.stain.typeLabel", "Which stain")}>
+        <select
+          value={stainTypeChosen(section.stainType) ? section.stainType : ""}
+          onChange={(e) => set({ stainType: e.target.value || undefined })}
+          className={inputClass}
+          data-stair-stain-type
+        >
+          <option value="">{t("app.stain.notSaid", "Not said")}</option>
+          <option value="liquid">{t("app.stain.liquid", "Liquid (penetrating) stain — bare wood")}</option>
+          <option value="gel">{t("app.stain.gel", "Gel stain — over the existing finish")}</option>
+        </select>
+      </Field>
+
+      {/* What is on the stairs now — the question stripping turns on
+          (lib/pricing/stainFinish.js). Clear finish is what every staircase
+          was assumed to be: the tread rates sand it. */}
+      <Field label={t("app.stain.existingFinish", "What is on it now")}>
+        <select
+          value={section.existingFinish === "painted" ? "painted" : "clear"}
+          onChange={(e) => set({ existingFinish: e.target.value === "painted" ? "painted" : undefined })}
+          className={inputClass}
+          data-stair-existing-finish
+        >
+          <option value="clear">{t("app.stain.existingClear", "A clear finish or stain — the refinish sands it")}</option>
+          <option value="painted">{t("app.stain.existingPainted", "Paint")}</option>
+        </select>
+      </Field>
+      {section.existingFinish === "painted" && (
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={section.stainDarkToLight === true}
+            onChange={(e) => set({ stainDarkToLight: e.target.checked || undefined })}
+          />
+          {t("app.stain.darkToLight", "Going lighter than the current colour (dark → light) — needs bare wood, even with gel")}
+        </label>
+      )}
+      {stairNeedsStripping(section) ? (
+        <div className="rounded-md border border-border p-2 space-y-1" data-stair-stripping>
+          <Field label={t("app.stain.stripTitle", "Stripping to bare wood")}>
+            <select
+              value={normaliseStripMethod(section.stripMethod)}
+              onChange={(e) => set({ stripMethod: e.target.value })}
+              className={inputClass}
+            >
+              {STRIP_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {(m === "sanding" ? t("app.stain.stripSanding", "Sanding") : t("app.stain.stripChemical", "Chemical stripper")) +
+                    " · " +
+                    t("app.stain.hours", "{hours} h", { hours: stairStrippingHours({ ...section, stripMethod: m }, book) })}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {/* No stripping line (2026-10-04): painted-to-stain stairs are
+              priced on the High tier, "painted-over surfaces to strip" — the
+              book's own tier — so the client is charged for stripping once.
+              The hours above cost the job in Cost & margin. */}
+          {level === "high" ? (
+            <p className="text-xs text-muted-foreground" data-stripping-included>
+              {t(
+                "app.stain.stripInHighTier",
+                "Priced on the High tier, which includes stripping the paint — the client is never charged for it twice. The method only sets your crew's hours in Cost & margin.",
+              )}
+            </p>
+          ) : (
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-300" data-stripping-tier>
+              {t(
+                "app.stain.stripUseHighTier",
+                "Painted stairs stained to bare wood are priced on the High tier, which includes stripping the paint. This staircase is on {tier}.",
+                { tier: COMPLEXITY_LEVELS.find((l) => l.value === level)?.label || level },
+              )}{" "}
+              <button
+                type="button"
+                onClick={() => set({ complexityLevel: "high" })}
+                className="underline"
+                data-use-high-tier
+              >
+                {t("app.stain.useHighTier", "Use the High tier")}
+              </button>
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            {t(
+              "app.stain.stripDefaultsStairs",
+              "Hours per tread, riser (when risers are ticked) and foot of handrail come from your rate card (Settings → Services). FieldQuo's researched defaults: chemical 0.5 h a tread, 0.35 h a riser, 0.15 h a foot of rail; sanding 0.3, 0.2 and 0.1.",
+            )}
+          </p>
+        </div>
+      ) : (
+        section.existingFinish === "painted" &&
+        normaliseStainType(section.stainType) === "gel" && (
+          <p className="text-xs text-muted-foreground">
+            {t("app.stain.noStrip", "Gel over the existing finish: no stripping.")}
+          </p>
+        )
+      )}
     </div>
   );
 }

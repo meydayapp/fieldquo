@@ -19,7 +19,8 @@ export const HOME_PAGE_ZH = {
   "home.sale.seePricing": "查看价格",
 
   "home.demo.title": "每一单活儿，从第一通电话到最后一笔付款",
-  "home.demo.subtitle": "办公室看得到整个流程。工人在手机上看到今天的活儿。两边是同一单活儿。",
+  "home.demo.subtitle":
+    "办公室看得到整个流程。工人在手机上看到今天的活儿。两边是同一单活儿。",
   "home.demo.sample": "示例数据——这些不是真实客户。",
   "home.demo.figureLabel": "FieldQuo 示意图：示例活儿从新线索一路走到发票已付",
   "home.demo.nav.pipeline": "流程",
@@ -65,7 +66,8 @@ export const HOME_PAGE_ZH = {
   "home.how.title": "一单活儿，一套简单流程。",
   "home.how.subtitle": "六个步骤，一份记录，什么都不用输两遍。",
   "home.how.lead.title": "接到线索",
-  "home.how.lead.body": "电话、网页表单、你的预约页面和转介绍，都汇到同一个地方。",
+  "home.how.lead.body":
+    "电话、网页表单、你的预约页面和转介绍，都汇到同一个地方。",
   "home.how.quote.title": "发出报价",
   "home.how.quote.body": "在现场用你自己的价格做好报价，还没出车道就发出去。",
   "home.how.schedule.title": "安排活儿",
@@ -83,7 +85,8 @@ export const HOME_PAGE_ZH = {
   "home.trades.example": "示例",
   "home.trades.estimate": "估价",
   "home.trades.send": "发送报价",
-  "home.trades.note": "数字仅作示意，不是价目表——在 FieldQuo 里价格由你自己定。",
+  "home.trades.note":
+    "数字仅作示意，不是价目表——在 FieldQuo 里价格由你自己定。",
   "home.trades.more": "了解 FieldQuo 在这个行当的用法",
   "home.trades.painting.job": "室内刷漆",
   "home.trades.painting.scope": "3 个房间 · 1,450 平方英尺",
@@ -143,7 +146,8 @@ export const HOME_PAGE_ZH = {
   "home.ai.cta": "了解 FieldQuo AI 怎么用",
 
   "home.why.title": "别再用五个不同的应用来管生意了。",
-  "home.why.body": "每个独立工具都存着一份自己的客户资料，要靠你来让它们保持一致。FieldQuo 只存一份。",
+  "home.why.body":
+    "每个独立工具都存着一份自己的客户资料，要靠你来让它们保持一致。FieldQuo 只存一份。",
   "home.why.before": "各自独立的工具",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "报价",
@@ -171,12 +175,14 @@ export const HOME_PAGE_ZH = {
   "home.faq.card.q": "开始时需要信用卡吗？",
   "home.faq.card.aNoCard":
     "不需要。无卡注册。准备好了，在“账户与账单”里选套餐、添加银行卡。如果试用结束时还没选套餐，账户会变成只读 {grace} 天，然后锁定——什么都不会删除。",
-  "home.faq.card.aCard": "需要——注册时绑定银行卡，{days} 天试用结束前不会扣任何费用。",
+  "home.faq.card.aCard":
+    "需要——注册时绑定银行卡，{days} 天试用结束前不会扣任何费用。",
   "home.faq.cancel.q": "可以随时取消吗？",
   "home.faq.cancel.a":
     "可以，在“账户与账单”里操作。已付费的套餐会一直用到所付周期结束——一个月，或一年期承诺的一年——之后不再收费。",
   "home.faq.switch.q": "我已经在用别的工具了，数据能搬过来吗？",
-  "home.faq.switch.a": "能。客户、你的产品和价格、以往的活儿，都各有表格（CSV）导入，你可以带着历史记录开始。",
+  "home.faq.switch.a":
+    "能。客户、你的产品和价格、以往的活儿，都各有表格（CSV）导入，你可以带着历史记录开始。",
   "home.faq.migration.q": "你们能帮我搬数据吗？",
   "home.faq.migration.a":
     "能，这是一项付费服务。在“设置 → 数据迁移”里提交申请，把旧系统的导出文件发给我们。我们报一个价；你接受并付款后，我们的团队会把你的客户和报价添加到你的账户。我们只新增记录——绝不修改或删除已有的任何内容。",

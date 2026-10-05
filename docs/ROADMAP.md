@@ -15,8 +15,8 @@ Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per
 Last updated: 3 October 2026 (everyone has a clock, crew get no accordion — the owner: "everyone should have a clock even the boss … for crews i don't think we need the accordion". The Time clock is the FIRST tab on every phone bar, owners/admins included, each bar keeping its size: owner Clock · Leads · Quotes · Jobs · Chat · More (Invoices → More), estimator Clock · Quotes · Calendar · Chat · More (Leads → More), dispatcher/manager Clock · Schedule · Team · Chat · More (Jobs → More), crew unchanged Clock · Today · Chat · More; someone switched to "No access" gets the old bar back. The desktop rail pins the clock under Home for owners and admins too (owners stay off payroll unless "Pay me through payroll"). Crew from `lg` up get no rail: CrewShell.js — a slim header (company logo + name, their name, bell, Sign out), one big Clock in / Clock out button (green/red/brown, white text 5.5–7.1:1, opens /app/clock), then big buttons Today · My schedule · Chat · Jobs · More; the phone drawer is gone for crew too, and every row it held is on /app/me/more under "Everything else". PATCH /api/time-entries/[id] now refuses a crew member's own times with a pointer to Time log › Request a correction; estimators, supervisors and owners unchanged. The swap choices are reasoned from the screens, not from counts — the per-role page counts in AnalyticsEvent (memberId × viewport) were not read; if they disagree it is one line per set in lib/nav/phoneBar.js — scripts/check-rbac-nav.mjs, check-rbac-redaction.mjs C6b)
 
 Last updated: 3 October 2026 (phone usage at cost × 2 — the owner's rule. Every crew text and every business-number text and call is charged its FLOOR at once (2¢/segment, 5¢/photo, 5¢/call-minute — lib/phoneUsage/pricing.js now owns these; crew and business-number meters re-export them) and queued (PhoneUsageCharge); the hourly /api/cron/business-numbers reads Twilio's price off the message / call (all legs) and debits the difference to max(floor, price × 2) under `<ref>:settle`, once. Each settled price is an observation per class (sms/mms in/out per CA/US/INTL, call_forward, call_bridge); a new unit price seen 5× in a class that already had one is a change → PlatformErrorLog "twilio_price_change", and if it RAISES what companies pay, a PhonePriceChange → an owners/admins-only banner (our new price + date, never the carrier/cost/multiple; not demos, not crew; dismissed per user). /platform/costs shows "Phone costs vs what we charge" with anything under 2× in red. Companies never see the multiple: Settings → Business number, the crew-rate lines and the help articles say only our minimum prices ("Texts from 2¢ each, photos from 5¢, calls from 5¢ a minute. Some carriers are priced higher."), and check:phone-usage scans every catalogue, help module and those screens for ×2 / cost / Twilio / markup / double; "× 2" appears only on /platform. Tables applied by SQL: PhoneUsageCharge, PhoneCostTier, PhonePriceChange — scripts/check-phone-usage.mjs)
+Last updated: 3 October 2026 (drywall REPAIRS no longer ask square footage or ceiling height; stained cabinets and stairs priced ALL-IN per piece (painting rate + stain difference: to bare wood $150 + $45 = $195, gel $150; stripping inside the price, its hours cost-side only; painted stairs on the High tier) — awaiting the owner's approval of the numbers; the hourly price floor warned in the quote builder (ForecastSettings.billableHoursPerMonth — column applied in production); the instant quote in all eight product languages, chosen per company, unset still en/fr/es — see "Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages" below)
 Last updated: 3 October 2026 (leave earned from hours worked: a fourth accrual method, “Earned per hour worked” — X hours per Y hours worked, optional yearly cap, a stated day length — on approved time entries of every work activity; cited presets only (Ontario ESA 4%/6%, California LC §246, Washington RCW 49.46.210, Colorado HFWA, New York LL §196-b), each labelled “check with your local rules”; rate changes apply from the day saved; hours worked since 1 January before FieldQuo, plus leave already taken (paid and unpaid), entered per person as an append-only opening balance with who/when; per-person rates from a date; balances with earned / taken / left and “How it's calculated” on Time off, for the person and on the Team tab. Schema additive, NOT yet applied — SQL in the section below.)
-Last updated: 3 October 2026 (researched market defaults for the exterior door / window frame / trim boards / shutters, a stain-finish add-on on cabinet refinishing, cabinets COUNTED for a painter without the cabinet trade, Siding & trim and Trim boards exclusive per area, drywall repairs as fixed-price items from the now-live repair book, "Wall area" on the legacy room box, and ceilings by area on the instant room picker — see "Researched defaults, counted cabinets, trim once, drywall repairs, wall area" below)
 
 Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
 
@@ -154,8 +154,9 @@ the full row, and Prisma will ask for the new column.
 
 - Run `npm run seed:seat-ladder` (creates the 12 AUD/GBP/EUR rows; additive),
   after `npm run plan-currencies:dry-run -- --db` to see them.
-- VAT exclusive vs inclusive for £/€ is the default chosen here (B2B norm);
-  inclusive would net £82.50 of a UK £99.
+- Approved by the owner (2026-10-05): £/€ and A$ at the same numbers as
+  US$, VAT exclusive (on top) for £/€, and the non-euro EU countries billed
+  in €.
 - Today's money (Bank of Canada, 2 Oct): £99 ≈ US$131, €99 ≈ US$111,
   A$99 ≈ US$69, CA$99 ≈ US$69 — same numbers make the UK ~32% and the EU
   ~13% dearer than the US in dollar terms. The ExchangeRate table holds
@@ -169,6 +170,138 @@ check:pricing-page (168), plus currency-assumption updates in
 check:leave-templates, check:signup-order, check:plan-sellability, check:fx,
 check:compare-pages, check:competitors, check:pricing-console.
 
+## Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages (3 October 2026)
+
+The owner's five decisions after "Researched defaults, counted cabinets, trim
+once, drywall repairs, wall area" (below).
+
+### 1. Drywall repairs ask no room
+
+- Plain `drywall` (the repair quote type) no longer asks **Square Footage** or
+  **Ceiling Height** — in the builder, on the public self-quote form (which now
+  shows the finish level only), and in the call-to-quote draft's field list
+  (`lib/pricing/offerings.js` reads the same definition). `drywall_install`
+  keeps Square Footage: it is the hang and finishing quantity there. It never
+  asked a ceiling height, and none is added — nothing would price from it.
+- Verified before removing: a repair line is the book's rate × 1 whatever the
+  room; the repair book bills no board, so `drywallQuantity()` writes no line
+  from square feet; no cost recipe, production rate or costing path reads
+  either key for drywall; nothing anywhere read `ceilingHeight` on a drywall
+  group. md5 of the drywall payloads (new group, resize sync, every repair item,
+  the saved payload; `drywall_install` too) identical to origin/main b75c8639.
+- A stored group keeps its answers in `intakeValues`; the box just stops being
+  asked. A company template line keyed to `squareFootage` added into a NEW
+  drywall repair group now asks for its quantity instead of filling it.
+- Checks: `check:drywall-finish-levels` section K (1573 passed).
+
+### 2–3. Stained cabinets and stairs: gel or liquid, priced all-in (reworked 4 October 2026)
+
+**Owner, 4 October, on the first version** (a $45 → $10 stain add-on plus an
+hourly stripping line): "painting right now is 150 default that includes all
+the labor etc.. staining requires more labor because you're sanding to bare
+wood.. so it should be more.. make sure you look at real pricing that
+encompasses the whole process." Rebuilt as below; **awaiting his approval of
+the numbers before it ships.**
+
+- **All-in per stained piece**, one line, never an add-on and never an hourly
+  stripping line: the company's painting rate (`perDoor`/`perDrawer`, $150 —
+  TrueFinish's all-in figure) + a stain difference from the rate card
+  (`lib/pricing/stainFinish.js`, `scopeGroupPayload`, `unitPricingSubtotal`,
+  `buildCabinets`, the instant/call estimate). Liquid / to bare wood (or any
+  stain going dark → light): `addOns.stainFinishPerUnit` **+$45 — unchanged
+  from what shipped** → **$195** (+30%). Gel over the existing finish:
+  `addOns.gelStainPerUnit` **$0** → **$150**. An island stained beside painted
+  cabinets is two lines.
+- **Example kitchen, 20 doors + 8 drawer fronts:** painted **$4,200**; liquid to
+  bare wood **$5,460** (the same total origin/main already charged as
+  $150 + a $45 add-on line — now one honest all-in line); gel **$4,200**.
+  +50% option for the owner: $75 difference → $225 a piece, $6,300.
+- **Sources** (research doc §F): realcostiq (July/Sept 2026) painting
+  $100–250 a door, strip & restain $150–250, sand & restain $100–175, gel
+  $80–140; Kitchen Cabinet Kings (2026) stained 30–50% over painted, Shaker
+  $110–170 vs $85–140; Angi gel $80–140; Fixr painting $70–125 (2026-01-27);
+  HomeStars CAD 150–200 a piece painted (2026-08-21); homewyse stain & finish
+  $7.45–15.09/sqft (Sept 2026); HomeAdvisor no-strip staining 30% under paint.
+- **Stripping is cost only:** the chemical / sanding buttons set the crew's
+  hours in Cost & margin (17 h / 9.2 h on the example; `cabinetLabour.js`), the
+  stripping rows on the rate card are now `internal` and labelled researched
+  defaults. The labour-rate plumbing of the first version is gone
+  (business-info no longer returns `labourSellRate`; no snapshot, no effect).
+- **Stairs:** a **Which stain** select per staircase (printed under the treads
+  line); the tread rate already includes sanding a clear finish ($150 against
+  BBS Flooring CAD 125–145 and De Armas $90–200 a step). A **painted** staircase
+  stained to bare wood is the book's **High** tier ("painted-over surfaces to
+  strip": tread $275, riser $40, rail $28/ft) — the section says so with a
+  **Use the High tier** button; no stripping line. Example 13 treads / 14
+  risers / 14 ft: clear **$2,510**, painted to stain **$4,527**. Staining →
+  Stairs opens on liquid.
+- `stainFinish`, `stainType`, `stripMethod`, `stainDarkToLight` are saved with
+  the cabinet answers (`stainFinish` never was). The live Cost & margin panel
+  reads the cabinet answers before a save.
+- md5: every cabinet path without a stain, the stairs, the cabinet hours and
+  the instant estimate identical to origin/main (pinned in
+  `check:stain-finish` §G).
+- Not done: the painting book's illustrative, unpriced staining substrates;
+  stripping balusters/posts (not asked).
+- Checks: `check:stain-finish` 105, `check:estimate-kind-routing` 445,
+  `check:call-offerings`, `check:instant-exits` 190, `check:cabinet-labour`,
+  `check:quote-costing`, `check:stairs-from-steps`, `check:drywall-finish-levels`.
+
+### 4. The hourly floor reaches the quote builder
+
+- `calculateHourlyFloor` had no caller. Now: **Settings → Overhead** asks
+  **Billable hours a month** (beside Jobs per week and Target margin) and shows
+  **Your hourly floor** = monthly costs ÷ billable hours; the new
+  `GET /api/analytics/hourly-floor` (same cost-basis gate as minimum-price;
+  400 `needsHours` when unset — never defaulted) feeds the builder; beside
+  **Cost & margin**, `HourlyFloorNotice` checks every line billed by the hour
+  (`isHourUnit`, priced as the save prices it) — their **average** against the
+  floor. Below: an amber warning with the average, the floor, the shortfall on
+  the quote, and every input (monthly costs and billable hours, both Settings →
+  Overhead; **profit $0 — FieldQuo's default, so the floor is break-even**).
+  At/above: one quiet line. No hours set: a hint linking to Overhead. Never
+  blocks, never changes a price — the mirror of the per-job floor, which
+  reaches a quote as the margin panel's overhead and its red "losing money".
+- Pure arithmetic in `lib/analytics/hourlyFloor.js`; `calculateHourlyFloor`
+  now returns it (same formula; check:depreciation's pinned floor unchanged).
+- **Schema (additive — applied in production by the coordinator, 2026-10-04):**
+  `ALTER TABLE "ForecastSettings" ADD COLUMN "billableHoursPerMonth" INTEGER;`
+- Checks: new `check:hourly-floor` (81, in check:all); `check:settings-access`
+  lists the new route beside minimum-price (dark to a support session for the
+  same reason).
+
+### 5. The instant quote in all eight languages, chosen per company
+
+- `INSTANT_QUOTE_LANGUAGES` = the eight product languages (en fr es uk pa tl de
+  it, LANGUAGES order — en/fr/es keep their pills' places). zh (interface-only)
+  and ko/pt/ru (marketing-only) are not document languages and are not offered.
+- **Nothing changes until a company opts in:** unset still offers exactly en,
+  fr, es (`INSTANT_QUOTE_DEFAULT_LANGUAGES`); the settings card (Settings →
+  Instant Quotes → Languages on your instant estimate) lists all eight and says
+  so (`app.setInstantQuotes.languages.unsetThree`, nine catalogues; the old
+  "all of them are offered" key removed). The PUT accepts any of the eight,
+  refuses [] and junk; the homeowner sees only the ticked ones.
+- Hand-written uk/pa/tl/de/it for every string the public flow shows or sends:
+  `instantQuoteCopy.js` (16 trades, 16 blurbs, 35 junk items, 5 job types, the
+  page), `lawnEstimateCopy`, `gutterEstimateCopy`, `estimateReportCopy`,
+  `measureDocCopy`, `tradeQuestions`, `serviceArea`, the estimate email,
+  budget bands, financing label, lawn "Includes:"; locale table uk-UA, pa-IN,
+  fil-PH, de-DE, it-IT; browser `fil` → tl.
+- The measure route now resolves the language through
+  `resolveInstantLanguage` (it accepted a switched-off or non-instant language).
+- The marketing roofing walk-through stays on en/fr/es
+  (`SHOWCASE_DOCUMENT_LANGUAGES`) — its step-1 note says so in every marketing
+  language; widening it means rewording that note.
+- Still English: company-entered lawn program text (stored en/fr/es only),
+  estimator breakdown/assumption lines (already English for fr/es), and the
+  booking page a German report links to (`BOOKING_LANGUAGES` is en/fr/es).
+- Help: instant-quotes-on-your-website and the-instant-estimate-page (en/fr/es)
+  rewritten — they still said "English and French only".
+- Checks: `check:instant-quote-copy` 500 (every key in 8 languages × 7 tables,
+  no English left standing, unset = en/fr/es, a crafted ?lang never escapes the
+  offered list), plus form-look, booking-language, estimate-report, lawn-care,
+  service-area, gutter-instant, booking-questions, roofing-example, lead-language,
+  public-payload, translations — all passing.
 ## Owner decisions 4 October 2026 (evening)
 
 ### 1. Crew access — the four "Owed" decisions in docs/ROLE-ACCESS.md

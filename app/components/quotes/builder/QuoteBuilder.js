@@ -126,6 +126,7 @@ import {
   applyLineItemEdit,
   newScopeGroup,
   billedUnitsOf,
+  withCabinetAnswers,
 } from "@/lib/quotes/builderPayload";
 // Refinish | Reface inside one cabinet group — what carries and why is in
 // the module's header.
@@ -135,7 +136,9 @@ import {
 } from "@/lib/quotes/cabinetServiceSwitch";
 // Which calculator a painting estimate kind opens — the cabinet or stair
 // trade, or the painting takeoff. Why, in the module's header.
-import { routeEstimateKind, routedAddOns, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
+import { routeEstimateKind, routedAddOns, routedGroup, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
+import { checkHourlyFloor, hasHourlyLine } from "@/lib/analytics/hourlyFloor";
+import HourlyFloorNotice from "./HourlyFloorNotice";
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
@@ -405,6 +408,7 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           overheadData,
           forecastData,
           productionData,
+          hourlyFloorData,
         ] = await Promise.all([
           // fetchJson throws on a non-ok/HTML-error response instead of feeding
           // a 404/500 body into a state setter — a failed load surfaces below
@@ -462,6 +466,15 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           fetch("/api/products/production")
             .then((r) => (r.ok ? r.json() : []))
             .catch(() => []),
+          // The HOURLY floor (lib/analytics/hourlyFloor.js) — the per-hour
+          // twin of the per-job overhead above. 400 { needsHours } when the
+          // company has not said its billable hours: a real "we don't know",
+          // which the warning turns into a pointer to Settings → Overhead.
+          // A 403 without jobCosting arrives as a body with no floor on it,
+          // and the panel it sits in is not rendered for that person anyway.
+          fetch("/api/analytics/hourly-floor")
+            .then((r) => r.json().catch(() => null))
+            .catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -535,6 +548,15 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             ? Number(forecastData.targetMarginPct)
             : null,
           productionRates: Array.isArray(productionData) ? productionData : [],
+          hourlyFloor:
+            Number(hourlyFloorData?.hourlyFloor) > 0
+              ? {
+                  hourlyFloor: Number(hourlyFloorData.hourlyFloor),
+                  monthlyFixedCosts: Number(hourlyFloorData.monthlyFixedCosts) || 0,
+                  billableHoursPerMonth: Number(hourlyFloorData.billableHoursPerMonth) || 0,
+                }
+              : null,
+          hourlyFloorNeedsHours: hourlyFloorData?.needsHours === true,
         });
       } catch (e) {
         if (!cancelled) setLoadError(e?.message || t("app.quoteNew.createError"));
@@ -974,6 +996,7 @@ export function QuoteBuilderForm({
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
   const [reasonsOpen, setReasonsOpen] = useState({});
 
+
   // ── The company's saved complexity factors ──────────────────────────────
   //
   // Optional data, like the product catalogue: the factor editor works
@@ -1374,19 +1397,24 @@ export function QuoteBuilderForm({
   // The shape itself lives in lib/quotes/builderPayload.js, because the phone-
   // call prefill below needs exactly the same one and a second copy of "what a
   // new group looks like" is the duplication that rots.
-  function addScopeGroup(category, label, addOns = []) {
+  // `route` (optional): the estimate-kind route that asked for this group —
+  // Staining → Stairs opens its staircases on a stain type (routedGroup).
+  function addScopeGroup(category, label, addOns = [], route = null) {
     setScopeGroups((prev) => [
       ...prev,
-      newScopeGroup(category, label, rateOverridesFor(category.id), {
-        tempId: crypto.randomUUID(),
-        // The estimator added this one, and is looking at it: a field that
-        // declares a default (the drywall finish level) opens on it.
-        fieldDefaults: true,
-        language: quoteLanguage || companyLanguage,
-        // Staining → Cabinets opens with the stain finish ticked
-        // (routedAddOns); every other add starts with nothing ticked.
-        addOns,
-      }),
+      routedGroup(
+        route,
+        newScopeGroup(category, label, rateOverridesFor(category.id), {
+          tempId: crypto.randomUUID(),
+          // The estimator added this one, and is looking at it: a field that
+          // declares a default (the drywall finish level) opens on it.
+          fieldDefaults: true,
+          language: quoteLanguage || companyLanguage,
+          // Staining → Cabinets opens with the stain finish ticked
+          // (routedAddOns); every other add starts with nothing ticked.
+          addOns,
+        }),
+      ),
     ]);
   }
 
@@ -1601,7 +1629,7 @@ export function QuoteBuilderForm({
     // (2026-10-03); lib/quotes/estimateKindRouting.js decides.
     const route = routeEstimateKind(estimateType, categories, choice);
     if (route) {
-      addScopeGroup(route.category, routedLabel(route), routedAddOns(route));
+      addScopeGroup(route.category, routedLabel(route), routedAddOns(route), route);
       return;
     }
     const category = paintingCategoryFor(estimateType, categories);
@@ -1652,12 +1680,15 @@ export function QuoteBuilderForm({
   function routePaintGroup(groupTempId, kind, choice = null) {
     const route = routeEstimateKind(kind, categories, choice);
     if (!route) return false;
-    const fresh = newScopeGroup(route.category, routedLabel(route), rateOverridesFor(route.category.id), {
-      tempId: crypto.randomUUID(),
-      fieldDefaults: true,
-      language: quoteLanguage || companyLanguage,
-      addOns: routedAddOns(route),
-    });
+    const fresh = routedGroup(
+      route,
+      newScopeGroup(route.category, routedLabel(route), rateOverridesFor(route.category.id), {
+        tempId: crypto.randomUUID(),
+        fieldDefaults: true,
+        language: quoteLanguage || companyLanguage,
+        addOns: routedAddOns(route),
+      }),
+    );
     setScopeGroups((prev) => placeRoutedGroup(prev, groupTempId, fresh));
     return true;
   }
@@ -2211,6 +2242,12 @@ export function QuoteBuilderForm({
       const productionHours = productionHoursOf(g);
       return {
         ...g,
+        // A cabinet group's upgrades and stain answers live on the group
+        // while the builder is open and in its intake once saved; the cost
+        // estimate reads the intake, so it is handed the saved shape now —
+        // otherwise the stripping hours (and every upgrade's hours) entered
+        // the margin only after a save and reopen. Other trades: unchanged.
+        intakeValues: withCabinetAnswers(g),
         rateOverrides: rateOverridesFor(g.categoryId),
         ...(productionHours !== null ? { productionHours } : {}),
       };
@@ -3128,9 +3165,37 @@ export function QuoteBuilderForm({
     );
   };
 
+  // ── The hourly floor (lib/analytics/hourlyFloor.js) ──────────────────────
+  //
+  // Every line the save would store, priced exactly as the save prices it
+  // (scopeGroupPayload), so the average the warning quotes is the document's.
+  // Only computed for someone who sees the panel it sits in.
+  const quoteLinesForFloor = mayCost
+    ? scopeGroups.flatMap((g) => {
+        try {
+          return buildScopeGroupPayload(g, rateOverridesFor(g.categoryId), quoteLanguage || companyLanguage)?.lineItems || [];
+        } catch {
+          return [];
+        }
+      })
+    : [];
+  const hourlyFloorCheck = boot.hourlyFloor
+    ? checkHourlyFloor(quoteLinesForFloor, boot.hourlyFloor.hourlyFloor)
+    : null;
+
   /** Internal cost & margin — never client-facing; see the component. */
   const renderCostMarginPanel = () => (
     <>
+    {mayCost && (
+      <HourlyFloorNotice
+        check={hourlyFloorCheck}
+        floor={boot.hourlyFloor || null}
+        needsHours={boot.hourlyFloorNeedsHours === true}
+        hasHourly={hasHourlyLine(quoteLinesForFloor)}
+        money={(n) => formatAppMoney(n, companyCurrency, "en")}
+        t={t}
+      />
+    )}
     {mayCost && (
       <CostMarginPanel
         currency={companyCurrency}

@@ -10628,7 +10628,14 @@ model ForecastSettings {
   /// (normaliseTargetMargin), because a stored 3.0 would make the floor
   /// negative.
   targetMargin        Decimal?  @db.Decimal(5, 4)
-  leadsPer1000        Decimal   @default(12) @db.Decimal(8, 2)
+  /// Hours the business can INVOICE in a month, across everyone — the divisor
+  /// of the hourly price floor (lib/analytics/hourlyFloor.js), which the quote
+  /// builder warns against on lines billed by the hour. NULL means "not said",
+  /// and there is then no hourly floor: never defaulted, because a floor
+  /// computed against an invented number is worse than none. 1–744 on write
+  /// (app/api/settings/forecast). Added 2026-10-03.
+  billableHoursPerMonth Int?
+  leadsPer1000       Decimal   @default(12) @db.Decimal(8, 2)
   leadToSale          Decimal   @default(0.60) @db.Decimal(6, 3)
   curveType           CurveType @default(log)
   curveA              Decimal   @default(18) @db.Decimal(12, 4)

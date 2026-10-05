@@ -2,7 +2,10 @@
 //
 // The two forecast settings anything in the product actually reads:
 // jobs-per-week capacity, which lib/analytics/minimumPrice.js divides overhead
-// by, and the target margin it then marks the cost per job up by.
+// by, and the target margin it then marks the cost per job up by. Since
+// 2026-10-03 also billable hours a month, which the HOURLY floor divides by
+// (lib/analytics/hourlyFloor.js) — read by /api/analytics/hourly-floor and
+// the quote builder's warning.
 //
 // ── Why only two fields ─────────────────────────────────────────────────────
 //
@@ -29,6 +32,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { parseCapacity } from "@/lib/analytics/capacity";
+import { parseBillableHours, MAX_BILLABLE_HOURS_PER_MONTH } from "@/lib/analytics/hourlyFloor";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -36,7 +40,7 @@ export async function GET(request) {
 
   const row = await db.forecastSettings.findUnique({
     where: { companyId: member.companyId },
-    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true },
+    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true, billableHoursPerMonth: true },
   });
 
   return NextResponse.json({
@@ -47,6 +51,8 @@ export async function GET(request) {
     // month, as typed, rather than the weekly figure derived from it.
     jobsPerMonthCapacity: row?.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(row?.targetMargin),
+    // The hourly floor's divisor (lib/analytics/hourlyFloor.js). null = not said.
+    billableHoursPerMonth: row?.billableHoursPerMonth ?? null,
   });
 }
 
@@ -106,6 +112,19 @@ export async function PUT(request) {
   }
   const marginWrite = margin.skip ? {} : { targetMargin: margin.value };
 
+  // Billable hours a month — the hourly floor's divisor (2026-10-03,
+  // lib/analytics/hourlyFloor.js). Same three readings as the margin: absent
+  // leaves the column, null/"" clears it, anything else must be a whole
+  // number of hours a month could hold — rejected, never clamped.
+  const billable = parseBillableHours(body?.billableHoursPerMonth);
+  if (billable.error) {
+    return NextResponse.json(
+      { error: `Billable hours must be a whole number between 1 and ${MAX_BILLABLE_HOURS_PER_MONTH}.` },
+      { status: 400 },
+    );
+  }
+  const billableWrite = billable.skip ? {} : { billableHoursPerMonth: billable.value };
+
   // Clearing it back to "unknown" has to be possible: the minimum-price
   // calculation refuses to answer without a capacity, and a company that isn't
   // sure should be able to say so rather than leave a guess in place.
@@ -120,13 +139,15 @@ export async function PUT(request) {
       jobsPerWeekCapacity: cap.week,
       jobsPerMonthCapacity: cap.month,
       ...marginWrite,
+      ...billableWrite,
     },
     update: {
       jobsPerWeekCapacity: cap.week,
       jobsPerMonthCapacity: cap.month,
       ...marginWrite,
+      ...billableWrite,
     },
-    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true },
+    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true, billableHoursPerMonth: true },
   });
 
   const marginWords = margin.skip
@@ -140,6 +161,7 @@ export async function PUT(request) {
       jobsPerWeekCapacity: cap.week || null,
       ...(cap.month !== null ? { jobsPerMonthCapacity: cap.month } : {}),
       ...(margin.skip ? {} : { targetMarginPct: toPct(margin.value) }),
+      ...(billable.skip ? {} : { billableHoursPerMonth: billable.value }),
     },
   });
 
@@ -147,5 +169,6 @@ export async function PUT(request) {
     jobsPerWeekCapacity: saved.jobsPerWeekCapacity || null,
     jobsPerMonthCapacity: saved.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(saved.targetMargin),
+    billableHoursPerMonth: saved.billableHoursPerMonth ?? null,
   });
 }

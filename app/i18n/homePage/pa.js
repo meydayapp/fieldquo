@@ -13,7 +13,8 @@ export const HOME_PAGE_PA = {
   "home.sale.fallbackName": "ਸੇਲ",
   "home.sale.offYear": "1-ਸਾਲ ਦੇ ਪਲਾਨਾਂ 'ਤੇ {percent}% ਛੋਟ",
   "home.sale.offPromoFirstMonth": "ਤੁਹਾਡੇ ਪਹਿਲੇ ਮਹੀਨੇ 'ਤੇ {percent}% ਛੋਟ",
-  "home.sale.offPromoMonths": "ਤੁਹਾਡੇ ਪਹਿਲੇ {months} ਮਹੀਨਿਆਂ 'ਤੇ {percent}% ਛੋਟ",
+  "home.sale.offPromoMonths":
+    "ਤੁਹਾਡੇ ਪਹਿਲੇ {months} ਮਹੀਨਿਆਂ 'ਤੇ {percent}% ਛੋਟ",
   "home.sale.offBoth": "ਮਹੀਨਾਵਾਰ ਅਤੇ 1-ਸਾਲ ਦੇ ਪਲਾਨਾਂ 'ਤੇ {percent}% ਛੋਟ",
   "home.sale.ends": "{date} ਨੂੰ ਖ਼ਤਮ",
   "home.sale.seePricing": "ਕੀਮਤਾਂ ਵੇਖੋ",
@@ -22,7 +23,8 @@ export const HOME_PAGE_PA = {
   "home.demo.subtitle":
     "ਦਫ਼ਤਰ ਪੂਰੀ ਪਾਈਪਲਾਈਨ ਵੇਖਦਾ ਹੈ। ਕਰੂ ਅੱਜ ਦੇ ਕੰਮ ਆਪਣੇ ਫ਼ੋਨ 'ਤੇ ਵੇਖਦਾ ਹੈ। ਦੋਵਾਂ ਥਾਵਾਂ 'ਤੇ ਕੰਮ ਇੱਕੋ ਹੈ।",
   "home.demo.sample": "ਨਮੂਨਾ ਡਾਟਾ — ਇਹ ਅਸਲ ਗਾਹਕ ਨਹੀਂ ਹਨ।",
-  "home.demo.figureLabel": "ਨਮੂਨਾ ਕੰਮਾਂ ਨਾਲ FieldQuo ਦਾ ਚਿੱਤਰ, ਨਵੀਂ ਲੀਡ ਤੋਂ ਭੁਗਤਾਨ ਹੋਏ ਇਨਵੌਇਸ ਤੱਕ",
+  "home.demo.figureLabel":
+    "ਨਮੂਨਾ ਕੰਮਾਂ ਨਾਲ FieldQuo ਦਾ ਚਿੱਤਰ, ਨਵੀਂ ਲੀਡ ਤੋਂ ਭੁਗਤਾਨ ਹੋਏ ਇਨਵੌਇਸ ਤੱਕ",
   "home.demo.nav.pipeline": "ਪਾਈਪਲਾਈਨ",
   "home.demo.nav.schedule": "ਸ਼ੈਡਿਊਲ",
   "home.demo.nav.clients": "ਗਾਹਕ",
@@ -46,12 +48,15 @@ export const HOME_PAGE_PA = {
   "home.demo.phone.startJob": "ਕੰਮ ਸ਼ੁਰੂ ਕਰੋ",
 
   "home.results.promise.volume": "ਨਵੇਂ ਬੰਦੇ ਰੱਖੇ ਬਿਨਾਂ ਹੋਰ ਕੰਮ ਸੰਭਾਲੋ।",
-  "home.results.promise.overhead": "ਵੱਡੀ ਕੰਪਨੀ ਵਾਲੇ ਸਿਸਟਮ, ਵੱਡੀ ਕੰਪਨੀ ਵਾਲੇ ਖ਼ਰਚੇ ਤੋਂ ਬਿਨਾਂ।",
+  "home.results.promise.overhead":
+    "ਵੱਡੀ ਕੰਪਨੀ ਵਾਲੇ ਸਿਸਟਮ, ਵੱਡੀ ਕੰਪਨੀ ਵਾਲੇ ਖ਼ਰਚੇ ਤੋਂ ਬਿਨਾਂ।",
   "home.results.promise.techs": "ਫ਼ੀਲਡ ਵਿੱਚ ਹਰ ਟੈੱਕ ਤੋਂ ਵੱਧ ਕੰਮ ਲਓ।",
-  "home.results.title": "ਇੱਕ ਜੁੜੇ ਹੋਏ ਪਲੇਟਫ਼ਾਰਮ 'ਤੇ ਆਉਣ ਤੋਂ ਬਾਅਦ ਠੇਕੇਦਾਰ ਕੀ ਦੱਸਦੇ ਹਨ",
+  "home.results.title":
+    "ਇੱਕ ਜੁੜੇ ਹੋਏ ਪਲੇਟਫ਼ਾਰਮ 'ਤੇ ਆਉਣ ਤੋਂ ਬਾਅਦ ਠੇਕੇਦਾਰ ਕੀ ਦੱਸਦੇ ਹਨ",
   "home.results.intro":
     "ਇਹ ਉਦਯੋਗ ਦੀ ਖੋਜ ਹੈ, FieldQuo ਗਾਹਕਾਂ ਦੇ ਨਤੀਜੇ ਨਹੀਂ। ਹਰ ਅੰਕੜਾ ਸਰਵੇਖਣ ਵਾਲੇ ਉਹਨਾਂ ਠੇਕੇਦਾਰਾਂ ਦਾ ਹਿੱਸਾ ਹੈ ਜਿਨ੍ਹਾਂ ਨੇ ਸੁਧਾਰ ਦੱਸਿਆ — ਸੁਧਾਰ ਦਾ ਆਕਾਰ ਨਹੀਂ।",
-  "home.results.stat.volume": "ਕਹਿੰਦੇ ਹਨ ਕਿ ਉਹਨਾਂ ਦਾ ਦਫ਼ਤਰ ਨਵੇਂ ਬੰਦੇ ਰੱਖੇ ਬਿਨਾਂ ਵੱਧ ਕੰਮ ਸੰਭਾਲਦਾ ਹੈ",
+  "home.results.stat.volume":
+    "ਕਹਿੰਦੇ ਹਨ ਕਿ ਉਹਨਾਂ ਦਾ ਦਫ਼ਤਰ ਨਵੇਂ ਬੰਦੇ ਰੱਖੇ ਬਿਨਾਂ ਵੱਧ ਕੰਮ ਸੰਭਾਲਦਾ ਹੈ",
   "home.results.stat.revenuePerTech": "ਪ੍ਰਤੀ ਟੈੱਕ ਵੱਧ ਆਮਦਨ ਦੱਸਦੇ ਹਨ",
   "home.results.stat.margins": "ਬਿਹਤਰ ਮਾਰਜਿਨ ਦੱਸਦੇ ਹਨ",
   "home.results.stat.growth": "ਆਮਦਨ ਵਿੱਚ ਵਾਧਾ ਦੱਸਦੇ ਹਨ",
@@ -66,25 +71,33 @@ export const HOME_PAGE_PA = {
   "home.how.title": "ਇੱਕ ਕੰਮ। ਇੱਕ ਸੌਖਾ ਤਰੀਕਾ।",
   "home.how.subtitle": "ਛੇ ਕਦਮ, ਇੱਕ ਰਿਕਾਰਡ, ਕੁਝ ਵੀ ਦੋ ਵਾਰ ਨਹੀਂ ਲਿਖਣਾ।",
   "home.how.lead.title": "ਲੀਡ ਲਓ",
-  "home.how.lead.body": "ਕਾਲਾਂ, ਵੈੱਬ ਫ਼ਾਰਮ, ਤੁਹਾਡਾ ਬੁਕਿੰਗ ਪੰਨਾ ਅਤੇ ਰੈਫ਼ਰਲ ਇੱਕੋ ਥਾਂ ਆਉਂਦੇ ਹਨ।",
+  "home.how.lead.body":
+    "ਕਾਲਾਂ, ਵੈੱਬ ਫ਼ਾਰਮ, ਤੁਹਾਡਾ ਬੁਕਿੰਗ ਪੰਨਾ ਅਤੇ ਰੈਫ਼ਰਲ ਇੱਕੋ ਥਾਂ ਆਉਂਦੇ ਹਨ।",
   "home.how.quote.title": "ਕੋਟ ਭੇਜੋ",
-  "home.how.quote.body": "ਆਪਣੀਆਂ ਕੀਮਤਾਂ ਨਾਲ ਮੌਕੇ 'ਤੇ ਹੀ ਬਣਾਓ ਅਤੇ ਡਰਾਈਵਵੇਅ ਛੱਡਣ ਤੋਂ ਪਹਿਲਾਂ ਭੇਜ ਦਿਓ।",
+  "home.how.quote.body":
+    "ਆਪਣੀਆਂ ਕੀਮਤਾਂ ਨਾਲ ਮੌਕੇ 'ਤੇ ਹੀ ਬਣਾਓ ਅਤੇ ਡਰਾਈਵਵੇਅ ਛੱਡਣ ਤੋਂ ਪਹਿਲਾਂ ਭੇਜ ਦਿਓ।",
   "home.how.schedule.title": "ਕੰਮ ਦਾ ਸ਼ੈਡਿਊਲ ਬਣਾਓ",
-  "home.how.schedule.body": "ਮਨਜ਼ੂਰ ਹੋਇਆ ਕੋਟ ਕੰਮ ਬਣ ਜਾਂਦਾ ਹੈ। ਇਸਨੂੰ ਕੈਲੰਡਰ 'ਤੇ ਰੱਖੋ ਅਤੇ ਕਰੂ ਸੌਂਪੋ।",
+  "home.how.schedule.body":
+    "ਮਨਜ਼ੂਰ ਹੋਇਆ ਕੋਟ ਕੰਮ ਬਣ ਜਾਂਦਾ ਹੈ। ਇਸਨੂੰ ਕੈਲੰਡਰ 'ਤੇ ਰੱਖੋ ਅਤੇ ਕਰੂ ਸੌਂਪੋ।",
   "home.how.work.title": "ਕੰਮ ਕਰੋ",
-  "home.how.work.body": "ਤੁਹਾਡਾ ਕਰੂ ਫ਼ੋਨ ਤੋਂ ਹੀ ਕਲੌਕ-ਇਨ ਕਰਦਾ, ਫ਼ੋਟੋਆਂ ਜੋੜਦਾ ਅਤੇ ਚੈੱਕਲਿਸਟ ਪੂਰੀ ਕਰਦਾ ਹੈ।",
+  "home.how.work.body":
+    "ਤੁਹਾਡਾ ਕਰੂ ਫ਼ੋਨ ਤੋਂ ਹੀ ਕਲੌਕ-ਇਨ ਕਰਦਾ, ਫ਼ੋਟੋਆਂ ਜੋੜਦਾ ਅਤੇ ਚੈੱਕਲਿਸਟ ਪੂਰੀ ਕਰਦਾ ਹੈ।",
   "home.how.paid.title": "ਭੁਗਤਾਨ ਲਓ",
-  "home.how.paid.body": "ਕੰਮ ਤੋਂ ਹੀ ਇਨਵੌਇਸ ਬਣਾਓ ਅਤੇ ਔਨਲਾਈਨ ਭੁਗਤਾਨ ਲਓ, ਸਿੱਧਾ ਆਪਣੇ ਬੈਂਕ ਖਾਤੇ ਵਿੱਚ।",
+  "home.how.paid.body":
+    "ਕੰਮ ਤੋਂ ਹੀ ਇਨਵੌਇਸ ਬਣਾਓ ਅਤੇ ਔਨਲਾਈਨ ਭੁਗਤਾਨ ਲਓ, ਸਿੱਧਾ ਆਪਣੇ ਬੈਂਕ ਖਾਤੇ ਵਿੱਚ।",
   "home.how.numbers.title": "ਆਪਣੇ ਅੰਕੜੇ ਜਾਣੋ",
-  "home.how.numbers.body": "ਵੇਖੋ ਕਿ ਹਰ ਕੰਮ ਨੇ ਤੁਹਾਡੇ ਕੋਟ ਦੇ ਮੁਕਾਬਲੇ ਅਸਲ ਵਿੱਚ ਕਿੰਨਾ ਕਮਾਇਆ।",
+  "home.how.numbers.body":
+    "ਵੇਖੋ ਕਿ ਹਰ ਕੰਮ ਨੇ ਤੁਹਾਡੇ ਕੋਟ ਦੇ ਮੁਕਾਬਲੇ ਅਸਲ ਵਿੱਚ ਕਿੰਨਾ ਕਮਾਇਆ।",
 
   "home.trades.title": "ਤੁਹਾਡੇ ਕਿੱਤੇ ਲਈ ਬਣਿਆ",
-  "home.trades.subtitle": "ਆਪਣਾ ਕਿੱਤਾ ਚੁਣੋ ਅਤੇ ਵੇਖੋ ਕਿ ਤੁਸੀਂ FieldQuo ਤੋਂ ਕਿਹੋ ਜਿਹਾ ਐਸਟੀਮੇਟ ਭੇਜੋਗੇ।",
+  "home.trades.subtitle":
+    "ਆਪਣਾ ਕਿੱਤਾ ਚੁਣੋ ਅਤੇ ਵੇਖੋ ਕਿ ਤੁਸੀਂ FieldQuo ਤੋਂ ਕਿਹੋ ਜਿਹਾ ਐਸਟੀਮੇਟ ਭੇਜੋਗੇ।",
   "home.trades.pick": "ਕਿੱਤਾ ਚੁਣੋ",
   "home.trades.example": "ਉਦਾਹਰਣ",
   "home.trades.estimate": "ਐਸਟੀਮੇਟ",
   "home.trades.send": "ਕੋਟ ਭੇਜੋ",
-  "home.trades.note": "ਉਦਾਹਰਣ ਲਈ ਅੰਕੜੇ, ਕੀਮਤ-ਸੂਚੀ ਨਹੀਂ — FieldQuo ਵਿੱਚ ਕੀਮਤਾਂ ਤੁਸੀਂ ਆਪ ਤੈਅ ਕਰਦੇ ਹੋ।",
+  "home.trades.note":
+    "ਉਦਾਹਰਣ ਲਈ ਅੰਕੜੇ, ਕੀਮਤ-ਸੂਚੀ ਨਹੀਂ — FieldQuo ਵਿੱਚ ਕੀਮਤਾਂ ਤੁਸੀਂ ਆਪ ਤੈਅ ਕਰਦੇ ਹੋ।",
   "home.trades.more": "ਇਸ ਕਿੱਤੇ ਲਈ FieldQuo ਬਾਰੇ ਹੋਰ",
   "home.trades.painting.job": "ਅੰਦਰੂਨੀ ਰੰਗ-ਰੋਗਨ",
   "home.trades.painting.scope": "3 ਕਮਰੇ · 1,450 ਵਰਗ ਫ਼ੁੱਟ",
@@ -101,10 +114,12 @@ export const HOME_PAGE_PA = {
   "home.trades.handyman.job": "ਛੋਟੇ ਕੰਮਾਂ ਦੀ ਸੂਚੀ",
   "home.trades.handyman.scope": "8 ਛੋਟੀਆਂ ਮੁਰੰਮਤਾਂ · ਲਗਭਗ 6 ਘੰਟੇ",
   "home.trades.construction-contracting.job": "ਬੇਸਮੈਂਟ ਫ਼ਿਨਿਸ਼ਿੰਗ",
-  "home.trades.construction-contracting.scope": "750 ਵਰਗ ਫ਼ੁੱਟ · ਫ਼ਰੇਮਿੰਗ ਤੋਂ ਰੰਗ ਤੱਕ",
+  "home.trades.construction-contracting.scope":
+    "750 ਵਰਗ ਫ਼ੁੱਟ · ਫ਼ਰੇਮਿੰਗ ਤੋਂ ਰੰਗ ਤੱਕ",
 
   "home.outcomes.title": "FieldQuo ਤੁਹਾਡੀ ਕਿਸ ਵਿੱਚ ਮਦਦ ਕਰਦਾ ਹੈ",
-  "home.outcomes.subtitle": "ਸਭ ਕੁਝ ਇੱਕ ਸਿਸਟਮ ਵਿੱਚ, ਇਸ ਹਿਸਾਬ ਨਾਲ ਵੰਡਿਆ ਕਿ ਇਹ ਕੀ ਕਰਦਾ ਹੈ।",
+  "home.outcomes.subtitle":
+    "ਸਭ ਕੁਝ ਇੱਕ ਸਿਸਟਮ ਵਿੱਚ, ਇਸ ਹਿਸਾਬ ਨਾਲ ਵੰਡਿਆ ਕਿ ਇਹ ਕੀ ਕਰਦਾ ਹੈ।",
   "home.outcomes.win": "ਵੱਧ ਕੰਮ ਜਿੱਤੋ",
   "home.outcomes.run": "ਹਰ ਕੰਮ ਚਲਾਓ",
   "home.outcomes.paid": "ਭੁਗਤਾਨ ਲਓ",
@@ -161,7 +176,8 @@ export const HOME_PAGE_PA = {
 
   "home.pricing.title": "ਹਰ ਫ਼ੀਚਰ। ਹਰ ਪਲਾਨ ਵਿੱਚ।",
   "home.pricing.question": "ਤੁਹਾਡਾ ਕਾਰੋਬਾਰ ਕਿੰਨੇ ਲੋਕ ਚਲਾਉਂਦੇ ਹਨ?",
-  "home.pricing.body": "ਪਲਾਨ ਸਿਰਫ਼ ਇਸ ਗੱਲ ਵਿੱਚ ਵੱਖਰੇ ਹਨ ਕਿ ਕਿੰਨੇ ਲੋਕ ਇਹਨਾਂ ਨੂੰ ਵਰਤਦੇ ਹਨ। ਕੁਝ ਵੀ ਵੱਡੇ ਪਲਾਨ ਪਿੱਛੇ ਬੰਦ ਨਹੀਂ।",
+  "home.pricing.body":
+    "ਪਲਾਨ ਸਿਰਫ਼ ਇਸ ਗੱਲ ਵਿੱਚ ਵੱਖਰੇ ਹਨ ਕਿ ਕਿੰਨੇ ਲੋਕ ਇਹਨਾਂ ਨੂੰ ਵਰਤਦੇ ਹਨ। ਕੁਝ ਵੀ ਵੱਡੇ ਪਲਾਨ ਪਿੱਛੇ ਬੰਦ ਨਹੀਂ।",
   "home.pricing.audience.solo": "ਸਿਰਫ਼ ਮੈਂ",
   "home.pricing.audience.crew": "ਛੋਟੀ ਟੀਮ",
   "home.pricing.audience.shop": "ਵਧ ਰਹੇ ਹਾਂ",
@@ -169,15 +185,18 @@ export const HOME_PAGE_PA = {
   "home.pricing.compare": "ਪਲਾਨਾਂ ਦੀ ਤੁਲਨਾ ਕਰੋ",
 
   "home.faq.trial.q": "ਮੁਫ਼ਤ ਅਜ਼ਮਾਇਸ਼ ਕਿੰਨੀ ਲੰਮੀ ਹੈ?",
-  "home.faq.trial.a": "{days} ਦਿਨ, ਹਰ ਫ਼ੀਚਰ ਚਾਲੂ — ਅਸਲ ਗਾਹਕਾਂ ਨੂੰ ਅਸਲ ਕੋਟ ਭੇਜਣ ਲਈ ਕਾਫ਼ੀ।",
+  "home.faq.trial.a":
+    "{days} ਦਿਨ, ਹਰ ਫ਼ੀਚਰ ਚਾਲੂ — ਅਸਲ ਗਾਹਕਾਂ ਨੂੰ ਅਸਲ ਕੋਟ ਭੇਜਣ ਲਈ ਕਾਫ਼ੀ।",
   "home.faq.card.q": "ਕੀ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਚਾਹੀਦਾ ਹੈ?",
   "home.faq.card.aNoCard":
     "ਨਹੀਂ। ਕਾਰਡ ਤੋਂ ਬਿਨਾਂ ਸਾਈਨ ਅੱਪ ਕਰੋ। ਜਦੋਂ ਤਿਆਰ ਹੋਵੋ, Account & Billing ਵਿੱਚ ਪਲਾਨ ਚੁਣੋ ਅਤੇ ਕਾਰਡ ਜੋੜੋ। ਜੇ ਅਜ਼ਮਾਇਸ਼ ਬਿਨਾਂ ਪਲਾਨ ਦੇ ਖ਼ਤਮ ਹੋ ਜਾਵੇ, ਤਾਂ ਤੁਹਾਡਾ ਖਾਤਾ {grace} ਦਿਨਾਂ ਲਈ ਸਿਰਫ਼-ਪੜ੍ਹਨ ਵਾਲਾ ਹੋ ਜਾਂਦਾ ਹੈ ਅਤੇ ਫਿਰ ਲੌਕ ਹੋ ਜਾਂਦਾ ਹੈ — ਕੁਝ ਵੀ ਮਿਟਾਇਆ ਨਹੀਂ ਜਾਂਦਾ।",
-  "home.faq.card.aCard": "ਹਾਂ — ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਕਾਰਡ ਲਿਆ ਜਾਂਦਾ ਹੈ, ਅਤੇ {days} ਦਿਨਾਂ ਦੀ ਅਜ਼ਮਾਇਸ਼ ਖ਼ਤਮ ਹੋਣ ਤੱਕ ਕੋਈ ਚਾਰਜ ਨਹੀਂ ਹੁੰਦਾ।",
+  "home.faq.card.aCard":
+    "ਹਾਂ — ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਕਾਰਡ ਲਿਆ ਜਾਂਦਾ ਹੈ, ਅਤੇ {days} ਦਿਨਾਂ ਦੀ ਅਜ਼ਮਾਇਸ਼ ਖ਼ਤਮ ਹੋਣ ਤੱਕ ਕੋਈ ਚਾਰਜ ਨਹੀਂ ਹੁੰਦਾ।",
   "home.faq.cancel.q": "ਕੀ ਮੈਂ ਕਦੇ ਵੀ ਰੱਦ ਕਰ ਸਕਦਾ ਹਾਂ?",
   "home.faq.cancel.a":
     "ਹਾਂ, Account & Billing ਤੋਂ। ਭੁਗਤਾਨ ਕੀਤਾ ਪਲਾਨ ਉਸ ਮਿਆਦ ਦੇ ਅੰਤ ਤੱਕ ਚੱਲਦਾ ਹੈ ਜਿਸਦਾ ਭੁਗਤਾਨ ਹੋਇਆ ਹੈ — ਇੱਕ ਮਹੀਨਾ, ਜਾਂ 1-ਸਾਲ ਦੀ ਵਚਨਬੱਧਤਾ 'ਤੇ ਇੱਕ ਸਾਲ — ਅਤੇ ਹੋਰ ਕੁਝ ਚਾਰਜ ਨਹੀਂ ਹੁੰਦਾ।",
-  "home.faq.switch.q": "ਮੈਂ ਪਹਿਲਾਂ ਹੀ ਕੋਈ ਹੋਰ ਟੂਲ ਵਰਤਦਾ ਹਾਂ। ਕੀ ਮੈਂ ਆਪਣਾ ਡਾਟਾ ਲਿਆ ਸਕਦਾ ਹਾਂ?",
+  "home.faq.switch.q":
+    "ਮੈਂ ਪਹਿਲਾਂ ਹੀ ਕੋਈ ਹੋਰ ਟੂਲ ਵਰਤਦਾ ਹਾਂ। ਕੀ ਮੈਂ ਆਪਣਾ ਡਾਟਾ ਲਿਆ ਸਕਦਾ ਹਾਂ?",
   "home.faq.switch.a":
     "ਹਾਂ। ਗਾਹਕਾਂ, ਤੁਹਾਡੇ ਉਤਪਾਦਾਂ ਅਤੇ ਕੀਮਤਾਂ, ਅਤੇ ਪੁਰਾਣੇ ਕੰਮਾਂ ਲਈ ਵੱਖਰਾ ਸਪ੍ਰੈੱਡਸ਼ੀਟ (CSV) ਇੰਪੋਰਟ ਹੈ, ਤਾਂ ਜੋ ਤੁਸੀਂ ਆਪਣੇ ਪੂਰੇ ਇਤਿਹਾਸ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ।",
   "home.faq.migration.q": "ਕੀ ਤੁਸੀਂ ਮੇਰੇ ਲਈ ਮੇਰਾ ਡਾਟਾ ਲਿਆ ਸਕਦੇ ਹੋ?",

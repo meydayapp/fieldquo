@@ -763,7 +763,7 @@ export const ARTICLES = {
     title: "Tipos de presupuesto y mediciones",
     summary:
       "Configuración → Servicios y precios: los tipos de presupuesto que activa, las cuatro formas en que un tipo pone precio — medición, cuadrícula de unidades, paquetes o preguntas — la lista de tarifas detrás de cada uno, y los tipos personalizados.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Un **tipo de presupuesto** es lo que representa una tarjeta de servicio en el generador: una clase de trabajo, las preguntas que hace y la lista de tarifas de la que toma precios. **Configuración → Servicios y precios** es donde usted activa y desactiva tipos, fija las tarifas y escribe lo que el presupuesto dice de cada uno. Las tarjetas de **Nueva cotización** son exactamente los tipos que están activos aquí.",
       "Algunos tipos ponen precio desde una **medición**: un formulario estructurado que mide el trabajo y escribe las líneas por usted. Otros ponen precio por unidad, desde un menú de paquetes, o desde un breve conjunto de preguntas y una tarifa fija.",
@@ -807,6 +807,19 @@ export const ARTICLES = {
             ],
           } },
           { p: "Dieciséis oficios traen una lista de tarifas completa; el resto tiene una sola **Tarifa** por unidad. Sea cual sea el método, el resultado es el mismo tipo de línea — una descripción y un monto — y la página, el correo y el PDF del cliente solo leen eso. Las tasas de producción, las fórmulas y las tarifas de venta se quedan de su lado." },
+        ],
+      },
+      {
+        id: "stain-gel-or-liquid",
+        heading: "Tinte: gel o líquido",
+        blocks: [
+          { p: "Donde un presupuesto tiñe madera — la opción **Stained instead of painted** de la renovación de gabinetes, y cada escalera — usted elige el tinte:" },
+          { bullets: [
+            "**Tinte líquido (penetrante) — madera desnuda.** Penetra en la madera, así que primero hay que quitar el acabado existente. Puede manchar de forma desigual el arce, el abedul, el cerezo y el pino.",
+            "**Tinte en gel — sobre el acabado existente.** Se aplica sobre el acabado anterior tras limpiar y lijar ligeramente, sin decapar, y no mancha. Es más lento por pieza: más capas a mano y más secado entre ellas.",
+          ] },
+          { p: "**Los gabinetes se cotizan todo incluido por puerta o frente de cajón teñido** — una sola línea en el presupuesto, nunca un extra de tinte ni un decapado cobrado aparte. La tarifa teñida es su tarifa de pintura más la diferencia de tinte de su lista de tarifas: hasta la madera desnuda (líquido, o cualquier tinte que pase de **oscuro a claro**) **+$45**, o sea **$195** por pieza sobre el predeterminado de $150 — cerca de 30 % más que pintar, con el decapado o lijado hasta la madera desnuda incluido; gel sobre el acabado existente **+$0**, o sea los mismos **$150** que pintar. Ambas diferencias son valores predeterminados investigados de la lista; escriba los suyos. Una isla teñida junto a gabinetes pintados son dos líneas: las piezas pintadas a su tarifa de pintura y las teñidas todo incluido." },
+          { p: "**El decapado nunca se cobra dos veces.** En gabinetes está dentro de la tarifa teñida; los botones **Decapante químico** / **Lijado** solo fijan las horas de su equipo en **Costo y margen** (valores predeterminados investigados: químico 0,75 h por puerta y 0,25 h por frente de cajón, lijado 0,4 y 0,15 — filas internas de la lista). En escaleras la tarifa por peldaño ya incluye lijar un barniz; una escalera **pintada** que se tiñe hasta la madera desnuda (**Qué tiene ahora → Pintura**) se cotiza en el nivel **Alto**, cuyas tarifas incluyen decapar la pintura — la sección lo dice y ofrece **Usar el nivel Alto**. La tarifa por peldaño es la misma para líquido y gel, y la elección se imprime bajo la línea de peldaños. **Staining → Stairs** abre la escalera con tinte líquido." },
         ],
       },
       {
@@ -863,6 +876,7 @@ export const ARTICLES = {
       { q: "¿Un cliente puede ver mis tarifas?", a: "Nunca. El formulario público devuelve solo servicios y preguntas; la medición, la fórmula y la lista de tarifas no se envían a ninguna página del cliente." },
       { q: "¿Cuál es la diferencia entre la lista de tarifas y Productos y servicios?", a: "La lista de tarifas pone precio al alcance principal de un oficio — por puerta, por cuadro, por pie — y escribe las líneas base. Productos y servicios guarda los extras puntuales que usted suelta en cualquier presupuesto. Vea [[lines-from-your-price-book|Líneas desde su lista de precios]]." },
       { q: "¿Por qué mi oficio no tiene lista de tarifas?", a: "Solo dieciséis oficios traen una lista completa. Los demás toman aquí una sola Tarifa por unidad y ponen precio a sus líneas a mano o desde la lista de precios." },
+      { q: "¿Por qué un presupuesto de Drywall no pregunta los pies cuadrados ni la altura del techo?", a: "**Drywall** es el tipo de presupuesto para reparaciones: cada reparación es un artículo de precio fijo del panel **Repairs** — parche pequeño, mediano o grande, reemplazo de una lámina — con precio de su lista de tarifas, sea cual sea el tamaño de la habitación. Esas dos preguntas no cambiaban ningún precio de reparación, así que se quitaron (3 de octubre de 2026). **Drywall Installation** sigue preguntando los pies cuadrados, porque las líneas de colocación y acabado se cobran por ellos." },
     ],
   },
 
