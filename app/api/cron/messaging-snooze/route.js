@@ -36,6 +36,8 @@ import { db } from "@/lib/db";
 import { writeActivity } from "@/lib/messaging/activity";
 import { rescoreThread } from "@/lib/messaging/rescoreThread";
 import { SILENCE_DAYS } from "@/lib/messaging/conversationSignals";
+import { notifyDueFollowUps } from "@/lib/leads/followUpTask";
+import { notifyEvent } from "@/lib/notifications/notify";
 
 // A ceiling, not a target. If a very large tenant somehow parks thousands of
 // conversations on the same morning, this wakes the oldest 500 and the next
@@ -137,8 +139,17 @@ export async function GET(request) {
     if (result) rescored++;
   }
 
+  // ══ Third pass: the follow-ups that fell due ════════════════════════════
+  //
+  // "I'll get in touch when I'm back" became a dated task
+  // (lib/leads/followUpTask.js); on the day, its assignee is told. Here for
+  // the same reason as the pass above — time passing is the event, and this
+  // is the cron that already watches conversations for it. Once per task.
+  const followUps = await notifyDueFollowUps(db, { now, notify: notifyEvent }).catch((err) => ({ error: err?.message || "failed" }));
+
   return NextResponse.json({
     ok: true,
+    followUps,
     // `due` and `woken` deliberately reported separately: they differ when a
     // thread was handled between the read and the write, and a single number
     // would hide that rather than explain it.

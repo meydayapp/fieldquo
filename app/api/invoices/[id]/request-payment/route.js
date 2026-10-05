@@ -15,6 +15,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { planOrRefusal } from "@/lib/signup/planGate";
 import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { recordSentEmail, actorName } from "@/lib/email/sentEmailHistory";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
@@ -246,6 +247,21 @@ export async function POST(request, { params }) {
     select: { lastChasedAt: true, chaseCount: true },
   });
 
+  // The reminder as it went, for the History tab (lib/email/sentEmailHistory.js).
+  const sentEmailId = await recordSentEmail(db, {
+    companyId: member.companyId,
+    kind: "reminder",
+    clientId: invoice.clientId || null,
+    jobId: invoice.jobId || null,
+    quoteId: invoice.quoteId || null,
+    invoiceId: invoice.id,
+    mail: { to: invoice.client.email, from, replyTo, subject, html, text },
+    result,
+    sentByUserId: member.userId || null,
+    sentByName: await actorName(db, member.userId),
+    language: reminderLanguage,
+  });
+
   // `manual: true` so the log can tell a person pressing the button apart from
   // the overdue cron, should the cron ever start writing here too.
   await recordActivity(member, {
@@ -253,7 +269,7 @@ export async function POST(request, { params }) {
     entityType: "invoice",
     entityId: invoice.id,
     summary: `Chased invoice ${invoice.invoiceNumber} (${[balance.toFixed(2), company?.currency].filter(Boolean).join(" ")} owing) to ${invoice.client.email}`,
-    metadata: { to: invoice.client.email, balance, manual: true },
+    metadata: { to: invoice.client.email, balance, manual: true, ...(sentEmailId ? { sentEmailId } : {}) },
   });
 
   return NextResponse.json({

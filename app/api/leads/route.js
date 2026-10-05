@@ -20,7 +20,10 @@ import {
 } from "@/lib/leads/pipeline";
 import { canSeeMoney } from "@/lib/permissions/enforce";
 import { potentialValueForLead } from "@/lib/leads/potentialValue";
-import { loadWonAverages } from "@/lib/leads/wonAverages";
+import { loadScopePricing } from "@/lib/leads/scopeEstimate";
+import { publicQualification } from "@/lib/leads/qualification";
+import { followUpsForThreads } from "@/lib/leads/followUpTask";
+import { inferLeadQuotes } from "@/lib/analytics/campaignRollupData";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { emailRefusal } from "@/lib/validation";
@@ -102,28 +105,66 @@ export async function GET(request) {
 
   // ── What each lead is probably worth ─────────────────────────────────────
   //
-  // Computed here rather than in the browser because the "average" basis
-  // needs this company's won-quote history, which the board has no business
-  // downloading. Only a member who may see prices gets a figure at all: the
-  // pricing toggle hides quote totals everywhere else (redactQuoteMoney), and
-  // a lead chip that said "≈ $12,000 · from quote" would hand that same
-  // total to someone the toggle exists to keep it from.
+  // Computed here rather than in the browser because the "scope" basis
+  // prices the homeowner's counts from this company's own price book, which
+  // the board has no business downloading (lib/leads/scopeEstimate.js). No
+  // scope, no figure — the "average" basis is gone (lib/leads/
+  // potentialValue.js says why). Only a member who may see prices gets a
+  // figure at all: the pricing toggle hides quote totals everywhere else
+  // (redactQuoteMoney), and a lead chip that said "≈ $12,000 · from quote"
+  // would hand that same total to someone the toggle exists to keep it from.
   const showMoney = canSeeMoney(full);
-  const averages = showMoney
-    ? await loadWonAverages(
-        db,
-        member.companyId,
-        // Every category on the board, not only the unquoted leads': a lead
-        // whose draft is still $0 falls back to the average too.
-        leads.map((l) => l.categoryId),
-      )
-    : {};
+  const pricing = showMoney ? await loadScopePricing(db, member.companyId).catch(() => ({})) : {};
+
+  // ── The quote a lead became, when nobody linked it (2026-10-05) ─────────
+  //
+  // "A quote for the same client created after the lead" — by the SAME rule
+  // the campaign rollup counts one (inferLeadQuotes: an exact phone or
+  // email, or a name plus an agreeing address; never a name alone, never a
+  // tie). Only for open leads from the last year: the board loads all day,
+  // and a quote scan back to a lead from 2023 is a cost nobody asked for.
+  const YEAR = 365 * 24 * 60 * 60 * 1000;
+  const inferable = leads
+    .filter((l) => !l.quoteId && (l.status === "new" || l.status === "contacted") && new Date(l.createdAt).getTime() > Date.now() - YEAR)
+    .map((l) => ({ id: l.id, quoteId: null, name: l.name, email: l.email, phone: l.phone, intake: l.intake, createdAt: l.createdAt }));
+  if (inferable.length) await inferLeadQuotes({ db, companyId: member.companyId, leads: inferable }).catch(() => null);
+  const inferredIds = [...new Set(inferable.map((l) => l.inferredQuoteId).filter(Boolean))];
+  const inferredRows = inferredIds.length
+    ? await db.quote.findMany({
+        where: { companyId: member.companyId, id: { in: inferredIds } },
+        select: { id: true, quoteNumber: true, status: true, total: true, acceptedTotal: true },
+      })
+    : [];
+  const inferredById = new Map(inferredRows.map((q) => [q.id, q]));
+  const inferredForLead = new Map(inferable.filter((l) => l.inferredQuoteId).map((l) => [l.id, inferredById.get(l.inferredQuoteId)]));
+
+  // ── The conversation each lead came from: its tier, and a follow-up ─────
+  const evidenceThreadIds = leads.map((l) => l.conversationEvidence?.threadId).filter((x) => typeof x === "string" && x);
+  const threads = await db.messageThread
+    .findMany({
+      where: { companyId: member.companyId, OR: [{ leadId: { in: leads.map((l) => l.id) } }, ...(evidenceThreadIds.length ? [{ id: { in: evidenceThreadIds } }] : [])] },
+      select: { id: true, leadId: true, leadCapture: true },
+    })
+    .catch(() => []);
+  const threadForLead = new Map();
+  for (const t of threads) if (t.leadId && !threadForLead.has(t.leadId)) threadForLead.set(t.leadId, t);
+  for (const l of leads) {
+    const tid = l.conversationEvidence?.threadId;
+    if (!threadForLead.has(l.id) && tid) {
+      const t = threads.find((x) => x.id === tid);
+      if (t) threadForLead.set(l.id, t);
+    }
+  }
+  const followUps = await followUpsForThreads(db, member.companyId, threads.map((t) => t.id)).catch(() => new Map());
+
+  const quoteMoney = (q) => (showMoney && q ? Number(q.acceptedTotal ?? q.total) || null : undefined);
   const withPotential = leads.map((l) => {
     const { quote, ...rest } = l;
     // A whitelist on both branches. quoteEvidence spreads the whole row
     // (total, acceptedTotal, estimateData ride along), so the four fields are
     // picked by name; and a row it declines is dropped to null rather than
     // passed through raw, which would hand those same totals to the board.
+    // The total joins them only for a member who may see prices.
     const evidence = quoteEvidence(quote);
     const publicQuote = evidence
       ? {
@@ -131,12 +172,25 @@ export async function GET(request) {
           quoteNumber: evidence.quoteNumber,
           status: evidence.status,
           hasWork: evidence.hasWork,
+          ...(showMoney && { total: quoteMoney(quote) }),
         }
       : null;
+    const inferred = inferredForLead.get(l.id) || null;
+    const thread = threadForLead.get(l.id) || null;
+    const followUp = thread ? followUps.get(thread.id) || null : null;
     return {
       ...rest,
       quote: publicQuote,
-      ...(showMoney && { potential: potentialValueForLead(l, { averages }) }),
+      // Not linked, but a confirmed match: shown as "probably" with the
+      // number, never written onto the lead.
+      inferredQuote: inferred
+        ? { id: inferred.id, quoteNumber: inferred.quoteNumber, status: inferred.status, ...(showMoney && { total: quoteMoney(inferred) }) }
+        : null,
+      quoted: Boolean(publicQuote || inferred),
+      threadId: thread?.id || null,
+      qualification: thread ? publicQualification(thread.leadCapture?.qualification || null) : null,
+      followUp: followUp ? { taskId: followUp.id, dueDate: followUp.dueDate } : null,
+      ...(showMoney && { potential: potentialValueForLead(l, { pricing }) }),
     };
   });
 

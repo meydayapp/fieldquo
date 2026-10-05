@@ -40,7 +40,7 @@ import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
 import FiledEmails from "@/app/components/mailbox/FiledEmails";
-import ClientConversation from "@/app/components/conversations/ClientConversation";
+import ConversationTabs from "@/app/components/conversations/ConversationTabs";
 import ClientPortalLink from "@/app/components/clients/ClientPortalLink";
 import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -474,8 +474,10 @@ export default function ClientDetailPage() {
           Instagram, WhatsApp, texts, email, website chat, calls and the
           portal — in one timeline, with a reply on the newest one's channel.
           The same level as the email section above, plus the inbox's own
-          read rung; the route refuses anyone else and this draws nothing. */}
-      {canSeeEquipment && <ClientConversation clientId={client.id} />}
+          read rung; the route refuses anyone else and this draws nothing.
+          Beside it, "History": every quote, invoice, reminder and receipt
+          email as it was sent (office only — its own route decides). */}
+      {canSeeEquipment && <ConversationTabs clientId={client.id} />}
 
       {/* Related records */}
       {!hidden.has("quotes") && (

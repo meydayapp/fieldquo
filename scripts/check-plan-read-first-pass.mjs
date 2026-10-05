@@ -31,7 +31,10 @@
 //  15. "Access in this price": statuses, one-tap reasons, the one sentence
 //  16. "What this price includes / Check before sending", ticks recorded
 //  17. materials at quote time; masonry primer follows primer
-//  18. wiring: the screen, the routes, the strings, check:all
+//  18. the church's second live run (8954e631): walls to the eaves, arches
+//      are openings, every scaffold priced, days from a job's crew, one
+//      ladder set owned, the sentence grouped, "taken into account" filled
+//  19. wiring: the screen, the routes, the strings, check:all
 import { readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 
@@ -40,12 +43,12 @@ import { presetFixtures, SAME, MOVES } from "./fixtures/paintPresetFixtures.mjs"
 import { sheetKind, isMeasurableKind } from "@/lib/planRead/sheetKinds";
 import { MEASURE_SCHEMA, MEASURE_SYSTEM, measurePrompt } from "@/lib/planRead/measurePrompts";
 import { SYNTHESIS_SCHEMA, SYNTHESIS_SYSTEM, projectContext } from "@/lib/planRead/prompts";
-import { sanitiseMeasure, buildTakeoff, takeoffForPrompt, printedAreasIn, faceQuantity, cleanBox } from "@/lib/planRead/takeoff";
+import { sanitiseMeasure, buildTakeoff, takeoffForPrompt, printedAreasIn, faceQuantity, cleanBox, wallHeight, heightKind, solidPerimeter, ARCH_SHARE, WALL_HEIGHT_TOLERANCE } from "@/lib/planRead/takeoff";
 import { buildDimIndex, computeProject, applyOps, sanitiseSynthesis } from "@/lib/planRead/projectModel";
-import { startRead, advanceRead, readEstimate, measureNeeded, hasWorkToRead } from "@/lib/planRead/run";
+import { startRead, advanceRead, readEstimate, measureNeeded, measurePlanned, hasWorkToRead } from "@/lib/planRead/run";
 import { estimateRead, READ_TOKENS } from "@/lib/planRead/billing";
 import { priceProject } from "@/lib/planRead/pricing";
-import { firstPassOptions, crewSettings, daysFor, priceAccessLine, surfacePrep, usdFx, heightRow, figuresBook } from "@/lib/planRead/firstPass";
+import { firstPassOptions, crewSettings, daysFor, priceAccessLine, surfacePrep, usdFx, heightRow, figuresBook, missingAccess } from "@/lib/planRead/firstPass";
 import { readSlices, sliceComputed, priceSlices } from "@/lib/planRead/slices";
 import { summariseSimilar, compareToPast, categoryRanges } from "@/lib/planRead/similar";
 import { readPricing } from "@/lib/planRead/readPricing";
@@ -76,7 +79,7 @@ import {
   CONDITION_MATERIALS,
   PREP_MATERIAL_PRICE_PRESET,
 } from "@/lib/pricing/paintHeightPrep";
-import { buildReview, accessStatus, accessSentence, MAX_CHECKS } from "@/lib/planRead/review";
+import { buildReview, accessStatus, accessSentence, MAX_CHECKS, countName } from "@/lib/planRead/review";
 import { ACCESS_REASONS } from "@/lib/planRead/accessReasons";
 import { FALLBACKS } from "@/lib/planRead/fallbacks";
 import { stepsFor, accessRatesSet } from "@/lib/setupSteps";
@@ -481,7 +484,9 @@ const legacy = { ...churchRead("pt0", null), documents: docs("pt0") };
 const beforeEst = estimateRead({ sheets: 13, photos: 0, excelChars: 0 });
 const afterEst = readEstimate(legacy);
 const scopedEst = before;
-ok(`no scope: 13 sheets were ${beforeEst.cents} credits up to; with the measurement passes ${afterEst.cents} (${afterEst.breakdown.measureSheets} measured sheets)`, afterEst.breakdown.measureSheets === 9 && afterEst.cents > beforeEst.cents, [beforeEst, afterEst.breakdown]);
+// 10 = the 9 drawings + P-46's 3D views, measured for the INSIDE wall height
+// only (a read pricing inside walls; the coordinator, after the church's run 2).
+ok(`no scope: 13 sheets were ${beforeEst.cents} credits up to; with the measurement passes ${afterEst.cents} (${afterEst.breakdown.measureSheets} measured sheets)`, afterEst.breakdown.measureSheets === 10 && afterEst.cents > beforeEst.cents, [beforeEst, afterEst.breakdown]);
 const promptChars = sheetsBase.filter((s) => isMeasurableKind(sheetKind(s))).map((s) => measurePrompt(s, {}).length + MEASURE_SYSTEM.length);
 const avgText = Math.round(promptChars.reduce((a, b) => a + b, 0) / promptChars.length / 4);
 ok(`the measurement prompt on the real sheets is ~${avgText} text tokens (READ_TOKENS.measure.text ${READ_TOKENS.measure.text} holds it)`, avgText <= READ_TOKENS.measure.text, avgText);
@@ -562,7 +567,12 @@ ok("…a size's own rate beats the kind's: a 30 ft scissor at the company's 30 f
 const silent = [];
 for (const kind of Object.keys(ACCESS_REFERENCE)) for (const h of [null, 6, 12, 20, 30, 45, 60, 90, 150]) for (const [cur, rate] of [["USD", null], ["CAD", fx], ["GBP", null], ["AUD", null]]) {
   const p = priceRental({ kind, workingHeightFt: h, days: 7, currency: cur, fx: rate, book: books.exterior_painting });
-  if (!((p.price > 0 && /FieldQuo default, not your rate/.test(p.why)) || (p.price === null && /^NOT priced: /.test(p.why) && /Settings → Services → Equipment & access/.test(p.why)))) silent.push([kind, h, cur, p]);
+  const known = ACCESS_REFERENCE[kind].rows.length > 0;
+  const ok1 =
+    (p.price > 0 && /FieldQuo default, not your rate/.test(p.why)) ||
+    (p.price === 0 && p.priceSource === "default_owned" && /FieldQuo assumes you own these/.test(p.why)) ||
+    (p.price === null && /^NOT priced: /.test(p.why) && /Settings → Services → Equipment & access/.test(p.why) && (!known || p.unpricedReason === "no_fx"));
+  if (!ok1) silent.push([kind, h, cur, p]);
 }
 ok(`no access line, of any kind × height × currency (${Object.keys(ACCESS_REFERENCE).length * 9 * 4}), is unpriced without a visible reason or priced as a default without the label`, silent.length === 0, silent.slice(0, 3));
 ok("…and on the church read every access line is priced, owned or says NOT priced", priced2.access.every((a) => a.price > 0 || a.price === 0 || (a.price === null && /NOT priced/.test(a.why))));
@@ -603,7 +613,7 @@ const rvArgs = (part, model = row2.model) => ({ computed: part.computed, priced:
 const rvx = buildReview(rvArgs(sx));
 const inc = rvx.included.map((i) => i.key.split(":")[0]);
 ok(`taken into account: ${[...new Set(inc)].join(", ")}`, ["qty", "coats", "height", "prep", "access", "crew", "overhead", "target", "past", "assumed", "materials"].every((k) => inc.includes(k)), rvx.included);
-ok("…the quantities name their sheets", rvx.included.some((i) => i.key.startsWith("qty:") && /P-4[78]/.test(i.text)));
+ok("…the quantities say their square feet and the pages they were measured on (never the paper size \"A3\")", rvx.included.some((i) => i.key.startsWith("qty:") && /\d sq ft — measured on page \d/.test(i.text)) && !rvx.included.some((i) => /\bA3\b/.test(i.text)), rvx.included.filter((i) => i.key.startsWith("qty:")).map((i) => i.text));
 const ck = rvx.checks.map((c) => c.key);
 ok(`check before sending (${ck.length}, cap ${MAX_CHECKS}): ${ck.join(", ")}`, ck.length > 0 && ck.length <= MAX_CHECKS && rvx.unreviewed === ck.length);
 ok("…deterministic: FieldQuo's default rates, the default rental, heritage consent, lead paint, the lift on the road — on a listed church with a boom", ["default:rates", `default:access:${lift.id}`].every((k) => ck.includes(k)) && rvx.checks.every((c) => c.text && c.why !== undefined && c.check));
@@ -665,7 +675,185 @@ ok("…its coverage stays its own: 350 / 375 sq ft a gallon from NPC 2014 p. 140
 ok("…Settings saves it separately; blank keeps \"follows primer\"", sanitisePaintTakeoffOverrides({ prepMaterialPrices: { masonry_primer: 41 } }).prepMaterialPrices.masonry_primer === 41 && !sanitisePaintTakeoffOverrides({ prepMaterialPrices: { masonry_primer: "" } })?.prepMaterialPrices && /same as primer/.test(code("app/app/settings/services/PaintHeightPrepSettings.js")));
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("18. Wiring");
+section("18. The church's second live run — the seven faults, fixed");
+// ═══════════════════════════════════════════════════════════════════════════
+// The live read (2026-10-05, deploy 8954e631, read cmuun5kc00000vst66kp7qc81):
+// 30,655 sq ft of interior wall (walls taken to the 33.5 ft ridge; the
+// crossing's four arches counted as wall), six scaffolds "NOT priced", 0.49
+// days for 128 h (35 field workers as one crew), "step ladders and step
+// ladders and…", an empty "taken into account", ten rented step ladders.
+// The fixtures are the read's own figures.
+const ft = (m) => Math.round(m * 3.28084 * 100) / 100;
+const roomFace = (id, name, Lm, Wm) => ({ id, name, room: true, measured: true, lengthFt: ft(Lm), widthFt: ft(Wm), perimeterFt: Math.round(2 * (ft(Lm) + ft(Wm)) * 10) / 10, floorSqft: Math.round(ft(Lm) * ft(Wm)), openingsShare: 0, confidence: "medium", perimeterConfidence: "medium", sentence: `${name} (fixture)` });
+const hgt = (id, label, kind, heightFt) => ({ id, label, kind, heightFt, measured: true, confidence: "medium", sentence: `${label}: ${heightFt} ft (fixture)` });
+const churchTakeoff = {
+  faces: new Map(
+    [
+      roomFace("p3.f1", "Nave", 18.74, 12.83),
+      roomFace("p3.f2", "Crossing", 6.72, 11.41),
+      roomFace("p3.f3", "Chancel", 9.66, 11.47),
+      roomFace("p3.f4", "North transept", 9.24, 9.98),
+      roomFace("p3.f5", "South transept", 14.79, 7.43),
+      roomFace("p1.f9", "Nave", 18.0, 12.5),
+      roomFace("p1.f1", "Cafe", 6.83, 9.47),
+    ].map((f) => [f.id, f]),
+  ),
+  heights: new Map(
+    [
+      hgt("p9.h2", "Main nave roof ridge height visible behind extension", "ridge", 33.52),
+      hgt("p7.h1", "South nave eaves height", "eaves", 9.65),
+      hgt("p7.h2", "South nave ridge height", "ridge", 35.08),
+      hgt("p9.h3", "Extension wall top / eaves height", "eaves", 9.84),
+      hgt("p5.h4", "Lower side roof/eaves height shown", "eaves", 17.6),
+      hgt("p9.h9", "Storey height noted", "other", 20),
+    ].map((h) => [h.id, h]),
+  ),
+};
+const wallsOf = (id, faceRefs, heightRef, label = "walls", areaName = null) => faceQuantity({ id, label, itemKey: "walls", faceRefs, faceMeasure: "walls", heightRef }, "sqft", churchTakeoff, { areaName });
+ok("height kinds: eaves / wall plate / ceiling are a wall's top; ridge, apex, gable, tower are roof", heightKind({ kind: "eaves" }) === "eaves" && heightKind({ kind: "other", label: "Nave wall plate" }) === "eaves" && heightKind({ kind: "ridge" }) === "roof" && heightKind({ kind: "other", label: "Central west gable apex" }) === "roof" && heightKind({ kind: "other", label: "6.8 metres" }) === null);
+// (a) the wall stops at the eaves
+const naveQ = wallsOf("n", ["p3.f1"], "p9.h2", "Nave interior walls only — high open-truss volume", "Interior quote — Nave walls");
+ok(`(a) never the 33.5 ft ridge; with no section or photo inside height, the OUTSIDE eaves (9.65 ft) as a LOWER BOUND, low confidence: ${naveQ.value} sq ft`, naveQ.topFt === 9.7 && naveQ.wallCap.toFt === 9.65 && naveQ.wallCap.fromFt === 33.52 && naveQ.wallCap.lowerBound === true && naveQ.wallCap.source === "outside_eaves" && naveQ.confidence === "low" && /OUTSIDE eaves, taken as a lower bound/.test(naveQ.heightBasis) && /roof above the wall/.test(naveQ.heightBasis), naveQ);
+const naveSolid = 207.2 - ARCH_SHARE * Math.min(ft(18.74), ft(12.83));
+ok("…its area is (perimeter less the crossing arch) × the eaves height", near(naveQ.value, naveSolid * 9.65, 2), [naveQ.value, naveSolid * 9.65]);
+ok("…the eaves picked is the NAVE's, not the extension's (9.84 ft) or the lower side roof's (17.6 ft)", naveQ.wallCap.eavesId === "p7.h1" && wallsOf("t", ["p3.f4"], "p9.h2", "North transept interior walls only", "Interior quote — North transept walls").wallCap.eavesId === "p7.h1");
+ok("…the cafe in the extension keeps the extension's own eaves", wallsOf("c", ["p1.f1"], "p9.h3", "Cafe interior walls only", "Interior quote — Cafe walls").topFt === 9.8);
+// (d) sanity: implied height = area ÷ perimeter, against the eaves
+const implied = (q, perim) => q.value / perim;
+const tall = wallsOf("x", ["p1.f1"], "p9.h9", "Extension cafe walls", "Cafe");
+ok(`(d) an implied wall height more than ${Math.round((WALL_HEIGHT_TOLERANCE - 1) * 100)}% over the eaves (20 ft against 9.84) is flagged and recomputed at the eaves`, tall.wallCap && implied(tall, churchTakeoff.faces.get("p1.f1").perimeterFt) <= 9.84 * WALL_HEIGHT_TOLERANCE, tall.wallCap);
+ok("…a height within it is left alone (a 11 ft storey with 9.84 ft eaves)", (() => { churchTakeoff.heights.set("p9.h8", hgt("p9.h8", "Storey height noted", "other", 11)); const q = wallsOf("y", ["p1.f1"], "p9.h8", "Extension cafe walls", "Cafe"); churchTakeoff.heights.delete("p9.h8"); return !q.wallCap && q.topFt === 11; })());
+ok("…with no eaves on the set, a ridge figure stands at LOW confidence and says so", (() => { const t = { faces: churchTakeoff.faces, heights: new Map([["p9.h2", churchTakeoff.heights.get("p9.h2")]]) }; const q = faceQuantity({ id: "z", label: "Nave", itemKey: "walls", faceRefs: ["p3.f1"], faceMeasure: "walls", heightRef: "p9.h2" }, "sqft", t); return q.confidence === "low" && q.wallCap.roofOnly && /no eaves, wall plate, section or photo/.test(q.heightBasis); })());
+// (b) arches are openings
+const crossing = wallsOf("x", ["p3.f2"], "p9.h2", "Crossing interior walls only", "Interior quote — Crossing walls");
+ok(`(b) the crossing, open on all four sides: only its piers (${Math.round((1 - ARCH_SHARE) * 100)}% of the perimeter) are wall — ${crossing.value} sq ft, not ${Math.round(119 * 33.52)}`, near(crossing.value, churchTakeoff.faces.get("p3.f2").perimeterFt * (1 - ARCH_SHARE) * 9.65, 2) && /open arches on all four sides/.test(crossing.sourceText));
+ok("…the nave, transepts and chancel each lose the arch into the crossing", ["p3.f3", "p3.f4", "p3.f5"].every((id) => solidPerimeter(churchTakeoff.faces.get(id), churchTakeoff).ft < churchTakeoff.faces.get(id).perimeterFt) && /open to the crossing through an arch/.test(naveQ.sourceText));
+ok("…but a room on a plan with no crossing keeps its whole perimeter", solidPerimeter(churchTakeoff.faces.get("p1.f1"), churchTakeoff).ft === churchTakeoff.faces.get("p1.f1").perimeterFt);
+// (c) one room, two sheets
+const twice = wallsOf("d", ["p3.f1", "p1.f9"], "p7.h1", "Nave walls", "Nave");
+ok("(c) the same room on two sheets (the whole plan and a part plan) is counted once", near(twice.value, naveQ.value, 1) && /not counted twice/.test(twice.sourceText), [twice.value, naveQ.value]);
+const liveMain = (207.2 + 119 + 138.6 + 126.1 + 145.8) * 33.52;
+const fixedMain = ["p3.f1", "p3.f2", "p3.f3", "p3.f4", "p3.f5"].reduce((n, id) => n + wallsOf(id, [id], "p9.h2", "church walls", "Interior quote — church").value, 0);
+ok(`the church's main volume: ${Math.round(liveMain).toLocaleString("en-US")} sq ft on the live run → ${Math.round(fixedMain).toLocaleString("en-US")} sq ft (walls to the eaves, arches open)`, fixedMain < liveMain * 0.35 && fixedMain > 3000, [liveMain, fixedMain]);
+// Interior wall height by source: 1. a section, 2. a photo, 3. the outside eaves.
+const withHeights = (...hs) => ({ faces: churchTakeoff.faces, heights: new Map([...churchTakeoff.heights, ...hs.map((h) => [h.id, h])]) });
+const sectionH = { ...hgt("p9.h5", "Nave inside wall plate / truss foot", "wall_plate", 15.09), side: "interior" };
+const photoH = { ...hgt("p8.h1", "Nave truss feet (View looking east)", "wall_plate", 13.78), side: "interior", photo: true, confidence: "medium", sentence: "P-46 — Nave truss feet: about 4.2 m estimated from the photo (View looking east: truss feet ≈ 2.1 doors) — verify on site" };
+const naveBy = (t) => faceQuantity({ id: "n2", label: "Nave interior walls only", itemKey: "walls", faceRefs: ["p3.f1"], faceMeasure: "walls", heightRef: "p9.h2" }, "sqft", t, { areaName: "Interior quote — Nave walls" });
+const bySection = naveBy(withHeights(sectionH, photoH));
+ok(`1. a section's INSIDE wall plate (4.6 m) wins over a photo and over the outside eaves: ${bySection.value} sq ft at ${bySection.topFt} ft`, bySection.topFt === 15.1 && bySection.wallCap.source === "section" && !bySection.wallCap.lowerBound && /the inside wall height from the section/.test(bySection.heightBasis) && /not the Main nave roof ridge/.test(bySection.heightBasis));
+const byPhoto = naveBy(withHeights(photoH));
+ok(`2. no section: the interior photo's estimate (4.2 m against a door), medium at best, the photo named: ${byPhoto.value} sq ft`, byPhoto.topFt === 13.8 && byPhoto.wallCap.source === "photo" && byPhoto.confidence !== "high" && /estimated from the photo \(View looking east/.test(byPhoto.heightBasis));
+ok("3. neither: the outside eaves, a lower bound — and the review asks for the height on site", (() => {
+  const rvLB = buildReview({ computed: { surfaces: [{ id: "n", active: true, label: "Nave walls", areaName: "Nave", topFt: naveQ.topFt, wallCap: naveQ.wallCap, quantity: { value: naveQ.value, unit: "sqft", faceIds: ["p3.f1"] } }] }, priced: { lines: [] } });
+  return rvLB.checks.some((c) => c.key === "height:outside-eaves" && /interior wall height taken from outside eaves — measure on site/i.test(c.text)) && rvLB.included.some((i) => /lower bound/.test(i.text));
+})());
+ok("…a photo estimate gets its own check: verify on site", buildReview({ computed: { surfaces: [{ id: "n", active: true, label: "Nave walls", areaName: "Nave", topFt: byPhoto.topFt, wallCap: byPhoto.wallCap, quantity: { value: byPhoto.value, unit: "sqft", faceIds: ["p3.f1"] } }] }, priced: { lines: [] } }).checks.some((c) => c.key === "height:photo"));
+ok("the measurement pass asks for both: a section's inside wall height (side interior) and a photo's estimate against a door / person / pew", /INSIDE\s+wall height/.test(MEASURE_SYSTEM) && /a door ≈ 2\.0 m, a person ≈ 1\.7 m, a pew back\s+≈ 0\.9 m/.test(MEASURE_SYSTEM) && MEASURE_SCHEMA.properties.heights.items.required.includes("photoHeightM") && MEASURE_SCHEMA.properties.heights.items.required.includes("side"));
+ok("…a photo height is stored with its basis and measured as an estimate (never high)", (() => {
+  const facts = { ...sheetsBase.find((x) => x.sheetNumber === "P-46") };
+  const m = sanitiseMeasure({ sheetType: "photo", sheetTypeReason: "interior photos", views: [], faces: [], heights: [{ id: "h1", viewId: "v1", label: "Nave truss feet", kind: "wall_plate", side: "interior", box: null, dimRef: null, text: null, photoHeightM: 4.2, photoBasis: "View looking east: ≈ 2.1 doors" }] }, facts);
+  const t = buildTakeoff([{ ...facts, measure: m }], new Map());
+  const h = [...t.heights.values()][0];
+  return h.photo && h.measured && h.side === "interior" && near(h.heightFt, 13.78, 0.01) && h.confidence === "medium" && /estimated from the photo/.test(h.sentence);
+})());
+ok("…and a photo sheet is measured only when the read prices inside walls", (() => {
+  const photoSheet = sheetsBase.find((x) => x.sheetNumber === "P-46");
+  const route = { send: true, trades: ["painting"], reason: "painting" };
+  return measurePlanned(photoSheet, { scope: { categories: [{ key: "interior_painting" }] } }, route) && !measurePlanned(photoSheet, { scope: { categories: [{ key: "exterior_painting" }] } }, route);
+})());
+ok("(c) arches: the plan's own arch widths win over the ¾ assumption", (() => {
+  const f = { ...churchTakeoff.faces.get("p3.f2"), archWidthsFt: [16.4, 16.4, 13.1, 13.1], archWords: "arch 5 m (printed “5000”), arch 5 m, arch 4 m, arch 4 m" };
+  const sp = solidPerimeter(f, churchTakeoff);
+  return near(sp.ft, f.perimeterFt - 59, 0.01) && /measured on the plan/.test(sp.note) && !/FieldQuo assumption/.test(sp.note);
+})());
+ok("…without them, the ¾ fallback says the plan gave none", /the plan gives no arch widths/.test(solidPerimeter(churchTakeoff.faces.get("p3.f2"), churchTakeoff).note));
+ok("…and the measurement pass is asked for them (openings on a room: arch / opening, printed width or box)", MEASURE_SCHEMA.properties.faces.items.required.includes("openings") && /ARCH or wide opening/.test(MEASURE_SYSTEM));
+ok("…a scaled arch width comes from the sheet's own scale", (() => {
+  const facts = sheetsBase.find((x) => x.sheetNumber === "P-45");
+  const m = sanitiseMeasure({ sheetType: "plan", sheetTypeReason: "x", views: [{ id: "v1", title: "Whole church", viewType: "plan", side: "interior", scaleText: null, box: [0, 0, 1, 1], groundY: null }], faces: [{ id: "f1", viewId: "v1", name: "Crossing", kind: "room", side: "interior", box: [0.4, 0.4, 0.48, 0.59], shape: "rectangle", lengthDimRef: null, heightDimRef: null, lengthText: null, heightText: null, printedAreaText: null, openingsShare: 0, openingsBasis: null, material: null, note: null, openings: [{ kind: "arch", dimRef: null, text: null, box: [0.4, 0.4, 0.44, 0.405] }] }], heights: [] }, facts);
+  const f = buildTakeoff([{ ...facts, measure: m }], new Map()).faces.get(`${facts.key}.f1`);
+  return f && Array.isArray(f.archWidthsFt) && f.archWidthsFt[0] > 0 && /arch [\d.]+ m \(scaled at/.test(f.archWords);
+})());
+// (a) access follows the INSIDE wall height
+const accessModel = {
+  version: 1,
+  areas: [{ id: "a1", name: "Nave", side: "interior", included: true }, { id: "a2", name: "North transept", side: "interior", included: true }],
+  surfaces: [
+    { id: "s1", areaId: "a1", label: "Nave walls", itemKey: "walls", coats: 2, lengthRefs: [], widthRefs: [], faceRefs: ["p3.f1"], faceMeasure: "walls", heightRef: "p9.h2" },
+    { id: "s2", areaId: "a2", label: "North transept walls", itemKey: "walls", coats: 2, lengthRefs: [], widthRefs: [], faceRefs: ["p3.f4"], faceMeasure: "walls", heightRef: "p9.h2" },
+  ],
+  access: [
+    { id: "x1", areaId: "a1", equipment: "scissor_lift", included: true, price: null },
+    { id: "x2", areaId: "a1", equipment: "scaffold", included: true, price: null },
+    { id: "x3", areaId: "a2", equipment: "scaffold", included: true, price: null },
+  ],
+  questions: [], assumptions: [], exclusions: [],
+};
+const lowInside = { ...sectionH, id: "p9.h7", heightFt: 11.2, label: "Inside wall plate (section)" };
+const accessFor = (t) => priceProject(computeProject(accessModel, { book: books.interior_painting, takeoff: t, dims: new Map() }), books, { firstPass: fpOpts });
+const lowAcc = accessFor(withHeights(lowInside));
+ok("(a) inside walls known (the section) and under 13 ft: ONE rolling tower, the lift and the other tower not needed — said", lowAcc.access.filter((a) => a.price > 0).length === 1 && lowAcc.access.find((a) => a.price > 0).equipment === "scaffold" && /One rolling tower for the walls: they top out at 11.2 ft inside — instead of the scissor lift listed/.test(lowAcc.access.find((a) => a.price > 0).why) && lowAcc.access.filter((a) => a.priceSource === "not_needed").length === 2 && /not needed — the inside walls are low/.test(accessSentence(lowAcc.access)));
+const highAcc = accessFor(withHeights(sectionH));
+ok("…inside walls over 13 ft (15.1 ft from the section): the access stays", highAcc.access.filter((a) => a.price > 0).length === 3 && !highAcc.access.some((a) => a.priceSource === "not_needed"));
+const lbAcc = accessFor(churchTakeoff);
+ok("…a lower-bound height (the outside eaves): the access stays, sized to the height the drawings show above the walls, and says why", lbAcc.access.filter((a) => a.price > 0).length === 3 && lbAcc.access.every((a) => /kept, sized to the 33.5 ft the drawings show above the walls/.test(a.why) && a.heightFt === 33.52));
+ok("…a typed line is the estimator's and stands", (() => { const m = { ...accessModel, access: accessModel.access.map((a) => (a.id === "x1" ? { ...a, price: 900, priceSource: "person" } : a)) }; const p = priceProject(computeProject(m, { book: books.interior_painting, takeoff: withHeights(lowInside), dims: new Map() }), books, { firstPass: fpOpts }); return p.access.find((a) => a.id === "x1").price === 900; })());
+// (b) prep, explained
+const prepItem = rvx.included.find((i) => i.key === "prep");
+ok(`(b) prep is broken down by allowance and area, with the setup and the assumption behind it: "${String(prepItem?.text).slice(0, 140)}…"`, prepItem && /h\/100 sq ft × [\d,]+ sq ft = [\d.]+ h/.test(prepItem.text) && /daily setup and clean-up [\d.]+ h \(building in use — ASSUMED by the read, change it under “Priced on”\)/.test(prepItem.text));
+ok("…\"occupied\" is a one-tap assumption on the read", ASSUMED_KEYS.includes("occupied") && ASSUMED.occupied.options.join() === "no,yes");
+ok("a 'two-storey wall' whose INSIDE walls (from the section) rise under 13 ft is priced as an ordinary wall; a lower bound keeps the model's rate", (() => {
+  const low = { ...sectionH, id: "p9.h6", heightFt: 11.5 };
+  const m = { version: 1, areas: [{ id: "a1", name: "Nave", side: "interior", included: true }], surfaces: [{ id: "s1", areaId: "a1", label: "Nave walls", itemKey: "wall_two_storey", coats: 2, lengthRefs: [], widthRefs: [], faceRefs: ["p3.f1"], faceMeasure: "walls", heightRef: "p9.h2" }], access: [], questions: [], assumptions: [], exclusions: [] };
+  const c = computeProject(m, { book: books.interior_painting, takeoff: withHeights(low), dims: new Map() });
+  const lb = computeProject(m, { book: books.interior_painting, takeoff: churchTakeoff, dims: new Map() });
+  return c.surfaces[0].itemKey === "walls" && c.surfaces[0].itemKeyFrom === "wall_two_storey" && /not the two-storey rate/.test(c.surfaces[0].itemKeyWhy) && lb.surfaces[0].itemKey === "wall_two_storey";
+})());
+// 2. scaffolding is always priced
+const sc33 = priceRental({ kind: "scaffold", workingHeightFt: 33.5, days: 13, currency: "CAD", fx, book: books.interior_painting });
+const sc42 = priceRental({ kind: "scaffold", workingHeightFt: 41.9, days: 7, currency: "CAD", fx, book: books.exterior_painting });
+ok(`2. "scaffolding" above the book's 30 ft tower is priced, extrapolated and said: 33.5 ft × 13 days ${sc33.price} CAD, 41.9 ft × 7 days ${sc42.price} CAD`, sc33.price > 0 && sc42.price > sc33.price / 2 && sc33.extrapolated && /extrapolated/.test(sc33.why) && /frame scaffold or a lift quote/.test(sc33.why));
+ok("…the extrapolation is the table's own last step per foot (27'–30' row + 3.5 ft at $3.50/day/ft = $192.25 a day)", (() => { const p = priceRental({ kind: "scaffold", workingHeightFt: 33.5, days: 1, currency: "USD" }); return p.price === 192.25; })());
+ok("…every kind the table knows is priced at any height in a currency with a rate — none ends 'NOT priced'", Object.keys(ACCESS_REFERENCE).filter((k) => ACCESS_REFERENCE[k].rows.length).every((kind) => [10, 33.5, 41.9, 80, 150].every((h) => priceRental({ kind, workingHeightFt: h, days: 5, currency: "CAD", fx, book: books.exterior_painting }).price >= 0)));
+const extFixture = { ...comp2, access: [{ id: "xs", equipment: "scaffold", areaId: "a1", label: "Scaffolding", heightFt: 41.9, included: true, price: null }] };
+const extPriced = priceProject(extFixture, books, { firstPass: fpOpts });
+ok(`7. the exterior's scaffold line is now in its total: ${extPriced.access[0].price} CAD of access, subtotal = paint + access`, extPriced.access[0].price > 0 && near(extPriced.subtotal, extPriced.paintTotal + extPriced.accessTotal, 0.05) && extPriced.unpricedAccess === 0);
+// 3. days from ONE job's crew
+const crew35 = crewSettings({ ctx: { fieldCrew: 35 }, figures: fpOpts.figures });
+ok(`3. 35 field workers on the Team page are not one crew: a crew of ${crew35.size} assumed, said`, crew35.size === 4 && /35 field workers on your Team page — a crew of 4 assumed for one job/.test(crew35.sizeWhy) && crewSettings({ ctx: { fieldCrew: 3 }, figures: fpOpts.figures }).size === 3);
+ok("…the live run's hours: 128.45 h → 4.28 days, 786.8 h → 26.23 days (4 painters × 7.5 h), not 0.49 and 3", daysFor(128.45, 4, 7.5).days === 4.28 && daysFor(786.8, 4, 7.5).days === 26.23 && daysFor(128.45, 35, 7.5).days === 0.49);
+const fp35 = firstPassOptions({ model: { ...row2.model, assumed: { ...row2.model.assumed, siteHours: { value: "normal" } } }, books, ctx: { currency: "CAD", fx, fieldCrew: 35 } });
+const p35 = priceProject(comp2, books, { firstPass: fp35 });
+ok("…the plan shows the crew and the 2/3/4 options, and the rental days follow the days", p35.plan.crew.size === 4 && p35.plan.options.map((o) => o.crew).join() === "2,3,4" && p35.plan.days > 1 && p35.access.every((a) => a.days <= p35.plan.wholeDays + 1));
+// 4. the sentence, grouped
+const sentence = accessSentence([
+  { id: "1", equipment: "boom_lift", label: "Boom lift", price: 2800, priceSource: "reference" },
+  { id: "2", equipment: "scaffold", label: "Scaffolding", price: 1200, priceSource: "reference" },
+  { id: "3", equipment: "scaffold", label: "Scaffolding", price: 470, priceSource: "reference" },
+  { id: "4", equipment: "scissor_lift", label: "Scissor lift", price: 1500, priceSource: "reference" },
+  { id: "5", equipment: "step_ladder", label: "Step ladders", price: 0, priceSource: "default_owned" },
+  { id: "6", equipment: "step_ladder", label: "Step ladders", price: 0, priceSource: "default_owned" },
+  { id: "7", equipment: "crane", label: "Crane", price: null },
+  { id: "8", equipment: "crane", label: "Crane", price: null },
+]);
+ok(`4. the sentence is grouped and counted: "${sentence}"`, sentence === "Priced with boom lift, 2 scaffolds and scissor lift at FieldQuo defaults — no rental if you own them; ladders your own (no rental); 2 cranes NOT priced." && countName("scaffold", 1) === "scaffold");
+// 5. taken into account
+const rvParts = buildReview({ ...rvArgs(sx), parts: [{ key: "exterior_painting", label: "Exterior painting", plan: sx.priced.plan }, { key: "interior_painting", label: "Interior painting", plan: si.priced.plan }] });
+const keys5 = new Set(rvParts.included.map((i) => i.key.split(":")[0]));
+ok(`5. "taken into account" lists quantities, heights, prep, access, crew/days per quote, materials, overhead, margin and assumptions (${rvParts.included.length} items)`, ["qty", "height", "prep", "access", "crew", "materials", "overhead", "target", "assumed"].every((k) => keys5.has(k)) && rvParts.included.filter((i) => i.key.startsWith("crew:")).length === 2 && rvParts.included.some((i) => /÷ \(\d painters × [\d.]+ h a day\) = [\d.]+ days/.test(i.text)));
+ok("…heights are said even when nothing takes a factor (\"nothing above the rates' 9 ft\")", buildReview({ computed: { surfaces: [{ id: "k", active: true, label: "Kitchen walls", areaName: "Kitchen", topFt: 8, quantity: { value: 100, unit: "sqft", faceIds: ["p1.f2"] } }] }, priced: { lines: [] } }).included.some((i) => i.key === "height" && /Kitchen walls to 8 ft/.test(i.text) && /no height factor/.test(i.text)));
+ok("…the screen titles it \"Taken into account\", and says so when there is nothing", /app\.planRead\.review\.takenTitle/.test(code("app/components/planRead/ReviewPanel.js")) && /app\.planRead\.review\.takenNone/.test(code("app/components/planRead/ReviewPanel.js")));
+// 6. ladders: owned, one set per job
+ok("6. a step ladder with no rate of the company's is OWNED: $0, \"you own these\" — a rate of the company's still wins", (() => { const d = priceRental({ kind: "step_ladder", workingHeightFt: 10, days: 1, currency: "CAD", fx }); const own = priceRental({ kind: "step_ladder", workingHeightFt: 10, days: 1, currency: "CAD", fx, book: { accessRates: { step_ladder: { day: 15 } } } }); return d.price === 0 && d.priceSource === "default_owned" && own.price === 15 && own.priceSource === "company"; })());
+const ladderRooms = { ...comp2, access: ["a1", "a2", "a1"].map((areaId, i) => ({ id: `l${i}`, equipment: "step_ladder", areaId, areaName: areaId === "a1" ? "Exterior elevations" : "Nave interior", label: "Step ladders", included: true, price: null })) };
+const ladderPriced = priceProject(ladderRooms, books, { firstPass: fpOpts });
+ok("…one ladder line per job, covering the rooms that needed one", ladderPriced.access.filter((a) => a.equipment === "step_ladder").length === 1 && ladderPriced.access[0].covers.length === 2 && ladderPriced.access[0].price === 0 && /one set for the job/.test(ladderPriced.access[0].why));
+ok("…and the first pass adds at most one ladder line for the areas without access", (() => { const c = { areas: [{ id: "r1", name: "Kitchen" }, { id: "r2", name: "Store" }], access: [], surfaces: [{ id: "s1", areaId: "r1", active: true, bands: [0.8, 0.2, 0, 0, 0, 0], topFt: 10 }, { id: "s2", areaId: "r2", active: true, bands: [0.8, 0.2, 0, 0, 0, 0], topFt: 10 }] }; return missingAccess(c).filter((a) => a.equipment === "step_ladder").length === 1; })());
+ok("…the access status says it: \"you own these, no rental (FieldQuo assumes so)\" with the link", accessStatus(ladderPriced.access, null).some((l) => l.status === "owned" && /you own these, no rental \(FieldQuo assumes so\)/.test(l.text) && l.href === "/app/settings/services#equipment-access"));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("19. Wiring");
 // ═══════════════════════════════════════════════════════════════════════════
 const pkg = JSON.parse(code("package.json"));
 ok("check:plan-read-first-pass is in check:all", /check:plan-read-first-pass/.test(pkg.scripts["check:all"]));

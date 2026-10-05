@@ -149,7 +149,7 @@ export const ARTICLES = {
     title: "Dépenses marketing",
     summary:
       "Enregistrez ce que vous dépensez pour obtenir des contrats — par canal, à la main ou synchronisé depuis Meta — et lisez un coût moyen par prospect calculé à partir de votre vrai nombre de prospects.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "**Marketing → Dépenses marketing** est le registre de ce que vous payez pour obtenir des prospects : Facebook et Instagram, Google, TikTok, dépliants, primes de référencement, et le reste. Vous tapez les montants, ou vous connectez votre compte publicitaire Meta et laissez **Synchroniser maintenant** les importer. Au-dessus du registre, FieldQuo divise le total par le nombre de vrais prospects reçus et affiche un **Coût moyen par prospect**.",
       "« Moyen » est le mot honnête. Le coût par prospect par campagne n'est calculé que pour les prospects arrivés par un formulaire Meta ; tous les autres canaux — et le propriétaire qui a vu l'annonce et téléphoné — restent fondus dans l'ensemble, parce que rien ne relie cette dépense à ce prospect.",
@@ -191,6 +191,19 @@ export const ARTICLES = {
           } },
           { p: "La colonne Prospects du tableau des campagnes ne compte que les formulaires Meta reçus pour cette campagne. Sa propre note le dit : un propriétaire qui a vu l'annonce et téléphoné n'est pas compté, donc le coût par prospect ici est le maximum qu'un prospect par formulaire vous a coûté — le chiffre combiné au-dessus donne le tableau complet." },
           { warning: "Supprimer une entrée change les coûts par prospect ; la confirmation le dit. Les mêmes lignes alimentent la carte des coûts d'exploitation du tableau de bord KPI et le courriel de bilan mensuel." },
+        ],
+      },
+      {
+        id: "what-the-ads-bought",
+        heading: "Ce que vos publicités Meta ont rapporté",
+        blocks: [
+          { p: "Meta compte chaque discussion ouverte par ses publicités comme une « conversation », même un clic par erreur sur une question suggérée. La section **Ce que vos publicités Meta ont rapporté** compte ce qui s'est vraiment passé, pour les publicités Facebook, les publicités Instagram et les discussions organiques : discussions reçues, clics et discussions non pertinentes, vraies conversations, prospects, soumissions, contrats gagnés et montant facturé." },
+          { bullets: [
+            "**Coût par conversation selon Meta** et **Coût par prospect selon Meta** — vos dépenses divisées par les nombres de Meta, indiqués comme ceux de Meta.",
+            "**Coût par vraie conversation** et **Coût par vrai prospect** — les mêmes dépenses divisées par ce que FieldQuo a compté : les personnes qui ont écrit elles-mêmes au sujet de vos services, et celles qui ont donné un détail pour une soumission.",
+            "Meta indique les dépenses par campagne, pas par application : les coûts sont donc affichés pour l'ensemble des publicités Meta. Sans compte publicitaire connecté, vous voyez les nombres et une note indiquant que les dépenses manquent.",
+          ] },
+          { note: "Une discussion lancée par une publicité est reconnue grâce à la référence publicitaire de Meta, ou à la ligne « … a répondu à une publicité. » que Meta inscrit dans les anciennes conversations. La même section figure sur la page **KPI** pour la période choisie." },
         ],
       },
       {
