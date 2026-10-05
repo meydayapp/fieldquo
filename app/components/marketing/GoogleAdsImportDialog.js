@@ -108,7 +108,7 @@ export default function GoogleAdsImportDialog({ companyCurrency, onClose, onImpo
       >
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-foreground">{t("app.googleAds.import.title")}</h2>
-          <button type="button" onClick={onClose} aria-label={t("app.action.close", "Close")}>
+          <button type="button" onClick={onClose} className="-mr-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label={t("app.action.close", "Close")}>
             <X size={16} />
           </button>
         </div>
