@@ -54,16 +54,20 @@ export async function GET(request, { params }) {
   const { computed, pricedPaint: priced, pricing, ctx } = out;
   const office = (extra) => ({ aiDrafted: true, source: "plan_read", planReadId: read.id, ...extra });
 
+  // Priced above zero only: a 0 is equipment the company owns — priced, so
+  // not "unpriced" below, but a $0 line on the client's quote reads as free
+  // work, so it is named in the review notes instead.
   const extraLines = priced.access
-    .filter((a) => a.price !== null)
+    .filter((a) => a.price !== null && a.price > 0)
     .map((a) => ({
       description: `${a.label}${a.areaName ? ` — ${a.areaName}` : ""}`,
       quantity: 1,
       unit: "flat",
       rate: a.price,
       amount: a.price,
-      // Office-only provenance; never rendered to the client.
-      meta: office({}),
+      // Office-only provenance; never rendered to the client. aiPriced: the
+      // chat entered the figure from the estimator's own words — verify.
+      meta: office(a.priceSource === "ai" ? { aiPriced: true } : {}),
     }));
 
   const groups = priced.groups.map((g, i) => ({
@@ -133,8 +137,18 @@ export async function GET(request, { params }) {
     ...computed.questions.filter((q) => !q.resolved).map((q) => `• ${q.text}`),
     ...(computed.trades || []).flatMap((t) => (t.questions || []).filter((q) => !q.resolved).map((q) => `• ${t.label}: ${q.text}`)),
   ];
-  const unpriced = priced.access.filter((a) => a.price === null).map((a) => `• ${a.label}${a.areaName ? ` — ${a.areaName}` : ""}${a.heightFt ? ` (${a.heightFt} ft)` : ""}: no price yet — add a line`);
-  const noRate = (pricing?.trades || []).flatMap((t) => t.unpriced.map((u) => `• ${t.label}: ${u.label} (${u.quantity} ${u.unit}) — no rate; add one`));
+  const where = (a) => `${a.label}${a.areaName ? ` — ${a.areaName}` : ""}`;
+  const unpriced = [
+    ...priced.access.filter((a) => a.price === null).map((a) => `• ${where(a)}${a.heightFt ? ` (${a.heightFt} ft)` : ""}: no price yet — add a line`),
+    ...priced.access.filter((a) => a.price === 0).map((a) => `• ${where(a)}: your own — no charge, no line`),
+    ...priced.access.filter((a) => a.price > 0 && a.priceSource === "ai").map((a) => `• ${where(a)}: price entered by FieldQuo AI from the conversation — verify it`),
+  ];
+  // Extra prep hours ride on the takeoff's lines (row.prepHours); the notes
+  // say which the chat set, so the estimator checks them.
+  const prep = (computed.surfaces || [])
+    .filter((s) => s.active && s.prepHours > 0)
+    .map((s) => `• ${s.label}: +${s.prepHours} h prep${s.prepNote ? ` — ${s.prepNote}` : ""}${s.prepSource === "ai" ? " (set by FieldQuo AI from the conversation — verify)" : ""}`);
+  const noRate =(pricing?.trades || []).flatMap((t) => t.unpriced.map((u) => `• ${t.label}: ${u.label} (${u.quantity} ${u.unit}) — no rate; add one`));
   const suggestedOff = (pricing?.trades || []).filter((t) => t.blocks.some((b) => b.rung === "suggestion") && useSuggestions[t.tradeKey] !== true).map((t) => `• ${t.label}: FieldQuo's suggested lines were left off — add your own or use them on the read`);
   const tradeNotes = (computed.trades || []).flatMap((t) => [
     ...(t.assumptions || []).map((a) => `• ${t.label}: ${a}`),
@@ -149,6 +163,7 @@ export async function GET(request, { params }) {
     tradeNotes.length ? `\nTrades:\n${tradeNotes.join("\n")}` : "",
     open.length ? `\nOpen questions:\n${open.join("\n")}` : "",
     unpriced.length ? `\nAccess equipment:\n${unpriced.join("\n")}` : "",
+    prep.length ? `\nExtra prep hours:\n${prep.join("\n")}` : "",
     noRate.length ? `\nNo rate yet:\n${noRate.join("\n")}` : "",
     suggestedOff.length ? `\nNot on this draft:\n${suggestedOff.join("\n")}` : "",
     adj && adj.amount > 0 ? `\nA margin adjustment line was added on the read to hold your ${adj.targetPct}% target.` : "",

@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can } from "@/lib/permissions";
+import { hasToggle } from "@/lib/permissions/enforce";
 import { publicTopupOffer } from "@/lib/ai/topupOffer";
 import { featureAllowsSpend } from "@/lib/features/gate";
 import { loadPlanRead } from "@/lib/planRead/load";
@@ -24,7 +25,7 @@ export async function POST(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const { response: denied } = await levelOrRefusal(member, "quotes", "view_create_edit", "change a drawing read");
+  const { full, response: denied } = await levelOrRefusal(member, "quotes", "view_create_edit", "change a drawing read");
   if (denied) return denied;
 
   const read = await loadPlanRead(id, member.companyId);
@@ -45,6 +46,9 @@ export async function POST(request, { params }) {
       // The conversation only: the estimator's own edits share the table
       // (lib/planRead/history.js) but are not something either side said.
       history: chatHistory(read.messages),
+      // The chat may enter an equipment price the estimator gave — only for
+      // a member who could type one (PATCH /api/plan-reads/[id]).
+      canSeeMoney: hasToggle(full, "showPricing"),
     },
     { turnId },
   );

@@ -202,7 +202,7 @@ export default function PlanReadWorkspace({ id }) {
           ))}
           <RecommendationCard view={view} t={t} money={money} onOp={(op) => patch({ ops: [op] })} />
           <PhotoGroupsCard view={view} t={t} onSplit={(gid) => patch({ photo: { op: "split", id: gid } })} onMerge={(ids) => patch({ photo: { op: "merge", ids } })} onAdjust={(photo) => openMeasure({ photo })} />
-          <DraftCard view={view} t={t} money={money} onPrice={(accessId, price) => patch({ ops: [{ op: "set_access_price", accessId, price }] })} onCreate={() => router.push(`/app/quotes/new?fromPlanRead=${id}`)} />
+          <DraftCard view={view} t={t} money={money} onPrice={(accessId, price) => patch({ ops: [{ op: "set_access_price", accessId, price }] })} onPrep={(surfaceId, hours) => patch({ ops: [{ op: "set_prep_hours", surfaceId, hours }] })} onCreate={() => router.push(`/app/quotes/new?fromPlanRead=${id}`)} />
           <ChatCard view={view} t={t} language={language} credits={credits} money={money} onSent={load} onTopup={(data) => topup.open(data)} onApplyPricing={(assumptions) => patch({ ops: [{ op: "set_pricing_assumptions", assumptions }] })} />
         </>
       )}
@@ -373,7 +373,15 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
         </div>
       ) : view.status === "ready" ? (
         <p className="text-sm text-muted-foreground">
-          {t("app.planRead.readDone", "Read · {charged} charged so far, chat included in the messages below.", { charged: credits(c.chargedCents || 0) })}
+          {/* The read AND its chat — the chat is debited per message, not
+              onto the read (lib/planRead/billing.js chatSpendCents). */}
+          {c.chatChargedCents === null || c.chatChargedCents === undefined
+            ? t("app.planRead.readDoneReadOnly", "Read · {charged} charged for the read.", { charged: credits(c.readChargedCents ?? c.chargedCents ?? 0) })
+            : t("app.planRead.readDoneSplit", "Read · {charged} charged so far — {read} for the read, {chat} for the chat.", {
+                charged: credits(c.chargedCents || 0),
+                read: credits(c.readChargedCents || 0),
+                chat: credits(c.chatChargedCents || 0),
+              })}
           {took ? ` ${t("app.planRead.took", "Took {time}.", { time: took })}` : ""}
         </p>
       ) : (
@@ -1052,7 +1060,7 @@ function PhotoGroupsCard({ view, t, onSplit, onMerge, onAdjust }) {
   );
 }
 
-function DraftCard({ view, t, money, onPrice, onCreate }) {
+function DraftCard({ view, t, money, onPrice, onPrep, onCreate }) {
   const d = view.draft;
   if (!d) return null;
   const quoteHref = view.quoteId ? `/app/quotes/${view.quoteId}` : null;
@@ -1097,7 +1105,23 @@ function DraftCard({ view, t, money, onPrice, onCreate }) {
           <li key={`${l.surfaceId}-${i}`} className="py-2 flex items-start justify-between gap-3 text-sm">
             <span className="min-w-0">
               {`${l.area} — ${l.label}`}
-              <span className="block text-xs text-muted-foreground">{`${l.quantity.toLocaleString()} ${l.unit} · ${Math.round(l.hours * 10) / 10} h`}</span>
+              {/* Coats beside the hours, as the builder shows them — so a
+                  change of coats that moves the paint and not the hours is
+                  visible as the rule it is (coatsNote below). */}
+              <span className="block text-xs text-muted-foreground">
+                {[`${l.quantity.toLocaleString()} ${l.unit}`, l.coats ? `${l.coats} ${t("app.paint.coatsShort", "coats")}` : null, `${Math.round(l.hours * 10) / 10} h`].filter(Boolean).join(" · ")}
+              </span>
+              {l.prepHours > 0 && (
+                <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                  <span>{`${t("app.planRead.draft.prep", "+{h} h prep", { h: Math.round(l.prepHours * 10) / 10 })}${l.prepNote ? ` — ${l.prepNote}` : ""}`}</span>
+                  {l.prepSource === "ai" && <Badge tone="warn">{t("app.planRead.draft.aiEntered", "Entered by FieldQuo AI · verify")}</Badge>}
+                  {l.surfaceId && (
+                    <button type="button" onClick={() => onPrep(l.surfaceId, 0)} className="underline min-h-[32px]">
+                      {t("app.planRead.draft.removePrep", "Take off")}
+                    </button>
+                  )}
+                </span>
+              )}
               {l.estimated && <Badge tone="warn">{t("app.planRead.source.estimated", "Estimated · verify")}</Badge>}
             </span>
             {view.canSeeMoney && <span className="shrink-0 font-medium">{money(l.amount)}</span>}
@@ -1105,11 +1129,19 @@ function DraftCard({ view, t, money, onPrice, onCreate }) {
         ))}
         {d.access.map((a) => (
           <li key={a.id} className="py-2 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <span>{`${a.label}${a.areaName ? ` — ${a.areaName}` : ""}`}</span>
+            <span>
+              {`${a.label}${a.areaName ? ` — ${a.areaName}` : ""}`}
+              {a.priceSource === "ai" && (
+                <span className="block mt-0.5">
+                  <Badge tone="warn">{t("app.planRead.draft.aiEntered", "Entered by FieldQuo AI · verify")}</Badge>
+                </span>
+              )}
+            </span>
             {view.canSeeMoney && <AccessPrice key={String(a.price)} value={a.price} onSave={(p) => onPrice(a.id, p)} t={t} />}
           </li>
         ))}
       </ul>
+      {d.lines.some((l) => l.coats) && <p className="text-xs text-muted-foreground mt-2">{t("app.planRead.draft.coatsNote", "Coats change the paint, not the hours: your production rates are per finished surface, as on a typed quote. For slow or high work, ask the chat for extra prep hours on that surface.")}</p>}
       {d.skipped?.length > 0 && (
         <p className="text-xs text-muted-foreground mt-2">{t("app.planRead.draft.skipped", "{n} surfaces have no quantity yet and aren't priced — measure them or tell the chat.", { n: d.skipped.length })}</p>
       )}

@@ -313,7 +313,11 @@ function propNames(schema, out = []) {
 }
 for (const [name, schema] of Object.entries({ SHEET_SCHEMA, PHOTO_SCHEMA, SYNTHESIS_SCHEMA, CHAT_SCHEMA })) {
   const bad = propNames(schema).filter((k) => MONEY.test(k));
-  ok(`${name} has no money-shaped field`, bad.length === 0, bad);
+  // The chat's one exception (the owner's live test, 2026-10-05): an
+  // equipment price the ESTIMATOR gave or accepted — kept by applyOps only
+  // when the figure is in their words (scripts/check-plan-read-live-fixes.mjs).
+  const allowed = name === "CHAT_SCHEMA" ? ["price"] : [];
+  ok(`${name} has no money-shaped field${allowed.length ? " beyond the estimator-stated equipment price" : ""}`, bad.every((k) => allowed.includes(k)) && bad.length <= allowed.length, bad);
   const lint = assertStrictSchema(schema);
   ok(`${name} is inside the vendor's strict subset`, lint.ok, lint.errors);
 }
@@ -324,7 +328,7 @@ const modelPriced = applyOps(model, [{ op: "set_access_price", accessId: "x1", p
 ok("the model cannot set an equipment price or a measurement", modelPriced.model.access[0].price === null && !modelPriced.model.surfaces[0].override && modelPriced.dropped.length === 2, modelPriced);
 const personPriced = applyOps(model, [{ op: "set_access_price", accessId: "x1", price: 1800 }], ctx, { actor: "person" });
 ok("the estimator can", personPriced.model.access[0].price === 1800);
-ok("CHAT_OPS offers no price operation", !CHAT_OPS.some((o) => MONEY.test(o)), CHAT_OPS);
+ok("CHAT_OPS offers one price operation — equipment, at a stated figure — and no rate", CHAT_OPS.filter((o) => MONEY.test(o)).join() === "set_access_price", CHAT_OPS);
 const priced = priceProject(computed, books);
 const engineTotal = priced.groups.reduce((n, g) => n + paintTakeoff(g.takeoff, books[g.categoryKey]).total, 0);
 ok("the draft's painting total is exactly the company paint engine's", near(priced.paintTotal, engineTotal, 0.001), [priced.paintTotal, engineTotal]);
@@ -500,7 +504,7 @@ const reopen = await chatTurn(
     turnId: "t2",
   },
 );
-ok("asking to re-open a sheet makes ONE more call with that sheet's images", calls.length === 2 && calls[0].images.length === 0 && calls[1].images.length === 5 && reopen.opened[0] === "A-201", calls.map((c) => c.images.length));
+ok("asking to re-open a sheet makes ONE more call with that sheet's images", calls.length === 2 && calls[0].images.length === 0 && calls[1].images.length === 5 && reopen.opened[0].includes("A-201"), calls.map((c) => c.images.length));
 ok("…on the same cached prefix", prefix(calls[0].prompt) === prefix(calls[1].prompt));
 ok("cached tokens are reported and priced at the cached rate", debits[1].cachedTokens === 12800 && debits[1].cents < debits[0].cents, debits);
 ok("cached tokens cost a tenth: 10k cached gpt-5.5 tokens = $0.005", estimateCostMicros({ model: "gpt-5.5", promptTokens: 10000, completionTokens: 0, cachedTokens: 10000 }) === 5000);

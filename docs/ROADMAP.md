@@ -2287,8 +2287,37 @@ Owner decision: the trade comes from the quote's selected service — no separat
 column the hourly floor (c0038e17b) already added, now read by the overhead share too. Both are
 already in production; nothing to apply.
 
+### The owner's live test (5 October 2026) — seven fixes
+
+St Paul's church set, production, demo company. `npm run check:plan-read-live-fixes`.
+
+1. **The crash ("i is not a function")** on every chat reply, saved price, margin adjustment — and on
+   "Create quote", which is why `/app/quotes/new?fromPlanRead=…` opened on the error: the chat card's
+   `useEffect(() => el.scrollIntoView())` handed Chrome's new Promise return to React as the
+   effect's cleanup, called on the next change and on unmount. Block body now; `check:hooks` has
+   `fieldquo/effect-returns-cleanup`, which refuses the shape repo-wide.
+2. **Sheets by any name** (`lib/planRead/sheetNames.js`): key, page ("pages 5, 6 and 7"), a sheet
+   number no other sheet shares, a key inside "A-3 p5", a title's words. The chat is told the names.
+   The church read's sheets were ingested at 06:39 UTC, two hours before f5e19e42 deployed, so all
+   13 are stored as "A-3" with no titles — the current parser reads the same PDF as P-43…P-52,
+   E-01…E-03 with titles. Facts are written once, at upload; old reads keep old facts (Owed).
+3. **Coats** move paint and not hours — the builder's own engine (`paintTakeoff.js`, "the rate is
+   not per coat"), measured: unchanged. The draft now shows coats beside hours and says the rule.
+4. **Chat ops**: `set_prep_hours` (the builder's per-line Prep hours, onto the takeoff, with a
+   reason, flagged as the AI's) and `set_access_price` (only at a figure the estimator typed or
+   accepted from the last reply; showPricing only; `priceSource: "ai"`, badge, review note).
+5. **A typed 0 is a price** (owned equipment): not "unpriced", no $0 quote line, named in the notes.
+6. **"Charged so far"** = the read + the chat's ledger debits (`chatSpendCents`), said split.
+7. The equipment subtotal did update on the server; the screen crashed before showing it (1).
+
 ### Owed
 
+- Reads ingested before f5e19e42 keep "A-3"-style sheet facts until their PDFs are re-uploaded.
+  Re-deriving facts for an existing read means fetching its PDFs server-side again — a write to
+  live reads, owner's call. The tolerant names (fix 2) make the chat work on them meanwhile.
+- Coats vs labour (fix 3) is a product question, not a bug: should a coat beyond the rate's
+  basis add the rate set's `extraCoatPct` of the line's hours on EVERY painting quote? That
+  raises prices on typed quotes too — needs the owner's yes.
 - Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
   `PlanRead.usage` (per step, now with the stage clock) and as AiUsage `plan_read*` rows — read them
   on /platform/ai-usage → Drawing reads after the first live read and correct `READ_TOKENS` in

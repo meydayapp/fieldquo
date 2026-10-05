@@ -12,7 +12,9 @@
 //       measurement traced on a sheet, a price typed for a lift, a surface or
 //       area switched off, a photo grouping split or merged. The same
 //       applyOps the chat uses, with actor "person" — so only a person can set
-//       a measurement or a price. Each one is logged in the read's history
+//       a measurement, and only a person can price equipment freely (the chat
+//       may enter only a figure the estimator typed or accepted, flagged as
+//       the AI's). A 0 is a price: owned equipment. Each one is logged in the read's history
 //       beside the chat's changes (lib/planRead/history.js).
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -38,6 +40,7 @@ import { Prisma } from "@prisma/client";
 import { applyPricingOps, PRICING_PERSON_OPS } from "@/lib/planRead/pricingOps";
 import { priceReadNow, pricingContextFor } from "@/lib/planRead/priceRead";
 import { tradesFromScope } from "@/lib/planRead/tradeCatalogue";
+import { chatSpendCents } from "@/lib/planRead/billing";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -57,7 +60,7 @@ export async function GET(request, { params }) {
   }
 
   const sheetKey = new URL(request.url).searchParams.get("sheet");
-  const [balanceCents, company, authors, cache, scopeOptions] = await Promise.all([
+  const [balanceCents, company, authors, cache, scopeOptions, chatChargedCents] = await Promise.all([
     aiBalanceFor(member.companyId),
     db.company.findUnique({ where: { id: member.companyId }, select: { currency: true } }),
     withAuthors(read.messages, { prisma: db, companyId: member.companyId }),
@@ -72,6 +75,12 @@ export async function GET(request, { params }) {
     loadScopeOptions(member.companyId, { prisma: db }).catch((err) => {
       console.error("[planRead] scope options:", err?.message);
       return [];
+    }),
+    // What the chat has cost, from the ledger — "charged so far" includes
+    // it. A failed lookup names the read's own charge alone (null).
+    chatSpendCents({ prisma: db, companyId: member.companyId, planReadId: read.id }).catch((err) => {
+      console.error("[planRead] chat spend:", err?.message);
+      return null;
     }),
   ]);
   // The company's pricing context — its books, services, labour cost rate,
@@ -96,6 +105,7 @@ export async function GET(request, { params }) {
     reuseOffer: cache.offers[0] || null,
     scopeOptions,
     pricingCtx,
+    chatChargedCents,
   });
   return NextResponse.json({ ...view, currency: company?.currency || null });
 }
