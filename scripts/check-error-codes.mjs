@@ -234,5 +234,25 @@ const { toolsForRole } = await import("@/lib/aiEmployee/roles");
   ok("rejecting keeps the row (no deletion)", !/delete/i.test(route.replace(/\/\/.*$/gm, "")));
 }
 
+// ── 9. Vetted steps (owner, 2026-10-04) ───────────────────────────────────
+//
+// The troubleshooter may give a step only from the vetted list, the
+// company's material or a code-lookup result — and never one that needs a
+// panel opened, a gas valve, a ladder or live wiring. FieldQuo's OWN curated
+// steps are held to the same guard the reply is (knowledge/firstSteps.js),
+// so a curated row can never be the thing that walks someone behind a panel.
+{
+  const { forbiddenInstruction, screenStep } = await import("@/lib/aiEmployee/knowledge/firstSteps");
+  const { cleanTroubleshootingLog } = await import("@/lib/aiEmployee/troubleshooting");
+  const steps = FIELDQUO_CODES.flatMap((c) => (c.safeSteps || c.safeHomeownerSteps || []).map((s) => ({ id: c.id, s })));
+  const bad = steps.filter(({ s }) => forbiddenInstruction(s));
+  ok("every curated homeowner step passes the vetted-steps guard", steps.length > 20 && bad.length === 0, bad);
+  ok("an urgent or emergency code never carries homeowner steps beyond safety", FIELDQUO_CODES.filter((c) => c.urgency !== "routine").every((c) => (c.safeSteps || []).every((s) => screenStep(s).ok)));
+  const log = cleanTroubleshootingLog({ symptom: "furnace flashing 13", code: "13", steps_given: ["Replace the filter", "Open the burner door and reset the rollout switch"] });
+  ok("a code-lookup step that needs a panel opened is NOT recorded as given", log.stepsGiven.join() === "Replace the filter" && log.refusedSteps?.length === 1, log);
+  const troubleshooter = (await import("@/lib/aiEmployee/roles")).buildEmployeePrompt({ employee: { role: "troubleshooter" }, company: {} });
+  ok("an urgent code: callback marked urgent, then the hand-off marked urgent — which alerts the on-call person", /book_callback with\s+urgency "urgent", then hand_off_to_human with urgency "urgent"/.test(troubleshooter));
+}
+
 console.log(`\ncheck-error-codes: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

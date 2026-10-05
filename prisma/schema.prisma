@@ -20023,6 +20023,20 @@ model AiEmployeeSource {
 
   createdAt DateTime @default(now())
 
+  /// ── Sharing a plain manufacturer manual (owner, 2026-10-04) ─────────────
+  ///
+  /// A company's upload is PRIVATE. The one way any of it reaches another
+  /// company is this: the company ticks "share this manufacturer's manual
+  /// with FieldQuo's library" on a `kind: "manual"` PDF, confirming it is
+  /// the manufacturer's own unmodified document (not their SOP, not a
+  /// marked-up copy). Sharing writes a SharedManual (deduplicated by the
+  /// file's SHA-256) with the page TEXT, status "pending" until FieldQuo
+  /// reviews it on /platform/manuals — the company's file itself never
+  /// moves. sharedManualId is the library row it went to; sharedAt null
+  /// means not shared (or withdrawn). lib/aiEmployee/sharedLibrary.js.
+  sharedManualId String?
+  sharedAt       DateTime?
+
   pages AiEmployeeSourcePage[]
   codes ReferenceCode[]
 
@@ -20107,6 +20121,229 @@ model ReferenceCode {
 
   @@index([companyId, brandKey])
   @@index([sourceId])
+}
+
+/// The company-wide safety and escalation switches for the AI team (owner,
+/// 2026-10-04: "this can be manually selected by the company"). One row per
+/// company, written by PUT /api/ai-employee/safety and read on every reply by
+/// lib/aiEmployee/respond.js through lib/aiEmployee/companySettings.js.
+///
+/// No row means the owner's stated DEFAULTS (companySettings.js
+/// SAFETY_DEFAULTS) — every one of which is shown on the settings screen, so
+/// a default is a visible choice, never an invisible one. The one thing a
+/// default never supplies is a PERSON: onCallMemberIds empty means nobody is
+/// on call, the screen says so, and urgent texts go nowhere (failure class 5:
+/// absence of a statement is not a statement).
+///
+/// What is deliberately NOT here: the emergency tier (gas, CO, fire, injury,
+/// water on the electrics). lib/ai/crisisRule.js says "leave first / call
+/// 911" for those in every product that talks to the public, and no company
+/// switch reaches it.
+///
+/// companyId is a plain unique String, like AiEmployeeSourcePage's — the
+/// tenant fence every read puts in its WHERE — rather than another relation
+/// on the busy Company model.
+model AiEmployeeCompanySettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  /// Ask short clarifying questions before deciding something is urgent
+  /// ("is water actively coming in, or is it a drip?"). Off means classify
+  /// from what they said. lib/aiEmployee/triage.js.
+  triageProbeFirst Boolean  @default(true)
+  /// Which situations count as URGENT for this business — water | heat |
+  /// roof | sewage | electrical (lib/aiEmployee/triage.js URGENT_CATEGORIES).
+  /// One left out is handled as an ordinary callback; never as 911.
+  urgentCategories String[] @default(["water", "heat", "roof", "sewage", "electrical"])
+
+  /// Text the on-call person when something is urgent. Off: the bell and
+  /// push only, and the customer is given the company's number.
+  urgentAlertsEnabled Boolean  @default(true)
+  /// Member ids, IN ORDER: the first is texted, the next one if nobody
+  /// acknowledges within ackTimeoutMinutes, and so on. Empty = nobody.
+  onCallMemberIds     String[] @default([])
+  /// "always" | "after_hours" (outside the company's public business hours,
+  /// lib/company/businessHours.js) | "custom" (onCallDays + the two minutes,
+  /// in the company's timezone; an end before the start wraps past midnight).
+  onCallHours         String   @default("always")
+  /// 0 = Sunday … 6 = Saturday. Custom only.
+  onCallDays          Int[]    @default([])
+  onCallStartMinute   Int?
+  onCallEndMinute     Int?
+  /// Minutes to wait for an acknowledgement before texting the next person.
+  ackTimeoutMinutes   Int      @default(10)
+
+  /// May the assistant give vetted safe first steps ("shut the main water
+  /// valve")? Off: it gives none and fetches the team.
+  /// lib/aiEmployee/knowledge/firstSteps.js.
+  safeStepsEnabled    Boolean @default(true)
+  /// Match a website-chat visitor who gives their name, email or phone to a
+  /// client on file (lib/aiEmployee/webChatMatch.js), reversibly.
+  matchWebChatClients Boolean @default(true)
+  /// Read FieldQuo's shared manufacturer-manual library (SharedManual)
+  /// after the company's own uploads.
+  useSharedManuals    Boolean @default(true)
+  /// Offer real appointment times for a tech call or visit
+  /// (check_availability + book_appointment) in the troubleshooting flow,
+  /// falling back to a callback only when nothing is free.
+  bookTechSlots       Boolean @default(true)
+
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// One urgent conversation and the texts it caused (owner, 2026-10-04:
+/// "urgent → text the company's on-call person"). Written by
+/// lib/aiEmployee/urgentAlerts.js when a reply's triage comes out urgent or
+/// emergency; advanced by /api/cron/urgent-alerts every two minutes: no
+/// acknowledgement within the company's ackTimeoutMinutes texts the next
+/// person on `ladder`. Acknowledged by the person pressing "I've got it" on
+/// /app/urgent/[id] (a button, never a GET — a link preview must not take
+/// the call for them).
+///
+/// status: "open" (somebody was texted and nobody has acknowledged) |
+/// "acknowledged" | "exhausted" (everyone on the ladder was texted, nobody
+/// answered — the bell carries it from there) | "not_sent" (no text could
+/// go: `reason` says why — no_on_call, no_credit, alerts_off, off_hours,
+/// no_phone, no_sms_number — and the settings screen repeats it).
+model UrgentAlert {
+  id           String    @id @default(cuid())
+  companyId    String
+  threadId     String
+  /// The AiEmployeeReply it came from, when one was written.
+  replyId      String?
+  /// "urgent" | "emergency"
+  tier         String
+  /// water | heat | roof | sewage | electrical | gas_co | fire | injury | other
+  category     String
+  /// The customer's own words, clipped — what the text says happened.
+  summary      String?
+  customerName String?
+  /// Member ids in the order they will be texted, frozen when the alert was
+  /// raised: changing the rota afterwards does not reroute a live alert.
+  ladder       String[]  @default([])
+  /// Index into ladder of the last person texted; -1 before anyone.
+  step         Int       @default(-1)
+  status       String    @default("open")
+  reason       String?
+  /// When the cron should text the next person. Null when nothing is due.
+  nextAt       DateTime?
+  acknowledgedAt         DateTime?
+  acknowledgedByMemberId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  steps UrgentAlertStep[]
+
+  @@index([status, nextAt])
+  @@index([companyId, createdAt])
+  @@index([companyId, threadId])
+}
+
+/// Every attempt to reach a person about an UrgentAlert — the SMS (with its
+/// Twilio SID and what the company was charged) and the bell. Append-only.
+model UrgentAlertStep {
+  id           String      @id @default(cuid())
+  companyId    String
+  alertId      String
+  alert        UrgentAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  memberId     String?
+  /// "sms" | "bell"
+  channel      String
+  ok           Boolean
+  reason       String?
+  sid          String?
+  chargedCents Int?
+  createdAt    DateTime    @default(now())
+
+  @@index([alertId])
+  @@index([companyId, createdAt])
+}
+
+/// A website-chat conversation tied to a client on file because the visitor
+/// typed their name, email or phone (lib/aiEmployee/webChatMatch.js, through
+/// the matcher lib/leads/identityMatch.js uses for Facebook leads). The link
+/// is the thread's own clientId; this row is the record of WHY, and the
+/// undo: "Not this client" sets status "undone", puts clientId back to null
+/// only while it still points at this client, and the pair is never
+/// proposed again.
+model ThreadClientMatch {
+  id             String    @id @default(cuid())
+  companyId      String
+  threadId       String
+  clientId       String
+  /// "certain" | "likely" — a "possible" match is never linked.
+  confidence     String
+  /// ["email", "phone", "name", "address"]
+  matchedOn      Json
+  why            String?
+  /// "linked" | "undone"
+  status         String    @default("linked")
+  createdAt      DateTime  @default(now())
+  undoneAt       DateTime?
+  undoneByUserId String?
+
+  @@index([companyId, threadId])
+  @@index([companyId, clientId])
+}
+
+/// FieldQuo's consolidated manual library — manufacturer manuals every
+/// company's AI team may read as READ-ONLY defaults, after the company's own
+/// uploads (owner, 2026-10-04). Two origins:
+///   "platform"       uploaded by FieldQuo on /platform/manuals (a private
+///                    file in FieldQuo's own Cloudinary folder);
+///   "company_share"  a company ticked "share this manufacturer's manual" on
+///                    one of its own PDFs — the page TEXT is copied here, the
+///                    company's file stays in the company's folder.
+/// Deduplicated by fileHash (unique). Nothing is visible to any company
+/// until status is "live", which only a platform admin sets; a company's
+/// private upload never becomes a row here without its own tick.
+/// lib/aiEmployee/sharedLibrary.js.
+model SharedManual {
+  id                 String    @id @default(cuid())
+  fileHash           String    @unique
+  title              String
+  brand              String?
+  modelPattern       String?
+  category           String?
+  trade              String?
+  language           String?
+  originalFilename   String?
+  bytes              Int       @default(0)
+  /// The platform upload's private URL. Null for a company share.
+  storageKey         String?
+  /// "platform" | "company_share"
+  origin             String
+  sharedByCompanyId  String?
+  sharedFromSourceId String?
+  /// "pending" | "live" | "retired" | "withdrawn" | "failed"
+  status             String    @default("pending")
+  pageCount          Int?
+  pagesRead          Int?
+  unreadPages        Json?
+  failureReason      String?
+  reviewedAt         DateTime?
+  reviewedByAdminId  String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  pages SharedManualPage[]
+
+  @@index([status])
+}
+
+/// One page of a SharedManual's text, so an answer can cite "p.15".
+model SharedManualPage {
+  id        String       @id @default(cuid())
+  manualId  String
+  manual    SharedManual @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  page      Int
+  text      String?      @db.Text
+  method    String?
+  createdAt DateTime     @default(now())
+
+  @@unique([manualId, page])
 }
 
 /// Every reply the employee wrote, sent or not, with what it cost.

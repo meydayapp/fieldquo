@@ -216,6 +216,7 @@ import {
   ChevronDown,
   Menu,
   X,
+  Library,
 } from "lucide-react";
 
 /** How often the console re-reads its two counts while the tab is visible. */
@@ -556,6 +557,10 @@ const GROUPS = [
       { label: "Analytics", href: "/platform/analytics", icon: BarChart3 },
       // The catalogue every company's onboarding reads from.
       { label: "Service categories", href: "/platform/service-categories", icon: Tags },
+      // FieldQuo's shared manual library — manufacturers' manuals every
+      // company's AI team reads after its own (lib/aiEmployee/sharedLibrary.js):
+      // upload one, approve a company's share, retire one.
+      { label: "Manual library", href: "/platform/manuals", icon: Library },
       // The record of what platform staff did, the reference doc, and who
       // else holds a platform login. Configured rarely, read for context.
       { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },

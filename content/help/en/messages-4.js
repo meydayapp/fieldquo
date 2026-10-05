@@ -3,7 +3,10 @@
 // Part 4 of the “messages” category in English (see the composer,
 // messages.js). Slugs assigned to this part (lib/help/tree.js):
 // ai-employee-reference-library, ai-employee-error-codes,
-// how-ai-employee-troubleshooting-works.
+// how-ai-employee-troubleshooting-works, ai-employee-urgent-problems-and-safety
+// (the last read off lib/aiEmployee/triage.js, urgentAlerts.js, onCall.js,
+// companySettings.js, knowledge/firstSteps.js, webChatMatch.js,
+// sharedLibrary.js and app/components/aiEmployee/UrgentSafety.js).
 //
 // Every sentence below was read off the code on 2026-10-04:
 // app/components/aiEmployee/ReferenceLibrary.js, lib/aiEmployee/reference.js,
@@ -114,8 +117,8 @@ export const ARTICLES = {
           { steps: [
             "It reads the client's equipment on file, if the conversation belongs to a known client: make, model, install date and the warranty date on the record. It never sees prices, invoices or balances, and never reads a serial number out.",
             "It asks only for what is missing, then looks the code up and gives at most two or three safe steps from your manual or FieldQuo's references, naming where they come from.",
-            "It notes what it suggested, and the reply ends with: **If the problem persists, send us another message and we'll book a call with one of our techs.** — added by FieldQuo, in the client's language, so it is there every time.",
-            "If they write back that it's still happening, it books the callback straight away — the note says what the equipment is, the code, and what was already tried. If it now sounds urgent, that comes first.",
+            "It notes what it suggested, and the reply ends with: **If the problem persists, send us another message and we'll find you a time with one of our techs.** — added by FieldQuo, in the client's language, so it is there every time. (With **Offer real times with a tech** switched off, it says **…we'll book a call with one of our techs.** instead.)",
+            "If they write back that it's still happening, it offers real times from your booking calendar straight away — the same free times your booking page shows — and books the one they pick, as a call with a tech or a visit. Only when nothing is free (or real times are switched off) does it book a callback instead; the note says what the equipment is, the code, and what was already tried. If it now sounds urgent, that comes first — see [[ai-employee-urgent-problems-and-safety|Urgent problems and safety]].",
           ] },
         ],
       },
@@ -134,7 +137,64 @@ export const ARTICLES = {
         id: "reply-limit",
         heading: "The reply limit",
         blocks: [
-          { p: "**Most replies in one conversation** still applies. The one exception: when the assistant told the customer to write back if the problem persists, their next message is answered once even if the limit was reached — and that reply can only book the callback or hand the conversation to a person. A limit of 0 (paused) is never overridden." },
+          { p: "**Most replies in one conversation** still applies. The one exception: when the assistant told the customer to write back if the problem persists, their next message is answered once even if the limit was reached — and that reply can only book a time with a tech, book the callback or hand the conversation to a person. A limit of 0 (paused) is never overridden." },
+        ],
+      },
+    ],
+  },
+  "ai-employee-urgent-problems-and-safety": {
+    title: "Urgent problems and safety: what the AI employee does, and who gets texted",
+    summary:
+      "Gas means leave first, a burst pipe texts your on-call person, a drip is just a drip — and every part of it is a switch you control.",
+    updated: "2026-10-04",
+    intro: [
+      "**Settings → AI employee → Urgent problems & safety** holds one set of choices for your whole AI team: what counts as urgent for your business, who gets a text when it is, whether the assistant may give a safe first step, and three more. Every choice is shown with what it is set to now, and the defaults are listed below.",
+    ],
+    sections: [
+      {
+        id: "three-kinds",
+        heading: "Emergency, urgent, and everything else",
+        blocks: [
+          { bullets: [
+            "**Emergency** — a gas smell or a carbon-monoxide alarm, fire or smoke, someone hurt, water on the electrics. For gas or CO the assistant's first words are to get everyone out of the house, not to touch switches or the phone inside, and to call the gas company's emergency line or 911 once outside — and it asks nothing else until they say they're out. For the others it tells them to call 911. This can't be switched off.",
+            "**Urgent** — water actively leaking or a burst pipe, no heat in freezing weather, a roof leaking in a storm, sewage backing up, an outlet that is hot, buzzing or sparking. Urgent for your business, not for 911: your on-call person is texted (below) and the customer is given your company's own phone number to call right away.",
+            "**Everything else** — a dripping tap, a slow drain, a noise with no smell. Handled calmly, as an ordinary question or callback.",
+          ] },
+          { p: "**Ask a quick question before deciding it's urgent** (on by default) makes the assistant check first — \"Is water actively coming in right now, or is it a drip?\", \"Can you see the shut-off valve?\", \"Is there a gas smell, or is it just a noise?\" — so a dripping tap isn't treated as an emergency. A gas smell is never questioned: leaving comes first." },
+          { p: "Under **What counts as urgent** you can switch any of the five urgent situations off — a painter may not want a 2 a.m. text about a roof. One you switch off is handled as an ordinary callback, never as a 911 call." },
+        ],
+      },
+      {
+        id: "on-call",
+        heading: "Who gets texted",
+        blocks: [
+          { steps: [
+            "Add people to the on-call list and put them in order. Each needs a mobile number on their team profile — the list says **no mobile number on their profile** beside anyone who hasn't.",
+            "When a conversation is urgent, the first person on the list gets a text with what the customer said and a link, plus the bell and a push.",
+            "If nobody presses **I've got it** within the wait you set (10 minutes by default), the next person is texted, and so on down the list. After the last, you get the bell.",
+          ] },
+          { p: "**When they're on call** can be at all hours, outside your business hours, or on the days and times you choose — an end earlier than the start runs past midnight, so 18:00 to 08:00 is the night shift." },
+          { p: "Each text is paid from your phone & text credit, at the same rate as your crew texts — never under 2¢ a text. The card shows the price and your balance." },
+          { note: "When no text can go — nobody on the list, no credit, outside on-call hours — the card says exactly why under **Urgent texts aren't going out right now**. The customer still gets your number, an urgent callback is booked, and you get the bell." },
+        ],
+      },
+      {
+        id: "safe-steps",
+        heading: "Safe first steps",
+        blocks: [
+          { p: "With **Give safe first steps** on (the default), the assistant may tell someone to do one or two things that are safe for a homeowner — like shutting the main water valve, switching one breaker off once (never over and over), or turning the thermostat off — or a step from your own manuals. **See the steps it may give** lists them with where each comes from. It never tells anyone to open a panel or cover, touch a gas valve or pilot light, use a ladder or go on the roof, or handle live wiring; a reply that does is held for a person instead of being sent." },
+          { p: "Switch it off and the assistant gives no steps at all — it fetches your team. The leave-the-house and 911 lines still apply." },
+        ],
+      },
+      {
+        id: "more",
+        heading: "Website chat, FieldQuo's manuals, real times",
+        blocks: [
+          { bullets: [
+            "**Recognise clients on your website chat** — when a visitor types an email or phone number you have on file, the chat is linked to that client, so their equipment and history are used. The conversation shows **Linked to … by your AI assistant** with **Not this client** to undo it; an undone pair is never linked again. A shared family number with a different name is never linked.",
+            "**Use FieldQuo's manual library** — manufacturers' manuals FieldQuo keeps for every company, read after your own uploads. You can share one of your manufacturer manuals with it from the [[ai-employee-reference-library|Reference library]]; FieldQuo reviews it first, and nothing else you upload is ever shared.",
+            "**Offer real times with a tech** — the troubleshooter offers free times from your booking calendar when a problem isn't solved, and books the one the customer picks. Off: it books a callback instead.",
+          ] },
         ],
       },
     ],
