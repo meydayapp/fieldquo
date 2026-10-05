@@ -330,14 +330,14 @@ export const ARTICLES = {
         id: "who-can-edit",
         heading: "Qui peut modifier",
         blocks: [
-          { p: "Modifier demande les factures à **View, create, and edit** et l'interrupteur **See prices** — **Dispatcher**, **Manager**, les administrateurs et le propriétaire. Supprimer est autre chose : seul un **Brouillon** peut être supprimé, et seulement par quelqu'un ayant **View, create, edit, and delete** (le profil **Manager**, les administrateurs, le propriétaire). L'icône de corbeille est masquée pour tous les autres plutôt que grisée." },
+          { p: "Modifier demande les factures à **View, create, and edit** et l'interrupteur **See prices** — **Dispatcher**, **Manager**, les administrateurs et le propriétaire. Supprimer est autre chose : toute facture sans argent enregistré peut être supprimée, après une confirmation, et seulement par quelqu'un ayant **View, create, edit, and delete** (le profil **Manager**, les administrateurs, le propriétaire). L'icône de corbeille est masquée pour tous les autres plutôt que grisée." },
         ],
       },
     ],
     faq: [
       { q: "Puis-je corriger une coquille sans créer de version?", a: "Sur un brouillon, oui — Enregistrer les modifications édite sur place. Sur une facture envoyée, non : même un changement d'un mot est la version 2 avec une raison. C'est le but; la raison peut être « Correction de l'orthographe de la rue »." },
       { q: "Quelle version la liste montre-t-elle?", a: "La version actuelle, avec un solde calculé sur tous les paiements de la famille. En l'ouvrant, **v2** apparaît dans l'en-tête du document." },
-      { q: "Puis-je supprimer une facture envoyée par erreur?", a: "Non — seuls les brouillons peuvent être supprimés. Modifiez-la à un total de zéro avec la raison, ou remboursez ce qui a été payé; dans les deux cas, la trace de ce qui a été envoyé reste." },
+      { q: "Puis-je supprimer une facture envoyée par erreur?", a: "Oui, tant qu'aucun argent n'y est enregistré — quel que soit son état, après une confirmation. Si un paiement y a été enregistré à la main par erreur, le propriétaire ou un administrateur l'annule d'abord (voir [[refunds|Remboursements]], Annuler un paiement enregistré par erreur). Une facture avec de l'argent reçu par carte reste : remboursez plutôt cet argent." },
     ],
   },
 

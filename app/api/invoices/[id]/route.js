@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
 import { familyPayments, familyMembers } from "@/lib/invoices/family";
+import { voidRefusal } from "@/lib/payments/voidPayment";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
@@ -527,7 +528,10 @@ export async function DELETE(request, { params }) {
   // of what a client handed over, and lib/invoices/computeInvoiceState.js's
   // whole premise is that Payment rows are never deleted. Payment cascades
   // from Invoice, so deleting the invoice would erase them silently; the
-  // refusal below is what stands between the trash icon and that.
+  // refusal below is what stands between the trash icon and that. (A row
+  // recorded by hand for money that never came in is not a record of money;
+  // it is voided first — lib/payments/voidPayment.js, with its own audit row —
+  // and the refusal says so.)
   //
   // Counted across the FAMILY (root + every amended version), not this row:
   // lib/invoices/family.js — the money lives on whichever version the checkout
@@ -545,7 +549,6 @@ export async function DELETE(request, { params }) {
   });
   const payments = await db.payment.findMany({
     where: { invoiceId: { in: memberIds } },
-    select: { amount: true, kind: true },
   });
   const pending = rows.find((r) => r.pendingPaymentIntentId);
   if (payments.length || pending) {
@@ -560,11 +563,31 @@ export async function DELETE(request, { params }) {
     const what = payments.length
       ? `a payment of ${money(received)} recorded`
       : `a bank payment of ${money(Number(pending.amountDue || pending.total || 0))} on its way`;
+    // ── Say exactly what would make it deletable ──────────────────────────
+    //
+    // "Refund it instead" was the only way out this sentence offered, and the
+    // owner (2026-10-05) hit it on a TEST invoice where he had pressed Record
+    // Payment for money nobody paid: a refund of nothing is one more money
+    // row, and the invoice stayed undeletable. When every payment on the
+    // family was recorded by hand (lib/payments/voidPayment.js decides), the
+    // answer is a void — owner or admin, from Payment History — and the
+    // sentence says so, with a code the page translates. When any of it went
+    // through the card processor, it is real money and the answer is still a
+    // refund; the protection is unchanged either way.
+    const handRecordedOnly =
+      !pending &&
+      payments.some((p) => p.kind !== "refund") &&
+      payments.filter((p) => p.kind !== "refund").every((p) => voidRefusal(p, payments) === null);
     return NextResponse.json(
       {
-        error:
-          `This invoice has ${what}, so it can't be deleted — that's a record of money. ` +
-          `It stays on the books; if the money is going back, refund it instead.`,
+        error: handRecordedOnly
+          ? `This invoice has ${what}, so it can't be deleted yet. If that payment was recorded by mistake ` +
+            `(a test, or money that never came in), the owner or an admin can void it under Payment History — ` +
+            `then delete the invoice. If the money really came in, keep the invoice; if it is going back, refund it.`
+          : `This invoice has ${what}, so it can't be deleted — that's a record of money. ` +
+            `It stays on the books; if the money is going back, refund it instead.`,
+        code: handRecordedOnly ? "hand_recorded_payment" : "money_recorded",
+        amount: received,
       },
       { status: 409 },
     );

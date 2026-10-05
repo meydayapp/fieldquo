@@ -431,7 +431,7 @@ export const ARTICLES = {
     title: "Reembolsos",
     summary:
       "Cómo devolverle un pago a un cliente desde la factura — a través de Stripe para tarjeta o débito bancario, a mano para efectivo — qué registra FieldQuo cuando lo hace, y por qué la comisión de procesamiento sigue descontada.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "Un reembolso devuelve una parte o la totalidad de un pago al cliente. Usted lo emite desde la factura en FieldQuo — **Reembolsar** en la fila del pago — por el importe completo o una parte, con un motivo que el cliente verá en su factura. Un pago con tarjeta o por débito bancario vuelve por donde vino, a través de Stripe; un reembolso en efectivo, con cheque o por transferencia se registra sin que ningún dinero pase por Stripe. FieldQuo escribe el reembolso como su propia línea debajo del pago, y el saldo y el estado de la factura lo siguen.",
       "La comisión de procesamiento no se devuelve. Stripe conserva su comisión en un cobro reembolsado, así que la comisión ya descontada sigue descontada. Reembolse el importe que el cliente pagó, no el neto que usted recibió.",
@@ -484,6 +484,21 @@ export const ARTICLES = {
         heading: "Reembolsar un pago en efectivo, con cheque o por transferencia",
         blocks: [
           { p: "Un pago en efectivo, con cheque o por transferencia se reembolsa desde la misma acción **Reembolsar**. El pago no se cobró a través de FieldQuo, así que no se hace ninguna llamada a Stripe: la fila registra que usted devolvió el importe a mano, y el saldo de la factura sube en la misma cantidad. El formulario **Registrar pago** sigue rechazando un importe negativo — un reembolso no es un pago escrito con un signo menos. Si la factura debe mostrar un total menor, modifique la factura — vea [[edit-an-invoice-after-sending|Editar una factura después de enviarla]]." },
+        ],
+      },
+      {
+        id: "void-a-payment",
+        heading: "Anular un pago registrado por error",
+        blocks: [
+          { p: "Un pago que registró a mano por dinero que nunca llegó — una prueba, un error de escritura, la factura equivocada — no se reembolsa: no hay nada que devolver, y un reembolso es un registro de dinero más. Se **anula**. Abra la factura; en el **Historial de pagos**, un pago en efectivo, con cheque, por transferencia (o Zelle, Venmo, Cash App, PayPal, transferencia bancaria, tarjeta cobrada en otro lugar) muestra **Anular** al lado, para el propietario y los administradores. Indique el motivo («Pago de prueba: no se recibió dinero») y pulse **Anular pago**." },
+          { bullets: [
+            "El pago se quita de la factura, junto con cualquier reembolso que haya registrado a mano sobre él.",
+            "La factura vuelve a quedar sin pagar — **Enviada** si alguna vez se envió, **Borrador** si no — con su saldo pendiente, y los recordatorios de facturas impagas vuelven a aplicarse hasta que la elimine.",
+            "El **registro de actividad** guarda la anulación: quién, cuándo, el importe, el método y el motivo. Se queda ahí incluso después de eliminar la factura.",
+            "Cuando ya no tiene nada registrado, la factura se puede eliminar; luego su trabajo y su cotización, y luego el cliente.",
+          ] },
+          { warning: "Un pago con tarjeta o bancario cobrado a través de FieldQuo nunca se puede anular: ese dinero sí se movió y está en su saldo de Stripe diga lo que diga FieldQuo. Use **Reembolsar** en esos, para que vuelva al cliente por donde vino. Tampoco se puede anular una tarifa de reserva acreditada desde una tarjeta." },
+          { p: "Solo el propietario y los administradores pueden anular; los niveles Gerente, Cuadrilla, Estimador y Despachador no pueden, tengan las opciones de pago que tengan, y una sesión de soporte de solo lectura se rechaza." },
         ],
       },
       {

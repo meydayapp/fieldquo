@@ -53,7 +53,7 @@ import {
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
 import { fetchList } from "@/lib/loadState";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -70,6 +70,8 @@ import { paymentMethodLabel } from "@/lib/payments/methodLabels";
 import { methodsForCountry, paymentCountry, enabledMethods, offlineMethodLabel } from "@/lib/payments/offlineMethods";
 import { feeRateKey } from "@/lib/stripe/feeRateKey";
 import RefundDialog from "./RefundDialog";
+import VoidPaymentDialog from "./VoidPaymentDialog";
+import { voidRefusal, wentThroughProcessor } from "@/lib/payments/voidPayment";
 import { refundableCents } from "@/lib/invoices/refund";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import { clientPoFact } from "@/lib/documents/clientPo";
@@ -140,6 +142,12 @@ export default function InvoiceDetailPage() {
   // Same gate as the refund route: the payments toggle AND invoice editing.
   const canRefund = canRecordPayment && hasLevel(caller, "invoices", "view_create_edit");
   const [refunding, setRefunding] = useState(null);
+  // Same gate as the void route: owners and admins only — a void removes a
+  // money row from the books (lib/payments/voidPayment.js). A read-only
+  // support session resolves to the owner's role, so the route refuses it by
+  // name; the button showing there is the one place this mirror is wider.
+  const canVoid = caller?.role === "owner" || caller?.role === "admin";
+  const [voiding, setVoiding] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [showChase, setShowChase] = useState(false);
   const [chaseNote, setChaseNote] = useState("");
@@ -472,6 +480,16 @@ export default function InvoiceDetailPage() {
       // The modal no longer closes itself on confirm, so close it here —
       // otherwise the error lands behind an open dialog.
       setShowDelete(false);
+      // Refused because every payment on it was recorded by hand: say, in the
+      // reader's language, that a void (under Payment History) is the way
+      // out. Any other refusal keeps the route's own sentence.
+      const refusal = await res.clone().json().catch(() => null);
+      if (res.status === 409 && refusal?.code === "hand_recorded_payment") {
+        const sentence = t("app.invoiceDetail.deleteVoidFirst", { amount: money(Number(refusal.amount || 0)) });
+        setError(sentence);
+        showError(sentence);
+        return;
+      }
       // Into the page's own banner as well as the toast. Toast-only read as
       // "the dialog closed and nothing happened", which is indistinguishable
       // from a successful delete to the person who pressed the button.
@@ -1375,6 +1393,21 @@ export default function InvoiceDetailPage() {
                         {t("app.invoiceDetail.refundAction")}
                       </button>
                     )}
+                  {/* Void: only a payment recorded by hand, only for the
+                      owner or an admin. A card payment never gets this
+                      button — it is refunded (the note under the list). */}
+                  {canVoid &&
+                    !invoice.pricingHidden &&
+                    voidRefusal(p, invoice.payments) === null && (
+                      <button
+                        type="button"
+                        onClick={() => setVoiding(p)}
+                        data-void-payment={p.id}
+                        className="ml-2 min-h-[36px] text-xs font-semibold underline text-red-700 dark:text-red-300"
+                      >
+                        {t("app.invoiceDetail.voidAction")}
+                      </button>
+                    )}
                 </span>
                 {/* The payment ROWS survive a redaction — that somebody
                     paid, when, and how is not the amount — but their `amount`
@@ -1436,6 +1469,15 @@ export default function InvoiceDetailPage() {
               </div>
             ))}
           </div>
+          {/* Why a card payment has no Void beside it — said once, to the
+              people who see Void at all, and only when such a row is here. */}
+          {canVoid &&
+            !invoice.pricingHidden &&
+            invoice.payments.some((p) => p.kind !== "refund" && wentThroughProcessor(p)) && (
+              <p className="mt-2 text-xs text-muted-foreground" data-void-card-hint>
+                {t("app.invoiceDetail.voidCardHint")}
+              </p>
+            )}
         </section>
       )}
 
@@ -1504,6 +1546,17 @@ export default function InvoiceDetailPage() {
             : null
         }
       />
+
+      {voiding && (
+        <VoidPaymentDialog
+          invoiceId={id}
+          payment={voiding}
+          money={money}
+          formatDate={formatDate}
+          onClose={() => setVoiding(null)}
+          onDone={refresh}
+        />
+      )}
 
       {refunding && (
         <RefundDialog
