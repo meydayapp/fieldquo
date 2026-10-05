@@ -357,7 +357,9 @@ section("6. No dead link");
 const everyRow = [...railRows, MORE_ROW, ...moreRows, ...BOTTOM, ...QUICK, ...settingsRows, ...TABS, ...ALL_PHONE_TABS];
 // The query string is not part of the path ("/app/receipts?snap=1" renders
 // app/app/receipts/page.js with the capture panel open).
-const dead = everyRow.filter((r) => !exists(`app${r.href.split("?")[0]}/page.js`));
+// Nor is a #fragment (a row opening a section of a page, e.g.
+// /app/settings/services#equipment-access): the page must still exist.
+const dead = everyRow.filter((r) => !exists(`app${r.href.split(/[?#]/)[0]}/page.js`));
 ok("every href in every list resolves to a page.js", dead.length === 0, dead.map((r) => `${r.key} → ${r.href}`).join(", "));
 ok("/api/search exists for the records half of the palette", exists("app/api/search/route.js"));
 

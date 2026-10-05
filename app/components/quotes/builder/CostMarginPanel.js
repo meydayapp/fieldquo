@@ -36,6 +36,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import TeamCrewPicker from "@/app/components/quotes/TeamCrewPicker";
 import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
 import { costingDefaultsUsed, isRealOverheadBasis } from "@/lib/costing/costingDefaults";
+import { ACCESS_REASONS } from "@/lib/planRead/accessReasons";
 
 // toFixed does not group, so this panel printed $1113.11 and $2100.00 beside
 // a correctly-grouped total in the same sticky bar. Shared formatter now —
@@ -324,12 +325,74 @@ export default function CostMarginPanel({
   // [{ group, label, amount, hours }] — the quote's custom complexity
   // factors as the save will write them. Absent on an invoice.
   customFactors = null,
+  // "Access in this price" — the quote's access lines and how each is
+  // counted (the owner, 2026-10-05: "at the very least indicate why it
+  // priced like that"). [{ label, amount, why, source }] on a painting quote;
+  // null hides the block (an invoice, a quote with no painting).
+  accessLines = null,
+  // The highest painting work on the card, in ft — said beside "No access
+  // equipment priced" when it is above ladder height.
+  accessHighestFt = 0,
+  // (groupTempId, index, reason) — the one-tap reason a $0 access line costs
+  // nothing. Null hides the picker (read-only).
+  onAccessReason = null,
 }) {
   const { t, language } = useTranslation();
   const money = (n) => formatAppMoney(n, currency, language);
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
+      {Array.isArray(accessLines) && (
+        <div className="mb-3 rounded-lg border border-border p-3 text-sm" data-access-in-price>
+          <p className="text-xs font-semibold mb-1">{t("app.cost.accessTitle", "Access in this price")}</p>
+          {accessLines.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t("app.cost.accessNone", "No access equipment priced. If the work is above ladder height, add it from the painting card (“Add access equipment”).")}
+              {accessHighestFt > 12 ? ` ${t("app.cost.accessNoneHigh", "The painting card has work up to {ft} ft — check how it is reached.", { ft: Math.round(accessHighestFt) })}` : ""}
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {accessLines.map((a, i) => {
+                const zero = Number(a.amount) === 0;
+                return (
+                  <li key={i} className="text-xs">
+                    <span className="font-medium">{a.label}</span>
+                    {` — ${money(a.amount)}`}
+                    {zero && a.zeroReason
+                      ? ` · ${t(`app.planRead.accessReason.${a.zeroReason}`, a.zeroReason.replace(/_/g, " "))}${a.zeroAt ? ` (${String(a.zeroAt).slice(0, 10)})` : ""}`
+                      : zero && a.owned
+                        ? ` · ${t("app.cost.accessOwned", "you own these, no rental")}`
+                        : a.source === "reference"
+                          ? ` · ${t("app.cost.accessDefault", "FieldQuo default, not your rate")}`
+                          : a.source === "company"
+                            ? ` · ${t("app.cost.accessYours", "your rate")}`
+                            : ""}
+                    {!zero && a.source === "reference" ? (
+                      <>
+                        {" · "}
+                        <Link href="/app/settings/services#equipment-access" className="underline">
+                          {t("app.planRead.review.setYours", "Set yours")}
+                        </Link>
+                      </>
+                    ) : null}
+                    {a.why ? <span className="block text-muted-foreground">{a.why}</span> : null}
+                    {zero && !a.owned && !a.zeroReason && onAccessReason ? (
+                      <span className="flex flex-wrap items-center gap-1 mt-1">
+                        <span className="text-[11px] text-muted-foreground">{t("app.planRead.accessReason.ask", "Why no rental cost?")}</span>
+                        {ACCESS_REASONS.map((r) => (
+                          <button key={r} type="button" onClick={() => onAccessReason(a.groupTempId, a.index, r)} className="min-h-[32px] px-2 rounded-md border border-border text-[11px] hover:bg-accent">
+                            {t(`app.planRead.accessReason.${r}`, r.replace(/_/g, " "))}
+                          </button>
+                        ))}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
         <h2 className="font-semibold text-foreground flex items-center gap-2">
           <TrendingUp size={16} /> {t("app.cost.title", "Cost & margin")}

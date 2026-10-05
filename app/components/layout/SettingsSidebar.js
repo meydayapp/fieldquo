@@ -37,6 +37,7 @@ import { useTradeGate } from "@/app/providers/TradeGateProvider";
 import { useRovingRows } from "@/app/components/layout/rovingRows";
 import {
   ChevronLeft,
+  HardHat,
   MessageSquare,
   Star,
   Building2,
@@ -148,6 +149,11 @@ export const GROUPS = [
     items: [
       { key: "app.settings.products", href: "/app/settings/products", icon: Package, helpArticle: "settings-products" },
       { key: "app.settings.services", href: "/app/settings/services", icon: Tags, helpArticle: "settings-services" },
+      // The painting card's Equipment & access section (rental rates, "we own
+      // this", delivery) — its own row so a search for "scaffold" or "rental"
+      // finds it (the owner, 2026-10-05: "is there a place the company can add
+      // it?"). Same page, opened at the section.
+      { key: "app.settings.equipmentAccess", href: "/app/settings/services#equipment-access", icon: HardHat, helpArticle: "settings-equipment-access" },
       // The recurring plans a quote can carry — priced like the rest of the
       // price book, so it sits beside it. Its help is the service-plans
       // article (alsoScreens), which covers the plans these templates become.

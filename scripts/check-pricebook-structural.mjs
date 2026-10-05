@@ -877,14 +877,14 @@ const sp = (key, field) => STRUCTURAL_RECIPES[key][field].value;
 //    Mix     8.0000 x 155         = 1,240.00
 //    Delivery                     +    90.00
 //                                 = 1,330.00
-//    Place & finish 600 x 0.032   = 19.2 crew-hours
+//    Place & finish 600 x 0.013   = 7.8 labour-hours (Craftsman NCE 2019 p.615, 2026-10-05; was 0.032 = 19.2)
 {
   const cuYd = (600 * sp("concrete", "defaultSlabThicknessIn")) / 324;
   const ordered = cuYd * (1 + sp("concrete", "wasteConcreteOverOrderPct"));
   const mix = ordered * rc("concrete", "matReadyMixPerCuYd", "USD") + rc("concrete", "matReadyMixDeliveryPerLoad", "USD");
   near("concrete — 600 sqft at 4in orders 8.00 cu yd", ordered, 8.0);
   near("...costing $1,330 USD in mix and delivery", mix, 1330);
-  near("...and 19.2 crew-hours to place and finish", 600 * sp("concrete", "labourPlaceFinishHoursPerSqft"), 19.2);
+  near("...and 7.8 labour-hours to place and finish (Craftsman NCE 2019 p.615 P8@.013)", 600 * sp("concrete", "labourPlaceFinishHoursPerSqft"), 7.8);
   // Below the plant minimum the short-load fee bites, and it is real money.
   const small = 2;
   const short = (sp("concrete", "specShortLoadMinCuYd") - small) * rc("concrete", "matShortLoadFeePerCuYdShort", "USD");
@@ -923,14 +923,14 @@ const sp = (key, field) => STRUCTURAL_RECIPES[key][field].value;
 //    Brick    400 x 6.75 x 1.05     = 2,835 brick
 //    Cost     2.835 x 1,050         = 2,976.75
 //    Mortar   400 x 0.22 x 1.08     = 95.04 bags x 9.50 = 902.88
-//    Labour   400 x 0.22            = 88 crew-hours
+//    Labour   400 x 0.144           = 57.6 labour-hours (Craftsman NRI 2019 p.240, 2026-10-05; was 0.22 = 88)
 {
   const brick = 400 * sp("masonry", "specBricksPerSqft") * (1 + sp("masonry", "wasteBrickPct"));
   near("masonry — 400 sqft needs 2,835 brick ordered", brick, 2835);
   near("...at $2,976.75 CAD", (brick / 1000) * rc("masonry", "matBrickPer1000", "CAD"), 2976.75, 0.001);
   const bags = 400 * sp("masonry", "specMortarBagsPerSqftBrick") * (1 + sp("masonry", "wasteMortarPct"));
   near("...and 95.04 bags of mortar, $902.88 CAD", bags * rc("masonry", "matMortarPerBag", "CAD"), 902.88, 0.001);
-  near("...taking 88 crew-hours to lay", 400 * sp("masonry", "labourBrickHoursPerSqft"), 88);
+  near("...taking 57.6 labour-hours to lay (Craftsman NRI 2019 p.240 4M@.144)", 400 * sp("masonry", "labourBrickHoursPerSqft"), 57.6);
 }
 
 // ── Stucco: 1,200 sqft of standard three-coat in USD.
@@ -956,10 +956,14 @@ const sp = (key, field) => STRUCTURAL_RECIPES[key][field].value;
 {
   const total = 140 * rate("framing", "standard", "wallFrame", "USD") + 1120 * rate("framing", "standard", "sheathing", "USD");
   near("framing — 140 lf of wall plus its sheathing = $7,224 USD", total, 7224);
-  near("...taking 22.4 crew-hours to build and stand", 140 * sp("framing", "labourWallFrameHoursPerLf"), 22.4);
-  near("...and 20.16 more to sheathe", 1120 * sp("framing", "labourSheathingHoursPerSqft"), 20.16, 0.001);
-  // A cut roof against a truss roof, as a multiplier rather than a second rate.
-  near("...a stick-framed roof costs 2.5x a truss roof in hours", sp("framing", "labourCutRoofFactor") * sp("framing", "labourTrussSetHoursPerSqft"), 0.07);
+  // Calibrated 2026-10-05 to Craftsman NCE 2020 p.34 / NCE 2026 p.7 (was 22.4 and 20.16).
+  near("...taking 40.32 labour-hours to build and stand (NCE .288/lf)", 140 * sp("framing", "labourWallFrameHoursPerLf"), 40.32, 0.001);
+  near("...and 17.92 more to sheathe (NCE .016/sq ft)", 1120 * sp("framing", "labourSheathingHoursPerSqft"), 17.92, 0.001);
+  // A CUT-UP roof over 6/12 against a truss roof, as a multiplier rather than
+  // a second rate: NCE 2020 p.39 ×1.95 cut-up × 1.38 over 6/12 = 2.69. A
+  // simple stick gable is labourStickRoofHoursPerSqft — the truss figure.
+  near("...a cut-up stick roof over 6/12 costs 2.69x a truss roof in hours", sp("framing", "labourCutRoofFactor") * sp("framing", "labourTrussSetHoursPerSqft"), 0.07532, 0.001);
+  near("...and a simple stick gable costs what a truss roof does (NCE .028)", sp("framing", "labourStickRoofHoursPerSqft"), sp("framing", "labourTrussSetHoursPerSqft"));
 }
 
 // ── Demolition: a 1,200 sqft standard interior strip in USD, with the cans.

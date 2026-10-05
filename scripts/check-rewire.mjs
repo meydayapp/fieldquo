@@ -464,12 +464,17 @@ const q1 = estimateRewire({
   wallAccess: "finished", wallConstruction: "drywall", existingWiring: "cloth_braid",
 });
 ok("~113 openings", Math.abs(q1.openings.openings - 113) <= 3, q1.openings.openings);
-ok("~105 crew-hours", Math.abs(q1.labour.totalHours - 105) <= 8, q1.labour.totalHours);
+// 2026-10-05: the panel swap moved from a guessed 8 h to the Craftsman book's
+// 15.9 (NRI 2018 p.126 remove 6.09 + p.128 install 9.77). The residential
+// factor 0.456 was fitted with the old 8 h and the owner chose to keep it, so
+// the reconciliation moves by those 7.9 hours: ~113 h, and the typical price
+// 4.0% above the real quote — still inside 5%, and above it rather than below.
+ok("~113 labour-hours (105 before the book's panel swap + 7.9)", Math.abs(q1.labour.totalHours - 113) <= 8, q1.labour.totalHours);
 ok("~$194 per opening (mid-band of the published $100–300)",
   Math.abs(q1.perOpening - 194) <= 10, q1.perOpening);
 ok("~$15.00 per sqft", Math.abs(q1.perSqft - 15) <= 0.75, q1.perSqft);
-ok("typical lands within 3% of the real $21,915",
-  Math.abs(q1.typical - 21915) / 21915 < 0.03, q1.typical);
+ok("typical lands within 5% of the real $21,915 (4.0% over with the book's panel swap)",
+  Math.abs(q1.typical - 21915) / 21915 < 0.05 && q1.typical >= 21915, q1.typical);
 ok("~19 circuits", Math.abs(q1.circuits.circuits - 19) <= 2, q1.circuits.circuits);
 ok("~2,600 ft of cable", Math.abs(q1.wire.totalFt - 2600) <= 200, q1.wire.totalFt);
 ok("hours per opening ≈ 0.93 for a fished drywall rewire",

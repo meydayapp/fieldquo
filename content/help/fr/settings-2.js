@@ -208,6 +208,36 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-equipment-access": {
+    title: "Équipement et accès",
+    summary:
+      "Vos tarifs de location de tours d'échafaudage, nacelles et échelles — ou le fait que vous les possédez — pour que chaque ligne d'accès d'une soumission de peinture soit chiffrée à votre tarif, pas à un défaut.",
+    updated: "2026-10-05",
+    intro: [
+      "**Paramètres → Services → Équipement et accès** (sous la carte peinture) est l'endroit où vous indiquez ce que vous coûte l'équipement d'accès. L'**Ajouter un équipement d'accès** de vos soumissions de peinture et les nacelles et tours de la lecture de plans s'en servent.",
+    ],
+    sections: [
+      {
+        id: "what-is-used",
+        heading: "Ce qu'une soumission utilise",
+        blocks: [
+          { steps: [
+            "**Votre tarif** pour cet équipement et cette taille — jour, semaine et mois, dans votre devise. La combinaison la moins chère de mois, semaines et jours est retenue (une semaine de location couvre cinq jours de travail, un mois vingt).",
+            "**Nous le possédons (pas de location)** — la ligne est à zéro et le dit.",
+            "Sinon **le défaut de FieldQuo** : la table de location 2023 de Craftsman (en $ US), choisie selon la hauteur de travail et convertie dans votre devise au taux de change daté. Chaque ligne de ce type indique **Défaut FieldQuo — fixez le vôtre**, avec un lien ici.",
+          ] },
+          { p: "Si FieldQuo n'a pas de taux de change pour votre devise, ou pas de chiffre sourcé pour l'équipement (une grue, la livraison, l'échafaudage à cadres), la ligne n'est pas chiffrée et dit pourquoi, jusqu'à ce que vous fixiez votre chiffre. Ce n'est jamais un 0 $ silencieux." },
+        ],
+      },
+      {
+        id: "why",
+        heading: "Pourquoi cela apparaît dans le coût de la soumission",
+        blocks: [
+          { p: "Le panneau Coût et marge du générateur de soumissions et la lecture de plans affichent tous deux **Accès dans ce prix** : chaque ligne d'accès et la façon dont elle est comptée. Une ligne retirée ou mise à 0 $ demande une raison une fois — nous le possédons, le client le fournit, pas nécessaire, inclus ailleurs — pour que la personne qui relit la soumission sache pourquoi il n'y a pas de coût de location. Rien de cela n'apparaît sur la soumission du client." },
+        ],
+      },
+    ],
+  },
   "settings-material-costs": {
     title: "Coût des matériaux",
     summary:

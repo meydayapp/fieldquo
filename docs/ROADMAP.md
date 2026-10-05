@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 5 October 2026 (drawing read — the complete first pass: a measurement pass per elevation/plan/section sheet, quantities from scaled faces with sheet + scale + confidence, the book's height factors (NPC p. 139) and Resene prep allowances in the painting PRESET that the builder and the read share, crew plan, access priced from the company's rates or Craftsman's 2023 rental table, past jobs by trade, one-tap assumptions, one read → one quote per service, "What this price includes / Check before sending", Settings → Services → Equipment & access, a material list with primer/prep/sundries, and a setup step. No schema change. See "Drawing read — the complete first pass" below.)
 Last updated: 4 October 2026, late (subscription priced in local money for the UK and the EU — GBP and EUR plan rows at the AUD "same numbers" (£/€99, 169, 269, 369; annual ×10), VAT on top for £/€, the pricing page's "Show prices in" picker; AI credit plans sold to every company in USD on the separate USD add-on customer, and plan credit now RESETS monthly while top-ups persist. Schema additive — NOT applied; rows NOT seeded. See "Local-currency subscription, and AI plan credit that resets (4 October 2026)" below.)
 Last updated: 4 October 2026 (drawing read P1 + P2 — the read is scoped by the quote's own service (no trade picker), sends only the sheets that service needs, reads drywall/framing/roofing/electrical/plumbing/flooring with every quantity sourced and confidence-rated, prices them by the ladder (your rate card → your services → cited FieldQuo suggestions, framing book switched on, NECA ×1.0 commercial), recommends a price at your target margin with overhead as the job's share of the month's crew time, offers a margin adjustment line and notifies owner/managers/assignee when below target, and takes pricing figures from the chat only through a manual, diffed button; plus the first live read's five fixes (signed PDF fetch, browser split over 10 MB, failed sheets retried, unreadable-file message, UK/metric parsing). Schema: `PlanRead.scope` and `ForecastSettings.billableHoursPerMonth` (Int, shared with the hourly floor) are already in production — see "Start from drawings" and "Overhead by crew time".)
 Last updated: 4 October 2026 (Google Ads spend: report upload (CSV / Excel CSV / .xlsx) that works today, a Google Ads API connection on Settings › Google Ads that waits on Google's developer-token approval, and Google spend over FieldQuo's own gclid leads on the Spend page, the KPI page and the monthly summary — see "Google Ads spend" below. Schema additive, NOT applied; SQL in that section.)
@@ -196,6 +197,193 @@ caught). Updated: `check:social-leads`, `check:approval-screens`,
 `check:meta-history`, `check:lead-potential`, `check:notifications`.
 
 ---
+
+## Trade labour presets calibrated against the Craftsman guides (5 October 2026)
+
+The owner, 2026-10-05: "fill the gaps and fix the mismatches using their
+numbers as reference" — and "this is only for the preset; the company can
+modify them to adjust to their own rates."
+
+### What shipped (not deployed — unpushed branch)
+
+- `lib/pricing/labourPresets.js` — FieldQuo's labour presets for electrical,
+  plumbing, framing (carpentry), drywall and flooring installation, each
+  figure cited (book, year, printed page, row → figure) and editable on the
+  trade's rate card in Settings → Services (`CompanyServiceCategory.rates.
+  presets`, sanitised by `lib/pricing/sanitiseRates.js`; no schema change).
+  A company's figure wins; an unchanged one says "FieldQuo default". The
+  drawing read's third rung and the services' suggested production rates
+  both read them — one copy.
+- Fixes: roofing tear-off 0.5 → 1.0 (+0.67 a further layer, wood/slate/
+  tile/built-up by material), drip edge 0.012 → 0.035, underlayment 0.2 →
+  0.08 (felt/synthetic only — ice-and-water is its own line), steep and
+  >12/12 pitch → ×1.5; drywall Level 4 finish 0.014 → 0.008 (other levels
+  keep their ratio), ceilings ×1.25, corner bead 0.05 → 0.016 install-only,
+  drywall production 12 → 25 sheets a day; a house's electrical devices now
+  carry their wiring run (NRI: receptacle 0.977 h, 3-way 1.95), panel swap
+  8 → 15.9 h, commercial circuit 2.49 h, GFCI/dimmer/3-way premiums;
+  water heater by type (electric 2.95, gas 3.85, gas replacement 5.85,
+  tankless 22.25 h) with a person's type choice on the item; framing walls
+  0.11/0.16 → 0.224/0.288 per ft; flooring laminate 0.030, solid 0.062,
+  engineered 0.051; backer board 0.042; concrete, brick veneer, windows and
+  entry doors in their staged recipes.
+- Fills: conduit by type and size (NEE), THHN, NM-B new/reno, data drops,
+  disconnects, fire-alarm devices, device removal, every plumbing fixture
+  (house set + rough-in; commercial budget), floor drains, cleanouts, gas
+  outlets, pipe per foot with attic/crawl/height factors, drywall patches,
+  removal and textures, blocking and ceiling joists, roof/subfloor
+  sheathing, hardwood tear-out, sheet vinyl and vinyl tile, sand-and-finish,
+  tile/slate/fibre-cement roof labour, tile loading, a 5.5 h roofing job
+  minimum; suggested rates for HVAC (registers, returns, condenser per ton,
+  duct per lb, flex per ft, commission + balance), gates, masonry and
+  cabinet installs.
+- The complexity ladder keeps 1.15/1.35/1.6 and now cites the books'
+  published ranges instead of GUESS.
+
+### Waiting on the owner
+
+- HVAC air handlers: NRR prints 21–27 h (2–5 t) — high for a residential
+  swap; NOT adopted.
+- Painting presets: untouched (the eight corrections are still pending).
+- `check:app-catalogue` fails on twelve English echoes that came in with the
+  drawing-read branch (`app.planRead.equipment.*`, `app.planRead.slices.sqft`,
+  `app.paint.condition.render`, `app.paintPreset.per100`) — not these strings.
+
+### Checks
+
+`check:trade-calibration` (446 assertions; 28 mutations, all caught), in
+check:all. Pins updated with the reason in check:trade-labour, check:rewire,
+check:pricebook-structural, check:pricebook-interior, check:plan-deep-read.
+
+---
+
+## Delete a lead — one, a selection, and "not a lead" for conversations (5 October 2026)
+
+The owner, 2026-10-05: "There should be a way to delete leads… test ones, and
+some imported from conversations that may not have been a lead. They should be
+able to be deleted, not just marked lost."
+
+### What shipped (not deployed — unpushed branch)
+
+- `DELETE /api/leads/[id]` and `DELETE /api/leads` (bulk, ≤100, one
+  transaction) — `lib/leads/deleteLead.js`. Gate: the requests dial's top rung,
+  **View, create, edit, and delete** (owner/admin, Manager preset); crew,
+  estimators, dispatchers and support sessions are refused (403, standard
+  refusal shape). Another company's id is 404 and touches nothing.
+- Goes with the lead: its LeadNote rows and LeadIdentityLink rows (both the
+  schema's declared cascades). Survives with only its pointer cleared:
+  MessageThread, VoiceCall, CallConsent, VoiceCallTask (a QUEUED speed-to-lead
+  call is cancelled), FunnelResponse, FunnelVisit, QuoteDocument, PlanRead,
+  another link's `splitLeadId`. Never touched: Client, Quote (its link is
+  `LeadRequest.quoteId`, on the lead's own row), Job, Invoice, payments,
+  messages. Cloudinary files are NOT deleted (the converted quote shares them).
+- One `ActivityLog` row per lead (`lead.deleted`: who, name, source, received
+  date, quote, Meta leadgen ids), written inside the transaction — it is also
+  the tombstone that stops Meta's webhook/poll/backfill re-importing a deleted
+  lead form (`lib/leads/leadTombstone.js`, read by `importMetaLead`).
+- "Don't create a lead from this conversation again" — `MessageThread.
+  leadCapture.notALead` (existing JSON, no column). Honoured by the
+  conversation capture and the AI employee's book_callback; a lead a person
+  links by hand overrules it. book_callback now also links the thread it was
+  booked from (it never did, so its leads had no conversation to find).
+- Call recovery no longer rebuilds a lead it already recovered once
+  (`leadRecoveredAt`), since deleting clears `VoiceCall.leadId`.
+- Board: ⋯ menu on each card (ActionMenu), Select → "Delete N leads", and
+  "Delete lead" at the foot of the panel; one confirm (LeadDeleteDialog)
+  naming the lead and what is kept. No Undo — a hard delete can't honestly
+  offer one. Strings in all nine languages; help "The Leads board" has a new
+  "How to delete a lead" section in en/fr/es.
+- Counts: deleted leads drop out of every lead count (all read LeadRequest
+  live); MarketingSpend.leads is the ad platform's own number and is untouched.
+
+### Schema
+
+None.
+
+### Checks
+
+`check:lead-delete` (95 assertions; 18 mutations, all caught), in check:all.
+
+---
+## Drawing read — the complete first pass (5 October 2026)
+
+The owner: one read plus at most one confirmation should give a price in
+3–5 minutes; a higher token cost is approved and measured. The church set's
+live read had come back with areas, exclusions and access — and every
+quantity 0 sq ft.
+
+### What shipped (not deployed — unpushed branch)
+
+- **Measurement pass.** Every elevation, plan and section sheet gets its own
+  best-tier call beside its sheet pass (`lib/planRead/measurePrompts.js`,
+  `run.js`). The model returns boxes as fractions of the sheet; code scales
+  them by the PDF's paper size and printed scale, calibrates against printed
+  figures (±20%), and builds faces/rooms/heights with a sentence and a
+  confidence each (`lib/planRead/takeoff.js`). Printed figures win. A storey
+  height nothing states is "assumed 3.0 m, verify" — never 0.
+- **Backfill.** A synthesis that leaves a side unquantified is drafted from
+  the measured faces, marked "added by FieldQuo" (`backfill.js`); every
+  surface is non-zero or named as unmeasured.
+- **The painting PRESET** (`lib/pricing/paintHeightPrep.js`) — one copy read
+  by the builder and the read: height bands ≤8/8–13/13–17/17–19/19–21/>21 ft
+  ×1.0/1.3/1.6/1.9/2.2/2.2 (NPC 2014 p. 139, READ; >21 extrapolated and
+  labelled), a 9 ft basis because the den rates were measured at 9 ft
+  (company can set 8), prep allowances per 100 sq ft (Resene), daily setup
+  (NPC SURRPTUCU), crew plan, access rental table (Craftsman NPC 2023
+  Figure 15, US$, converted at fx.js's dated rate), prep material prices
+  (Home Depot shelf 2026-09-24), sundries 5%. Company edits in Settings →
+  Services override key by key. Typed quotes move ONLY above 9 ft, with a
+  condition chosen, or with access added — md5 proof in
+  `check:plan-read-first-pass` §6 and `check:estimate-kind-routing`.
+- **Crew plan** (2/3/4 options, rental days follow), **access** priced never
+  at a silent $0, **past jobs** of this company by trade ($/sq ft, hours/sq
+  ft, clocked hours where completed), **assumptions** stated with one-tap
+  change (no model call), **one read → one draft per service**
+  (`?scope=` / `planScope`).
+- **"What this price includes / Check before sending"** (`review.js`): what
+  the price rests on, and up to 8 checks ranked by price impact (FieldQuo
+  defaults in use, low confidence, exclusions, heritage, lead paint, lifts on
+  the road, weather, samples…), each ticked Looks right / Change with who and
+  when, carried into the quote's office notes; the builder warns on the
+  unreviewed count. The read's own questions are never cut; the rest past 8
+  are shown collapsed.
+- **Settings → Services → Equipment & access** (sidebar row, help article
+  en/fr/es, setup step "Set your equipment and access rental rates" for
+  painting companies): per kind and size day/week/month, "We own this (no
+  rental)", delivery, frame scaffold, "use FieldQuo's defaults".
+  "Access in this price" on the read and in the builder's Cost & margin
+  panel, with a one-tap reason for a $0 or removed line.
+- **Materials at quote time**: paint (whole gallons per product), primer only
+  when the condition calls for it (masonry primer follows the primer price
+  until set, its coverage NPC 2014 p. 140), filler/abrasives/tape/drop
+  sheets/caulk, sundries; editable quantities on the read; the same prep
+  materials on the job's sourcing list (tradeMaterials).
+- Fallback audit (`lib/planRead/fallbacks.js`, pinned by the check): every
+  input that may be unset now says "FieldQuo default — set yours" with a link
+  or names what is missing.
+
+### Cost (scripted church read, live-shaped token counts)
+
+Hold for 13 sheets rose from 145 to 685 credits (expected ≈116 → ≈548);
+vendor ≈$0.58 → ≈$2.74 for a full set; the scripted church read measured
+362,800 prompt + 103,500 completion tokens, $2.57 vendor, 514 credits charged.
+
+### Checks
+
+`check:plan-read-first-pass` (new, in check:all, 190 assertions, 15 mutations
+killed), plus re-pins in `check:estimate-kind-routing` (the two fixtures above
+9 ft), `check:setup-steps`, `check:onboarding-next-steps`,
+`check:settings-access`, `check:plan-deep-read`.
+
+### Owed
+
+- A live read on "Painting Demo — Daniel" (the church read): "Measure the
+  drawings", then check the quantities, factors, access and the two Create
+  quote buttons, and the measure step on /platform/ai-usage.
+- FX: only USD/CAD hold a dated rate — GBP/EUR/AUD companies see access "NOT
+  priced" with the reason until they enter rates; prep material defaults are
+  US shelf prices shown unconverted (labelled "US shelf price").
+- Access/materials are painting-only; trades do not use the measurement pass.
 
 ## Delete a lead — one, a selection, and "not a lead" for conversations (5 October 2026)
 

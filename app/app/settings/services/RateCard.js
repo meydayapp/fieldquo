@@ -22,6 +22,17 @@
 // Fields are declared by the trade, not hardcoded here — see
 // PRICE_BOOK_FIELDS. A trade added to the price book later renders with no
 // change to this file.
+//
+// ── Labour presets (2026-10-05) ──────────────────────────────────────────
+//
+// A trade can also carry LABOUR PRESETS — how long its work takes, FieldQuo's
+// defaults calibrated against the Craftsman estimating guides
+// (lib/pricing/labourPresets.js). Electrical, plumbing, carpentry and flooring
+// installation have no price book but do have presets, so the card renders
+// for them with the presets alone. A preset the company has not changed says
+// "FieldQuo default" beside it; the owner: "this is only for the preset; the
+// company can modify them to adjust to their own rates." Saved sparse under
+// `presets.<key>`, through the same sanitiser as every other path.
 "use client";
 
 import { useMemo, useState } from "react";
@@ -34,6 +45,7 @@ import {
   readField,
   hasPriceBook,
 } from "@/app/data/tradePriceBooks";
+import { presetFieldsFor, presetBook, presetLabel, presetUnit } from "@/lib/pricing/labourPresets";
 
 const inputClass =
   "w-28 border border-border rounded px-2 py-1 text-sm text-right tabular-nums";
@@ -60,13 +72,18 @@ function groupFields(fields) {
 export default function RateCard({ category, overrides, onChange, defaultOpen = false }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
-  const fields = PRICE_BOOK_FIELDS[category.key] || [];
+  const presetFields = useMemo(() => presetFieldsFor(category.key), [category.key]);
+  const hasBook = hasPriceBook(category.key);
+  const fields = [...(hasBook ? PRICE_BOOK_FIELDS[category.key] || [] : []), ...presetFields];
   const book = useMemo(
-    () => getPriceBook(category.key, overrides),
-    [category.key, overrides],
+    () => ({
+      ...(getPriceBook(category.key, overrides) || {}),
+      ...(presetFields.length ? presetBook(category.key, overrides) : {}),
+    }),
+    [category.key, overrides, presetFields],
   );
 
-  if (!hasPriceBook(category.key) || fields.length === 0) return null;
+  if ((!hasBook && presetFields.length === 0) || fields.length === 0) return null;
 
   const customised = overrides && Object.keys(overrides).length > 0;
   const blocks = groupFields(fields);
@@ -128,15 +145,24 @@ export default function RateCard({ category, overrides, onChange, defaultOpen = 
 
       {open && (
         <div className="mt-3 space-y-4">
-          <p className="text-xs text-muted-foreground">
-            {t("app.rateCard.intro")}
-          </p>
+          {hasBook && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.rateCard.intro")}
+            </p>
+          )}
+          {presetFields.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.labourPresets.intro", "How long the work takes, in labour-hours — FieldQuo's defaults, calibrated against an industry reference (Craftsman estimating guides). Change any figure to your own crew's; yours is used wherever FieldQuo times this work, such as a drawing read.")}
+            </p>
+          )}
 
           {blocks.map((block, bi) => (
             <div key={bi}>
               {block.key && (
                 <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {PRICE_BOOK_GROUPS[block.key] || block.key}
+                  {block.key.startsWith("labourPresets.")
+                    ? t(`app.labourPresets.group.${block.key.slice("labourPresets.".length)}`, block.key.slice("labourPresets.".length))
+                    : PRICE_BOOK_GROUPS[block.key] || block.key}
                 </h4>
               )}
               <div className="space-y-1">
@@ -150,7 +176,15 @@ export default function RateCard({ category, overrides, onChange, defaultOpen = 
                           6rem suffix otherwise refuses to shrink below its
                           longest word and pushes the input off a 375px card. */}
                       <span className="flex-1 min-w-0 break-words text-sm text-foreground">
-                        {field.label}
+                        {field.preset ? presetLabel(field.preset, t) : field.label}
+                        {/* Labour figures the company has not changed say
+                            whose they are — the preset is FieldQuo's, there
+                            to be adjusted to the crew's own. */}
+                        {!isOverridden && (field.preset || field.group === "roofLabour") && (
+                          <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+                            · {t("app.labourPresets.fieldquoDefault", "FieldQuo default")}
+                          </span>
+                        )}
                         {field.internal && (
                           <span
                             className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground"
@@ -161,7 +195,7 @@ export default function RateCard({ category, overrides, onChange, defaultOpen = 
                         )}
                       </span>
                       <span className="hidden w-24 text-right text-xs text-muted-foreground sm:block">
-                        {field.suffix}
+                        {field.preset ? presetUnit(field.preset, t) : field.suffix}
                       </span>
                       {/* A switch is a checkbox, not a box you type 1 into.
                           It occupies the same slot as the number input so the

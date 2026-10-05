@@ -906,7 +906,7 @@ export const ARTICLES = {
     title: "Start from drawings: the drawing read",
     summary:
       "Upload a drawing set, scope sheet and photos; FieldQuo reads the sheets your quote's service needs, measures every quantity with its source and a confidence, prices it from your own rates, and recommends a price that holds your target margin.",
-    updated: "2026-10-04",
+    updated: "2026-10-05",
     intro: [
       "A drawing read turns a set of drawings into a priced draft quote. It reads painting, drywall, framing, roofing, electrical, plumbing and flooring. The model never sets a price: it points at printed dimensions, schedule rows and symbols, and FieldQuo works out the quantities and prices them from your own rates.",
     ],
@@ -936,6 +936,23 @@ export const ARTICLES = {
             ],
           } },
           { p: "Each trade has its own card: drywall by GA-214 finish level, framing in linear feet, the roof in squares sloped by the printed pitch, electrical devices, panels and circuits, plumbing fixtures, flooring by material. Two firm sources that disagree become a question for you. Check the low-confidence quantities before you send." },
+        ],
+      },
+      {
+        id: "first-pass",
+        heading: "The first pass: measured, priced, ready to confirm",
+        blocks: [
+          { p: "The first read now does the takeoff itself. Every sheet is classified from its title (elevation, plan, section, site, schedule, 3D view). Each elevation, plan and section is measured: wall faces are scaled off the sheet at its printed scale and paper size, rooms give their floor area and perimeter, sections give the heights. A printed dimension or a printed area always wins over a scaled one, and a printed figure on the same view checks the scale. Each quantity shows the sheet, the figures used, a confidence, and what to check." },
+          { p: "If nothing on the set states a height, the read says so and uses a stated default (3.0 m or 9 ft) marked to verify. A surface with no quantity is listed as **not priced** — never left at 0 without a word." },
+          { steps: [
+            "**Height** — each surface's area is split by working height: up to 8 ft ×1.0, 8–13 ft ×1.3, 13–17 ft ×1.6, 17–19 ft ×1.9, 19–21 ft ×2.2 (Craftsman's High Time Difficulty Factors, p. 139; above 21 ft is FieldQuo's extrapolation). The factor is on the hours only. Your rates were measured on a 9 ft room, so height is charged above that; change it in Settings → Services.",
+            "**Prep** — by substrate and condition, as the line's own prep hours, never inside the paint rate: wash-down for previously painted surfaces, masonry primer for bare or old brick (Resene productivity tables), daily setup and clean-up for an occupied or heritage building.",
+            "**Access** — every lift, tower and ladder is priced for the days its work takes: your own rental rates first, else Craftsman's rental table converted to your currency, marked **Estimated from reference · confirm**. Press **Confirm** or type your own price.",
+            "**Crew plan** — days on site = hours ÷ (painters × productive hours a day), with 2, 3 and 4-painter options side by side.",
+            "**Priced on these assumptions** — substrate, colours, heritage, site hours and occupancy are stated, not asked. Change one and the price is worked out again at once, with no AI charge.",
+            "**Past jobs** — the draft's price and hours per sq ft against your own won and completed jobs of the same trade, with the likely reason when it is far outside.",
+          ] },
+          { p: "When the quote is for more than one service — exterior and interior painting, say — the read makes a draft for each, with its own areas, access, crew plan and price, and a **Create quote** button each. No second read is needed." },
         ],
       },
       {

@@ -76,6 +76,10 @@ import {
   PAINT_QUICK_PICKS,
   PAINT_OPTION_KINDS,
 } from "@/lib/pricing/paintTakeoff";
+import { PREP_CONDITIONS, ACCESS_KINDS, ACCESS_REFERENCE, heightKindFor } from "@/lib/pricing/paintHeightPrep";
+import { fetchJson } from "@/lib/fetchJson";
+import { jsonBody } from "@/lib/jsonBody";
+import { showError } from "@/lib/clientErrors";
 import { Field, Num, inputClass, asList } from "./fields";
 import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
 import { usesSurfaceCalculator, usesCountCalculator, excludedBy, trimCountedTwice } from "@/lib/quotes/estimateKindRouting";
@@ -803,13 +807,23 @@ function SubstrateRow({
             type="number"
             min={0}
             step={0.25}
-            value={row.prepHours ?? 0}
+            value={priced?.prepAuto && !(row.prepHours > 0) ? "" : (row.prepHours ?? 0)}
+            placeholder={priced?.prepAuto ? String(priced.prepAuto.hours) : undefined}
+            title={priced?.prepAuto ? priced.prepAuto.why : undefined}
             onChange={(e) => set({ prepHours: e.target.value === "" ? 0 : Number(e.target.value) })}
             className={`${smallInput} w-16 text-right`}
           />
+          {priced?.prepAuto && !(row.prepHours > 0) && (
+            <div className="text-[10px] text-muted-foreground">{t("app.paint.prepAutoShort", "from condition")}</div>
+          )}
         </td>
         <td className="py-1.5 px-1 text-right tabular-nums text-sm">
           {priced ? (Math.round(num2(priced.workHours) * 100) / 100).toFixed(2) : "—"}
+          {priced?.height && (
+            <div className="text-[10px] text-muted-foreground" title={priced.height.why}>
+              {t("app.paint.heightShort", "×{f} height", { f: priced.height.factor })}
+            </div>
+          )}
         </td>
         <td className="py-1.5 px-1 text-right tabular-nums text-sm">
           {priced ? (Math.round(num2(priced.hours) * 100) / 100).toFixed(2) : "—"}
@@ -931,6 +945,34 @@ function SubstrateRow({
                   </select>
                 </Field>
               )}
+              {heightKindFor(row.key) && (
+                <Field label={t("app.paint.workingHeight", "Working height (ft) — blank uses the room's")}>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={row.heightFt ?? ""}
+                    onChange={(e) => set({ heightFt: e.target.value === "" ? null : Number(e.target.value) })}
+                    className={inputClass}
+                  />
+                </Field>
+              )}
+              {unit === "sqft" && (
+                <Field label={t("app.paint.prepCondition", "Condition (fills Prep hours)")}>
+                  <select
+                    value={row.prepCondition || ""}
+                    onChange={(e) => set({ prepCondition: e.target.value || null })}
+                    className={inputClass}
+                  >
+                    <option value="">{t("app.paint.prepConditionNone", "None chosen")}</option>
+                    {Object.entries(PREP_CONDITIONS).map(([key, c]) => (
+                      <option key={key} value={key}>
+                        {t(`app.paint.condition.${key}`, c.label)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <div className="flex flex-col gap-1.5 text-xs text-muted-foreground sm:pt-5">
                 <label className="flex items-center gap-1.5">
                   <input
@@ -971,6 +1013,18 @@ function SubstrateRow({
                       ` · ${m.label}: ${m.gallons.toFixed(2)} gal${m.unpriced ? ` (${t("app.paint.unpriced", "no price on this product yet")})` : ` · ${money(m.material)}`}`,
                     ).join("")}
                 {priced.rateInline && ` · ${t("app.paint.rateOnThisLine", "custom rate on this line only")}`}
+              </div>
+            )}
+            {priced?.height && (
+              <div className="text-xs text-muted-foreground mt-1">
+                {t("app.paint.heightWhy", "Height ×{f} on the hours: {why}", { f: priced.height.factor, why: priced.height.why })}
+              </div>
+            )}
+            {priced?.prepAuto && (
+              <div className="text-xs text-muted-foreground mt-1">
+                {row.prepHours > 0
+                  ? t("app.paint.prepAutoReplaced", "Your {h} h replace the condition's allowance ({auto} h).", { h: row.prepHours, auto: priced.prepAuto.hours })
+                  : t("app.paint.prepAutoWhy", "Prep {h} h: {why}", { h: priced.prepAuto.hours, why: priced.prepAuto.why })}
               </div>
             )}
             {formula && (
@@ -1637,7 +1691,111 @@ function useSavedRates(book) {
   return [merged, save];
 }
 
-export default function PaintAreas({ takeoff, book: rawBook, onChange, routing = null }) {
+/* ── Access equipment, priced from the painting preset's rental table ────── */
+
+/**
+ * "Add access equipment" — a line on the quote priced by the server from the
+ * same function the drawing read uses (POST /api/quotes/access-rental →
+ * lib/pricing/paintHeightPrep.js priceRental): your rental rate, else the
+ * cited reference converted to your currency. The days start from this
+ * takeoff's hours at your crew plan (Settings → Services); change them.
+ */
+function AccessAdder({ hours, book, onAddLine, t, money }) {
+  const crew = book?.crewPlan || {};
+  const perDay = Math.max(1, Number(crew.crewSize) || 2) * Math.max(1, Number(crew.hoursPerDay) || 7.5);
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState("scaffold");
+  const [height, setHeight] = useState("");
+  const [days, setDays] = useState(() => String(Math.max(1, Math.ceil((Number(hours) || 0) / perDay))));
+  const [quote, setQuote] = useState(null);
+  const [busy, setBusy] = useState(false);
+  async function price() {
+    setBusy(true);
+    try {
+      setQuote(
+        await fetchJson("/api/quotes/access-rental", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: jsonBody({ kind, workingHeightFt: height === "" ? null : Number(height), days: Number(days) || 1 }),
+        }),
+      );
+    } catch (err) {
+      showError(err?.message || t("app.paint.accessError", "Couldn't price that equipment."));
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!onAddLine) return null;
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Plus size={14} /> {t("app.paint.addAccess", "Add access equipment")}
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2 text-sm">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Field label={t("app.paint.accessKind", "Equipment")}>
+          <select value={kind} onChange={(e) => { setKind(e.target.value); setQuote(null); }} className={inputClass}>
+            {ACCESS_KINDS.map((k) => (
+              <option key={k} value={k}>{t(`app.planRead.equipment.${k}`, ACCESS_REFERENCE[k].label)}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("app.paint.accessHeight", "Working height (ft)")}>
+          <input type="number" min={0} step={1} value={height} onChange={(e) => { setHeight(e.target.value); setQuote(null); }} className={inputClass} />
+        </Field>
+        <Field label={t("app.paint.accessDays", "Working days on site")}>
+          <input type="number" min={1} step={1} value={days} onChange={(e) => { setDays(e.target.value); setQuote(null); }} className={inputClass} />
+        </Field>
+      </div>
+      <p className="text-xs text-muted-foreground">{t("app.paint.accessDaysHint", "Started from this takeoff's {h} h at {per} crew-hours a day (Settings → Services).", { h: Math.round((Number(hours) || 0) * 10) / 10, per: perDay })}</p>
+      {quote && (
+        <div className="rounded bg-accent px-2 py-1 text-xs">
+          {quote.price === null ? (
+            <span className="text-amber-800 dark:text-amber-300">{quote.why}</span>
+          ) : (
+            <>
+              <span className="font-semibold">{money(quote.price)}</span> — {quote.why}
+            </>
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={price} disabled={busy} className="min-h-[40px] px-3 rounded-lg border border-border text-sm hover:bg-accent disabled:opacity-60">
+          {t("app.paint.accessPrice", "Price it")}
+        </button>
+        {quote && quote.price !== null && (
+          <button
+            type="button"
+            onClick={() => {
+              onAddLine({
+                description: quote.label,
+                quantity: 1,
+                unit: "flat",
+                rate: quote.price,
+                amount: quote.price,
+                // Office-only — never on the client's copy.
+                meta: { access: { kind, workingHeightFt: height === "" ? null : Number(height), days: Number(days) || 1, source: quote.priceSource, why: quote.why, ...(quote.owned ? { owned: true } : {}) } },
+              });
+              setOpen(false);
+              setQuote(null);
+            }}
+            className="min-h-[40px] px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+          >
+            {t("app.paint.accessAdd", "Add the line")}
+          </button>
+        )}
+        <button type="button" onClick={() => { setOpen(false); setQuote(null); }} className="min-h-[40px] px-3 rounded-lg border border-border text-sm hover:bg-accent">
+          {t("app.planRead.scope.cancel", "Cancel")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function PaintAreas({ takeoff, book: rawBook, onChange, routing = null, onAddLine = null }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const [book, saveRate] = useSavedRates(rawBook);
@@ -1704,6 +1862,8 @@ export default function PaintAreas({ takeoff, book: rawBook, onChange, routing =
       >
         <Plus size={14} /> {t("app.paint.addArea", "Add an area")}
       </button>
+
+      <AccessAdder hours={result.hours} book={book} onAddLine={onAddLine} t={t} money={money} />
 
       {areas.length > 0 && (
         <div className="rounded-lg border border-border p-3 space-y-2 text-sm">
