@@ -43,6 +43,15 @@ import { syncNumberAttachment } from "@/lib/voice/provision";
 import { pushCallCeiling } from "@/lib/voice/callCeiling";
 import { activeNumber } from "@/lib/voice/numbers";
 
+// Where Checkout may send the browser back to, besides the voice page — an
+// allow-list, never a URL from the request. The trial's phone verification is
+// paid from this credit (lib/trial/phoneVerifyBilling.js, owner 2026-10-04),
+// so its "Add phone & text credit" comes back to the page it left.
+const RETURN_PAGES = { "verify-phone": "/app/settings/verify-phone" };
+function returnPage(key) {
+  return Object.prototype.hasOwnProperty.call(RETURN_PAGES, key) ? RETURN_PAGES[key] : "/app/settings/voice";
+}
+
 async function requireAdmin(request) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
@@ -86,10 +95,11 @@ export async function POST(request) {
   // flow a paying customer sees, minus the payment. The param deliberately is
   // NOT the one the success handler reads; that one triggers a Stripe session
   // lookup, which would fail on an id that never existed.
+  const back = returnPage(body.returnTo);
   if (company.isDemo) {
     await creditDemoTopup({ companyId: member.companyId, cents, pool: POOLS.VOICE });
     return NextResponse.json({
-      checkoutUrl: `${getAppOrigin(request)}/app/settings/voice?demo_topup=1`,
+      checkoutUrl: `${getAppOrigin(request)}${back}?demo_topup=1`,
       simulated: true,
     });
   }
@@ -122,8 +132,8 @@ export async function POST(request) {
     // is the only thing about a Stripe event that doesn't depend on which
     // endpoint it happens to land at.
     metadata: { companyId: member.companyId, kind: "voice_topup", cents: String(cents) },
-    success_url: `${origin}/app/settings/voice?topup={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/app/settings/voice`,
+    success_url: `${origin}${back}?topup={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}${back}`,
   });
 
   return NextResponse.json({ checkoutUrl: session.url });

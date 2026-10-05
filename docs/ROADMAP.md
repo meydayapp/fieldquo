@@ -145,6 +145,25 @@ ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "endDateFromVisits" BOOLEAN NOT NULL 
 Existing jobs with visits and no dates are NOT backfilled (no data was
 written); they get dates the next time a visit on them is booked or moved.
 
+### 3. Phone verification is paid from phone & text credit
+
+`lib/trial/phoneVerifyBilling.js`: kind `phone_verification` (voice wallet —
+not in credits.js's AI_KINDS), cost × 2 rounded up with the text floor
+(lib/phoneUsage/pricing.js). Worked: code text 0.83¢ × 2 = 1.66¢ → **2¢**
+(floor; settled to Twilio's real price × 2 by the hourly cron, keyed on the
+SID); Lookup 0.8¢ × 2 → **2¢** (only when Twilio is actually asked — a number
+checked in the last 30 days is reused — and charged even when it refuses the
+number); Verify's text **2¢**, Verify success 5¢ × 2 = **10¢** (once, on the
+attempt). A Canadian first code **4¢**, a resend **2¢**, a US mobile via
+Verify **14¢**. The send is priced first and refused `no_phone_credit` (HTTP
+402, with need/balance) before Twilio is asked; the verify page shows the
+cost and the balance, and turns the refusal into **Add $10.00 of phone & text
+credit** (Stripe Checkout that returns to the page via an allow-listed
+`returnTo` and settles on arrival). `check:trial-phone-verification` 120 →
+154. **Consequence to know:** a fresh card-free trial has $0 phone & text
+credit (the 30 free minutes are only granted when a number is bought), so
+every trial now tops up (min $5, preset $10) before it can verify.
+
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 
 A Past jobs import creates its quotes and jobs TODAY with last year's dates.
