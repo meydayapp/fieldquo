@@ -323,7 +323,7 @@ export const ARTICLES = {
     title: "Coût et marge sur une soumission",
     summary:
       "Ce que le chantier vous coûte — main-d'œuvre, matériaux, frais généraux — et ce qui reste, calculé à côté du prix pendant que vous soumissionnez. Interne, et jamais montré au client.",
-    updated: "2026-09-15",
+    updated: "2026-10-04",
     intro: [
       "Un écran de soumission montre un prix. Le panneau **Coût et marge** montre ce que ce prix vous coûte à livrer et ce qui reste, et son propre titre dit ce qu'il est : « interne — jamais montré au client ». C'est la différence entre soumissionner un chantier et savoir si vous le voulez.",
       "Les matériaux viennent de recettes — ce qu'un litre d'apprêt vous coûte et combien en mange une cuisine de 24 portes —, la main-d'œuvre des heures au taux que vous payez, les frais généraux de ce que vous avez dit à FieldQuo dépenser chaque mois. La pastille de marge est le but : verte, ambre ou rouge avant d'appuyer sur Envoyer.",
@@ -343,12 +343,27 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Crew — hours are shared between them** (les lignes du panneau s'affichent en anglais pour l'instant). Ajoutez des gens par nom ou depuis votre équipe ; chacun a un coût horaire et, au choix, ses propres heures. Laissées vides, les heures prévues par une recette sont partagées également. Un travailleur sans taux au dossier arrive à 0 $ et la pastille dit « labour not costed ».",
-            "**Overhead** — soit **% of price** (le 10 % de départ, étiqueté « estimated »), soit **this job's share**, une fois que [[the-break-even-price|Paramètres → Frais généraux]] connaît vos coûts mensuels et vos chantiers par semaine.",
+            "**Frais généraux** — **part de ce chantier dans le temps d'équipe du mois** une fois que [[settings-overhead|Paramètres → Frais généraux]] connaît vos heures-équipe facturables par mois; **part de ce chantier** quand il ne connaît que vos chantiers par semaine ou par mois; sinon un **% du prix** (le 10 % de départ, étiqueté « estimé »). La section suivante fait un exemple.",
             "**Extra labour hours** — les heures au-delà de ce que prévoit la recette, facturées au taux de l'équipe.",
             "**Extra material cost** — ce que vous achetez pour ce chantier : une soumission de fournisseur, une dalle, une location.",
             "**Materials**, **Labour**, **Overhead**, **Estimated cost**, **Quote price (pre-tax)** et **Estimated profit** avec le pourcentage de marge. Les lignes de matériaux d'une recette montrent leur quantité et leur prix unitaire, tous deux modifiables pour ce chantier.",
             "Une note sur l'origine du chiffre de frais généraux, et une note quand certains services de la soumission n'ont pas de recette — leur coût n'est alors pas dans le chiffre, et le panneau le dit.",
           ] },
+        ],
+      },
+      {
+        id: "how-overhead-is-shared",
+        heading: "Comment les frais généraux d'une soumission sont calculés",
+        blocks: [
+          { p: "Les frais généraux, c'est le loyer, l'assurance et le camion — des coûts que vous payez que vous décrochiez ce chantier ou non. La part la plus juste pour un chantier est la part du temps d'équipe du mois qu'il utilise. Avec 8 000 $ par mois de coûts fixes et deux personnes qui facturent 320 heures par mois, chaque heure-équipe porte 25 $; un chantier de deux semaines pour les deux (160 heures-équipe, la moitié du mois) porte 4 000 $, et une réparation de 4 heures porte 100 $. Le panneau affiche ce calcul sous le tableau, par exemple « 8 000,00 $ par mois ÷ 320 heures-équipe facturables = 25,00 $/h × 160 h sur ce chantier (50 % de votre mois). »" },
+          { table: {
+            head: ["Ce que Paramètres → Frais généraux connaît", "Frais généraux sur cette soumission", "Étiquette sur le panneau"],
+            rows: [
+              ["Les heures-équipe facturables par mois, et la soumission a des heures de main-d'œuvre", "Coûts fixes mensuels × (heures-équipe de ce chantier ÷ heures-équipe facturables par mois)", "Frais généraux (part de ce chantier dans le temps d'équipe du mois)"],
+              ["Seulement les chantiers par semaine ou par mois — ou la soumission n'a pas encore d'heures", "Coûts fixes mensuels ÷ chantiers par mois, pareil pour chaque chantier, avec un lien pour saisir vos heures facturables", "Frais généraux (part de ce chantier)"],
+              ["Ni l'un ni l'autre", "10 % du prix, ou le pourcentage que vous tapez dans la case", "Frais généraux (10 % du prix — estimé)"],
+            ],
+          } },
         ],
       },
       {
@@ -390,7 +405,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Pourquoi la marge a-t-elle l'air trop belle ?", a: "Le plus souvent parce qu'un coût manque. Personne dans l'équipe veut dire que la main-d'œuvre ne coûte rien ; une ligne de matériau sans prix compte pour zéro ; un service sans recette est laissé de côté. Le panneau nomme chaque cas en toutes lettres — lisez la pastille ambre et les notes sous le tableau." },
-      { q: "D'où vient le chiffre de frais généraux ?", a: "Tant que vous n'avez pas rempli Paramètres → Frais généraux et vos chantiers par semaine, c'est un 10 % fixe du prix, étiqueté estimé. Ensuite, ce sont vos vrais coûts fixes mensuels divisés par votre capacité mensuelle de chantiers." },
+      { q: "D'où vient le chiffre de frais généraux ?", a: "Tant que vous n'avez pas rempli Paramètres → Frais généraux et vos chantiers par semaine, c'est un 10 % fixe du prix, étiqueté estimé. Avec vos chantiers par semaine ou par mois, ce sont vos vrais coûts fixes mensuels divisés par votre capacité mensuelle de chantiers. Ajoutez vos heures-équipe facturables par mois et cela devient la part du mois de ce chantier selon ses heures-équipe : un long chantier porte plus qu'un court." },
       { q: "Le client voit-il quelque chose de tout ça ?", a: "Non. Ni sur la page d'approbation, ni dans le PDF, ni dans le courriel. Le titre le dit, et l'API qui bâtit ces documents ne lit jamais le chiffrage." },
     ],
   },

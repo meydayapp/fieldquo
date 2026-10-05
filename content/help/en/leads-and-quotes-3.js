@@ -898,4 +898,94 @@ export const ARTICLES = {
       { q: "Is the amount before or after tax?", a: "It compares the quote's total — the figure at the bottom of the quote, tax included when tax applies." },
     ],
   },
+
+  // Read off lib/planRead/ (tradeCatalogue.js, tradeModel.js, tradePricing.js,
+  // tradeDefaults.js, recommendation.js, pricingChat.js, marginNotify.js),
+  // lib/costing/overheadShare.js and lib/planRead/billing.js.
+  "start-from-drawings": {
+    title: "Start from drawings: the drawing read",
+    summary:
+      "Upload a drawing set, scope sheet and photos; FieldQuo reads the sheets your quote's service needs, measures every quantity with its source and a confidence, prices it from your own rates, and recommends a price that holds your target margin.",
+    updated: "2026-10-04",
+    intro: [
+      "A drawing read turns a set of drawings into a priced draft quote. It reads painting, drywall, framing, roofing, electrical, plumbing and flooring. The model never sets a price: it points at printed dimensions, schedule rows and symbols, and FieldQuo works out the quantities and prices them from your own rates.",
+    ],
+    sections: [
+      {
+        id: "what-it-reads",
+        heading: "It reads what your quote is for",
+        blocks: [
+          { p: "There is no trade picker. The read takes the service of the quote you started it from, or the lead's service. Without either, choose one of your own services under **What this quote is for**. A roofing quote reads the roof plan and the elevations, never the rooms. An interior painting quote reads the inside, never the elevations." },
+          { p: "Only the sheets your services need are sent to the AI. An electrical sheet is never paid for on a drywall quote. Cover and code sheets are never sent. Specification pages are read as text for free. The read card says how many sheets it is reading and which ones it skips." },
+          { note: "When a set has no electrical or plumbing sheets, as in many houses, those trades read the architect's floor plans instead, and their counts are marked low confidence." },
+        ],
+      },
+      {
+        id: "quantities",
+        heading: "Every quantity has a source and a confidence",
+        blocks: [
+          { table: {
+            head: ["Where the quantity comes from", "Confidence"],
+            rows: [
+              ["Measured by you on the sheet", "High"],
+              ["Printed dimensions on a drawing with real text", "High"],
+              ["A schedule row (panel, fixture, door) whose printed quantity is in that row", "High"],
+              ["A cell of your scope spreadsheet", "Medium"],
+              ["Symbols counted on the sheet, matched to its legend, with the quarters agreeing with the whole sheet", "Medium"],
+              ["A scanned sheet, a unit that had to be assumed, a count with no legend, a photo, or an estimate", "Low"],
+            ],
+          } },
+          { p: "Each trade has its own card: drywall by GA-214 finish level, framing in linear feet, the roof in squares sloped by the printed pitch, electrical devices, panels and circuits, plumbing fixtures, flooring by material. Two firm sources that disagree become a question for you. Check the low-confidence quantities before you send." },
+        ],
+      },
+      {
+        id: "pricing",
+        heading: "How it is priced",
+        blocks: [
+          { steps: [
+            "**Your rates** — your own rate card through the same engine as your typed quotes: painting, the drywall rate card (hang plus finish level) and the roofing rate card.",
+            "**Your services** — your own services in Settings → Services whose lines are keyed to the item's measurement, with their production rate for the hours.",
+            "**FieldQuo suggestion — not your price yet** — FieldQuo's published figures, each one shown with its source: NECA labour units for electrical (as published for commercial jobs, with the residential factor for houses), the framing price book, the drywall and flooring recipes.",
+          ] },
+          { p: "An item nothing covers says **No rate — add one**. It is never priced at zero. Suggested lines go on the quote only when you press **Put FieldQuo's suggested lines on the quote** for that trade, and each one is flagged as a suggestion." },
+        ],
+      },
+      {
+        id: "target-margin",
+        heading: "The price at your target margin",
+        blocks: [
+          { p: "The **Price at your target margin** card shows the working: labour at your crew's cost rate, materials, your services' line costs, equipment, overhead, the cost, the price that holds your target, and what your own rates come to." },
+          { p: "Overhead is this job's fair share of your month in crew time: your monthly fixed costs × (this job's crew-hours ÷ the billable crew-hours you set in Settings → Overhead). A two-week job for two people (160 crew-hours) in a 320-hour month carries half the month. Without billable hours it is split by jobs a month, and without either it is 10% of the price. The card says which one it used." },
+          { steps: [
+            "When your rates hold your target, the recommendation is your rates.",
+            "When they miss it, the card shows the gap and the button **Add a margin adjustment line**, which puts the gap on the quote as its own visible line. Your rates are never scaled behind your back.",
+            "When a finished read misses the target, your owner and managers get a notification in the bell and as a push, and so does the person assigned to the quote or lead.",
+          ] },
+        ],
+      },
+      {
+        id: "conversation",
+        heading: "Changing the pricing from the chat",
+        blocks: [
+          { p: "Tell the chat your figures, for example \"my crew hangs 600 sq ft a day\" or \"labour costs us $42 an hour\". Then press **Update pricing from this conversation**. It finds only figures printed in your own messages, shows what they change, and applies nothing until you press **Apply to this read**. The figures stay on that read and never change your settings." },
+        ],
+      },
+      {
+        id: "cost",
+        heading: "What a read costs",
+        blocks: [
+          { p: "The cost is shown before you start, held from your AI credit, and settled to what the read actually used. A read that fails is refunded in full. Fewer sheets read means a smaller charge. Each trade beyond painting adds one synthesis." },
+          { table: {
+            head: ["Set", "Usually charged"],
+            rows: [
+              ["13 sheets and 10 photos, painting", "about US$1.85"],
+              ["The same set, one other trade reading 8 of its sheets", "about US$1.46"],
+              ["The same set, three trades", "about US$2.80"],
+              ["40 sheets, three trades reading 25 of them", "about US$3.37"],
+            ],
+          } },
+        ],
+      },
+    ],
+  },
 };

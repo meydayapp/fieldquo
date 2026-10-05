@@ -883,4 +883,91 @@ export const ARTICLES = {
       { q: "¿El monto es antes o después de impuestos?", a: "Compara el total del presupuesto — la cifra al pie del presupuesto, impuestos incluidos cuando aplica el impuesto." },
     ],
   },
+
+  "start-from-drawings": {
+    title: "Empezar desde los planos: la lectura de planos",
+    summary:
+      "Suba un juego de planos, una hoja de cantidades y fotos: FieldQuo lee las hojas que necesita el servicio de su presupuesto, mide cada cantidad con su fuente y un nivel de confianza, la cotiza con sus propias tarifas y recomienda un precio que mantiene su margen objetivo.",
+    updated: "2026-10-04",
+    intro: [
+      "Una lectura de planos convierte un juego de planos en un borrador de presupuesto con precios. Lee pintura, paneles de yeso, estructura, techos, electricidad, plomería y pisos. El modelo nunca fija un precio: señala las cotas impresas, las filas de las tablas y los símbolos, y FieldQuo calcula las cantidades y las cotiza con sus propias tarifas.",
+    ],
+    sections: [
+      {
+        id: "what-it-reads",
+        heading: "Lee aquello para lo que es su presupuesto",
+        blocks: [
+          { p: "No hay un selector de oficio aparte. La lectura toma el servicio del presupuesto desde el que la inició, o el de la solicitud. Sin ninguno de los dos, elija uno de sus propios servicios en **Para qué es este presupuesto**. Un presupuesto de techo lee el plano de cubierta y las elevaciones, nunca las habitaciones. Un presupuesto de pintura interior lee el interior, nunca las elevaciones." },
+          { p: "Solo se envían a la IA las hojas que necesitan sus servicios. Una hoja eléctrica nunca se paga en un presupuesto de paneles de yeso. Las portadas y las hojas de normativa nunca se envían. Las páginas de especificaciones se leen como texto, gratis. La tarjeta de lectura dice cuántas hojas lee y cuáles deja fuera." },
+          { note: "Cuando un juego no tiene hojas de electricidad o plomería, como en muchas casas, esos oficios leen en su lugar las plantas del arquitecto, y sus conteos se marcan con confianza baja." },
+        ],
+      },
+      {
+        id: "quantities",
+        heading: "Cada cantidad tiene una fuente y un nivel de confianza",
+        blocks: [
+          { table: {
+            head: ["De dónde sale la cantidad", "Confianza"],
+            rows: [
+              ["Medida por usted en la hoja", "Alta"],
+              ["Cotas impresas en un plano con texto real", "Alta"],
+              ["Una fila de tabla (tablero, artefactos, puertas) cuya cantidad impresa está en esa fila", "Alta"],
+              ["Una celda de su hoja de cantidades", "Media"],
+              ["Símbolos contados en la hoja, ligados a su leyenda, con los cuartos coincidiendo con la hoja entera", "Media"],
+              ["Una hoja escaneada, una unidad que hubo que suponer, un conteo sin leyenda, una foto o una estimación", "Baja"],
+            ],
+          } },
+          { p: "Cada oficio tiene su propia tarjeta: paneles de yeso por nivel de acabado GA-214, estructura en pies lineales, el techo en cuadrados según la pendiente impresa, electricidad en dispositivos, tableros y circuitos, plomería en artefactos, pisos por material. Dos fuentes firmes que no coinciden se convierten en una pregunta para usted. Revise las cantidades de confianza baja antes de enviar." },
+        ],
+      },
+      {
+        id: "pricing",
+        heading: "Cómo se cotiza",
+        blocks: [
+          { steps: [
+            "**Sus tarifas** — su propia tabla de tarifas, con el mismo motor que sus presupuestos escritos: pintura, la tabla de paneles de yeso (colocación más nivel de acabado) y la tabla de techos.",
+            "**Su servicio** — sus propios servicios en Ajustes → Servicios cuyas líneas están ligadas a la medida del elemento, con su rendimiento para las horas.",
+            "**Sugerencia de FieldQuo — todavía no es su precio** — las cifras publicadas de FieldQuo, cada una con su fuente: las unidades de mano de obra NECA para electricidad (tal como se publican para obras comerciales, con el factor residencial para casas), la tabla de precios de estructura, las recetas de paneles de yeso y de pisos.",
+          ] },
+          { p: "Un elemento que nada cubre dice **Sin tarifa: agregue una**. Nunca se cotiza en cero. Las líneas sugeridas llegan al presupuesto solo si usted pulsa **Poner en el presupuesto las líneas sugeridas por FieldQuo** para ese oficio, y cada una se marca como sugerencia." },
+        ],
+      },
+      {
+        id: "target-margin",
+        heading: "El precio con su margen objetivo",
+        blocks: [
+          { p: "La tarjeta **Precio con su margen objetivo** muestra el cálculo: la mano de obra al costo por hora de su equipo, los materiales, los costos de línea de sus servicios, el equipo, los gastos generales, el costo, el precio que mantiene su objetivo y lo que suman sus propias tarifas." },
+          { p: "Los gastos generales son la parte justa de su mes que ocupa esta obra en tiempo de equipo: sus costos fijos mensuales × (las horas de equipo de esta obra ÷ las horas de equipo facturables que indicó en Ajustes → Gastos generales). Una obra de dos semanas para dos personas (160 horas de equipo) en un mes de 320 horas lleva la mitad del mes. Sin horas facturables se reparten por obras al mes, y sin ninguna de las dos son el 10 % del precio. La tarjeta dice cuál usó." },
+          { steps: [
+            "Cuando sus tarifas mantienen su objetivo, la recomendación es su precio.",
+            "Cuando no llegan, la tarjeta muestra la diferencia y el botón **Agregar una línea de ajuste de margen**, que pone la diferencia en el presupuesto como una línea visible aparte. Sus tarifas nunca se cambian a escondidas.",
+            "Cuando una lectura terminada no llega al objetivo, el propietario y los gerentes reciben un aviso en la campana y como notificación push, igual que la persona asignada al presupuesto o a la solicitud.",
+          ] },
+        ],
+      },
+      {
+        id: "conversation",
+        heading: "Cambiar la cotización desde la conversación",
+        blocks: [
+          { p: "Dígale sus cifras a la conversación, por ejemplo «mi equipo coloca 600 pies cuadrados al día» o «la mano de obra nos cuesta 42 $ la hora». Luego pulse **Actualizar la cotización desde esta conversación**. Solo toma las cifras escritas en sus propios mensajes, muestra lo que cambian y no aplica nada hasta que usted pulse **Aplicar a esta lectura**. Las cifras quedan en esa lectura y nunca cambian sus ajustes." },
+        ],
+      },
+      {
+        id: "cost",
+        heading: "Lo que cuesta una lectura",
+        blocks: [
+          { p: "El costo se muestra antes de empezar, se retiene de su crédito de IA y se liquida según lo que la lectura usó de verdad. Una lectura que falla se reembolsa por completo. Menos hojas leídas significa un cargo menor. Cada oficio además de la pintura añade una síntesis." },
+          { table: {
+            head: ["Juego de planos", "Cargo habitual"],
+            rows: [
+              ["13 hojas y 10 fotos, pintura", "unos 1,85 US$"],
+              ["El mismo juego, otro oficio que lee 8 de sus hojas", "unos 1,46 US$"],
+              ["El mismo juego, tres oficios", "unos 2,80 US$"],
+              ["40 hojas, tres oficios que leen 25 de ellas", "unos 3,37 US$"],
+            ],
+          } },
+        ],
+      },
+    ],
+  },
 };

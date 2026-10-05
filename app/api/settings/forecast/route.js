@@ -1,18 +1,20 @@
 // app/api/settings/forecast/route.js
 //
-// The two forecast settings anything in the product actually reads:
-// jobs-per-week capacity, which lib/analytics/minimumPrice.js divides overhead
-// by, and the target margin it then marks the cost per job up by. Since
-// 2026-10-03 also billable hours a month, which the HOURLY floor divides by
-// (lib/analytics/hourlyFloor.js) — read by /api/analytics/hourly-floor and
-// the quote builder's warning.
+// The forecast settings anything in the product actually reads: job capacity
+// (per week or per month), which lib/analytics/minimumPrice.js divides
+// overhead by; the target margin it then marks the cost per job up by; and,
+// since 2026-10-03, billable hours a month — the HOURLY floor's divisor
+// (lib/analytics/hourlyFloor.js, read by /api/analytics/hourly-floor and the
+// quote builder's warning) and, since 2026-10-04, the divisor a quote's
+// overhead is shared by (the job's crew-hours ÷ these —
+// lib/costing/overheadShare.js, the owner's rule).
 //
-// ── Why only two fields ─────────────────────────────────────────────────────
+// ── Why only these fields ───────────────────────────────────────────────────
 //
-// The ForecastSettings model has fourteen columns. Two of them are read
-// anywhere; the other twelve — conversion rates, curve coefficients, a
-// smoothing alpha — are written by nothing and read by nothing. This route
-// exposes the ones that have a consumer.
+// The ForecastSettings model has fifteen-odd columns. These are the ones read
+// anywhere; the rest — conversion rates, curve coefficients, a smoothing
+// alpha — are written by nothing and read by nothing. This route exposes the
+// ones that have a consumer.
 //
 // Exposing the rest would be the mirror image of the bug it fixes: a settings
 // form whose inputs save fine and change nothing. When something reads them, add
@@ -153,10 +155,13 @@ export async function PUT(request) {
   const marginWords = margin.skip
     ? ""
     : `, target margin ${margin.value === null ? "not set" : `${Math.round(margin.value * 100)}%`}`;
+  const hoursWords = billable.skip
+    ? ""
+    : `, billable hours ${billable.value === null ? "not set" : `${billable.value}/month`}`;
   await recordActivity(member, {
     action: "settings.forecast_updated",
     entityType: "settings",
-    summary: `Set job capacity to ${value === null ? "not set" : `${value}/${unit}`}${marginWords}`,
+    summary: `Set job capacity to ${value === null ? "not set" : `${value}/${unit}`}${marginWords}${hoursWords}`,
     metadata: {
       jobsPerWeekCapacity: cap.week || null,
       ...(cap.month !== null ? { jobsPerMonthCapacity: cap.month } : {}),

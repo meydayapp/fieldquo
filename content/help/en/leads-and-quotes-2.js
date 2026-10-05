@@ -327,7 +327,7 @@ export const ARTICLES = {
     title: "Cost and margin on a quote",
     summary:
       "What the job costs you — labour, materials, overhead — and what is left, worked out beside the price while you quote. Internal, and never shown to the client.",
-    updated: "2026-09-15",
+    updated: "2026-10-04",
     intro: [
       "A quote screen shows a price. The **Cost & margin** panel shows what that price costs you to deliver and what is left over, and it says in its own heading what it is: “internal — never shown to the client”. It is the difference between quoting a job and knowing whether you want it.",
       "Materials come from recipes — what a litre of primer costs you and how much of it a 24-door kitchen eats — labour from hours at the rate you pay, overhead from what you told FieldQuo you spend each month. The margin badge is the point: green, amber or red before you press Send.",
@@ -347,12 +347,27 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Crew — hours are shared between them.** Add people by name or from your team; each has a cost per hour and, optionally, their own hours. Left blank, the hours a recipe predicts are shared evenly. A worker with no rate on file joins at $0 and the badge says “labour not costed”.",
-            "**Overhead** — either **% of price** (the 10% starting figure, labelled “estimated”) or **this job's share**, once [[the-break-even-price|Settings → Overhead]] knows your monthly costs and your jobs per week.",
+            "**Overhead** — **this job's share of the month's crew time** once [[settings-overhead|Settings → Overhead]] knows your billable crew hours a month; **this job's share** when it knows only your jobs per week or month; otherwise **% of price** (the 10% starting figure, labelled “estimated”). The section below works an example.",
             "**Extra labour hours** — hours beyond what the recipe predicts, charged at the crew's rate.",
             "**Extra material cost** — what you are buying in for this job: a supplier quote, a slab, a rental.",
             "**Materials**, **Labour**, **Overhead**, **Estimated cost**, **Quote price (pre-tax)** and **Estimated profit** with the margin percentage. Material lines from a recipe show their quantity and unit price, both editable for this job.",
             "A note on where the overhead figure came from, and a note when some of the quote's services have no recipe — then their cost is not in the figure and the panel says so.",
           ] },
+        ],
+      },
+      {
+        id: "how-overhead-is-shared",
+        heading: "How a quote's overhead is worked out",
+        blocks: [
+          { p: "Overhead is the rent, the insurance and the truck — costs you pay whether or not you win this job. The fairest share for one job is the share of the month's crew time it uses. With $8,000 a month of fixed costs and two people billing 320 hours a month, every crew-hour carries $25; a two-week job for both of them (160 crew-hours, half the month) carries $4,000, and a 4-hour repair carries $100. The panel prints that sum under the table, for example “$8,000.00 a month ÷ 320 billable crew-hours = $25.00/h × 160 h on this job (50% of your month).”" },
+          { table: {
+            head: ["What Settings → Overhead knows", "Overhead on this quote", "Label on the panel"],
+            rows: [
+              ["Billable crew hours a month, and the quote has labour hours", "Monthly fixed costs × (this job's crew-hours ÷ billable crew-hours a month)", "Overhead (this job's share of the month's crew time)"],
+              ["Jobs per week or month only — or the quote has no hours yet", "Monthly fixed costs ÷ jobs a month, the same for every job, with a link to set your billable hours", "Overhead (this job's share)"],
+              ["Neither", "10% of the price, or the percentage you type in the box", "Overhead (10% of price — estimated)"],
+            ],
+          } },
         ],
       },
       {
@@ -394,7 +409,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Why does the margin look too good?", a: "Usually because a cost is missing. Nobody on the crew means labour costs nothing; a material line with no price is counted at zero; a service with no recipe is left out entirely. The panel names each case in words — read the amber badge and the notes under the table." },
-      { q: "Where does the overhead number come from?", a: "Until you fill in Settings → Overhead and your jobs per week, it is a flat 10% of the price and is labelled estimated. After that, it is your real monthly fixed costs divided by your monthly job capacity." },
+      { q: "Where does the overhead number come from?", a: "Until you fill in Settings → Overhead and your jobs per week, it is a flat 10% of the price and is labelled estimated. With your jobs per week or month, it is your real monthly fixed costs divided by your monthly job capacity. Add your billable crew hours a month and it becomes this job's share of the month by its crew-hours, so a long job carries more than a short one." },
       { q: "Does the client ever see any of this?", a: "No. Not on the approval page, not on the PDF, not in the email. The heading says so, and the API that builds those documents never reads the costing." },
     ],
   },

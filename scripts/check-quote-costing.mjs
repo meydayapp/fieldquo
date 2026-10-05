@@ -18,8 +18,18 @@
 //   3. `saved` lying about which of the two happened.
 //   4. A malformed stored takeoff taking the endpoint down.
 //
+// And, since 2026-10-04, the fifth: a quote's overhead shared by the job's
+// crew time (lib/costing/overheadShare.js) — the panel, the saved row and the
+// derived costing all on the same basis and the same cent, and every quote of
+// a company that has not set its billable hours byte-for-byte what it was.
+//
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-quote-costing.mjs
 
+// FIRST, before anything reaches lib/db.js: a scriptable fake client, so the
+// time-share section can execute buildQuoteCostingRow / deriveQuoteCosting /
+// calculateMinimumPrice. Nothing above that section touches the database.
+import "./fixtures/fakePrismaGlobal.mjs";
+import { createHash } from "node:crypto";
 import { costBasisMissing } from "@/lib/costing/quoteCosting";
 import {
   normaliseQuoteCosting,
@@ -31,7 +41,24 @@ import {
 import {
   isEmptyQuoteCosting,
   shouldWriteQuoteCosting,
+  buildQuoteCostingRow,
 } from "@/app/api/quotes/costingWrite";
+import { deriveQuoteCosting } from "@/lib/costing/quoteCostEstimate";
+import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
+import {
+  calculateMinimumPrice,
+  calculateHourlyFloor,
+  priceFromBurn,
+} from "@/lib/analytics/minimumPrice";
+import { calculateBurnRate } from "@/lib/analytics/burnRate";
+import {
+  billableHoursFrom,
+  overheadRates,
+  overheadForJob,
+  overheadPerHourFloor,
+  overheadInputsFrom,
+} from "@/lib/costing/overheadShare";
+import { fixtureGroups, costingGroups } from "./productionRateFixtures.mjs";
 
 let fail = 0;
 const t = (name, got, want = true) => {
@@ -663,6 +690,213 @@ console.log("\nA margin is refused when nothing supports it");
       false,
     );
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// 6. Overhead as the job's fair share of the month's crew time
+// ───────────────────────────────────────────────────────────────────────────
+//
+// The owner, 2026-10-04: overhead per job = monthly fixed overhead × (the
+// job's crew-hours ÷ the month's billable crew-hours). Executed, not read:
+// the pure rule, the estimator, the price-floor answer that carries the rate,
+// and the two server paths that save or derive a costing — against a fake
+// database (scripts/fixtures/fakePrismaGlobal.mjs).
+
+const md5 = (o) => createHash("md5").update(JSON.stringify(o)).digest("hex");
+const near = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-9;
+
+console.log("\nThe rule itself (lib/costing/overheadShare.js)");
+{
+  const rates = overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: 320 });
+  t("$8,000 a month ÷ 320 billable crew-hours = $25 an hour", rates.perHour, 25);
+  const twoWeeks = overheadForJob({ rates, jobHours: 160 });
+  t("a two-week job for two people (160 crew-hours) carries $4,000", twoWeeks.amount, 4000);
+  t("…on the per_hour basis", twoWeeks.basis, "per_hour");
+  t("…which is half the month", twoWeeks.share, 0.5);
+  t("a half-day repair for one (4 crew-hours) carries $100", overheadForJob({ rates, jobHours: 4 }).amount, 100);
+
+  // "If a job takes 2 weeks and they only do 2 jobs a month, or have capacity
+  // for 3 or 4…": by jobs, the same 160-hour job's overhead moves with the
+  // job count; by time, it is the job's share of the month whatever the count.
+  for (const jobs of [2, 3, 4]) {
+    const both = overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: 320, jobsPerMonth: jobs });
+    t(`${jobs} jobs a month, hours set: the 160-hour job still carries $4,000`, overheadForJob({ rates: both, jobHours: 160 }).amount, 4000);
+    const jobsOnly = overheadRates({ monthlyFixedCosts: 8000, jobsPerMonth: jobs });
+    const perJob = overheadForJob({ rates: jobsOnly, jobHours: 160 });
+    t(`${jobs} jobs a month, hours unset: per_job, labelled`, perJob.basis, "per_job");
+    t(`…$8,000 ÷ ${jobs}`, perJob.amount, Math.round((8000 / jobs) * 100) / 100);
+  }
+  const nothing = overheadForJob({ rates: overheadRates({ monthlyFixedCosts: 8000 }), jobHours: 160, price: 12000 });
+  t("neither hours nor jobs: 10% of the price, labelled pct_of_price", [nothing.basis, nothing.amount, nothing.pct], ["pct_of_price", 1200, 10]);
+  t("rates unknown entirely: still the percentage, never a made-up rate", overheadForJob({ rates: null, jobHours: 160, price: 1000 }).basis, "pct_of_price");
+
+  for (const bad of [0, -320, NaN, "abc", Infinity, -Infinity, 1e9, "", null, undefined, true, {}, []]) {
+    t(`billable hours ${JSON.stringify(bad) ?? String(bad)} is "not said"`, billableHoursFrom(bad), null);
+    t(`…and gives no hourly rate`, overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: bad }).perHour, null);
+  }
+  t("a stored Decimal string reads as its number", billableHoursFrom("320.00"), 320);
+  for (const bad of [0, -3, "abc", NaN, null]) {
+    const r = overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: 320, jobsPerMonth: 4 });
+    t(`job hours ${String(bad)}: no time to share, falls to per_job`, overheadForJob({ rates: r, jobHours: bad }).basis, "per_job");
+  }
+  t("the hourly floor is the rate, to the cent", overheadPerHourFloor(overheadRates({ monthlyFixedCosts: 8123.45, billableHoursPerMonth: 317.5 })), 25.59);
+  t("no hours, no floor", overheadPerHourFloor(overheadRates({ monthlyFixedCosts: 8000 })), null);
+
+  // The one reading of the price-floor answer, shared by the builder and both
+  // server paths.
+  t("a 403 body carries nothing", overheadInputsFrom({ error: "no" }), { overheadPerJob: null, overheadPerHour: null, billableHoursPerMonth: null, monthlyFixedCosts: null });
+  t("a failed fetch carries nothing", overheadInputsFrom(null).overheadPerHour, null);
+  const refusal = { needsCapacity: true, error: "Tell us…", monthlyFixedCosts: 8000, billableHoursPerMonth: 320, overheadPerHour: 25 };
+  t("a needsCapacity refusal with hours: per-hour yes, per-job no", [overheadInputsFrom(refusal).overheadPerHour, overheadInputsFrom(refusal).overheadPerJob], [25, null]);
+  t("a rate without its divisor is not one we can explain: both or neither", overheadInputsFrom({ overheadPerHour: 25 }).overheadPerHour, null);
+  t("a success body: costPerJob read exactly as before", overheadInputsFrom({ costPerJob: 1035.35, monthlyFixedCosts: 4141.4 }).overheadPerJob, 1035.35);
+  t("hostile rate values are not rates", [0, -1, "abc", Infinity].map((v) => overheadInputsFrom({ overheadPerHour: v, billableHoursPerMonth: 320 }).overheadPerHour), [null, null, null, null]);
+}
+
+console.log("\nThe estimator: per_hour when the rate and the hours are both there");
+{
+  const base = { scopeGroups: [], labourRatePerHour: 35, crew: [], manualLabourHours: 160, price: 20000, overheadPctOfPrice: 10, marginTargetPct: 20 };
+  const e = estimateQuoteCost({ ...base, overheadPerJob: 2000, overheadPerHour: 25, billableHoursPerMonth: 320 });
+  t("overhead = $25 × 160 h, beating the $2,000 per-job slice", [e.overhead, e.overheadBasis], [4000, "per_hour"]);
+  t("the explanation travels with it", e.overheadShare, { perHour: 25, hours: 160, share: 0.5 });
+  t("the estimated cost carries it", e.estimatedCost, 4000 + 160 * 35);
+  const noDivisor = estimateQuoteCost({ ...base, overheadPerHour: 25 });
+  t("without the divisor the amount is the same and the share is null, not Infinity", [noDivisor.overhead, noDivisor.overheadShare?.share], [4000, null]);
+  const noHours = estimateQuoteCost({ ...base, manualLabourHours: 0, overheadPerJob: 2000, overheadPerHour: 25, billableHoursPerMonth: 320 });
+  t("a job with no hours yet falls to per_job", [noHours.overhead, noHours.overheadBasis], [2000, "per_job"]);
+  t("…and carries no overheadShare key at all", "overheadShare" in noHours, false);
+  const noHoursNoJobs = estimateQuoteCost({ ...base, manualLabourHours: 0, overheadPerHour: 25, billableHoursPerMonth: 320 });
+  t("no hours and no per-job figure: the percentage", [noHoursNoJobs.overhead, noHoursNoJobs.overheadBasis], [2000, "pct_of_price"]);
+  for (const bad of [0, -25, NaN, "abc", Infinity, "", false, null]) {
+    const h = estimateQuoteCost({ ...base, overheadPerJob: 2000, overheadPerHour: bad, billableHoursPerMonth: 320 });
+    t(`hostile overheadPerHour ${String(bad)}: per_job exactly as before`, [h.overhead, h.overheadBasis, "overheadShare" in h], [2000, "per_job", false]);
+  }
+  const huge = estimateQuoteCost({ ...base, overheadPerHour: 1e306, billableHoursPerMonth: 320 });
+  t("an overflowing rate never reaches the total as Infinity", Number.isFinite(huge.estimatedCost), true);
+
+  // Byte-for-byte: the md5s below were taken by running these exact fixtures
+  // through quoteCostSummary on the commit BEFORE overheadPerHour existed
+  // (4a026795). "pct" is also check-production-rates' pinned summary.
+  const PINNED = {
+    pct: "e30e0cc4d3781d985d7bf0c0ce4d2fac",
+    perJob: "88f5a6c153f98ec679ae92a542cea603",
+    perJobCrew: "12b1815a506daf323b4ee3a879d7f30f",
+    noHours: "d4fa85ef4a6d464739b85f2c73791d32",
+  };
+  const cg = costingGroups(fixtureGroups());
+  const crewFix = [{ id: "u1", name: "A", rate: 30 }, { id: "u2", name: "B", rate: 42, hours: 10 }];
+  const cases = {
+    pct: { scopeGroups: cg, crew: [], labourRate: 35, overheadPct: 10, price: 25000, addedLabourHours: 3 },
+    perJob: { scopeGroups: cg, crew: [], labourRate: 35, overheadPct: 10, overheadPerJob: 1035.35, price: 25000, addedLabourHours: 3 },
+    perJobCrew: { scopeGroups: cg, crew: crewFix, labourRate: 35, overheadPct: 10, overheadPerJob: 1035.35, price: 25000 },
+    noHours: { scopeGroups: [], crew: [], labourRate: 35, overheadPct: 10, overheadPerJob: 500, price: 4000 },
+  };
+  for (const [label, c] of Object.entries(cases)) {
+    t(`${label}: summary md5 unchanged with no overheadPerHour`, md5(quoteCostSummary(c)), PINNED[label]);
+    t(`${label}: …and with overheadPerHour: null`, md5(quoteCostSummary({ ...c, overheadPerHour: null, billableHoursPerMonth: null })), PINNED[label]);
+    t(`${label}: …and with a hostile one`, md5(quoteCostSummary({ ...c, overheadPerHour: "abc", billableHoursPerMonth: 320 })), PINNED[label]);
+  }
+
+  const timed = quoteCostSummary({ ...cases.perJob, overheadPerHour: 25, billableHoursPerMonth: 320 });
+  t("a real quote with hours goes per_hour through quoteCostSummary", timed.overheadBasis, "per_hour");
+  t("…priced at its own hours", timed.overhead, Math.round(25 * timed.labourHours * 100) / 100);
+  const shaped = shapeEstimate(timed);
+  t("the wire shape keeps per_hour", shaped.overheadBasis, "per_hour");
+  t("…and the explanation", [shaped.overheadShare?.perHour, shaped.overheadShare?.hours], [25, timed.labourHours]);
+  const savedTimed = shapeSavedQuoteCosting({ ...savedRow, overheadBasis: "per_hour" });
+  t("a SAVED per_hour row reads back per_hour", savedTimed.overheadBasis, "per_hour");
+  t("…with no recomputed explanation beside the frozen figure", "overheadShare" in savedTimed, false);
+  t("an absent basis still defaults to pct_of_price", shapeSavedQuoteCosting({ ...savedRow, overheadBasis: null }).overheadBasis, "pct_of_price");
+}
+
+console.log("\nThe price-floor answer carries the rate (calculateMinimumPrice, fake database)");
+let WORLD;
+globalThis.__FQ_DB = async (model, op) => {
+  if (model === "forecastSettings" && op === "findUnique") return WORLD.forecast;
+  if (op === "findMany" && model in WORLD.rows) return WORLD.rows[model];
+  throw new Error(`unscripted db.${model}.${op}`);
+};
+const world = (forecast, monthly = 8000) => ({
+  forecast,
+  rows: { expense: [{ amount: monthly, frequency: "monthly" }], salary: [], debt: [], asset: [], materialRecipeSetting: [] },
+});
+{
+  WORLD = world(null);
+  const bare = await calculateMinimumPrice({ companyId: "co" });
+  t("nothing set: the refusal, key for key, as it always was", Object.keys(bare), ["needsCapacity", "error"]);
+
+  WORLD = world({ jobsPerMonthCapacity: 4, jobsPerWeekCapacity: 1, targetMargin: null, billableHoursPerMonth: null });
+  const jobsOnly = await calculateMinimumPrice({ companyId: "co" });
+  const burn = await calculateBurnRate({ companyId: "co", cashOnHand: null });
+  t("jobs only: no time-share keys", "overheadPerHour" in jobsOnly, false);
+  t("…and the answer is priceFromBurn's, byte for byte", md5(jobsOnly), md5(priceFromBurn({ burn, capacity: 1, jobsPerMonth: 4, targetMargin: 0.2 })));
+
+  WORLD = world({ jobsPerMonthCapacity: 4, jobsPerWeekCapacity: 1, targetMargin: null, billableHoursPerMonth: "320.00" });
+  const both = await calculateMinimumPrice({ companyId: "co" });
+  t("hours + jobs: the per-job floor is unchanged", [both.costPerJob, both.minimumPrice], [jobsOnly.costPerJob, jobsOnly.minimumPrice]);
+  t("…and the time share rides beside it", [both.billableHoursPerMonth, both.overheadPerHour, both.hourlyFloor, both.minimumPerHour], [320, 25, 25, 31.25]);
+  const hourly = await calculateHourlyFloor({ companyId: "co", billableHoursPerMonth: 320 });
+  t("hourlyFloor IS calculateHourlyFloor's answer (its production caller)", both.hourlyFloor, hourly.hourlyFloor);
+
+  WORLD = world({ jobsPerMonthCapacity: null, jobsPerWeekCapacity: 0, targetMargin: null, billableHoursPerMonth: 320 });
+  const hoursOnly = await calculateMinimumPrice({ companyId: "co" });
+  t("hours but no jobs: still needsCapacity, same sentence", [hoursOnly.needsCapacity, hoursOnly.error], [true, bare.error]);
+  t("…but the quote still gets its rate", [hoursOnly.overheadPerHour, hoursOnly.monthlyFixedCosts], [25, 8000]);
+  t("…and no per-job figure", "costPerJob" in hoursOnly, false);
+
+  for (const bad of [0, -320, "abc", 1e9]) {
+    WORLD = world({ jobsPerMonthCapacity: 4, jobsPerWeekCapacity: 1, targetMargin: null, billableHoursPerMonth: bad });
+    const r = await calculateMinimumPrice({ companyId: "co" });
+    t(`stored hours ${String(bad)}: treated as unset, answer as before`, md5(r), md5(jobsOnly));
+  }
+}
+
+console.log("\nThe panel and the saved row agree to the cent");
+{
+  // Awkward numbers on purpose: a rate that does not terminate, hours with a
+  // quarter in them. $8,123.45 ÷ 317.5 h × 37.25 h = $953.0661… → $953.07.
+  const costing = { crew: [], addedLabourHours: 37.25, addedMaterialCost: 0, labourRate: 35, overheadPct: 10 };
+  const builderEstimate = (body) => {
+    // What QuoteBuilder does with the GET body: overheadInputsFrom, then the
+    // live estimate with the panel's own inputs.
+    const o = overheadInputsFrom(body);
+    return estimateQuoteCost({
+      scopeGroups: [], labourRatePerHour: 35, crew: [], manualLabourHours: 0 + 37.25 + 0,
+      manualMaterialCost: 0, price: 9000, overheadPerJob: o.overheadPerJob,
+      overheadPerHour: o.overheadPerHour, billableHoursPerMonth: o.billableHoursPerMonth,
+      overheadPctOfPrice: 10, purchasedMaterialCost: 0, marginTargetPct: 20,
+      recipeOverridesByCategory: {}, lineItemCost: 0,
+    });
+  };
+  const scenarios = [
+    ["hours and jobs set", { jobsPerMonthCapacity: 3, jobsPerWeekCapacity: 1, targetMargin: null, billableHoursPerMonth: 317.5 }, "per_hour", 953.07],
+    ["hours set, no jobs", { jobsPerMonthCapacity: null, jobsPerWeekCapacity: 0, targetMargin: null, billableHoursPerMonth: 317.5 }, "per_hour", 953.07],
+    ["jobs only", { jobsPerMonthCapacity: 3, jobsPerWeekCapacity: 1, targetMargin: null, billableHoursPerMonth: null }, "per_job", 2707.82],
+    ["nothing set", null, "pct_of_price", 900],
+  ];
+  for (const [label, forecast, basis, amount] of scenarios) {
+    WORLD = world(forecast, 8123.45);
+    // Over the wire exactly as the builder receives it.
+    const body = JSON.parse(JSON.stringify(await calculateMinimumPrice({ companyId: "co" })));
+    const panel = builderEstimate(body);
+    const row = await buildQuoteCostingRow({ companyId: "co", costing, price: 9000, scopeGroups: [] });
+    t(`${label}: the panel says ${basis}`, [panel.overheadBasis, panel.overhead], [basis, amount]);
+    t(`${label}: the saved row says the same, to the cent`, [row.overheadBasis, row.overhead, row.totalCost], [panel.overheadBasis, panel.overhead, panel.estimatedCost]);
+  }
+  // And the drawing read's path (overheadRates → overheadForJob) lands on the
+  // same cent, because it is the same function.
+  const drawing = overheadForJob({ rates: overheadRates({ monthlyFixedCosts: 8123.45, billableHoursPerMonth: 317.5, jobsPerMonth: 3 }), jobHours: 37.25 });
+  t("the drawing read's figure is the panel's", drawing.amount, 953.07);
+  t("…and the share is 37.25 of 317.5 hours", near(drawing.share, 37.25 / 317.5), true);
+
+  // The derived costing (no saved row) reads the same rate. With no hours on
+  // the quote it has no time to share, so it falls back — labelled.
+  WORLD = world({ jobsPerMonthCapacity: 3, jobsPerWeekCapacity: 1, targetMargin: null, billableHoursPerMonth: 317.5 }, 8123.45);
+  const derivedNoHours = await deriveQuoteCosting({ companyId: "co", quote: { subtotal: 9000, discount: 0, scopeGroups: [] } });
+  t("a derived costing with no hours falls to per_job", [derivedNoHours.overheadBasis, derivedNoHours.overhead], ["per_job", 2707.82]);
+  WORLD = world({ jobsPerMonthCapacity: null, jobsPerWeekCapacity: 0, targetMargin: null, billableHoursPerMonth: 317.5 }, 8123.45);
+  const derivedNothing = await deriveQuoteCosting({ companyId: "co", quote: { subtotal: 9000, discount: 0, scopeGroups: [] } });
+  t("…and with no jobs either, the percentage", derivedNothing.overheadBasis, "pct_of_price");
 }
 
 console.log(

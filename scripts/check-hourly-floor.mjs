@@ -51,15 +51,18 @@ section("A. The arithmetic");
 
 /* ══ B ══ */
 section("B. Billable hours — the owner's answer, never a default");
-for (const v of [null, undefined, "", 0, -1, NaN, "x", 745, 1e9]) {
+for (const v of [null, undefined, "", 0, -1, NaN, "x", 20001, 1e9]) {
   ok(`stored ${JSON.stringify(v)} reads as not said`, billableHoursFrom(v) === null);
 }
 ok("160 reads as 160", billableHoursFrom(160) === 160 && billableHoursFrom("160") === 160);
-ok("a month holds at most 744 hours", MAX_BILLABLE_HOURS_PER_MONTH === 744 && billableHoursFrom(744) === 744);
+// The figure is the whole crew's together, so it is not capped at one
+// person's month: a crew of five billing full time is past 744.
+ok("the whole crew's hours: up to 20,000 a month", MAX_BILLABLE_HOURS_PER_MONTH === 20000 && billableHoursFrom(20000) === 20000 && billableHoursFrom(20001) === null);
+ok("a crew's 3,000 hours is accepted; 20,001 is refused", parseBillableHours(3000).value === 3000 && parseBillableHours("3000").value === 3000 && parseBillableHours(20001).error === true);
 ok("absent in the PUT: leave the column", parseBillableHours(undefined).skip === true);
 ok("null / \"\": clear it", parseBillableHours(null).value === null && parseBillableHours("").value === null);
 ok("\" 120 \": 120", parseBillableHours(" 120 ").value === 120);
-for (const v of [0, -3, 1.5, "abc", 745, true, {}, []]) {
+for (const v of [0, -3, 1.5, "abc", 20001, true, {}, []]) {
   ok(`PUT ${JSON.stringify(v)}: refused, not clamped`, parseBillableHours(v).error === true);
 }
 

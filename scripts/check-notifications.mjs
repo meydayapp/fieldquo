@@ -328,7 +328,7 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 37, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 39, NOTIFICATION_TYPE_KEYS);
 ok(
   "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, and the team-chat mention",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
@@ -393,6 +393,11 @@ ok(
         // New seeded services for a company's trades (2026-09-24), raised
         // once per release by scripts/notify-new-service-seeds.mjs.
         "services.new_seeds",
+        // A drawing read priced below the company's target margin
+        // (2026-10-04): the approvers, and the quote's own assignee —
+        // lib/planRead/marginNotify.js.
+        "planRead.belowTarget",
+        "planRead.belowTargetAssigned",
         // Team chat (2026-10-04): an @mention lands in the bell too —
         // lib/company/chat/store.js names the people, minus anybody who set
         // the room to "none" or is looking at it; scripts/check-company-
@@ -571,6 +576,13 @@ const EXPECTED = {
   // trade" accepts. user:manage keeps Estimator and Crew out;
   // supervisors: false keeps Manager and Dispatcher out.
   "services.new_seeds": ["m_owner", "m_admin"],
+  // ── A drawing read below the target margin (2026-10-04) ─────────────────
+  // The approvers' copy: quote:approve-estimate, like quote.needsReview. The
+  // assignee's copy sits on the quotes ladder's editing rung and is always
+  // narrowed to the quote's one assignee by lib/planRead/marginNotify.js —
+  // this is the floor it narrows within.
+  "planRead.belowTarget": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  "planRead.belowTargetAssigned": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
 };
 
 for (const type of NOTIFICATION_TYPE_KEYS) {

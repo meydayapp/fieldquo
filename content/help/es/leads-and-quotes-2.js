@@ -323,7 +323,7 @@ export const ARTICLES = {
     title: "Costo y margen en un presupuesto",
     summary:
       "Lo que el trabajo le cuesta — mano de obra, materiales, gastos generales — y lo que queda, calculado junto al precio mientras usted presupuesta. Interno, y nunca mostrado al cliente.",
-    updated: "2026-09-15",
+    updated: "2026-10-04",
     intro: [
       "Una pantalla de presupuesto muestra un precio. El panel **Costo y margen** muestra lo que ese precio le cuesta entregar y lo que sobra, y su propio encabezado dice lo que es: «interno — nunca se muestra al cliente». Es la diferencia entre presupuestar un trabajo y saber si lo quiere.",
       "Los materiales salen de recetas — lo que le cuesta un litro de imprimación y cuánto consume una cocina de 24 puertas —, la mano de obra de las horas a la tarifa que usted paga, los gastos generales de lo que le dijo a FieldQuo que gasta cada mes. La pastilla de margen es el objetivo: verde, ámbar o roja antes de pulsar Enviar.",
@@ -343,12 +343,27 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Crew — hours are shared between them** (las filas del panel se muestran en inglés por ahora). Agregue personas por nombre o desde su equipo; cada una tiene un costo por hora y, si quiere, sus propias horas. En blanco, las horas que predice una receta se reparten por igual. Un trabajador sin tarifa registrada entra a $0 y la pastilla dice «labour not costed».",
-            "**Overhead** — ya sea **% of price** (el 10 % inicial, etiquetado «estimated») o **this job's share**, una vez que [[the-break-even-price|Configuración → Gastos generales]] conoce sus costos mensuales y sus trabajos por semana.",
+            "**Gastos generales** — **parte de este trabajo en el tiempo del equipo del mes** una vez que [[settings-overhead|Configuración → Gastos generales]] conoce sus horas-equipo facturables al mes; **parte de este trabajo** cuando solo conoce sus trabajos por semana o por mes; si no, un **% del precio** (el 10 % inicial, etiquetado «estimado»). La sección siguiente trabaja un ejemplo.",
             "**Extra labour hours** — horas más allá de lo que predice la receta, cobradas a la tarifa de la cuadrilla.",
             "**Extra material cost** — lo que usted compra para este trabajo: una cotización de proveedor, una losa, un alquiler.",
             "**Materials**, **Labour**, **Overhead**, **Estimated cost**, **Quote price (pre-tax)** y **Estimated profit** con el porcentaje de margen. Las líneas de materiales de una receta muestran su cantidad y su precio unitario, ambos editables para este trabajo.",
             "Una nota sobre de dónde salió la cifra de gastos generales, y una nota cuando algunos servicios del presupuesto no tienen receta — entonces su costo no está en la cifra y el panel lo dice.",
           ] },
+        ],
+      },
+      {
+        id: "how-overhead-is-shared",
+        heading: "Cómo se calculan los gastos generales de un presupuesto",
+        blocks: [
+          { p: "Los gastos generales son el alquiler, el seguro y la camioneta — costos que usted paga gane o no este trabajo. La parte más justa para un trabajo es la parte del tiempo de cuadrilla del mes que usa. Con $8,000 al mes de costos fijos y dos personas que facturan 320 horas al mes, cada hora-equipo lleva $25; un trabajo de dos semanas para ambos (160 horas-equipo, la mitad del mes) lleva $4,000, y una reparación de 4 horas lleva $100. El panel muestra esa cuenta bajo la tabla, por ejemplo «$8,000.00 al mes ÷ 320 horas-equipo facturables = $25.00/h × 160 h en este trabajo (50 % de tu mes)»." },
+          { table: {
+            head: ["Lo que sabe Configuración → Gastos generales", "Gastos generales en este presupuesto", "Etiqueta en el panel"],
+            rows: [
+              ["Las horas-equipo facturables al mes, y el presupuesto tiene horas de mano de obra", "Costos fijos mensuales × (horas-equipo de este trabajo ÷ horas-equipo facturables al mes)", "Gastos generales (parte de este trabajo en el tiempo del equipo del mes)"],
+              ["Solo los trabajos por semana o por mes — o el presupuesto aún no tiene horas", "Costos fijos mensuales ÷ trabajos al mes, igual para cada trabajo, con un enlace para ingresar sus horas facturables", "Gastos generales (parte de este trabajo)"],
+              ["Ninguno de los dos", "El 10 % del precio, o el porcentaje que usted escriba en la casilla", "Gastos generales (10 % del precio — estimado)"],
+            ],
+          } },
         ],
       },
       {
@@ -390,7 +405,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Por qué el margen se ve demasiado bueno?", a: "Casi siempre porque falta un costo. Nadie en la cuadrilla significa que la mano de obra no cuesta nada; una línea de material sin precio cuenta como cero; un servicio sin receta queda fuera por completo. El panel nombra cada caso con palabras — lea la pastilla ámbar y las notas bajo la tabla." },
-      { q: "¿De dónde sale la cifra de gastos generales?", a: "Hasta que usted complete Configuración → Gastos generales y sus trabajos por semana, es un 10 % fijo del precio y se etiqueta como estimado. Después, son sus costos fijos mensuales reales divididos por su capacidad mensual de trabajos." },
+      { q: "¿De dónde sale la cifra de gastos generales?", a: "Hasta que usted complete Configuración → Gastos generales y sus trabajos por semana, es un 10 % fijo del precio y se etiqueta como estimado. Con sus trabajos por semana o por mes, son sus costos fijos mensuales reales divididos por su capacidad mensual de trabajos. Agregue sus horas-equipo facturables al mes y pasa a ser la parte del mes de este trabajo según sus horas-equipo: un trabajo largo lleva más que uno corto." },
       { q: "¿El cliente ve algo de esto alguna vez?", a: "No. Ni en la página de aprobación, ni en el PDF, ni en el correo. El encabezado lo dice, y la API que construye esos documentos nunca lee el costeo." },
     ],
   },

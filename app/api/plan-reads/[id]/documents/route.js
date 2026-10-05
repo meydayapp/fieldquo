@@ -7,7 +7,12 @@
 //
 // Free: extracting a PDF's text and parsing a spreadsheet use no model.
 export const runtime = "nodejs";
-// A 100 MB drawing set is fetched and its every page's text read here.
+// One stored drawing file is fetched and its every page's text read here.
+// That file is at most the company's Cloudinary plan's raw-file limit (10 MB
+// on the Free plan — lib/media/directUpload.js effectiveCap), never the
+// 100 MB PLAN_DOCUMENT_MAX_BYTES ceiling on its own: a bigger set is split
+// into parts in the browser before upload (lib/planRead/pdfSplit.js) and
+// each part arrives here as its own document.
 export const maxDuration = 300;
 
 import { NextResponse } from "next/server";

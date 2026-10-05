@@ -50,6 +50,7 @@ import TeamCrewPicker from "@/app/components/quotes/TeamCrewPicker";
 import {
   FALLBACK_LABOUR_RATE,
   FALLBACK_OVERHEAD_PCT,
+  isRealOverheadBasis,
   unratedCrew,
 } from "@/lib/costing/costingDefaults";
 
@@ -65,8 +66,10 @@ export default function QuoteCostEditor({
   t,
   currency,
   language,
-  // From the costing on screen: "per_job" means the company's real overhead
-  // is known and the percentage is not consulted, so the box is not offered.
+  // From the costing on screen: "per_job" (monthly costs ÷ jobs) or
+  // "per_hour" (the job's share of the month's crew-hours) means the
+  // company's real overhead is known and the percentage is not consulted, so
+  // the box is not offered.
   overheadBasis = null,
 }) {
   // Seeded from whatever is already stored, so opening this on a costed quote
@@ -308,7 +311,7 @@ export default function QuoteCostEditor({
         {/* Only when there's nothing better — the same rule the builder's
             panel follows. Once the company's real cost per job is known, a
             percentage beside it would be a second answer to one question. */}
-        {overheadBasis !== "per_job" && (
+        {!isRealOverheadBasis(overheadBasis) && (
           <label className="text-xs text-muted-foreground">
             {t("app.cost.overheadPct")}
             <input
