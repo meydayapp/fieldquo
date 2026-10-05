@@ -905,7 +905,7 @@ function RecommendationCard({ view, t, money, onOp }) {
               ? t("app.planRead.reco.labourCrew", "your field crew's average cost rate")
               : r.labour.source === "conversation"
                 ? t("app.planRead.reco.labourChat", "your figure from the conversation")
-                : t("app.planRead.reco.labourFallback", "FieldQuo's $35/h default — add your crew's rates in Team"),
+                : t("app.planRead.reco.labourFallback", "FieldQuo's default rate — add your crew's rates in Team"),
         }),
       )}
       {row(t("app.planRead.reco.materials", "Materials"), money(r.materialCost))}

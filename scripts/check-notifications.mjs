@@ -328,7 +328,7 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 37, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 39, NOTIFICATION_TYPE_KEYS);
 ok(
   "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, and the team-chat mention",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===

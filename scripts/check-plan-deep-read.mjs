@@ -81,7 +81,7 @@ import { overheadRates, overheadForJob } from "@/lib/costing/overheadShare";
 import { buildTradeLineItems } from "@/lib/pricing/tradeScope";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/catalog";
 import { hrefFor } from "@/lib/notifications/render";
-import { MEASUREMENT_KEYS, TRADE_MEASUREMENTS, isMeasurementKey } from "@/lib/services/measurementKeys";
+import { MEASUREMENT_KEYS, TRADE_MEASUREMENTS, DRAWING_READ_TRADE_KEYS, measurementKeysForTrade, isMeasurementKey } from "@/lib/services/measurementKeys";
 import { parseScopeSheets, scopeSheetDigest } from "@/lib/planRead/excel";
 import {
   sanitiseSynthesis,
@@ -1254,7 +1254,8 @@ const PIN_PAINT_MODEL = "5616a7c9a0553d9ef592d23332006fce";
 
 ok("painting with no scope is pinned by md5 — the synthesis prompt and the model of the reference read", md5(seqP.synthPrompts[0]) === PIN_PAINT_PROMPT && md5(seq.row.model) === PIN_PAINT_MODEL, [md5(seqP.synthPrompts[0]), md5(seq.row.model)]);
 ok("every trade item names a REGISTERED measurement key (no second vocabulary)", unregisteredItemKeys().length === 0, unregisteredItemKeys());
-ok("…and the new keys are in the registry, with the read as their source", ["panels", "plumbingFixtures", "wallFramingFt", "headers", "penetrations", "transitions", "cornerBeadFt"].every((k) => isMeasurementKey(k) && /drawing read/.test(MEASUREMENT_KEYS[k].source)) && TRADE_MEASUREMENTS.plumbing.includes("plumbingFixtures") && TRADE_MEASUREMENTS.carpentry.includes("wallFramingFt"));
+ok("…and the new keys are in the registry, with the read as their source", ["panels", "plumbingFixtures", "wallFramingFt", "headers", "penetrations", "transitions", "cornerBeadFt"].every((k) => isMeasurementKey(k) && /drawing read/.test(MEASUREMENT_KEYS[k].source)) && measurementKeysForTrade("plumbing")[0] === "plumbingFixtures" && measurementKeysForTrade("carpentry")[0] === "wallFramingFt");
+ok("…kept out of TRADE_MEASUREMENTS, so the quote builder's custom-item picker is unchanged (no measured unit nothing on a hand-built quote fills)", !Object.hasOwn(TRADE_MEASUREMENTS, "plumbing") && !Object.hasOwn(TRADE_MEASUREMENTS, "carpentry") && Object.values(DRAWING_READ_TRADE_KEYS).flat().every((k) => isMeasurementKey(k) && !Object.values(TRADE_MEASUREMENTS).flat().includes(k)));
 ok("the catalogue the model sees carries no price, rate or cost", !JSON.stringify(MULTI_TRADE_KEYS.map((k) => tradeCatalogueForModel(k))).match(/price|rate"|cost|amount/i));
 
 // What the read is FOR, from the quote's services.
