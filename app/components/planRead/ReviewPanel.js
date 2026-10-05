@@ -45,7 +45,9 @@ export function ReviewPanel({ view, t, onOp, disabled }) {
       <h2 className="flex items-center gap-1.5 text-sm font-semibold"><ClipboardCheck className="w-4 h-4" aria-hidden />{t("app.planRead.review.title", "What this price includes")}</h2>
       <p className="text-xs text-muted-foreground mt-0.5">{t("app.planRead.review.officeOnly", "For your team only — never on the client's quote.")}</p>
       <p className="text-sm mt-2">{rv.accessSentence}</p>
-      <ul className="mt-2 space-y-1 text-sm">
+      <h3 className="mt-3 text-xs font-semibold">{t("app.planRead.review.takenTitle", "Taken into account")}</h3>
+      {rv.included.length === 0 && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.review.takenNone", "Nothing priced yet — the read has no quantities to rest a price on.")}</p>}
+      <ul className="mt-1 space-y-1 text-sm">
         {rv.included.map((i) => (
           <li key={i.key} className="flex gap-2">
             <span className="shrink-0 w-28 text-xs font-medium text-muted-foreground">{t(`app.planRead.review.label.${i.key.split(":")[0]}`, i.label)}</span>

@@ -496,11 +496,47 @@ killed), plus re-pins in `check:estimate-kind-routing` (the two fixtures above
 9 ft), `check:setup-steps`, `check:onboarding-next-steps`,
 `check:settings-access`, `check:plan-deep-read`.
 
+### Live run 2 (deploy 8954e631) — seven faults fixed
+
+The church read ran in 137 s with no chat, but: interior 30,655 sq ft (walls
+taken to the 33.5 ft ridge, the crossing's arches counted as wall), six
+scaffolds "NOT priced", 0.49 / 3 days (all 35 field workers as one crew),
+"step ladders and step ladders…", an empty-looking "taken into account", ten
+rented step ladders. Now (`lib/planRead/takeoff.js` wallHeight /
+solidPerimeter, `paintHeightPrep.js` priceRental, `firstPass.js`,
+`pricing.js`, `review.js`): a wall stops at the eaves / wall plate (and an
+implied height >25% over it is recomputed); a crossing keeps only its piers
+and its neighbours lose their arch (¾ of the side, FieldQuo assumption, said);
+one room on two sheets counts once; a "two-storey" wall under 13 ft is priced
+as a wall; a tower above the book's 30 ft row is priced by the table's last
+step, extrapolated and said; a job's crew is at most 4 until set; ladders are
+owned ($0, said) and one set per job; the sentence is grouped and counted; the
+panel is titled "Taken into account" with crew/days per quote and heights
+always said. Re-priced from the stored measurements: interior 30,655 → 11,051
+sq ft, 786.8 → 242.3 h, $80,659 → $26,454; exterior $14,059 → $15,772 (the
+41.9 ft scaffold now priced); days 0.49 → 4.28 and 3 → 8.08.
+`check:plan-read-first-pass` §18 (219 assertions; 15 more mutations killed).
+
+Correction the same day: the OUTSIDE eaves (2.94 m) is the wrong source for
+the inside walls — the church's interior photos show them rising well above
+it. Inside wall height now comes from (1) a section's inside wall plate /
+truss foot, (2) an interior photo estimated against a door / person / pew
+(photo sheets are now measured on a read that prices inside walls — one more
+best-tier call per photo sheet, ≈ $0.23), (3) the outside eaves only as a
+LOWER BOUND, low confidence, with the check "interior wall height taken from
+outside eaves — measure on site". Never a ridge. Interior access follows the
+result (walls known under 13 ft → one tower, lifts not needed, said; a lower
+bound keeps the access, sized to the height the drawings show above the
+walls). Prep is broken down by allowance and the setup's assumption. The
+measurement pass now reports a room's arch / opening widths; the ¾ share is
+only the labelled fallback. On the stored church read no section or photo
+height exists, so the interior stays at the lower bound (11,051 sq ft,
+$29,806) and says so; a re-read will measure the photos.
+
 ### Owed
 
-- A live read on "Painting Demo — Daniel" (the church read): "Measure the
-  drawings", then check the quantities, factors, access and the two Create
-  quote buttons, and the measure step on /platform/ai-usage.
+- A live re-read of the church after deploy: the photos' inside wall height
+  should replace the lower bound.
 - FX: only USD/CAD hold a dated rate — GBP/EUR/AUD companies see access "NOT
   priced" with the reason until they enter rates; prep material defaults are
   US shelf prices shown unconverted (labelled "US shelf price").
