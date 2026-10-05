@@ -269,6 +269,23 @@ function costsAnswer({ method, path, url, body }) {
     if (range === "month" || range === "prevmonth") return COSTS[range];
     return new Response(JSON.stringify({ error: `The harness holds "This month" and "Last month" only, not ${range}.` }), { status: 503, headers: { "Content-Type": "application/json" } });
   }
+  // "Phone costs vs what we charge" (PhoneCostsTable.js), the route's shape
+  // written out: lib/phoneUsage/pricing.js reads process.env at import, which
+  // this browser bundle does not define, so the rule's numbers (2x, 2c/5c/5c
+  // floors) and FIXED_COST_ROWS are copied rather than imported.
+  if (path === "/api/platform/costs/phone") {
+    const row = (priceClass, costCents, chargeCents) => ({
+      priceClass, costCents, chargeCents, multiple: chargeCents / costCents, below2x: chargeCents / costCents < 2, observations: 12, lastSeenAt: new Date().toISOString(),
+    });
+    return {
+      rule: { markup: 2, floors: { textCents: 2, photoCents: 5, callCentsPerMinute: 5 } },
+      rows: [row("call_bridge", 2.8, 6), row("mms_out_CA", 2, 5), row("sms_in_CA", 0.83, 2), row("sms_out_CA", 0.83, 2), row("sms_out_US", 0.83, 2)],
+      fixed: [row("rent_hosted_number", 50, 400), row("rent_ported_number", 115, 400), row("rent_crew_line", 115, 400)],
+      candidates: [{ priceClass: "sms_out_INTL", costCents: 4.5, observations: 2 }],
+      changes: [],
+      pendingSettlements: 3,
+    };
+  }
   // GET lists; a save or a void answers with the one row, as the route does.
   if (path === "/api/platform/costs/fixed-bills") {
     if (method === "GET") return { rows: COSTS.month.fixedBills.rows, providers: COSTS.month.fixedBills.providers };
