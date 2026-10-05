@@ -888,7 +888,7 @@ export const ARTICLES = {
     title: "Partir des plans : la lecture de plans",
     summary:
       "Téléversez un jeu de plans, un tableau de quantités et des photos : FieldQuo lit les feuilles dont le service de votre soumission a besoin, mesure chaque quantité avec sa source et un niveau de confiance, la chiffre à vos propres tarifs et recommande un prix qui tient votre marge cible.",
-    updated: "2026-10-04",
+    updated: "2026-10-05",
     intro: [
       "Une lecture de plans transforme un jeu de plans en brouillon de soumission chiffré. Elle lit la peinture, les cloisons sèches, la charpente, la toiture, l'électricité, la plomberie et les revêtements de sol. Le modèle ne fixe jamais un prix : il désigne les cotes imprimées, les lignes de tableau et les symboles, et FieldQuo calcule les quantités et les chiffre à vos propres tarifs.",
     ],
@@ -918,6 +918,23 @@ export const ARTICLES = {
             ],
           } },
           { p: "Chaque métier a sa propre carte : les cloisons sèches par niveau de finition GA-214, la charpente en pieds linéaires, le toit en carrés selon la pente imprimée, l'électricité en appareils, panneaux et circuits, la plomberie en appareils sanitaires, les revêtements par matériau. Deux sources sûres qui ne concordent pas deviennent une question pour vous. Vérifiez les quantités à faible confiance avant d'envoyer." },
+        ],
+      },
+      {
+        id: "first-pass",
+        heading: "La première passe : mesurée, chiffrée, prête à confirmer",
+        blocks: [
+          { p: "La première lecture fait maintenant le métré elle-même. Chaque feuille est classée d'après son titre (élévation, plan, coupe, site, tableau, vue 3D). Chaque élévation, plan et coupe est mesuré : les façades sont mises à l'échelle de la feuille selon son échelle imprimée et son format, les pièces donnent leur surface et leur périmètre, les coupes donnent les hauteurs. Une cote ou une surface imprimée l'emporte toujours sur une mesure à l'échelle, et une cote imprimée sur la même vue vérifie l'échelle. Chaque quantité indique la feuille, les chiffres utilisés, une confiance et ce qu'il faut vérifier." },
+          { p: "Si rien dans le dossier n'indique une hauteur, la lecture le dit et utilise une valeur par défaut indiquée (3,0 m ou 9 pi) à vérifier. Une surface sans quantité est listée comme **non chiffrée** — jamais laissée à 0 sans un mot." },
+          { steps: [
+            "**Hauteur** — la surface est répartie par hauteur de travail : jusqu'à 8 pi ×1,0, 8–13 pi ×1,3, 13–17 pi ×1,6, 17–19 pi ×1,9, 19–21 pi ×2,2 (High Time Difficulty Factors de Craftsman, p. 139 ; au-delà de 21 pi, extrapolation de FieldQuo). Le facteur s'applique aux heures seulement. Vos cadences ont été mesurées dans une pièce de 9 pi : la hauteur est facturée au-delà ; modifiez-le dans Paramètres → Services.",
+            "**Préparation** — selon le support et son état, en heures de préparation propres à la ligne, jamais dans le tarif de peinture : lessivage pour les surfaces déjà peintes, apprêt maçonnerie pour la brique nue ou ancienne (tables de productivité Resene), installation et nettoyage quotidiens pour un bâtiment occupé ou patrimonial.",
+            "**Accès** — chaque nacelle, tour et échelle est chiffrée pour les jours que dure son travail : vos tarifs de location d'abord, sinon la table de location de Craftsman convertie dans votre devise, marquée **Estimé d'après la référence · à confirmer**. Appuyez sur **Confirmer** ou saisissez votre prix.",
+            "**Plan d'équipe** — jours sur place = heures ÷ (peintres × heures productives par jour), avec les options à 2, 3 et 4 peintres côte à côte.",
+            "**Chiffré selon ces hypothèses** — support, couleurs, patrimoine, horaires du site et occupation sont énoncés, pas demandés. Changez-en un et le prix est recalculé aussitôt, sans frais d'IA.",
+            "**Chantiers passés** — le prix et les heures par pi² du brouillon face à vos propres chantiers gagnés et terminés du même métier, avec la raison probable en cas de grand écart.",
+          ] },
+          { p: "Quand la soumission couvre plus d'un service — peinture extérieure et intérieure, par exemple — la lecture prépare un brouillon pour chacun, avec ses zones, son accès, son plan d'équipe et son prix, et un bouton **Créer la soumission** pour chacun. Aucune deuxième lecture n'est nécessaire." },
         ],
       },
       {

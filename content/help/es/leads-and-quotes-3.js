@@ -888,7 +888,7 @@ export const ARTICLES = {
     title: "Empezar desde los planos: la lectura de planos",
     summary:
       "Suba un juego de planos, una hoja de cantidades y fotos: FieldQuo lee las hojas que necesita el servicio de su presupuesto, mide cada cantidad con su fuente y un nivel de confianza, la cotiza con sus propias tarifas y recomienda un precio que mantiene su margen objetivo.",
-    updated: "2026-10-04",
+    updated: "2026-10-05",
     intro: [
       "Una lectura de planos convierte un juego de planos en un borrador de presupuesto con precios. Lee pintura, paneles de yeso, estructura, techos, electricidad, plomería y pisos. El modelo nunca fija un precio: señala las cotas impresas, las filas de las tablas y los símbolos, y FieldQuo calcula las cantidades y las cotiza con sus propias tarifas.",
     ],
@@ -918,6 +918,23 @@ export const ARTICLES = {
             ],
           } },
           { p: "Cada oficio tiene su propia tarjeta: paneles de yeso por nivel de acabado GA-214, estructura en pies lineales, el techo en cuadrados según la pendiente impresa, electricidad en dispositivos, tableros y circuitos, plomería en artefactos, pisos por material. Dos fuentes firmes que no coinciden se convierten en una pregunta para usted. Revise las cantidades de confianza baja antes de enviar." },
+        ],
+      },
+      {
+        id: "first-pass",
+        heading: "La primera pasada: medida, valorada, lista para confirmar",
+        blocks: [
+          { p: "La primera lectura ahora hace la medición ella misma. Cada plano se clasifica por su título (alzado, planta, sección, emplazamiento, cuadro, vista 3D). Cada alzado, planta y sección se mide: las fachadas se toman a escala del plano según su escala impresa y su formato, las habitaciones dan su superficie y su perímetro, las secciones dan las alturas. Una cota o una superficie impresa siempre gana a una medida a escala, y una cota impresa en la misma vista comprueba la escala. Cada cantidad muestra el plano, las cifras usadas, una confianza y qué revisar." },
+          { p: "Si nada en el juego de planos indica una altura, la lectura lo dice y usa un valor indicado (3,0 m o 9 pies) para verificar. Una superficie sin cantidad aparece como **sin precio** — nunca se queda en 0 sin avisar." },
+          { steps: [
+            "**Altura** — la superficie se reparte por altura de trabajo: hasta 8 pies ×1,0, 8–13 pies ×1,3, 13–17 pies ×1,6, 17–19 pies ×1,9, 19–21 pies ×2,2 (High Time Difficulty Factors de Craftsman, p. 139; por encima de 21 pies, extrapolación de FieldQuo). El factor se aplica solo a las horas. Tus rendimientos se midieron en una habitación de 9 pies, así que la altura se cobra a partir de ahí; cámbialo en Ajustes → Servicios.",
+            "**Preparación** — por soporte y estado, como horas de preparación propias de la línea, nunca dentro del precio de pintura: lavado para superficies ya pintadas, imprimación de mampostería para ladrillo desnudo o antiguo (tablas de productividad de Resene), montaje y limpieza diarios en un edificio ocupado o patrimonial.",
+            "**Acceso** — cada plataforma, torre y escalera se valora por los días que dura su trabajo: primero tus tarifas de alquiler, si no la tabla de alquiler de Craftsman convertida a tu moneda, marcada **Estimado según la referencia · confirmar**. Pulsa **Confirmar** o escribe tu precio.",
+            "**Plan de cuadrilla** — días en obra = horas ÷ (pintores × horas productivas al día), con las opciones de 2, 3 y 4 pintores lado a lado.",
+            "**Precio basado en estos supuestos** — soporte, colores, patrimonio, horario de obra y ocupación se indican, no se preguntan. Cambia uno y el precio se recalcula al instante, sin coste de IA.",
+            "**Trabajos anteriores** — el precio y las horas por pie² del borrador frente a tus trabajos ganados y terminados del mismo oficio, con el motivo probable si queda muy fuera.",
+          ] },
+          { p: "Cuando el presupuesto abarca más de un servicio —pintura exterior e interior, por ejemplo— la lectura prepara un borrador para cada uno, con sus áreas, acceso, plan de cuadrilla y precio, y un botón **Crear presupuesto** para cada uno. No hace falta una segunda lectura." },
         ],
       },
       {

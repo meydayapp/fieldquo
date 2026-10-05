@@ -84,6 +84,9 @@ const EXPECTED_KEYS = [
   // overhead divides by, and the pay rates its labour is costed at.
   "job_capacity",
   "pay_rates",
+  // 2026-10-05: the painting quote's access equipment — the company's rental
+  // rates, "we own this", or a yes to FieldQuo's defaults. Painting only.
+  "access_rates",
   "payment_schedule",
   // The client proposal's four (2026-09-21, client mockup §2), in the
   // mockup's position: after the payment schedule.
@@ -444,6 +447,11 @@ const PAGE_BODY = {
   "app/app/settings/services/confirm/page.js": "app/app/settings/services/ConfirmServices.js",
 };
 
+// Anchors drawn by a component the page body mounts, not by the body itself.
+const ANCHOR_BODY = {
+  "equipment-access": "app/app/settings/services/PaintHeightPrepSettings.js",
+};
+
 function pageFileFor(href) {
   const path = href.split(/[?#]/)[0];
   const page = `app${path}/page.js`;
@@ -466,6 +474,17 @@ for (const step of SETUP_STEPS) {
   // id="anchor", or id={cond ? "anchor" : undefined} — the id must be the
   // thing being assigned, not a string that merely appears somewhere.
   const re = new RegExp(`\\bid=(?:"${anchor}"|\\{[^}]{0,80}"${anchor}"[^}]*\\})`);
+  // A section a component on the page draws (the painting card's Equipment &
+  // access, PaintHeightPrepSettings) carries its own id; the page body must
+  // then mount that component.
+  const sectionFile = ANCHOR_BODY[anchor];
+  if (sectionFile) {
+    const mounted = new RegExp(`<${sectionFile.split("/").pop().replace(/\.js$/, "")}\\b`).test(src);
+    // Its Section helper renders <div id={id}>, so the anchor is the id prop it is handed.
+    const sectionSrc = stripComments(source(sectionFile));
+    ok(`${step.key}: #${anchor} is an id in ${sectionFile}, which ${file} mounts`, mounted && new RegExp(`\\bid="${anchor}"`).test(sectionSrc) && /<div id=\{id\}/.test(sectionSrc));
+    continue;
+  }
   ok(`${step.key}: #${anchor} is an id in ${file}`, re.test(src));
 }
 

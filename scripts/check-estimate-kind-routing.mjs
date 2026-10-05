@@ -332,16 +332,21 @@ const PINNED = {
   "legacy_untyped/exterior_painting": "b648ef385964b55b0ea7c04acb7d0a9b",
   "interior/interior_painting": "59f2c24621f08da543d478aae53f40f7",
   "interior/exterior_painting": "59f2c24621f08da543d478aae53f40f7",
-  "exterior_room/interior_painting": "b7ac4ee0d435a3faea2b8ffc280ed1d5",
-  "exterior_room/exterior_painting": "b7ac4ee0d435a3faea2b8ffc280ed1d5",
+  // Re-pinned 2026-10-05 (the painting preset's height factors, lib/pricing/paintHeightPrep.js):
+  // the ONLY two fixtures with a surface above the rates' 9 ft basis — exterior_room's 18 ft
+  // siding (×1.226 on its hours) and commercial's 14 ft exterior unit (×1.113). The owner:
+  // "this changes prices on typed quotes ONLY where a surface is above 8 ft". The other 16
+  // pins are unchanged — the md5 proof that every other kind prints as it did.
+  "exterior_room/interior_painting": "2955122ec71d825efa819cb783d434e0",
+  "exterior_room/exterior_painting": "2955122ec71d825efa819cb783d434e0",
   "exterior_surface/interior_painting": "6405b9a556aed07fdc79f67c6826d155",
   "exterior_surface/exterior_painting": "6405b9a556aed07fdc79f67c6826d155",
   "cabinets/interior_painting": "31933a62cfeb6957da00b8ca54a59754",
   "cabinets/exterior_painting": "31933a62cfeb6957da00b8ca54a59754",
   "staining/interior_painting": "cad188fae530e2edf3810c2078789d9a",
   "staining/exterior_painting": "cad188fae530e2edf3810c2078789d9a",
-  "commercial/interior_painting": "832c061d82b1b29fd787b69d5c1f48a1",
-  "commercial/exterior_painting": "832c061d82b1b29fd787b69d5c1f48a1",
+  "commercial/interior_painting": "09f86c322bc1db930057cb57dfe88bba",
+  "commercial/exterior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "stairs/live": "07ace69015133fb88bfdb14ce72518ea",
   "stairs/stored": "cfb2a8b9da81daf6c0cb8d31f0eb0ce9",
   "cabinet_refinishing/live": "79b3b1e4a3704dfa10e47d8acf4af9d5",

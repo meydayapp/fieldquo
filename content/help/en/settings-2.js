@@ -206,6 +206,36 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-equipment-access": {
+    title: "Equipment & access",
+    summary:
+      "Your rental rates for scaffold towers, lifts and ladders — or that you own them — so every access line on a painting quote is priced at your figure, not a default.",
+    updated: "2026-10-05",
+    intro: [
+      "**Settings → Services → Equipment & access** (under the painting card) is where you enter what access equipment costs you. Your painting quotes' **Add access equipment** and the drawing read's lifts and towers price from it.",
+    ],
+    sections: [
+      {
+        id: "what-is-used",
+        heading: "What a quote uses",
+        blocks: [
+          { steps: [
+            "**Your rate** for that equipment and size — day, week and month, in your currency. The cheapest mix of months, weeks and days for the working days is used (a rental week covers five working days, a month twenty).",
+            "**We own this (no rental)** — the line is priced at nothing and says so.",
+            "Otherwise **FieldQuo's default**: Craftsman's 2023 rental table (US$), sized to the working height and converted to your currency at the dated exchange rate. Every such line says **FieldQuo default — set yours**, with a link here.",
+          ] },
+          { p: "Where FieldQuo holds no exchange rate for your currency, or no cited figure for the equipment (a crane, delivery, frame scaffold), the line is not priced and says why, until you set your own figure. It is never a silent $0." },
+        ],
+      },
+      {
+        id: "why",
+        heading: "Why it shows on the quote's cost",
+        blocks: [
+          { p: "The quote builder's Cost & margin panel and the drawing read both list **Access in this price**: each access line and how it was counted. A line left out or set to $0 asks for a reason once — we own it, the client provides it, not needed, included elsewhere — so whoever reviews the quote later sees why there is no rental cost. None of it is on the client's quote." },
+        ],
+      },
+    ],
+  },
   "settings-material-costs": {
     title: "Material Costs",
     summary:

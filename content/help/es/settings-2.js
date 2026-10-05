@@ -208,6 +208,36 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-equipment-access": {
+    title: "Equipo y acceso",
+    summary:
+      "Tus tarifas de alquiler de torres de andamio, plataformas y escaleras —o que las tienes en propiedad— para que cada línea de acceso de un presupuesto de pintura se valore a tu tarifa, no a un valor por defecto.",
+    updated: "2026-10-05",
+    intro: [
+      "**Ajustes → Servicios → Equipo y acceso** (bajo la tarjeta de pintura) es donde indicas lo que te cuesta el equipo de acceso. El **Añadir equipo de acceso** de tus presupuestos de pintura y las plataformas y torres de la lectura de planos lo usan.",
+    ],
+    sections: [
+      {
+        id: "what-is-used",
+        heading: "Qué usa un presupuesto",
+        blocks: [
+          { steps: [
+            "**Tu tarifa** para ese equipo y tamaño: día, semana y mes, en tu moneda. Se usa la combinación más barata de meses, semanas y días (una semana de alquiler cubre cinco días de trabajo, un mes veinte).",
+            "**Es nuestro (sin alquiler)**: la línea queda a cero y lo dice.",
+            "Si no, **el valor por defecto de FieldQuo**: la tabla de alquiler 2023 de Craftsman (en US$), según la altura de trabajo y convertida a tu moneda al tipo de cambio fechado. Cada línea así dice **Valor por defecto de FieldQuo — pon el tuyo**, con un enlace aquí.",
+          ] },
+          { p: "Si FieldQuo no tiene tipo de cambio para tu moneda, o ninguna cifra citada para el equipo (una grúa, la entrega, el andamio de marcos), la línea no se valora y dice por qué, hasta que pongas tu cifra. Nunca es un 0 $ silencioso." },
+        ],
+      },
+      {
+        id: "why",
+        heading: "Por qué aparece en el coste del presupuesto",
+        blocks: [
+          { p: "El panel Coste y margen del generador de presupuestos y la lectura de planos muestran **Acceso en este precio**: cada línea de acceso y cómo se cuenta. Una línea quitada o puesta a 0 $ pide un motivo una vez —es nuestro, lo pone el cliente, no hace falta, incluido en otro sitio— para que quien revise el presupuesto vea por qué no hay coste de alquiler. Nada de esto aparece en el presupuesto del cliente." },
+        ],
+      },
+    ],
+  },
   "settings-material-costs": {
     title: "Costos de materiales",
     summary:

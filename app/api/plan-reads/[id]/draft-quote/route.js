@@ -24,8 +24,16 @@
 // assumptions, exclusions, open questions, unpriced items and equipment go to
 // the INTERNAL review notes.
 //
-// Whole-read only: applying one trade, or onto an existing quote, is the
-// plan's P4.
+// One drawing set → several quotes (the first pass, 2026-10-05):
+// `?scope=<key>` drafts ONE part of the read — "exterior_painting",
+// "interior_painting" or "trade:<trade>" (lib/planRead/slices.js) — with only
+// its own areas, access, crew plan and price. No re-read: the same read,
+// filtered. Without it, the whole read, as before. Onto an existing quote is
+// still the plan's P4.
+//
+// Access lines carry their price: the estimator's own, else the company's
+// rental rates, else the cited reference (lib/planRead/firstPass.js); an
+// estimate not yet confirmed says so in the office notes.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -36,6 +44,8 @@ import { loadPlanRead } from "@/lib/planRead/load";
 import { priceReadNow } from "@/lib/planRead/priceRead";
 import { categoryForTrade } from "@/lib/planRead/tradePricing";
 import { tradesFromScope } from "@/lib/planRead/tradeCatalogue";
+import { ASSUMED, ASSUMED_KEYS } from "@/lib/planRead/firstPassRules";
+import { buildReview } from "@/lib/planRead/review";
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -51,7 +61,17 @@ export async function GET(request, { params }) {
   if (!read.model) return NextResponse.json({ error: "Run the read first." }, { status: 409 });
 
   const out = await priceReadNow(read, { companyId: member.companyId, prisma: db });
-  const { computed, pricedPaint: priced, pricing, ctx } = out;
+  let { computed, pricedPaint: priced, pricing } = out;
+  const { ctx } = out;
+  const scopeKey = new URL(request.url).searchParams.get("scope");
+  let slice = null;
+  if (scopeKey) {
+    slice = (out.slices || []).find((x) => x.key === scopeKey) || null;
+    if (!slice) return NextResponse.json({ error: "That part of the read doesn't exist any more — open the read again." }, { status: 404 });
+    computed = { ...slice.computed, trades: slice.computed.trades || [] };
+    priced = slice.priced || { groups: [], lines: [], access: [], skipped: [], subtotal: 0, accessTotal: 0, unpricedAccess: 0 };
+    pricing = slice.pricing || pricing;
+  }
   const office = (extra) => ({ aiDrafted: true, source: "plan_read", planReadId: read.id, ...extra });
 
   // Priced above zero only: a 0 is equipment the company owns — priced, so
@@ -67,7 +87,14 @@ export async function GET(request, { params }) {
       amount: a.price,
       // Office-only provenance; never rendered to the client. aiPriced: the
       // chat entered the figure from the estimator's own words — verify.
-      meta: office(a.priceSource === "ai" ? { aiPriced: true } : {}),
+      // accessEstimate: priced from the company's rental rates or the cited
+      // reference, not yet confirmed by a person.
+      meta: office({
+        ...(a.priceSource === "ai" ? { aiPriced: true } : {}),
+        ...(a.priceSource === "reference" || a.priceSource === "company" ? { accessEstimate: { source: a.priceSource, why: a.why || null } } : {}),
+        // Every access line says how it was priced — the builder's "Access in this price".
+        access: { kind: a.equipment || null, source: a.priceSource || null, why: a.why || null },
+      }),
     }));
 
   const groups = priced.groups.map((g, i) => ({
@@ -121,7 +148,9 @@ export async function GET(request, { params }) {
   }
 
   // ── The margin adjustment a person added on the read ─────────────────────
-  const adj = read.model?.pricing?.marginAdjustment;
+  // The read's margin adjustment is for the WHOLE read; one part's quote
+  // does not carry it (its gap is shown on that part's card instead).
+  const adj = slice ? null : read.model?.pricing?.marginAdjustment;
   if (adj && adj.amount > 0 && groups.length) {
     groups[groups.length - 1].extraLines.push({
       description: "Margin adjustment",
@@ -142,7 +171,30 @@ export async function GET(request, { params }) {
     ...priced.access.filter((a) => a.price === null).map((a) => `• ${where(a)}${a.heightFt ? ` (${a.heightFt} ft)` : ""}: no price yet — add a line`),
     ...priced.access.filter((a) => a.price === 0).map((a) => `• ${where(a)}: your own — no charge, no line`),
     ...priced.access.filter((a) => a.price > 0 && a.priceSource === "ai").map((a) => `• ${where(a)}: price entered by FieldQuo AI from the conversation — verify it`),
+    ...priced.access.filter((a) => a.price > 0 && (a.priceSource === "reference" || a.priceSource === "company")).map((a) => `• ${where(a)}: ${a.priceSource === "company" ? "priced from your rental rates" : "estimated from the reference rental table"} — confirm it. ${a.why || ""}`.trim()),
   ];
+  // What the read priced on, the crew plan behind the days, and the height
+  // factors — every figure's reason, in the office notes.
+  const assumed = ASSUMED_KEYS.filter((k) => read.model?.assumed?.[k]).map((k) => `• ${ASSUMED[k].label}: ${String(read.model.assumed[k].value).replace(/_/g, " ")}${read.model.assumed[k].basis ? ` (${read.model.assumed[k].basis})` : ""}`);
+  const plan = priced.plan
+    ? `${priced.plan.hours} h on site: ${priced.plan.days} days for ${priced.plan.crew.size} painters at ${priced.plan.crew.hoursPerDay} productive h a day (${priced.plan.crew.sizeWhy})${priced.plan.setupHours ? `, incl. ${priced.plan.setupHours} h daily setup and clean-up` : ""}.`
+    : null;
+  const heights = (priced.lines || []).filter((l) => l.height && l.height.factor > 1).map((l) => `• ${l.area} — ${l.label}: ×${l.height.factor} on the hours (${l.height.why})`);
+  // "Check before sending" — what was ticked (who, when) and what was not —
+  // carried into the office notes; the builder warns on the unreviewed count.
+  let review = null;
+  try {
+    review = buildReview({ computed, priced, pricing, model: read.model, firstPass: out.firstPass, ownRates: out.own, compare: slice?.compare || null, currency: out.fctx?.currency || null });
+  } catch (err) {
+    console.error("[planRead] draft review:", err?.message);
+  }
+  const reviewLines = review
+    ? [
+        `• ${review.accessSentence}`,
+        ...review.checks.map((c) => `• ${c.tick ? (c.tick.verdict === "ok" ? "✓ Checked" : "✎ To change") : "☐ Not reviewed"}: ${c.text}${c.tick?.at ? ` (${String(c.tick.at).slice(0, 10)})` : ""}`),
+      ]
+    : [];
+  const materialsLine = priced.materials?.items?.length ? `Material list: ${priced.materials.items.map((i) => `${i.qty} ${i.unit} ${i.label}${i.priceSource === "default" ? " (default price)" : ""}`).join("; ")}.` : null;
   // Extra prep hours ride on the takeoff's lines (row.prepHours); the notes
   // say which the chat set, so the estimator checks them.
   const prep = (computed.surfaces || [])
@@ -156,7 +208,7 @@ export async function GET(request, { params }) {
   ]);
   const scope = tradesFromScope(read.scope);
   const reviewNotes = [
-    `Drafted by FieldQuo AI from the drawing read "${read.title}"${scope.stated ? ` for ${scope.trades.map((t) => t.tradeKey).join(", ")}` : ""}. Check every quantity marked estimated or low confidence.`,
+    `Drafted by FieldQuo AI from the drawing read "${read.title}"${slice ? ` — ${slice.label} only` : scope.stated ? ` for ${scope.trades.map((t) => t.tradeKey).join(", ")}` : ""}. Check every quantity marked estimated or low confidence.`,
     computed.summary ? `\n${computed.summary}` : "",
     computed.assumptions.length ? `\nAssumptions:\n${computed.assumptions.map((a) => `• ${a}`).join("\n")}` : "",
     computed.exclusions.length ? `\nExclusions:\n${computed.exclusions.map((a) => `• ${a}`).join("\n")}` : "",
@@ -164,6 +216,11 @@ export async function GET(request, { params }) {
     open.length ? `\nOpen questions:\n${open.join("\n")}` : "",
     unpriced.length ? `\nAccess equipment:\n${unpriced.join("\n")}` : "",
     prep.length ? `\nExtra prep hours:\n${prep.join("\n")}` : "",
+    assumed.length ? `\nPriced on:\n${assumed.join("\n")}` : "",
+    plan ? `\nCrew plan: ${plan}` : "",
+    heights.length ? `\nHeight:\n${heights.join("\n")}` : "",
+    materialsLine ? `\n${materialsLine}` : "",
+    reviewLines.length ? `\nCheck before sending:\n${reviewLines.join("\n")}` : "",
     noRate.length ? `\nNo rate yet:\n${noRate.join("\n")}` : "",
     suggestedOff.length ? `\nNot on this draft:\n${suggestedOff.join("\n")}` : "",
     adj && adj.amount > 0 ? `\nA margin adjustment line was added on the read to hold your ${adj.targetPct}% target.` : "",
@@ -178,6 +235,8 @@ export async function GET(request, { params }) {
       groups,
       reviewNotes,
       skipped,
+      // Items of "Check before sending" nobody ticked — the builder warns.
+      unreviewed: review ? review.unreviewed : 0,
     },
   });
 }

@@ -626,7 +626,10 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
       (async () => {
         const base = initialStateFromQuote(null);
         try {
-          const res = await fetch(`/api/plan-reads/${planReadId}/draft-quote`);
+          // `&planScope=` — one part of a read that holds several quotes
+          // (exterior / interior / a trade — lib/planRead/slices.js).
+          const planScope = new URLSearchParams(window.location.search).get("planScope");
+          const res = await fetch(`/api/plan-reads/${planReadId}/draft-quote${planScope ? `?scope=${encodeURIComponent(planScope)}` : ""}`);
           if (!res.ok) throw new Error("no draft");
           const data = await res.json();
           if (cancelled) return;
@@ -667,6 +670,9 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             // Sent with the save so the read records its quote and its files
             // become the quote's (POST /api/quotes sourcePlanReadId).
             planReadId: draft?.planReadId || planReadId,
+            // "Check before sending" items nobody ticked on the read — a
+            // warning above Save & send, never a block (lib/planRead/review.js).
+            planReadUnreviewed: Number(draft?.unreviewed) || 0,
           });
         } catch {
           if (!cancelled) setInitial(base);
@@ -1957,6 +1963,11 @@ export function QuoteBuilderForm({
     );
   }
 
+  /** A priced access line from the painting card (PaintAreas AccessAdder). */
+  function addAccessLine(groupTempId, line) {
+    setScopeGroups((prev) => prev.map((g) => (g.tempId === groupTempId ? { ...g, lineItems: [...g.lineItems, line] } : g)));
+  }
+
   function addLineItem(groupTempId) {
     setScopeGroups((prev) =>
       prev.map((g) =>
@@ -2860,6 +2871,7 @@ export function QuoteBuilderForm({
                 stainChoices: stainingChoices(categories),
                 onRoute: (kind, choice) => routePaintGroup(group.tempId, kind, choice),
               }}
+              onAddLine={(line) => addAccessLine(group.tempId, line)}
             />
           )}
 
@@ -3220,6 +3232,54 @@ export function QuoteBuilderForm({
       <CostMarginPanel
         currency={companyCurrency}
         estimate={estimate}
+        // "Access in this price": the painting groups' access lines (from the
+        // painting card's "Add access equipment", or a drawing read) with the
+        // sentence that says how each was priced. Office-only.
+        accessLines={
+          scopeGroups.some((g) => g.categoryKey === "interior_painting" || g.categoryKey === "exterior_painting")
+            ? scopeGroups.flatMap((g) =>
+                (g.lineItems || [])
+                  .map((l, index) => ({ l, index }))
+                  .filter(({ l }) => l?.meta?.access || l?.meta?.accessEstimate)
+                  .map(({ l, index }) => ({
+                    groupTempId: g.tempId,
+                    index,
+                    label: l.description,
+                    amount: l.amount,
+                    why: l.meta.access?.why || l.meta.accessEstimate?.why || null,
+                    source: l.meta.access?.source || l.meta.accessEstimate?.source || null,
+                    owned: l.meta.access?.owned === true,
+                    zeroReason: l.meta.access?.zeroReason || null,
+                    zeroAt: l.meta.access?.zeroAt || null,
+                  })),
+              )
+            : null
+        }
+        // The highest painting work on the card — so "No access equipment
+        // priced" can say whether the measurements suggest it is needed.
+        accessHighestFt={Math.max(
+          0,
+          ...scopeGroups
+            .filter((g) => g.categoryKey === "interior_painting" || g.categoryKey === "exterior_painting")
+            .flatMap((g) => (Array.isArray(g.takeoff?.areas) ? g.takeoff.areas : []))
+            .flatMap((a) => [Number(a?.heightFt) || 0, ...(a?.substrates || []).map((s) => Number(s?.heightFt) || 0)]),
+        )}
+        // A $0 access line asks once why — "we own it", "client provides"…
+        // — and the reason rides on the line's office-only meta, dated.
+        onAccessReason={(groupTempId, index, reason) =>
+          setScopeGroups((prev) =>
+            prev.map((g) =>
+              g.tempId !== groupTempId
+                ? g
+                : {
+                    ...g,
+                    lineItems: g.lineItems.map((l, i) =>
+                      i !== index ? l : { ...l, meta: { ...(l.meta || {}), access: { ...(l.meta?.access || {}), zeroReason: reason, zeroAt: new Date().toISOString() } } },
+                    ),
+                  },
+            ),
+          )
+        }
         workers={workers}
         crew={crew}
         onCrewChange={setCrew}
@@ -3888,6 +3948,15 @@ export function QuoteBuilderForm({
       {renderReviewNotesBox()}
 
       {renderPhotosBox()}
+
+      {!isEdit && initial?.planReadId && initial?.planReadUnreviewed > 0 && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" role="status">
+          {t("app.planRead.builderUnreviewed", "{n} items of the drawing read's “Check before sending” are not reviewed. They are listed in the review notes above.", { n: initial.planReadUnreviewed })}{" "}
+          <Link href={`/app/quotes/drawings/${initial.planReadId}`} className="underline">
+            {t("app.planRead.builderUnreviewedLink", "Review them on the read")}
+          </Link>
+        </div>
+      )}
 
       <QuoteTotalsBar
         // What is still missing, worked out here rather than by the model. Same

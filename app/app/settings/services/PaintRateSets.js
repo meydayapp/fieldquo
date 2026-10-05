@@ -47,8 +47,9 @@ const changed = "border-amber-400 bg-amber-50 dark:bg-amber-950/30";
 const own = (map, key) =>
   map && key && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
 
-/** Deep-set / deep-delete on a cloned overrides object, RateCard's way. */
-function withPath(overrides, path, value) {
+/** Deep-set / deep-delete on a cloned overrides object, RateCard's way.
+ *  Exported for PaintHeightPrepSettings.js, which edits the same overrides. */
+export function withPath(overrides, path, value) {
   const next = structuredClone(overrides || {});
   const parts = path.split(".");
   if (value === undefined) {
