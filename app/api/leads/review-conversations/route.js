@@ -10,8 +10,10 @@
 //
 // Owner and admin only (the owner's ask), AND the requests delete rung the
 // board's own delete asks — both, so an admin whose grid was narrowed below
-// delete is refused here too. A read-only support session is refused before
-// either (supportSessionRefusal), as on every lead delete.
+// delete is refused here too. A read-only support session may READ the list
+// (support must see exactly what the owner sees — check:impersonation) but
+// is refused the POST before anything else (supportSessionRefusal), as on
+// every lead delete.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -21,10 +23,10 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { supportSessionRefusal } from "@/lib/leads/deleteLead";
 import { buildConversationReview, applyConversationReview } from "@/lib/leads/conversationReview";
 
-async function gate(request) {
+async function gate(request, { write }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return { response };
-  const support = supportSessionRefusal(member);
+  const support = write ? supportSessionRefusal(member) : null;
   if (support) return { response: NextResponse.json(support.body, { status: support.status }) };
   if (member.role !== "owner" && member.role !== "admin") {
     return { response: NextResponse.json({ error: "Only an owner or an admin can review leads made from conversations." }, { status: 403 }) };
@@ -35,14 +37,14 @@ async function gate(request) {
 }
 
 export async function GET(request) {
-  const { member, response } = await gate(request);
+  const { member, response } = await gate(request, { write: false });
   if (response) return response;
   const review = await buildConversationReview(db, { companyId: member.companyId });
   return NextResponse.json(review);
 }
 
 export async function POST(request) {
-  const { member, response } = await gate(request);
+  const { member, response } = await gate(request, { write: true });
   if (response) return response;
   const body = await request.json().catch(() => null);
   const result = await applyConversationReview(db, {
