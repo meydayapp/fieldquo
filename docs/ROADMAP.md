@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 5 October 2026, night (four gaps from testing: drawing read "Read again" — a confirmed, credit-showing full re-read of a finished read, edit permission only — and MEASURE_VERSION so sheets measured by an older measurement pass are measured again and the read says so; a no-show outcome for past appointments — Held / No-show / Rescheduled / Cancelled one tap on the calendar, a daily "Did this visit happen?" nudge to the assignee, no-show rate and a corrected adjusted close rate in the agency metrics and Marketing results; and booking-page / AI bookings with no prior enquiry now become leads (source booking_page, no extra alert, linked not duplicated within 180 days). Schema additive — NOT applied; apply BEFORE deploying. See "Read again, no-shows, and bookings as leads" below.)
+Last updated: 5 October 2026, night (four gaps from testing: drawing read "Read again" — a confirmed, credit-showing full re-read of a finished read, edit permission only — and MEASURE_VERSION so sheets measured by an older measurement pass are measured again and the read says so; a no-show outcome for past appointments — Held / No-show / Rescheduled / Cancelled one tap on the calendar, a daily "Did this visit happen?" nudge to the assignee, no-show rate and a corrected adjusted close rate in the agency metrics and Marketing results; and booking-page / AI bookings with no prior enquiry now become leads (source booking_page, no extra alert, linked not duplicated within 180 days). Schema additive — applied in production 2026-10-05. Booking leads take the booker's "when do you need this done?" as their timeline. See "Read again, no-shows, and bookings as leads" below.)
 Last updated: 5 October 2026 (marketing agency access: Settings › Marketing agency access keys + sharing switches, the /api/v1 marketing API and REST-hook events, a Zapier app in integrations/zapier (not pushed), and Marketing › Marketing results from the same code — see "Marketing agency access" below. Schema additive, NOT applied; SQL in that section.)
 Last updated: 5 October 2026, late (painting presets against NPC — picket fence, exterior stain, cabinet boxes, French doors, built-ins sprayed/brushed, finished suggested rates, cabinet enamel coverage — and coats change labour time: hours × coats ÷ standard coats, prep never scaled, one extra-coat rule, a dry-time wait charged only when the crew waits on site, a company toggle. No schema change. See "Painting presets against NPC, and coats change labour time" below.)
 Last updated: 5 October 2026 (TrueFinish's remaining quotes and voiding a test payment. (1) scripts/import-truefinish-quotes.mjs — DRY by default, not yet applied — brings over TrueFinish's 46 sent and 60 declined quotes as historical quotes (createRecordedQuote kinds "sent"/"declined": source createdAt/sentAt/language, declinedAt null because TrueFinish never recorded it, "Old system: Q2026-0134" on the internal note and on the quote page, no job/invoice/payment/share token/message), matches clients by email → phone → exact name with the name required to agree or be one typo away (ties and identifier-only matches are refused for a person), and links an EMPTY LeadRequest.quoteId so the KPI funnel counts lead → quote; lead status untouched. Imported quotes carry a real sentAt, so the manual "Call about this quote" gate and the quotes list's follow-up group now refuse historicalImportedAt too. check:truefinish-quote-import. (2) Void payment — owner/admin only, with a reason: removes a payment recorded BY HAND (cash, cheque, e-transfer, Zelle… card-taken-elsewhere) and any hand refunds against it, reopens the invoice through refreshFamilyLedger({ reopen }), writes the audit row in the same transaction; anything the card processor touched is refused (refund instead). The invoice / client / job delete refusals now say exactly what to clear; the client page gets the delete control it never had. Help: Refunds › Voiding a payment recorded by mistake (en/fr/es). check:void-manual-payment.)
@@ -189,7 +189,7 @@ details to the build. Choices are stated so they can be overruled.
   your booking page" (9 languages); not held against the score for budget or
   timeline.
 
-### Schema (additive — NOT applied; apply BEFORE deploying)
+### Schema (additive — applied in production 2026-10-05)
 
 ```sql
 ALTER TYPE "AppointmentStatus" ADD VALUE IF NOT EXISTS 'no_show';
@@ -218,10 +218,13 @@ rescheduled → new time, booking-linked appointment);
 
 ### Owed / open
 
-- Apply the SQL, then deploy.
-- A booking's "When do you need this done?" answer is in the booking notes,
-  not mapped to the lead's timeline (so it scores as not asked, not as
-  declined). Mapping it would lift booking leads' scores — a product call.
+- SQL applied in production 2026-10-05 (coordinator).
+- Decided (owner, 2026-10-05): the booking page's "When do you need this
+  done?" answer IS the created lead's timeline (scored) and
+  `intake.whenNeeded` (shown) — the cleaned answer on the free path, read
+  back from the booking's notes line on the paid path
+  (`whenNeededFromNotes`); `booking_page` is now in ASKED_BY_SOURCE for
+  timeline. An AI booking asks no such question and gets none.
 
 ## Marketing agency access, the agency API + Zapier app, and Marketing results (5 October 2026)
 

@@ -533,8 +533,10 @@ for (const [source, fields] of Object.entries(NOT_ASKED_BY_SOURCE)) {
   }
 }
 // …and the scorer holds an absence against a lead only where the channel put
-// the question: the two forms that do, and the phone's urgency question.
-ok(Object.keys(ASKED_BY_SOURCE).sort().join(",") === "instant_quote,phone_agent,phone_agent_recovered,self_quote", "only four sources put a scored question", Object.keys(ASKED_BY_SOURCE));
+// the question: the two forms that do, the phone's urgency question, and
+// the booking page's required "when do you need this done?" (2026-10-05).
+ok(Object.keys(ASKED_BY_SOURCE).sort().join(",") === "booking_page,instant_quote,phone_agent,phone_agent_recovered,self_quote", "only five sources put a scored question", Object.keys(ASKED_BY_SOURCE));
+ok(unaskedForScoring("booking_page").join(",") === "budget", "the booking page asks when, never budget");
 ok(unaskedForScoring("self_quote").length === 0 && unaskedForScoring("instant_quote").length === 0, "the self-quote form and the instant quote are scored exactly as before");
 ok(unaskedForScoring("meta_lead_form").join(",") === "budget,timeline", "a Meta lead form is not penalised for questions it never had");
 ok(unaskedForScoring("meta_messenger").join(",") === "budget,timeline" && unaskedForScoring("meta_instagram").join(",") === "budget,timeline", "…nor a Messenger or Instagram conversation");

@@ -621,7 +621,14 @@ export async function POST(request, { params }) {
   // there is one, else made here with the page's landing as its attribution
   // — no alert, the booking already told the company (lib/booking/
   // bookingLead.js). Never throws.
-  await ensureBookingLead({ booking, companyId: company.id, clientId: client.id, attribution: attributionFromVisit(visit) });
+  // Their "when do you need this done?" answer becomes the lead's timeline.
+  await ensureBookingLead({
+    booking,
+    companyId: company.id,
+    clientId: client.id,
+    attribution: attributionFromVisit(visit),
+    when: { whenNeeded: cleaned.whenNeeded, timeline: cleaned.timeline },
+  });
 
   // appointment.booked / estimate.scheduled for the marketing agency.
   nudgeAgencyEvents(company.id);

@@ -36,6 +36,8 @@ const { channelOf } = await import("@/lib/agency/channels");
 const { loadLeadFacts } = await import("@/lib/agency/leadFacts");
 const { leadSourceLabelKey } = await import("@/lib/leads/sourceLabel");
 const { unaskedForScoring, NOT_ASKED_BY_SOURCE } = await import("@/lib/leads/qualifiers");
+const { tradeAnswerLines, whenNeededFromNotes, cleanTradeAnswers } = await import("@/lib/leads/tradeQuestions");
+const { scoreLead } = await import("@/lib/leads/score");
 const { APP_MESSAGES } = await import("@/app/i18n/appMessages");
 const { db } = await import("@/lib/db");
 
@@ -91,7 +93,7 @@ async function seed() {
 }
 await seed();
 const booking = async (id, over = {}) =>
-  db.booking.create({ data: { id, clientName: "Dee New", clientEmail: "dee@x.test", clientPhone: "+16135550199", language: "fr", notes: "When needed: This month\nPaint the front porch", serviceKey: "exterior_painting", mode: "visit", status: "confirmed", source: null, leadRequestId: null, quoteId: null, ...over } });
+  db.booking.create({ data: { id, clientName: "Dee New", clientEmail: "dee@x.test", clientPhone: "+16135550199", language: "fr", notes: [tradeAnswerLines("exterior_painting", { whenNeeded: "within_month", answers: {} }, "fr").join("\n"), "Paint the front porch"].join("\n\n"), serviceKey: "exterior_painting", mode: "visit", status: "confirmed", source: null, leadRequestId: null, quoteId: null, ...over } });
 const landing = { source: "facebook", utmSource: "facebook", utmMedium: "paid_social", utmCampaign: "Fall porches", fbc: "fb.1.1727000000000.IwAR0abcdefghij", landedAt: daysAgo(0).toISOString() };
 
 const b1 = await booking("bk_1");
@@ -121,9 +123,20 @@ await db.leadRequest.create({ data: { id: "l_stale", companyId: CO, name: "Fay F
 const r4 = await ensureBookingLead({ booking: await booking("bk_4", { clientName: "Fay Former", clientEmail: "fay@x.test", clientPhone: null, serviceKey: null, notes: null }), companyId: CO, now: NOW });
 ok("an enquiry older than 180 days does not hold the booking → a new lead", r4.action === "created" && r4.leadId !== "l_stale", r4);
 
-const r5 = await ensureBookingLead({ booking: await booking("bk_5", { clientName: "Gus Caller", clientEmail: "", clientPhone: "+16135550123", source: "phone_assistant", serviceKey: null }), companyId: CO, now: NOW });
+const r5 = await ensureBookingLead({ booking: await booking("bk_5", { clientName: "Gus Caller", clientEmail: "", clientPhone: "+16135550123", source: "phone_assistant", serviceKey: null, notes: "Caller: Gus Caller\nBooked by the phone assistant." }), companyId: CO, now: NOW });
 const aiLead = r5.leadId ? await db.leadRequest.findFirst({ where: { id: r5.leadId } }) : null;
+ok("the booker's own \"when do you need this done?\" is the lead's timeline (read back from the notes, in the company's French) and on its intake", created?.timeline === "2_weeks" && created?.intake?.whenNeeded === "within_month", [created?.timeline, created?.intake]);
+{
+  const withAnswer = scoreLead({ email: "dee@x.test", phone: "+16135550199", timeline: "2_weeks", message: "Paint the front porch" }, { unasked: unaskedForScoring("booking_page"), source: "booking_page" });
+  const without = scoreLead({ email: "dee@x.test", phone: "+16135550199", timeline: null, message: "Paint the front porch" }, { unasked: unaskedForScoring("booking_page"), source: "booking_page" });
+  ok("…and the score uses it: the same booker scores higher with their answer than without", created?.score === withAnswer.score && withAnswer.score > without.score, [created?.score, withAnswer.score, without.score]);
+}
+const rWhen = await ensureBookingLead({ booking: await booking("bk_when", { clientName: "Ivy Urgent", clientEmail: "ivy@x.test", clientPhone: null, notes: "Leak under the sink", serviceKey: "plumbing" }), companyId: CO, when: cleanTradeAnswers("plumbing", { whenNeeded: "today" }), now: NOW });
+const whenLead = rWhen.leadId ? await db.leadRequest.findFirst({ where: { id: rWhen.leadId } }) : null;
+ok("the free path's cleaned answer (urgent ladder: Today) wins when it is passed — timeline asap", whenLead?.timeline === "asap" && whenLead?.intake?.whenNeeded === "today", [whenLead?.timeline, whenLead?.intake]);
+ok("whenNeededFromNotes: only the exact line the booking wrote, in any of the languages; nothing invented", whenNeededFromNotes("plumbing", tradeAnswerLines("plumbing", { whenNeeded: "this_week" }, "de").join("\n"))?.timeline === "2_weeks" && whenNeededFromNotes("exterior_painting", "I need it this week please") === null && whenNeededFromNotes("exterior_painting", null) === null);
 ok("an AI receptionist's booking → a lead in the phone's own source, never \"website\"", r5.action === "created" && aiLead?.source === "phone_agent" && channelOf(aiLead) === "organic", aiLead?.source);
+ok("…with no timeline invented — the receptionist's booking asked no such question", aiLead?.timeline == null && aiLead?.intake?.whenNeeded === undefined);
 
 const r6 = await ensureBookingLead({ booking: await booking("bk_6", { clientEmail: "", clientPhone: null, clientName: "Nobody" }), companyId: CO, now: NOW });
 ok("nothing to reach them on → no lead (no email, no phone, nothing anyone can work)", r6.action === "failed" && r6.reason === "no_contact");
@@ -135,7 +148,7 @@ ok("a database failure is logged and returned, never thrown into the booking", r
 section("3. The three ways a booking is confirmed");
 // ═══════════════════════════════════════════════════════════════════════════
 await db.eventType.create({ data: { id: "et_1", companyId: CO, userId: "u_owner", name: "Estimate", slug: "estimate", durationMinutes: 60 } });
-await db.booking.create({ data: { id: "bk_paid", eventTypeId: "et_1", clientName: "Hal Paid", clientEmail: "hal@x.test", clientPhone: null, startTime: daysAgo(-3), endTime: daysAgo(-3), mode: "visit", status: "pending_payment", notes: "Deck", serviceKey: null, leadRequestId: null, quoteId: null } });
+await db.booking.create({ data: { id: "bk_paid", eventTypeId: "et_1", clientName: "Hal Paid", clientEmail: "hal@x.test", clientPhone: null, startTime: daysAgo(-3), endTime: daysAgo(-3), mode: "visit", status: "pending_payment", notes: [tradeAnswerLines("", { whenNeeded: "this_season" }, "en").join("\n"), "Deck"].join("\n\n"), serviceKey: null, leadRequestId: null, quoteId: null } });
 // settleBookingFee reads the event type with its company.
 const realFind = db.booking.findUnique.bind(db.booking);
 db.booking.findUnique = async (args) => {
@@ -157,9 +170,10 @@ const settled = await settleBookingFee("bk_paid", { amountCents: 5000, currency:
 db.booking.findUnique = realFind;
 const paid = await db.booking.findFirst({ where: { id: "bk_paid" } });
 ok("a PAID booking: once the fee settles, the lead is made — after the confirmation, never for an unpaid hold", settled.settled === true && ensureCalledAfter === "finalize+lead" && Boolean(paid.leadRequestId), { settled, ensureCalledAfter, lead: paid.leadRequestId });
+ok("…and its timeline comes from the notes the hold carried (the answer was given long before the fee settled)", (await db.leadRequest.findFirst({ where: { id: paid.leadRequestId } }))?.timeline === "1_3_months");
 ok("…a hold that never settles makes no lead", (await settleBookingFee("bk_missing", {}, { db, finalize: async () => {}, ensureLead: async () => { throw new Error("called"); } })).settled === false);
 const confirm = code("app/api/booking/[companySlug]/confirm/route.js");
-ok("the FREE booking page path calls it after the confirmation, with the page visit's landing", /await finalizeBooking\(\{ company, eventType, booking, clientId: client\.id \}\);[\s\S]{0,600}await ensureBookingLead\(\{ booking, companyId: company\.id, clientId: client\.id, attribution: attributionFromVisit\(visit\) \}\)/.test(confirm));
+ok("the FREE booking page path calls it after the confirmation, with the page visit's landing and the booker's cleaned \"when\" answer", /await finalizeBooking\(\{ company, eventType, booking, clientId: client\.id \}\);[\s\S]{0,600}await ensureBookingLead\(\{\s*booking,\s*companyId: company\.id,\s*clientId: client\.id,\s*attribution: attributionFromVisit\(visit\),\s*when: \{ whenNeeded: cleaned\.whenNeeded, timeline: cleaned\.timeline \},\s*\}\)/.test(confirm));
 ok("…and the visit it reads is the one linkBookingVisit already found (returned, not looked up twice)", /const visit = await linkBookingVisit\(company\.id, visitToken, booking\.id\);/.test(confirm) && /return visit;/.test(confirm));
 const voice = code("lib/voice/availability.js");
 ok("the AI booking (receptionist and AI employee) calls it, and puts the lead on the call so save_caller updates it", /ensureBookingLead\(\{ booking, companyId, clientId: client\.id \}\)/.test(voice) && /voiceCall\.updateMany\(\{ where: \{ id: callId, companyId, leadId: null \}, data: \{ leadId: linked\.leadId \} \}\)/.test(voice));
@@ -180,7 +194,7 @@ section("5. Labels and wiring");
 // ═══════════════════════════════════════════════════════════════════════════
 const langs = Object.keys(APP_MESSAGES);
 ok("the lead's source reads \"Booked on your booking page\", in all nine languages", leadSourceLabelKey("booking_page") === "app.leads.source.booking_page" && langs.length === 9 && langs.every((l) => typeof APP_MESSAGES[l]["app.leads.source.booking_page"] === "string") && APP_MESSAGES.en["app.leads.source.booking_page"] === "Booked on your booking page");
-ok("the page asks no budget or timeline column, so neither is held against the score or shown as declined", unaskedForScoring("booking_page").length === 2 && NOT_ASKED_BY_SOURCE.booking_page?.length === 2);
+ok("the page asks no budget (never held against it) but does ask when — so the timeline is scored", JSON.stringify(unaskedForScoring("booking_page")) === JSON.stringify(["budget"]) && JSON.stringify(NOT_ASKED_BY_SOURCE.booking_page) === JSON.stringify(["budget"]));
 const createLead = code("lib/leads/createLead.js");
 ok("createScoredLead skips the alert only on an explicit notify: false", /if \(!importedAt && input\.notify !== false\) notifyEvent\(/.test(createLead));
 const schema = code("prisma/schema.prisma");
@@ -205,6 +219,7 @@ if (!MUTANT && !fails.length) {
     ["any company's lead", "if (!l || l.companyId !== companyId) return false;", "if (!l) return false;"],
     ["the alert sent", "notify: false,", ""],
     ["the booking never names its lead", "await db.booking.update({ where: { id: booking.id }, data: { leadRequestId: lead.id }, select: { id: true } });", ""],
+    ["the booker's timeline dropped", "...(answered?.timeline ? { timeline: answered.timeline } : {}),", ""],
     ["attribution dropped", "...(attribution && typeof attribution === \"object\" ? { attribution } : {}),", ""],
     ["throws into the booking", "    console.error(\"[booking] lead not linked:\", booking?.id, err?.message);\n    return { action: \"failed\", reason: \"error\" };", "    throw err;"],
   ];
