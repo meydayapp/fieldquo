@@ -1,15 +1,18 @@
 // app/api/settings/forecast/route.js
 //
-// The two forecast settings anything in the product actually reads:
-// jobs-per-week capacity, which lib/analytics/minimumPrice.js divides overhead
-// by, and the target margin it then marks the cost per job up by.
+// The forecast settings anything in the product actually reads: job capacity
+// (per week or per month), which lib/analytics/minimumPrice.js divides
+// overhead by; the target margin it then marks the cost per job up by; and
+// billable crew hours a month, which a quote's overhead is shared by (the
+// job's crew-hours ÷ these — lib/costing/overheadShare.js, the owner's rule
+// of 2026-10-04) and which the hourly floor divides by.
 //
-// ── Why only two fields ─────────────────────────────────────────────────────
+// ── Why only these fields ───────────────────────────────────────────────────
 //
-// The ForecastSettings model has fourteen columns. Two of them are read
-// anywhere; the other twelve — conversion rates, curve coefficients, a
-// smoothing alpha — are written by nothing and read by nothing. This route
-// exposes the ones that have a consumer.
+// The ForecastSettings model has fifteen-odd columns. These are the ones read
+// anywhere; the rest — conversion rates, curve coefficients, a smoothing
+// alpha — are written by nothing and read by nothing. This route exposes the
+// ones that have a consumer.
 //
 // Exposing the rest would be the mirror image of the bug it fixes: a settings
 // form whose inputs save fine and change nothing. When something reads them, add
@@ -28,7 +31,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
-import { parseCapacity } from "@/lib/analytics/capacity";
+import { parseCapacity, parseBillableHours } from "@/lib/analytics/capacity";
+import { billableHoursFrom } from "@/lib/costing/overheadShare";
+
+// The columns both handlers read back — one list, so GET and PUT cannot
+// drift on which settings exist.
+const FORECAST_SELECT = {
+  jobsPerWeekCapacity: true,
+  jobsPerMonthCapacity: true,
+  targetMargin: true,
+  billableHoursPerMonth: true,
+};
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -36,7 +49,7 @@ export async function GET(request) {
 
   const row = await db.forecastSettings.findUnique({
     where: { companyId: member.companyId },
-    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true },
+    select: FORECAST_SELECT,
   });
 
   return NextResponse.json({
@@ -47,6 +60,10 @@ export async function GET(request) {
     // month, as typed, rather than the weekly figure derived from it.
     jobsPerMonthCapacity: row?.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(row?.targetMargin),
+    // A Decimal on the row; a number or null here. Read through the same
+    // bound the quote costing reads it through, so a stored value the costing
+    // would ignore is not shown on the screen as if it counted.
+    billableHoursPerMonth: billableHoursFrom(row?.billableHoursPerMonth),
   });
 }
 
@@ -106,6 +123,15 @@ export async function PUT(request) {
   }
   const marginWrite = margin.skip ? {} : { targetMargin: margin.value };
 
+  // Billable crew hours a month — the divisor a quote's overhead is shared
+  // by. Same discipline as the margin: refused, not clamped, and refused
+  // before anything is written (lib/analytics/capacity.js parseBillableHours).
+  const hours = parseBillableHours(body?.billableHoursPerMonth);
+  if (hours.error) {
+    return NextResponse.json({ error: hours.error }, { status: 400 });
+  }
+  const hoursWrite = hours.skip ? {} : { billableHoursPerMonth: hours.value };
+
   // Clearing it back to "unknown" has to be possible: the minimum-price
   // calculation refuses to answer without a capacity, and a company that isn't
   // sure should be able to say so rather than leave a guess in place.
@@ -120,26 +146,32 @@ export async function PUT(request) {
       jobsPerWeekCapacity: cap.week,
       jobsPerMonthCapacity: cap.month,
       ...marginWrite,
+      ...hoursWrite,
     },
     update: {
       jobsPerWeekCapacity: cap.week,
       jobsPerMonthCapacity: cap.month,
       ...marginWrite,
+      ...hoursWrite,
     },
-    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true },
+    select: FORECAST_SELECT,
   });
 
   const marginWords = margin.skip
     ? ""
     : `, target margin ${margin.value === null ? "not set" : `${Math.round(margin.value * 100)}%`}`;
+  const hoursWords = hours.skip
+    ? ""
+    : `, billable crew hours ${hours.value === null ? "not set" : `${hours.value}/month`}`;
   await recordActivity(member, {
     action: "settings.forecast_updated",
     entityType: "settings",
-    summary: `Set job capacity to ${value === null ? "not set" : `${value}/${unit}`}${marginWords}`,
+    summary: `Set job capacity to ${value === null ? "not set" : `${value}/${unit}`}${marginWords}${hoursWords}`,
     metadata: {
       jobsPerWeekCapacity: cap.week || null,
       ...(cap.month !== null ? { jobsPerMonthCapacity: cap.month } : {}),
       ...(margin.skip ? {} : { targetMarginPct: toPct(margin.value) }),
+      ...(hours.skip ? {} : { billableHoursPerMonth: hours.value }),
     },
   });
 
@@ -147,5 +179,6 @@ export async function PUT(request) {
     jobsPerWeekCapacity: saved.jobsPerWeekCapacity || null,
     jobsPerMonthCapacity: saved.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(saved.targetMargin),
+    billableHoursPerMonth: billableHoursFrom(saved.billableHoursPerMonth),
   });
 }

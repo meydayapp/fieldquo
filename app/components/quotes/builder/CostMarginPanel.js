@@ -28,17 +28,31 @@
 // keep honest, and the copy is always the one that rots.
 "use client";
 
+import Link from "next/link";
 import { TrendingUp, AlertTriangle, Plus, Trash2, Undo2 } from "lucide-react";
 import { formatAppMoney } from "@/lib/format/money";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import TeamCrewPicker from "@/app/components/quotes/TeamCrewPicker";
 import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
-import { costingDefaultsUsed } from "@/lib/costing/costingDefaults";
+import { costingDefaultsUsed, isRealOverheadBasis } from "@/lib/costing/costingDefaults";
 
 // toFixed does not group, so this panel printed $1113.11 and $2100.00 beside
 // a correctly-grouped total in the same sticky bar. Shared formatter now —
 // see lib/format/money.js. Bound to the company's currency inside the
 // component, because a hardcoded default is how the original bug read.
+
+/**
+ * Hours (and the share-of-month percentage) in the reader's number format, to
+ * one decimal at most — "320", "37.5", "1 250" in French. The overhead
+ * sentence quotes them back beside money, and "37.50000000000001 h" or an
+ * English comma in a German sentence would read as a broken panel.
+ */
+function formatHours(n, language) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "—";
+  return new Intl.NumberFormat(numberLocaleFor(language), { maximumFractionDigits: 1 }).format(v);
+}
 
 const SIGNAL_STYLES = {
   green: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
@@ -538,9 +552,9 @@ export default function CostMarginPanel({
         </div>
 
         {/* Only offered when we have nothing better. Once the company's real
-            cost per job is known, a percentage box next to it would just be
-            two answers to the same question. */}
-        {estimate.overheadBasis !== "per_job" && (
+            cost per job — or per crew-hour — is known, a percentage box next
+            to it would just be two answers to the same question. */}
+        {!isRealOverheadBasis(estimate.overheadBasis) && (
           <div>
             <label className="text-xs text-muted-foreground block mb-1">
               {t("app.cost.overheadPct")}
@@ -768,9 +782,11 @@ export default function CostMarginPanel({
         />
         <Row
           label={
-            estimate.overheadBasis === "per_job"
-              ? t("app.cost.overheadShare")
-              : t("app.cost.overheadEstimated", { pct: overheadPct })
+            estimate.overheadBasis === "per_hour"
+              ? t("app.cost.overheadTimeShare")
+              : estimate.overheadBasis === "per_job"
+                ? t("app.cost.overheadShare")
+                : t("app.cost.overheadEstimated", { pct: overheadPct })
           }
           value={money(estimate.overhead)}
         />
@@ -800,13 +816,46 @@ export default function CostMarginPanel({
       {/* Where the overhead number came from. A share of the price is not a
           cost — quoting the same job higher doesn't raise the rent — so when
           we're guessing, the panel says we're guessing. */}
-      {estimate.overheadBasis === "per_job" && overheadSource ? (
+      {estimate.overheadBasis === "per_hour" && estimate.overheadShare ? (
+        // The time share, worked through in one line: the month's fixed costs
+        // over its billable crew-hours is a rate; the rate times this job's
+        // hours is the figure above. Every number in it is one the estimator
+        // can check against Settings → Overhead or the labour row.
         <p className="mt-2 text-xs text-muted-foreground">
-          {t("app.cost.overheadSource", {
-            monthly: money(overheadSource.monthlyFixedCosts),
-            jobs: overheadSource.jobsPerMonth,
-          })}
+          {overheadSource?.billableHoursPerMonth && overheadSource.monthlyFixedCosts != null
+            ? t("app.cost.overheadTimeSource", {
+                monthly: money(overheadSource.monthlyFixedCosts),
+                capacity: formatHours(overheadSource.billableHoursPerMonth, language),
+                rate: money(estimate.overheadShare.perHour),
+                hours: formatHours(estimate.overheadShare.hours, language),
+                share: formatHours((estimate.overheadShare.share ?? 0) * 100, language),
+              })
+            : t("app.cost.overheadTimeRate", {
+                rate: money(estimate.overheadShare.perHour),
+                hours: formatHours(estimate.overheadShare.hours, language),
+              })}
         </p>
+      ) : estimate.overheadBasis === "per_job" && overheadSource ? (
+        <>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("app.cost.overheadSource", {
+              monthly: money(overheadSource.monthlyFixedCosts),
+              jobs: overheadSource.jobsPerMonth,
+            })}
+          </p>
+          {/* Per job because nobody has said how many crew-hours the month
+              holds — not because this job has no hours yet (that falls back
+              to per_job too, and the setting would change nothing). So only
+              when the hours are genuinely unset, and on a quote: an invoice's
+              overhead is per job by design. */}
+          {!hoursAreActual && !overheadSource.billableHoursPerMonth && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              <Link href="/app/settings/overhead#capacity" className="underline">
+                {t("app.cost.setBillableHours")}
+              </Link>
+            </p>
+          )}
+        </>
       ) : (
         <p className="mt-2 text-xs text-muted-foreground">
           {t("app.cost.overheadGuess")}

@@ -323,18 +323,18 @@ export const ARTICLES = {
   "settings-overhead": {
     title: "Overhead",
     summary:
-      "Everything the business costs to run in a month — fixed costs, salaries, debt, assets — and the minimum price a job must fetch to cover it.",
-    updated: "2026-09-12",
+      "Everything the business costs to run in a month — fixed costs, salaries, debt, assets — the minimum price a job must fetch to cover it, and each quote's fair share of it by the crew time it takes.",
+    updated: "2026-10-04",
     intro: [
       "**Settings → Services & pricing → Overhead** is where you write down what your company costs whether or not you win a job: the rent, the insurance, your own draw, the truck loan, the spray rig you will one day replace. Divided by how many jobs you can take on, that becomes the lowest price a job can go out at and still cover the business.",
-      "That number — **Minimum price** — is the one a contractor most wants and least often has. It is also fed into the Cost & Margin panel of every quote as real overhead per job, replacing a guessed percentage.",
+      "That number — **Minimum price** — is the one a contractor most wants and least often has. The same monthly total feeds the Cost & Margin panel of every quote as real overhead, replacing a guessed percentage — and once you enter your **billable crew hours a month**, each quote carries its share of the month by the crew time it takes, so a two-week job carries more than a half-day repair.",
     ],
     sections: [
       {
         id: "overview",
         heading: "What is on the screen",
         blocks: [
-          { p: "Top to bottom: **Your minimum price** (two inputs and four tiles), **Paid hours that never reached a job**, then five registers — **Fixed costs**, **Salaries**, **Debt**, **Assets & depreciation** and **Bills due**." },
+          { p: "Top to bottom: **Your minimum price** (jobs per week or month, **Target margin %** and **Billable crew hours a month (everyone in the field, together)**, then four tiles, and three more once the hours are set), **Paid hours that never reached a job**, then five registers — **Fixed costs**, **Salaries**, **Debt**, **Assets & depreciation** and **Bills due**." },
           { figure: "live:app-settings-overhead", caption: "Settings → Overhead — Jobs per week and Target margin, the four tiles, then the registers that feed them." },
         ],
       },
@@ -348,6 +348,20 @@ export const ARTICLES = {
             "Read the note under them: it says which registers the total includes, and adds the depreciation on your assets and the interest on your loans.",
           ] },
           { p: "Jobs per month is jobs per week × 4.33; cost per job is the monthly total divided by that; the minimum price is cost per job divided by (1 − margin). The minimum covers overhead only — the materials and labour of the specific job are on top. Bills due do not change it: they are cash flow, not cost." },
+        ],
+      },
+      {
+        id: "billable-crew-hours",
+        heading: "Billable crew hours: each job's fair share",
+        blocks: [
+          { p: "**Billable crew hours a month** is the hours your whole field crew can actually invoice in a month, everyone together — not hours worked, because driving, quoting and supplier runs are not billable. Two people billing 160 hours each is 320. Enter it beside the jobs and the margin and press **Save**." },
+          { p: "Once it is set, a quote's overhead is the month's fixed costs × (the job's crew-hours ÷ the month's billable crew-hours). Say your fixed costs are $8,000 a month and your two people bill 320 hours: every crew-hour carries $25. A two-week job for both of them is 160 crew-hours — half the month — so it carries $4,000, half the month's overhead. A half-day repair for one person, 4 crew-hours, carries $100. Split per job instead, a company doing 2 jobs a month would charge both of those $4,000, and one with capacity for 4 would charge both $2,000, whatever their size." },
+          { bullets: [
+            "**Hours set and the quote has labour hours** — the time share above. The quote's panel shows the whole sum: monthly costs ÷ billable crew-hours = the hourly rate × this job's hours, and what share of your month that is.",
+            "**Hours not set (or the quote has no hours yet), jobs per week or month set** — the monthly total divided by your jobs a month, as before, labelled **this job's share**. The panel suggests setting your billable hours.",
+            "**Neither set** — 10% of the price, labelled **estimated**, with a note saying it is a guess.",
+          ] },
+          { note: "With the hours set, three more tiles appear: **Billable crew-hours a month**, **Overhead per crew-hour** (what every billable hour has to earn toward fixed costs, before labour and materials) and **Minimum per crew-hour** (that figure at your target margin). They appear even if jobs per week is blank. Leave the box blank to go back to the per-job split; FieldQuo never guesses your hours from your head count." },
         ],
       },
       {
@@ -386,6 +400,7 @@ export const ARTICLES = {
       { q: "Why is my minimum price “not set”?", a: "Jobs per week is empty. The floor needs a capacity to divide by; enter one and press Save." },
       { q: "Should I put my painters' wages under Salaries?", a: "No. Their hours are charged to each job as labour. Salaries is for overhead pay only — your draw, the office, a bookkeeper." },
       { q: "Does recording a bill here pay it?", a: "No. Pay it your usual way, then press Mark paid." },
+      { q: "What do I put in Billable crew hours a month?", a: "The hours your field people can invoice in a month, all of them added together — not hours on the clock. Two people who each bill about 160 hours is 320. Each quote then carries overhead in proportion to its crew-hours." },
     ],
   },
 

@@ -1868,9 +1868,14 @@ export default function QuoteDetailPage() {
                       : []),
                     [
                       t("app.quoteDetail.overhead", "Overhead"),
-                      costing.overheadBasis === "per_job"
-                        ? t("app.quoteDetail.thisJobsShare", "this job's share")
-                        : t("app.quoteDetail.estimated", "estimated"),
+                      // per_hour: the job's share of the month's billable
+                      // crew-hours (lib/costing/overheadShare.js) — a real
+                      // figure like per_job, named for what it measured.
+                      costing.overheadBasis === "per_hour"
+                        ? t("app.quoteDetail.timeShare", "share of the month's crew time")
+                        : costing.overheadBasis === "per_job"
+                          ? t("app.quoteDetail.thisJobsShare", "this job's share")
+                          : t("app.quoteDetail.estimated", "estimated"),
                       money(costing.overhead),
                     ],
                     [

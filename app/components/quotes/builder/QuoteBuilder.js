@@ -93,6 +93,7 @@ import { resolveBuilderLayout } from "@/lib/quotes/builderLayout";
 import { quoteRequestBody } from "@/lib/quotes/builderRequest";
 
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
+import { overheadInputsFrom } from "@/lib/costing/overheadShare";
 import { scopeGroupsLineItemCost } from "@/lib/costing/lineItemCost";
 import {
   MARGIN_TARGET_PCT,
@@ -442,7 +443,10 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           // legitimate "we don't know", not an error to surface here, so the
           // panel falls back to the percentage and labels it. A 403 without
           // jobCosting arrives as a body with no costPerJob on it, which
-          // resolves to the same null.
+          // resolves to the same null. The same body carries the overhead
+          // per billable crew-hour when the company has set its hours — on
+          // the 400 too — and overheadInputsFrom below reads both exactly
+          // as the save does.
           fetch("/api/analytics/minimum-price")
             .then((r) => r.json().catch(() => null))
             .catch(() => null),
@@ -465,6 +469,12 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
         ]);
 
         if (cancelled) return;
+
+        // Through overheadInputsFrom (lib/costing/overheadShare.js) — the one
+        // reading of the minimum-price answer, shared with buildQuoteCostingRow
+        // and deriveQuoteCosting, so the margin on screen is the margin the
+        // saved row keeps, to the cent and on the same basis.
+        const overheadInputs = overheadInputsFrom(overheadData);
 
         setBootstrap({
           clients: Array.isArray(clientsData) ? clientsData : [],
@@ -522,15 +532,21 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             // The company's per-state US word — lib/tax/usOverrides.js.
             usTaxOverrides: businessInfo?.usTaxOverrides || null,
           },
-          overheadPerJob: Number.isFinite(Number(overheadData?.costPerJob))
-            ? Number(overheadData.costPerJob)
-            : null,
-          overheadSource: Number.isFinite(Number(overheadData?.costPerJob))
-            ? {
-                monthlyFixedCosts: overheadData.monthlyFixedCosts,
-                jobsPerMonth: overheadData.jobsPerMonth,
-              }
-            : null,
+          overheadPerJob: overheadInputs.overheadPerJob,
+          overheadPerHour: overheadInputs.overheadPerHour,
+          billableHoursPerMonth: overheadInputs.billableHoursPerMonth,
+          // What the panel's sentence divides: the month's fixed costs by its
+          // jobs (per_job) or by its billable crew-hours (per_hour). Null when
+          // neither rate exists — the panel then says the overhead is a guess.
+          overheadSource:
+            overheadInputs.overheadPerJob !== null || overheadInputs.overheadPerHour !== null
+              ? {
+                  monthlyFixedCosts: overheadInputs.monthlyFixedCosts,
+                  jobsPerMonth:
+                    overheadInputs.overheadPerJob !== null ? overheadData?.jobsPerMonth ?? null : null,
+                  billableHoursPerMonth: overheadInputs.billableHoursPerMonth,
+                }
+              : null,
           marginTargetPct: Number.isFinite(Number(forecastData?.targetMarginPct))
             ? Number(forecastData.targetMarginPct)
             : null,
@@ -2229,6 +2245,10 @@ export function QuoteBuilderForm({
     // saved QuoteCosting row disagreed with — money given away is not revenue.
     price: taxableBase,
     overheadPerJob: boot.overheadPerJob ?? null,
+    // The job's share of the month in crew time, when the company has set
+    // its billable hours — the same rate the save reads (overheadInputsFrom).
+    overheadPerHour: boot.overheadPerHour ?? null,
+    billableHoursPerMonth: boot.billableHoursPerMonth ?? null,
     overheadPctOfPrice: num(overheadPct),
     purchasedMaterialCost,
     marginTargetPct: marginTarget,

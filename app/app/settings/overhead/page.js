@@ -31,6 +31,7 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import BackToHome from "@/app/components/BackToHome";
 import FixedCostsEditor from "./FixedCostsEditor";
 import { formatAppMoney } from "@/lib/format/money";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import {
   useCompanyMoney,
   useCompanyPreferences,
@@ -110,7 +111,11 @@ export default function OverheadPage() {
 function OverheadEditor() {
   const money = useCompanyMoney();
   const { currency: companyCurrency } = useCompanyPreferences();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  // Hours in the reader's own number format ("1 250" in French), never with
+  // currency — money() is for money.
+  const formatCount = (n) =>
+    new Intl.NumberFormat(numberLocaleFor(language), { maximumFractionDigits: 2 }).format(Number(n));
   const caller = usePermissions();
   // The bills panel is a company-wide payables list, so it takes the
   // company-wide expenses level rather than the page's own jobCosting gate —
@@ -136,6 +141,11 @@ function OverheadEditor() {
   // the owner had chosen it. Saved with the capacity, read by the same
   // calculation (resolveTargetMargin in lib/analytics/minimumPrice.js).
   const [marginPct, setMarginPct] = useState("");
+  // Billable crew hours a month — every field person together, hours that
+  // can actually be invoiced. "" is "never said". Saved with the capacity;
+  // read by every quote's overhead (its crew-hours ÷ these, lib/costing/
+  // overheadShare.js) and by the hourly floor shown under the form.
+  const [billableHours, setBillableHours] = useState("");
   const [minPrice, setMinPrice] = useState(null);
   const [debts, setDebts] = useState([]);
   // Null until the server answers, never []. An empty array is a claim that
@@ -310,6 +320,9 @@ function OverheadEditor() {
       setMarginPct(
         forecast?.targetMarginPct == null ? "" : String(forecast.targetMarginPct),
       );
+      setBillableHours(
+        forecast?.billableHoursPerMonth == null ? "" : String(forecast.billableHoursPerMonth),
+      );
       setLoading(false);
     });
     loadMinPrice();
@@ -465,6 +478,11 @@ function OverheadEditor() {
           // "" is sent as null — "clear it, back to the default" — never
           // omitted, so a blanked field really does blank the column.
           targetMarginPct: marginPct === "" ? null : Number(marginPct),
+          // Same rule: blank is sent as null and clears the column. Sent as
+          // typed (a string the server trims and bounds) rather than through
+          // Number(), so "abc" reaches the server's refusal instead of
+          // arriving as NaN → null and silently clearing the setting.
+          billableHoursPerMonth: billableHours.trim() === "" ? null : billableHours.trim(),
         }),
       });
       if (res.ok) {
@@ -473,6 +491,9 @@ function OverheadEditor() {
         const saved = await res.json().catch(() => null);
         if (saved && "targetMarginPct" in saved) {
           setMarginPct(saved.targetMarginPct == null ? "" : String(saved.targetMarginPct));
+        }
+        if (saved && "billableHoursPerMonth" in saved) {
+          setBillableHours(saved.billableHoursPerMonth == null ? "" : String(saved.billableHoursPerMonth));
         }
         await loadMinPrice();
       } else {
@@ -601,7 +622,8 @@ function OverheadEditor() {
           </p>
         </div>
 
-        <form onSubmit={saveCapacity} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+        <form onSubmit={saveCapacity} className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
           <div className="flex-1">
             <label
               htmlFor="capacity-count"
@@ -649,6 +671,35 @@ function OverheadEditor() {
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
             />
           </label>
+          </div>
+          {/* The month in crew TIME. With it, a quote's overhead is its share
+              of the month's hours (a two-week job carries more than a
+              half-day repair) instead of the same slice per job — the
+              owner's rule, 2026-10-04. Blank keeps the per-job split. */}
+          <div>
+            <label
+              htmlFor="billable-hours"
+              className="text-xs font-medium text-muted-foreground block mb-1"
+            >
+              {t("app.setOverhead.billableHoursLabel")}
+            </label>
+            <input
+              id="billable-hours"
+              type="number"
+              min="0.01"
+              max="150000"
+              step="any"
+              inputMode="decimal"
+              value={billableHours}
+              onChange={(e) => setBillableHours(e.target.value)}
+              placeholder={t("app.setOverhead.notSet")}
+              aria-describedby="billable-hours-help"
+              className="w-full sm:w-48 border border-border rounded-lg px-3 py-2 text-sm bg-background"
+            />
+            <p id="billable-hours-help" className="text-[11px] text-muted-foreground mt-1">
+              {t("app.setOverhead.billableHoursHelp")}
+            </p>
+          </div>
           <button
             disabled={capacitySaving}
             className="rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60"
@@ -680,6 +731,37 @@ function OverheadEditor() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── The month in crew time ────────────────────────────────────────
+            Off the server's own answer (calculateMinimumPrice → its
+            calculateHourlyFloor), never divided here. Shown whenever the
+            hours are set — including when jobs-per-week is not, because a
+            quote's overhead is shared by time from these alone. */}
+        {minPrice?.billableHoursPerMonth != null && minPrice?.hourlyFloor != null && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                [t("app.setOverhead.billableHoursPerMonth"), formatCount(minPrice.billableHoursPerMonth)],
+                [t("app.setOverhead.overheadPerHour"), money(minPrice.hourlyFloor)],
+                [t("app.setOverhead.minimumPerHour"), money(minPrice.minimumPerHour)],
+              ].map(([label, value], i) => (
+                <div key={label} className="rounded-lg border border-border px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </div>
+                  <div
+                    className={`text-base font-bold tabular-nums ${i === 2 ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {t("app.setOverhead.hourlyNote", { rate: money(minPrice.hourlyFloor) })}
+            </p>
           </div>
         )}
 

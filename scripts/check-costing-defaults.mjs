@@ -32,6 +32,7 @@
 import { readFileSync } from "node:fs";
 import {
   costingDefaultsUsed,
+  isRealOverheadBasis,
   unratedCrew,
   FALLBACK_LABOUR_RATE,
   FALLBACK_OVERHEAD_PCT,
@@ -47,7 +48,7 @@ import {
 import { crewMemberFromWorker } from "@/lib/costing/crew";
 import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
 import { priceFromBurn, jobsPerMonthFrom } from "@/lib/analytics/minimumPrice";
-import { parseCapacity } from "@/lib/analytics/capacity";
+import { parseCapacity, parseBillableHours } from "@/lib/analytics/capacity";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 let pass = 0;
@@ -123,6 +124,19 @@ ok("properly costed (crew + per_job): NOTHING shown", d.labour === false && d.ov
 // Each default on its own.
 d = costingDefaultsUsed({ ...instantSaved, overheadBasis: "per_job" });
 ok("real overhead, nobody assigned: labour only", d.labour && !d.overhead, d);
+// The time share (lib/costing/overheadShare.js) is the company's own figures
+// — monthly costs ÷ its billable crew-hours × the job's — not FieldQuo's
+// percentage, so it must not be called a default.
+d = costingDefaultsUsed({ ...instantSaved, overheadBasis: "per_hour" });
+ok("per_hour overhead is NOT a default: labour only", d.labour && !d.overhead && d.overheadPct === null, d);
+d = costingDefaultsUsed({ ...properSaved, overheadBasis: "per_hour" });
+ok("crew + per_hour: NOTHING shown", d.labour === false && d.overhead === false, d);
+ok("the screens' 'hide the % box' test: per_job and per_hour real, the rest not",
+  isRealOverheadBasis("per_job") && isRealOverheadBasis("per_hour") &&
+  ![ "pct_of_price", null, undefined, "", "PER_HOUR", 1, {} ].some(isRealOverheadBasis));
+ok("the builder panel and the quote's cost editor hide the % box through the helper",
+  /!isRealOverheadBasis\(estimate\.overheadBasis\)/.test(strip(source("app/components/quotes/builder/CostMarginPanel.js"))) &&
+  /!isRealOverheadBasis\(overheadBasis\)/.test(strip(source("app/components/quotes/QuoteCostEditor.js"))));
 d = costingDefaultsUsed({ ...properSaved, overheadBasis: "pct_of_price", overheadPct: 12.5 });
 ok("a crew, but overhead still a share of the price: overhead only, quoting 12.5%", !d.labour && d.overhead && d.overheadPct === 12.5, d);
 d = costingDefaultsUsed({ ...instantSaved, labourRate: 48 });
@@ -264,6 +278,43 @@ ok("PUT 201 a week → refused, as before", Boolean(parseCapacity({ jobsPerWeekC
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n4b. Billable crew hours a month — written AND read\n");
+
+// The PUT's parser: the same three states as the margin beside it.
+ok("PUT with no hours field: left alone (an older client)", parseBillableHours(undefined).skip === true);
+ok("PUT null / '' clears it", parseBillableHours(null).value === null && parseBillableHours("").value === null);
+ok("PUT 320 → 320; ' 320.5 ' → 320.5; 2 places kept", parseBillableHours(320).value === 320 && parseBillableHours(" 320.5 ").value === 320.5 && parseBillableHours(87.255).value === 87.26);
+ok("PUT 0 / negative / 'abc' / NaN / Infinity / 1e9 / 0.001 / true / {} → refused, never clamped",
+  [0, -1, "abc", NaN, Infinity, 1e9, 0.001, true, {}, []].every((v) => typeof parseBillableHours(v).error === "string"));
+ok("the refusal says what is accepted", /above 0 and no more than 150,000/.test(parseBillableHours(-1).error));
+{
+  const schema = source("prisma/schema.prisma");
+  ok("ForecastSettings.billableHoursPerMonth Decimal? is in the schema (additive, nullable)",
+    /model ForecastSettings \{[\s\S]*?billableHoursPerMonth\s+Decimal\?\s+@db\.Decimal\(10, 2\)/.test(schema));
+  const route = strip(source("app/api/settings/forecast/route.js"));
+  ok("the forecast route parses, writes and returns it",
+    /parseBillableHours\(body\?\.billableHoursPerMonth\)/.test(route) &&
+    /billableHoursPerMonth: hours\.value/.test(route) &&
+    /billableHoursPerMonth: billableHoursFrom\(row\?\.billableHoursPerMonth\)/.test(route) &&
+    /billableHoursPerMonth: billableHoursFrom\(saved\.billableHoursPerMonth\)/.test(route));
+  const min = strip(source("lib/analytics/minimumPrice.js"));
+  ok("calculateMinimumPrice reads it (through billableHoursFrom) and calls calculateHourlyFloor",
+    /billableHoursFrom\(forecast\?\.billableHoursPerMonth\)/.test(min) && /await calculateHourlyFloor\(\{ companyId, billableHoursPerMonth: hours, burn \}\)/.test(min));
+  const screen = strip(source("app/app/settings/overhead/page.js"));
+  ok("Settings → Overhead offers it, sends it, and shows the hourly figures",
+    /id="billable-hours"/.test(screen) &&
+    /billableHoursPerMonth: billableHours\.trim\(\) === "" \? null : billableHours\.trim\(\)/.test(screen) &&
+    /money\(minPrice\.hourlyFloor\)/.test(screen) && /money\(minPrice\.minimumPerHour\)/.test(screen));
+  // Read by the quote: the builder and both server paths, through the one
+  // reading of the answer.
+  for (const f of ["app/components/quotes/builder/QuoteBuilder.js", "app/api/quotes/costingWrite.js", "lib/costing/quoteCostEstimate.js"]) {
+    const s = strip(source(f));
+    ok(`${f} reads the rate through overheadInputsFrom and passes overheadPerHour on`,
+      /overheadInputsFrom\(/.test(s) && /overheadPerHour/.test(s));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log("\n5. Every new string in all nine languages\n");
 
 const KEYS = {
@@ -281,6 +332,18 @@ const KEYS = {
   "app.setOverhead.perMonth": [],
   "app.setup.step.job_capacity": [],
   "app.setup.step.pay_rates": [],
+  // The time share (2026-10-04).
+  "app.cost.overheadTimeShare": [],
+  "app.cost.overheadTimeSource": ["{monthly}", "{capacity}", "{rate}", "{hours}", "{share}"],
+  "app.cost.overheadTimeRate": ["{rate}", "{hours}"],
+  "app.cost.setBillableHours": [],
+  "app.quoteDetail.timeShare": [],
+  "app.setOverhead.billableHoursLabel": [],
+  "app.setOverhead.billableHoursHelp": [],
+  "app.setOverhead.billableHoursPerMonth": [],
+  "app.setOverhead.overheadPerHour": [],
+  "app.setOverhead.minimumPerHour": [],
+  "app.setOverhead.hourlyNote": ["{rate}"],
 };
 const langs = Object.keys(APP_MESSAGES);
 ok("nine language blocks", langs.length === 9, langs);
