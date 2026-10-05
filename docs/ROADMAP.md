@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 5 October 2026 (one conversation per client across channels: a "Conversation" section on the client page and the job page — Facebook, Instagram, WhatsApp, SMS, website chat, filed email, quote/invoice email sends, receptionist calls, business-number calls, portal tickets and automatic texts in one timeline, newest at the bottom, with channel badges and filter, paging, a reply on the newest inbound message's channel through the inbox's own reply route, "Possible matches" for shared phones/emails, and "Not this client" recorded on ThreadClientMatch. No schema change. See "One timeline per client, every channel" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 2 — the owner's six decisions, each a company switch on Settings › AI employee › Urgent problems & safety: three-tier triage that asks first (water is urgent not 911; gas/CO = leave first), urgent texts to an ordered on-call list with no-ack escalation paid from phone & text credit, vetted safe first steps with a reply guard, web-chat client matching with undo, FieldQuo's shared manual library on /platform/manuals, and real appointment times for the troubleshooter. Schema additive — NOT applied; apply before deploy. See "AI employee knowledge, phase 2" below.)
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
@@ -90,6 +91,82 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## One timeline per client, every channel (5 October 2026)
+
+The owner: "Unify conversations across channels in jobs when clients match."
+Built on the web-chat matcher (`lib/aiEmployee/webChatMatch.js`,
+`ThreadClientMatch`) from "AI employee knowledge, phase 2" — that branch
+must ship first or with this.
+
+**Where messages live (the map, read before building):**
+
+| Channel | Store | Tied to a client by |
+|---|---|---|
+| Facebook / Instagram | `MessageThread` + `Message` (platform facebook/instagram) | `clientId` (a person in the inbox), `jobId`/`quoteId`, `leadId` → the lead's email/phone and the lead's quote |
+| WhatsApp | same (participantExternalId = wa_id digits) | `clientId`; the wa_id IS a phone |
+| SMS (shared line, brought number) | same, platform `sms` (E.164) | `clientId` from `lib/businessNumber/conversation.js linkThreadByPhone` / `lib/aiEmployee/smsChannel.js`; the participant IS a phone |
+| Business-number calls | `Message` rows `direction: "activity"`, `activity.type: "call"` on the caller's SMS thread | as SMS |
+| Website chat | same, platform `web` | `clientId` + `ThreadClientMatch` (webChatMatch, with undo); `leadId` |
+| Filed email (Gmail / Outlook / IMAP) | `Message` + `EmailMessage` on a platform `email` thread (`lib/mailbox/file.js`) | filed only when it matches a client; `clientId`, `jobId`/`quoteId` (`filingTarget.js`) |
+| Quote / invoice emails sent | `ActivityLog` `quote.sent` / `quote.followed_up` / `invoice.sent` (no body stored) | the quote's / invoice's client |
+| Automatic texts | `SmsDelivery` (purpose + fate, no body) | `clientId` |
+| Receptionist calls | `VoiceCall` (summary, transcript) | `clientId`, else `fromE164`/`toE164` |
+| Client portal | `ClientTicket` + `ClientTicketMessage` | `clientId`, `jobId`/`quoteId` |
+
+Not client conversation, so not in the timeline: private notes, inbox activity
+other than calls, `CrewInboundMessage` (crew → office), `CompanyChat*`, `Sales*`
+(FieldQuo's own prospects), `LeadNote`.
+
+**What shipped**
+
+- `lib/conversations/clientTimeline.js` — the one rule (`threadVerdict`):
+  linked (clientId, filed to the client's job/quote, or the lead's quote is
+  the client's) / matched (phone E.164 or email lower-cased, decided by
+  `lib/leads/identityMatch.js` — the Facebook-lead matcher — against every
+  client of the same company sharing the identifier) / possible (two clients
+  share it, or the names disagree — the family landline) / none. A pair with
+  an "undone" `ThreadClientMatch` row is never matched again. Computed on
+  READ and never written by the read (a support session must not link a
+  customer's inbox). Job window: quote created → completed + 30 days
+  (open-ended until complete), only when the client has more than one job;
+  anything filed to the job or its quote always shows; `scope=all` lifts it.
+  Cursor paging across sources that never drops or repeats an entry.
+- `GET /api/clients/[id]/conversation`, `GET /api/jobs/[id]/conversation` —
+  requests ≥ view_only (the inbox's read rung; Crew gets 403 on the job page
+  too), clientsProperties ≥ full_view on the client page (and for phone
+  numbers, addresses and receptionist calls anywhere), the job inside
+  `assignedJobWhere`. Support sessions read, Gmail words hidden as in
+  `lib/mailbox/supportView.js`, and get `can.reply = false`.
+- `POST /api/messaging/threads/[id]/client-match { action: "reject", clientId }`
+  — "Not this client" for a thread the timeline matched, or a possible match:
+  writes an "undone" `ThreadClientMatch` row (`rejectClientMatch` in
+  webChatMatch.js); a machine-made link is handed to the existing undo; a
+  person's link is refused (409) — unlink it in Messages.
+- `app/components/conversations/ClientConversation.js` on the client page and
+  the job page: badges, channel chips, "Load older messages", possible-matches
+  strip (Link = the inbox's PATCH; Not this client), "Where these come from",
+  and a reply box on the newest inbound message's channel through
+  `/api/messaging/threads/[id]/reply` (no new sender), replaced by the inbox's
+  own reason when the channel cannot send (Meta not approved, 24-hour window,
+  demo). Held to `check:mobile` strict (new surface `app/components/conversations`).
+- 61 strings × 9 languages; help article "A client's conversation on every
+  channel" (en/fr/es).
+- `npm run check:unified-conversations` (in check:all): 157 assertions against
+  a two-company fake DB, the routes executed for a crew member, and a
+  tenant-fence mutation run (11 of 12 single mutations killed; the JS thread
+  re-check survives alone because threadVerdict's own tenant check catches the
+  same rows — removing both is caught).
+
+**Not done / open**
+
+- A match is shown, not written: in Messages a matched thread still reads as
+  unlinked until a person links it. Linking automatically at INGEST (the way
+  webChatMatch does for web chat) for SMS / WhatsApp / email would make the
+  inbox agree — a product decision, because it writes `clientId` on threads
+  nobody looked at.
+- The quote/invoice email body is not stored anywhere; the timeline shows that
+  it went, to whom and when, with a link to the document.
 
 ## Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages (3 October 2026)
 

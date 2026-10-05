@@ -1052,4 +1052,133 @@ export const ARTICLES = {
       { q: "Où va une demande de nouveaux travaux ?", a: "Sur le tableau des prospects, comme un prospect. Du nouveau travail se soumissionne; ce n'est pas un billet auquel répondre — voir [[the-leads-board|Le tableau des prospects]]." },
     ],
   },
+  // 2026-10-05: the client / job Conversation timeline
+  // (lib/conversations/clientTimeline.js, app/components/conversations/
+  // ClientConversation.js, app/api/{clients,jobs}/[id]/conversation).
+  "a-clients-conversation-on-every-channel": {
+    "title": "La conversation d'un client sur tous les canaux",
+    "summary": "La section Conversation d'un client et d'un chantier : chaque message Facebook, Instagram, WhatsApp, texto, courriel, clavardage du site, appel et portail avec ce client, dans un seul historique, avec une zone de réponse.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Ouvrez un client, ou l'un de ses chantiers, et la section **Conversation** montre tout ce qui a été dit avec ce client dans un seul historique — le plus récent en bas, comme un clavardage. Chaque entrée porte l'insigne du canal d'où elle vient et un lien vers l'original : rien n'est copié, le fil de la boîte de réception, la demande ou le document restent l'original."
+    ],
+    "sections": [
+      {
+        "id": "what-is-in-it",
+        "heading": "Ce qu'elle contient",
+        "blocks": [
+          {
+            "bullets": [
+              "**Facebook, Instagram, WhatsApp, textos et clavardage du site** — les conversations de **Messages**.",
+              "**Courriel** — les courriels classés depuis une boîte de travail connectée (Gmail, Outlook ou IMAP), et une ligne pour chaque soumission ou facture envoyée par courriel, avec son numéro et son destinataire.",
+              "**Appels** — les appels de la réceptionniste avec leur résumé et leur transcription (**Afficher la transcription**), et les appels sur votre propre numéro d'entreprise.",
+              "**Portail client** — les demandes que le client a faites depuis son portail, et les réponses.",
+              "**Textos automatiques** — confirmations, rappels et « En route », avec leur livraison."
+            ]
+          },
+          {
+            "p": "Les notes privées n'y sont pas — elles n'ont jamais été dites au client. Les événements de la boîte de réception, comme l'attribution d'une conversation, non plus."
+          },
+          {
+            "p": "Les pastilles de canal, en haut, filtrent l'historique sur un canal. **Charger les messages plus anciens**, en haut, affiche la page suivante."
+          }
+        ]
+      },
+      {
+        "id": "how-a-conversation-is-matched",
+        "heading": "Comment une conversation est associée au client",
+        "blocks": [
+          {
+            "p": "Une conversation appartient au client quand :"
+          },
+          {
+            "bullets": [
+              "quelqu'un l'a liée au client dans **Messages**, ou l'a classée dans un chantier ou une soumission du client;",
+              "elle vient d'une demande devenue une soumission du client;",
+              "son numéro de téléphone ou son courriel est celui du client — le numéro comparé sous sa forme internationale complète, donc **+1 (514) 555-0101** et **514-555-0101** sont le même numéro, et le courriel sans tenir compte des majuscules. Seuls les clients de votre propre entreprise sont comparés."
+            ]
+          },
+          {
+            "p": "Quand **deux de vos clients partagent ce numéro ou ce courriel**, ou que le nom de la conversation ne concorde pas avec celui du client (une ligne familiale), la conversation n'est pas ajoutée. Elle est listée sous **Correspondances possibles** avec **Lier à ce client** et **Pas ce client**, pour qu'une personne décide."
+          },
+          {
+            "p": "**D'où viennent ces messages**, en bas, liste chaque conversation de l'historique et la raison de sa présence. **Pas ce client** sur une conversation associée la retire, et ce client et cette conversation ne sont plus jamais associés. Une conversation liée par une personne dans Messages se délie dans Messages."
+          }
+        ]
+      },
+      {
+        "id": "on-a-job",
+        "heading": "Sur un chantier",
+        "blocks": [
+          {
+            "p": "Sur un chantier, quand le client en a plus d'un, l'historique se limite à ce chantier : du jour où sa soumission a été créée (ou le chantier, s'il n'avait pas de soumission) jusqu'à 30 jours après la fin du chantier — sans fin tant qu'il n'est pas terminé. Les conversations classées dans ce chantier ou sa soumission, les demandes qui le concernent et ses propres courriels de soumission et de facture s'affichent toujours, quelle que soit leur date."
+          },
+          {
+            "p": "**Tous les messages de ce client** retire la limite; **Ce chantier seulement** la remet. Un client qui n'a qu'un chantier voit tout."
+          }
+        ]
+      },
+      {
+        "id": "replying",
+        "heading": "Répondre",
+        "blocks": [
+          {
+            "p": "La zone de réponse répond sur le canal du **message entrant le plus récent** du client, et l'indique avant que vous écriviez — **Répondre sur WhatsApp à Jane Doe**. Choisissez d'abord une pastille de canal pour répondre sur ce canal. La réponse part exactement comme depuis **Messages**, et s'affiche aux deux endroits."
+          },
+          {
+            "p": "Quand ce canal ne peut pas recevoir un message écrit — Meta n'a pas encore approuvé la messagerie, plus de 24 heures se sont écoulées sur WhatsApp, Facebook ou Instagram, ou c'est l'entreprise de démonstration — la zone est remplacée par la raison que donne Messages, avec **Ouvrir dans Messages** (où WhatsApp propose vos modèles approuvés)."
+          }
+        ]
+      },
+      {
+        "id": "who-can-see-it",
+        "heading": "Qui peut la voir",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Pour",
+                "Il faut"
+              ],
+              "rows": [
+                [
+                  "Voir la section sur un client",
+                  "**Demandes** en lecture ou plus, et **Clients et propriétés** en lecture complète"
+                ],
+                [
+                  "La voir sur un chantier",
+                  "**Demandes** en lecture ou plus, et le chantier lui-même (un membre d'équipe ne voit que ses chantiers)"
+                ],
+                [
+                  "Répondre, **Lier à ce client**, **Pas ce client**",
+                  "**Demandes** en lecture, création et modification"
+                ],
+                [
+                  "Voir les numéros, les adresses et les appels de la réceptionniste",
+                  "**Clients et propriétés** en lecture complète"
+                ]
+              ]
+            }
+          },
+          {
+            "p": "Le profil Équipe (**Demandes : aucun**) ne voit pas non plus les conversations du client sur un chantier — la page du chantier n'est pas un détour autour de la boîte de réception. Une session de soutien FieldQuo peut lire l'historique, sans répondre ni changer un lien."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "L'historique lie-t-il les conversations dans Messages ?",
+        "a": "Non. Une conversation associée par téléphone ou courriel s'affiche dans l'historique du client, mais dans Messages elle reste telle quelle jusqu'à ce que quelqu'un la lie, ou appuie sur **Lier à ce client** sur une correspondance possible."
+      },
+      {
+        "q": "Pourquoi une conversation venant du numéro de mon client est-elle sous Correspondances possibles ?",
+        "a": "Parce qu'un autre de vos clients a le même numéro ou courriel, ou que le nom de la conversation ne concorde pas avec celui du client. En choisir un automatiquement pourrait mettre les messages d'une personne au dossier d'une autre; une personne décide donc."
+      },
+      {
+        "q": "Le courriel d'une soumission envoyée s'affiche-t-il au complet ?",
+        "a": "L'historique montre que la soumission ou la facture a été envoyée, quand, à qui et par qui, avec un lien vers le document. Le courriel s'affiche au complet seulement s'il est passé par votre boîte connectée et a été classé."
+      }
+    ]
+  },
 };

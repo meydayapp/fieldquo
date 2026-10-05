@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-05 — 353 articles in the tree; written: en 353, fr 353, es 353; “Only in FieldQuo”: 34._
+_Generated 2026-10-05 — 354 articles in the tree; written: en 354, fr 354, es 354; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -235,7 +235,7 @@ _Generated 2026-10-05 — 353 articles in the tree; written: en 353, fr 353, es 
 | `booking-fees-and-visit-deposits` — Booking fees and visit deposits | ✓ | ✓ | ✓ | settings-booking-page | booking_deposit |  |
 | `money-owed-and-receivables-aging` — Money owed and receivables aging | ✓ | ✓ | ✓ | home | dashboard |  |
 
-### clients (14)
+### clients (15)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -253,6 +253,7 @@ _Generated 2026-10-05 — 353 articles in the tree; written: en 353, fr 353, es 
 | `testimonials-on-your-website` — Testimonials on your website | ✓ | ✓ | ✓ | settings-reviews | testimonials |  |
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
+| `a-clients-conversation-on-every-channel` — A client's conversation on every channel | ✓ | ✓ | ✓ |  | clients |  |
 
 ### team-and-access (28)
 

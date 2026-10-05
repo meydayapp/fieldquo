@@ -41,6 +41,7 @@ import JobDocuments from "@/app/components/jobs/JobDocuments";
 import WaiversCard from "@/app/components/waivers/WaiversCard";
 import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
 import FiledEmails from "@/app/components/mailbox/FiledEmails";
+import ClientConversation from "@/app/components/conversations/ClientConversation";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import JobCommissions from "@/app/components/commissions/JobCommissions";
 import DailyLog from "@/app/components/jobs/DailyLog";
@@ -863,6 +864,13 @@ export default function JobDetail({ jobId }) {
           number in the subject, or as the client's open job. The route
           scopes it to jobs this member can see; nothing filed, nothing drawn. */}
       <FiledEmails jobId={job.id} />
+
+      {/* The client's conversation on every channel, narrowed to this job's
+          window when the client has other jobs (quote → completed + 30
+          days), with "All of this client's messages" to lift it. The route
+          asks the inbox's read rung as well as the job's own scope, so a crew
+          member who cannot read Messages gets nothing drawn here. */}
+      <ClientConversation jobId={job.id} />
 
       {/* What actually happened, one row per day. Above Visits deliberately:
           a visit is what was PLANNED for a day and this is what came of it,

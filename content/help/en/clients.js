@@ -1057,4 +1057,133 @@ export const ARTICLES = {
       { q: "Where does a request for new work go?", a: "To the Leads board, as a lead. New work is something to quote, not a ticket to answer — see [[the-leads-board|The Leads board]]." },
     ],
   },
+  // 2026-10-05: the client / job Conversation timeline
+  // (lib/conversations/clientTimeline.js, app/components/conversations/
+  // ClientConversation.js, app/api/{clients,jobs}/[id]/conversation).
+  "a-clients-conversation-on-every-channel": {
+    "title": "A client's conversation on every channel",
+    "summary": "The Conversation section on a client and on a job: every Facebook, Instagram, WhatsApp, text, email, website-chat, call and portal message with that client in one timeline, with a reply box.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Open a client, or one of their jobs, and the **Conversation** section shows everything said with that client in one timeline — newest at the bottom, like a chat. Each entry carries a badge for the channel it came on and a link back to where it lives, so nothing is copied: the inbox thread, the request or the document is still the original."
+    ],
+    "sections": [
+      {
+        "id": "what-is-in-it",
+        "heading": "What is in it",
+        "blocks": [
+          {
+            "bullets": [
+              "**Facebook, Instagram, WhatsApp, text messages and website chat** — the conversations in **Messages**.",
+              "**Email** — the email filed from a work mailbox you connected (Gmail, Outlook or IMAP), and a line for each quote or invoice you emailed, with its number and who it went to.",
+              "**Calls** — the receptionist's calls with their summary and transcript (**Show transcript**), and the calls on your own business number.",
+              "**Client portal** — the requests the client raised from their portal and the replies.",
+              "**Automatic texts** — confirmations, reminders and \"On my way\", with whether they were delivered."
+            ]
+          },
+          {
+            "p": "Private notes are not in it — they were never said to the client. Neither are inbox events such as who a conversation was assigned to."
+          },
+          {
+            "p": "The channel chips at the top filter the timeline to one channel. **Load older messages** at the top fetches the next page."
+          }
+        ]
+      },
+      {
+        "id": "how-a-conversation-is-matched",
+        "heading": "How a conversation is matched to the client",
+        "blocks": [
+          {
+            "p": "A conversation belongs to the client when:"
+          },
+          {
+            "bullets": [
+              "someone linked it to the client in **Messages**, or filed it to one of the client's jobs or quotes;",
+              "it came from a lead that became one of the client's quotes;",
+              "its phone number or email address is the client's — the number compared in full international form, so **+1 (514) 555-0101** and **514-555-0101** are the same number, and the email compared without capitals. Only clients of your own company are ever compared."
+            ]
+          },
+          {
+            "p": "When **two of your clients share that phone number or email**, or the name on the conversation does not agree with the client's (a family landline), the conversation is not added. It is listed under **Possible matches** with **Link to this client** and **Not this client**, for a person to decide."
+          },
+          {
+            "p": "**Where these come from** at the bottom lists every conversation in the timeline and why it is there. **Not this client** on a matched one takes it out, and that client and that conversation are never matched again. A conversation a person linked in Messages is unlinked in Messages."
+          }
+        ]
+      },
+      {
+        "id": "on-a-job",
+        "heading": "On a job",
+        "blocks": [
+          {
+            "p": "On a job, when the client has more than one job, the timeline is narrowed to this job: from the day its quote was created (or the job, if it had no quote) until 30 days after the job was completed — open-ended while it is not complete. Conversations filed to this job or its quote, requests about it and its own quote and invoice emails always show, whatever their date."
+          },
+          {
+            "p": "**All of this client's messages** lifts the window; **Just this job** puts it back. A client with one job sees everything."
+          }
+        ]
+      },
+      {
+        "id": "replying",
+        "heading": "Replying",
+        "blocks": [
+          {
+            "p": "The reply box answers on the channel of the client's **newest incoming message**, and says which before you type — **Reply on WhatsApp to Jane Doe**. Pick a channel chip first to answer on that channel instead. The reply is sent exactly as it would be from **Messages**, and appears in both."
+          },
+          {
+            "p": "When that channel can't take a typed message — Meta has not approved messaging yet, more than 24 hours have passed on WhatsApp, Facebook or Instagram, or it is the demo company — the box is replaced by the same reason Messages gives, with **Open in Messages** (where WhatsApp offers your approved templates)."
+          }
+        ]
+      },
+      {
+        "id": "who-can-see-it",
+        "heading": "Who can see it",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "To",
+                "You need"
+              ],
+              "rows": [
+                [
+                  "See the section on a client",
+                  "**Requests** at view only or above, and **Clients and Properties** at full view"
+                ],
+                [
+                  "See it on a job",
+                  "**Requests** at view only or above, and the job itself (a crew member sees only their own jobs)"
+                ],
+                [
+                  "Reply, **Link to this client**, **Not this client**",
+                  "**Requests** at view, create and edit"
+                ],
+                [
+                  "See phone numbers, addresses and receptionist calls",
+                  "**Clients and Properties** at full view"
+                ]
+              ]
+            }
+          },
+          {
+            "p": "The Crew preset (**Requests: none**) does not see client conversations on a job either — the job page is not a way round the inbox. A FieldQuo support session can read the timeline and cannot reply or change a link."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Does the timeline link conversations in Messages?",
+        "a": "No. A conversation matched by phone or email shows in the client's timeline, but in Messages it stays as it was until somebody links it there or presses **Link to this client** on a possible match."
+      },
+      {
+        "q": "Why is a conversation from my client's number under Possible matches?",
+        "a": "Because another of your clients has the same number or email, or the name on the conversation disagrees with the client's. Picking one automatically could put one person's messages on another's record, so a person decides."
+      },
+      {
+        "q": "Is the email of a quote I sent shown in full?",
+        "a": "The timeline shows that the quote or invoice was emailed, when, to whom and by whom, with a link to the document. The email itself is shown in full only when it went through your connected mailbox and was filed."
+      }
+    ]
+  },
 };

@@ -9,6 +9,11 @@
 //          client link is removed (only while it still points at that
 //          client), the match is marked undone, and the pair is never
 //          proposed again.
+//   POST { action: "reject", clientId } → "Not this client" on a thread the
+//          client's conversation timeline matched by phone or email, or
+//          offered as a possible match, without anybody linking it
+//          (lib/conversations/clientTimeline.js). Writes the same "undone"
+//          row, so neither matcher proposes the pair again.
 //
 // The same rung as linking a client by hand (PATCH on the thread:
 // requests view_create_edit) — undoing a link is editing one. Read-only
@@ -19,7 +24,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, requireLevel, permissionErrorResponse } from "@/lib/permissions/enforce";
-import { undoWebMatch } from "@/lib/aiEmployee/webChatMatch";
+import { undoWebMatch, rejectClientMatch } from "@/lib/aiEmployee/webChatMatch";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 async function graded(member) {
   const full = member.id ? await loadEnforceableMember(db, member.id) : null;
@@ -75,6 +81,29 @@ export async function POST(request, { params }) {
   const refused = await gate(member, "view_create_edit", "update a conversation");
   if (refused) return refused;
   const body = await request.json().catch(() => ({}));
+  if (body?.action === "reject") {
+    if (typeof body?.clientId !== "string" || !body.clientId) {
+      return NextResponse.json({ error: "Say which client this is not.", reason: "bad_action" }, { status: 400 });
+    }
+    // A foreign key from the request — proved to be this company's before
+    // anything is written with it.
+    const bad = await ownedIdsRefusal(NextResponse, db, member.companyId, { clientId: body.clientId });
+    if (bad) return bad;
+    const who = member.userId ? await db.user.findUnique({ where: { id: member.userId }, select: { name: true } }).catch(() => null) : null;
+    const res = await rejectClientMatch({
+      prisma: db,
+      companyId: member.companyId,
+      threadId: String(id || ""),
+      clientId: body.clientId,
+      userId: member.userId || null,
+      actorName: who?.name || null,
+    });
+    if (!res.ok && res.reason === "linked_by_person") {
+      return NextResponse.json({ error: "A person linked this conversation to the client. Unlink it in Messages.", reason: "linked_by_person" }, { status: 409 });
+    }
+    if (!res.ok) return NextResponse.json({ error: "Not found" }, { status: res.status || 404 });
+    return NextResponse.json({ ok: true, already: Boolean(res.already), unlinked: Boolean(res.unlinked) });
+  }
   if (body?.action !== "undo" || typeof body?.matchId !== "string") {
     return NextResponse.json({ error: "Say which match to undo.", reason: "bad_action" }, { status: 400 });
   }
