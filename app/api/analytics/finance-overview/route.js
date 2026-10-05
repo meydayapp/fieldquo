@@ -59,6 +59,8 @@ import { can } from "@/lib/permissions";
 import { canReadCostBasis } from "@/lib/permissions/costBasis";
 import { calculateBurnRate } from "@/lib/analytics/burnRate";
 import { getMarketingRollup } from "@/lib/analytics/marketingRollup";
+import { loadGoogleAdsRollup } from "@/lib/analytics/googleAdsRollupData";
+import { buildAdChannelCosts } from "@/lib/analytics/kpis";
 import { buildPayrollCost } from "@/lib/analytics/payrollCost";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -175,6 +177,34 @@ export async function GET(request) {
       db.marketingSpend.findFirst({ where: { companyId }, select: { id: true } }),
     ]);
 
+  // Google Ads for the same period. Its own read and its own failure: the
+  // marketing tile above must not fall over with it.
+  let googleAds = null;
+  let googleAdsError = null;
+  try {
+    const g = await loadGoogleAdsRollup({ db, companyId, range: { gte, lte } });
+    if (g.totals.spend !== null || g.totals.leads > 0) {
+      const costs = buildAdChannelCosts({
+        spend: g.totals.spend,
+        approximate: g.totals.approximate,
+        spendIncomplete: g.totals.excluded.length > 0,
+        leads: g.totals.leads,
+        wonJobs: g.totals.wonJobs,
+      });
+      googleAds = {
+        spend: g.totals.spend,
+        approximate: g.totals.approximate,
+        leads: g.totals.leads,
+        wonJobs: g.totals.wonJobs,
+        googleConversions: g.totals.googleConversions,
+        costPerLead: costs.costPerLead,
+        costPerWonJob: costs.costPerWonJob,
+      };
+    }
+  } catch (err) {
+    googleAdsError = err?.message || "Google Ads figures could not be worked out.";
+  }
+
   const laborCostByUser = new Map(
     members.filter((m) => m.userId).map((m) => [m.userId, Number(m.laborCostPerHour)]),
   );
@@ -239,6 +269,14 @@ export async function GET(request) {
       currencyConversions: everMarketingSpend ? marketingRollup.totals.currencyConversions : [],
       excluded: everMarketingSpend ? marketingRollup.totals.excluded : [],
       channels: everMarketingSpend ? marketingRollup.channels : [],
+      // Google Ads' own line under the tile: cost per lead and per won job
+      // on FieldQuo's leads that arrived with a Google click id
+      // (lib/analytics/googleAdsRollup.js → kpis.js buildAdChannelCosts).
+      // Null — and the line not drawn — when there is no Google spend and no
+      // Google lead in the period; null with `googleAdsError` when the read
+      // failed, so a failure is never a silent absence.
+      googleAds,
+      googleAdsError,
     },
   });
 }

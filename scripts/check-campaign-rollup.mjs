@@ -187,7 +187,8 @@ const MUTATIONS = [
   ["stops flagging converted spend as approximate",
     (s) => s.replace("      c.approximate = true;", "")],
   ["counts revenue from a job that no lead of this campaign produced",
-    (s) => s.replace("for (const jobId of jobIds) {\n      if (revenueByJob.has(jobId))", "for (const jobId of revenueByJob.keys()) {\n      if (revenueByJob.has(jobId))")],
+    // Indented two spaces since the chain moved into outcomesForLeads (2026-10-04).
+    (s) => s.replace("for (const jobId of jobIds) {\n    if (revenueByJob.has(jobId))", "for (const jobId of revenueByJob.keys()) {\n    if (revenueByJob.has(jobId))")],
   ["reports revenue as 0 when nothing was invoiced",
     (s) => s.replace("revenue: revenue === null ? null : round2(revenue),", "revenue: round2(revenue || 0),")],
   ["labels reach as people",

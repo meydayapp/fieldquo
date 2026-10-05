@@ -509,7 +509,96 @@ const CONN = { companyId: "co1", customerId: "1111111111", loginCustomerId: null
   ok("public shape: ids formatted the way Google prints them", shape.customerIdFormatted === "123-456-7890" && shape.viaManager === "999-999-9999");
 }
 
-// @@MORE@@
+console.log("\n5. Analytics — Google spend over FieldQuo's own Google leads, currency at read time\n");
+
+const { buildGoogleAdsRollup, NOT_TIED, isGoogleAdLead } = await import("@/lib/analytics/googleAdsRollup");
+const { RATES } = await import("@/lib/marketing/fx");
+const { buildMonthlySummary } = await import("@/lib/analytics/monthlySummary");
+const { buildAdChannelCosts } = await import("@/lib/analytics/kpis");
+{
+  const usdCad = RATES.find((r) => r.base === "USD" && r.quote === "CAD");
+  const FRESH = new Date(Date.parse(`${usdCad.rateDate}T00:00:00Z`) + 10 * 86400000).toISOString().slice(0, 10);
+  const STALE = new Date(Date.parse(`${usdCad.rateDate}T00:00:00Z`) + 400 * 86400000).toISOString().slice(0, 10);
+  const day = (d) => new Date(`${d}T00:00:00Z`);
+  const SPEND = [
+    // API rows, USD account on a CAD company — currency on the row, amount as reported.
+    { campaignId: "11111111111", campaignName: "Spring Roofs", objective: "SEARCH", amount: "100.00", currency: "USD", date: day("2026-09-01"), impressions: 1000, clicks: 50, conversions: 3, conversionsExact: "2.50", source: "google_ads_api" },
+    { campaignId: "11111111111", campaignName: "Spring Roofs", objective: "SEARCH", amount: "50.00", currency: "USD", date: day("2026-09-02"), impressions: 500, clicks: 25, conversions: 1, conversionsExact: "1.00", source: "google_ads_api" },
+    // A report row for another campaign, no id column, company currency.
+    { campaignId: null, campaignName: "Brand Search", amount: "30.00", currency: null, date: day("2026-09-01"), impressions: 100, clicks: 10, conversions: 0, conversionsExact: "0.00", source: "google_ads_csv" },
+    // Hand-typed Google spend with no campaign.
+    { campaignId: null, campaignName: null, amount: "20.00", currency: null, date: day("2026-09-05"), impressions: null, clicks: null, conversions: null, conversionsExact: null, source: "manual" },
+  ];
+  const LEADS = [
+    // utm_campaign={campaignid} → the campaign's id.
+    { id: "G1", attribution: { source: "google_ads", clickNetwork: "google_ads", utmCampaign: "11111111111" }, quoteId: "Q1" },
+    { id: "G2", attribution: { clickNetwork: "google_ads", utmCampaign: "11111111111" }, quoteId: null, inferredQuoteId: "Q2" },
+    // A name in utm_campaign that matches the report's name.
+    { id: "G3", attribution: { clickNetwork: "google_ads", utmCampaign: "brand search" }, quoteId: "Q3" },
+    // gclid only — no campaign on the click.
+    { id: "G4", attribution: { clickNetwork: "google_ads" }, quoteId: null },
+    // NOT a Google lead (Meta click) — must be ignored even if passed in.
+    { id: "M1", attribution: { clickNetwork: "facebook", utmCampaign: "11111111111" }, quoteId: "QM" },
+  ];
+  const JOBS = [{ id: "J1", quoteId: "Q1", createdAt: "2026-09-03" }, { id: "J2", quoteId: "Q2", createdAt: "2026-09-04" }, { id: "JM", quoteId: "QM", createdAt: "2026-09-04" }];
+  const INVOICES = [{ id: "I1", parentInvoiceId: null, version: 1, total: "2000.00", amountPaid: "500.00", jobId: "J1", quoteId: "Q1" }];
+  const r = buildGoogleAdsRollup({ spendRows: SPEND, leads: LEADS, jobs: JOBS, invoices: INVOICES, companyCurrency: "CAD", asOf: FRESH });
+  const spring = r.campaigns.find((c) => c.campaignId === "11111111111");
+  const brand = r.campaigns.find((c) => c.campaignName === "Brand Search");
+  const notTied = r.campaigns.find((c) => c.campaignKey === NOT_TIED);
+  const usd150 = Math.round(150 * usdCad.rate * 100) / 100;
+  ok("USD spend converted at READ time: 150 USD → CAD at the pinned rate, marked approximate", spring.spend === usd150 && spring.approximate === true, spring);
+  ok("…and the stored rows were never touched (amounts still USD strings)", SPEND[0].amount === "100.00" && SPEND[0].currency === "USD");
+  ok("leads matched by the utm_campaign id: Spring Roofs has 2", spring.leads === 2);
+  ok("a lead matched by utm_campaign NAME to a report row without an id", brand?.leads === 1);
+  ok("a gclid-only lead and the hand-typed no-campaign spend land on the 'not tied' row", notTied?.leads === 1 && notTied?.spend === 20);
+  ok("a Meta-click lead is not a Google lead", !isGoogleAdLead(LEADS[4]) && r.totals.leads === 4);
+  ok("Google's conversions are carried as Google's (2.5 + 1 = 3.5) and NOT used as leads", spring.googleConversions === 3.5 && spring.costPerLead === Math.round((usd150 / 2) * 100) / 100);
+  ok("won jobs follow lead → quote → job, including a confirmed inferred quote", spring.wonJobs === 2 && spring.inferredQuotes === 1);
+  ok("cost per won job = spend / won jobs", spring.costPerWonJob === Math.round((usd150 / 2) * 100) / 100);
+  ok("channel totals: spend over ALL Google leads (4), won jobs 2", r.totals.leads === 4 && r.totals.wonJobs === 2 && r.totals.costPerLead === Math.round(((usd150 + 30 + 20) / 4) * 100) / 100, r.totals);
+  ok("invoiced and paid followed to the campaign", spring.revenue === 2000 && spring.paid === 500);
+  ok("the 'not tied' row sorts last", r.campaigns.at(-1).campaignKey === NOT_TIED);
+  const stale = buildGoogleAdsRollup({ spendRows: SPEND, leads: LEADS, jobs: JOBS, invoices: INVOICES, companyCurrency: "CAD", asOf: STALE });
+  const staleSpring = stale.campaigns.find((c) => c.campaignId === "11111111111");
+  ok("a refused (stale) rate drops the USD money with the reason, keeps the leads", staleSpring.spend === null && staleSpring.spendExcluded?.currency === "USD" && staleSpring.leads === 2 && stale.totals.excluded.length === 1);
+  const none = buildGoogleAdsRollup({ spendRows: [], leads: [], jobs: [], invoices: [], companyCurrency: "CAD", asOf: FRESH });
+  ok("nothing at all: no rows, spend null (not $0), no cost per lead", none.campaigns.length === 0 && none.totals.spend === null && none.totals.costPerLead === null);
+
+  const costs = buildAdChannelCosts({ spend: r.totals.spend, approximate: r.totals.approximate, leads: r.totals.leads, wonJobs: r.totals.wonJobs });
+  ok("KPI envelope: cost per lead and per won job from the rollup totals", costs.costPerLead.value === r.totals.costPerLead && costs.costPerWonJob.value === r.totals.costPerWonJob && costs.costPerLead.approximate === true);
+
+  const period = { key: "2026-09", start: day("2026-09-01"), end: day("2026-10-01") };
+  const prior = { key: "2026-08", start: day("2026-08-01"), end: day("2026-09-01") };
+  const summary = buildMonthlySummary({ period, prior, asOf: new Date("2026-10-01T08:00:00Z"), googleAds: r });
+  ok("monthly summary carries a Google Ads line with FieldQuo's leads and cost per won job",
+    summary.sources.googleAds?.leads === 4 && summary.sources.googleAds?.costPerWonJob === r.totals.costPerWonJob && summary.sources.googleAds?.approximate === true);
+  const quiet = buildMonthlySummary({ period, prior, asOf: new Date("2026-10-01T08:00:00Z"), googleAds: none });
+  ok("monthly summary: no Google spend and no Google lead → no Google section", quiet.sources.googleAds === null);
+}
+{
+  // The data loader asks the database for Google leads by the stored click
+  // network, and spend by platform — checked against a recording fake.
+  const { loadGoogleAdsRollup } = await import("@/lib/analytics/googleAdsRollupData");
+  const seen = {};
+  const rec = (name, ret) => async (args) => { seen[name] = args; return ret; };
+  const db = {
+    company: { findUnique: rec("company", { currency: "CAD" }) },
+    marketingSpend: { findMany: rec("spend", []) },
+    leadRequest: { findMany: rec("leads", []) },
+    client: { findMany: rec("clients", []) },
+    quote: { findMany: rec("quotes", []) },
+    job: { findMany: rec("jobs", []) },
+    invoice: { findMany: rec("invoices", []) },
+  };
+  const out = await loadGoogleAdsRollup({ db, companyId: "co1", range: { gte: new Date("2026-09-01"), lte: new Date("2026-09-30") }, asOf: new Date("2026-10-01"), rates: RATES });
+  ok("loader: spend filtered to platform google, this company, the range", seen.spend?.where?.platform === "google" && seen.spend?.where?.companyId === "co1" && seen.spend?.where?.date?.gte instanceof Date);
+  ok("loader: leads filtered by attribution.clickNetwork = google_ads (JSON path), this company",
+    JSON.stringify(seen.leads?.where?.attribution) === JSON.stringify({ path: ["clickNetwork"], equals: "google_ads" }) && seen.leads?.where?.companyId === "co1");
+  ok("loader: selects conversionsExact (Google's exact count)", seen.spend?.select?.conversionsExact === true);
+  ok("loader: an empty company is an empty rollup", out.campaigns.length === 0);
+}
+
 
 console.log(`\n${pass} passed, ${fails.length} failed`);
 if (fails.length) {
