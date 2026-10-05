@@ -20,10 +20,9 @@ import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { sendConversionEvents } from "@/lib/meta/client";
-import { getCapiSettings, datasetToken } from "@/lib/meta/capi/settings";
+import { getCapiSettings, datasetToken, recordCapiSync } from "@/lib/meta/capi/settings";
 import { testEvent, cleanTestEventCode } from "@/lib/meta/capi/testEvent";
 import { serialiseEvents } from "@/lib/meta/capi/events";
-import { recordCapiSync } from "@/lib/meta/capi/settings";
 import { db } from "@/lib/db";
 
 export async function POST(request) {
