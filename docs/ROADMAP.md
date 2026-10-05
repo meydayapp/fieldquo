@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 5 October 2026 (marketing agency access: Settings › Marketing agency access keys + sharing switches, the /api/v1 marketing API and REST-hook events, a Zapier app in integrations/zapier (not pushed), and Marketing › Marketing results from the same code — see "Marketing agency access" below. Schema additive, NOT applied; SQL in that section.)
 Last updated: 5 October 2026 (conversations linked to their client automatically when the phone or email is exactly one client's, each new message filed to the job it's about or asking "Which job?" (contractors never by "only one job"), "Not this client" in Messages for every automatic link, a Settings › Client messages switch, a dry-run-first backfill; and a "History" tab on the client and job pages keeping every quote / invoice / reminder / receipt email as sent. Schema additive — NOT applied. See "Conversations linked to clients and jobs automatically; sent-email History" below.)
 Last updated: 5 October 2026 (drawing read — the complete first pass: a measurement pass per elevation/plan/section sheet, quantities from scaled faces with sheet + scale + confidence, the book's height factors (NPC p. 139) and Resene prep allowances in the painting PRESET that the builder and the read share, crew plan, access priced from the company's rates or Craftsman's 2023 rental table, past jobs by trade, one-tap assumptions, one read → one quote per service, "What this price includes / Check before sending", Settings → Services → Equipment & access, a material list with primer/prep/sundries, and a setup step. No schema change. See "Drawing read — the complete first pass" below.)
 Last updated: 4 October 2026, late (subscription priced in local money for the UK and the EU — GBP and EUR plan rows at the AUD "same numbers" (£/€99, 169, 269, 369; annual ×10), VAT on top for £/€, the pricing page's "Show prices in" picker; AI credit plans sold to every company in USD on the separate USD add-on customer, and plan credit now RESETS monthly while top-ups persist. Schema additive — NOT applied; rows NOT seeded. See "Local-currency subscription, and AI plan credit that resets (4 October 2026)" below.)
@@ -97,6 +98,167 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Marketing agency access, the agency API + Zapier app, and Marketing results (5 October 2026)
+
+Owner: a company that works with a marketing agency gives that agency its
+marketing results "so the company they deal with has a ROI of 40x because of
+the quality data" — without revealing clients' identities unless the owner
+switches that on. The agency uses Zapier and its own dashboard (Pulse);
+FieldQuo shows the same numbers so the owner can check the agency.
+Coordinator addition (same day, from DripJobs/Jobber's Zapier apps): more
+events, three write actions and a contact search — and deliberately no
+action that messages a client.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+1. **Per-lead data, privacy-safe by default** — `lib/agency/leadRow.js` is the
+   ONE builder every path uses (API, webhook payloads, Zapier samples):
+   random stable reference (`LeadRequest.agencyRef`, shown `L-7F3A`), first
+   name, first contact, channel (facebook_ad · instagram_ad · whatsapp_ad ·
+   google_ads · agency_funnel · website · referral · organic —
+   `lib/agency/channels.js`), campaign / ad set / ad, fbclid/gclid, UTMs,
+   "replied to an ad" time, tier + temperature, every stage timestamp,
+   appointment outcome (held / cancelled / upcoming / **unmarked** — FieldQuo
+   has no no-show status), quote/won/invoiced/collected amounts, services,
+   partial postal (`lib/agency/postal.js`: US ZIP5, CA FSA, never a house
+   number, other countries nothing), lost reason. Switches on Company:
+   `agencyShareContacts` (default OFF: adds full name, phone, email, full
+   postal) and `agencyShareMoney` (default ON). Owner/admin, logged.
+2. **Metrics** — `lib/agency/metrics.js` (pure) + `metricsData.js` (the ONE
+   loader): ad spend (Meta + Google MarketingSpend, "not connected" → null),
+   leads, CPL, qualified, appointments, set rate, cost per appointment, quotes
+   sent, closes, closes without a visit, close rate (closes after a visit ÷
+   appointments), cost per close, revenue (won) + collected, ROAS, average job
+   size, upcoming, adjusted close rate (÷ appointments that happened), message
+   → lead → qualified rates, speed to lead, four median timings; by channel
+   and by campaign; every figure with its definition. **Cohort-based**: the
+   period picks leads, later stages are what became of them — so stages are
+   monotonic and an appointment is counted once. Periods today … last year +
+   custom (`lib/agency/periods.js`), compared with the previous equal-length
+   span.
+3. **Access** — Settings › Marketing agency access (`app/app/settings/agency-
+   access`): named keys (`fqa_…`, shown once, sha256 at rest), scopes
+   `marketing:read` / opt-in `marketing:write_leads`, created by / last used /
+   7-day calls / live Zaps, revoke (ends its subscriptions), per-key call log.
+   Several agencies per company. Support sessions read, never create.
+4. **API** `/api/v1` — `me`, `marketing/metrics`, `marketing/funnel`,
+   `marketing/leads` (GET cursor list; POST create from the agency funnel,
+   deduplicated by email/phone over 180 days, through `createScoredLead`),
+   `marketing/leads/{ref}`, `…/{ref}/stage` (pipeline's own
+   `canSetLeadStatus`), `…/{ref}/requested-visit` (window only; 409 once a
+   visit is booked), `marketing/leads/search` (full email/phone, private row).
+   Tenant from the key only; 120 req/min per key from the call log; refusals
+   `{ error, code }`. Docs `/developers/marketing-api` + `openapi.json`, both
+   rendered from the code.
+5. **Events** — `lead.created`, `lead.qualified`, `lead.stage_changed`
+   (from → to, remembered in the outbox), `appointment.booked`,
+   `estimate.scheduled`, `appointment.outcome`, `quote.sent`, `quote.viewed`,
+   `quote.declined` (reason scrubbed of contact details unless shared),
+   `quote.accepted`, `job.completed`, `invoice.paid`, `payment.received`.
+   REST hooks (`/api/v1/hooks/subscribe`, `DELETE /hooks/{id}`, samples).
+   **Derived, not hooked into every path**: `AgencyEvent` outbox with a
+   per-company dedupe key, swept after the response by `nudgeAgencyEvents`
+   (createScoredLead, rescoreLead, quote lifecycle, quote viewed, appointment
+   create/PATCH, booking confirm, payments, Stripe payments, job PATCH, lead
+   status PATCHes) and every 5 min by `/api/cron/agency-events`. No backfill
+   at subscribe. Delivery retries 1/5/30/120/360/720 min; 410 ends the
+   subscription; https public targets only.
+6. **Inbound** — POST `/api/v1/marketing/leads` (write scope): source
+   `agency_funnel`, attribution from the body cleaned by the landing cleaners.
+7. **Zapier** — `integrations/zapier` (Platform CLI 19 / core 19.1.0): API-key
+   auth tested on `/me`, 13 REST-hook triggers with perform-list, Create Lead,
+   Move Lead to Stage, Update Appointment Request, Find Lead by Reference / by
+   Email or Phone (+ Find or Create). Schema-validated; **not pushed** —
+   README has the steps (`zapier-platform register / push / users:links`,
+   Node 22).
+8. **Marketing › Marketing results** (`app/app/marketing/results`, linked from
+   the Marketing hub) — the cards, vs-previous change, period/source/campaign
+   pickers, the upcoming + adjusted-close-rate strip, timing, funnel, by
+   source and campaign, from `/api/marketing/results` = the same loader.
+
+Also: `LeadRequest.qualifiedAt` (first warm/hot, written by
+createScoredLead/rescoreLead); lead drawer shows an agency-requested visit
+window; "Your marketing agency's funnel" source label; 166 strings × 9
+languages; help (en/fr/es) "Give your marketing agency access" and "Marketing
+results"; the "No public API or Zapier" article and getting-started answers
+corrected to name the one exception.
+
+### Schema (additive — NOT applied)
+
+```sql
+ALTER TABLE "Company" ADD COLUMN "agencyShareContacts" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "agencyShareMoney" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "LeadRequest" ADD COLUMN "agencyRef" TEXT, ADD COLUMN "qualifiedAt" TIMESTAMP(3);
+CREATE TABLE "AgencyAccessKey" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "name" TEXT NOT NULL,
+  "keyHash" TEXT NOT NULL, "keyHint" TEXT NOT NULL, "scopes" TEXT[], "createdById" TEXT, "createdByName" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "lastUsedAt" TIMESTAMP(3), "revokedAt" TIMESTAMP(3),
+  "revokedById" TEXT, "revokedByName" TEXT, CONSTRAINT "AgencyAccessKey_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "AgencyApiCall" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "keyId" TEXT NOT NULL,
+  "method" TEXT NOT NULL, "path" TEXT NOT NULL, "status" INTEGER NOT NULL,
+  "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AgencyApiCall_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "AgencyHookSubscription" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "keyId" TEXT NOT NULL,
+  "event" TEXT NOT NULL, "targetUrl" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "endedAt" TIMESTAMP(3), "endedReason" TEXT, CONSTRAINT "AgencyHookSubscription_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "AgencyEvent" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "event" TEXT NOT NULL,
+  "leadId" TEXT NOT NULL, "dedupeKey" TEXT NOT NULL, "occurredAt" TIMESTAMP(3) NOT NULL, "facts" JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "fannedOutAt" TIMESTAMP(3),
+  CONSTRAINT "AgencyEvent_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "AgencyHookDelivery" ("id" TEXT NOT NULL, "eventId" TEXT NOT NULL, "subscriptionId" TEXT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'pending', "attempts" INTEGER NOT NULL DEFAULT 0,
+  "nextAttemptAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "lastAttemptAt" TIMESTAMP(3),
+  "lastStatusCode" INTEGER, "lastError" TEXT, "deliveredAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AgencyHookDelivery_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "AgencyAccessKey_keyHash_key" ON "AgencyAccessKey"("keyHash");
+CREATE INDEX "AgencyAccessKey_companyId_createdAt_idx" ON "AgencyAccessKey"("companyId", "createdAt");
+CREATE INDEX "AgencyApiCall_keyId_at_idx" ON "AgencyApiCall"("keyId", "at");
+CREATE INDEX "AgencyApiCall_companyId_at_idx" ON "AgencyApiCall"("companyId", "at");
+CREATE INDEX "AgencyHookSubscription_companyId_event_endedAt_idx" ON "AgencyHookSubscription"("companyId", "event", "endedAt");
+CREATE INDEX "AgencyHookSubscription_keyId_idx" ON "AgencyHookSubscription"("keyId");
+CREATE INDEX "AgencyEvent_fannedOutAt_idx" ON "AgencyEvent"("fannedOutAt");
+CREATE INDEX "AgencyEvent_companyId_event_occurredAt_idx" ON "AgencyEvent"("companyId", "event", "occurredAt");
+CREATE INDEX "AgencyEvent_companyId_leadId_idx" ON "AgencyEvent"("companyId", "leadId");
+CREATE UNIQUE INDEX "AgencyEvent_companyId_dedupeKey_key" ON "AgencyEvent"("companyId", "dedupeKey");
+CREATE INDEX "AgencyHookDelivery_status_nextAttemptAt_idx" ON "AgencyHookDelivery"("status", "nextAttemptAt");
+CREATE INDEX "AgencyHookDelivery_subscriptionId_idx" ON "AgencyHookDelivery"("subscriptionId");
+CREATE UNIQUE INDEX "AgencyHookDelivery_eventId_subscriptionId_key" ON "AgencyHookDelivery"("eventId", "subscriptionId");
+CREATE UNIQUE INDEX "LeadRequest_companyId_agencyRef_key" ON "LeadRequest"("companyId", "agencyRef");
+ALTER TABLE "AgencyAccessKey" ADD CONSTRAINT "AgencyAccessKey_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AgencyApiCall" ADD CONSTRAINT "AgencyApiCall_keyId_fkey" FOREIGN KEY ("keyId") REFERENCES "AgencyAccessKey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AgencyHookSubscription" ADD CONSTRAINT "AgencyHookSubscription_keyId_fkey" FOREIGN KEY ("keyId") REFERENCES "AgencyAccessKey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AgencyEvent" ADD CONSTRAINT "AgencyEvent_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AgencyHookDelivery" ADD CONSTRAINT "AgencyHookDelivery_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "AgencyEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AgencyHookDelivery" ADD CONSTRAINT "AgencyHookDelivery_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "AgencyHookSubscription"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+### Owed / open
+
+- **Apply the SQL** before deploying (every new route reads these tables; the
+  write paths' nudges fail soft without them, logged).
+- **Zapier**: the owner runs the README's register → push → `users:links`
+  (FieldQuo's Zapier account, Node 22). Until then agencies use the API.
+- **No-show** is not recorded by FieldQuo; outcomes say "unmarked". Adding a
+  no-show status to appointments is a product decision (calendar, three
+  vocabularies, availability).
+- **A booking made straight on the booking page by someone who never sent an
+  enquiry is not a lead**, so it is not in the agency funnel. Creating a lead
+  from a booking is a product decision.
+- Marketing-site copy (compare pages, `lib/marketing/competitors.js`) still
+  says FieldQuo has no Zapier — true of general integrations until the app is
+  listed; revisit when it is.
+
+### Checks
+
+`check:agency-api` (164 incl. 11 mutants: key hash/revoke, scope refusals,
+another company's key → nothing under a guard that throws on any unscoped
+query, PII switch on/off across API row + webhook + sample, money switch,
+ZIP5/FSA, subscribe → event → delivery → retry → 410, stage from→to, no
+backfill, inbound dedupe by email and phone, move-stage rules, requested
+visit 409, support refused, Zapier app + OpenAPI in step) and
+`check:marketing-metrics` (79 incl. 7 mutants: fixture month vs previous —
+CPL, CPA, close rate, adjusted close rate, ROAS, average job, medians;
+loader: appointment once, before-lead/video/post-win visits excluded,
+monotonic funnel; definitions = catalogue, 9 languages). Both in check:all.
 
 ## Conversations sorted into four tiers; real cost per conversation; scope estimates; follow-ups (5 October 2026)
 

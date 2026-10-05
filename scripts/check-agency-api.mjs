@@ -446,11 +446,14 @@ ok("no handler ran an unscoped query on a tenant table", unscoped.length === 0, 
 section("11. The Zapier app (integrations/zapier) and the OpenAPI file");
 {
   const { createRequire } = await import("node:module");
-  const require = createRequire(join(ROOT, "integrations/zapier/package.json"));
-  const zEvents = require("./triggers/events.js").EVENTS.map((e) => e[0]);
-  const zFields = require("./lib.js").LEAD_FIELDS.map((f) => f[0]);
-  const zCreates = require("./creates/leads.js").creates.map((c) => c.key);
-  const zSearches = require("./searches/leads.js").searches.map((s) => s.key);
+  // CommonJS files of the Zapier project, loaded by absolute path (they are
+  // not part of the app's import graph — scripts/check-imports.mjs reads
+  // literal specifiers, and these resolve against integrations/zapier).
+  const zapier = (rel) => createRequire(import.meta.url)(join(ROOT, "integrations/zapier", rel));
+  const zEvents = zapier("triggers/events.js").EVENTS.map((e) => e[0]);
+  const zFields = zapier("lib.js").LEAD_FIELDS.map((f) => f[0]);
+  const zCreates = zapier("creates/leads.js").creates.map((c) => c.key);
+  const zSearches = zapier("searches/leads.js").searches.map((s) => s.key);
   ok("the Zapier triggers are exactly the API's events", JSON.stringify([...zEvents].sort()) === JSON.stringify([...EVENTS].sort()), zEvents);
   ok("the Zapier lead fields are exactly the API's lead row", JSON.stringify(zFields) === JSON.stringify(LEAD_ROW_KEYS), zFields.filter((k) => !LEAD_ROW_KEYS.includes(k)));
   ok("actions: Create Lead, Move Lead to Stage, Update Appointment Request", JSON.stringify(zCreates) === JSON.stringify(["create_lead", "move_lead_stage", "update_appointment_request"]));
