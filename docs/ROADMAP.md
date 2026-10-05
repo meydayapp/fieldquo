@@ -295,9 +295,26 @@ sq ft, 786.8 → 242.3 h, $80,659 → $26,454; exterior $14,059 → $15,772 (the
 41.9 ft scaffold now priced); days 0.49 → 4.28 and 3 → 8.08.
 `check:plan-read-first-pass` §18 (219 assertions; 15 more mutations killed).
 
+Correction the same day: the OUTSIDE eaves (2.94 m) is the wrong source for
+the inside walls — the church's interior photos show them rising well above
+it. Inside wall height now comes from (1) a section's inside wall plate /
+truss foot, (2) an interior photo estimated against a door / person / pew
+(photo sheets are now measured on a read that prices inside walls — one more
+best-tier call per photo sheet, ≈ $0.23), (3) the outside eaves only as a
+LOWER BOUND, low confidence, with the check "interior wall height taken from
+outside eaves — measure on site". Never a ridge. Interior access follows the
+result (walls known under 13 ft → one tower, lifts not needed, said; a lower
+bound keeps the access, sized to the height the drawings show above the
+walls). Prep is broken down by allowance and the setup's assumption. The
+measurement pass now reports a room's arch / opening widths; the ¾ share is
+only the labelled fallback. On the stored church read no section or photo
+height exists, so the interior stays at the lower bound (11,051 sq ft,
+$29,806) and says so; a re-read will measure the photos.
+
 ### Owed
 
-- A live re-read of the church after deploy to confirm the numbers above.
+- A live re-read of the church after deploy: the photos' inside wall height
+  should replace the lower bound.
 - FX: only USD/CAD hold a dated rate — GBP/EUR/AUD companies see access "NOT
   priced" with the reason until they enter rates; prep material defaults are
   US shelf prices shown unconverted (labelled "US shelf price").
