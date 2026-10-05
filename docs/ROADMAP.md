@@ -140,12 +140,16 @@ every stored quote row are untouched.
 
 1-coat lines get cheaper (den walls $413.25 → $237.30; 10 door sides
 $453.70 → $241.20), 3-coat lines dearer ($535.96 → $711.91), a 2-coat
-siding line doubles its hours (his siding rate is one coat). Every line at
+siding line doubles its hours — $3,312.04 → $5,184.04 (his siding rate is one
+coat; see "Waiting on the owner"). New and newly-added lines only — a
+stored quote keeps its saved price. Every line at
 its standard coats prints as before.
 
 ### Checks
 
-`check:paint-coats-labour` (in check:all; 8 mutations, all caught). Pins
+`check:paint-coats-labour` (in check:all; 8 engine mutations and the
+stored-price guard, all caught — a sent or draft quote with a 3-coat line
+reopens at its saved total; the note fires). Pins
 re-taken with the reason: check:estimate-kind-routing (cabinets, staining),
 check:plan-deep-read (the catalogue's new product), check:production-rates,
 check:trade-calibration, check:plan-read-live-fixes (the coats rule).
@@ -155,9 +159,19 @@ check:trade-calibration, check:plan-read-live-fixes (the coats rule).
 - The calibration's soft flags were not asked for: a flush exterior door
   at ~0.75 h a side, and a deck at 120 when rails and steps are in the
   area.
-- Stored quotes with a 1- or 3-coat line reprice when reopened in the
-  builder — that is the rule; a company that priced coats into its rates
-  turns it off.
+- **Siding, before this ships:** the siding preset is the owner's recovered
+  ONE-coat rate, so a 2-coat siding line now doubles its hours — 2,340 sq
+  ft at 2 coats goes $3,312.04 → $5,184.04 (23.4 h → 46.8 h). That is the
+  linear rule applied to a 1-coat basis; the owner should see it first.
+- Stored quotes do NOT reprice: every stored group opens `persisted` (its
+  saved lines are the price, whatever the status — draft, sent, viewed,
+  accepted, declined, expired, invoiced). Where today's rules would price a
+  stored painting line differently, the group shows an office-only note
+  ("Current rates would price … at $X — the price on this quote, $Y, is
+  kept"); nothing applies it. Not frozen, and recomputed from the stored
+  takeoff with today's rules: the cost panel's labour hours, the job plan
+  and work-order hours, and the client proposal's day-by-day plan (days,
+  never money) — as they already were for any rate-card edit.
 
 ---
 

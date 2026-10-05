@@ -43,6 +43,7 @@ import {
 } from "@/lib/pricing/paintTakeoff";
 import { CABINET_LABOUR_DEFAULTS } from "@/lib/pricing/cabinetLabour";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
+import { scopeGroupPayload, groupSubtotal, lineItemsFromStored, storedTakeoffDrift } from "@/lib/quotes/builderPayload";
 import { presetFixtures } from "./fixtures/paintPresetFixtures.mjs";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
@@ -243,7 +244,40 @@ ok("read: each draft line carries coatHours from the same book", /coatHours: pai
 ok("read: the chat is told the new rule", /Coats change the hours and the paint/.test(code("lib/planRead/prompts.js")) && !/Coats change the paint, not the hours/.test(code("lib/planRead/prompts.js")));
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("7. the screens and the strings");
+console.log("7. a stored quote keeps its price — sent or draft — and the office is told");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Non-negotiable: a price the client was sent or accepted is never
+// recomputed. The builder opens EVERY stored group as `persisted` (its lines
+// are the quote; groupFromStored in QuoteBuilder.js, for any status), so a
+// quote saved before coats moved hours reopens at exactly its saved total.
+// What changes is a note to the office where today's rules differ.
+
+const before = { takeoff: { coatsChangeLabour: false } }; // the engine a quote was saved under
+const groupOf = (coats) => ({ tempId: "g1", categoryId: "cat_int", categoryKey: "interior_painting", label: "Interior painting", persisted: false, intakeValues: {}, lineItems: [], takeoff: den(coats) });
+const savedLines = (coats) => scopeGroupPayload(groupOf(coats), before, "en").lineItems;
+const reopened = (coats) => ({ ...groupOf(coats), id: "sg1", persisted: true, lineItems: lineItemsFromStored(savedLines(coats)) });
+const savedTotal = (coats) => Math.round(savedLines(coats).reduce((n, l) => n + Number(l.amount), 0) * 100) / 100;
+for (const status of ["sent", "viewed", "accepted", "declined", "expired", "draft"]) {
+  // The status is not an input to the builder's pricing at all — that is the proof.
+  ok(`${status}: a 3-coat quote saved before the rule reopens at its saved total`, groupSubtotal(reopened(3), null) === savedTotal(3), [groupSubtotal(reopened(3), null), savedTotal(3)]);
+}
+ok("…while the same takeoff priced fresh today is dearer (so the test can fail)", groupSubtotal(groupOf(3), null) > savedTotal(3), [groupSubtotal(groupOf(3), null), savedTotal(3)]);
+ok("…and saving it again writes the same lines, byte for byte", md5(scopeGroupPayload(reopened(3), null, "en").lineItems) === md5(lineItemsFromStored(savedLines(3))));
+ok("a 1-coat quote likewise keeps its (dearer) saved price", groupSubtotal(reopened(1), null) === savedTotal(1) && groupSubtotal(groupOf(1), null) < savedTotal(1));
+const drift3 = storedTakeoffDrift(reopened(3), null, "en");
+ok("the office note names the line, today's figure and the kept one", drift3.length === 1 && drift3[0].current > drift3[0].stored && drift3[0].stored === savedLines(3).find((l) => l.description === drift3[0].description).amount, drift3);
+ok("…today's figure is what a fresh group would charge for that line", drift3[0].current === scopeGroupPayload(groupOf(3), null, "en").lineItems.find((l) => l.description === drift3[0].description).amount);
+ok("a 2-coat quote has no note — nothing differs", storedTakeoffDrift(reopened(2), null, "en").length === 0);
+ok("a group added this session has no note (it is priced live)", storedTakeoffDrift(groupOf(3), null, "en").length === 0);
+ok("a hand-retyped line is not compared", storedTakeoffDrift({ ...reopened(3), lineItems: reopened(3).lineItems.map((l) => ({ ...l, description: `${l.description} (agreed)` })) }, null, "en").length === 0);
+const qb = code("app/components/quotes/builder/QuoteBuilder.js");
+ok("every stored group opens persisted, whatever the quote's status", /function groupFromStored\(g, importedIds, fallbackLabel\) \{[\s\S]{0,900}?persisted: true,/.test(qb) && !/persisted: (?:status|quote\.status|g\.status)/.test(qb));
+ok("the note is drawn, office-only, and nothing applies it", /storedTakeoffDrift\(group, rateOverridesFor\(group\.categoryId\)/.test(qb) && /app\.quoteEdit\.priceKeptNote/.test(qb));
+for (const lang of Object.keys(APP_MESSAGES)) ok(`${lang} has app.quoteEdit.priceKeptNote with its three placeholders`, ["{line}", "{current}", "{stored}"].every((p) => String(APP_MESSAGES[lang]["app.quoteEdit.priceKeptNote"] || "").includes(p)));
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("8. the screens and the strings");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const settings = code("app/app/settings/services/PaintRateSets.js");
