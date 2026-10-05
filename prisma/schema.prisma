@@ -10628,6 +10628,16 @@ model ForecastSettings {
   /// (normaliseTargetMargin), because a stored 3.0 would make the floor
   /// negative.
   targetMargin        Decimal?  @db.Decimal(5, 4)
+  /// The crew-hours the whole field crew can actually INVOICE in a month, all
+  /// of them together (two people billing 160 h each = 320). NULL = never
+  /// said. When set, a job's overhead is its fair share of the month in TIME —
+  /// monthly fixed costs × (the job's crew-hours ÷ this) — instead of the
+  /// month split evenly over jobsPerMonth (the owner, 2026-10-04;
+  /// lib/costing/overheadShare.js). It is also the hourly floor's divisor
+  /// (lib/analytics/minimumPrice.js calculateHourlyFloor). Written by
+  /// Settings → Overhead (app/api/settings/forecast), bounded there and on
+  /// read (billableHoursFrom).
+  billableHoursPerMonth Decimal? @db.Decimal(10, 2)
   leadsPer1000        Decimal   @default(12) @db.Decimal(8, 2)
   leadToSale          Decimal   @default(0.60) @db.Decimal(6, 3)
   curveType           CurveType @default(log)
@@ -22224,6 +22234,15 @@ model PlanRead {
   clientRequest String?
   /// "painting" | "staining" — phase 1.
   trade         String  @default("painting")
+  /// What the read is FOR — the services on its quote or request, as the
+  /// company's own ServiceCategory keys: { categories: [{ key, label }], from:
+  /// "quote" | "lead" | "estimator" }. The owner (2026-10-04): the trade comes
+  /// from the quote's service, never a separate trade picker — a roofing quote
+  /// reads the roof, an interior painting quote the inside. It decides which
+  /// sheets are sent to the model (lib/planRead/tradeCatalogue.js routeSheets)
+  /// and which trades are synthesised. NULL = not stated: painting, every
+  /// sheet, exactly as before this column existed.
+  scope         Json?
 
   /// draft | reading | ready | failed
   status     String    @default("draft")
