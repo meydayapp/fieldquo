@@ -20356,7 +20356,10 @@ model ThreadClientMatch {
   companyId      String
   threadId       String
   clientId       String
-  /// "certain" | "likely" — a "possible" match is never linked.
+  /// "certain" | "likely" — a "possible" match is never linked. "possible"
+  /// appears only on a row born "undone": "Not this client" pressed on the
+  /// client timeline (lib/conversations/clientTimeline.js) for a thread
+  /// nobody had linked — the refusal itself, read by both matchers.
   confidence     String
   /// ["email", "phone", "name", "address"]
   matchedOn      Json

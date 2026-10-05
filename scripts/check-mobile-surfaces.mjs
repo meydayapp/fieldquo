@@ -166,6 +166,10 @@ const SURFACES = [
   // The mobile primitives themselves. Three files, written for a phone, and
   // they pass strict as written — so they go in strict, not on a gap list.
   { dir: "app/components/mobile", tier: "strict" },
+  // The client/job "Conversation" timeline (2026-10-05): read and answered
+  // from a phone in a driveway, so it is held to strict from its first day
+  // rather than joining the unscanned app/components pile.
+  { dir: "app/components/conversations", tier: "strict" },
   // The chrome every /app screen carries: the rail, the mobile tab bar, the
   // banners. Baseline — MobileTabBar's tab buttons put min-h-[44px] on the
   // inner <span> that draws the pill rather than on the <button>, which the

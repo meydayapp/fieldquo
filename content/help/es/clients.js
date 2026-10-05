@@ -1052,4 +1052,133 @@ export const ARTICLES = {
       { q: "¿Adónde va una solicitud de trabajo nuevo?", a: "Al tablero de prospectos, como un prospecto. El trabajo nuevo se presupuesta; no es un ticket que responder. Vea [[the-leads-board|El tablero de prospectos]]." },
     ],
   },
+  // 2026-10-05: the client / job Conversation timeline
+  // (lib/conversations/clientTimeline.js, app/components/conversations/
+  // ClientConversation.js, app/api/{clients,jobs}/[id]/conversation).
+  "a-clients-conversation-on-every-channel": {
+    "title": "La conversación de un cliente en todos los canales",
+    "summary": "La sección Conversación de un cliente y de un trabajo: cada mensaje de Facebook, Instagram, WhatsApp, texto, correo, chat del sitio, llamada y portal con ese cliente en un solo historial, con un cuadro de respuesta.",
+    "updated": "2026-10-05",
+    "intro": [
+      "Abra un cliente, o uno de sus trabajos, y la sección **Conversación** muestra todo lo hablado con ese cliente en un solo historial — lo más reciente abajo, como un chat. Cada entrada lleva la insignia del canal por el que llegó y un enlace al original: nada se copia, el hilo de la bandeja, la solicitud o el documento siguen siendo el original."
+    ],
+    "sections": [
+      {
+        "id": "what-is-in-it",
+        "heading": "Qué contiene",
+        "blocks": [
+          {
+            "bullets": [
+              "**Facebook, Instagram, WhatsApp, mensajes de texto y chat del sitio** — las conversaciones de **Mensajes**.",
+              "**Correo** — el correo archivado desde un buzón de trabajo conectado (Gmail, Outlook o IMAP), y una línea por cada cotización o factura enviada por correo, con su número y a quién se envió.",
+              "**Llamadas** — las llamadas de la recepcionista con su resumen y transcripción (**Mostrar transcripción**), y las llamadas a su propio número de empresa.",
+              "**Portal del cliente** — las solicitudes que el cliente hizo desde su portal y las respuestas.",
+              "**Textos automáticos** — confirmaciones, recordatorios y \"En camino\", con si se entregaron."
+            ]
+          },
+          {
+            "p": "Las notas privadas no aparecen — nunca se le dijeron al cliente. Tampoco los eventos de la bandeja, como a quién se asignó una conversación."
+          },
+          {
+            "p": "Las fichas de canal de arriba filtran el historial a un canal. **Cargar mensajes anteriores**, arriba, trae la página siguiente."
+          }
+        ]
+      },
+      {
+        "id": "how-a-conversation-is-matched",
+        "heading": "Cómo se asocia una conversación al cliente",
+        "blocks": [
+          {
+            "p": "Una conversación pertenece al cliente cuando:"
+          },
+          {
+            "bullets": [
+              "alguien la vinculó al cliente en **Mensajes**, o la archivó en uno de sus trabajos o cotizaciones;",
+              "viene de un contacto que se convirtió en una cotización del cliente;",
+              "su teléfono o correo es el del cliente — el número comparado en su forma internacional completa, así que **+1 (514) 555-0101** y **514-555-0101** son el mismo número, y el correo sin distinguir mayúsculas. Solo se comparan los clientes de su propia empresa."
+            ]
+          },
+          {
+            "p": "Cuando **dos de sus clientes comparten ese teléfono o correo**, o el nombre de la conversación no coincide con el del cliente (una línea familiar), la conversación no se agrega. Aparece en **Posibles coincidencias** con **Vincular a este cliente** y **No es este cliente**, para que una persona decida."
+          },
+          {
+            "p": "**De dónde vienen**, abajo, lista cada conversación del historial y por qué está ahí. **No es este cliente** en una asociada la quita, y ese cliente y esa conversación no se vuelven a asociar nunca. Una conversación que una persona vinculó en Mensajes se desvincula en Mensajes."
+          }
+        ]
+      },
+      {
+        "id": "on-a-job",
+        "heading": "En un trabajo",
+        "blocks": [
+          {
+            "p": "En un trabajo, cuando el cliente tiene más de uno, el historial se limita a este trabajo: desde el día en que se creó su cotización (o el trabajo, si no tenía cotización) hasta 30 días después de terminarlo — sin fin mientras no esté terminado. Las conversaciones archivadas en este trabajo o su cotización, las solicitudes sobre él y sus propios correos de cotización y factura se muestran siempre, sea cual sea su fecha."
+          },
+          {
+            "p": "**Todos los mensajes de este cliente** quita el límite; **Solo este trabajo** lo vuelve a poner. Un cliente con un solo trabajo ve todo."
+          }
+        ]
+      },
+      {
+        "id": "replying",
+        "heading": "Responder",
+        "blocks": [
+          {
+            "p": "El cuadro de respuesta contesta por el canal del **mensaje entrante más reciente** del cliente, y lo indica antes de escribir — **Responder por WhatsApp a Jane Doe**. Elija antes una ficha de canal para responder por ese canal. La respuesta sale exactamente igual que desde **Mensajes**, y aparece en ambos."
+          },
+          {
+            "p": "Cuando ese canal no admite un mensaje escrito — Meta aún no aprobó la mensajería, pasaron más de 24 horas en WhatsApp, Facebook o Instagram, o es la empresa de demostración — el cuadro se reemplaza por el motivo que da Mensajes, con **Abrir en Mensajes** (donde WhatsApp ofrece sus plantillas aprobadas)."
+          }
+        ]
+      },
+      {
+        "id": "who-can-see-it",
+        "heading": "Quién puede verla",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Para",
+                "Necesita"
+              ],
+              "rows": [
+                [
+                  "Ver la sección en un cliente",
+                  "**Solicitudes** en solo lectura o más, y **Clientes y propiedades** en lectura completa"
+                ],
+                [
+                  "Verla en un trabajo",
+                  "**Solicitudes** en solo lectura o más, y el propio trabajo (un miembro de la cuadrilla solo ve sus trabajos)"
+                ],
+                [
+                  "Responder, **Vincular a este cliente**, **No es este cliente**",
+                  "**Solicitudes** en ver, crear y editar"
+                ],
+                [
+                  "Ver teléfonos, direcciones y llamadas de la recepcionista",
+                  "**Clientes y propiedades** en lectura completa"
+                ]
+              ]
+            }
+          },
+          {
+            "p": "El perfil Cuadrilla (**Solicitudes: ninguno**) tampoco ve las conversaciones del cliente en un trabajo — la página del trabajo no es un atajo a la bandeja. Una sesión de soporte de FieldQuo puede leer el historial, pero no responder ni cambiar un vínculo."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿El historial vincula las conversaciones en Mensajes?",
+        "a": "No. Una conversación asociada por teléfono o correo aparece en el historial del cliente, pero en Mensajes sigue igual hasta que alguien la vincule allí o pulse **Vincular a este cliente** en una posible coincidencia."
+      },
+      {
+        "q": "¿Por qué una conversación del número de mi cliente está en Posibles coincidencias?",
+        "a": "Porque otro de sus clientes tiene el mismo número o correo, o el nombre de la conversación no coincide con el del cliente. Elegir uno automáticamente podría poner los mensajes de una persona en el expediente de otra, así que decide una persona."
+      },
+      {
+        "q": "¿Se muestra completo el correo de una cotización enviada?",
+        "a": "El historial muestra que la cotización o factura se envió, cuándo, a quién y por quién, con un enlace al documento. El correo completo solo aparece si salió por su buzón conectado y se archivó."
+      }
+    ]
+  },
 };

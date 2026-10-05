@@ -38,6 +38,7 @@ import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
 import FiledEmails from "@/app/components/mailbox/FiledEmails";
+import ClientConversation from "@/app/components/conversations/ClientConversation";
 import ClientPortalLink from "@/app/components/clients/ClientPortalLink";
 import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -400,6 +401,13 @@ export default function ClientDetailPage() {
           mailbox (Settings → Work email). Same level as the record itself;
           the component renders nothing when nothing has been filed. */}
       {canSeeEquipment && <FiledEmails clientId={client.id} />}
+
+      {/* Everything said with this client on every channel — Messenger,
+          Instagram, WhatsApp, texts, email, website chat, calls and the
+          portal — in one timeline, with a reply on the newest one's channel.
+          The same level as the email section above, plus the inbox's own
+          read rung; the route refuses anyone else and this draws nothing. */}
+      {canSeeEquipment && <ClientConversation clientId={client.id} />}
 
       {/* Related records */}
       {!hidden.has("quotes") && (
