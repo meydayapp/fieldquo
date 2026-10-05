@@ -32,6 +32,7 @@ import { formatDateOnly } from "@/lib/format/companyDate";
 import { CurrencyNotes, excludedSentence } from "@/app/components/marketing/SpendCurrencyNotes";
 import { isSyncedSource } from "@/lib/googleAds/sources";
 import GoogleAdsImportDialog from "@/app/components/marketing/GoogleAdsImportDialog";
+import AdFunnel from "@/app/components/marketing/AdFunnel";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
 
@@ -736,6 +737,12 @@ export default function MarketingSpendPage() {
         onRetry={load}
         t={t}
       />
+
+      {/* What the Meta ad money bought, counted honestly: Meta's
+          conversations → real conversations → leads → quotes → won, with
+          the cost per REAL conversation and per lead beside Meta's own
+          (lib/analytics/adFunnel.js). Its own read and error state. */}
+      <AdFunnel currency={currency} t={t} />
 
       {/* Google Ads, campaign by campaign — from the same campaigns read,
           with its own error (`googleError`) so a failed Google query is said,

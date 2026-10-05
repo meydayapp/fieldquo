@@ -153,7 +153,7 @@ export const ARTICLES = {
     title: "Marketing spend",
     summary:
       "Log what you spend to bring in work — by channel, by hand or synced from Meta — and read a blended cost per lead worked out from your real lead count.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "**Marketing → Marketing spend** is the ledger of what you pay to get leads: Facebook and Instagram, Google, TikTok, pamphlets, referral incentives, anything else. You type the amounts in, or connect your Meta ad account and let **Sync now** import them. Above the ledger, FieldQuo divides the total by the number of real leads that arrived and prints a **Blended cost per lead**.",
       "Blended is the honest word. Per-campaign cost per lead is only worked out for leads that arrived through a Meta lead form; every other channel — and a homeowner who saw the ad and phoned — is still blended across everything, because nothing links that spend to that lead.",
@@ -195,6 +195,19 @@ export const ARTICLES = {
           } },
           { p: "The campaign table's Leads column counts only Meta lead-form submissions received for that campaign. Its own footnote says it: a homeowner who saw the ad and phoned is not counted, so cost per lead there is the most a lead-form lead cost you — the blended figure above is the whole picture." },
           { warning: "Deleting an entry changes the cost-per-lead figures; the confirmation says so. The same rows feed the business-costs card on the KPI dashboard and the monthly digest email." },
+        ],
+      },
+      {
+        id: "what-the-ads-bought",
+        heading: "What your Meta ads bought",
+        blocks: [
+          { p: "Meta counts every chat its ads open as a “messaging conversation”, even a mis-tap on a suggested question. The **What your Meta ads bought** section counts what really happened, for Facebook ads, Instagram ads and organic chats: chats received, taps and not-relevant chats, real conversations, leads, quotes, won jobs and invoiced." },
+          { bullets: [
+            "**Meta's cost per conversation** and **Meta's cost per lead** — your spend over Meta's own counts, labelled as Meta's.",
+            "**Cost per real conversation** and **Cost per real lead** — the same spend over what FieldQuo counted: people who typed their own words about your work, and those who gave a detail you can quote from.",
+            "Meta reports spend per campaign, not per app, so costs are shown for all Meta ads together. With no ad account connected you see the counts and a note that spend is missing.",
+          ] },
+          { note: "A chat that began on an ad is recognised from Meta's ad referral, or from the “… replied to an ad.” line Meta writes into older conversations. The same section is on the **KPIs** page for the period you pick." },
         ],
       },
       {

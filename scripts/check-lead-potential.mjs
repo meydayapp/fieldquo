@@ -4,13 +4,14 @@
 //
 // ── What this is guarding ───────────────────────────────────────────────────
 //
-// The leads board prints "≈ $X · from quote / estimate / your average for
-// painting" on each card and a per-stage sum at the top. Every figure must
-// carry the basis it came from, and a lead with NO basis must come back as
-// null — never as $0, never as a guess. This feeds lib/leads/potentialValue.js
-// hostile rows (no services, a $0 quote, an average over zero history, a
-// Decimal-shaped total, a NaN range) and asserts the basis order the header
-// of that file promises. The second half reads source: the API attaches the
+// The leads board prints "≈ $X · from quote / estimate / estimate from 22
+// doors + 15 drawers" on each card and a per-stage sum at the top. Every
+// figure must carry the basis it came from, and a lead with NO basis must
+// come back as null — never as $0, never as a guess, and (since 2026-10-05)
+// never as the company's average won quote. This feeds
+// lib/leads/potentialValue.js hostile rows (no services, a $0 quote, a
+// Decimal-shaped total, a NaN range, counts with no price) and asserts the
+// basis order the header of that file promises. The second half reads source: the API attaches the
 // value only behind the pricing toggle and strips the quote's money again,
 // and the page renders the strip only when a figure was attached.
 import fs from "node:fs";
@@ -18,9 +19,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   potentialValueForLead,
-  averageWonByCategory,
+  leadScopeCounts,
   summarisePotential,
+  BASES,
 } from "@/lib/leads/potentialValue";
+import { getPriceBook } from "@/app/data/tradePriceBooks";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -39,7 +42,13 @@ const decimal = (v) => ({ toString: () => String(v), toNumber: () => Number(v) }
 
 console.log("\nBasis order");
 {
+  // The company's own priced services (lib/leads/scopeEstimate.js
+  // loadScopePricing's shape). `averages` is kept as a name for the
+  // context object the old basis took, to prove it is now ignored.
   const averages = { cat_paint: { amount: 3200, count: 5, label: "Painting" } };
+  const pricing = {
+    cat_cab: { categoryId: "cat_cab", key: "cabinet_refinishing", label: "Cabinet Refinishing", book: getPriceBook("cabinet_refinishing", null), defaultRate: null, unit: null },
+  };
 
   ok(
     "no lead at all → unknown, null amount",
@@ -94,56 +103,50 @@ console.log("\nBasis order");
     { categoryId: "cat_paint", quote: { total: 0 } },
     { averages },
   );
-  ok("$0 quote falls through to the company average", zeroQuote.basis === "average" && zeroQuote.amount === 3200);
-  ok("average basis names the service and the sample", zeroQuote.service === "Painting" && zeroQuote.sample === 5);
+  ok("$0 quote and no scope → unknown, NEVER the company average", zeroQuote.basis === "unknown" && zeroQuote.amount === null);
+  ok("the basis list has no 'average' any more", !BASES.includes("average") && BASES.includes("scope"));
 
-  const zeroNoHistory = potentialValueForLead({ categoryId: "cat_roof", quote: { total: 0 } }, { averages });
-  ok("$0 quote + no history → unknown, not $0", zeroNoHistory.basis === "unknown" && zeroNoHistory.amount === null);
+  const zeroWithScope = potentialValueForLead(
+    { categoryId: "cat_cab", quote: { total: 0 }, intake: { scope: { counts: { doors: 22, drawers: 15 } } } },
+    { pricing },
+  );
+  ok("$0 quote + counts → the scope estimate from the company's book", zeroWithScope.basis === "scope" && zeroWithScope.amount === 5550, JSON.stringify(zeroWithScope));
 
   const negative = potentialValueForLead({ quote: { total: -50 } }, { averages: {} });
   ok("negative total is not a figure", negative.basis === "unknown");
 
-  const noAverages = potentialValueForLead({ categoryId: "cat_paint" });
-  ok("no averages handed in → unknown (never a made-up number)", noAverages.basis === "unknown");
+  const noPricing = potentialValueForLead({ categoryId: "cat_paint" });
+  ok("no pricing handed in → unknown (never a made-up number)", noPricing.basis === "unknown");
 
-  const zeroCount = potentialValueForLead(
-    { categoryId: "cat_paint" },
-    { averages: { cat_paint: { amount: 3200, count: 0 } } },
-  );
-  ok("average with count 0 is refused", zeroCount.basis === "unknown");
+  const averagesIgnored = potentialValueForLead({ categoryId: "cat_paint" }, { averages });
+  ok("a no-scope lead is unknown even when averages are handed in", averagesIgnored.basis === "unknown" && averagesIgnored.amount === null);
 
   const budgetOnly = potentialValueForLead({ categoryId: null, budgetBand: "15k_plus" }, { averages });
   ok("a stated budget band alone is NOT a figure", budgetOnly.basis === "unknown");
 }
 
-console.log("\nAverages over the company's own history");
+console.log("\nScope: the homeowner's counts, the company's own prices");
 {
-  const categories = [
-    { id: "cat_paint", key: "painting", label: "Painting" },
-    { id: "cat_roof", key: "roofing", label: "Roofing" },
-  ];
-  ok("zero history → empty map", Object.keys(averageWonByCategory([], categories)).length === 0);
-  ok("garbage in → empty map", Object.keys(averageWonByCategory([null, 1, "x", {}], categories)).length === 0);
-
-  const avg = averageWonByCategory(
-    [
-      { total: decimal("1000"), scopeGroups: [{ categoryId: "cat_paint" }] },
-      { total: "3000", acceptedTotal: "3400", scopeGroups: [{ categoryId: "cat_paint" }, { categoryId: "cat_roof" }] },
-      { total: 0, scopeGroups: [{ categoryId: "cat_paint" }] }, // a $0 win: skipped
-      { total: "9000", quoteType: "roofing", scopeGroups: [] }, // pre-scope-group quote
-      { total: "500", quoteType: "unknown_trade", scopeGroups: [{ categoryId: "" }] },
-    ],
-    categories,
-  );
-  ok("painting mean skips the $0 win: (1000+3400)/2", avg.cat_paint?.amount === 2200 && avg.cat_paint?.count === 2);
-  ok("roofing counts the scope group AND the quoteType-only quote", avg.cat_roof?.amount === 6200 && avg.cat_roof?.count === 2);
-  ok("a quote spanning two trades is counted once in each", avg.cat_paint.count === 2 && avg.cat_roof.count === 2);
-  ok("labels come from the category rows", avg.cat_paint.label === "Painting");
-  ok("no category invented for an unknown trade", Object.keys(avg).length === 2);
-  ok("same quote with the group AND matching quoteType counts once", (() => {
-    const one = averageWonByCategory([{ total: "100", quoteType: "painting", scopeGroups: [{ categoryId: "cat_paint" }] }], categories);
-    return one.cat_paint.count === 1 && one.cat_paint.amount === 100;
-  })());
+  const pricing = {
+    cat_cab: { categoryId: "cat_cab", key: "cabinet_refinishing", label: "Cabinet Refinishing", book: getPriceBook("cabinet_refinishing", { perDoor: 120, perDrawer: 90 }), defaultRate: null, unit: null },
+    cat_floor: { categoryId: "cat_floor", key: "flooring", label: "Flooring", book: getPriceBook("flooring", null), defaultRate: null, unit: null },
+  };
+  const tony = potentialValueForLead({ categoryId: "cat_cab", intake: { scope: { counts: { doors: 22, drawers: 15 } } } }, { pricing });
+  ok("22 doors × 120 + 15 drawers × 90 from the company's OWN rates (an override, not the default)", tony.basis === "scope" && tony.amount === 22 * 120 + 15 * 90, JSON.stringify(tony));
+  ok("…labelled with the counts it came from", tony.counts?.doors === 22 && tony.counts?.drawers === 15 && tony.service === "Cabinet Refinishing");
+  const small = potentialValueForLead({ categoryId: "cat_cab", intake: { scope: { counts: { doors: 4 } } } }, { pricing });
+  ok("the book's job minimum applies, and says so", small.amount === 3800 && small.minimumApplied === true, JSON.stringify(small));
+  const inferred = potentialValueForLead({ categoryId: null, intake: { scope: { counts: { doors: 10, drawers: 2 } } } }, { pricing });
+  ok("no service on the lead: the one per-piece cabinet service is used", inferred.basis === "scope" && inferred.amount === Math.max(3800, 10 * 120 + 2 * 90));
+  const notSold = potentialValueForLead({ categoryId: "cat_roof", intake: { scope: { counts: { doors: 10 } } } }, { pricing });
+  ok("a service the company does not price → no figure, and why", notSold.amount === null && notSold.why === "no_pricing");
+  const sqft = potentialValueForLead({ categoryId: "cat_floor", intake: { scope: { counts: { sqft: 1000 } } } }, { pricing });
+  ok("1000 sq ft × the flooring book's standard rate", sqft.basis === "scope" && sqft.amount === 7500, JSON.stringify(sqft));
+  const formAnswers = leadScopeCounts({ intake: { doorCount: "18", drawerCount: 6, scope: { counts: { drawers: 8 } } } });
+  ok("a form's doorCount is read; the conversation's count wins where both say", formAnswers.doors === 18 && formAnswers.drawers === 8);
+  ok("garbage counts are no counts", Object.keys(leadScopeCounts({ intake: { doorCount: "x", scope: { counts: { doors: -3 } } } })).length === 0);
+  const otherCompany = potentialValueForLead({ categoryId: "cat_cab", intake: { scope: { counts: { doors: 22 } } } }, { pricing: {} });
+  ok("another company's prices are never reached: no pricing handed in → no figure", otherCompany.amount === null);
 }
 
 console.log("\nSummary strip");
@@ -151,7 +154,7 @@ console.log("\nSummary strip");
   const leads = [
     { status: "new", potential: { amount: 1000, basis: "quote" } },
     { status: "new", potential: { amount: null, basis: "unknown" } },
-    { status: "contacted", potential: { amount: 2500, basis: "average" } },
+    { status: "contacted", potential: { amount: 2500, basis: "scope" } },
     { status: "converted", potential: { amount: 4000, basis: "quote" } },
     { status: "lost", potential: { amount: 700, basis: "estimate" } },
     { status: "lost" }, // no potential at all
@@ -171,21 +174,22 @@ console.log("\nWiring");
 {
   const route = read("app/api/leads/route.js");
   ok("API computes the value behind the pricing toggle", /canSeeMoney\(full\)/.test(route) && /showMoney && \{ potential:/.test(route));
-  ok("API averages come from lib/leads/wonAverages (company-scoped)", /loadWonAverages\(\s*db,\s*member\.companyId/.test(route));
+  ok("API prices scope from the company's own services (company-scoped)", /loadScopePricing\(db, member\.companyId\)/.test(route) && !/wonAverages|loadWonAverages/.test(route));
   // 930e92bf added hasWork (the Won rule's evidence, which the board asks
   // before a drop) and routed the row through quoteEvidence(). Still a
   // whitelist: exactly these four keys, and null — never the raw row — when
   // quoteEvidence declines it.
+  // 2026-10-05: the total joins the four keys — ONLY behind showMoney.
   ok(
-    "API strips the quote's money back off the response",
-    /publicQuote = evidence\s*\?\s*\{\s*id: evidence\.id,\s*quoteNumber: evidence\.quoteNumber,\s*status: evidence\.status,\s*hasWork: evidence\.hasWork,\s*\}\s*:\s*null;/.test(route) &&
+    "API strips the quote's money back off the response (total only behind the pricing toggle)",
+    /publicQuote = evidence\s*\?\s*\{\s*id: evidence\.id,\s*quoteNumber: evidence\.quoteNumber,\s*status: evidence\.status,\s*hasWork: evidence\.hasWork,\s*\.\.\.\(showMoney && \{ total: quoteMoney\(quote\) \}\),\s*\}\s*:\s*null;/.test(route) &&
       /quote: publicQuote,/.test(route),
   );
-  const won = read("lib/leads/wonAverages.js");
-  ok("won-quote query is scoped to companyId and status accepted", /companyId,\s*status: "accepted"/.test(won));
+  ok("the averages module is gone", !fs.existsSync(path.join(ROOT, "lib/leads/wonAverages.js")));
   const page = read("app/app/leads/page.js");
   ok("page renders the strip only when a figure was attached", /showsMoney && \(leads \?\? \[\]\)\.length > 0 && \(\s*<PotentialStrip/.test(page));
-  ok("card chip renders nothing for an unknown basis", /basis === "unknown"\) return null/.test(page));
+  ok("card chip renders nothing for an unknown basis (only the drawer says why)", /potential\.basis === "unknown"\) \{\s*if \(!detail \|\| !potential\.counts\) return null;/.test(page));
+  ok("no 'average' copy is rendered any more", !/app\.leads\.potential\.fromAverage/.test(page));
   ok("strip says 'not weighted'", /app\.leads\.potential\.notWeighted/.test(page));
   ok("currency comes from the company (useCompanyMoney)", /useCompanyMoney\(\)/.test(page));
   const msgs = read("app/i18n/appMessages.js");

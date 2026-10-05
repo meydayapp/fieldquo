@@ -97,6 +97,107 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Conversations sorted into four tiers; real cost per conversation; scope estimates; follow-ups (5 October 2026)
+
+The owner, on TrueFinish Cabinets' real inbox (599 conversations, 80 leads, 69
+from Messenger, made by the history backfill): "Yes it should stop — that's
+why we allow the AI to read, so it can determine whether it is a lead or not",
+and "FB counts any click as a conversation even if accidental, but we should
+really understand how much is spent per actual conversation or lead." And:
+"if we have enough information … it should create a quick estimate of the
+potential revenue from that lead."
+
+### What shipped (not deployed — unpushed branch)
+
+1. **Four tiers** (`lib/leads/qualification.js`): `tap_only` / `conversation`
+   / `lead` / `not_relevant`, each with a reason in the person's own words,
+   stored on `MessageThread.leadCapture.qualification` (existing JSON, no
+   column). Deterministic first: a first message identical to the first
+   message of ≥3 OTHER threads of the company is a quick-reply (finds
+   TrueFinish's own ice-breakers — 89× "I would like to get a Free Quote",
+   79× "What is the average cost…"), Meta's standard ice-breakers in en/fr/es
+   are built in, the same short message twice in 90 s is a tap, emoji /
+   sticker / like / greeting-only is a tap, Meta's system lines ("X replied to
+   an ad." — outbound in history threads — "You can call X…", "Facebook
+   created this chat…") are never read as typing, and the ad marker or
+   `adReferral` sets origin `ad`. Relevance is the company's OWN enabled
+   services (labels + a trade synonym table); the contractor's own decline
+   ("we do focus on kitchen refinishing") makes it not relevant. Phrase lists
+   were tuned against the 599 real threads, read-only. The existing reader
+   (`lib/ai/conversationLeadExtract.js`, metered) runs only when the rules
+   can't decide or for a lead's field reading — never for a tap, a
+   not-relevant thread or a rules-decided conversation.
+   `lib/leads/conversationLead.js` now creates a lead ONLY for tier `lead`;
+   the "not a lead" mark and the tombstones still win. A person sets the tier
+   in one tap on the conversation (`POST /api/messaging/threads/[id]/
+   qualification`) or the lead (`POST /api/leads/[id]/qualification`,
+   `lib/leads/tierOverride.js`); it sticks across later messages; "Lead" on a
+   lead-less conversation creates the lead on the tap.
+2. **Review leads made from conversations** (owner/admin + the delete rung):
+   `GET/POST /api/leads/review-conversations`, `lib/leads/
+   conversationReview.js`, dialog on the board. GET writes nothing; POST acts
+   only on ids it suggested removing and deletes through `deleteLeads` with
+   "not a lead". Quoted (recorded or confirmed-match), Won and Lost leads are
+   always kept.
+3. **Ad funnel** (`lib/analytics/adFunnel.js`, `adFunnelData.js`,
+   `GET /api/marketing-spend/ad-funnel`, `AdFunnel` on the Spend page and the
+   KPI page): Facebook ads / Instagram ads / (WhatsApp ads) / organic — chats,
+   taps + not relevant, real conversations, leads, quotes, won, invoiced —
+   with Meta's cost per conversation and per lead beside FieldQuo's cost per
+   REAL conversation and per real lead. Costs only on the all-ads row (Meta
+   reports spend per campaign, not per app); spend missing → counts and a
+   note.
+4. **Lead value from scope only** (`lib/leads/potentialValue.js`,
+   `scopeEstimate.js`, `scopeExtract.js`): the "average" basis is gone and
+   `lib/leads/wonAverages.js` deleted. New `scope` basis — counts typed in the
+   conversation (stored on `intake.scope` with the source sentence) or a form's
+   `doorCount`/`drawerCount`/`squareFootage`, priced from the company's own
+   price book for that service (cabinets per door/drawer with the book's job
+   minimum, flooring per sq ft, or a single per-unit rate). No price → no
+   figure, and the drawer says why.
+5. **Create quote** (`lib/leads/convertLead.js`): adds the scope lines (counts
+   with the sentence, colour, hardware/handles, damage) to the notes, the
+   counts into the trade's own intake fields (`doorCount`, `drawerCount`,
+   `squareFootage`), the conversation's photos onto the quote, and the lead's
+   language when the person's words were unmistakably en/fr/es
+   (`lib/leads/textLanguage.js`). Name/phone/email/address already carried.
+6. **Follow-ups** (`lib/leads/followUpIntent.js`, `followUpTask.js`): "I'll
+   get in touch when I'm back" → a Task (sourceKey `conversation_follow_up:
+   <thread>:<message>`, unique) due 7 days later, or on the date named ("after
+   the 17th of October", "in 3 weeks", "until Monday"); for the lead's
+   assignee, else the owner; one per conversation (a new promise moves it).
+   The messaging-snooze cron sends `lead.follow_up_due` to the assignee on the
+   day, once. Shown on the card and in the drawer.
+7. **Leads with quotes**: the card shows the quote's number, status and total
+   (total only behind the pricing toggle), or a confirmed-match quote for the
+   same client made after the lead ("probably theirs", same rule as the
+   campaign rollup — `inferLeadQuotes`, split out of `followLeadsToMoney`,
+   unchanged). A "Quoted" filter.
+
+Strings in all nine languages (111 keys). Help "The Leads board" (four new
+sections) and "Marketing spend" (one new section) in en/fr/es.
+
+### On TrueFinish's real data (read-only run of the shipped rules)
+
+599 threads: 179 only a tap, 252 conversation, 101 lead, 67 not relevant; 73
+need the AI fallback. Ad-originated (Facebook): 445 chats — 141 taps, 47 not
+relevant, 171 conversations, 86 leads. The review would suggest removing 23 of
+the 72 conversation-made leads (20 only a tap, 3 not relevant) and keep 49
+(28 leads, 21 conversations). 16 leads get a scope figure (≈ $68,850 total):
+Tony 22 + 15 → $5,550, Louise 23 + 7 → $4,500, Gladys 24 + 4 → $4,200.
+
+### Schema
+
+None. (Tier in `leadCapture`, scope in `intake`, follow-up as a `Task`.)
+
+### Checks
+
+`check:lead-qualification` (new, in check:all — 156 assertions; 21 mutations, all
+caught). Updated: `check:social-leads`, `check:approval-screens`,
+`check:meta-history`, `check:lead-potential`, `check:notifications`.
+
+---
+
 ## Trade labour presets calibrated against the Craftsman guides (5 October 2026)
 
 The owner, 2026-10-05: "fill the gaps and fix the mismatches using their

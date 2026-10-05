@@ -63,6 +63,7 @@ import BarComparison from "@/app/components/charts/BarComparison";
 import GanttStrip from "@/app/components/charts/GanttStrip";
 import FlowChart from "@/app/components/charts/FlowChart";
 import { KpiTile, MoneyTile, reasonMessage } from "./KpiTiles";
+import AdFunnel from "@/app/components/marketing/AdFunnel";
 
 // Aging bucket labels — the SAME i18n keys the main dashboard already uses for
 // this exact ladder (app/app/page.js), so "1–30 days" doesn't get a second,
@@ -725,6 +726,16 @@ export default function KpiDashboardPage() {
                       : t("app.kpis.finance.backlogUnknown", "No data yet.")}
                   </div>
                 </div>
+              </div>
+            )}
+            {/* What the Meta ad money bought, for THIS period: real
+                conversations and leads beside Meta's own counts and costs
+                (lib/analytics/adFunnel.js). Only once the finance section
+                loaded — its gate (user:manage among others) is at least as
+                narrow as the funnel route's own. */}
+            {finance && (
+              <div className="mt-3">
+                <AdFunnel currency={data?.currency || null} from={range.from} to={range.to} t={t} />
               </div>
             )}
           </section>
