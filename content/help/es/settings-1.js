@@ -620,7 +620,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "Solo el propietario y los administradores. La fila no se dibuja para un Gerente, un Despachador, un Estimador ni un miembro de la Cuadrilla, y la página responde **Only an owner or admin can view the activity log.** (una negativa del servidor, en inglés) a cualquier otra persona que llegue a su dirección. Una sesión de soporte de FieldQuo puede leerlo, y sus propias acciones quedan marcadas como tales." },
+          { p: "El propietario, los administradores y los Gerentes — un Gerente sin las líneas de nómina (nóminas, ajustes de nómina, tarifas de pago, comisiones, la facturación de FieldQuo de la empresa), que la página dice que no aparecen. La fila no se dibuja para un Despachador, un Estimador ni un miembro de la Cuadrilla, y la página responde **Only the owner, an admin or a manager can view the activity log.** (una negativa del servidor, en inglés) a cualquier otra persona que llegue a su dirección. Una sesión de soporte de FieldQuo puede leerlo, y sus propias acciones quedan marcadas como tales." },
         ],
       },
     ],

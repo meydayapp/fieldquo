@@ -90,12 +90,30 @@ const OWNER_DECISIONS = {
     said: "the two $1,000 cash payments on the same day are a typo — one $1,000 payment",
   },
   "Q2026-0075": { kind: "lost", said: "lost job (Emery Mbonigaba)" },
-  "Q2026-0012": { kind: "lost", said: "lost job (Paul Machaka)" },
+  // 2026-10-04: the deposit was kept — deposits are non-refundable by policy.
+  // On a fresh run the note is written that way; on the quote already
+  // imported on 2026-10-04 the one open sentence is amended in place
+  // (amendRecordedQuoteNote — that row's internal note, nothing else).
+  "Q2026-0012": { kind: "lost", said: "lost job (Paul Machaka)", deposit: "kept" },
   "Q2026-0077": { kind: "lost", said: "lost job (Pierre Paul Racicot)" },
   "Q2026-0150": { kind: "live_draft", said: "re-quote as a live draft to send again (David Paul Kingsbury)" },
-  // Q2026-0086 (Debbi Driscoll, $282.50 open): no answer yet — the rules above
-  // hold it.
+  // 2026-10-04: she cancelled the project.
+  "Q2026-0086": {
+    kind: "lost",
+    said: "client cancelled the project (Debbi Driscoll)",
+    on: "2026-10-04",
+    note: "Client cancelled; invoice $282.50 never paid — written off as lost revenue.",
+  },
 };
+
+// The deposit sentence of a lost quote's internal note, before and after the
+// owner decided. DEPOSIT_UNDECIDED is the exact text the 2026-10-04 apply
+// wrote — amendRecordedQuoteNote replaces it and nothing else, and refuses if
+// it is no longer there word for word.
+const DEPOSIT_UNDECIDED = "Refund or forfeit is the owner's decision.";
+const depositKept = (payments) =>
+  `${payments.length === 1 ? "The" : "These"} ${payments.map((p) => `${money(p.amount)} deposit received ${tfDay(p.date)}`).join(" and ")} ` +
+  `${payments.length === 1 ? "was" : "were"} kept as non-refundable — deposits are non-refundable by policy; not refunded (owner, 2026-10-04).`;
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -155,10 +173,22 @@ const { round2 } = await import("@/lib/quotes/totals");
 //
 // Neon scales to zero (AGENTS.md): the first connection after idle can fail
 // with a connect error. One retry, then believe it.
+//
+// Both schemas store DateTime as Postgres `timestamp` WITHOUT time zone,
+// written in UTC by Prisma. node-pg's default parser reads such a value as
+// the HOST's local time, so the same row gave a different Date on a Toronto
+// Mac and on a UTC server. This client reads it as the UTC it is — per
+// client, not pg.types globally, so the Prisma adapter used by --apply is
+// untouched.
+const TIMESTAMP_WITHOUT_TZ = 1114;
+function utcTimestampParser(oid, format) {
+  if (oid === TIMESTAMP_WITHOUT_TZ) return (s) => (s === null ? null : new Date(`${s.replace(" ", "T")}Z`));
+  return pg.types.getTypeParser(oid, format);
+}
 async function readOnly(url, fn) {
   let client;
   for (let attempt = 0; attempt < 2; attempt++) {
-    client = new pg.Client({ connectionString: url });
+    client = new pg.Client({ connectionString: url, types: { getTypeParser: utcTimestampParser } });
     try {
       await client.connect();
       break;
@@ -221,7 +251,7 @@ const TARGET_SQL = {
   markers: `select id, "costReviewNote" from "Job" where "companyId" = $1 and "historicalImportedAt" is not null`,
   // Lost quotes and the live draft have no job; their marker is on the quote's
   // internal note (createRecordedQuote).
-  quoteMarkers: `select id, "reviewNotes" from "Quote" where "companyId" = $1 and "reviewNotes" like '%[truefinish:%'`,
+  quoteMarkers: `select id, "quoteNumber", "reviewNotes", "historicalImportedAt", "createdVia" from "Quote" where "companyId" = $1 and "reviewNotes" like '%[truefinish:%'`,
   // The live series' last number, as nextQuoteNumberForCompany reads it.
   lastLiveQuote: `select "quoteNumber" from "Quote" where "companyId" = $1 and "historicalImportedAt" is null order by "createdAt" desc limit 1`,
   categories: `select id, key, label from "ServiceCategory" where "isSystem" or "companyId" = $1`,
@@ -245,7 +275,10 @@ async function readFieldQuoPrisma(db) {
     db.invoice.findMany({ where: { companyId: COMPANY_ID }, select: { invoiceNumber: true } }),
     db.job.findMany({ where: { companyId: COMPANY_ID, historicalImportedAt: { not: null } }, select: { id: true, costReviewNote: true } }),
     db.serviceCategory.findMany({ where: { OR: [{ isSystem: true }, { companyId: COMPANY_ID }] }, select: { id: true, key: true, label: true } }),
-    db.quote.findMany({ where: { companyId: COMPANY_ID, reviewNotes: { contains: "[truefinish:" } }, select: { id: true, reviewNotes: true } }),
+    db.quote.findMany({
+      where: { companyId: COMPANY_ID, reviewNotes: { contains: "[truefinish:" } },
+      select: { id: true, quoteNumber: true, reviewNotes: true, historicalImportedAt: true, createdVia: true },
+    }),
     db.quote.findFirst({ where: { companyId: COMPANY_ID, ...LIVE_QUOTE_NUMBER_WHERE }, orderBy: { createdAt: "desc" }, select: { quoteNumber: true } }),
   ]);
   return { company, clients, quoteNumbers, invoiceNumbers, markers, categories, quoteMarkers, lastLiveQuote: lastLive ? [lastLive] : [] };
@@ -253,13 +286,17 @@ async function readFieldQuoPrisma(db) {
 
 // ── Mapping ────────────────────────────────────────────────────────────────
 
-// TrueFinish stored job and payment dates as Toronto midnights (04:00Z /
-// 05:00Z) and paidDate as the moment "mark paid" was pressed. FieldQuo's past
-// jobs speak UTC calendar days (lib/jobs/pastJobImport.js isoDay), so every
-// TrueFinish timestamp is read as the Toronto day it was — 2026-04-25T03:39Z
-// is the evening of 24 April, the day the last payment came in.
-const TORONTO_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" });
-const tfDay = (v) => (v ? TORONTO_DAY.format(new Date(v)) : null);
+// TrueFinish's date-only fields (job start/end, due date, payment date) are
+// stored as UTC midnights of the day picked, so their UTC calendar day IS the
+// day TrueFinish showed. Its moments (paidDate = when "mark paid" was
+// pressed, createdAt, sentAt) are read the same way — the UTC day — which on
+// every paid invoice on file is the same day as its last payment's date
+// field. FieldQuo's past jobs speak UTC calendar days too
+// (lib/jobs/pastJobImport.js isoDay). An earlier version of this comment said
+// Toronto midnights: that was node-pg reading UTC values as local time on a
+// Toronto machine; utcTimestampParser above removes the host from the sum,
+// and the days it yields are the days the earlier runs printed.
+const tfDay = (v) => (v ? new Date(v).toISOString().slice(0, 10) : null);
 const dayDate = (s) => (s ? new Date(`${s}T00:00:00.000Z`) : null);
 
 // TrueFinish quoteType → FieldQuo ServiceCategory key. "hybrid" is a refacing
@@ -420,16 +457,20 @@ function buildPlan(tf, fq) {
     const internal = [];
     if (lost) {
       internal.push(
-        `Lost job (owner, 2026-10-03). Accepted at TrueFinish${invoice ? `, invoiced as ${invoice.invoiceNumber} for ${money(invoice.total)}` : ""}` +
+        `Lost job (owner, ${decision.on || "2026-10-03"}). Accepted at TrueFinish${invoice ? `, invoiced as ${invoice.invoiceNumber} for ${money(invoice.total)}` : ""}` +
           `${startDay ? `, job booked ${startDay} → ${endDay}` : ", no job dates"}. Last seen live ${lastAlive}; the day it was lost is not recorded.`,
       );
+      if (decision.note) internal.push(decision.note);
       if (payments.length) {
         const sum = round2(payments.reduce((s, p) => s + Number(p.amount), 0));
+        const kept = decision.deposit === "kept";
         internal.push(
           `Money received at TrueFinish: ${payments.map((p) => `${money(p.amount)} ${p.method.replace("_", "-")} on ${tfDay(p.date)}`).join(", ")} (total ${money(sum)}). ` +
-            `Not entered as a payment — there is no invoice. Refund or forfeit is the owner's decision.`,
+            `Not entered as a payment — there is no invoice. ${kept ? depositKept(payments) : DEPOSIT_UNDECIDED}`,
         );
-        item.notes.push(`OWNER DECISION NEEDED: ${money(sum)} received at TrueFinish (${payments.map((p) => `${p.method} ${tfDay(p.date)}`).join(", ")}) — recorded in the quote's internal note only; refund or forfeit?`);
+        if (!kept) {
+          item.notes.push(`OWNER DECISION NEEDED: ${money(sum)} received at TrueFinish (${payments.map((p) => `${p.method} ${tfDay(p.date)}`).join(", ")}) — recorded in the quote's internal note only; refund or forfeit?`);
+        }
       }
     } else {
       internal.push(
@@ -513,6 +554,28 @@ function buildPlan(tf, fq) {
       item.reason = "already imported (source marker on file)";
       item.payments = payments;
       item.paidSum = round2(payments.reduce((s, p) => s + Number(p.amount), 0));
+      // A decision taken AFTER the import that changes what its note says:
+      // amend that one sentence on the row the import made.
+      if (decision?.kind === "lost" && decision.deposit === "kept" && payments.length) {
+        const row = (fq.quoteMarkers || []).filter((m) => (m.reviewNotes || "").includes(`[${item.sourceRef}]`));
+        const to = depositKept(payments);
+        const note = row[0]?.reviewNotes || "";
+        if (row.length !== 1) {
+          item.decision = "error";
+          item.problems.push(`deposit decision: ${row.length} quotes carry this marker, expected 1`);
+        } else if (row[0].historicalImportedAt == null || row[0].createdVia !== "import") {
+          item.decision = "error";
+          item.problems.push(`deposit decision: ${row[0].quoteNumber} was not made by this import — not touched`);
+        } else if (note.includes(to)) {
+          item.reason = "already imported, deposit decision already in its note";
+        } else if (note.split(DEPOSIT_UNDECIDED).length !== 2) {
+          item.decision = "error";
+          item.problems.push(`deposit decision: ${row[0].quoteNumber}'s note no longer says "${DEPOSIT_UNDECIDED}" exactly once — edited since; not touched`);
+        } else {
+          item.decision = "amend";
+          item.amend = { sourceRef: item.sourceRef, from: DEPOSIT_UNDECIDED, to, quoteNumber: row[0].quoteNumber, before: note, after: note.replace(DEPOSIT_UNDECIDED, () => to) };
+        }
+      }
       continue;
     }
 
@@ -683,7 +746,7 @@ function buildPlan(tf, fq) {
 const money = (n) => `$${Number(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pad = (s, n) => String(s ?? "").slice(0, n).padEnd(n);
 
-const WRITES = new Set(["import", "lost", "draft"]);
+const WRITES = new Set(["import", "lost", "draft", "amend"]);
 
 function printPlan(items, fq) {
   console.log(`\nFieldQuo company: ${fq.company?.name ?? "(not found)"} (${COMPANY_ID})`);
@@ -703,8 +766,10 @@ function printPlan(items, fq) {
           ? `${it.quoteNumber} declined (lost)`
           : it.decision === "draft"
             ? `${it.quoteNumber} LIVE draft`
-            : `${it.decision.toUpperCase()}: ${it.reason || it.problems.join("; ")}`;
-    const who = it.client ? (it.client.kind === "existing" ? `existing (${it.client.name})` : it.client.kind === "name_only" ? `reuses same-named "${it.client.name}"` : it.client.kind) : "";
+            : it.decision === "amend"
+              ? `AMEND note ${it.amend.quoteNumber}`
+              : `${it.decision.toUpperCase()}: ${it.reason || it.problems.join("; ")}`;
+    const who = it.decision === "amend" ? "(existing row)" : it.client ? (it.client.kind === "existing" ? `existing (${it.client.name})` : it.client.kind === "name_only" ? `reuses same-named "${it.client.name}"` : it.client.kind) : "";
     console.log(
       `${pad(tfNum, 22)} ${pad(it.tfClient?.name, 24)} ${pad(job, 23)} ${pad(inv ? money(inv.total) : "", 11)} ${pad(inv ? money(it.paidSum) : "", 11)} ${pad(inv?.status, 8)} ${writes ? pad(to, 30) : to} ${writes ? who : ""}`,
     );
@@ -784,6 +849,18 @@ function printPlan(items, fq) {
   for (const [y, r] of [...years].sort()) {
     console.log(`  ${y}: ${r.jobs} jobs, invoiced ${money(r.invoiced)} (tax ${money(r.tax)}), payments ${money(r.paid)}, outstanding ${money(r.outstanding)}`);
   }
+  // Notes amended on rows a previous run created (owner decided afterwards).
+  const amends = items.filter((i) => i.decision === "amend");
+  if (amends.length) console.log("\n── Internal notes amended on quotes already imported ──");
+  for (const it of amends) {
+    const a = it.amend;
+    console.log(`\n${a.quoteNumber}  ←  TrueFinish ${it.quote.quoteNumber}  [${a.sourceRef}]  — Quote.reviewNotes only; nothing else on the row changes`);
+    console.log(`  replace: ${JSON.stringify(a.from)}`);
+    console.log(`  with:    ${JSON.stringify(a.to)}`);
+    console.log("  note after:");
+    for (const line of a.after.split("\n")) console.log(`      ${line}`);
+  }
+
   const lostItems = items.filter((i) => i.decision === "lost");
   const drafts = items.filter((i) => i.decision === "draft");
   console.log(`Would create, through createRecordedQuote (one transaction per quote):`);
@@ -791,6 +868,7 @@ function printPlan(items, fq) {
   console.log(`  ${drafts.length} live draft quote${drafts.length === 1 ? "" : "s"}: ${drafts.map((i) => `${i.quoteNumber} ${money(i.recorded.quote.total)}`).join(", ") || "none"}`);
   const quoteNew = new Set([...lostItems, ...drafts].filter((i) => i.client.kind === "new").map((i) => i.tfClient.id)).size;
   console.log(`  clients: ${quoteNew} new`);
+  console.log(`Would amend, through amendRecordedQuoteNote: ${amends.length} internal note${amends.length === 1 ? "" : "s"}${amends.length ? ` (${amends.map((i) => i.amend.quoteNumber).join(", ")})` : ""}`);
   const corrections = items.filter((i) => i.ownerDecision?.kind === "one_payment" && i.decision === "import");
   if (corrections.length) console.log(`Owner corrections applied: ${corrections.map((i) => `${i.quote.quoteNumber} — ${i.ownerDecision.said}`).join("; ")}`);
   const held = items.filter((i) => i.decision === "hold");
@@ -819,7 +897,7 @@ if (!APPLY) {
 
 // APPLY.
 const { db } = await import("@/lib/db");
-const { createPastJob, createRecordedQuote, loadPastJobContext } = await import("@/lib/jobs/importPastJob");
+const { createPastJob, createRecordedQuote, amendRecordedQuoteNote, loadPastJobContext } = await import("@/lib/jobs/importPastJob");
 const { recordActivity } = await import("@/lib/activity/log");
 
 const fq = await readFieldQuoPrisma(db);
@@ -839,6 +917,17 @@ const createdClients = new Map(); // TrueFinish client id → FieldQuo client id
 const results = [];
 // In plan order, so the numbers allocated are the numbers printed above.
 for (const it of writable) {
+  if (it.decision === "amend") {
+    let outcome;
+    try {
+      outcome = await amendRecordedQuoteNote(db, { companyId: COMPANY_ID, sourceRef: it.amend.sourceRef, from: it.amend.from, to: it.amend.to });
+    } catch (err) {
+      outcome = { status: "error", error: err?.message || "write_failed" };
+    }
+    results.push({ it, outcome });
+    console.log(`  ${it.quote.quoteNumber}: note ${outcome.status}${outcome.quoteNumber ? ` on ${outcome.quoteNumber}` : ""}${outcome.error ? ` ${outcome.error}` : outcome.reason ? ` ${outcome.reason}` : ""}`);
+    continue;
+  }
   const clientId = createdClients.get(it.tfClient.id) || (it.client.kind === "existing" ? it.client.clientId : null);
   const category = it.category ? context.categories.find((c) => c.id === it.category.id) || null : null;
   const args = { companyId: COMPANY_ID, createdByUserId: null, row: { ...it.row, clientId }, category, context, now, recorded: it.recorded };
@@ -860,11 +949,17 @@ for (const it of writable) {
 }
 
 const created = results.filter((r) => r.outcome.status === "created");
-if (created.length) {
+const amended = results.filter((r) => r.outcome.status === "amended");
+if (created.length || amended.length) {
   // One office-trail line for the batch, as POST /api/jobs/import writes —
   // attributed to the script, not to a person who did not do it.
   const jobs = created.filter((r) => r.it.decision === "import");
   const quotesOnly = created.filter((r) => r.it.decision !== "import");
+  const parts = [
+    jobs.length ? `${jobs.length} past job${jobs.length === 1 ? "" : "s"}` : null,
+    quotesOnly.length ? `${quotesOnly.length} quote${quotesOnly.length === 1 ? "" : "s"} with no job (lost, or to send again)` : null,
+    amended.length ? `the owner's decision on ${amended.map((r) => r.outcome.quoteNumber).join(", ")}'s internal note` : null,
+  ].filter(Boolean);
   await recordActivity(
     { companyId: COMPANY_ID, userId: null, id: null, role: null },
     {
@@ -872,10 +967,9 @@ if (created.length) {
       entityType: "job",
       entityId: jobs.length === 1 ? jobs[0].outcome.jobId : null,
       actorName: "TrueFinish migration",
-      summary:
-        `Entered ${jobs.length} past job${jobs.length === 1 ? "" : "s"} from TrueFinish` +
-        (quotesOnly.length ? `, and ${quotesOnly.length} quote${quotesOnly.length === 1 ? "" : "s"} with no job (lost, or to send again)` : ""),
+      summary: `Entered from TrueFinish: ${parts.join("; ")}`,
       metadata: {
+        amendedQuoteIds: amended.map((r) => r.outcome.quoteId),
         created: created.length,
         skipped: results.filter((r) => r.outcome.status === "skipped").length,
         failed: results.filter((r) => r.outcome.status === "error").length,
@@ -889,7 +983,7 @@ if (created.length) {
   );
 }
 console.log(
-  `\nDone: ${created.length} created, ${results.filter((r) => r.outcome.status === "skipped").length} skipped, ${results.filter((r) => r.outcome.status === "error").length} failed.`,
+  `\nDone: ${created.length} created, ${results.filter((r) => r.outcome.status === "amended").length} note(s) amended, ${results.filter((r) => r.outcome.status === "skipped").length} skipped, ${results.filter((r) => r.outcome.status === "error").length} failed.`,
 );
 await db.$disconnect();
 process.exit(results.some((r) => r.outcome.status === "error") ? 1 : 0);

@@ -28,7 +28,19 @@ function ChatScreen() {
   // "Message {name}" button on /app/me/team. The server's openDirect decides
   // whether they may, exactly as for the New message picker.
   const initialWithId = initialRoomId ? null : params?.get("with") || null;
-  return <CompanyChat heading={t("app.companyChat.heading")} initialRoomId={initialRoomId} initialWithId={initialWithId} />;
+  // `?message=<id>` opens the chat AT a message — the notification bell's
+  // "Ana mentioned you in #estimating" row (lib/notifications/render.js).
+  // The server says which room it is in, and only if the reader can still
+  // read that room; a ?room= wins.
+  const initialMessageId = initialRoomId ? null : params?.get("message") || null;
+  return (
+    <CompanyChat
+      heading={t("app.companyChat.heading")}
+      initialRoomId={initialRoomId}
+      initialWithId={initialWithId}
+      initialMessageId={initialMessageId}
+    />
+  );
 }
 
 export default function ChatPage() {

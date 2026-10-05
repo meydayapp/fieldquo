@@ -72,6 +72,7 @@ import PricingPlans, {
 import { resolvePlanSelection } from "@/app/signup/page";
 import { PROCESSING_RATES } from "@/lib/stripe/processingFee";
 import { VIDEO_PACK } from "@/lib/marketing/videoAllowance";
+import { aiAdviceUnits, aiAdviceBundles } from "@/lib/ai/planAdviceUnits";
 
 // ── Rows in, HTML out, through the shipped page ────────────────────────────
 //
@@ -702,6 +703,13 @@ async function main() {
       // constant the pack's Stripe checkout charges (lib/marketing/
       // videoPack.js) — publishable by construction, like the fees above.
       VIDEO_PACK.priceCents / 100,
+      // The AI advisor (owner, 2026-10-04): its unit costs are computed from
+      // the metered prices by lib/ai/planAdviceUnits.js — the functions that
+      // charge them — and the AI credit plans are BUNDLES. Publishable by
+      // construction, like the two above.
+      aiAdviceUnits().conversationCents / 100,
+      aiAdviceUnits().drawingReadCents / 100,
+      ...aiAdviceBundles().map((b) => b.priceCents / 100),
       ...allAddOns()
         .filter((a) => withholdReason(a, TODAY) === null && a.price?.kind === PRICE_AMOUNT)
         .map((a) => a.price.amount),

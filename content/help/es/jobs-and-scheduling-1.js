@@ -153,7 +153,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Tengo que crear un trabajo cuando se aprueba un presupuesto?", a: "No. FieldQuo lo hace por usted, una vez por presupuesto, y aparece en Falta fecha. Crear otro a mano le daría dos trabajos para un solo presupuesto." },
-      { q: "¿Dónde pongo la fecha?", a: "En la página del trabajo. Con Programar una visita (un viaje al sitio con una persona) o con Definir fechas (el inicio y el fin del trabajo). Cualquiera de los dos pasa el trabajo de Falta fecha a Programado." },
+      { q: "¿Dónde pongo la fecha?", a: "En la página del trabajo. Con Programar una visita (un viaje al sitio con una persona) o con Definir fechas (el inicio y el fin del trabajo). Cualquiera de los dos pasa el trabajo de Falta fecha a Programado. Una visita también le da a un trabajo sin fechas propias su inicio (el día de la primera visita) y su fin (el de la última), mostrados **según las visitas** — así el calendario de pagos y la guía de preparación tienen una fecha. Siguen a las visitas cuando se reservan, mueven o cancelan; una fecha que escribe usted nunca se mueve." },
       { q: "¿Puedo vincular un presupuesto a un trabajo creado a mano?", a: "No desde el formulario — el vínculo con el presupuesto se crea cuando el trabajo nace del presupuesto. Parta del presupuesto si necesita el vínculo." },
     ],
   },

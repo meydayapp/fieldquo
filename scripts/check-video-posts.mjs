@@ -437,7 +437,45 @@ const inv = (sub, endIso, id = `in_${endIso}`) => ({ id, status: "paid", subscri
   ok("an unpaid pack invoice grants nothing", unpaid.handled && unpaid.settled === false && row.paidThrough.toISOString() === "2026-12-01T00:00:00.000Z");
   ok("laterOf ignores junk and keeps the later date", packLib.laterOf("junk", "2026-01-01").toISOString().startsWith("2026-01-01") && packLib.laterOf("2027-01-01", "2026-01-01").toISOString().startsWith("2027"));
 }
-ok("packs are USD only; a CAD company is told why before Stripe is asked", packLib.packAvailability("USD").ok && !packLib.packAvailability("CAD").ok && /US dollars/.test(packLib.packAvailability("CAD").reason));
+// ── Sold to every company, billed in US dollars (owner, 2026-10-04) ─────
+// It was refused to CAD/AUD companies. Now every company may buy it, always in
+// USD (the owner's add-ons-are-USD rule), a non-USD company on a SEPARATE
+// Stripe customer so its plan's currency is never touched, and told so beside
+// the price (UsdBillingNote).
+ok("every company may buy a pack — USD, CAD, AUD, anything", ["USD", "CAD", "AUD", "GBP", null].every((c) => packLib.packAvailability(c).ok && packLib.packAvailability(c).currency === "USD"));
+ok("…and a non-USD company is flagged for the USD note; a USD one is not", packLib.packAvailability("CAD").usdNote === true && packLib.packAvailability("USD").usdNote === false);
+ok("a USD company's pack goes on its plan customer; any other on its USD add-on customer", packLib.packCustomerKind("USD") === "plan" && packLib.packCustomerKind("CAD") === "usd_add_ons" && packLib.packCustomerKind("aud") === "usd_add_ons");
+{
+  const sessions = [];
+  const used = [];
+  const fakeStripe = { checkout: { sessions: { create: async (args) => { sessions.push(args); return { url: "https://checkout.test/s" }; } } } };
+  const deps = { stripe: fakeStripe, getOrCreateStripeCustomer: async () => { used.push("plan"); return "cus_plan"; }, getOrCreateUsdAddOnCustomer: async () => { used.push("usd"); return "cus_usd"; } };
+  const cad = await packLib.createVideoPackCheckoutSession({ company: { id: "co_ca", currency: "CAD" }, successUrl: "s", cancelUrl: "c", deps });
+  ok("a CAD company's pack: USD, 7,700 cents, on the USD add-on customer — never its CAD plan customer", cad.ok && sessions[0].line_items[0].price_data.currency === "usd" && sessions[0].line_items[0].price_data.unit_amount === 7700 && sessions[0].customer === "cus_usd" && used[0] === "usd" && sessions[0].metadata.currency === "USD");
+  const usd = await packLib.createVideoPackCheckoutSession({ company: { id: "co_us", currency: "USD" }, successUrl: "s", cancelUrl: "c", deps });
+  ok("a USD company's pack: USD on its one customer, as before", usd.ok && sessions[1].customer === "cus_plan" && sessions[1].line_items[0].price_data.currency === "usd");
+}
+{
+  const billing = read("lib/platform/stripeBilling.js");
+  ok("the USD add-on customer is tagged usdAddOnsFor — NOT companyId, which finds the plan's customer", /metadata: \{ usdAddOnsFor: company\.id, purpose: "usd_add_ons" \}/.test(billing) && /metadata\['usdAddOnsFor'\]/.test(billing));
+  const server = read("lib/marketing/videoPostServer.js");
+  ok("allowanceBody names USD, and flags the note for a non-USD company", /packCurrency: VIDEO_PACK\.currency/.test(server) && /usdNote: String\(a\.currency/.test(server));
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  const keys = ["app.videoAllowance.addPack", "app.videoAllowance.addAnotherPack", "app.videoAllowance.explain", "app.videoAllowance.packLine"];
+  ok("every language's pack sentences carry {currency} (USD)", Object.values(APP_MESSAGES).every((m) => keys.every((k) => String(m[k] || "").includes("{currency}"))));
+  const card = read("app/components/designer/VideoAllowance.js");
+  ok("…every place that prints them passes it", (card.match(/currency: (a|allowance)\.packCurrency/g) || []).length === 4);
+  ok("the pack card and the used-up refusal both carry the USD note", (card.match(/<UsdBillingNote cents=\{(a|allowance)\.packPriceCents\} \/>/g) || []).length === 2);
+  ok("/pricing names USD beside the pack's price", /\$\{VIDEO_PACK\.currency\}/.test(read("app/(marketing)/pricing/PricingPlans.js")));
+}
+// ── The ONE limit that waits on Cloudinary Plus: the size of a single upload ──
+{
+  const route = read("app/api/marketing/video-pack/route.js");
+  ok("the pack card is told today's per-upload size, from the plan reading the upload is signed against", /videoUploadCap\(await planLimits\(\)/.test(route) && /uploadMaxLabel: megabytes\(uploadMaxBytes\)/.test(route));
+  ok("…and says it, in every language", /app\.videoAllowance\.uploadLimit/.test(read("app/components/designer/VideoAllowance.js")));
+  const vu2 = await import("../lib/marketing/videoUpload.js");
+  ok("on Cloudinary Free (100 MB) that figure is 100 MB; on a bigger plan our own ceiling binds", vu2.videoUploadCap({ video_max_size_bytes: 100 * 1024 * 1024 }) === 100 * 1024 * 1024 && vu2.videoUploadCap({ video_max_size_bytes: 1e13 }) < 1e13);
+}
 const webhook = read("app/api/platform/billing/webhook/route.js");
 ok("webhook: pack invoices are intercepted BEFORE the company-plan handler", webhook.indexOf("settleVideoPackInvoice(invoice)") > 0 && webhook.indexOf("settleVideoPackInvoice(invoice)") < webhook.indexOf("await syncSubscriptionFromStripeEvent(event)"));
 ok("webhook: a pack's subscription.deleted never reaches the churn handler", webhook.indexOf("event.data.object?.metadata?.kind === VIDEO_PACK_KIND") > 0 && webhook.indexOf("event.data.object?.metadata?.kind === VIDEO_PACK_KIND") < webhook.indexOf("await syncSubscriptionFromStripeEvent(event)"));

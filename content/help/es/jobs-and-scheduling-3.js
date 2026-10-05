@@ -837,7 +837,7 @@ export const ARTICLES = {
     "summary": "Una hoja por miembro del equipo y por día: los objetivos (del plan del trabajo o escritos), fotos de antes y después, los fichajes, las ventas adicionales que logró, la evaluación del coordinador y la bonificación que produce la regla de la empresa, o la frase que dice que no hay regla.",
     "intro": [
       "Las hojas de horas dicen cuándo estuvo alguien en la obra. Las **hojas del día** (Equipo → Hojas del día) dicen qué debía hacer, si se hizo y qué vendió mientras estaba allí: lo que un coordinador necesita para evaluar un día, y sobre lo que se paga una bonificación por desempeño, si la empresa paga una.",
-      "Un coordinador, administrador o propietario ve la hoja de cada miembro del equipo y escribe la evaluación. Un miembro del equipo ve su propia hoja en su teléfono, rellena resultados, fotos y ventas adicionales, y lee la evaluación una vez escrita."
+      "Un coordinador, administrador o propietario ve la hoja de cada miembro del equipo y escribe la evaluación. Un miembro del equipo ve su propia hoja en su teléfono, rellena resultados y fotos, y lee la evaluación una vez escrita. **Las ventas adicionales son para quien vende** — estimadores en adelante: la hoja y la semana de un miembro de la Cuadrilla no muestran ventas adicionales ni importes, y su propio bono muestra la parte de ventas como una línea sin la cifra de la que sale."
     ],
     "sections": [
       {
@@ -884,7 +884,7 @@ export const ARTICLES = {
       },
       {
         "q": "¿Puede un miembro del equipo añadir una venta adicional con un importe?",
-        "a": "Sí, como línea escrita. Acredita la hoja; el coordinador la ve antes de evaluar, y la nómina se revisa antes de guardarse."
+        "a": "No. La cuadrilla no vende, así que no ve ni escribe importes de ventas adicionales. Un coordinador que ve los precios registra la venta en la hoja de la persona, y un miembro del equipo que guarda luego sus objetivos la deja en su sitio."
       }
     ],
     "updated": "2026-09-21"

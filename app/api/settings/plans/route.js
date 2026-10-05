@@ -22,6 +22,9 @@ import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin"
 import { customOfferFor } from "@/lib/billing/customPlan";
 import { livePromotions, withOffers, customOfferTable, honouredFor } from "@/lib/billing/promotions";
 import { classifyPlanChange } from "@/lib/platform/planChange";
+import { resolveAiCap } from "@/lib/ai/usage";
+import { aiAdviceUnits, aiAdviceBundles } from "@/lib/ai/planAdviceUnits";
+import { bundleAvailability } from "@/lib/ai/creditBundle";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -120,8 +123,23 @@ export async function GET(request) {
   const promotions = await livePromotions({ now });
   const currentPlan = subscription?.planId ? plans.find((p) => p.id === subscription.planId) || null : null;
   const honoured = honouredFor({ subscription, currentPlan, classify: classifyPlanChange });
+  // ── The AI each plan includes, for the advisor (owner, 2026-10-04) ──────
+  //
+  // resolveAiCap over the plan alone — the same function the gate uses, so a
+  // card's "about N quote reviews a month" is the cap the company would get,
+  // never a second reading of the columns. Every plan has one: a plan with no
+  // figure falls to the 750,000-token default, never "unlimited".
+  const companyRow = await db.company.findUnique({ where: { id: member.companyId }, select: { currency: true } });
   return NextResponse.json({
-    plans: withOffers(plans, { promotions, now, honoured }),
+    plans: withOffers(plans, { promotions, now, honoured }).map((p) => ({
+      ...p,
+      aiAllowance: resolveAiCap({ subscription: { plan: p } }),
+    })),
+    aiAdvice: {
+      units: aiAdviceUnits(),
+      bundles: aiAdviceBundles(),
+      bundlesAvailable: bundleAvailability(companyRow?.currency).ok,
+    },
     currency,
     custom: custom ? { ...custom, offers: customOfferTable(custom, { promotions, now, honoured }) } : null,
   });

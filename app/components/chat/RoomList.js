@@ -52,14 +52,23 @@ export function roomTimeLabel(value, t, now = new Date()) {
   });
 }
 
-/** The badge: a count, or nothing. Never "0". */
-export function UnreadBadge({ count, className = "" }) {
+/**
+ * The badge: a count, or nothing. Never "0".
+ *
+ * `quiet` draws it grey — a muted room still says how much is waiting, it
+ * just does not shout. muted-foreground on secondary is the pair the room
+ * list's own secondary text already uses, so no new contrast is introduced.
+ */
+export function UnreadBadge({ count, className = "", quiet = false }) {
   const { t } = useTranslation();
   const n = Number(count) || 0;
   if (n <= 0) return null;
   return (
     <span
-      className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums ${className}`}
+      data-quiet={quiet ? "true" : undefined}
+      className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none tabular-nums ${
+        quiet ? "bg-secondary text-muted-foreground" : "bg-primary text-primary-foreground"
+      } ${className}`}
     >
       <span aria-hidden="true">{n > 99 ? "99+" : n}</span>
       <span className="sr-only">{t("app.chat.unreadCountSr", { count: n })}</span>
@@ -74,11 +83,15 @@ export function UnreadBadge({ count, className = "" }) {
  *   `mono` draws the title in tabular figures — a phone number, not a name.
  *   `badges` is an optional node drawn after the subtitle (a STOP tag, a
  *   draft clock). `channelBadge` is an optional node for the avatar's
- *   corner when `channel` is not one the kit has a glyph for.
+ *   corner when `channel` is not one the kit has a glyph for. `muted`
+ *   greys the title and the count (a room the reader silenced).
+ * @param large  the crew's rows: 64px tall with a 16px title — a phone in a
+ *   gloved hand in a driveway, read by somebody who did not grow up on chat
+ *   apps (the owner: "some workers are old, keep the UI simple").
  */
-export function RoomListItem({ room, selected = false, focused = false, onSelect, onFocusItem }) {
+export function RoomListItem({ room, selected = false, focused = false, onSelect, onFocusItem, large = false }) {
   const { t } = useTranslation();
-  const unread = (Number(room.unread) || 0) > 0;
+  const unread = (Number(room.unread) || 0) > 0 && !room.muted;
 
   return (
     <li role="none">
@@ -91,9 +104,10 @@ export function RoomListItem({ room, selected = false, focused = false, onSelect
         data-unread={unread ? "true" : undefined}
         onClick={() => onSelect?.(room)}
         onFocus={() => onFocusItem?.(room.id)}
-        className={`relative flex w-full items-start gap-3 px-3 py-2.5 text-left min-h-[56px] transition-colors motion-reduce:transition-none ${
-          selected ? "bg-muted" : "hover:bg-muted/60"
-        } focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
+        data-muted={room.muted ? "true" : undefined}
+        className={`relative flex w-full items-start gap-3 px-3 text-left transition-colors motion-reduce:transition-none ${
+          large ? "py-3 min-h-[64px]" : "py-2.5 min-h-[56px]"
+        } ${selected ? "bg-muted" : "hover:bg-muted/60"} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
       >
         {/* The accent bar: the selected room, and nothing else, gets a
             stripe down its left edge. A background tint alone is invisible
@@ -112,9 +126,9 @@ export function RoomListItem({ room, selected = false, focused = false, onSelect
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
             <span
-              className={`truncate text-sm ${unread ? "font-semibold text-foreground" : "font-medium text-foreground"} ${
-                room.mono ? "tabular-nums" : ""
-              }`}
+              className={`truncate ${large ? "text-base" : "text-sm"} ${
+                unread ? "font-semibold text-foreground" : room.muted ? "font-medium text-muted-foreground" : "font-medium text-foreground"
+              } ${room.mono ? "tabular-nums" : ""}`}
             >
               {room.title}
             </span>
@@ -128,11 +142,11 @@ export function RoomListItem({ room, selected = false, focused = false, onSelect
             ) : null}
           </span>
           <span className="mt-0.5 flex items-center gap-2">
-            <span className={`min-w-0 flex-1 truncate text-xs ${unread ? "text-foreground" : "text-muted-foreground"}`}>
+            <span className={`min-w-0 flex-1 truncate ${large ? "text-sm" : "text-xs"} ${unread ? "text-foreground" : "text-muted-foreground"}`}>
               {room.subtitle}
             </span>
             {room.badges || null}
-            <UnreadBadge count={room.unread} />
+            <UnreadBadge count={room.unread} quiet={Boolean(room.muted)} className={large ? "min-w-[1.5rem] py-1 text-[13px]" : ""} />
           </span>
         </span>
       </button>
@@ -150,33 +164,42 @@ export function RoomListItem({ room, selected = false, focused = false, onSelect
 export function RoomListGroup({ group, collapsed = false, onToggle, children }) {
   const { t } = useTranslation();
   const count = group.rooms?.length || 0;
-  const unread = (group.rooms || []).reduce((n, r) => n + (Number(r.unread) || 0), 0);
+  // A muted room's count is drawn grey on its row and is not part of the
+  // section's shout — the same rule as the Chat tab's digit.
+  const unread = (group.rooms || []).reduce((n, r) => n + (r.muted ? 0 : Number(r.unread) || 0), 0);
   const Chevron = collapsed ? ChevronRight : ChevronDown;
   return (
     <li role="none" data-room-group={group.key} className="pt-2 first:pt-0">
-      <button
-        type="button"
-        onClick={() => onToggle?.(group.key)}
-        aria-expanded={!collapsed}
-        aria-controls={`room-group-${group.key}`}
-        // 44px below lg: a section toggle is the control that shows or hides
-        // every room under it, and 32px is under the thumb floor. 32 from lg
-        // up, where the list is a rail beside a thread and density matters.
-        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground min-h-[44px] lg:min-h-[32px]"
-      >
-        <Chevron size={13} aria-hidden="true" className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{group.title}</span>
-        {unread > 0 ? (
-          <UnreadBadge count={unread} />
-        ) : (
-          <span className="tabular-nums text-muted-foreground/80" aria-label={t("app.chat.roomCountSr", { count })}>
-            {count}
-          </span>
-        )}
-      </button>
+      {/* The toggle and the optional action (the Channels "+") are SIBLINGS:
+          a button inside a button is invalid and a screen reader announces
+          one control where there are two. */}
+      <div className="flex items-center pr-2">
+        <button
+          type="button"
+          onClick={() => onToggle?.(group.key)}
+          aria-expanded={!collapsed}
+          aria-controls={`room-group-${group.key}`}
+          // 44px below lg: a section toggle is the control that shows or hides
+          // every room under it, and 32px is under the thumb floor. 32 from lg
+          // up, where the list is a rail beside a thread and density matters.
+          className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground min-h-[44px] lg:min-h-[32px]"
+        >
+          <Chevron size={13} aria-hidden="true" className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{group.title}</span>
+          {unread > 0 ? (
+            <UnreadBadge count={unread} />
+          ) : (
+            <span className="tabular-nums text-muted-foreground/80" aria-label={t("app.chat.roomCountSr", { count })}>
+              {count}
+            </span>
+          )}
+        </button>
+        {group.action || null}
+      </div>
       {!collapsed ? (
         <ul id={`room-group-${group.key}`} role="group" aria-label={group.title} className="divide-y divide-border/60">
           {children}
+          {group.footer ? <li role="none">{group.footer}</li> : null}
         </ul>
       ) : null}
     </li>
@@ -184,7 +207,11 @@ export function RoomListGroup({ group, collapsed = false, onToggle, children }) 
 }
 
 /**
- * @param groups   `[{ key, title, rooms: [room, …] }]` in the order to draw
+ * @param groups   `[{ key, title, rooms: [room, …], action?, footer?, alwaysShow? }]`
+ *                 in the order to draw. `action` is a node beside the
+ *                 header (the Channels "+"), `footer` a node after the rooms
+ *                 (Browse channels) — both the screen's, both optional.
+ * @param large    the crew's big rows (RoomListItem)
  * @param selectedId
  * @param onSelect(room)
  * @param collapsed  a Set (or array) of group keys that are folded
@@ -203,6 +230,7 @@ export default function RoomList({
   ariaLabel = "",
   focusedId = null,
   onFocusItem = null,
+  large = false,
 }) {
   const { t } = useTranslation();
   const listRef = useRef(null);
@@ -256,7 +284,7 @@ export default function RoomList({
         className="min-h-0 flex-1 overflow-y-auto py-1"
         data-room-list
       >
-        {total === 0
+        {total === 0 && !(groups || []).some((g) => g.alwaysShow)
           ? empty
           : (groups || [])
               .filter((g) => (g.rooms?.length || 0) > 0 || g.alwaysShow)
@@ -270,6 +298,7 @@ export default function RoomList({
                       focused={room.id === focusId}
                       onSelect={onSelect}
                       onFocusItem={onFocusItem}
+                      large={large}
                     />
                   ))}
                 </RoomListGroup>

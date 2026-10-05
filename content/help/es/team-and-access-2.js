@@ -954,7 +954,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "Solo propietarios y administradores. La fila está oculta para todos los demás niveles y el servidor responde «Only an owner or admin can view the activity log.» a cualquier otra persona — el registro nombra acciones de todos los usuarios, incluidos pagos, cambios de tarifas de pago y quién desactivó a quién, que no son cosa que un Manager deba leer." },
+          { p: "Propietarios, administradores y **Managers**. Un Manager lee todas las líneas salvo la nómina — nóminas, ajustes de nómina, tarifas de pago, comisiones y la facturación de FieldQuo de la empresa — y la página dice que no aparecen. Despachadores, Estimadores y la Cuadrilla no ven la fila, y el servidor responde «Only the owner, an admin or a manager can view the activity log.» a cualquier otra persona. (Lo que hace Manager a alguien aquí es el interruptor **Job costing**, que un Despachador no tiene.)" },
           { note: "El registro nunca hace fallar ni revierte la acción que describe. Si la escritura en el propio registro falló, la acción igual ocurrió y la línea falta — un intercambio deliberado, para que el presupuesto de un cliente nunca se pierda porque no se pudo escribir una fila de auditoría." },
         ],
       },

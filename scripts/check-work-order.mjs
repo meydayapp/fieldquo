@@ -199,7 +199,7 @@ ok("PATCH (hide) asks for view_create_edit", /levelOrRefusal\(\s*member,\s*"jobs
 ok("PATCH refuses a key the model does not have", /known\.has\(key\)/.test(patch));
 ok("GET refuses a model with a money key rather than serving it", /findWorkOrderMoneyKey\(loaded\.model\)/.test(woRoute));
 const load = read("lib/workOrder/load.js");
-ok("the loader scopes the job with assignedJobWhere and redacts the client", /assignedJobWhere\(member\)/.test(load) && /redactClient\(member, job\.client\)/.test(load));
+ok("the loader scopes the job with assignedJobWhere and redacts the client", /assignedJobWhere\(member\)/.test(load) && /redactClient\(member, job\.client, \{ onOwnJob: true \}\)/.test(load));
 ok("the loader hands the office the flagged copy and the crew the clean one", /forOffice: hasLevel\(member, "jobs", "view_create_edit"\)/.test(load));
 const areas = read("app/api/jobs/[id]/work-order/areas/route.js");
 ok("the tick creates the Task idempotently on its sourceKey", /areaTaskSourceKey\(id, key\)/.test(areas) && /P2002/.test(areas));

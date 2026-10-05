@@ -958,7 +958,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "Owners and administrators only. The row is hidden from every other level and the server answers “Only an owner or admin can view the activity log.” to anyone else — the log names actions across every user, including payments, pay-rate changes and who deactivated whom, which are not a Manager's to read." },
+          { p: "Owners, administrators and **Managers**. A Manager reads every line except pay — pay runs, payroll settings, pay rates, commissions and the company's FieldQuo billing — and the page says those are left out. Dispatchers, Estimators and Crew do not see the row, and the server answers “Only the owner, an admin or a manager can view the activity log.” to anyone else. (What makes someone a Manager here is the **Job costing** switch, which a Dispatcher does not hold.)" },
           { note: "Logging never fails or rolls back the action it describes. If a write to the log itself failed, the action still happened and the line is missing — a deliberate trade, so that a customer's quote is never lost because an audit row could not be written." },
         ],
       },

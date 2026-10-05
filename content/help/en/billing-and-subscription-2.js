@@ -363,6 +363,7 @@ export const ARTICLES = {
             "**Phone credit** — the balance, a **running low** flag when fewer than ten minutes remain, the note that crew texting draws this same balance, **Add phone credit** (which opens the phone settings page), and the statement.",
             "**AI image credit** — the balance with what it buys in brackets (about N images, or N deep reads), the two things that spend it, **Add credit** with four amounts, and the statement.",
             "**AI credit plan** — the rollover promise in plain words, then either the three plans with **Subscribe**, or the plan you are on, its renewal date, and **Cancel plan**.",
+            "**Which plan fits the AI you'll use?** — type roughly how many AI employee conversations, drawing sets and AI quote reviews you expect a month. It names the AI credit plan that covers the conversations and drawing reads (they are paid from AI credit, whatever your FieldQuo plan) and says how many quote reviews your plan's AI allowance covers (they come out of the plan). Each AI credit plan also says about how many conversations or drawing reads it buys. Every allowance is capped; the figures are estimates at today's prices. The same box is under the plans on **Account & Billing**, where each plan says about how many quote reviews it covers, and on the public pricing page.",
           ] },
         ],
       },

@@ -1,7 +1,8 @@
 // app/app/activity/page.js
 //
 // The company's activity log — a plain, readable trail of who did what.
-// Owner/admin only (the API enforces it too). Deliberately simple: this is a
+// Owner/admin, and a Manager without the pay rows (lib/activity/access.js;
+// the API enforces it too). Deliberately simple: this is a
 // record to consult when something looks wrong, not a dashboard.
 //
 // ── What a row says, and in which language ─────────────────────────────────
@@ -85,11 +86,15 @@ function timeAgo(iso, language) {
 export default function ActivityPage() {
   const { t, language } = useTranslation();
   const [entries, setEntries] = useState(null);
+  const [payHidden, setPayHidden] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetchJson("/api/activity")
-      .then((d) => setEntries(d.entries))
+      .then((d) => {
+        setEntries(d.entries);
+        setPayHidden(Boolean(d.payHidden));
+      })
       .catch((e) => setError(e.message || t("app.activity.loadError")));
     // `t` is stable per language and this load is not language-dependent;
     // re-running it on a language switch would refetch the whole log to change
@@ -111,6 +116,11 @@ export default function ActivityPage() {
             — a promise this page can actually keep. */}
         {t("app.activity.intro")}
       </p>
+      {payHidden && (
+        <p className="text-xs text-muted-foreground -mt-4 mb-6 max-w-xl" data-activity-pay-hidden>
+          {t("app.activity.payHidden", "Pay runs, payroll settings, pay rates, commissions and the company's FieldQuo billing are left out — they're for the owner and admins.")}
+        </p>
+      )}
 
       {error && (
         <p className="text-sm rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-2 mb-4">

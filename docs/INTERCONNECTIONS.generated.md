@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 328 models.
+it cannot drift from the code. 330 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -23,9 +23,9 @@ tenancy, so it carries no information.
 | **Prospect** | 18 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +8 |
 | **PlatformAdmin** | 16 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesCallAttempt, SalesCallEvent, SalesJurisdictionOverride, SalesTelemarketerRegistration +6 |
 | **Client** | 13 | Appointment, CallbackEntry, ClientEquipment, ClientTicket, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink +3 |
+| **Member** | 12 | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery +2 |
 | **Quote** | 12 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuotePlanOffer +2 |
 | **SalesLead** | 12 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLeadLinkEvent, SalesRepNote +2 |
-| **Member** | 11 | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident +1 |
 | **Invoice** | 8 | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task, TimeEntry |
 | **ServiceCategory** | 6 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup, ServiceDocument |
 | **SalesCallAttempt** | 5 | SalesCallEvent, SalesCallQa, SalesCallTransfer, SalesDispositionAudit, SalesRecordingMark |
@@ -38,14 +38,15 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>328 models — expand</summary>
+<details><summary>330 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
 | `AiCreditBundle` | — | Company |
 | `AiEmployee` | — | AiEmployeeProposal, AiEmployeeSource |
 | `AiEmployeeProposal` | AiEmployee | — |
-| `AiEmployeeSource` | AiEmployee | — |
+| `AiEmployeeSource` | AiEmployee | AiEmployeeSourcePage, ReferenceCode |
+| `AiEmployeeSourcePage` | AiEmployeeSource | — |
 | `Appointment` | Booking, Client, Invoice, Job, Quote | Booking |
 | `Asset` | Debt | AssetDocument, AssetUseLog, Expense |
 | `AssetDocument` | Asset | — |
@@ -66,7 +67,7 @@ tenancy, so it carries no information.
 | `Company` | AiCreditBundle, BroughtNumber, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, BroughtNumber, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DesignTemplate, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobCommission, JobCommissionEntry, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadIdentityLink, LeadRequest, LeaveAccrualOverride, LeaveOpeningBalance, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaHistoryBackfill, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, PhoneUsageCharge, PlanRead, PlanReadMessage, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteDocument, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, TemplateTranslation, TikTokConnection, TikTokPublish, TimeEntryCorrection, VehicleDetail, VideoPack, VideoPost, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
 | `CompanyChatMember` | CompanyChatRoom, Member | — |
 | `CompanyChatMessage` | CompanyChatRoom, Member | — |
-| `CompanyChatRoom` | Job | CompanyChatMember, CompanyChatMessage, Job |
+| `CompanyChatRoom` | Job, Member | CompanyChatMember, CompanyChatMessage, Job |
 | `CompanyDocument` | — | DocumentSignature |
 | `CompanyGoogleBusiness` | — | Company |
 | `CompanyPolicy` | — | CompanyPolicyVersion, PolicyAcknowledgement |
@@ -131,7 +132,7 @@ tenancy, so it carries no information.
 | `MarketingSubscriber` | — | MarketingCampaignDelivery |
 | `Material` | — | Expense, MaterialPriceEntry |
 | `MaterialPriceEntry` | Expense, Material | — |
-| `Member` | MemberGoogleCalendar | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
+| `Member` | MemberGoogleCalendar | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
 | `MemberGoogleCalendar` | Member | Member |
 | `Message` | EmailMessage, MessageThread | EmailMessage |
 | `MessageThread` | Client, MessagingChannel | Message |
@@ -186,6 +187,7 @@ tenancy, so it carries no information.
 | `QuotePlanOffer` | Quote, ServicePlanTemplate | — |
 | `QuoteScopeGroup` | Quote, ServiceCategory | — |
 | `Receipt` | — | Expense |
+| `ReferenceCode` | AiEmployeeSource | — |
 | `ReferralLink` | Client | — |
 | `SafetyIncident` | Job, Member, Worker | JobPhoto |
 | `Salary` | Worker | — |

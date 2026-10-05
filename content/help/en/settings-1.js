@@ -618,7 +618,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The owner and administrators only. The row is not drawn for a Manager, Dispatcher, Estimator or Crew member, and the page answers **Only an owner or admin can view the activity log.** to anyone else who reaches its address. A FieldQuo support session can read it, and its own actions are stamped as such." },
+          { p: "The owner, administrators and Managers — a Manager without the pay lines (pay runs, payroll settings, pay rates, commissions, the company's FieldQuo billing), which the page says are left out. The row is not drawn for a Dispatcher, Estimator or Crew member, and the page answers **Only the owner, an admin or a manager can view the activity log.** to anyone else who reaches its address. A FieldQuo support session can read it, and its own actions are stamped as such." },
         ],
       },
     ],

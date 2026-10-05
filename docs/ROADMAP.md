@@ -1,5 +1,10 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
+Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
+Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
+Last updated: 4 October 2026 (drawing read P0 — every sheet pass in one bounded wave (13) with the photo pass beside it, md5-identical results; each stage's clock on the read and on /platform/ai-usage → Drawing reads; `/api/cron/plan-reads` resumes reads a closed tab left paused, never charging; the estimator's own edits logged beside the chat's; the same PDF bytes reuse an earlier read's sheet passes within the company only — `QuoteDocument.contentHash` SQL owed before deploy, see "Start from drawings")
+Last updated: 4 October 2026 (team chat channels and group chats — phases 1 and 2 of the channels plan: the office makes channels (public/private, office-only posting, include everyone, archive), anybody starts a group chat with no size limit, per-room notifications and mute, "Seen by", and @mentions in the bell. Schema is additive and NOT yet applied — the SQL is in "Team chat: channels and group chats" below)
 Last updated: 4 October 2026 (the live crew test, owner + Joe on the Crew preset at TrueFinish Cabinets — eleven gaps closed, one commit each: a PUBLISHED SHIFT on a job now grants the job like a visit (assignedJobWhere is visit OR published shift, from publication to 14 days after it ends; drafts/open/other people's shifts grant nothing) across the job page and routes, work order, job chat membership, clock picker, receipts and photo mentions, and My schedule links the job and its work order; My schedule shows the person's job visits from the same read as My day (GET /api/me/visits); Share with staff sends a crew DM the work order only and puts the crew's line first in rooms; the work order carries quantities and units, cabinet door/drawer counts, colour/sheen/coats, what's included, the options the client chose, the materials list, checklist, visit notes and hours (the quote's labour estimate as fallback) — still no money; the crew job page gets job wording on the upload box, the website star/tags/stage words and controls for curators only, and no client preparation guide (GET refuses crew); Jennifer's launcher steps aside on /app/chat and /app/messages; /app/scheduler reads "My shifts" for people who can't assign them; Add visit clears an error when its field changes; with no leave policies crew can still request UNPAID time off (LeavePolicy.systemUnpaid, additive — SQL in the commit, not applied); the correction form always offers a job picker scoped to their jobs; /app/timesheets is an alias. docs/ROLE-ACCESS.md has the table; open decisions 5–6 there: the shift window, and unpaid-with-no-policies.)
 Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
@@ -217,6 +222,296 @@ the numbers before it ships.**
   offered list), plus form-look, booking-language, estimate-report, lawn-care,
   service-area, gutter-instant, booking-questions, roofing-example, lead-language,
   public-payload, translations — all passing.
+## Owner decisions 4 October 2026 (evening)
+
+### 1. Crew access — the four "Owed" decisions in docs/ROLE-ACCESS.md
+
+- **(a) Client phone on their own jobs** — `clientPhoneOnOwnJobs`, a new grid
+  switch, on for Crew (and held by the paid presets so they can grant it).
+  `redactClient(member, client, { onOwnJob: true })` keeps the phone only
+  where the caller vouches the job was read through `assignedJobWhere`
+  (`redactJob`, the work order loader); the client page, list and search stay
+  name and address; email and notes never. A grid saved before the switch has
+  no key and reads as on (hasToggle always did) — `TOGGLES_ON_WHEN_ABSENT`
+  makes the editor and the preset matcher agree, so existing crew still read
+  as Crew. Off switch on the fixed Crew panel (`PRESET_OFF_SWITCHES`), still
+  free. Supervisors saved before the switch can still grant it
+  (`actorHoldsToggle`).
+- **(b) Crew tick materials bought** on a job they are booked on (visit or
+  published shift — `personallyOnJobWhere`): tick only, no price / supplier /
+  quantity (403 `tick_only`), untick only their own tick with no receipt
+  (403 `untick_not_yours`), a second tick on a bought line rewrites nothing,
+  logged `job.materialBought`. An Estimator who sees the job but is not on it
+  gets 403 `not_on_job`.
+- **(c) No upsell amounts for crew** — `seesUpsells` = showPricing + any
+  quotes level. `/api/daily-sheets/upsells` 403s; the day's sheets, the week
+  and the evaluate reply strip upsells (`upsellsHidden`) and the bonus line's
+  base/pct (their pay stays); a crew save cannot write upsells and keeps a
+  coordinator's.
+- **(d) Managers read the activity log** — owner, admin, or a supervisor with
+  jobCosting (the Manager, not the Dispatcher), without pay rows (payroll,
+  own rates, commissions, FieldQuo billing — `lib/activity/access.js`); the
+  page says they are left out; the settings row follows the same rule.
+
+Checks: `check:role-access` 227 → 277 (§12 materials, §13 upsells, §8
+activity, §1/§3/§9 phone), `check:access-editor`, `check:crew-fixed`,
+`check:crew-access`, `check:work-order`. Help en/fr/es: Crew access, the
+activity log (two articles), daily sheets.
+
+### 2. Booking a visit gives the job its dates
+
+`lib/jobs/visitDates.js`: a job's start = the earliest live visit's day, end
+= the last one's (the company's calendar day, at UTC midnight), written only
+into a field that is empty or that FieldQuo filled from the visits
+(`Job.startDateFromVisits` / `endDateFromVisits`, new, default false — every
+existing date is a person's). Derived fields follow bookings, moves and
+cancels (POST visits; PATCH a visit on a move/cancel/reopen); a person
+changing a date on PATCH /api/jobs/[id] makes it theirs (re-sending the same
+date, as the edit form does, decides nothing). Never an invalid pair (no end
+without start, none before it, no span over 366 days); a recurring job gets a
+start and no end. The job page says "from the visits"; the edit form explains.
+`check:job-visit-dates` (38, incl. the shipped POST route on the stub).
+**SQL owed before deploy** (additive):
+
+```sql
+ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "startDateFromVisits" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "endDateFromVisits" BOOLEAN NOT NULL DEFAULT false;
+```
+
+Existing jobs with visits and no dates are NOT backfilled (no data was
+written); they get dates the next time a visit on them is booked or moved.
+
+### 3. Phone verification is paid from phone & text credit
+
+`lib/trial/phoneVerifyBilling.js`: kind `phone_verification` (voice wallet —
+not in credits.js's AI_KINDS), cost × 2 rounded up with the text floor
+(lib/phoneUsage/pricing.js). Worked: code text 0.83¢ × 2 = 1.66¢ → **2¢**
+(floor; settled to Twilio's real price × 2 by the hourly cron, keyed on the
+SID); Lookup 0.8¢ × 2 → **2¢** (only when Twilio is actually asked — a number
+checked in the last 30 days is reused — and charged even when it refuses the
+number); Verify's text **2¢**, Verify success 5¢ × 2 = **10¢** (once, on the
+attempt). A Canadian first code **4¢**, a resend **2¢**, a US mobile via
+Verify **14¢**. The send is priced first and refused `no_phone_credit` (HTTP
+402, with need/balance) before Twilio is asked; the verify page shows the
+cost and the balance, and turns the refusal into **Add $10.00 of phone & text
+credit** (Stripe Checkout that returns to the page via an allow-listed
+`returnTo` and settles on arrival). `check:trial-phone-verification` 120 →
+154. **Consequence to know:** a fresh card-free trial has $0 phone & text
+credit (the 30 free minutes are only granted when a number is bought), so
+every trial now tops up (min $5, preset $10) before it can verify.
+
+### 4. The video pack is sold to every company — in US dollars
+
+What gated selling it: **only** `packAvailability` — USD companies only, so a
+Canadian or Australian company read "packs aren't available on a non-USD
+account yet" (Stripe allows one currency per customer across subscriptions).
+No env flag, Cloudinary check or platform switch gated it.
+
+**Owner's correction, same day:** the pack stays **US$77 for everyone** (his
+2026-09-06 rule: add-ons and bundles are USD-only — the providers charge us
+in USD). So every company may buy it, in USD; a non-USD company's pack
+subscribes on a **second Stripe customer** kept for its USD add-ons
+(`getOrCreateUsdAddOnCustomer`, tagged `usdAddOnsFor`, never `companyId`), so
+the plan's CAD/AUD customer is never touched (a USD pack on it is refused by
+Stripe, or — before a plan exists — would lock it to USD). A USD company
+uses its one customer as before. Margin unchanged (~US$39 at the worst case).
+The one limit that waits on Cloudinary Plus — the size of ONE upload (Free
+100 MB) — stays, read live, and the pack card states it. **Price owed:** the
+owner's message said US$31; code, pricing page and help say US$77 (set
+2026-09-29) — unchanged.
+
+**"Billed in US dollars" note** (`UsdBillingNote`, all nine languages), shown
+only to a company whose billing currency isn't USD, beside every USD add-on:
+"The companies behind this — video storage, AI, phone and text providers —
+charge us in US dollars, so it's priced in USD; your bank converts it", plus
+"About CA$110 at today's rate (approximate)" from the ExchangeRate table
+(`GET /api/fx/usd`, else the checked-in rate; no AUD rate → no hint). Where,
+and what each bills at Stripe:
+
+| Surface | Stripe currency before | After |
+|---|---|---|
+| Video pack (subscription) | USD (refused to non-USD) → my first commit made it the company's currency | **USD for every company**, non-USD on the USD add-on customer; note on the pack card and the used-up refusal |
+| AI credit plans (subscription) | USD already (still refused to non-USD companies — unchanged) | note on the AI credit plan card |
+| AI credit top-ups (one-time) | USD already | note on the AI credit card and the inline top-up dialog |
+| Phone & text credit top-ups (Retell + Twilio, one-time) | USD already | note on the phone settings page, the AI credit page's phone card, and the verify-phone top-up |
+| Phone & text automatic top-up | USD already | covered by the phone settings note |
+
+The AI advisor's AI-credit sentence carries the note too. `check:video-posts`
+243, new `check:usd-billing-note` (30). Help en/fr/es back to US$77 with the
+reason.
+
+### 5. AI plans: capped, and a recommendation on the pickers
+
+No plan's price or cap changed. `lib/ai/planAdvice.js` (pure) +
+`lib/ai/planAdviceUnits.js` (unit costs from the metering itself) +
+`AiPlanAdvisor`: three numbers in (AI-employee conversations, drawing sets,
+quote reviews a month), two answers out, because they are paid apart —
+quote reviews spend the PLAN's capped allowance (`resolveAiCap`: dollars,
+else tokens, else 750,000 tokens — never unlimited); the AI employee and
+drawing reads are paid from AI CREDIT, so those name the AI credit plan
+(BUNDLES) that covers them, or the top-up past the biggest. On Account &
+Billing (each plan card: "AI allowance: about N quote reviews a month" +
+"Covers your quote reviews"), the AI credit page (each bundle: "about N
+conversations or N drawing reads"; the fitting one marked) and /pricing.
+Unit costs today: a conversation **13¢** of AI credit (9,000/600 tokens on
+gpt-5.5 × 2), a 20-sheet drawing read **$1.29** (held $1.62), a quote review
+**6,000 tokens ≈ 0.30¢** of FieldQuo cost (3,500/2,500 on gpt-5-mini). Bundles:
+Starter $30 → ~307 conversations or ~31 reads; Busy $50 → ~538 / ~54;
+Agency $80 → ~884 / ~89. `check:ai-plan-advice` (46).
+
+**Proposed plan allowances — for the owner to approve (nothing set):**
+
+| Plan | Price | Allowance today | ≈ $ at review mix ($0.49/M) | ≈ $ at best-model mix ($6.56/M) | Proposed `aiMonthlyAllowanceCents` | ≈ quote reviews |
+|---|---|---|---|---|---|---|
+| Solo | $99 | live cap — read on /platform/billing/plans (null → 750,000 tokens) | 750k → US$0.37 | 750k → US$4.92 | **US$1.00** | ~338 |
+| Crew | $169 | same | same | same | **US$2.00** | ~676 |
+| Shop | $269 | same | same | same | **US$3.00** | ~1,015 |
+| Scale | $369 | same | same | same | **US$5.00** | ~1,692 |
+
+The live caps could not be read from this session (production reads were
+refused), so the "today" column is the code's default; /platform/billing/plans
+already prints each plan's cap converted at the measured blended rate.
+Proposed dollars keep FieldQuo's worst-case model cost under ~1.4% of each
+plan's price, and the copilot's fair-use ceiling (lib/ai/featurePayer.js, the
+same size as the allowance, FieldQuo-paid) moves with them — that is the
+cost-increasing half, hence approval first.
+## AI employee knowledge, phase 1 (4 October 2026)
+
+The owner approved the direction in the research plan (AI employee knowledge +
+urgent escalation, 2026-10-04): phase 1 + the reference library + the
+error-code lookup. **Not built, waiting on owner decisions:** the urgent-SMS
+escalation (on-call list, texting — cost-increasing), any change to the
+emergency rule (`lib/ai/crisisRule.js`, untouched: water ≠ 911, leave-first
+for gas/CO), whether the troubleshooter may walk someone through a vetted
+first action during a leak (its SAFETY line is unchanged, so an URGENT code is
+a hand-off, not a walk-through), web-chat client matching by typed phone
+(only threads already tied to a client get the card), the per-trade knowledge
+packs, and the FieldQuo default manual library (counsel's one-line review).
+
+### What shipped (not deployed — unpushed branch)
+
+- **Quick fixes.** `book_callback` sets `LeadRequest.callbackRequestedAt` (the
+  column the board's Callback badge reads — AI callbacks had no badge) and an
+  `urgency` (routine/urgent) stored in `intake.callbackUrgency`; the badge says
+  "Call back requested through your AI assistant", red with **Urgent** when
+  urgent. On a thread tied to a known client (`MessageThread.clientId`) it
+  opens a **ClientTicket** instead of a lead, through the one creator
+  (`openTicket`, which gained a server-only `priority`): type warranty when the
+  record's warranty date hasn't passed, else repair; linked to the install
+  job; the note carries what was tried. Name/phone are no longer required — a
+  known client's come from the record, an SMS thread's number from the thread.
+  Approved proposals now carry their thread too. The stale "no PDF reader"
+  header in `lib/aiEmployee/sources.js` (and the schema comment) is rewritten.
+- **The playbook** — `lib/aiEmployee/playbook.js`, ~470 tokens in FieldQuo's
+  own words, in every role's prompt after WHAT YOU NEVER DO and before the
+  first per-thread block (cached prefix). `check:closer-technique` pins
+  re-taken deliberately: closer and custom still equal the old pins with the
+  playbook removed; receptionist and troubleshooter re-pinned (their
+  instructions were rewritten).
+- **Reference library** (Settings › AI employee — the card is now "Reference
+  library"; `app/components/aiEmployee/ReferenceLibrary.js`). PDFs and .xlsx go
+  browser → Cloudinary PRIVATE (purpose `reference`, "authenticated"), read
+  back by the server through a 5-minute signed link
+  (`lib/planRead/ingest.js fetchOwnPrivateFile`) and extracted with the SAME
+  unpdf opener the drawing read uses (`openPdf` → `pdfSheets` /
+  `pdfPageTexts`). One `AiEmployeeSourcePage` row per page; unread (scanned)
+  pages stored unread and named ("Couldn't read pages 12–14 (scanned)");
+  status ready / partial / failed-by-name (scanned, password, unreadable); 400
+  pages max. "Read scanned pages with AI — about N credits": pages rendered in
+  the browser from the person's own copy (SHA-256 checked), posted 4 at a time,
+  read on the standard model via `complete()` (new `imageData` input — inline
+  JPEG/PNG, same image cap), metered `reference_ocr` to the company's AI
+  credit. Tags (brand, model pattern, equipment, trade) — retrieval order:
+  manual for this client's equipment → company uploads named by the message →
+  (FieldQuo's codes via the tool); same 8,000-char budget; chunks carry their
+  page and the prompt cites "p.15". "Open the file" signs a 5-minute link.
+- **Error codes** — `look_up_error_code` (troubleshooter + receptionist): the
+  company's extracted rows (reviewed, then unreviewed with the page said out
+  loud) before FieldQuo's own table (`lib/aiEmployee/knowledge/codes/
+  fieldquo.js`, 34 rows / 10 brands from the research sample, paraphrased,
+  every row cited; InSinkErator left out — a symptom, not a code). Brand from
+  the client's equipment when unsaid; 0 rows → "not in our references", never a
+  guess. "Extract error codes — about 3 credits" (`reference_code_extract`,
+  needs the brand tag) writes UNREVIEWED rows with pages; the owner marks them
+  Looks right / Edit / Don't use (kept) / Use again.
+- **Installed-equipment card** (`lib/aiEmployee/clientContext.js`) —
+  troubleshooter only, threads tied to a client: make, model, serial (marked
+  never to be said), install date, warranty (null = "not on file"), last two
+  services, install job, last completed job. Explicit selects; never money.
+- **Close the loop** — after a turn that logged a routine attempt
+  (`log_troubleshooting`, the record lives on `AiEmployeeReply.toolsUsed`) the
+  responder appends "If the problem persists, send us another message and
+  we'll book a call with one of our techs" in the client's language (9).
+  When they write back on a thread at its cap, ONE more reply is allowed and
+  it may only book the callback or hand off (`decide.js`; cap 0 still wins).
+- Help: `ai-employee-reference-library`, `ai-employee-error-codes`,
+  `how-ai-employee-troubleshooting-works` (en/fr/es); the two existing AI
+  employee articles corrected (they quoted "we cannot read a PDF yet").
+
+### Costs (cost-increasing items are all opt-in, priced before the click)
+
+- Playbook: ~470 input tokens per model round on gpt-5.5 — $0.0024 uncached,
+  $0.00024 cached; × the company's ×2 wallet multiplier.
+- Error-code lookup: ≤ 3 rows (~300 tokens) only on a turn that mentions a code.
+- Text PDFs: free (unpdf in code; 7 real manuals read in 0.02–0.8 s each).
+- Scanned pages: about 2 credits for 1 page, 28 for 60, 133 for 300 (ceiling
+  incl. 25% headroom; standard model, high detail). Code extraction: ~3 credits
+  per manual. Storage: private Cloudinary raw files, 1–6 MB per manual.
+
+### Schema (additive — APPLIED in production 2026-10-04; the reply path and
+### the settings list select the new columns)
+
+```sql
+ALTER TABLE "AiEmployeeSource" ADD COLUMN "brand" TEXT, ADD COLUMN "category" TEXT,
+  ADD COLUMN "fileHash" TEXT, ADD COLUMN "modelPattern" TEXT, ADD COLUMN "pageCount" INTEGER,
+  ADD COLUMN "pagesRead" INTEGER, ADD COLUMN "trade" TEXT, ADD COLUMN "unreadPages" JSONB;
+CREATE TABLE "AiEmployeeSourcePage" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL,
+  "sourceId" TEXT NOT NULL, "page" INTEGER NOT NULL, "text" TEXT, "method" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "AiEmployeeSourcePage_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ReferenceCode" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "sourceId" TEXT NOT NULL,
+  "page" INTEGER, "trade" TEXT, "category" TEXT, "brand" TEXT NOT NULL, "brandKey" TEXT NOT NULL,
+  "modelFamily" TEXT, "code" TEXT NOT NULL, "codeKeys" TEXT[], "meaning" TEXT NOT NULL,
+  "safeSteps" JSONB, "stopSigns" JSONB, "urgency" TEXT NOT NULL DEFAULT 'routine', "language" TEXT,
+  "reviewedAt" TIMESTAMP(3), "reviewedByUserId" TEXT, "rejectedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "ReferenceCode_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "AiEmployeeSourcePage_companyId_sourceId_idx" ON "AiEmployeeSourcePage"("companyId", "sourceId");
+CREATE UNIQUE INDEX "AiEmployeeSourcePage_sourceId_page_key" ON "AiEmployeeSourcePage"("sourceId", "page");
+CREATE INDEX "ReferenceCode_companyId_brandKey_idx" ON "ReferenceCode"("companyId", "brandKey");
+CREATE INDEX "ReferenceCode_sourceId_idx" ON "ReferenceCode"("sourceId");
+ALTER TABLE "AiEmployeeSourcePage" ADD CONSTRAINT "AiEmployeeSourcePage_sourceId_fkey" FOREIGN KEY ("sourceId") REFERENCES "AiEmployeeSource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReferenceCode" ADD CONSTRAINT "ReferenceCode_sourceId_fkey" FOREIGN KEY ("sourceId") REFERENCES "AiEmployeeSource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+### Checks
+
+`check:ai-employee` (the whole flow executed through the real responder:
+card, lookup from the record's brand, close-the-loop in Spanish, one reply past
+the cap with only callback/hand-off, a warranty ticket linked to the install
+job, a third message silenced), `check:reference-library` (byte-built PDFs:
+text, scanned, half-scanned, 300 and 450 pages, password-protected, garbage;
+private-URL fence; OCR batch validation and a scripted paid run; retrieval
+order and budget; the card never carries money or another tenant's rows; nine
+languages), `check:error-codes` (every row sourced and panel-free; codes typed
+every way; OE Samsung ≠ OE LG; unknown brand; company rows win, rejected never
+used, tenant fence; extraction junk; scripted paid run), plus the re-pinned
+`check:closer-technique`, `check:handling-timeline`, `check:direct-upload`,
+`check:app-catalogue`, `check:help-centre`, `check:interconnections`.
+
+### Owed
+
+- Deploy (the SQL is applied). Then, on a real company: upload one text
+  PDF and one scanned PDF, press "Read scanned pages with AI" once (confirms
+  Cloudinary's private download link answers a server GET, and the vendor
+  accepts inline page images), and "Extract error codes" once.
+- Owner decisions listed at the top of this section.
+- A trade technician's review of the 34 FieldQuo code rows, and their
+  translation (English only today; the tool says "FieldQuo reference").
+- Re-running "Extract error codes" re-reads the same top pages (max 20 /
+  40,000 characters); a long code manual (Rinnai: 19 candidate pages) fits, a
+  longer one would need a "next pages" pass.
+
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 
 A Past jobs import creates its quotes and jobs TODAY with last year's dates.
@@ -362,6 +657,196 @@ prompt failure through `respondToMessage`.
 **Deploy order:** the SQL in items 2 and 4 is applied in production, so the code can deploy (every Plan read selects `aiMonthlyAllowanceCents`, and the gate selects the Company columns).
 
 ---
+## Team chat: channels and group chats (4 October 2026)
+
+Phases 1 and 2 of the channels plan, on the owner's decisions of 4 October:
+channels and group chats yes; only the office (owner, admin, supervisor —
+Manager and Dispatcher map to supervisor) creates, renames and archives
+channels; anybody starts a group chat, no maximum size; "Seen by" yes, room
+members only; @everyone stays the office's; an @mention also lands in the
+notification bell. #general and job rooms stay derived from the roster and
+the schedule.
+
+- **Schema (additive — apply by hand, then `prisma db push` should say "in
+  sync"; never `--accept-data-loss`).** CompanyChatRoom: topic, private,
+  postingPolicy, autoJoin, createdByMemberId, archivedAt,
+  archivedByMemberId. CompanyChatMember: role, notify, mutedUntil,
+  lastOpenedAt, hiddenAt, starredAt, addedByMemberId. CompanyChatMessage:
+  attachments, card, replyToId, editedAt, deletedAt, deletedByMemberId,
+  pinnedAt, pinnedByMemberId — **reserved for phases 3–4, written and read by
+  nothing yet**. Channel keys are `channel:<slug>` on the existing unique
+  (companyId, key) — no new unique index. SQL:
+
+  ```sql
+  ALTER TABLE "CompanyChatRoom" ADD COLUMN "archivedAt" TIMESTAMP(3),
+  ADD COLUMN "archivedByMemberId" TEXT,
+  ADD COLUMN "autoJoin" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "createdByMemberId" TEXT,
+  ADD COLUMN "postingPolicy" TEXT NOT NULL DEFAULT 'everyone',
+  ADD COLUMN "private" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "topic" TEXT;
+  ALTER TABLE "CompanyChatMember" ADD COLUMN "addedByMemberId" TEXT,
+  ADD COLUMN "hiddenAt" TIMESTAMP(3),
+  ADD COLUMN "lastOpenedAt" TIMESTAMP(3),
+  ADD COLUMN "mutedUntil" TIMESTAMP(3),
+  ADD COLUMN "notify" TEXT NOT NULL DEFAULT 'default',
+  ADD COLUMN "role" TEXT NOT NULL DEFAULT 'member',
+  ADD COLUMN "starredAt" TIMESTAMP(3);
+  ALTER TABLE "CompanyChatMessage" ADD COLUMN "attachments" JSONB,
+  ADD COLUMN "card" JSONB,
+  ADD COLUMN "deletedAt" TIMESTAMP(3),
+  ADD COLUMN "deletedByMemberId" TEXT,
+  ADD COLUMN "editedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedAt" TIMESTAMP(3),
+  ADD COLUMN "pinnedByMemberId" TEXT,
+  ADD COLUMN "replyToId" TEXT;
+  CREATE INDEX "CompanyChatRoom_companyId_kind_private_archivedAt_idx" ON "CompanyChatRoom"("companyId", "kind", "private", "archivedAt");
+  CREATE INDEX "CompanyChatMember_roomId_open_lastSeenAt_idx" ON "CompanyChatMember"("roomId", "open", "lastSeenAt");
+  CREATE INDEX "CompanyChatMessage_roomId_pinnedAt_idx" ON "CompanyChatMessage"("roomId", "pinnedAt");
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_createdByMemberId_fkey" FOREIGN KEY ("createdByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatRoom" ADD CONSTRAINT "CompanyChatRoom_archivedByMemberId_fkey" FOREIGN KEY ("archivedByMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ALTER TABLE "CompanyChatMessage" ADD CONSTRAINT "CompanyChatMessage_replyToId_fkey" FOREIGN KEY ("replyToId") REFERENCES "CompanyChatMessage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ```
+
+  **Until it is applied, the deployed chat errors**: the list and thread
+  queries select the new columns. Ship the SQL with (or before) this code.
+- **Rules** (`lib/company/chat/rules.js`, pure): the role matrix
+  (canCreateChannel, canManage, canRename, canAddMembers, canRemoveMembers,
+  canArchive, canLeave, canPost, isJoinable); the notify table — DMs and
+  groups push every message, #general / channels / job rooms only mentions;
+  "none" silences everything; a snooze lets mentions through; nobody is
+  pushed while looking at the room (lastOpenedAt < 30 s) or about their own
+  words. "Seen by" is derived from each member's existing `lastSeenAt` (one
+  indexed count), not a row per message per reader. The channel-name rule
+  is shared with the staff chat in `lib/chat/channelName.js` (Unicode slugs
+  for the company chat, the staff chat's ASCII slugs byte-identical).
+- **Store and routes** — create channel / group (one pick = the DM), rename,
+  topic, private, office-only, include-everyone, archive/unarchive (kept,
+  read-only), join (public only; a private channel is a 404 to non-members,
+  the owner included), leave and remove (rows closed, never deleted), add
+  (closed rows reopen), your settings (notify, snooze, hide, star), Seen by,
+  locate-a-message; a system line and an activity-log row for every change.
+  Big groups: 4 members per listed room plus the viewer's own row and a
+  grouped head-count; members 50 a page with a name search; ≤ 200 members
+  inline in a thread; pushes in slices of 500; seeding on open, not every
+  poll. Realtime stays polling: the open room is a `?after=` delta every
+  4 s (15 s after two quiet minutes), the list every 15 s.
+- **Bell** — catalog type `chat.mention` (entity `chatMessage` →
+  `/app/chat?message=<id>`), written by `notifyEvent` with the new
+  `push: false` so the chat's own push is the only one; never for a DM or a
+  room set to "none"; the row stores who and where, not the words.
+- **Screen** — Channels / Jobs / Direct messages (groups with DMs), crew
+  order My jobs first with 64 px rows and one big New message; "+" and
+  Browse channels; New channel; the settings panel (name, topic, public /
+  private, office-only, include everyone, your notifications, mute 1 h /
+  until 7 AM, star, hide, people paged with Add / Remove, Archive, Leave);
+  "Seen by n" under your last message; office-only and archived notes in
+  place of the composer. 121 keys in all nine languages. Help: three new
+  articles (channels-and-group-chats, chat-notifications-and-mute,
+  seen-by-in-team-chat) and team-chat / chat-on-your-phone brought up to
+  date, en/fr/es.
+- **Checks** — `check:company-chat` §15–25 (447 passed),
+  `check:role-access` (+28, the shipped routes per role),
+  `check:chat-kit`, `check:notifications` (35 types).
+- **Phases 3–4 — built 4 October**, next section. The screenshot set in
+  `docs/screens/company-chat` predates channels and should be re-captured.
+
+## Team chat: photos, files, cards, reply, pins, edit, remove, search (4 October 2026)
+
+Phases 3 and 4 of the channels plan, on the owner's decisions of 4 October:
+chat photos use **private signed links like HR documents**; a removed
+message is hidden from **everybody, the owner included** (soft — the row
+and its words stay in the database, never deleted, never served).
+
+**No schema change.** Every column was added with phases 1–2 (its SQL is
+applied in production) and is now written AND read: `attachments`, `card`,
+`replyToId`, `editedAt`, `deletedAt`, `deletedByMemberId`, `pinnedAt`,
+`pinnedByMemberId`. The offline outbox uses the existing `OfflineSyncItem`
+ledger (kind `"chat"`).
+
+- **Photos and files** — the camera (big on the crew's phone shell) and the
+  paperclip upload through `uploadFile(file, { purpose: "chat" })` — sign →
+  Cloudinary → verify. `chat` is a PRIVATE purpose
+  (`lib/media/directUpload.js` PRIVATE_MEMBER_PURPOSES, like `hr`): signed
+  `type=authenticated`, so Cloudinary refuses the plain URL. Photos (shrunk
+  to 2,560 px, GPS stripped, in the browser), PDF / Word / Excel /
+  PowerPoint / text up to 25 MB, at most 10 per message, no video. The post
+  re-checks every entry is one of OUR cloud's authenticated files inside THIS
+  company's chat folder (`lib/company/chat/attachments.js`); a foreign or
+  public file refuses the whole message (`bad_attachment`).
+- **Opening a file** — the thread never carries a storage URL or public id.
+  Each file is `/api/chat/files/<message>/<n>?v=thumb|full&exp&sig`: an HMAC
+  over (reader, message, file, size, expiry) with `BETTER_AUTH_SECRET`, valid
+  1 hour, for THAT reader only (`lib/company/chat/fileLinks.js`). The route
+  checks the link (expired → 410 `link_expired`, the screen re-reads the
+  thread for fresh links; someone else's link → 404), then re-reads room
+  membership (non-member, private channel, other company, removed message
+  → 404), then: `full` → 302 to Cloudinary's download link that expires in
+  5 minutes (the HR signer); `thumb` → a 640 px JPEG fetched server-side from
+  a signed transformation URL that never leaves the server, streamed with
+  `private, max-age=3600`.
+- **Save to job photos** — from the photo viewer or the message menu; in a
+  job room to that job, elsewhere pick from the jobs you can see. The same
+  door as POST /api/jobs/[id]/photos: jobs `view_only` + `assignedJobWhere`
+  (crew on the job can; not on it → `no_job`). Saved as a progress photo,
+  **never featured** (the website stays a curation decision). The private
+  chat file is COPIED to the company's public jobs folder
+  (`chat-<message>-<n>`, so saving twice is one photo).
+- **Cards** — `card` stores `{ type, id }` only (job | work_order | quote);
+  every reader's thread resolves it with their own access
+  (`lib/company/chat/cards.js`): crew on the job open the job / work order,
+  others see "For the people on this job"; a quote card shows number and
+  client to people who can open quotes and "Office only" to everybody else.
+  No card carries a price for anybody. The poster must be able to open what
+  they share (`bad_card`). Share with staff now posts a work-order card (or
+  a quote card before there is a job), with the text links as the fallback
+  if the card is refused; the composer's briefcase shares one of your jobs.
+- **Reply-quote** (one level, same room only — `bad_reply` otherwise; a
+  removed original quotes "Message removed" with no words).
+- **Pins** — office in any room they are in, a channel's or group's manager
+  in theirs, anybody in a DM or group; max 50 per room; a system line says
+  who; the pinned bar under the header lists them.
+- **Edit** — your own, within 15 minutes, on the SERVER's clock
+  (`too_late`), "(edited)" from then on; mentions re-parsed, nobody pushed
+  again.
+- **Remove** — your own any time; somebody else's only in a channel you
+  manage (owner/admin in any channel they are in), logged as moderation
+  without the words; nobody removes another's words in DMs, groups,
+  #general or job rooms. Soft: `deletedAt` + `deletedByMemberId`; the body
+  is dropped in `rules.js threadMessages` — the one door every thread
+  payload goes through — and excluded from the list preview, unread counts,
+  search, the pinned bar, reply quotes and the file route, for everybody
+  including the owner and a support session.
+- **Search** — `GET /api/chat/search?q=[&room=]`, server-side ILIKE scoped by
+  company then OPEN membership (support session: every room, read-only),
+  never removed messages or system lines, newest 50, at least 2 letters.
+- **Refresh** — the 4-second delta also returns `changed` (messages edited
+  or removed since the previous payload's `changesCursor`, 5 s overlap) and
+  the room's `pinned` list on every read (so an unpin is seen as an
+  absence).
+- **Offline** — text typed with no signal waits in a per-member outbox
+  (`lib/company/chat/outbox.js`, localStorage keyed by member id), is drawn
+  as "Sending…" / "Waiting for a connection", and is sent on `online`, on
+  return to the tab and on every poll, with `X-Offline-Key` — a replay is
+  ONE message (`withOfflineKey`, kind `chat`), pushed once. Photos need a
+  connection (the bytes go straight to Cloudinary) and the composer says so.
+- **Cost (Cloudinary, named for the owner)** — a typical 5–15 person company
+  sending 200–600 chat photos a month at ~0.5–1 MB each (after the 2,560 px
+  shrink) adds ~0.1–0.6 GB of storage a month, cumulative; thumbnails are one
+  derived image per photo plus bandwidth per view. Roughly 0.5–1 Cloudinary
+  credit in month one, growing ~0.3–0.6 credit a month as storage
+  accumulates — about **$0.20–0.50 a month per company at first, ~$2–4 a
+  month after a year** at paid-plan credit prices (~$0.40–0.90/credit).
+  Save to job photos copies a photo (double storage for saved ones only).
+- **Checks** — `check:company-chat` §26–36 (589 passed): private scope,
+  hostile attachment lists, link expiry and binding, no storage URL in any
+  payload, cards per reader with no money key, reply, edit window, removal
+  absent from every response (owner, author, support, delta, list, search,
+  file route), pins, search scope, outbox replay = one message, Save to job
+  photos; `check:role-access` (+31, 286 in all, through the routes per role).
+  `scripts/fixtures/memoryPrisma.mjs`'s interactive `$transaction` now hands
+  the callback the client with models (it handed a bare object).
+
 ## Team chat: seven live bugs fixed (3 October 2026)
 
 Phase 0 of the channels plan — what was broken in the crew chat, fixed
@@ -1234,13 +1719,59 @@ lead) reads them as one project. Code in `lib/planRead/`; check: `npm run check:
   per call through the wallet meter. provider.js now reports cached tokens; usage.js prices them at
   the cached rate (cost-REDUCING for any wallet feature whose call hits the cache).
 
+### P0 of the multi-trade plan — measure, speed, reliability (4 October 2026)
+
+No owner decision needed; all cost-neutral or cost-reducing. Check: `npm run check:plan-deep-read`
+sections 14–19 (scripted provider with real millisecond delays, never the live API).
+
+- **Measured, per stage** — every read records its clock on `PlanRead.usage.timing`
+  (`lib/planRead/timing.js`): the click, first/last upload landing, each slice that took the lease,
+  each sheet's start/end/attempts, sheets/photos/synthesis start and end, outcome. In `usage`, not a
+  new column, so no deploy-order risk. `/platform/ai-usage` → "Drawing reads" shows the last 40
+  reads with time and tokens/vendor $ per stage and the medians (`/api/platform/plan-reads`, view
+  only); the estimator sees "Took 3m 05s".
+- **Faster** — sheet passes all in flight at once, bounded by `SHEET_CONCURRENCY = 13` (was 4 per
+  batch), and the photo pass runs beside them instead of after; the synthesis still waits for both.
+  Answers go into each sheet's own slot, so the synthesis prompt, the model, every stored pass and the
+  charge are md5-identical to the old order for the same answers (proved in the check). A 429 that
+  survives the SDK's own retries backs off 4 s / 8 s and gets a third attempt; a sheet that runs out
+  of time is left unread for the next slice, never written off. Expected on the 13-sheet reference
+  set: sheets 2–4 min → ~45–75 s (one wave), photos 45–110 s now overlapped — about 2–4 min off a
+  5–9 min machine total, before the per-trade synthesis work of P5.
+- **Backstop cron** — `/api/cron/plan-reads` every 2 minutes (`lib/planRead/backstop.js`) resumes
+  reads whose lease has lapsed, so a closed tab no longer stalls a paid read. It never holds or
+  charges: it only calls `advanceRead`, which takes the lease first. Settling now writes only while
+  the row is still that run (status reading + the same `reservationRef`), the refund rides the
+  ledger's unique `refund:<ref>`, and the start's claim takes a 30-second lease until the hold is
+  written (closing a window where a poll could start a worker against no hold). A read still running
+  45 min after its click is given up and refunded in full.
+- **One history** — the estimator's own edits (PATCH: measure, equipment price, leave out / put back,
+  photo split/merge, rename, the client's wording) and sheet reuse are `PlanReadMessage` rows with
+  role `"edit"` (who, when, what), written in the same transaction as the edit, shown in the chat
+  card's timeline with names; never sent to the model (`chatHistory()`). Chat replies now record who
+  asked.
+- **Cache by file hash** — the server stores the SHA-256 of each drawing file it fetched
+  (`QuoteDocument.contentHash`, never from the browser). A read with unread sheets is offered "N of
+  these sheets were already read in “X” — reuse, saves about Y credits" when an earlier read in the
+  SAME company (same trade, same page, same sheet number, same extracted dimension count) has them;
+  `POST /api/plan-reads/[id]/reuse` recomputes the offer server-side under the row lock and remaps
+  the dimension ids. Another company's read of the identical file is never offered.
+- **Schema (additive, NOT applied — must be run before this deploys, or every drawing-read load
+  fails on the missing column):**
+  `ALTER TABLE "QuoteDocument" ADD COLUMN IF NOT EXISTS "contentHash" TEXT;`
+  `CREATE INDEX IF NOT EXISTS "QuoteDocument_companyId_contentHash_idx" ON "QuoteDocument"("companyId", "contentHash");`
+- Also fixed in passing: the settle wrote `similar: null` when the similar-jobs lookup threw — a bare
+  null on a Json column, which Prisma refuses, would have left a finished, paid read stuck
+  "reading". It now leaves `similar` as it was.
+
 ### Owed
 
 - Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
-  `PlanRead.usage` (per step) and as AiUsage `plan_read*` rows — read them after the first live read
-  and correct `READ_TOKENS` in lib/planRead/billing.js.
+  `PlanRead.usage` (per step, now with the stage clock) and as AiUsage `plan_read*` rows — read them
+  on /platform/ai-usage → Drawing reads after the first live read and correct `READ_TOKENS` in
+  lib/planRead/billing.js.
 - Phase 2: siding, roofing and other trades (their own catalogues/engines), equipment rental rates,
-  deductions for openings, a cron backstop for reads abandoned mid-way (today a poll resumes them).
+  deductions for openings. (The cron backstop shipped in P0 above.)
 
 ## Referrals need a chosen plan (3 October 2026)
 

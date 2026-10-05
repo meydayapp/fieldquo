@@ -646,7 +646,7 @@ export const ARTICLES = {
     title: "Clavardage d'équipe",
     summary:
       "L'entreprise qui se parle : #general pour tout le monde, une salle par chantier actif pour l'équipe qui y est affectée et le bureau, des messages directs, des @mentions qui rejoignent un téléphone — et rien qui sort de l'entreprise.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Clavardage**, c'est la conversation de l'entreprise avec elle-même, dans FieldQuo. Tout le monde sur la liste est dans **#general**; chaque chantier au calendrier a une salle pour l'équipe qui y est affectée et le bureau; et deux personnes peuvent s'écrire directement. Les mentions avertissent la personne nommée, et sur un téléphone, Clavardage est l'onglet de l'équipe au bas de l'écran.",
       "Rien ici ne rejoint un client, et rien ne rejoint FieldQuo — la session en lecture seule de l'équipe de soutien peut voir les salles et ne peut pas y écrire.",
@@ -656,7 +656,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "L'écran est le même outil de clavardage que **Messages** : la liste des conversations à gauche, le fil au centre avec les séparateurs de jour et la ligne des non-lus, les **Membres** de la salle à droite, et la zone de rédaction en bas. Les salles non lues montent en haut de la liste, parce que la liste existe pour répondre à « qui attend après moi ». Les salles sont créées et tenues à jour par FieldQuo à partir de votre liste d'équipe et de votre horaire — personne n'ajoute ni ne retire qui que ce soit à la main, et c'est pourquoi la liste ne peut jamais dériver de qui est vraiment sur un chantier." },
+          { p: "L'écran est le même outil de clavardage que **Messages** : la liste des conversations à gauche, le fil au centre avec les séparateurs de jour et la ligne des non-lus, les **Membres** de la salle à droite, et la zone de rédaction en bas. Les salles non lues montent en haut de la liste, parce que la liste existe pour répondre à « qui attend après moi ». #general et les salles de chantier sont créées et tenues à jour par FieldQuo à partir de votre liste d'équipe et de votre horaire — personne n'y ajoute qui que ce soit à la main, et c'est pourquoi elles ne peuvent jamais dériver de qui est vraiment sur un chantier. Les canaux et les discussions de groupe sont les salles que les gens créent : voir [[channels-and-group-chats|Canaux et discussions de groupe]]." },
         ],
       },
       {
@@ -665,12 +665,12 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Non lus** — toute salle contenant quelque chose que vous n'avez pas vu, les mentions comptées à part.",
-            "**Entreprise** — **#general**, « Toute l'équipe ».",
+            "**Canaux** — **#general** (« Toute l'équipe ») d'abord, puis les canaux où vous êtes, avec **Parcourir les canaux** dessous.",
             "**Travaux** — une salle par chantier planifié ou en cours, nommée d'après lui, « L'équipe affectée à ce travail, et le bureau », avec **Ouvrir le travail** dans son en-tête.",
-            "**Messages directs** — « Juste vous deux. Personne d'autre ne peut lire ceci. »",
+            "**Messages directs** — les conversations à deux (« Juste vous deux. Personne d'autre ne peut lire ceci. ») et les discussions de groupe, les plus récentes en premier.",
             "**Travaux terminés** — les salles des chantiers terminés ou annulés, gardées avec leur historique : « Ce travail est terminé. La salle est conservée pour mémoire. »",
           ] },
-          { p: "**Nouveau message** en haut ouvre un message direct : cherchez dans l'équipe par nom ou courriel et choisissez une personne. La zone de rédaction affiche **Message à #general** ou **Message à Ana**; taper **@** ouvre **Mentionner quelqu'un** avec les gens de cette salle — ↑↓ pour choisir, Tab pour insérer." },
+          { p: "**Nouveau message** en haut ouvre une conversation : cherchez dans l'équipe par nom ou courriel et choisissez une personne pour un message direct, ou deux ou plus pour une discussion de groupe. La zone de rédaction affiche **Message à #general** ou **Message à Ana**; taper **@** ouvre **Mentionner quelqu'un** avec les gens de cette salle — ↑↓ pour choisir, Tab pour insérer." },
         ],
       },
       {
@@ -710,14 +710,14 @@ export const ARTICLES = {
             "Pour joindre une personne en privé, appuyez sur **Nouveau message**, cherchez son nom et envoyez.",
             "Quand le chantier est terminé, sa salle passe sous **Travaux terminés** — « qu'est-ce qu'on avait convenu pour la cuisine Nguyen » a encore une réponse en mars.",
           ] },
-          { figure: "harness:chat", caption: "Clavardage — les salles regroupées en Non lus, Entreprise, Travaux, Messages directs et Travaux terminés, le fil d'une salle de chantier, et ses Membres." },
+          { figure: "harness:chat", caption: "Clavardage — les salles regroupées en Non lus, Canaux, Travaux, Messages directs et Travaux terminés, le fil d'une salle de chantier, et ses Membres." },
         ],
       },
       {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Tout le monde sur la liste, y compris les accès Équipe — le clavardage est l'écran de l'équipe et n'a pas de niveau d'accès propre. Ce qu'une personne voit, ce sont les salles où elle est : #general, les chantiers où elle est affectée, et ses messages directs. Le propriétaire, les administrateurs et les gestionnaires sont dans chaque salle de chantier." },
+          { p: "Tout le monde sur la liste, y compris les accès Équipe — le clavardage est l'écran de l'équipe et n'a pas de niveau d'accès propre. Ce qu'une personne voit, ce sont les salles où elle est : #general, les chantiers où elle est affectée, les canaux qu'elle a rejoints ou où on l'a ajoutée, et ses messages directs et discussions de groupe. Un canal privé est invisible pour quiconque n'en fait pas partie, le propriétaire compris. Le propriétaire, les administrateurs et les gestionnaires sont dans chaque salle de chantier." },
         ],
       },
       {

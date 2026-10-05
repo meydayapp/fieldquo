@@ -18,6 +18,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { formatClipLength, formatPackPrice } from "@/lib/marketing/videoAllowance";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
 
 /** "3 of 5 videos used this month" (+ "· 1 uploading"). */
 export function VideoAllowanceLine({ allowance, className = "" }) {
@@ -70,11 +71,13 @@ export function AllowanceUsed({ allowance, returnPath }) {
           {t(allowance.packs > 0 ? "app.videoAllowance.addAnotherPack" : "app.videoAllowance.addPack", {
             videos: allowance.packVideos,
             price: formatPackPrice(allowance.packPriceCents),
+            currency: allowance.packCurrency,
           })}
         </button>
       ) : (
         <p className="text-muted-foreground">{t("app.videoAllowance.askAdmin")}</p>
       )}
+      {allowance.canAddPack && <UsdBillingNote cents={allowance.packPriceCents} />}
     </div>
   );
 }
@@ -136,16 +139,28 @@ export function VideoPackCard({ returnPath = "/app/settings/account-billing" }) 
               included: a.included,
               videos: a.packVideos,
               price: formatPackPrice(a.packPriceCents),
+              currency: a.packCurrency,
               length: formatClipLength(a.maxSeconds),
             })}
           </p>
+          {/* US dollars for every company — said to the ones billed in CAD or
+              AUD (owner, 2026-10-04). */}
+          <UsdBillingNote cents={a.packPriceCents} />
+          {/* The one limit that waits on FieldQuo's video plan (Cloudinary):
+              how big ONE upload may be. Said with today's figure, from the
+              same reading the upload is signed against. */}
+          {data.uploadMaxLabel && (
+            <p className="text-xs text-muted-foreground" data-video-upload-limit>
+              {t("app.videoAllowance.uploadLimit", { size: data.uploadMaxLabel })}
+            </p>
+          )}
           <VideoAllowanceLine allowance={a} className="text-sm" />
           {data.packs.length > 0 && (
             <ul className="text-sm space-y-1">
               {data.packs.map((p) => (
                 <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 border border-border rounded-lg px-3 py-2">
                   <span className="text-foreground">
-                    {t("app.videoAllowance.packLine", { videos: a.packVideos, price: formatPackPrice(a.packPriceCents) })}
+                    {t("app.videoAllowance.packLine", { videos: a.packVideos, price: formatPackPrice(a.packPriceCents), currency: a.packCurrency })}
                     <span className="block text-xs text-muted-foreground">
                       {p.cancelAtPeriodEnd
                         ? t("app.videoAllowance.packEnds", { date: p.paidThrough ? new Date(p.paidThrough).toLocaleDateString() : "—" })
@@ -181,6 +196,7 @@ export function VideoPackCard({ returnPath = "/app/settings/account-billing" }) 
               {t(a.packs > 0 ? "app.videoAllowance.addAnotherPack" : "app.videoAllowance.addPack", {
                 videos: a.packVideos,
                 price: formatPackPrice(a.packPriceCents),
+                currency: a.packCurrency,
               })}
             </button>
           ) : !a.canAddPack ? (

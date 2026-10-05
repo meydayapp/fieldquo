@@ -17,7 +17,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
-import { mayEvaluate } from "@/lib/dailySheets/access";
+import { mayEvaluate, seesUpsells, withoutUpsells } from "@/lib/dailySheets/access";
 import { dateKeyToColumn, columnToDateKey } from "@/lib/dailySheets/day";
 import { normaliseScore } from "@/lib/dailySheets/objectives";
 import { computeBonus } from "@/lib/dailySheets/bonus";
@@ -73,5 +73,8 @@ export async function POST(request) {
     summary: `Evaluated ${worker.name}'s ${date}: ${score}/5${bonus ? ` — bonus ${(bonus.cents / 100).toFixed(2)}` : ""}`,
     metadata: { workerId: worker.id, date, score, bonusCents: bonus ? bonus.cents : null },
   });
-  return NextResponse.json({ ...sheet, dateKey: columnToDateKey(sheet.date), noRule: !bonus });
+  const out = { ...sheet, dateKey: columnToDateKey(sheet.date), noRule: !bonus };
+  // A coordinator without prices (a custom grid) reads no upsell amounts here
+  // either — the same rule as the day's GET.
+  return NextResponse.json(seesUpsells(full) ? out : withoutUpsells(out));
 }

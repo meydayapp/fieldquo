@@ -153,7 +153,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Dois-je créer un chantier quand une soumission est approuvée?", a: "Non. FieldQuo le fait pour vous, une fois par soumission, et il apparaît dans À planifier. En créer un autre à la main vous donnerait deux chantiers pour une soumission." },
-      { q: "Où est-ce que je mets la date?", a: "Sur la page du chantier. Soit Planifier une visite (un déplacement au chantier avec une personne), soit Définir les dates (le début et la fin des travaux). L'un ou l'autre fait passer le chantier d'À planifier à Planifié." },
+      { q: "Où est-ce que je mets la date?", a: "Sur la page du chantier. Soit Planifier une visite (un déplacement au chantier avec une personne), soit Définir les dates (le début et la fin des travaux). L'un ou l'autre fait passer le chantier d'À planifier à Planifié. Une visite donne aussi à un chantier sans dates propres son début (le jour de la première visite) et sa fin (celui de la dernière), affichés **d'après les visites** — ainsi l'échéancier de paiement et le guide de préparation ont une date. Elles suivent les visites quand on les réserve, déplace ou annule ; une date que vous saisissez vous-même n'est jamais déplacée." },
       { q: "Puis-je rattacher une soumission à un chantier créé à la main?", a: "Pas depuis le formulaire — le lien vers la soumission se crée quand le chantier naît de la soumission. Partez de la soumission si vous avez besoin du lien." },
     ],
   },

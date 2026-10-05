@@ -36,6 +36,7 @@ import {
 } from "@/lib/voice/credits";
 import { aiCreditBundleFor, publicAiBundle, BUNDLE_ROLLOVER_NOTICE, bundleAvailability } from "@/lib/ai/creditBundle";
 import { estimateChargeCents } from "@/lib/ai/walletMeter";
+import { aiAdviceUnits } from "@/lib/ai/planAdviceUnits";
 
 export async function GET(request) {
   const { member, refusal } = await memberOrRefusalPlain(request);
@@ -116,6 +117,10 @@ export async function GET(request) {
       // page turns the button off and prints the reason rather than offering
       // a control that 502s.
       bundleAvailable: bundleAvailability(companyRow?.currency),
+      // The advisor's unit costs (owner, 2026-10-04): what one AI-employee
+      // conversation and one drawing read take from this credit, from the
+      // same functions that charge them — lib/ai/planAdviceUnits.js.
+      adviceUnits: aiAdviceUnits(),
     },
   });
 }

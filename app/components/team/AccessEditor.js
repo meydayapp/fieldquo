@@ -36,8 +36,9 @@ import {
   PERMISSION_CATEGORIES,
   PERMISSION_TOGGLES,
   PRESET_TO_ROLE,
+  toggleValue,
 } from "@/lib/permissions";
-import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
+import { ROLE_LABELS, tierNote, actorHoldsToggle } from "@/lib/permissions/roleManagement";
 import {
   emptyPermissionValues,
   presetForValues,
@@ -107,8 +108,10 @@ export default function AccessEditor({
       Boolean(activePreset) && (isPresetOffSwitch(key, value) || (key in PRESET_OFF_SWITCHES && value === presetValue));
     onValueChange(key, value, { keepPreset });
   }
+  // The server's own rule (clampPermissions → actorHoldsToggle), so the
+  // screen never offers a switch the save would quietly turn back off.
   const canOfferToggle = (key) =>
-    unrestricted || grants?.yourPermissions?.[key] === true;
+    unrestricted || actorHoldsToggle(grants?.yourPermissions, key);
 
   const offerablePresets = Object.entries(PERMISSION_PRESETS).filter(([key]) =>
     canAssign(PRESET_TO_ROLE[key]),
@@ -252,6 +255,24 @@ export default function AccessEditor({
                 <span className="text-muted-foreground">{t("app.setTeamNew.timeClockDesc")}</span>
               </span>
             </label>
+          {/* The client's phone on their own jobs (owner, 2026-10-04). On for
+              Crew by default; an OFF switch that keeps them Crew, like the
+              clock above. Offered only to someone who may grant it back. */}
+            {canOfferToggle("clientPhoneOnOwnJobs") && (
+              <label className="flex items-start gap-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={toggleValue(values, "clientPhoneOnOwnJobs")}
+                  onChange={(e) => changeValue("clientPhoneOnOwnJobs", e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium text-foreground">{t("app.setTeamNew.clientPhone")}</span>
+                  <br />
+                  <span className="text-muted-foreground">{t("app.setTeamNew.clientPhoneDesc")}</span>
+                </span>
+              </label>
+            )}
             </>
           ) : (
           <>
@@ -284,7 +305,7 @@ export default function AccessEditor({
                   <input
                     type="checkbox"
                     className="mt-0.5"
-                    checked={!!values[key]}
+                    checked={toggleValue(values, key)}
                     onChange={(e) => onValueChange(key, e.target.checked)}
                   />
                   <span>

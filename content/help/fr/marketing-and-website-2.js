@@ -776,7 +776,8 @@ export const ARTICLES = {
             "bullets": [
               "Il compte dès que son premier paiement passe, et tant qu'il est payé.",
               "**Arrêter le renouvellement** le laisse compter jusqu'à la fin du mois payé, puis il prend fin. Rien de déjà publié n'est touché.",
-              "Les packs vidéo sont facturés en dollars américains. Une entreprise dont le forfait est facturé en dollars canadiens ou australiens ne peut pas encore en ajouter — l'écran le dit au lieu de proposer un paiement que Stripe refuserait."
+              "Les packs vidéo sont facturés en dollars américains pour toutes les entreprises, quelle que soit la devise de votre forfait : le stockage vidéo derrière eux facture FieldQuo en dollars américains. Une entreprise facturée en dollars canadiens ou australiens le voit écrit à côté du prix, avec une conversion approximative, et sa banque convertit le montant.",
+              "Pour l'instant, un clip peut peser au téléversement jusqu'à la taille qu'indique la carte de **Compte et facturation** — raccourcissez d'abord un enregistrement plus lourd sur le téléphone. Cette limite porte sur un téléversement, pas sur le nombre de vidéos."
             ]
           }
         ]

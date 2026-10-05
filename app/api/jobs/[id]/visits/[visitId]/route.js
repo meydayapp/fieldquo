@@ -15,6 +15,7 @@ import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { loadEnforceableMember, hasLevel, assignedJobWhere } from "@/lib/permissions/enforce";
 import { mayRescheduleVisit } from "@/lib/jobs/visitStatus";
 import { recordActivity } from "@/lib/activity/log";
+import { syncJobDatesFromVisits } from "@/lib/jobs/visitDates";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 import { recordStampIfPresent } from "@/lib/location/stamps";
 import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
@@ -387,6 +388,15 @@ export async function PATCH(request, { params }) {
       alreadyCancelled: !plan && ["cancelled", "canceled"].includes(visit.status),
     });
     notice.texted = texted.texted;
+  }
+
+  // A visit moved, cancelled or reopened re-derives the job's dates — only
+  // the ones FieldQuo filled from the visits, never a person's
+  // (lib/jobs/visitDates.js). Best-effort, like the notices above.
+  if (plan || (status !== undefined && status !== visit.status && (cancelling || reopening))) {
+    await syncJobDatesFromVisits(_params.id).catch((err) =>
+      console.error("[visit] job dates from visits:", err?.message),
+    );
   }
 
   // ── Logged under the person who did it ─────────────────────────────────

@@ -11,7 +11,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import AiPlanAdvisor from "@/app/components/billing/AiPlanAdvisor";
+import { recommendAiPlan } from "@/lib/ai/planAdvice";
 import { CheckCircle2 } from "lucide-react";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
 import PlanOfferPrice, { OfferRibbon, offerMoney, yearTabLabel } from "@/app/components/billing/PlanOfferPrice";
@@ -390,8 +392,18 @@ function CustomPlanCard({ offer, t, price, interval, locale }) {
   );
 }
 
-export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf() }) {
+export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf(), aiAdvice = null }) {
   const { t, language } = useTranslation();
+  // The AI advisor's plans, memoised for the same reason Account & Billing's
+  // are (the advisor hands its answer back; a fresh array would loop).
+  const advisorPlans = useMemo(
+    () => plans.filter((p) => p.aiAllowance).map((p) => ({ id: p.id, name: p.name, priceMonthly: p.priceMonthly, allowance: p.aiAllowance })),
+    [plans],
+  );
+  const reviewsByPlanId = useMemo(
+    () => (aiAdvice?.units ? recommendAiPlan({ units: aiAdvice.units, plans: advisorPlans }).reviewsByPlanId : {}),
+    [aiAdvice, advisorPlans],
+  );
   const locale = numberLocaleFor(language);
 
   const columns = pricingColumns(plans.length);
@@ -540,6 +552,17 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
                         {t("pricing.aiIncluded")}
                       </li>
                     ) : null}
+                    {/* Capped, said as a count (owner, 2026-10-04): the plan's
+                        AI allowance in quote reviews, from resolveAiCap. */}
+                    {reviewsByPlanId[plan.id] != null ? (
+                      <li className="flex items-center gap-2 text-sm text-foreground" data-plan-ai-reviews>
+                        <CheckCircle2
+                          size={16}
+                          className="text-green-600 shrink-0"
+                        />
+                        {t("app.aiAdvisor.planLine", { reviews: reviewsByPlanId[plan.id].toLocaleString(locale) })}
+                      </li>
+                    ) : null}
 
                     {/* Free-form per-plan flags set in /platform. They're data,
                         not catalogue keys, so they stay in whatever language
@@ -573,6 +596,18 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
           </div>
 
           <CustomPlanCard offer={customOffer} t={t} price={price} interval={cadence} locale={locale} />
+
+          {/* Which plan fits the AI you'll use (owner, 2026-10-04). No
+              account yet, so no link to the AI credit page. */}
+          {aiAdvice?.units && (
+            <AiPlanAdvisor
+              className="mt-8 max-w-3xl mx-auto text-left"
+              units={aiAdvice.units}
+              plans={advisorPlans}
+              bundles={aiAdvice.bundles}
+              creditHref={null}
+            />
+          )}
 
           <IncludedEverywhere t={t} />
 
@@ -618,12 +653,13 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
               from lib/marketing/videoAllowance.js — the same constants the
               upload gate enforces and the pack checkout charges — and the
               price named in US dollars because that is what the pack bills
-              in, whatever the plan's currency. */}
+              in, whatever the plan's currency (the owner's rule). */}
           <p className="mt-3 text-center text-sm text-muted-foreground max-w-2xl mx-auto" data-pricing-video-pack>
             {t("pricingPage.videoPosts", {
               included: INCLUDED_VIDEOS_PER_MONTH,
-              // "<price> USD": the currency named after the figure, the way the
-              // page names none beside a card price (check:pricing-page).
+              // "<price> USD": the pack bills in US dollars for every company
+              // (owner, 2026-09-06 / 2026-10-04), so unlike a plan card it
+              // names its currency (check:pricing-page).
               price: `${formatPackPrice(VIDEO_PACK.priceCents)} ${VIDEO_PACK.currency}`,
               videos: VIDEO_PACK.videos,
               length: formatClipLength(VIDEO_MAX_SECONDS),

@@ -10,6 +10,7 @@ import { requirePermission } from "@/lib/permissions";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { assignedJobWhere, hasLevel } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
+import { syncJobDatesFromVisits } from "@/lib/jobs/visitDates";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 import { syncJobRoom } from "@/lib/company/chat/store";
@@ -171,6 +172,15 @@ export async function POST(request, { params }) {
       data: { status: "scheduled" },
     });
   }
+
+  // …and gives the job its DATES when it has none of its own: start = the
+  // earliest visit's day, end = the last one's, never over a date a person
+  // set (owner, 2026-10-04 — lib/jobs/visitDates.js has the rule and why).
+  // That is what "Needs a date", the payment schedule's date triggers and the
+  // preparation guide read. Best-effort: the visit is booked either way.
+  await syncJobDatesFromVisits(_params.id).catch((err) =>
+    console.error("[visits] job dates from visits:", err?.message),
+  );
 
   // Quote acceptance raises a high-priority "Schedule the job for X — the job
   // is waiting in Jobs with no date on it yet" task. It used to stay open and

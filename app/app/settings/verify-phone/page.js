@@ -9,6 +9,15 @@
 // Every refusal comes back with a `reasonKey`; the sentence shown is this
 // catalogue's, in the reader's language, with the server's English as the
 // fallback.
+//
+// ── Paid from phone & text credit (owner, 2026-10-04) ──────────────────────
+//
+// The code, the number check and (for a US mobile) Twilio Verify are charged
+// to the company's phone & text credit (lib/trial/phoneVerifyBilling.js). The
+// page says what a first code costs before Send, and a 402 "no_phone_credit"
+// becomes the phone & text top-up — a Stripe Checkout that comes back HERE
+// (returnTo "verify-phone") and is settled on arrival, the same two doors the
+// voice page uses (GET .../topup?session_id, and the webhook).
 "use client";
 
 import { useEffect, useState } from "react";
@@ -16,11 +25,19 @@ import Link from "next/link";
 import { Check, Loader2, Smartphone } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import UsdBillingNote from "@/app/components/billing/UsdBillingNote";
+
+// The smallest preset top-up (lib/voice/credits.js TOPUP_OPTIONS). Enough for
+// a couple of hundred codes; the voice page sells the larger amounts.
+const VERIFY_TOPUP_CENTS = 1000;
+const credit = (cents, language) => formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, language || "en");
 
 const FEATURES = ["sms", "phone_number", "crew_line", "business_number", "ai_call", "video_post", "email_campaign"];
 
 export default function VerifyPhonePage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [state, setState] = useState(null); // GET answer
   const [loadFailed, setLoadFailed] = useState(false);
   const [phone, setPhone] = useState("");
@@ -30,12 +47,46 @@ export default function VerifyPhonePage() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(null); // masked number once verified
   const [now, setNow] = useState(() => Date.now());
+  // { needCents, balanceCents } after a 402 — the top-up panel replaces the error.
+  const [noCredit, setNoCredit] = useState(null);
+  const [topupBusy, setTopupBusy] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    fetchJson("/api/settings/phone-verification")
-      .then(setState)
-      .catch(() => setLoadFailed(true));
+    (async () => {
+      // Back from the phone & text top-up's Checkout: settle it before reading
+      // the balance, and say what happened rather than going quiet.
+      const params = new URLSearchParams(window.location.search);
+      const session = params.get("topup");
+      if (session) {
+        const settled = await fetchJson(`/api/settings/voice/topup?session_id=${encodeURIComponent(session)}`).catch(() => null);
+        setNotice(
+          settled?.credited || settled?.alreadyCredited
+            ? t("app.phoneVerify.topupDone", "Phone & text credit added. You can send the code now.")
+            : t("app.phoneVerify.topupPending", "We couldn't confirm that payment yet. If it went through, the credit arrives within a minute or two — refresh to check."),
+        );
+      } else if (params.get("demo_topup")) {
+        setNotice(t("app.phoneVerify.topupDone", "Phone & text credit added. You can send the code now."));
+      }
+      if (session || params.get("demo_topup")) window.history.replaceState(null, "", window.location.pathname);
+      await fetchJson("/api/settings/phone-verification")
+        .then(setState)
+        .catch(() => setLoadFailed(true));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function startCreditTopup() {
+    setTopupBusy(true);
+    try {
+      const got = await fetchJson("/api/settings/voice/topup", { method: "POST", body: { cents: VERIFY_TOPUP_CENTS, returnTo: "verify-phone" } });
+      if (got?.checkoutUrl) window.location.assign(got.checkoutUrl);
+    } catch (err) {
+      setError(err?.message || t("app.phoneVerify.err.unavailable", "We can't text a code right now. Try again in a few minutes."));
+    } finally {
+      setTopupBusy(false);
+    }
+  }
 
   // The resend countdown, ticking only while there is one.
   useEffect(() => {
@@ -52,12 +103,17 @@ export default function VerifyPhonePage() {
   async function send() {
     setBusy(true);
     setError("");
+    setNoCredit(null);
     try {
       const got = await fetchJson("/api/settings/phone-verification", { method: "POST", body: { action: "send", phone } });
       setSent({ masked: got.masked, resendAt: Date.now() + (Number(got.resendInSeconds) || 60) * 1000 });
       setCode("");
     } catch (err) {
-      setError(refusal(err));
+      if (err?.data?.reasonKey === "no_phone_credit") {
+        setNoCredit({ needCents: err.data.needCents, balanceCents: err.data.balanceCents });
+      } else {
+        setError(refusal(err));
+      }
     } finally {
       setBusy(false);
     }
@@ -124,6 +180,38 @@ export default function VerifyPhonePage() {
         ) : !state.canVerify ? (
           <p className="text-sm text-muted-foreground">{t("app.phoneVerify.ownerOnly", "Only the owner or an admin can verify the company's phone. Ask them to open this page.")}</p>
         ) : !sent ? (
+          <>
+          {notice && <p className="text-sm text-foreground" role="status">{notice}</p>}
+          {state.cost && (
+            <p className="text-xs text-muted-foreground" data-verify-cost>
+              {t(
+                "app.phoneVerify.cost",
+                "A code costs about {cost} of your phone & text credit (the number check and the text). You have {balance}.",
+                { cost: credit(state.cost.firstCents, language), balance: credit(state.cost.balanceCents, language) },
+              )}
+            </p>
+          )}
+          {noCredit && (
+            <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2 text-sm" data-verify-no-credit>
+              <p className="text-foreground">
+                {t(
+                  "app.phoneVerify.noCredit",
+                  "Verifying costs {need} of your phone & text credit, and you have {balance}. Add credit, then send the code — what's left stays for texts and calls.",
+                  { need: credit(noCredit.needCents, language), balance: credit(noCredit.balanceCents, language) },
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={startCreditTopup}
+                disabled={topupBusy}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
+              >
+                {topupBusy && <Loader2 size={14} className="animate-spin" />}
+                {t("app.phoneVerify.topupButton", "Add {amount} of phone & text credit", { amount: credit(VERIFY_TOPUP_CENTS, language) })}
+              </button>
+              <UsdBillingNote cents={VERIFY_TOPUP_CENTS} />
+            </div>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -156,6 +244,7 @@ export default function VerifyPhonePage() {
               {t("app.phoneVerify.send", "Text me a code")}
             </button>
           </form>
+          </>
         ) : (
           <form
             onSubmit={(e) => {

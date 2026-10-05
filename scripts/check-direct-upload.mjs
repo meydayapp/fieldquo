@@ -336,7 +336,11 @@ const callsWithoutImport = files.filter((f) => {
   return /\buploadFile\(/.test(src) && !/from "@\/lib\/media\/uploadClient"/.test(src) && !f.endsWith("uploadClient.js");
 });
 ok("every file that calls uploadFile imports it", callsWithoutImport.length === 0, callsWithoutImport);
-ok("no call site constructs its own XHR to Cloudinary", files.filter((f) => /api\.cloudinary\.com/.test(readFileSync(f, "utf8"))).every((f) => /directUploadServer\.js$|uploadClient\.js$/.test(f)));
+// lib/planRead/ingest.js names the API host only to CHECK a signed private
+// DOWNLOAD link before a server-side GET (fetchOwnPrivateFile) — it uploads
+// nothing, and it is server code, so it is allowed by name rather than by
+// loosening the pattern for everyone.
+ok("no call site constructs its own XHR to Cloudinary", files.filter((f) => /api\.cloudinary\.com/.test(readFileSync(f, "utf8"))).every((f) => /directUploadServer\.js$|uploadClient\.js$|lib\/planRead\/ingest\.js$/.test(f)));
 for (const r of ["app/api/upload/sign/route.js", "app/api/upload/verify/route.js"]) {
   const src = readFileSync(r, "utf8");
   ok(`${r} is behind memberOrRefusal and takes the company from the session`, /memberOrRefusal\(request\)/.test(src) && /companyId: member\.companyId/.test(src));

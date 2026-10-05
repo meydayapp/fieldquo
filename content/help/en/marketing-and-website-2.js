@@ -780,7 +780,8 @@ export const ARTICLES = {
             "bullets": [
               "It counts from the moment its first payment goes through, and for as long as it is paid for.",
               "**Stop renewing** keeps it counting until the end of the month you have paid for, then it ends. Nothing already posted is touched.",
-              "Video packs are billed in US dollars. A company whose plan is billed in Canadian or Australian dollars can't add one yet — the screen says so instead of offering a checkout that Stripe would refuse."
+              "Video packs are billed in US dollars for every company, whatever currency your plan is in: the video storage behind them charges FieldQuo in US dollars. A company billed in Canadian or Australian dollars sees that said beside the price, with an approximate conversion, and its bank converts the charge.",
+              "For now one clip can be up to the size the card on **Account & Billing** names to upload — trim a longer recording on the phone first. That limit is about one upload, not how many videos you get."
             ]
           }
         ]

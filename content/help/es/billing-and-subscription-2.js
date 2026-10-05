@@ -358,6 +358,7 @@ export const ARTICLES = {
             "**Crédito telefónico**: el saldo, un aviso **quedando poco** cuando quedan menos de diez minutos, la nota de que los mensajes de texto de la cuadrilla consumen este mismo saldo, **Agregar crédito telefónico** (que abre la página de configuración del teléfono), y el estado de cuenta.",
             "**Crédito de imágenes con IA**: el saldo con lo que compra entre paréntesis (unas N imágenes, o N lecturas profundas), las dos cosas que lo gastan, **Añadir crédito** con cuatro montos, y el estado de cuenta.",
             "**Plan de crédito de IA**: la promesa de acumulación en palabras claras, y luego o los tres planes con **Suscribirse**, o el plan en el que está, su fecha de renovación, y **Cancelar plan**.",
+            "**¿Qué plan se ajusta a la IA que usarás?** — indique más o menos cuántas conversaciones del empleado IA, juegos de planos y revisiones de presupuestos con IA espera al mes. Nombra el plan de crédito de IA que cubre las conversaciones y las lecturas de planos (se pagan con crédito de IA, sea cual sea su plan de FieldQuo) y dice cuántas revisiones de presupuestos cubre la asignación de IA de su plan (salen del plan). Cada plan de crédito de IA dice también cuántas conversaciones o lecturas de planos compra, más o menos. Toda asignación tiene un tope; las cifras son estimaciones a los precios de hoy. El mismo recuadro está bajo los planes en **Cuenta y facturación**, donde cada plan dice cuántas revisiones cubre, y en la página pública de precios.",
           ] },
         ],
       },
