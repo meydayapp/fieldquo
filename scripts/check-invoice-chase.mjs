@@ -318,7 +318,9 @@ const route = read("app/api/invoices/[id]/request-payment/route.js");
 ok("imports recordActivity from the one activity writer", /import \{ recordActivity \} from "@\/lib\/activity\/log"/.test(route));
 ok("records action invoice.chased", /action: "invoice\.chased"/.test(route));
 ok("...on entityType invoice", /entityType: "invoice"/.test(route));
-ok("...with the address and balance in the metadata, and marked manual", /metadata: \{ to: invoice\.client\.email, balance, manual: true \}/.test(route));
+// sentEmailId (2026-10-05): the kept copy of the reminder this log row stands
+// for (lib/email/sentEmailHistory.js), so History lists the chase once.
+ok("...with the address and balance in the metadata, and marked manual", /metadata: \{ to: invoice\.client\.email, balance, manual: true(, \.\.\.\(sentEmailId \? \{ sentEmailId \} : \{\}\))? \}/.test(route));
 ok("stamps lastChasedAt on every send", /lastChasedAt: chasedAt/.test(route));
 ok("...and increments chaseCount", /chaseCount: \{ increment: 1 \}/.test(route));
 ok("...while sentAt keeps its stamp-only-if-empty rule", /\.\.\.\(invoice\.sentAt \? \{\} : \{ sentAt: chasedAt/.test(route));

@@ -704,11 +704,11 @@ section("12. No new sender, no dead control, every string in nine languages");
   ok("the timeline itself is read through its own GET", comp.includes("/conversation`") && comp.includes("fetchJson(urlFor("));
   ok("replies go through the inbox's reply route", comp.includes("/reply`") && comp.includes('method: "POST", body: { text: body }'));
   ok("a support session gets no reply box (useViewOnly)", comp.includes("useViewOnly()") && /canReply = canAct && Boolean\(data\?\.can\?\.reply\)/.test(comp));
-  ok("a refused read draws nothing", /err\.status === 403 \|\| err\.status === 404\) setHidden\(true\)/.test(comp));
+  ok("a refused read draws nothing", /err\.status === 403 \|\| err\.status === 404\) \{?\s*setHidden\(true\)/.test(comp));
   const buttons = comp.split("<button").slice(1).map((chunk) => chunk.slice(0, 700));
   const BTN_44 = /const BTN = "[^"]*min-h-\[44px\]/.test(comp) && /const BTN_PRIMARY = "[^"]*min-h-\[44px\]/.test(comp) && /const LINK = "[^"]*min-h-\[44px\]/.test(comp);
   ok("the shared button and link styles are 44px tall", BTN_44);
-  ok("every <button> is 44px tall", buttons.length >= 8 && buttons.every((b) => /className=\{BTN(_PRIMARY)?\}/.test(b) || b.includes("min-h-[44px]")), buttons.filter((b) => !(/className=\{BTN(_PRIMARY)?\}/.test(b) || b.includes("min-h-[44px]"))).map((b) => b.slice(0, 80)));
+  ok("every <button> is 44px tall", buttons.length >= 8 && buttons.every((b) => /className=\{(BTN(_PRIMARY)?|LINK)\}/.test(b) || b.includes("min-h-[44px]")), buttons.filter((b) => !(/className=\{(BTN(_PRIMARY)?|LINK)\}/.test(b) || b.includes("min-h-[44px]"))).map((b) => b.slice(0, 80)));
 
   const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
   const libSrc = readFileSync(join(ROOT, "lib/conversations/clientTimeline.js"), "utf8");
@@ -725,8 +725,11 @@ section("12. No new sender, no dead control, every string in nine languages");
   ok("package.json: check:all runs it", pkg.scripts["check:all"].includes("check:unified-conversations"));
   const client = readFileSync(join(ROOT, "app/app/clients/[id]/page.js"), "utf8");
   const job = readFileSync(join(ROOT, "app/app/jobs/[id]/JobDetail.js"), "utf8");
-  ok("the client page renders it", client.includes("<ClientConversation clientId={client.id} />"));
-  ok("the job page renders it", job.includes("<ClientConversation jobId={job.id} />"));
+  // Through ConversationTabs since 2026-10-05 ("Conversation" | "History").
+  const tabs = readFileSync(join(ROOT, "app/components/conversations/ConversationTabs.js"), "utf8");
+  ok("the tabs render the timeline", tabs.includes("<ClientConversation clientId={clientId} jobId={jobId} onHidden={hideConv} />"));
+  ok("the client page renders it", client.includes("<ConversationTabs clientId={client.id} />"));
+  ok("the job page renders it", job.includes("<ConversationTabs jobId={job.id} />"));
   ok("CLIENT_MATCH_SELECT carries companyId (the matcher's tenancy proof)", CLIENT_MATCH_SELECT.companyId === true);
 }
 

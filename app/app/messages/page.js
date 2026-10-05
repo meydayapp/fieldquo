@@ -111,6 +111,7 @@ import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 import AiHolderBar from "@/app/components/messaging/AiHolderBar";
 import WebMatchBar from "@/app/components/messaging/WebMatchBar";
+import MessageJobChip from "@/app/components/messaging/MessageJobChip";
 import HandlingTimeline from "@/app/components/messaging/HandlingTimeline";
 // The one table that knows what WhatsApp will accept, and Meta's own size
 // limits with it. Read here so the file picker offers exactly what the send
@@ -992,6 +993,8 @@ function MessagesScreen() {
             onRetryAttachment={(messageId, index) => retryAttachment(thread, messageId, index, refresh, t)}
             onAddClient={(contact) => addContactAsClient(thread, contact, refresh, t)}
             onSaveAddress={(clientId, address) => saveLocationAsAddress(clientId, address, t)}
+            canEdit={canEdit}
+            onChanged={refresh}
             t={t}
           />
         )}
@@ -1007,9 +1010,12 @@ function MessagesScreen() {
 
       {thread ? <AiHolderBar thread={thread} canEdit={canEdit} onChanged={refresh} t={t} /> : null}
 
-      {/* A website chat the AI team tied to a client from the email or phone
-          the visitor typed — with "Not this client" (lib/aiEmployee/
-          webChatMatch.js). Draws nothing on any other conversation. */}
+      {/* A conversation linked to its client automatically — a website chat
+          the AI team tied from what the visitor typed (lib/aiEmployee/
+          webChatMatch.js), or a text, WhatsApp, email or Messenger thread
+          whose phone or email is exactly one client's (lib/conversations/
+          autoLink.js) — with "Not this client". Draws nothing on a
+          conversation a person linked. */}
       {thread && !isDemo ? <WebMatchBar thread={thread} canEdit={canEdit} onChanged={refresh} t={t} /> : null}
 
       {thread ? (
@@ -1308,7 +1314,7 @@ function OutcomeChip({ value, onPick, busy, t }) {
  * kit draws everything around this: gutter, avatar, name, time, the failed
  * state with Meta's own sentence.
  */
-function MessageBody({ item, note, thread, isDemo, onRetryAttachment, onAddClient, onSaveAddress, t }) {
+function MessageBody({ item, note, thread, isDemo, onRetryAttachment, onAddClient, onSaveAddress, canEdit, onChanged, t }) {
   if (item.kind === "note") return <NoteBody message={item} note={note} t={t} />;
   // What a card in the thread may DO, and whether this member may do it.
   // Both booleans come from the server (the thread route's canEditClients),
@@ -1329,6 +1335,10 @@ function MessageBody({ item, note, thread, isDemo, onRetryAttachment, onAddClien
     <div className={`text-sm ${tone}`}>
       {item.body ? <p className="whitespace-pre-wrap break-words">{item.body}</p> : null}
       <Attachments message={item} onRetry={onRetryAttachment} media={media} t={t} />
+      {/* The job this message is about, or "Which job?" when the automatic
+          rule could not tell (lib/conversations/autoLink.js). Nothing on a
+          sample conversation. */}
+      {!isDemo ? <MessageJobChip item={item} thread={thread} canEdit={canEdit} onChanged={onChanged} t={t} /> : null}
     </div>
   );
 }

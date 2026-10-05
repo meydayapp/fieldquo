@@ -20,6 +20,9 @@
 //                    website-chat matcher's undo route, which records the
 //                    refused pair so it is never matched again.
 //   Load older       the timeline's own cursor.
+//   View email       a document email whose text was kept opens it
+//                    (SentEmailViewer → GET /api/sent-emails/[id]); one from
+//                    before the text was kept says so instead of a link.
 //   Retry (media)    POST /api/messaging/threads/[id]/attachments, as the
 //                    inbox does.
 //
@@ -42,6 +45,7 @@ import { showToast } from "@/lib/toast";
 import { PlatformBadge, Attachments } from "@/app/app/messages/ConversationBits";
 import SmsReceiptLine from "@/app/components/sms/SmsReceiptLine";
 import { callDurationLabel } from "@/lib/messaging/activity";
+import SentEmailViewer from "./SentEmailViewer";
 
 const BTN = "inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg text-sm font-medium border border-border bg-card text-foreground hover:bg-muted disabled:opacity-60";
 const BTN_PRIMARY = "inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60";
@@ -98,7 +102,7 @@ function sourceLabel(t, s) {
   return t("app.conversation.sources.linked");
 }
 
-export default function ClientConversation({ clientId = null, jobId = null }) {
+export default function ClientConversation({ clientId = null, jobId = null, onHidden = null }) {
   const { t, language } = useTranslation();
   const viewOnly = useViewOnly();
   const [data, setData] = useState(null);
@@ -112,6 +116,7 @@ export default function ClientConversation({ clientId = null, jobId = null }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [viewEmail, setViewEmail] = useState(null);
 
   const base = clientId
     ? `/api/clients/${encodeURIComponent(clientId)}/conversation`
@@ -136,10 +141,13 @@ export default function ClientConversation({ clientId = null, jobId = null }) {
       setEntries(d.entries || []);
       setFailed(false);
     } catch (err) {
-      if (err.status === 403 || err.status === 404) setHidden(true);
-      else setFailed(true);
+      if (err.status === 403 || err.status === 404) {
+        setHidden(true);
+        // ConversationTabs drops the tab rather than drawing an empty one.
+        onHidden?.();
+      } else setFailed(true);
     }
-  }, [urlFor]);
+  }, [urlFor, onHidden]);
 
   useEffect(() => {
     load();
@@ -356,7 +364,7 @@ export default function ClientConversation({ clientId = null, jobId = null }) {
           ) : (
             <ol className="space-y-3">
               {shown.map((e) => (
-                <TimelineEntry key={e.key} e={e} t={t} language={language} onRetry={retryAttachment} />
+                <TimelineEntry key={e.key} e={e} t={t} language={language} onRetry={retryAttachment} onViewEmail={setViewEmail} />
               ))}
             </ol>
           )}
@@ -398,11 +406,12 @@ export default function ClientConversation({ clientId = null, jobId = null }) {
           )}
         </>
       )}
+      {viewEmail ? <SentEmailViewer emailId={viewEmail} onClose={() => setViewEmail(null)} /> : null}
     </section>
   );
 }
 
-function TimelineEntry({ e, t, language, onRetry }) {
+function TimelineEntry({ e, t, language, onRetry, onViewEmail }) {
   const [open, setOpen] = useState(false);
   const isSystem = e.kind === "call_line" || e.kind === "document" || e.kind === "auto_text";
   const out = e.direction === "out";
@@ -424,11 +433,23 @@ function TimelineEntry({ e, t, language, onRetry }) {
               {e.kind === "document" && e.by ? ` · ${t("app.conversation.doc.by", { name: e.by })}` : ""}
             </p>
           )}
-          {e.href && (
-            <Link href={e.href} className={LINK}>
-              {e.kind === "document" ? t("app.conversation.openDocument") : t("app.conversation.openThread")}
-            </Link>
-          )}
+          {e.kind === "document" && e.kept === false ? (
+            <p className="text-xs text-muted-foreground">
+              {e.beforeKeeping ? t("app.conversation.doc.notKept") : t("app.emailHistory.notKeptAfter")}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-center gap-x-3">
+            {e.kind === "document" && e.emailId ? (
+              <button type="button" className={LINK} onClick={() => onViewEmail?.(e.emailId)}>
+                {t("app.conversation.doc.viewEmail")}
+              </button>
+            ) : null}
+            {e.href && (
+              <Link href={e.href} className={LINK}>
+                {e.kind === "document" ? t("app.conversation.openDocument") : t("app.conversation.openThread")}
+              </Link>
+            )}
+          </div>
         </div>
       </li>
     );

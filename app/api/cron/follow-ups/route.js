@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
+import { recordSentEmail } from "@/lib/email/sentEmailHistory";
 import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
 import { resolveSender } from "@/lib/email/companySender";
 import { renderSubject } from "@/lib/email/renderTemplateSections";
@@ -375,6 +376,8 @@ export async function GET(request) {
         subject = renderSubject(template.subject, mergeData, rule.template.name);
       }
 
+      // Resolved once: the send and the kept copy name the same sender.
+      const sender = await resolveSender(entity.company || {}, entity.companyId);
       const result = await sendEmail({
         // The quote/invoice's own company. A demo's follow-up cron still runs,
         // still writes its FollowUpLog, still stops on reply — it just never
@@ -388,7 +391,7 @@ export async function GET(request) {
         // otherwise FieldQuo's shared domain under the company's name.
         // Replies go to the company's inbox, falling back to the account
         // owner's email so a reply is never silently lost.
-        ...(await resolveSender(entity.company || {}, entity.companyId)),
+        ...sender,
         ...(unsubscribeToken && unsubscribeHeaders({ token: unsubscribeToken, request })),
       });
 
@@ -408,6 +411,21 @@ export async function GET(request) {
       const outcome = sendOutcome(result);
       if (outcome.ok) {
         sent++;
+        // The chase as it went, for the History tab on the client and job
+        // pages (lib/email/sentEmailHistory.js). Automatic: nobody sent it.
+        // A lead's chase has no client page to keep it on, so it is not kept.
+        const keptKind = { quote: "quote_follow_up", invoice: "reminder", job: "job_follow_up" }[finder.entityType];
+        if (keptKind) await recordSentEmail(db, {
+          companyId: entity.companyId,
+          kind: keptKind,
+          clientId: entity.clientId || entity.client?.id || null,
+          jobId: finder.entityType === "job" ? entity.id : entity.jobId || null,
+          quoteId: finder.entityType === "quote" ? entity.id : entity.quoteId || null,
+          invoiceId: finder.entityType === "invoice" ? entity.id : null,
+          mail: { to, subject, html, text, from: sender?.from || null, replyTo: sender?.replyTo || null },
+          result,
+          language,
+        });
         continue;
       }
       failed++;

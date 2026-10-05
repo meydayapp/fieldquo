@@ -6,9 +6,16 @@
 // (lib/aiEmployee/webChatMatch.js): who, on what, and the undo — "Not this
 // client" — which removes the link and never proposes the pair again.
 //
+// Since 2026-10-05 the same bar for every AUTOMATIC link: a text, WhatsApp,
+// email or Messenger / Instagram conversation whose phone or email belongs to
+// exactly one client (lib/conversations/autoLink.js, and the brought-number
+// and work-mailbox linkers that now record theirs the same way). Same row,
+// same route, same undo — only the sentence differs, because "your AI
+// assistant" did not link a text.
+//
 // Drawn only when there IS a live match (GET .../client-match answers one);
 // a link a person made by hand has no match row and gets no bar, because
-// there is nothing of the assistant's to undo.
+// there is nothing automatic to undo.
 
 import { useEffect, useState } from "react";
 import { Link2, Loader2 } from "lucide-react";
@@ -17,7 +24,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 export default function WebMatchBar({ thread, canEdit, onChanged, t }) {
   const [match, setMatch] = useState(null);
   const [busy, setBusy] = useState(false);
-  const eligible = thread?.platform === "web" && Boolean(thread?.clientId);
+  const eligible = Boolean(thread?.clientId);
+  const web = thread?.platform === "web";
 
   useEffect(() => {
     let live = true;
@@ -70,10 +78,15 @@ export default function WebMatchBar({ thread, canEdit, onChanged, t }) {
     <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2 text-sm text-muted-foreground">
       <Link2 size={15} className="shrink-0" />
       <span className="flex-1 min-w-0">
-        {t("app.messages.webMatch.line", "Linked to {client} by your AI assistant — they gave their {on} in the chat.", {
-          client: match.clientName || t("app.messages.webMatch.aClient", "a client"),
-          on: on || t("app.messages.webMatch.on.details", "details"),
-        })}
+        {web
+          ? t("app.messages.webMatch.line", "Linked to {client} by your AI assistant — they gave their {on} in the chat.", {
+              client: match.clientName || t("app.messages.webMatch.aClient", "a client"),
+              on: on || t("app.messages.webMatch.on.details", "details"),
+            })
+          : t("app.messages.autoLink.line", "Linked to {client} automatically — the {on} is theirs and no other client's.", {
+              client: match.clientName || t("app.messages.webMatch.aClient", "a client"),
+              on: on || t("app.messages.webMatch.on.details", "details"),
+            })}
       </span>
       {canEdit ? (
         <button
