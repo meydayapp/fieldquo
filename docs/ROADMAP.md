@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 4 October 2026 (AI employee knowledge, phase 2 — the owner's six decisions, each a company switch on Settings › AI employee › Urgent problems & safety: three-tier triage that asks first (water is urgent not 911; gas/CO = leave first), urgent texts to an ordered on-call list with no-ack escalation paid from phone & text credit, vetted safe first steps with a reply guard, web-chat client matching with undo, FieldQuo's shared manual library on /platform/manuals, and real appointment times for the troubleshooter. Schema additive — NOT applied; apply before deploy. See "AI employee knowledge, phase 2" below.)
+Last updated: 4 October 2026 (AI employee knowledge, phase 2 — the owner's six decisions, each a company switch on Settings › AI employee › Urgent problems & safety: three-tier triage that asks first (water is urgent not 911; gas/CO = leave first), urgent texts to an ordered on-call list with no-ack escalation paid from phone & text credit, vetted safe first steps with a reply guard, web-chat client matching with undo, FieldQuo's shared manual library on /platform/manuals, and real appointment times for the troubleshooter. Schema additive — applied in production 2026-10-05. See "AI employee knowledge, phase 2" below.)
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
 Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
@@ -495,8 +495,8 @@ default).
 - Web-chat matching: one client scan per message that carries an email or
   phone (no model call).
 
-### Schema (additive — NOT applied; must be applied BEFORE deploy — the
-### reference-library list selects the two new AiEmployeeSource columns)
+### Schema (additive — APPLIED in production 2026-10-05; the reference-library
+### list selects the two new AiEmployeeSource columns)
 
 ```sql
 ALTER TABLE "AiEmployeeSource" ADD COLUMN "sharedAt" TIMESTAMP(3), ADD COLUMN "sharedManualId" TEXT;
@@ -531,7 +531,7 @@ three safety changes put back; troubleshooter re-pinned deliberately),
 
 ### Owed
 
-- Apply the SQL, then deploy. On a real company: put one person with a
+- Deploy (the SQL is applied). On a real company: put one person with a
   mobile on call, send "water is pouring through the ceiling" in the web
   chat, confirm the text arrives (and the ledger shows `urgent_alert_text`),
   press I've got it, and confirm the cron didn't text the next person.
