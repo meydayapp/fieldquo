@@ -324,7 +324,9 @@ section("6. Spam makes no lead");
   const d = depsFor(db, { ai: () => ({ ...AI_NONE, kind: "spam" }) });
   const r = await captureLeadFromConversation({ companyId: CO, threadId: "T6", prisma: db, deps: d.deps, now: day(0) });
   ok("no lead is created for spam", d.created.length === 0 && !r.leadId, r);
-  ok("the verdict is kept on the thread", db.state.thread.leadCapture?.kind === "spam" && db.state.thread.leadCapture.aiRuns === 1, db.state.thread.leadCapture);
+  // Since 2026-10-05 the rules recognise this one for free (lib/leads/
+  // qualification.js — "your page will be…"), so the model is never paid to.
+  ok("the verdict is kept on the thread — by the rules, with no model read", db.state.thread.leadCapture?.kind === "spam" && db.state.thread.leadCapture.aiRuns === 0 && db.state.thread.leadCapture.qualification?.tier === "not_relevant", db.state.thread.leadCapture);
   const again = aiRunDecision({ capture: db.state.thread.leadCapture, signature: ["phone:+16135550100"], inboundChars: 200, inboundCount: 5 });
   ok("…and spam is never read again, even when a 'new' number appears", again.run === false && again.why === "spam", again);
 }

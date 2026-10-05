@@ -396,7 +396,21 @@ section("4b. The reviewer inside lead capture — converted makes no copy, undo 
   created.length = 0;
   const deps4 = { ...baseDeps(null), aiConfigured: () => false };
   const r4 = await captureLeadFromConversation({ companyId: CO, threadId: "T_noai", prisma: pNoAi, deps: deps4, now: NOW });
-  ok("no AI: the review says the AI did not run, and nothing is invented", pNoAi.st.thread.leadCapture.review.aiUnavailable === "ai_unconfigured" && pNoAi.st.thread.leadCapture.review.verdict === "undetermined" && created.length === 0, r4);
+  // Since 2026-10-05 the deterministic tier decides first (lib/leads/
+  // qualification.js): "I want my fence painted, my number is …" is a buying
+  // signal plus a phone — a lead, by the rules, with no model. The review
+  // still says the AI did not run, and nothing the person did not type is
+  // invented (name from the profile, phone from the pattern).
+  ok(
+    "no AI: the rules make the lead, the review says the AI did not run, and nothing is invented",
+    pNoAi.st.thread.leadCapture.review.aiUnavailable === "ai_unconfigured" &&
+      pNoAi.st.thread.leadCapture.qualification?.tier === "lead" &&
+      pNoAi.st.thread.leadCapture.qualification?.method === "rules" &&
+      created.length === 1 &&
+      created[0].name === "Ana Gomez" &&
+      !created[0].email,
+    { r4, created },
+  );
 
   const pHist = mkPrisma({ ...thread, id: "T_hist" });
   let extracted = 0;
