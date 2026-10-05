@@ -33,6 +33,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, RotateCcw, EyeOff, Eye, Trash2, Plus } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { getPriceBook } from "@/app/data/tradePriceBooks";
 import {
   PAINT_ESTIMATE_TYPES,
   PAINT_TAKEOFF_DEFAULTS,
@@ -211,7 +212,7 @@ function NewRateForm({ type, book, t, onAdd, onCancel }) {
   );
 }
 
-export default function PaintRateSets({ book, overrides, onChange }) {
+export default function PaintRateSets({ categoryKey, book, overrides, onChange }) {
   const { t } = useTranslation();
   // The currency CODE, because these boxes are TYPED into — the same call
   // cabinet-rates/page.js makes for the same reason.
@@ -219,15 +220,22 @@ export default function PaintRateSets({ book, overrides, onChange }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState("interior");
   const [adding, setAdding] = useState(false);
-  const takeoff = book?.takeoff || PAINT_TAKEOFF_DEFAULTS;
+  // The boxes show the book merged from the UNSAVED overrides, the way
+  // RateCard does. `book` is the server's merge of the last SAVED overrides:
+  // reading it made every typed figure snap back to the saved one until Save,
+  // so a rate looked uneditable. It stays only as the fallback for a key that
+  // has no price book.
+  const liveBook = useMemo(() => getPriceBook(categoryKey, overrides) || book, [categoryKey, overrides, book]);
+  const takeoff = liveBook?.takeoff || PAINT_TAKEOFF_DEFAULTS;
   const set = useMemo(() => own(takeoff.rateSets, type) || { rates: {} }, [takeoff, type]);
   const defaults = own(PAINT_TAKEOFF_DEFAULTS.rateSets, type) || { rates: {} };
   const ov = overrides || {};
   const customised = Boolean(readPath(ov, "takeoff.rateSets") || readPath(ov, "takeoff.products") || readPath(ov, "takeoff.extraCoatHoursPct") || readPath(ov, "takeoff.coatsChangeLabour") !== undefined);
   // Default ON (owner, 2026-10-05); only an explicit false turns it off. Read
-  // from the overrides being edited, not `book` (the last SAVED book), so the
-  // tick and the extra-coat row below follow the click before Save.
-  const coatsChangeLabour = readPath(ov, "takeoff.coatsChangeLabour") !== false;
+  // off the LIVE book (the unsaved overrides merged over the defaults, like
+  // every other box here), so the tick and the extra-coat row below follow
+  // the click before Save.
+  const coatsChangeLabour = takeoff.coatsChangeLabour !== false;
 
   const setPath = (path, value) => onChange(withPath(ov, path, value));
   const isSet = (path) => readPath(ov, path) !== undefined;

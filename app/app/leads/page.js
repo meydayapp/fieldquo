@@ -48,13 +48,17 @@ import {
   Megaphone,
   MoreHorizontal,
   CheckSquare,
+  CalendarClock,
+  ListChecks,
 } from "lucide-react";
 import LeadDeleteDialog from "@/app/components/leads/LeadDeleteDialog";
+import QualificationControl, { TierChip, scopeCountsText } from "@/app/components/leads/QualificationControl";
+import ConversationReviewDialog from "@/app/components/leads/ConversationReviewDialog";
 import ActionMenu from "@/app/components/mobile/ActionMenu";
 import { describeAttribution, sourceName } from "@/lib/tracking/describe";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useHasLevel, usePermissions } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
@@ -321,11 +325,25 @@ function LeadsPage() {
       .catch(() => {});
   }, [canView]);
 
+  // "Quoted" (2026-10-05): only leads with a quote — linked, or a confirmed
+  // match the API found (lead.quoted). In the browser, because the inferred
+  // half is computed per load and is not a column a query could filter on.
+  const [quotedOnly, setQuotedOnly] = useState(false);
+  const quotedCount = (leads ?? []).filter((l) => l.quoted).length;
+  const shown = useMemo(() => (quotedOnly ? (leads ?? []).filter((l) => l.quoted) : leads ?? []), [leads, quotedOnly]);
+
+  // "Review leads made from conversations" — owner and admin, and the delete
+  // rung (the server asks both; lib/leads/conversationReview.js).
+  const perms = usePermissions();
+  const deleteRung = useHasLevel("requests", "view_create_edit_delete");
+  const canReview = (perms?.role === "owner" || perms?.role === "admin") && deleteRung;
+  const [reviewOpen, setReviewOpen] = useState(false);
+
   const grouped = useMemo(() => {
     const out = Object.fromEntries(COLUMNS.map((c) => [c.key, []]));
-    for (const lead of leads ?? []) (out[lead.status] || out.new).push(lead);
+    for (const lead of shown) (out[lead.status] || out.new).push(lead);
     return out;
-  }, [leads]);
+  }, [shown]);
 
   // Replace one lead in place after a mutation (assign/status/convert/rescore).
   const patchLead = useCallback((updated) => {
@@ -558,6 +576,15 @@ function LeadsPage() {
           >
             <Upload size={15} /> {t("app.leads.import")}
           </Link>
+          {canReview && (
+            <button
+              type="button"
+              onClick={() => setReviewOpen(true)}
+              className="inline-flex items-center gap-1.5 border border-border px-3 py-2 rounded-full text-sm font-semibold text-foreground"
+            >
+              <ListChecks size={15} /> {t("app.leads.convReview.open")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -594,6 +621,18 @@ function LeadsPage() {
         >
           <Flame size={13} className={sort === "score" ? "text-red-500" : "text-muted-foreground"} />
           {sort === "score" ? t("app.leads.sortHottest") : t("app.leads.sortNewest")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setQuotedOnly((v) => !v)}
+          aria-pressed={quotedOnly}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-semibold ${
+            quotedOnly ? "bg-inverted text-inverted-foreground border-transparent" : "border-border text-foreground"
+          }`}
+        >
+          <FileText size={13} />
+          {t("app.leads.filterQuoted")}
+          {quotedCount ? ` ${quotedCount}` : ""}
         </button>
         {canDelete && (leads ?? []).length > 0 && (
           <button
@@ -729,13 +768,13 @@ function LeadsPage() {
         loading={loading}
         errorKey={errorKey}
         onRetry={load}
-        isEmpty={(leads ?? []).length === 0}
+        isEmpty={shown.length === 0}
         skeleton={<div className="animate-pulse h-96 bg-accent rounded-xl" />}
         empty={
           <div className="bg-card border border-border rounded-xl p-12 text-center">
             <Inbox size={30} className="text-muted-foreground mx-auto" />
             <p className="mt-3 font-medium text-foreground">
-              {q || temp ? t("app.leads.noResults") : t("app.leads.empty")}
+              {q || temp || quotedOnly ? t("app.leads.noResults") : t("app.leads.empty")}
             </p>
             {!q && !temp && (
               <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
@@ -799,6 +838,8 @@ function LeadsPage() {
           onClose={() => setOpenId("")}
           onPatched={patchLead}
           onDelete={canDelete ? (lead) => setDeleteTargets([{ ...openLead, ...lead }]) : null}
+          boardLead={openLead}
+          onBoardPatch={patchLead}
           t={t}
         />
       )}
@@ -809,6 +850,9 @@ function LeadsPage() {
         onClose={() => setDeleteTargets([])}
         t={t}
       />
+      {canReview && (
+        <ConversationReviewDialog open={reviewOpen} onClose={() => setReviewOpen(false)} onDeleted={onLeadsDeleted} t={t} />
+      )}
     </div>
   );
 }
@@ -880,27 +924,94 @@ function CallbackBadge({ lead, t, detail = false }) {
 // zero: the strip above counts those, and a chip that said "$0" would be the
 // padded-absence failure AGENTS.md names. Absent entirely for a member whose
 // pricing toggle is off (the API attaches no `potential` for them).
-function PotentialChip({ potential, t }) {
+//
+// "scope" (2026-10-05): the homeowner's own counts priced from the company's
+// own book — "estimate from 22 doors + 15 drawers". There is no "average"
+// any more: a lead that gave no scope shows no figure (lib/leads/
+// potentialValue.js). `detail` draws, in the drawer, WHY a lead with counts
+// still has none (no service, or no price for it).
+function PotentialChip({ potential, t, detail = false }) {
   const money = useCompanyMoney();
-  if (!potential || potential.amount == null || potential.basis === "unknown") return null;
+  if (!potential) return null;
+  if (potential.amount == null || potential.basis === "unknown") {
+    if (!detail || !potential.counts) return null;
+    const why =
+      potential.why === "no_pricing"
+        ? t("app.leads.potential.noPricing", { counts: scopeCountsText(potential.counts, t), service: potential.service || t("app.leads.potential.thisService") })
+        : potential.why === "no_service"
+          ? t("app.leads.potential.noService", { counts: scopeCountsText(potential.counts, t) })
+          : null;
+    return why ? <div className="mt-2 text-xs text-muted-foreground">{why}</div> : null;
+  }
   const basis =
     potential.basis === "quote"
       ? t("app.leads.potential.fromQuote", { number: potential.quoteNumber || "" })
       : potential.basis === "estimate"
         ? t("app.leads.potential.fromEstimate")
-        : t("app.leads.potential.fromAverage", { service: potential.service || "" });
+        : t("app.leads.potential.fromScope", { counts: scopeCountsText(potential.counts, t) });
   const hint =
-    potential.basis === "average"
-      ? t("app.leads.potential.fromAverageHint", {
-          count: potential.sample ?? 0,
-          service: potential.service || "",
-        })
+    potential.basis === "scope"
+      ? `${t("app.leads.potential.fromScopeHint", { service: potential.service || "" })}${potential.minimumApplied ? ` ${t("app.leads.potential.minimumApplied")}` : ""}`
       : undefined;
   return (
     <div className="mt-2 text-xs text-foreground" title={hint}>
       <span className="font-semibold">≈ {money(potential.amount)}</span>
       <span className="text-muted-foreground"> · {basis}</span>
+      {detail && hint ? <div className="text-[11px] text-muted-foreground">{hint}</div> : null}
     </div>
+  );
+}
+
+// Quote statuses → the shared status labels. Written out in full so
+// check:translations can see every key.
+const QUOTE_STATUS_KEY = {
+  draft: "app.status.draft",
+  sent: "app.status.sent",
+  accepted: "app.status.approved",
+  declined: "app.status.declined",
+};
+
+// "Q-0031 · Sent · $5,550" — the quote this lead became (2026-10-05). A
+// recorded link (LeadRequest.quoteId), or a quote for the same client made
+// after the lead that the campaign rollup's own rule confirms (an exact phone
+// or email, or a name plus an agreeing address) — the second labelled
+// "probably", never written onto the lead. The total only for a member who
+// may see prices (the API sends none otherwise).
+function LeadQuoteLine({ lead, t }) {
+  const money = useCompanyMoney();
+  const q = lead.quote || lead.inferredQuote;
+  if (!q) return null;
+  const inferred = !lead.quote;
+  const status = QUOTE_STATUS_KEY[q.status] ? t(QUOTE_STATUS_KEY[q.status]) : q.status;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-emerald-800 dark:text-emerald-300" data-lead-quote>
+      <FileText size={11} aria-hidden="true" />
+      <span className="font-semibold">{q.quoteNumber}</span>
+      <span>· {status}</span>
+      {typeof q.total === "number" && q.total > 0 ? <span>· {money(q.total)}</span> : null}
+      {inferred ? <span className="text-muted-foreground">· {t("app.leads.quote.probably")}</span> : null}
+    </div>
+  );
+}
+
+// "Follow up · Oct 26" — the dated task a "back in three weeks" became
+// (lib/leads/followUpTask.js). Red once the day has passed: a promise nobody
+// kept is the reason this exists.
+function FollowUpChip({ followUp, t }) {
+  const { language } = useTranslation();
+  if (!followUp?.dueDate) return null;
+  const due = new Date(followUp.dueDate);
+  const overdue = due.getTime() < Date.now();
+  const date = due.toLocaleDateString(language || "en", { month: "short", day: "numeric" });
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+        overdue ? "bg-red-100 text-red-900 dark:bg-red-950/60 dark:text-red-200" : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+      }`}
+    >
+      <CalendarClock size={11} aria-hidden="true" />
+      {overdue ? t("app.leads.followUp.overdue", { date }) : t("app.leads.followUp.due", { date })}
+    </span>
   );
 }
 
@@ -1170,7 +1281,15 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle, selection = null, onDelet
           <div className="mt-2 text-xs text-muted-foreground">{lead.category.label}</div>
         )}
 
+        {(lead.qualification || lead.followUp) && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <TierChip qualification={lead.qualification} t={t} />
+            <FollowUpChip followUp={lead.followUp} t={t} />
+          </div>
+        )}
+
         <PotentialChip potential={lead.potential} t={t} />
+        <LeadQuoteLine lead={lead} t={t} />
 
         <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-2">
@@ -1189,11 +1308,6 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle, selection = null, onDelet
               <span className="inline-flex items-center gap-1 font-semibold text-foreground">
                 <Paperclip size={11} aria-hidden="true" /> {docCount}
                 <span className="sr-only">{t("app.leads.planCountLabel")}</span>
-              </span>
-            )}
-            {lead.quote && (
-              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                <FileText size={11} /> {lead.quote.quoteNumber}
               </span>
             )}
           </span>
@@ -1218,7 +1332,7 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle, selection = null, onDelet
 // walk-through on /industries/roofing). With it the drawer renders that lead
 // instead of fetching one, and every write stays in this component's state —
 // see LeadsSample for why, and patch() below for how.
-function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, onDelete = null }) {
+function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, onDelete = null, boardLead = null, onBoardPatch = null }) {
   const { language } = useTranslation();
   const [lead, setLead] = useState(sample);
   const [loading, setLoading] = useState(!sample);
@@ -1514,6 +1628,54 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
                 </div>
               )}
             </div>
+
+            {/* What the conversation was, and the one-tap change
+                (lib/leads/qualification.js) — only for a lead that came
+                from one. The board's row carries the tier; a change is
+                patched back into it so the card agrees at once. */}
+            {!sample && (boardLead?.threadId || lead.conversationEvidence?.threadId) && (
+              <div className="rounded-lg border border-border p-3">
+                <QualificationControl
+                  qualification={boardLead?.qualification || null}
+                  endpoint={`/api/leads/${lead.id}/qualification`}
+                  canEdit={canEditLead}
+                  onChanged={(q) => onBoardPatch?.({ id: lead.id, qualification: q })}
+                  t={t}
+                />
+              </div>
+            )}
+
+            {/* The scope they typed, each count with its sentence, and the
+                quick estimate from the company's own prices — or why there
+                is none. */}
+            {(lead.intake?.scope || boardLead?.potential?.counts) && (
+              <div className="rounded-lg border border-border p-3 space-y-1" data-lead-scope>
+                <div className="text-xs font-semibold text-foreground">{t("app.leads.scope.title")}</div>
+                {lead.intake?.scope?.counts && Object.keys(lead.intake.scope.counts).length > 0 && (
+                  <p className="text-sm text-foreground">{scopeCountsText(lead.intake.scope.counts, t)}</p>
+                )}
+                {Object.values(lead.intake?.scope?.sources || {})[0]?.quote && (
+                  <p className="text-xs text-muted-foreground break-words">“{Object.values(lead.intake.scope.sources)[0].quote}”</p>
+                )}
+                {lead.intake?.scope?.colour?.quote && (
+                  <p className="text-xs text-muted-foreground break-words">{t("app.leads.scope.colour")}: “{lead.intake.scope.colour.quote}”</p>
+                )}
+                {lead.intake?.scope?.hardware?.quote && (
+                  <p className="text-xs text-muted-foreground break-words">{t("app.leads.scope.hardware")}: “{lead.intake.scope.hardware.quote}”</p>
+                )}
+                {lead.intake?.scope?.damage?.quote && (
+                  <p className="text-xs text-muted-foreground break-words">{t("app.leads.scope.damage")}: “{lead.intake.scope.damage.quote}”</p>
+                )}
+                <PotentialChip potential={boardLead?.potential} t={t} detail />
+              </div>
+            )}
+
+            {boardLead?.followUp?.dueDate && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <FollowUpChip followUp={boardLead.followUp} t={t} />
+                <Link href="/app/tasks" className="underline underline-offset-2">{t("app.leads.followUp.openTasks")}</Link>
+              </div>
+            )}
 
             {/* Why this score */}
             {Array.isArray(lead.scoreReasons) && lead.scoreReasons.length > 0 && (

@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 5 October 2026, late (painting presets against NPC — picket fence, exterior stain, cabinet boxes, French doors, built-ins sprayed/brushed, finished suggested rates, cabinet enamel coverage — and coats change labour time: hours × coats ÷ standard coats, prep never scaled, one extra-coat rule, a dry-time wait charged only when the crew waits on site, a company toggle. No schema change. See "Painting presets against NPC, and coats change labour time" below.)
+Last updated: 5 October 2026 (conversations linked to their client automatically when the phone or email is exactly one client's, each new message filed to the job it's about or asking "Which job?" (contractors never by "only one job"), "Not this client" in Messages for every automatic link, a Settings › Client messages switch, a dry-run-first backfill; and a "History" tab on the client and job pages keeping every quote / invoice / reminder / receipt email as sent. Schema additive — NOT applied. See "Conversations linked to clients and jobs automatically; sent-email History" below.)
 Last updated: 5 October 2026 (drawing read — the complete first pass: a measurement pass per elevation/plan/section sheet, quantities from scaled faces with sheet + scale + confidence, the book's height factors (NPC p. 139) and Resene prep allowances in the painting PRESET that the builder and the read share, crew plan, access priced from the company's rates or Craftsman's 2023 rental table, past jobs by trade, one-tap assumptions, one read → one quote per service, "What this price includes / Check before sending", Settings → Services → Equipment & access, a material list with primer/prep/sundries, and a setup step. No schema change. See "Drawing read — the complete first pass" below.)
 Last updated: 4 October 2026, late (subscription priced in local money for the UK and the EU — GBP and EUR plan rows at the AUD "same numbers" (£/€99, 169, 269, 369; annual ×10), VAT on top for £/€, the pricing page's "Show prices in" picker; AI credit plans sold to every company in USD on the separate USD add-on customer, and plan credit now RESETS monthly while top-ups persist. Schema additive — NOT applied; rows NOT seeded. See "Local-currency subscription, and AI plan credit that resets (4 October 2026)" below.)
 Last updated: 4 October 2026 (drawing read P1 + P2 — the read is scoped by the quote's own service (no trade picker), sends only the sheets that service needs, reads drywall/framing/roofing/electrical/plumbing/flooring with every quantity sourced and confidence-rated, prices them by the ladder (your rate card → your services → cited FieldQuo suggestions, framing book switched on, NECA ×1.0 commercial), recommends a price at your target margin with overhead as the job's share of the month's crew time, offers a margin adjustment line and notifies owner/managers/assignee when below target, and takes pricing figures from the chat only through a manual, diffed button; plus the first live read's five fixes (signed PDF fetch, browser split over 10 MB, failed sheets retried, unreadable-file message, UK/metric parsing). Schema: `PlanRead.scope` and `ForecastSettings.billableHoursPerMonth` (Int, shared with the hourly floor) are already in production — see "Start from drawings" and "Overhead by crew time".)
@@ -159,10 +160,10 @@ check:trade-calibration, check:plan-read-live-fixes (the coats rule).
 - The calibration's soft flags were not asked for: a flush exterior door
   at ~0.75 h a side, and a deck at 120 when rails and steps are in the
   area.
-- **Siding, before this ships:** the siding preset is the owner's recovered
-  ONE-coat rate, so a 2-coat siding line now doubles its hours — 2,340 sq
-  ft at 2 coats goes $3,312.04 → $5,184.04 (23.4 h → 46.8 h). That is the
-  linear rule applied to a 1-coat basis; the owner should see it first.
+- **Siding — settled 2026-10-05:** the siding preset is the owner's
+  recovered ONE-coat rate (2,340 sq ft, 23.4 h, 7.8 gal at 300 sq ft/gal),
+  so a 2-coat siding line doubles its hours — $3,312.04 → $5,184.04 (23.4 h
+  → 46.8 h). Decided from that data: the rule stands as built.
 - Stored quotes do NOT reprice: every stored group opens `persisted` (its
   saved lines are the price, whatever the status — draft, sent, viewed,
   accepted, declined, expired, invoiced). Where today's rules would price a
@@ -172,6 +173,224 @@ check:trade-calibration, check:plan-read-live-fixes (the coats rule).
   takeoff with today's rules: the cost panel's labour hours, the job plan
   and work-order hours, and the client proposal's day-by-day plan (days,
   never money) — as they already were for any rate-card edit.
+## Conversations sorted into four tiers; real cost per conversation; scope estimates; follow-ups (5 October 2026)
+
+The owner, on TrueFinish Cabinets' real inbox (599 conversations, 80 leads, 69
+from Messenger, made by the history backfill): "Yes it should stop — that's
+why we allow the AI to read, so it can determine whether it is a lead or not",
+and "FB counts any click as a conversation even if accidental, but we should
+really understand how much is spent per actual conversation or lead." And:
+"if we have enough information … it should create a quick estimate of the
+potential revenue from that lead."
+
+### What shipped (not deployed — unpushed branch)
+
+1. **Four tiers** (`lib/leads/qualification.js`): `tap_only` / `conversation`
+   / `lead` / `not_relevant`, each with a reason in the person's own words,
+   stored on `MessageThread.leadCapture.qualification` (existing JSON, no
+   column). Deterministic first: a first message identical to the first
+   message of ≥3 OTHER threads of the company is a quick-reply (finds
+   TrueFinish's own ice-breakers — 89× "I would like to get a Free Quote",
+   79× "What is the average cost…"), Meta's standard ice-breakers in en/fr/es
+   are built in, the same short message twice in 90 s is a tap, emoji /
+   sticker / like / greeting-only is a tap, Meta's system lines ("X replied to
+   an ad." — outbound in history threads — "You can call X…", "Facebook
+   created this chat…") are never read as typing, and the ad marker or
+   `adReferral` sets origin `ad`. Relevance is the company's OWN enabled
+   services (labels + a trade synonym table); the contractor's own decline
+   ("we do focus on kitchen refinishing") makes it not relevant. Phrase lists
+   were tuned against the 599 real threads, read-only. The existing reader
+   (`lib/ai/conversationLeadExtract.js`, metered) runs only when the rules
+   can't decide or for a lead's field reading — never for a tap, a
+   not-relevant thread or a rules-decided conversation.
+   `lib/leads/conversationLead.js` now creates a lead ONLY for tier `lead`;
+   the "not a lead" mark and the tombstones still win. A person sets the tier
+   in one tap on the conversation (`POST /api/messaging/threads/[id]/
+   qualification`) or the lead (`POST /api/leads/[id]/qualification`,
+   `lib/leads/tierOverride.js`); it sticks across later messages; "Lead" on a
+   lead-less conversation creates the lead on the tap.
+2. **Review leads made from conversations** (owner/admin + the delete rung):
+   `GET/POST /api/leads/review-conversations`, `lib/leads/
+   conversationReview.js`, dialog on the board. GET writes nothing; POST acts
+   only on ids it suggested removing and deletes through `deleteLeads` with
+   "not a lead". Quoted (recorded or confirmed-match), Won and Lost leads are
+   always kept.
+3. **Ad funnel** (`lib/analytics/adFunnel.js`, `adFunnelData.js`,
+   `GET /api/marketing-spend/ad-funnel`, `AdFunnel` on the Spend page and the
+   KPI page): Facebook ads / Instagram ads / (WhatsApp ads) / organic — chats,
+   taps + not relevant, real conversations, leads, quotes, won, invoiced —
+   with Meta's cost per conversation and per lead beside FieldQuo's cost per
+   REAL conversation and per real lead. Costs only on the all-ads row (Meta
+   reports spend per campaign, not per app); spend missing → counts and a
+   note.
+4. **Lead value from scope only** (`lib/leads/potentialValue.js`,
+   `scopeEstimate.js`, `scopeExtract.js`): the "average" basis is gone and
+   `lib/leads/wonAverages.js` deleted. New `scope` basis — counts typed in the
+   conversation (stored on `intake.scope` with the source sentence) or a form's
+   `doorCount`/`drawerCount`/`squareFootage`, priced from the company's own
+   price book for that service (cabinets per door/drawer with the book's job
+   minimum, flooring per sq ft, or a single per-unit rate). No price → no
+   figure, and the drawer says why.
+5. **Create quote** (`lib/leads/convertLead.js`): adds the scope lines (counts
+   with the sentence, colour, hardware/handles, damage) to the notes, the
+   counts into the trade's own intake fields (`doorCount`, `drawerCount`,
+   `squareFootage`), the conversation's photos onto the quote, and the lead's
+   language when the person's words were unmistakably en/fr/es
+   (`lib/leads/textLanguage.js`). Name/phone/email/address already carried.
+6. **Follow-ups** (`lib/leads/followUpIntent.js`, `followUpTask.js`): "I'll
+   get in touch when I'm back" → a Task (sourceKey `conversation_follow_up:
+   <thread>:<message>`, unique) due 7 days later, or on the date named ("after
+   the 17th of October", "in 3 weeks", "until Monday"); for the lead's
+   assignee, else the owner; one per conversation (a new promise moves it).
+   The messaging-snooze cron sends `lead.follow_up_due` to the assignee on the
+   day, once. Shown on the card and in the drawer.
+7. **Leads with quotes**: the card shows the quote's number, status and total
+   (total only behind the pricing toggle), or a confirmed-match quote for the
+   same client made after the lead ("probably theirs", same rule as the
+   campaign rollup — `inferLeadQuotes`, split out of `followLeadsToMoney`,
+   unchanged). A "Quoted" filter.
+
+Strings in all nine languages (111 keys). Help "The Leads board" (four new
+sections) and "Marketing spend" (one new section) in en/fr/es.
+
+### On TrueFinish's real data (read-only run of the shipped rules)
+
+599 threads: 179 only a tap, 252 conversation, 101 lead, 67 not relevant; 73
+need the AI fallback. Ad-originated (Facebook): 445 chats — 141 taps, 47 not
+relevant, 171 conversations, 86 leads. The review would suggest removing 23 of
+the 72 conversation-made leads (20 only a tap, 3 not relevant) and keep 49
+(28 leads, 21 conversations). 16 leads get a scope figure (≈ $68,850 total):
+Tony 22 + 15 → $5,550, Louise 23 + 7 → $4,500, Gladys 24 + 4 → $4,200.
+
+### Schema
+
+None. (Tier in `leadCapture`, scope in `intake`, follow-up as a `Task`.)
+
+### Checks
+
+`check:lead-qualification` (new, in check:all — 156 assertions; 21 mutations, all
+caught). Updated: `check:social-leads`, `check:approval-screens`,
+`check:meta-history`, `check:lead-potential`, `check:notifications`.
+## Conversations linked to clients and jobs automatically; sent-email History (5 October 2026)
+
+Owner decisions 6 and 7 of 2026-10-05. **6:** "Yes, and it should be linked to
+the job as well. However, contractors may text you about multiple jobs, so if
+it understands that it is a contractor and not a homeowner, it might ask which
+job it is…" **7:** "Maybe if there is a History tab…"
+
+### What shipped (not deployed — unpushed branch)
+
+**Auto-link (lib/conversations/autoLink.js).**
+- On arrival (lib/messaging/ingest.js, after lead capture; never for history
+  imports) a text / WhatsApp / email / Facebook / Instagram thread whose phone
+  (E.164) or email (lower-case) belongs to EXACTLY ONE client of the company is
+  linked — `clientId` written only while null, a `ThreadClientMatch` row
+  (`certain`, matchedOn, why) recorded, and a "Client linked" line. Two clients
+  sharing the identifier → nothing (the client page keeps it as a possible
+  match). Undone pairs never re-linked. Website chat stays webChatMatch's.
+- The brought-number linker (lib/businessNumber/conversation.js) and the work
+  mailbox filer (lib/mailbox/file.js) now record their links in
+  `ThreadClientMatch` too and never re-fill an undone pair, so **"Not this
+  client" works in Messages for every automatic link** (WebMatchBar now draws
+  for any platform, with "Linked to … automatically"). The brought-number linker
+  honours the switch and no longer files a CONTRACTOR's thread to "the most
+  recent open job". The mailbox's own client filing is unchanged by the switch
+  (connecting a mailbox IS asking for matched email to be filed) — named here as
+  a choice.
+- **Per message, not per thread:** new `Message.jobId` + `Message.jobLinkedBy`.
+  Inbound messages only. Active jobs = unscheduled / scheduled / in progress, or
+  completed within 30 days of the message (never cancelled or archived, never
+  before the job's quote existed). Homeowner with one active job →
+  `auto_only_job`; otherwise the one job whose non-cancelled visit days or
+  start→end contain the message's COMPANY-calendar day → `auto_date`; otherwise
+  left for a person. A contractor client (`Client.type = company`) is never
+  tagged by "only one job". "unscheduled" counts as active — a choice beyond the
+  brief's list (an accepted quote awaiting a date is exactly what "when can you
+  start?" is about); flag if unwanted.
+- Messages: "Job: …" chip under a tagged message with **Change**, and **Which
+  job?** (the client's jobs + "Not about a job") where the rule could not tell —
+  POST /api/messaging/threads/[id]/messages/[messageId]/job (requests edit +
+  jobs view, not crew, not support; job must be this company's AND this
+  client's). A person's choice is `person` and never overwritten.
+- The job page's Conversation places a tagged message by its tag (always on its
+  job; never on another job's narrowed timeline).
+- Messenger/Instagram threads auto-linked from typed details carry the same
+  privacy note to the assistant as a web-chat match (lib/aiEmployee/respond.js).
+- Switch: Settings › Client messages › **Link conversations to clients
+  automatically** (`Company.autoLinkConversations`, default on;
+  /api/settings/conversation-linking, owners/admins).
+- One-time backfill: `scripts/backfill-inbox-autolink.mjs` — DRY RUN by
+  default, `--apply` to write, `--company=<id>`; fills NULLs only. NOT RUN.
+  On a synthetic 400-client company (70% of 300 threads from numbers on file,
+  3% shared numbers, 8% contractor clients) it links ~43% of unlinked threads,
+  leaves ~3% as shared-number possibles, and of inbound messages on client
+  threads tags ~41% (almost all "only active job"), asks ~18%, and leaves ~41%
+  untagged because no job was active then.
+
+**Sent-email History (lib/email/sentEmailHistory.js).**
+- New `SentEmail` row written AFTER sendEmail accepts, with the exact subject /
+  html / text / to / from / reply-to / attachment names / sender / language, from
+  every document send: quote + follow-up (quote send route), automatic
+  follow-ups / invoice reminders / job follow-ups (cron), the signed copy on
+  approval, invoice + deposit (invoice send), reminder (request-payment),
+  deposit requests (payment schedule), service-plan invoice + receipt. The
+  ActivityLog row of a kept send carries `metadata.sentEmailId`.
+- "History" tab beside "Conversation" on the client page and the job page
+  (ConversationTabs → EmailHistory → SentEmailViewer, HTML in an empty-sandbox
+  iframe). Pre-feature sends listed from ActivityLog with "The email text wasn't
+  kept before 5 Oct 2026". Office only (a member scoped to their own jobs gets
+  403 and no tab); per row quotes / invoices / jobs ≥ view_only; subject + text
+  need showPricing (else "hidden for your role"); recipients need client
+  contact access.
+- The Conversation timeline lists kept sends (new labels for deposit /
+  reminder / receipt / signed copy / job follow-up) with **View email**, and
+  says an old send's text was not kept.
+
+### Schema (additive — NOT applied)
+
+```sql
+ALTER TABLE "Company" ADD COLUMN "autoLinkConversations" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Message" ADD COLUMN "jobId" TEXT;
+ALTER TABLE "Message" ADD COLUMN "jobLinkedBy" TEXT;
+CREATE INDEX "Message_jobId_idx" ON "Message"("jobId");
+CREATE TABLE "SentEmail" (
+  "id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "clientId" TEXT, "jobId" TEXT,
+  "quoteId" TEXT, "invoiceId" TEXT, "kind" TEXT NOT NULL, "subject" TEXT NOT NULL,
+  "html" TEXT, "text" TEXT, "toAddresses" TEXT NOT NULL, "ccAddresses" TEXT,
+  "fromAddress" TEXT, "replyTo" TEXT, "attachments" JSONB, "sentByUserId" TEXT,
+  "sentByName" TEXT, "via" TEXT, "providerId" TEXT, "language" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "SentEmail_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "SentEmail_companyId_clientId_createdAt_idx" ON "SentEmail"("companyId", "clientId", "createdAt");
+CREATE INDEX "SentEmail_companyId_jobId_createdAt_idx" ON "SentEmail"("companyId", "jobId", "createdAt");
+CREATE INDEX "SentEmail_companyId_quoteId_idx" ON "SentEmail"("companyId", "quoteId");
+CREATE INDEX "SentEmail_companyId_invoiceId_idx" ON "SentEmail"("companyId", "invoiceId");
+```
+
+Apply before deploy: the ingest hook, the thread route's select and the send
+paths read/write these columns (the hooks catch their own failures, but the
+thread GET selects `jobId`/`jobLinkedBy`).
+
+### Checks
+
+- `npm run check:inbox-autolink` (in check:all) — executed against a two-company
+  in-memory database: one match linked + recorded + undone, shared phone,
+  undone pair (arrival, backfill, brought number), another company, homeowner
+  one job, two jobs by date (company calendar day), overlap, contractor in/out
+  of window, switch off, the per-message route executed, the job timeline, the
+  tenant fence.
+- `npm run check:sent-email-history` (in check:all) — recordSentEmail, every send
+  path's payload read from source, History routes executed (owner, crew 403, no
+  showPricing, no invoices, support), pre-feature honest line, timeline links.
+- Mutation-tested: 20 / 20 mutants caught.
+
+### Owed
+
+- Apply the SQL above; then run the backfill dry run per company, read it, and
+  `--apply`.
+- Help: "Conversations linked to clients automatically" and "Sent email
+  history" (en/fr/es); the conversation article's two FAQs updated.
 
 ---
 
@@ -353,11 +572,47 @@ killed), plus re-pins in `check:estimate-kind-routing` (the two fixtures above
 9 ft), `check:setup-steps`, `check:onboarding-next-steps`,
 `check:settings-access`, `check:plan-deep-read`.
 
+### Live run 2 (deploy 8954e631) — seven faults fixed
+
+The church read ran in 137 s with no chat, but: interior 30,655 sq ft (walls
+taken to the 33.5 ft ridge, the crossing's arches counted as wall), six
+scaffolds "NOT priced", 0.49 / 3 days (all 35 field workers as one crew),
+"step ladders and step ladders…", an empty-looking "taken into account", ten
+rented step ladders. Now (`lib/planRead/takeoff.js` wallHeight /
+solidPerimeter, `paintHeightPrep.js` priceRental, `firstPass.js`,
+`pricing.js`, `review.js`): a wall stops at the eaves / wall plate (and an
+implied height >25% over it is recomputed); a crossing keeps only its piers
+and its neighbours lose their arch (¾ of the side, FieldQuo assumption, said);
+one room on two sheets counts once; a "two-storey" wall under 13 ft is priced
+as a wall; a tower above the book's 30 ft row is priced by the table's last
+step, extrapolated and said; a job's crew is at most 4 until set; ladders are
+owned ($0, said) and one set per job; the sentence is grouped and counted; the
+panel is titled "Taken into account" with crew/days per quote and heights
+always said. Re-priced from the stored measurements: interior 30,655 → 11,051
+sq ft, 786.8 → 242.3 h, $80,659 → $26,454; exterior $14,059 → $15,772 (the
+41.9 ft scaffold now priced); days 0.49 → 4.28 and 3 → 8.08.
+`check:plan-read-first-pass` §18 (219 assertions; 15 more mutations killed).
+
+Correction the same day: the OUTSIDE eaves (2.94 m) is the wrong source for
+the inside walls — the church's interior photos show them rising well above
+it. Inside wall height now comes from (1) a section's inside wall plate /
+truss foot, (2) an interior photo estimated against a door / person / pew
+(photo sheets are now measured on a read that prices inside walls — one more
+best-tier call per photo sheet, ≈ $0.23), (3) the outside eaves only as a
+LOWER BOUND, low confidence, with the check "interior wall height taken from
+outside eaves — measure on site". Never a ridge. Interior access follows the
+result (walls known under 13 ft → one tower, lifts not needed, said; a lower
+bound keeps the access, sized to the height the drawings show above the
+walls). Prep is broken down by allowance and the setup's assumption. The
+measurement pass now reports a room's arch / opening widths; the ¾ share is
+only the labelled fallback. On the stored church read no section or photo
+height exists, so the interior stays at the lower bound (11,051 sq ft,
+$29,806) and says so; a re-read will measure the photos.
+
 ### Owed
 
-- A live read on "Painting Demo — Daniel" (the church read): "Measure the
-  drawings", then check the quantities, factors, access and the two Create
-  quote buttons, and the measure step on /platform/ai-usage.
+- A live re-read of the church after deploy: the photos' inside wall height
+  should replace the lower bound.
 - FX: only USD/CAD hold a dated rate — GBP/EUR/AUD companies see access "NOT
   priced" with the reason until they enter rates; prep material defaults are
   US shelf prices shown unconverted (labelled "US shelf price").

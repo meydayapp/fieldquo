@@ -42,6 +42,7 @@ import {
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
+import { recordSentEmail, actorName } from "@/lib/email/sentEmailHistory";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
@@ -459,12 +460,29 @@ export async function POST(request, { params }) {
   // left, so "quote_sent" moves. After the send, best-effort, never throws.
   await recordFeatureUse("quote_sent", { companyId: member.companyId, memberId: member.id });
 
+  // The email as it went — subject, body, recipients — for the History tab
+  // on the client and job pages (lib/email/sentEmailHistory.js). After the
+  // send was accepted; never a reason it fails.
+  const sentEmailId = await recordSentEmail(db, {
+    companyId: member.companyId,
+    kind: isFollowUp ? "quote_follow_up" : "quote",
+    clientId: quote.clientId || quote.client?.id || null,
+    quoteId: quote.id,
+    mail: { to, from, replyTo, subject, html, text, attachments },
+    result,
+    sentByUserId: member.userId || null,
+    sentByName: await actorName(db, member.userId),
+    language,
+  });
+
   await recordActivity(member, {
     action: isFollowUp ? "quote.followed_up" : "quote.sent",
     entityType: "quote",
     entityId: quote.id,
     summary: `${isFollowUp ? "Sent a follow-up for" : "Sent"} quote ${quote.quoteNumber} to ${to}`,
-    metadata: { to, total: quote.total },
+    // sentEmailId: the kept copy this log row stands for, so the timeline
+    // and History list the send once (and link "view email" to it).
+    metadata: { to, total: quote.total, ...(sentEmailId ? { sentEmailId } : {}) },
   });
 
   // `simulated` is the ONE thing about a demo send that differs from a real

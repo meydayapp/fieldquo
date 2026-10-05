@@ -95,6 +95,55 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "what-a-conversation-is",
+        heading: "Solo un toque, conversación, prospecto o no relevante",
+        blocks: [
+          { p: "Cada conversación de Facebook, Instagram y WhatsApp se clasifica en uno de cuatro tipos, con el motivo en las palabras de la persona. Solo un **Prospecto** agrega una tarjeta a este tablero: tocar un botón que ofrece tu página no es una consulta." },
+          { bullets: [
+            "**Solo un toque**: tocó una pregunta de respuesta rápida («Me gustaría obtener una cotización gratis», o una tuya que abre tres o más chats palabra por palabra), envió un emoji, un sticker o un me gusta, o saludó y nada más.",
+            "**Conversación**: escribió con sus propias palabras sobre algo que haces, pero todavía no dio nada para empezar una cotización.",
+            "**Prospecto**: quiere el trabajo y dio al menos un detalle real: cantidades (puertas, cajones, habitaciones, pies cuadrados), fotos, una dirección, un teléfono o correo, una solicitud de visita o una pregunta sobre su propio trabajo.",
+            "**No relevante**: spam, alguien que te vende algo, un toque por error («presioné el botón por error») o un trabajo que no ofreces, incluso cuando ya respondiste que no es lo tuyo.",
+          ] },
+          { note: "Las reglas deciden primero, gratis. La IA solo lee una conversación cuando las reglas no pueden decidir, nunca un toque ni un chat no relevante. Toca **Prospecto**, **Conversación**, **Solo un toque** o **No relevante** en la conversación o en el panel del prospecto para cambiarla; tu elección se mantiene cuando llegan mensajes nuevos, y **Volver a las reglas** la deshace." },
+        ],
+      },
+      {
+        id: "review-conversation-leads",
+        heading: "Revisar prospectos creados desde conversaciones",
+        blocks: [
+          { p: "Los propietarios y administradores ven **Revisar prospectos de conversaciones** arriba del tablero. Vuelve a leer cada prospecto que vino de una conversación y sugiere cuáles quitar. Nada cambia hasta que confirmes." },
+          { steps: [
+            "Presiona **Revisar prospectos de conversaciones**.",
+            "Lee la lista. Los prospectos que fueron solo un toque o no relevantes están marcados, con el motivo y lo que la persona envió.",
+            "Desmarca los que quieras conservar. Un prospecto con cotización, o ya marcado como Ganado o Perdido, siempre se conserva.",
+            "Presiona **Eliminar N — no son prospectos**. Esos prospectos se eliminan y sus conversaciones no volverán a crear un prospecto.",
+          ] },
+          { note: "Cada eliminación queda registrada en el **Registro de actividad**, igual que una eliminación desde el tablero." },
+        ],
+      },
+      {
+        id: "lead-value-and-quotes",
+        heading: "Cuánto vale un prospecto, y su cotización",
+        blocks: [
+          { p: "Un prospecto muestra una cifra solo cuando hay algo que cotizar:" },
+          { bullets: [
+            "**de la cotización Q-…** o **del estimado**: existe una cotización o un estimado instantáneo.",
+            "**estimación por 22 puertas + 15 cajones**: la persona dio cantidades, calculadas con tus propias tarifas para ese servicio (tu lista de precios), antes de impuestos. Si no tienes precio para esas cantidades, el panel lo dice.",
+            "Ninguna cifra: no dio alcance. Esos prospectos se cuentan como «sin cifra» en la franja sobre el tablero, nunca se rellenan con un promedio.",
+          ] },
+          { p: "Un prospecto con cotización muestra su número, estado y total en la tarjeta, o una cotización para el mismo cliente hecha después del prospecto, marcada **probablemente suya**. El filtro **Cotizados** muestra solo esos. **Convertir en cotización** lleva al borrador las cantidades, el color, los herrajes, los daños, las fotos de la conversación y el idioma en que escribió la persona." },
+        ],
+      },
+      {
+        id: "follow-ups",
+        heading: "«Le escribo cuando regrese»",
+        blocks: [
+          { p: "Cuando alguien dice que está fuera o que retomará el tema —«en 3 semanas», «después del 17 de octubre», «fuera hasta el lunes»—, FieldQuo agrega un seguimiento con fecha a tus tareas, para la persona asignada al prospecto (o el propietario), y le avisa ese día. Sin fecha, es una semana después. La tarjeta muestra **Dar seguimiento · fecha**, en rojo cuando la fecha ya pasó." },
+          { note: "Un mensaje nuevo de la persona mueve el seguimiento en lugar de agregar otro. Los toques y los chats no relevantes nunca crean uno." },
+        ],
+      },
+      {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [

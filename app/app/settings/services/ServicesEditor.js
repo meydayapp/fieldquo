@@ -889,7 +889,7 @@ export default function ServicesEditor({ compact = false, focus = "services", on
                   round-trips both. See PaintRateSets.js. */}
               {showRates && c.enabled && !c.pricingHidden && c.id === firstPaintingId && (
                 <>
-                  <PaintRateSets book={c.priceBook} overrides={c.rateOverrides} onChange={(next) => setPaintTakeoff(c, next)} />
+                  <PaintRateSets categoryKey={c.key} book={c.priceBook} overrides={c.rateOverrides} onChange={(next) => setPaintTakeoff(c, next)} />
                   {/* The painting preset's height, prep, crew and access
                       figures — the same `takeoff` overrides, both rows. */}
                   <PaintHeightPrepSettings overrides={c.rateOverrides} onChange={(next) => setPaintTakeoff(c, next)} />

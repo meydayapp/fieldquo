@@ -45,6 +45,8 @@ import { smsReceiptsBySid } from "@/lib/sms/deliveryStore";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { inSupportView, EMAIL_PROVENANCE_SELECT, supportViewMessage } from "@/lib/mailbox/supportView";
 import { publicReview } from "@/lib/leads/messageReview";
+import { publicQualification } from "@/lib/leads/qualification";
+import { loadJobContext, decideMessageJob, activeJobsAt } from "@/lib/conversations/autoLink";
 
 /** The member with their grid attached — a scope decided without it widens. */
 async function graded(member) {
@@ -181,6 +183,10 @@ async function readThread({ id, member }) {
           readAt: true,
           failedReason: true,
           sentByUserId: true,
+          // The job this message is about, and who decided
+          // (lib/conversations/autoLink.js) — the "Which job?" chip.
+          jobId: true,
+          jobLinkedBy: true,
           // Read server-side only, to find each text's delivery receipt below
           // (the SMS externalId is Twilio's SID). Stripped before the response.
           externalId: true,
@@ -245,10 +251,21 @@ async function readThread({ id, member }) {
         ).catch(() => new Map())
       : new Map();
 
+  // ── Which job each message is about ─────────────────────────────────────
+  //
+  // The client's jobs a message may be tagged with, and which inbound
+  // messages the automatic rule could not place — those get "Which job?"
+  // (lib/conversations/autoLink.js). Only for somebody who reads jobs and is
+  // not scoped to their own: a crew member does not file the office's
+  // conversations, and a job title is a job read. A failed read costs the
+  // chips, never the thread.
+  const jobs = await threadJobs({ thread, companyId: member.companyId, full }).catch(() => null);
+
   return NextResponse.json({
     connection,
     thread: {
       ...thread,
+      jobChoices: jobs?.choices || null,
       assignedEmployeeId: undefined,
       leadCapture: undefined,
       // Genuine lead / not a lead / existing client / converted, with the
@@ -260,6 +277,9 @@ async function readThread({ id, member }) {
         invoices: hasLevel(full, "invoices", "view_only"),
         scoped: seesOnlyAssignedJobs(full),
       }),
+      // Tap only / conversation / lead / not relevant, the reason, and a
+      // person's override (lib/leads/qualification.js). Null until classified.
+      qualification: publicQualification(thread.leadCapture?.qualification || null),
       ai,
       // Only for somebody who could act on it. A crew member sees the contact
       // card and the pin — those are the message — and not the two buttons
@@ -279,6 +299,11 @@ async function readThread({ id, member }) {
       messages: thread.messages.map(({ externalId, ...m }) => {
         const shaped = {
           ...m,
+          // Withheld with the choices: a member who cannot read jobs gets
+          // neither the tag nor the picker.
+          jobId: jobs ? m.jobId || null : null,
+          jobLinkedBy: jobs ? m.jobLinkedBy || null : null,
+          jobAsk: Boolean(jobs?.asks.has(m.id)),
           // openUrl: a customer's PDF opens through /api/files/open — its
           // stored Cloudinary URL answers 401 (lib/media/fileOpen.js).
           attachments: publicAttachments(m.attachments, { openUrl: messageOpenUrl(member, m.id) }),
@@ -319,6 +344,33 @@ async function readThread({ id, member }) {
         : [],
     },
   });
+}
+
+/**
+ * The thread's client's jobs, as the "Which job?" chip offers them, and the
+ * inbound messages the automatic rule leaves for a person. Null when the
+ * member may not read jobs, or reads only their own, or the thread has no
+ * client.
+ */
+async function threadJobs({ thread, companyId, full }) {
+  if (!thread.clientId) return null;
+  if (!hasLevel(full, "jobs", "view_only") || seesOnlyAssignedJobs(full)) return null;
+  const ctx = await loadJobContext(db, { companyId, clientId: thread.clientId });
+  if (!ctx) return null;
+  const asks = new Set();
+  for (const m of thread.messages) {
+    if (m.direction !== "in" || m.private || m.jobId || m.jobLinkedBy) continue;
+    const d = decideMessageJob({ client: ctx.client, jobs: ctx.jobs, at: m.sentAt, timeZone: ctx.timeZone });
+    // "link" lands here only when nothing tagged it — the switch is off, or
+    // the message predates the feature: a person is asked rather than told.
+    if (d.kind !== "none") asks.add(m.id);
+  }
+  const tagged = new Set(thread.messages.map((m) => m.jobId).filter(Boolean));
+  const choices = ctx.jobs
+    .filter((j) => tagged.has(j.id) || activeJobsAt([j], new Date()).length || j.status !== "completed")
+    .slice(0, 20)
+    .map((j) => ({ id: j.id, title: j.title || null, status: j.status, quoteNumber: j.quote?.quoteNumber || null, startDate: j.startDate || null }));
+  return { choices, asks, clientType: ctx.client.type };
 }
 
 /**

@@ -99,6 +99,55 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "what-a-conversation-is",
+        heading: "Only a tap, conversation, lead or not relevant",
+        blocks: [
+          { p: "Every Facebook, Instagram and WhatsApp conversation is sorted into one of four kinds, with the reason in the person's own words. Only a **Lead** puts a card on this board — a tap on a button your Page offers is not an enquiry." },
+          { bullets: [
+            "**Only a tap** — they tapped a quick-reply question (“I would like to get a Free Quote”, or one of your own that opens three or more other chats word for word), sent an emoji, a sticker or a like, or said hello and nothing else.",
+            "**Conversation** — they typed their own words about something you do, but gave nothing a quote can start from yet.",
+            "**Lead** — they want the work and gave at least one real detail: counts (doors, drawers, rooms, square feet), photos, an address, a phone or email, a visit request, or a question about their own job.",
+            "**Not relevant** — spam, someone selling to you, a mis-tap (“I pressed the button by mistake”), or work you don't list — including when you already replied that it isn't yours.",
+          ] },
+          { note: "The rules decide first, for free. AI reads a conversation only when the rules can't tell — never a tap or a not-relevant chat. Tap **Lead**, **Conversation**, **Only a tap** or **Not relevant** on the conversation or in the lead panel to change it; your choice sticks when new messages arrive, and **Back to the rules** undoes it." },
+        ],
+      },
+      {
+        id: "review-conversation-leads",
+        heading: "Review leads made from conversations",
+        blocks: [
+          { p: "Owners and administrators see **Review leads from conversations** at the top of the board. It re-reads every lead that came from a conversation and suggests which to remove. Nothing changes until you confirm." },
+          { steps: [
+            "Press **Review leads from conversations**.",
+            "Read the list. Leads that were only a tap or not relevant are ticked, each with the reason and what they sent.",
+            "Untick any you want to keep. A lead with a quote, or one already marked Won or Lost, is always kept.",
+            "Press **Delete N — not leads**. Those leads are deleted and their conversations never make a lead again.",
+          ] },
+          { note: "Every removal is recorded in the **Activity log**, exactly like a delete from the board." },
+        ],
+      },
+      {
+        id: "lead-value-and-quotes",
+        heading: "What a lead is worth, and its quote",
+        blocks: [
+          { p: "A lead shows a figure only when there is something to price:" },
+          { bullets: [
+            "**from quote Q-…** or **from estimate** — a quote or an instant estimate exists.",
+            "**estimate from 22 doors + 15 drawers** — the person gave counts, priced at your own rates for that service (your price book), before tax. If you have no price for those counts, the panel says so.",
+            "No figure at all — they gave no scope. Those leads are counted as “no figure” in the strip above the board, never padded with an average.",
+          ] },
+          { p: "A lead with a quote shows its number, status and total on the card — or a quote for the same client made after the lead, marked **probably theirs**. The **Quoted** filter shows only those. **Convert to quote** carries the counts, colour, hardware, damage notes, photos from the conversation and the language they wrote in onto the draft." },
+        ],
+      },
+      {
+        id: "follow-ups",
+        heading: "“I'll get in touch when I'm back”",
+        blocks: [
+          { p: "When someone says they are away or will come back to it — “in 3 weeks”, “after the 17th of October”, “out of town until Monday” — FieldQuo adds a dated follow-up to your tasks, for whoever the lead is assigned to (or the owner), and notifies them on the day. With no date given, it is a week later. The card shows **Follow up · date**, in red once the day has passed." },
+          { note: "A later message from the person moves the follow-up rather than adding a second one. Taps and not-relevant chats never make one." },
+        ],
+      },
+      {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [

@@ -584,6 +584,31 @@ for (const icon of new Set(Object.values(TRADE_CATALOG).map((c) => c.icon).filte
   ok("NPC 7: …within 15% of the takeoff's own doors a gallon (28)", Math.abs(cabDoors - takeoffDoors) / takeoffDoors < 0.15, `${cabDoors} vs ${takeoffDoors}`);
 }
 
+/* ══ The card shows what was just typed, not the last save ═══════════════ */
+// 2026-10-05: typed figures snapped back to the saved ones until Save,
+// because the card read the server's merge of the SAVED overrides
+// (`c.priceBook`). It must merge the live overrides itself, as RateCard does.
+
+const cardSrc = readFileSync(new URL("../app/app/settings/services/PaintRateSets.js", import.meta.url), "utf8");
+const editorSrc = readFileSync(new URL("../app/app/settings/services/ServicesEditor.js", import.meta.url), "utf8");
+ok(
+  "live inputs: PaintRateSets merges the UNSAVED overrides with getPriceBook(categoryKey, overrides)",
+  /getPriceBook\(categoryKey, overrides\)/.test(cardSrc) && /const takeoff = liveBook\?\.takeoff/.test(cardSrc),
+);
+ok("live inputs: the card no longer reads book.takeoff directly", !/const takeoff = book\?\.takeoff/.test(cardSrc));
+ok("live inputs: ServicesEditor passes the category key to the card", /<PaintRateSets categoryKey=\{c\.key\}/.test(editorSrc));
+{
+  // The same merge the card now runs, fed an unsaved edit: the box's value
+  // must be the typed figure, and clearing it must fall back to the default.
+  const typed = getPriceBook("interior_painting", { takeoff: { rateSets: { interior: { hourlySellRate: 77 } } } }).takeoff;
+  ok("live inputs: a typed hourly sell rate is what the box shows", typed.rateSets.interior.hourlySellRate === 77);
+  const cleared = getPriceBook("interior_painting", {}).takeoff;
+  ok(
+    "live inputs: clearing it shows the default again",
+    cleared.rateSets.interior.hourlySellRate === PAINT_TAKEOFF_DEFAULTS.rateSets.interior.hourlySellRate,
+  );
+}
+
 /* ══ Done ════════════════════════════════════════════════════════════════ */
 
 if (process.exitCode) {

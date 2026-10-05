@@ -95,6 +95,55 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "what-a-conversation-is",
+        heading: "Simple clic, conversation, prospect ou pas pertinent",
+        blocks: [
+          { p: "Chaque conversation Facebook, Instagram et WhatsApp est classée dans l'une de quatre catégories, avec la raison dans les mots de la personne. Seul un **Prospect** ajoute une carte au tableau — toucher un bouton proposé par votre Page n'est pas une demande." },
+          { bullets: [
+            "**Simple clic** — la personne a touché une question de réponse rapide (« J'aimerais obtenir un devis gratuit », ou l'une des vôtres qui ouvre au moins trois autres discussions mot pour mot), envoyé un émoji, un autocollant ou un j'aime, ou dit bonjour sans plus.",
+            "**Conversation** — elle a écrit elle-même au sujet de vos services, sans encore donner de quoi préparer une soumission.",
+            "**Prospect** — elle veut les travaux et a donné au moins un vrai détail : des quantités (portes, tiroirs, pièces, pieds carrés), des photos, une adresse, un téléphone ou un courriel, une demande de visite, ou une question sur son propre projet.",
+            "**Pas pertinent** — pourriel, quelqu'un qui vous vend quelque chose, un clic par erreur (« j'ai appuyé sur le bouton par erreur »), ou des travaux que vous n'offrez pas — y compris quand vous avez déjà répondu que ce n'est pas votre domaine.",
+          ] },
+          { note: "Les règles décident d'abord, gratuitement. L'IA ne lit une conversation que si les règles ne peuvent pas trancher — jamais un simple clic ni une discussion non pertinente. Touchez **Prospect**, **Conversation**, **Simple clic** ou **Pas pertinent** dans la conversation ou dans le panneau du prospect pour la changer ; votre choix reste quand de nouveaux messages arrivent, et **Revenir aux règles** l'annule." },
+        ],
+      },
+      {
+        id: "review-conversation-leads",
+        heading: "Réviser les prospects issus des conversations",
+        blocks: [
+          { p: "Les propriétaires et administrateurs voient **Réviser les prospects issus des conversations** en haut du tableau. Chaque prospect venu d'une conversation est relu et l'outil suggère lesquels retirer. Rien ne change avant votre confirmation." },
+          { steps: [
+            "Appuyez sur **Réviser les prospects issus des conversations**.",
+            "Lisez la liste. Les prospects qui n'étaient qu'un clic ou pas pertinents sont cochés, avec la raison et ce que la personne a envoyé.",
+            "Décochez ceux à garder. Un prospect avec une soumission, ou déjà marqué Gagné ou Perdu, est toujours gardé.",
+            "Appuyez sur **Supprimer N — pas des prospects**. Ces prospects sont supprimés et leurs conversations ne créeront plus de prospect.",
+          ] },
+          { note: "Chaque retrait est inscrit au **Journal d'activité**, exactement comme une suppression depuis le tableau." },
+        ],
+      },
+      {
+        id: "lead-value-and-quotes",
+        heading: "La valeur d'un prospect, et sa soumission",
+        blocks: [
+          { p: "Un prospect n'affiche un montant que s'il y a quelque chose à chiffrer :" },
+          { bullets: [
+            "**de la soumission Q-…** ou **de l'estimation** — une soumission ou une estimation instantanée existe.",
+            "**estimation pour 22 portes + 15 tiroirs** — la personne a donné des quantités, chiffrées à vos propres tarifs pour ce service (votre grille de prix), avant taxes. Si vous n'avez pas de prix pour ces quantités, le panneau le dit.",
+            "Aucun montant — aucune portée donnée. Ces prospects sont comptés comme « sans montant » dans la bande au-dessus du tableau, jamais complétés par une moyenne.",
+          ] },
+          { p: "Un prospect avec une soumission montre son numéro, son statut et son total sur la carte — ou une soumission pour le même client faite après le prospect, marquée **probablement le leur**. Le filtre **Avec soumission** n'affiche que ceux-là. **Convertir en soumission** reporte sur le brouillon les quantités, la couleur, la quincaillerie, les dommages, les photos de la conversation et la langue dans laquelle la personne a écrit." },
+        ],
+      },
+      {
+        id: "follow-ups",
+        heading: "« Je vous recontacte à mon retour »",
+        blocks: [
+          { p: "Quand quelqu'un dit être absent ou qu'il reviendra vers vous — « dans 3 semaines », « après le 17 octobre », « absent jusqu'à lundi » — FieldQuo ajoute une relance datée à vos tâches, pour la personne assignée au prospect (ou le propriétaire), et l'avertit le jour venu. Sans date, c'est une semaine plus tard. La carte affiche **Relancer · date**, en rouge une fois la date passée." },
+          { note: "Un nouveau message de la personne déplace la relance au lieu d'en ajouter une deuxième. Les simples clics et les discussions non pertinentes n'en créent jamais." },
+        ],
+      },
+      {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [

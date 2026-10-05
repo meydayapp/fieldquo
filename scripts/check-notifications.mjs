@@ -328,14 +328,17 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 39, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 40, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, and the team-chat mention",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, the team-chat mention, and the conversation follow-up",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
         "invoice.paid",
         "lead.created",
+        // "I'll get in touch when I'm back" — the day they named
+        // (lib/leads/followUpTask.js, 2026-10-05).
+        "lead.follow_up_due",
         "leave.requested",
         "payment.disputed",
         "quote.accepted",
@@ -501,6 +504,9 @@ const EXPECTED = {
   "invoice.paid": ["m_owner", "m_admin", "m_estimator"],
   // Operational. Crew is requests:none; Legacy fails closed on the grid.
   "lead.created": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  // The same floor as a new enquiry; every send is narrowed to the task's
+  // assignee (lib/leads/followUpTask.js notifyDueFollowUps).
+  "lead.follow_up_due": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
   // Operational, by capability: owner, admin and both supervisors.
   "leave.requested": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   // Operational, by capability: quote:approve-estimate is supervisor and up.

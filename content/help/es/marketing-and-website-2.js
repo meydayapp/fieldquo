@@ -150,7 +150,7 @@ export const ARTICLES = {
     title: "Gasto en marketing",
     summary:
       "Registre lo que gasta para conseguir trabajo —por canal, a mano o sincronizado desde Meta— y lea un costo combinado por prospecto calculado a partir de su número real de prospectos.",
-    updated: "2026-09-12",
+    updated: "2026-10-05",
     intro: [
       "**Marketing → Gasto en marketing** es el registro de lo que paga por conseguir prospectos: Facebook e Instagram, Google, TikTok, volantes, incentivos por recomendación y lo demás. Usted teclea los importes, o conecta su cuenta publicitaria de Meta y deja que **Sincronizar ahora** los importe. Sobre el registro, FieldQuo divide el total entre el número de prospectos reales que llegaron y muestra un **Costo combinado por prospecto**.",
       "Combinado es la palabra honesta. El costo por prospecto por campaña solo se calcula para los prospectos que llegaron por un formulario de Meta; todos los demás canales —y el propietario que vio el anuncio y llamó— siguen combinados en el total, porque nada vincula ese gasto con ese prospecto.",
@@ -192,6 +192,19 @@ export const ARTICLES = {
           } },
           { p: "La columna de prospectos de la tabla de campañas solo cuenta los formularios de Meta recibidos para esa campaña. Su propia nota lo dice: un propietario que vio el anuncio y llamó no se cuenta, así que el costo por prospecto ahí es lo máximo que le costó un prospecto por formulario; la cifra combinada de arriba es el cuadro completo." },
           { warning: "Eliminar una entrada cambia las cifras de costo por prospecto; la confirmación lo dice. Las mismas filas alimentan la tarjeta de costos del negocio del panel de KPI y el correo de resumen mensual." },
+        ],
+      },
+      {
+        id: "what-the-ads-bought",
+        heading: "Lo que compraron tus anuncios de Meta",
+        blocks: [
+          { p: "Meta cuenta cada chat que abren sus anuncios como una «conversación», incluso un toque por error en una pregunta sugerida. La sección **Lo que compraron tus anuncios de Meta** cuenta lo que pasó de verdad, para anuncios de Facebook, anuncios de Instagram y chats orgánicos: chats recibidos, toques y chats no relevantes, conversaciones reales, prospectos, cotizaciones, trabajos ganados y facturado." },
+          { bullets: [
+            "**Costo por conversación según Meta** y **Costo por prospecto según Meta**: tu gasto entre los conteos de Meta, indicados como de Meta.",
+            "**Costo por conversación real** y **Costo por prospecto real**: el mismo gasto entre lo que contó FieldQuo: personas que escribieron sobre tu trabajo con sus propias palabras, y las que dieron un detalle para cotizar.",
+            "Meta informa el gasto por campaña, no por aplicación, así que los costos se muestran para todos los anuncios de Meta juntos. Sin cuenta publicitaria conectada ves los conteos y una nota de que falta el gasto.",
+          ] },
+          { note: "Un chat que empezó en un anuncio se reconoce por la referencia de anuncio de Meta, o por la línea «… respondió a un anuncio.» que Meta escribe en conversaciones antiguas. La misma sección está en la página de **KPI** para el periodo que elijas." },
         ],
       },
       {

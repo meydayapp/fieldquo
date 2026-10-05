@@ -2213,6 +2213,16 @@ model Company {
   /// it and falls back to card so a mis-config can never break the pay link.
   offerFinancing Boolean @default(false)
 
+  /// Settings → Client messages → "Link conversations to clients
+  /// automatically" (owner, 2026-10-05). On: a text, WhatsApp, email or
+  /// Facebook/Instagram conversation whose phone or email belongs to EXACTLY
+  /// ONE client is linked to that client as it arrives, and each new message
+  /// from a client is tagged with the job it is about when the rule can tell
+  /// (lib/conversations/autoLink.js). Off: nothing is linked or tagged
+  /// automatically — a person links, and the "Which job?" picker still works.
+  /// Default on, the owner's default.
+  autoLinkConversations Boolean @default(true)
+
   timezone     String? @default("America/Toronto")
 
   /// How many hours before an appointment to text the client a reminder. Null
@@ -19491,10 +19501,29 @@ model Message {
   /// wasn't is the exact failure AGENTS.md's first rule forbids.
   failedReason String?
 
+  /// Which of the client's jobs THIS message is about (owner, 2026-10-05:
+  /// "contractors may text you about multiple jobs"). Per message, not per
+  /// thread: one SMS thread with a general contractor spans every job you do
+  /// for them, so MessageThread.jobId (the thread's filing) cannot say which
+  /// job a given text was about. Plain id, no relation — the Job may be
+  /// archived later and the message keeps saying what it was about.
+  /// Written by lib/conversations/autoLink.js on arrival (and its backfill),
+  /// or by a person through POST /api/messaging/threads/[id]/messages/
+  /// [messageId]/job. Read by the thread route (the "Which job?" chip) and
+  /// by lib/conversations/clientTimeline.js (a job page's timeline).
+  jobId       String?
+  /// Who decided `jobId`: "auto_only_job" (the homeowner has one active job),
+  /// "auto_date" (exactly one active job's visit days or schedule window
+  /// contain the message), or "person". A person's "Not about a job" is
+  /// "person" with jobId null — a decision, so the picker stops asking and
+  /// the automatic rule never overrides it. Null = nobody has decided.
+  jobLinkedBy String?
+
   createdAt DateTime @default(now())
 
   @@unique([threadId, externalId])
   @@index([threadId, sentAt])
+  @@index([jobId])
   /// The fetcher's whole query. `sentAt` second so the oldest outstanding
   /// picture is taken first — a homeowner who sent a photo five minutes ago
   /// has been waiting longer than one who sent one now.
@@ -20358,6 +20387,14 @@ model UrgentAlertStep {
 /// undo: "Not this client" sets status "undone", puts clientId back to null
 /// only while it still points at this client, and the pair is never
 /// proposed again.
+///
+/// Since 2026-10-05 the same row records every AUTOMATIC client link on a
+/// conversation, not only the website chat's: a text, WhatsApp, email or
+/// Facebook/Instagram thread linked on arrival because its phone or email
+/// belongs to exactly one client (lib/conversations/autoLink.js), a brought
+/// number's link (lib/businessNumber/conversation.js) and a filed email's
+/// (lib/mailbox/file.js). So "Not this client" in Messages undoes any of
+/// them, and an undone pair is never linked again by any of them.
 model ThreadClientMatch {
   id             String    @id @default(cuid())
   companyId      String
@@ -20379,6 +20416,57 @@ model ThreadClientMatch {
 
   @@index([companyId, threadId])
   @@index([companyId, clientId])
+}
+
+/// The full text of a document email as it was sent — quote, follow-up,
+/// invoice, deposit request, reminder, receipt, the signed copy (owner,
+/// 2026-10-05: "maybe if there is a History tab…"). Written at send time by
+/// lib/email/sentEmailHistory.js recordSentEmail, from the very subject /
+/// html / text handed to sendEmail, and ONLY after the send was accepted —
+/// a row here means it went. Read by the History tab on the client and job
+/// pages and the "view email" link on the Conversation timeline.
+///
+/// Nothing before 2026-10-05 has a row: those sends are known only from
+/// ActivityLog (who, when, to whom) and the History tab says the text was not
+/// kept, rather than rebuilding an email that may not match what was sent.
+///
+/// No relations, on purpose — the same as ThreadClientMatch: a client or a
+/// quote deleted later must not take the record of what was sent with it, and
+/// every read names companyId itself.
+model SentEmail {
+  id           String   @id @default(cuid())
+  companyId    String
+  clientId     String?
+  jobId        String?
+  quoteId      String?
+  invoiceId    String?
+  /// "quote" | "quote_follow_up" | "quote_signed_copy" | "invoice" |
+  /// "deposit" | "reminder" | "receipt" | "job_follow_up"
+  kind         String
+  subject      String
+  html         String?  @db.Text
+  text         String?  @db.Text
+  toAddresses  String   @db.Text
+  ccAddresses  String?  @db.Text
+  fromAddress  String?
+  replyTo      String?
+  /// [{ filename }] — the names of what was attached (the PDF), never the bytes.
+  attachments  Json?
+  /// Null for an automatic send (a cron: follow-ups, a deposit request, a
+  /// service plan's invoice or receipt).
+  sentByUserId String?
+  sentByName   String?
+  /// "resend" | "mailbox" | "demo" — how it left (a demo's simulated send
+  /// went nowhere, and says so).
+  via          String?
+  providerId   String?
+  language     String?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, clientId, createdAt])
+  @@index([companyId, jobId, createdAt])
+  @@index([companyId, quoteId])
+  @@index([companyId, invoiceId])
 }
 
 /// FieldQuo's consolidated manual library — manufacturer manuals every
