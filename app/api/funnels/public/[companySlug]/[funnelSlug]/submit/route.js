@@ -16,6 +16,9 @@ import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { confirmedFunnelEstimates } from "../../../funnelEstimate";
 import { visitForSubmit, linkVisitToLead } from "@/lib/tracking/visits";
 import { estimateBucket, pixelParams } from "@/lib/tracking/attribution";
+import { effectivePixels } from "@/lib/funnels/pixels";
+import { captureWebsiteLead } from "@/lib/meta/capi/capture";
+import { afterResponse } from "@/lib/meta/capi/afterResponse";
 
 // Public — a completed funnel run becomes a scored LeadRequest in the normal
 // pipeline, plus a FunnelResponse for the funnel's own analytics. Same shape and
@@ -34,13 +37,14 @@ export async function POST(request, { params }) {
     id: true,
     currency: true,
     defaultLanguage: true,
+    metaPixelId: true,
   });
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const funnel = await db.funnel.findFirst({
     where: { companyId: company.id, slug: funnelSlug, status: "published" },
-    select: { id: true, steps: true, channel: true, slug: true },
+    select: { id: true, steps: true, channel: true, slug: true, metaPixelId: true },
   });
   if (!funnel)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -110,6 +114,19 @@ export async function POST(request, { params }) {
 
   await linkVisitToLead(visit, lead.id, { funnelSteps: cleanSteps }).catch((err) =>
     console.error("[funnel] visit not linked:", err?.message),
+  );
+
+  // "Send lead results to Meta": the server-side twin of the pixel's Lead,
+  // with the same event id (the lead id) so Meta counts it once. Queued after
+  // the response and only for an ad-click visit on a company that switched
+  // the feature on — lib/meta/capi/capture.js says every condition.
+  afterResponse(() =>
+    captureWebsiteLead(db, {
+      companyId: company.id,
+      leadId: lead.id,
+      pixelId: effectivePixels(funnel, company).meta,
+      request,
+    }),
   );
 
   await db.funnelResponse.create({

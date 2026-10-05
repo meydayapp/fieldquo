@@ -98,6 +98,70 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Send lead results to Meta — the Conversions API (5 October 2026)
+
+The owner: send "qualified" and "won" back to Facebook automatically, so
+Meta's algorithm finds more people like real customers instead of accidental
+tappers — and send back the leads Facebook mislabelled, because "FB is really
+bad at identifying leads and their status". Full design, App Review text and
+SQL: `docs/META-CONVERSIONS-API.md`.
+
+### What shipped (not deployed — unpushed branch)
+
+- **Settings → Meta Ads → Send lead results to Meta**
+  (`app/app/settings/meta-ads/MetaConversionsPanel.js`): off by default,
+  owner/admin; Meta's Business Tools Terms accepted once with who and when;
+  dataset id (pre-filled from the company's ad pixel, or picked from the
+  connected ad account); a dataset token from Events Manager, stored
+  encrypted; "Send test event" with Meta's test_event_code; last sync,
+  sent / failed / waiting / too-old counts for 30 days, recent failures; a
+  per-half status line (lead forms, website, Messenger, Instagram) that says
+  "Needs Meta permission page_events" instead of a dead control.
+- **Lead forms (Conversion Leads):** Raw Lead, Qualified, Disqualified,
+  Appointment Booked, Quote Sent, Converted (value + currency), once per lead
+  (`event_id = leadId:stage`), `action_source: system_generated`,
+  `custom_data: { lead_event_source: "FieldQuo", event_source: "crm" }`,
+  `lead_id` + hashed em/ph. Disqualified = tap_only / not_relevant
+  conversation, lost as not a real inquiry, or deleted as not a lead.
+- **Click-to-Messenger / Instagram (Business Messaging):** LeadSubmitted and
+  Purchase; never for tap_only / not_relevant. Built and gated: waits on App
+  Review for `page_events` / `instagram_manage_events`
+  (`META_PAGE_EVENTS_ENABLED`).
+- **Funnels and the instant estimate:** server-side Lead / Schedule / Purchase
+  with the browser pixel's event_id (the lead id; the booking id — the
+  estimate's Schedule pixel now passes it too). Skipped when the company asks
+  visitors for consent first, or the page's pixel is not the chosen dataset.
+- **Delivery:** `MetaConversionEvent` outbox, sweep every 15 min + daily
+  catch-up cron, batches of 1,000, split-on-400, backoff retries, 7-day
+  expiry, errors to the platform log with the company named, nothing blocks a
+  user action.
+- **Backfill:** `scripts/meta-capi-backfill.mjs`, dry by default, counts per
+  stage first. Meta accepts only the last 7 days of events.
+- Help: "Send lead results to Meta" in en/fr/es; 66 new strings in all nine
+  languages.
+
+### Schema (additive — NOT applied)
+
+`MetaConversionSettings`, `MetaConversionEvent` — SQL in
+`docs/META-CONVERSIONS-API.md`.
+
+### Owed
+
+- App Review for `page_events` and `instagram_manage_events` (text and steps
+  in the doc), then `META_PAGE_EVENTS_ENABLED=1` and a Page reconnect per
+  company.
+- When the agency branch lands `LeadRequest.qualifiedAt`, use it as
+  Qualified's event_time.
+
+### Checks
+
+`check:meta-capi` 161 passed, 21/21 mutants caught; check:meta-leads,
+meta-history, lead-qualification, ad-tracking, marketing-controls,
+tenant-scope, impersonation, env, translations, lead-delete,
+conversation-review, meta-pages-connect, help-centre all green.
+
+---
+
 ## Conversations sorted into four tiers; real cost per conversation; scope estimates; follow-ups (5 October 2026)
 
 The owner, on TrueFinish Cabinets' real inbox (599 conversations, 80 leads, 69

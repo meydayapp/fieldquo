@@ -2042,6 +2042,9 @@ model Company {
   // company that disconnects publishing must not lose its ads import (or its
   // inbox) with it. See lib/meta/pageConnection.js and lib/social/metaConnection.js.
   metaPageConnections   MetaPageConnection[]
+  // "Send lead results to Meta" (lib/meta/capi/) — the switch and the outbox.
+  metaConversionSettings MetaConversionSettings?
+  metaConversionEvents   MetaConversionEvent[]
   // TikTok, a separate platform with its own OAuth, its own token lifetimes
   // (24h access / 365d refresh) and its own publish lifecycle — so its own two
   // tables rather than a third SocialPlatform value bolted onto SocialPublish,
@@ -9651,6 +9654,125 @@ model MetaPageConnection {
 
   @@unique([companyId, pageId])
   @@index([companyId])
+}
+
+// ── "Send lead results to Meta" — the Conversions API (2026-10-05) ──────────
+//
+// The owner: "FB is really bad at identifying leads and their status." Meta's
+// ad delivery optimises toward whatever it is TOLD converted; a lead form
+// counts every tap as a lead and a click-to-Messenger ad counts every opened
+// chat as a conversation. These two tables send back what FieldQuo knows and
+// Meta does not: which leads were real (qualified), which were not
+// (disqualified), which booked, got a quote and bought. lib/meta/capi/ holds
+// the rules; docs/META-CONVERSIONS-API.md the whole design and the App Review
+// steps the messaging half still waits on.
+
+/// One company's switch and where its events go. One row per company, created
+/// the first time an owner or admin saves the setting. No row = OFF.
+model MetaConversionSettings {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// The switch. OFF by default; only an owner or admin may turn it on, and
+  /// only once `termsAcceptedAt` is set. Off, the sweep enqueues nothing and
+  /// the sender sends nothing (queued rows stay pending and expire after
+  /// Meta's 7-day window — nothing leaves behind a switch that is off).
+  enabled       Boolean   @default(false)
+  enabledAt     DateTime?
+  enabledById   String?
+  enabledByName String?
+
+  /// The Meta dataset (pixel) the lead-form stages and the website events go
+  /// to — 15-16 digits, the shape lib/funnels/pixels.js validates on write.
+  datasetId   String?
+  datasetName String?
+  /// A Conversions API access token the company generated in Events Manager
+  /// for THAT dataset ("Generate access token"), AES-256-GCM through
+  /// lib/meta/tokenCrypto.js. Never returned to a browser; `datasetTokenHint`
+  /// (its last four characters) is what the screen shows. Meta documents this
+  /// token as needing no App Review, which is why the lead-form half works
+  /// without one.
+  datasetTokenEnc  String?
+  datasetTokenHint String?
+
+  /// Meta's Business Tools Terms, accepted once, by a named person.
+  termsAcceptedAt     DateTime?
+  termsAcceptedById   String?
+  termsAcceptedByName String?
+
+  /// The datasets Meta links to the company's Page and Instagram account for
+  /// Business Messaging events (POST /{page-id}/dataset, POST /{ig-user-id}/
+  /// dataset return them). Null until `page_events` / `instagram_manage_events`
+  /// is granted and the first send asks.
+  messengerDatasetId String?
+  instagramDatasetId String?
+
+  /// The last delivery run that had something to send, and its outcome — the
+  /// screen's "Last sync" line. lastSyncError is a KIND (auth_error,
+  /// rate_limited, bad_request, ...), never Meta's prose.
+  lastSyncAt    DateTime?
+  lastSyncError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// The outbox: one row per event FieldQuo owes Meta. Written by the sweep
+/// (lib/meta/capi/sweep.js) and at the three moments a row cannot be derived
+/// later — a lead deleted as "not a lead" (the row is gone), a website lead and
+/// a website booking (the browser's user agent exists only in that request).
+/// Idempotent through @@unique([companyId, kind, eventId]): the sweep, the
+/// daily catch-up and the backfill can all run without a double event.
+///
+/// `payload` is the server event exactly as it will be sent, every email and
+/// phone ALREADY hashed (lib/meta/capi/hash.js) — no raw address or number is
+/// stored here. Deliberately not the agency outbox (AgencyEvent, uncommitted
+/// on branch worktree-agent-ad60c8ca7797a9a1b when this was written): that one
+/// fans out to subscriptions and builds its row at delivery time; this is a
+/// fixed payload owed to one dataset. docs/META-CONVERSIONS-API.md, "Overlap".
+model MetaConversionEvent {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "crm" (lead-form stages, action_source system_generated) |
+  /// "messaging" (click-to-Messenger/Instagram, business_messaging) |
+  /// "website" (funnels and the instant estimate, website).
+  kind      String
+  /// Our stage key — lib/meta/capi/events.js STAGES.
+  stage     String
+  /// Meta's event_name as sent ("Raw Lead", "LeadSubmitted", "Lead", ...).
+  eventName String
+  /// Meta's event_id: `<leadId>:<stage>` for CRM, `<threadId>:<stage>` for
+  /// messaging; the lead id itself for a website Lead (the browser pixel's
+  /// eventID — Meta de-duplicates the pair); the booking id for a Schedule.
+  eventId   String
+  /// "messenger" | "instagram" for kind messaging; null otherwise.
+  channel   String?
+  leadId    String?
+  threadId  String?
+  /// event_time as sent. Meta refuses an event more than 7 days old, so a row
+  /// still unsent past that becomes `expired` rather than being retried.
+  eventTime DateTime
+  payload     Json
+  /// sha256 of the serialised payload — proof the stored event never changed.
+  payloadHash String
+
+  /// "pending" | "sent" | "failed" | "expired" | "skipped"
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lastError      String?
+  lastStatusCode Int?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([companyId, kind, eventId])
+  @@index([status, nextAttemptAt])
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
 }
 
 /// A company's connected TikTok account — the one door is

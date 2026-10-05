@@ -3,7 +3,8 @@
 // Partie 3 de la catégorie « marketing-and-website » en français (voir le
 // composeur, marketing-and-website.js). Slugs assignés à cette partie
 // (lib/help/tree.js) : get-facebook-and-instagram-lead-ads-into-fieldquo,
-// answer-facebook-and-instagram-messages-from-fieldquo, whatsapp-coming-soon.
+// answer-facebook-and-instagram-messages-from-fieldquo, whatsapp-coming-soon,
+// send-lead-results-to-meta.
 //
 // Même structure que l'anglais (mêmes sections, mêmes blocs, mêmes figures) ;
 // les mots à l'écran viennent du bloc `fr` de app/i18n/appMessages.js. Les
@@ -334,6 +335,125 @@ export const ARTICLES = {
     faq: [
       { q: "Puis-je avoir un accès anticipé ?", a: "Non. Tant que l'App Review de Meta n'a pas accordé l'accès avancé aux deux autorisations WhatsApp, l'inscription de Meta refuse toute entreprise sauf celle de FieldQuo : il n'y a pas de porte à ouvrir plus tôt." },
       { q: "Quand est-ce que ce sera prêt ?", a: "Quand l'App Review de Meta accordera l'accès avancé — c'est Meta qui fixe le calendrier, pas FieldQuo. FieldQuo active la carte le jour même." },
+    ],
+  },
+  // Rédigé le 2026-10-05 à partir de app/app/settings/meta-ads/MetaConversionsPanel.js,
+  // app/api/settings/meta-conversions/*, lib/meta/capi/* et
+  // docs/META-CONVERSIONS-API.md. Les mots à l'écran sont le bloc `fr` de
+  // app/i18n/appMessages.js (app.setMetaCapi.*).
+  "send-lead-results-to-meta": {
+    title: "Envoyer les résultats des prospects à Meta",
+    summary:
+      "Dites à Facebook et Instagram lesquels de leurs prospects étaient réels, lesquels ne l'étaient pas, et lesquels ont pris rendez-vous, reçu une soumission et acheté — pour que Meta trouve plus de gens comme vos clients.",
+    updated: "2026-10-05",
+    intro: [
+      "Meta compte chaque clic sur un formulaire de prospects comme un prospect et chaque conversation ouverte comme une conversation, que la personne l'ait voulu ou non. Vos publicités apprennent alors à trouver plus de gens qui cliquent. **Envoyer les résultats des prospects à Meta** renvoie ce que FieldQuo sait et que Meta ignore : quels prospects étaient réels, lesquels ne l'étaient pas, et lesquels ont pris rendez-vous, reçu une soumission et acheté.",
+      "C'est un seul interrupteur dans **Paramètres → Meta Ads**, désactivé jusqu'à ce qu'un propriétaire ou un administrateur l'active. Il couvre vos formulaires de prospects Facebook et Instagram, vos entonnoirs et votre estimation instantanée quand le visiteur vient d'une publicité, et — dès que Meta aura approuvé l'application FieldQuo pour cela — vos conversations Messenger et Instagram issues de publicités.",
+    ],
+    sections: [
+      {
+        id: "what-is-sent",
+        heading: "Ce que FieldQuo dit à Meta",
+        blocks: [
+          {
+            p: "Pour un prospect venant d'un formulaire Facebook ou Instagram, FieldQuo envoie chaque étape que le prospect atteint, une seule fois, avec l'identifiant de prospect de Meta :",
+          },
+          {
+            table: {
+              head: ["Étape", "Quand elle est envoyée"],
+              rows: [
+                ["**Raw Lead**", "Quand le prospect arrive dans FieldQuo."],
+                ["**Qualified**", "Quand le prospect est tiède ou chaud — et, s'il est venu par une conversation, que cette conversation a été jugée comme un vrai prospect."],
+                ["**Disqualified**", "Quand la conversation n'était qu'un clic ou ne concernait pas votre travail, quand quelqu'un marque le prospect perdu comme une fausse demande, ou le supprime comme n'étant pas un prospect."],
+                ["**Appointment Booked**", "Quand un rendez-vous est pris pour le client ou la soumission du prospect."],
+                ["**Quote Sent**", "Quand la soumission du prospect est envoyée."],
+                ["**Converted**", "Quand la soumission est acceptée, ou que la conversation est marquée gagnée — avec le montant et votre devise."],
+              ],
+            },
+          },
+          {
+            bullets: [
+              "**Conversations Messenger et Instagram issues de publicités** : **LeadSubmitted** quand la conversation devient un prospect tiède ou chaud, et **Purchase** avec le montant quand ce client accepte une soumission. Une conversation qui n'était qu'un clic, ou qui ne concernait pas votre travail, n'envoie rien.",
+              "**Vos entonnoirs et votre estimation instantanée** : quand le visiteur vient d'une publicité Meta, le même **Lead** que le pixel de votre page déclenche déjà est aussi envoyé par le serveur de FieldQuo avec le même identifiant d'événement, pour que Meta le compte une seule fois. Un rendez-vous envoie **Schedule**, et une soumission acceptée envoie **Purchase**.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "turn-it-on",
+        heading: "Comment l'activer",
+        blocks: [
+          {
+            steps: [
+              "Ouvrez **Paramètres → Meta Ads** et trouvez **Envoyer les résultats des prospects à Meta**.",
+              "Sous **1. Conditions des outils professionnels de Meta**, cochez la case et appuyez sur **Accepter**. L'écran note qui a accepté et quand.",
+              "Sous **2. Votre ensemble de données Meta (pixel)**, entrez l'identifiant de votre ensemble de données — ou appuyez sur **Choisir dans mon compte publicitaire** si votre compte publicitaire Meta est connecté. Si vous avez défini un pixel de suivi pour votre estimation instantanée, il est déjà inscrit.",
+              "Dans le Gestionnaire d'événements de Meta, ouvrez cet ensemble de données, puis « Paramètres », « API Conversions », « Générer un jeton d'accès ». Collez le jeton dans **Jeton d'accès de l'API Conversions** et appuyez sur **Enregistrer**.",
+              "Sous **3. Envoyer un événement test**, copiez le code test de l'onglet « Tester les événements » de l'ensemble de données, collez-le et appuyez sur **Envoyer l'événement test**. L'événement apparaît seulement dans l'onglet « Tester les événements » de Meta.",
+              "Activez l'interrupteur en haut de la carte.",
+            ],
+          },
+          {
+            figure: "live:app-settings-meta-ads",
+            caption: "Paramètres → Meta Ads — Envoyer les résultats des prospects à Meta se trouve sous la carte des formulaires de prospects Facebook.",
+          },
+          {
+            note: "L'interrupteur ne peut pas être activé avant que les conditions soient acceptées, et **Envoyer l'événement test** reste grisé tant qu'il manque l'identifiant, le jeton ou les conditions — passez le pointeur dessus pour voir ce qui manque.",
+          },
+        ],
+      },
+      {
+        id: "what-is-being-sent",
+        heading: "Lire « Ce qui est envoyé »",
+        blocks: [
+          {
+            p: "La carte affiche quatre lignes — formulaires de prospects, vos entonnoirs et votre estimation instantanée, Messenger et Instagram — et indique pour chacune si l'**envoi est en cours**, ou ce qu'elle attend.",
+          },
+          {
+            bullets: [
+              "**Nécessite l'autorisation Meta page_events** (ou **instagram_manage_events**) — les événements Messenger et Instagram exigent une autorisation que Meta doit approuver pour l'application FieldQuo. Rien n'est envoyé d'ici là, et vous n'avez rien à faire.",
+              "**désactivé tant que vous demandez le consentement des visiteurs avant le suivi publicitaire** — si vous avez choisi de demander aux visiteurs avant de charger les pixels, FieldQuo ne peut pas voir leur réponse sur le serveur, donc vos pages n'envoient rien côté serveur.",
+              "Sous la liste, la carte affiche la dernière synchronisation et, pour les 30 derniers jours, combien d'événements ont été envoyés, ont échoué, sont en attente ou étaient trop anciens pour Meta.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "conversion-leads",
+        heading: "Configurer votre campagne pour utiliser les résultats",
+        blocks: [
+          {
+            steps: [
+              "Dans le Gestionnaire de publicités, créez ou modifiez une campagne Prospects qui utilise un formulaire instantané.",
+              "Dans l'ensemble de publicités, sous « Objectif de performance », choisissez « Maximiser le nombre de prospects de conversion ».",
+              "Choisissez le même ensemble de données, puis l'étape à optimiser — habituellement **Qualified**, ou **Converted** quand vous avez assez de ventes.",
+              "Laissez la campagne rouler. Meta a besoin de quelques semaines de résultats avant d'apprendre.",
+            ],
+          },
+          {
+            warning: "Les règles de Meta pour cet objectif : les résultats doivent être téléversés au moins une fois par jour (FieldQuo envoie aux 15 minutes, avec un rattrapage quotidien), et l'étape optimisée devrait survenir dans les 28 jours suivant le prospect, pour 1 % à 40 % de vos prospects. Meta demande aussi environ 200 prospects par mois.",
+          },
+        ],
+      },
+      {
+        id: "privacy",
+        heading: "Confidentialité et ce qui ne sort jamais",
+        blocks: [
+          {
+            bullets: [
+              "Les courriels et numéros de téléphone sont hachés (SHA-256) avant de quitter FieldQuo. Meta ne les reçoit jamais en clair, et ils ne sont pas non plus conservés en clair dans la file d'attente.",
+              "Rien n'est envoyé quand l'interrupteur est désactivé. Le désactiver arrête tout; les événements en attente ne sont pas envoyés.",
+              "Meta refuse les événements de plus de 7 jours, donc FieldQuo n'en envoie jamais de plus anciens.",
+              "Votre jeton d'accès est conservé chiffré, n'est envoyé qu'à Meta et n'est plus jamais affiché — la carte montre ses quatre derniers caractères.",
+            ],
+          },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Mes anciens prospects seront-ils envoyés?", a: "Seulement les étapes des 7 derniers jours, car Meta refuse tout ce qui est plus ancien. FieldQuo peut lancer un envoi ponctuel de l'historique pour votre entreprise; il affiche d'abord le nombre par étape." },
+      { q: "Est-ce que ça modifie mes publicités?", a: "Non. FieldQuo ne crée ni ne modifie aucune publicité. Il dit seulement à Meta ce qui est arrivé aux prospects; votre campagne s'en sert dès que vous choisissez « Maximiser le nombre de prospects de conversion »." },
+      { q: "Pourquoi Messenger indique-t-il qu'il faut une autorisation Meta?", a: "Meta exige que l'application FieldQuo soit approuvée pour page_events et instagram_manage_events avant de pouvoir envoyer les résultats des conversations. Les formulaires de prospects et vos propres pages fonctionnent sans elle." },
     ],
   },
 };

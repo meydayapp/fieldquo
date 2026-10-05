@@ -22,6 +22,8 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { supportSessionRefusal } from "@/lib/leads/deleteLead";
 import { buildConversationReview, applyConversationReview } from "@/lib/leads/conversationReview";
+import { captureDeletedNotALead } from "@/lib/meta/capi/capture";
+import { afterResponse } from "@/lib/meta/capi/afterResponse";
 
 async function gate(request, { write }) {
   const { member, response } = await memberOrRefusal(request);
@@ -53,5 +55,10 @@ export async function POST(request) {
     actor: { userId: member.userId, memberId: member.id, role: member.role },
   });
   if (!result.ok) return NextResponse.json({ error: result.error, refused: result.refused || [] }, { status: result.status });
-  return NextResponse.json(result);
+  // Every lead removed here is removed as "not a lead": a Facebook lead-form
+  // one is a Disqualified stage for Meta (lib/meta/capi/capture.js), queued
+  // after the response so Meta can never slow the review down.
+  const { metaDisqualify = [], ...body2 } = result;
+  if (metaDisqualify.length) afterResponse(() => captureDeletedNotALead(db, { companyId: member.companyId, leads: metaDisqualify }));
+  return NextResponse.json(body2);
 }
