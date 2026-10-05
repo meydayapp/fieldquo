@@ -3498,7 +3498,13 @@ export function QuoteBuilderForm({
             Not on an edit, and not on a draft that already came from one. */}
         {!isEdit && !initial?.planReadId && (
           <Link
-            href="/app/quotes/drawings/new"
+            // The services already picked on this quote are what the read is
+            // FOR (the owner, 2026-10-04: no separate trade picker) — a
+            // roofing quote's read reads the roof (lib/planRead/scope.js).
+            href={(() => {
+              const keys = [...new Set(scopeGroups.map((g) => g.categoryKey).filter(Boolean))];
+              return keys.length ? `/app/quotes/drawings/new?categories=${encodeURIComponent(keys.join(","))}` : "/app/quotes/drawings/new";
+            })()}
             className="mt-2 inline-flex items-center gap-1.5 min-h-[40px] text-sm text-primary hover:underline"
           >
             {t("app.planRead.startFromDrawings", "Start from drawings — upload a drawing set, scope sheet and photos")}

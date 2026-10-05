@@ -42,6 +42,15 @@ export async function POST(request, { params }) {
         { status: 400 },
       );
     }
+    if (started.error === "nothing_for_scope") {
+      return NextResponse.json(
+        {
+          error: `None of these sheets is for ${started.trades.join(", ")} — the services this read is for. Add the sheets that show that work, or change the services. Nothing was charged.`,
+          code: "nothing_for_scope",
+        },
+        { status: 400 },
+      );
+    }
     if (started.error === "nothing_to_read") {
       return NextResponse.json({ error: "Add a drawing set, a scope sheet or photos first — or, if nothing is new, use the chat to change the read.", code: "nothing_to_read" }, { status: 400 });
     }

@@ -170,6 +170,7 @@ export default function PlanReadWorkspace({ id }) {
           <StatusChip status={view.status} t={t} />
         </div>
         <ClientRequest key={view.clientRequest} value={view.clientRequest} disabled={reading} onSave={(clientRequest) => patch({ clientRequest })} t={t} />
+        <ScopePicker key={(view.scope?.categories || []).map((c) => c.key).join(",")} view={view} disabled={reading} onSave={(scope) => patch({ scope })} t={t} />
       </header>
 
       <QuoteFilesCard
@@ -186,6 +187,9 @@ export default function PlanReadWorkspace({ id }) {
       {project && (
         <>
           <OverviewCard view={view} t={t} money={money} onMeasure={() => openMeasure()} onToggle={(op) => patch({ ops: [op] })} />
+          {(project.trades || []).map((trade) => (
+            <TradeCard key={trade.tradeKey} trade={trade} t={t} onOp={(op) => patch({ ops: [{ ...op, tradeKey: trade.tradeKey }] })} onMeasure={() => openMeasure()} />
+          ))}
           <PhotoGroupsCard view={view} t={t} onSplit={(gid) => patch({ photo: { op: "split", id: gid } })} onMerge={(ids) => patch({ photo: { op: "merge", ids } })} onAdjust={(photo) => openMeasure({ photo })} />
           <DraftCard view={view} t={t} money={money} onPrice={(accessId, price) => patch({ ops: [{ op: "set_access_price", accessId, price }] })} onCreate={() => router.push(`/app/quotes/new?fromPlanRead=${id}`)} />
           <ChatCard view={view} t={t} language={language} credits={credits} onSent={load} onTopup={(data) => topup.open(data)} />
@@ -197,10 +201,19 @@ export default function PlanReadWorkspace({ id }) {
           open
           sources={measure.sources}
           initialKey={measure.initialKey}
-          surfaces={project?.surfaces || []}
+          surfaces={[
+            ...(project?.surfaces || []),
+            // A trade item measured on the sheet is the estimator's own figure,
+            // like a painting surface's (applyTradeOps "measure_item").
+            ...(project?.trades || []).flatMap((tr) =>
+              tr.items.map((it) => ({ ...it, id: `trade:${tr.tradeKey}:${it.id}`, label: `${tr.label}: ${it.label}` })),
+            ),
+          ]}
           onClose={() => setMeasure(null)}
           onUse={async (surfaceId, value, sourceText) => {
-            await patch({ ops: [{ op: "measure", surfaceId, value, sourceText }] });
+            const m = /^trade:([a-z]+):(.+)$/.exec(surfaceId);
+            if (m) await patch({ ops: [{ op: "measure_item", tradeKey: m[1], itemId: m[2], value, sourceText }] });
+            else await patch({ ops: [{ op: "measure", surfaceId, value, sourceText }] });
           }}
         />
       )}
@@ -339,6 +352,7 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
               </p>
             ) : null}
             {view.status === "ready" && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.readAgainNote", "Reading again rebuilds the overview from all the files; changes made in the chat are replaced.")}</p>}
+            <RoutedSheets view={view} t={t} />
             {took && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.lastReadTook", "The last read took {time}.", { time: took })}</p>}
           </div>
           <button type="button" onClick={onRun} disabled={starting} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60">
@@ -389,7 +403,12 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
       {p.estimatedCount > 0 && (
         <p className="text-xs text-amber-800 dark:text-amber-300 mb-3">{t("app.planRead.overview.estimatedCount", "{n} quantities are estimated — check them before you send.", { n: p.estimatedCount })}</p>
       )}
-
+      {p.painting === false ? (
+        // The quote has no painting service: the painting tables would be
+        // empty rows, so the trades' own cards below carry the overview.
+        <p className="text-sm text-muted-foreground">{t("app.planRead.overview.noPainting", "This read is for {trades} — no painting. The quantities are in the cards below.", { trades: (view.scope?.trades || []).map((x) => x.label).join(", ") })}</p>
+      ) : (
+      <>
       <div className="overflow-x-auto -mx-4 sm:mx-0">
         <table className="w-full text-sm min-w-[560px]">
           <thead>
@@ -471,6 +490,8 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
           ))}
         </div>
       </div>
+      </>
+      )}
 
       {(p.assumptions?.length > 0 || p.exclusions?.length > 0) && (
         <div className="grid gap-3 sm:grid-cols-2 mt-3 text-sm">
@@ -491,6 +512,228 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
               <li key={q.id} className="flex items-start justify-between gap-2">
                 <span>{q.text}</span>
                 <button type="button" onClick={() => onToggle({ op: "resolve_question", questionId: q.source === "model" ? q.id : null, text: q.text })} className="shrink-0 text-xs min-h-[36px] px-2 rounded-md border border-border bg-background hover:bg-accent">
+                  {t("app.planRead.overview.answered", "Done")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * What the read is FOR — the services on the quote or the lead it came from
+ * (the owner, 2026-10-04: the trade comes from the quote's service, never a
+ * separate trade picker). When it came with none, the company's own
+ * switched-on services are offered: choosing one is choosing the quote's
+ * service, and the draft quote files its lines under it.
+ */
+function ScopePicker({ view, disabled, onSave, t }) {
+  const chosen = view.scope?.categories || [];
+  const options = view.scopeOptions || [];
+  const [editing, setEditing] = useState(false);
+  const [picked, setPicked] = useState(() => new Set(chosen.map((c) => c.key)));
+  const from = view.scope?.from;
+  return (
+    <div className="mt-3">
+      <p className="text-sm font-medium">{t("app.planRead.scope.title", "What this quote is for")}</p>
+      {chosen.length ? (
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          {chosen.map((c) => {
+            const opt = options.find((o) => o.key === c.key);
+            return (
+              <Badge key={c.key} tone={opt?.trade ? "good" : "neutral"}>
+                {opt?.trade ? `${c.label} · ${t(`app.planRead.scope.focus.${opt.focus}`, opt.focus)}` : c.label}
+              </Badge>
+            );
+          })}
+          {from && <span className="text-xs text-muted-foreground">{t(`app.planRead.scope.from.${from}`, from)}</span>}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground mt-0.5">{t("app.planRead.scope.none", "No service chosen — the read covers painting, inside and out, as before. Choose the quote's service so it reads only what that work needs.")}</p>
+      )}
+      {(view.scope?.unmapped || []).length > 0 && (
+        <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.scope.unmapped", "Some of these services aren't a trade the drawing read measures yet; their sheets are read for the others.")}</p>
+      )}
+      {!disabled && !editing && (
+        <button type="button" onClick={() => setEditing(true)} className="mt-2 min-h-[40px] px-3 rounded-lg border border-border text-sm hover:bg-accent">
+          {chosen.length ? t("app.planRead.scope.change", "Change") : t("app.planRead.scope.choose", "Choose the service")}
+        </button>
+      )}
+      {editing && (
+        <div className="mt-2 rounded-lg border border-border p-3">
+          {!options.length ? (
+            <p className="text-sm text-muted-foreground">{t("app.planRead.scope.noOptions", "You have no services switched on. Switch them on in Settings → Services.")}</p>
+          ) : (
+            <ul className="grid gap-1 sm:grid-cols-2">
+              {options.map((o) => (
+                <li key={o.key}>
+                  <label className="flex items-center gap-2 min-h-[40px] text-sm">
+                    <input
+                      type="checkbox"
+                      checked={picked.has(o.key)}
+                      onChange={(e) =>
+                        setPicked((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(o.key);
+                          else next.delete(o.key);
+                          return next;
+                        })
+                      }
+                    />
+                    <span>{o.label}</span>
+                    {!o.trade && <span className="text-xs text-muted-foreground">{t("app.planRead.scope.notMeasured", "(not measured from drawings yet)")}</span>}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={() => { onSave([...picked]); setEditing(false); }} className="min-h-[40px] px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium">
+              {t("app.planRead.save", "Save")}
+            </button>
+            <button type="button" onClick={() => { setPicked(new Set(chosen.map((c) => c.key))); setEditing(false); }} className="min-h-[40px] px-3 rounded-lg border border-border text-sm hover:bg-accent">
+              {t("app.planRead.scope.cancel", "Cancel")}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">{t("app.planRead.scope.note", "Only the sheets that matter for these services are read — fewer sheets, a smaller charge. Changing them after a read means reading again.")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** "Reading 8 of 13 sheets — the rest aren't for drywall": routing is a
+ *  saving the estimator should see, never a silent skip. */
+function RoutedSheets({ view, t }) {
+  const [open, setOpen] = useState(false);
+  const s = view.scope;
+  if (!s?.stated || !(s.total > 0) || s.sent === s.total) return null;
+  const skipped = (view.sheets || []).filter((x) => x.route && !x.route.send);
+  return (
+    <div className="mt-1 text-xs text-muted-foreground">
+      <p>
+        {t("app.planRead.scope.routed", "Reading {sent} of {total} sheets — the others aren't for {trades}.", { sent: s.sent, total: s.total, trades: s.trades.map((x) => x.label).join(", ") })}{" "}
+        <button type="button" onClick={() => setOpen((v) => !v)} className="underline min-h-[32px]">
+          {open ? t("app.planRead.scope.hideSkipped", "Hide") : t("app.planRead.scope.showSkipped", "Which?")}
+        </button>
+      </p>
+      {open && (
+        <ul className="mt-1 list-disc pl-4">
+          {skipped.map((x) => (
+            <li key={x.key}>
+              {x.title ? `${x.name} · ${x.title}` : x.name}
+              {" — "}
+              {x.route.reason === "spec" ? t("app.planRead.scope.specPage", "a specification page: its text is read for free") : t("app.planRead.scope.notForTrade", "not for this quote's services")}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ConfidenceBadge({ q, t }) {
+  if (!q) return null;
+  if (q.source === "none") return <Badge tone="warn">{t("app.planRead.source.none", "No quantity")}</Badge>;
+  if (q.source === "measured") return <Badge tone="good">{t("app.planRead.source.measured", "Measured")}</Badge>;
+  if (q.confidence === "high") return <Badge tone="good">{t("app.planRead.confidence.high", "High")}</Badge>;
+  if (q.confidence === "medium") return <Badge tone="neutral">{t("app.planRead.confidence.medium", "Medium")}</Badge>;
+  return <Badge tone="warn">{t("app.planRead.confidence.low", "Low · verify")}</Badge>;
+}
+
+/** One trade beyond painting: every quantity with its confidence and the
+ *  sheet, schedule row, count or cell it came from. Quantities only — the
+ *  prices are the pricing card's (lib/planRead/tradePricing.js). */
+function TradeCard({ trade, t, onOp, onMeasure }) {
+  const openQs = (trade.questions || []).filter((q) => !q.resolved);
+  const unitLabel = (q) => t(`app.planRead.unit.${q.unit}`, q.unitLabel || q.unit);
+  const off = trade.included === false;
+  return (
+    <section className={`${card} ${off ? "opacity-60" : ""}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <h2 className="text-sm font-semibold">{t(`app.planRead.trade.${trade.tradeKey}`, trade.label)}</h2>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onMeasure} className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg border border-border text-sm hover:bg-accent">
+            <Ruler className="w-4 h-4" aria-hidden />
+            {t("app.planRead.overview.measure", "Check measurements on drawing")}
+          </button>
+          <button type="button" onClick={() => onOp({ op: off ? "include_trade" : "exclude_trade" })} className="min-h-[40px] px-3 rounded-lg border border-border text-sm hover:bg-accent">
+            {off ? t("app.planRead.trade.include", "Put this trade back") : t("app.planRead.trade.exclude", "Leave this trade out")}
+          </button>
+        </div>
+      </div>
+      {trade.summary && <p className="text-sm mb-1">{trade.summary}</p>}
+      <p className="text-xs text-muted-foreground mb-3">
+        {t("app.planRead.trade.confidenceLine", "{high} high · {medium} medium · {low} low confidence — check the low ones before you send.", trade.confidence || { high: 0, medium: 0, low: 0 })}
+      </p>
+      {!trade.items.length ? (
+        <p className="text-sm text-muted-foreground">{t("app.planRead.trade.empty", "Nothing for this trade was found on the sheets that were read.")}</p>
+      ) : (
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm min-w-[600px]">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                <th className="py-2 px-4 sm:px-2 font-medium">{t("app.planRead.overview.area", "Area")}</th>
+                <th className="py-2 px-2 font-medium">{t("app.planRead.trade.item", "Item")}</th>
+                <th className="py-2 px-2 font-medium text-right">{t("app.planRead.overview.quantity", "Quantity")}</th>
+                <th className="py-2 px-2 font-medium">{t("app.planRead.trade.confidence", "Confidence and source")}</th>
+                <th className="py-2 px-2 font-medium"><span className="sr-only">{t("app.planRead.overview.include", "Include")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {trade.items.map((it) => (
+                <tr key={it.id} className={`border-b border-border/60 align-top ${it.active ? "" : "opacity-50"}`}>
+                  <td className="py-2 px-4 sm:px-2">{it.areaName || "—"}</td>
+                  <td className="py-2 px-2">
+                    {it.label}
+                    {Object.keys(it.attributes || {}).length > 0 && (
+                      <span className="block text-[11px] text-muted-foreground">
+                        {Object.entries(it.attributes)
+                          .map(([k, v]) => `${t(`app.planRead.attr.${k}`, k)}: ${typeof v === "boolean" ? (v ? "✓" : "—") : v}`)
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 px-2 text-right whitespace-nowrap">{it.quantity.value ? `${it.quantity.value.toLocaleString()} ${unitLabel(it.quantity)}` : "—"}</td>
+                  <td className="py-2 px-2">
+                    <ConfidenceBadge q={it.quantity} t={t} />
+                    <span className="block text-[11px] text-muted-foreground mt-0.5 max-w-[300px]">{it.quantity.sourceText}</span>
+                  </td>
+                  <td className="py-2 px-2">
+                    <button type="button" onClick={() => onOp({ op: it.included === false ? "include_item" : "exclude_item", itemId: it.id })} className="text-xs min-h-[36px] px-2 rounded-md border border-border hover:bg-accent">
+                      {it.included === false ? t("app.planRead.overview.putBack", "Put back") : t("app.planRead.overview.leaveOut", "Leave out")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-3 mt-3 text-sm">
+        <div className="border border-border rounded-lg p-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold mb-1"><Gauge className="w-4 h-4" aria-hidden />{t("app.planRead.overview.complexity", "Complexity")}</p>
+          <p className="font-medium">{t(`app.planRead.complexity.${trade.complexity?.level || "medium"}`, trade.complexity?.level || "medium")}</p>
+          <ul className="text-xs text-muted-foreground list-disc pl-4 mt-1">{(trade.complexity?.factors || []).map((f, i) => <li key={i}>{f}</li>)}</ul>
+        </div>
+        {trade.assumptions?.length > 0 && (
+          <div className="border border-border rounded-lg p-3"><p className="text-xs font-semibold mb-1">{t("app.planRead.overview.assumptions", "Assumptions")}</p><ul className="list-disc pl-4 space-y-0.5 text-xs">{trade.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul></div>
+        )}
+        {trade.exclusions?.length > 0 && (
+          <div className="border border-border rounded-lg p-3"><p className="text-xs font-semibold mb-1">{t("app.planRead.overview.exclusions", "Exclusions")}</p><ul className="list-disc pl-4 space-y-0.5 text-xs">{trade.exclusions.map((a, i) => <li key={i}>{a}</li>)}</ul></div>
+        )}
+      </div>
+      {openQs.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold mb-1"><HelpCircle className="w-4 h-4" aria-hidden />{t("app.planRead.overview.questions", "Questions for you")}</p>
+          <ul className="space-y-2 text-sm">
+            {openQs.map((q) => (
+              <li key={q.id} className="flex items-start justify-between gap-2">
+                <span>{q.text}</span>
+                <button type="button" onClick={() => onOp({ op: "resolve_trade_question", questionId: q.source === "model" ? q.id : null, text: q.text })} className="shrink-0 text-xs min-h-[36px] px-2 rounded-md border border-border bg-background hover:bg-accent">
                   {t("app.planRead.overview.answered", "Done")}
                 </button>
               </li>

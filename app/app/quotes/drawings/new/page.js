@@ -29,7 +29,13 @@ export default function NewDrawingReadPage() {
         const { id } = await fetchJson("/api/plan-reads", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: jsonBody({ leadId: params.get("lead") || null, clientId: params.get("client") || null }),
+          body: jsonBody({
+            leadId: params.get("lead") || null,
+            clientId: params.get("client") || null,
+            // The quote builder's selected services (?categories=a,b) — what
+            // the read is for. Checked against the company's own on the server.
+            ...(params.get("categories") ? { categories: params.get("categories").split(",").filter(Boolean).slice(0, 12) } : {}),
+          }),
         });
         router.replace(`/app/quotes/drawings/${id}`);
       } catch (err) {
