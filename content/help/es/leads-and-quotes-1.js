@@ -1177,7 +1177,7 @@ export const ARTICLES = {
     title: "Pintura cotizada por rendimiento",
     summary:
       "Mida la habitación o la fachada, diga qué se pinta en ella, y el presupuesto calcula las horas a partir de sus rendimientos y los galones a partir de la cobertura, con un conjunto de tarifas por tipo de estimación que usted mantiene en Configuración.",
-    updated: "2026-09-25",
+    updated: "2026-10-05",
     intro: [
       "En FieldQuo la pintura no se cotiza por pie cuadrado. Usted mide la habitación o la cara de la casa, dice qué se va a pintar — paredes, techo, molduras, puertas — y el presupuesto calcula cuánto tiempo lleva a partir de sus rendimientos y cuánta pintura necesita a partir de la cobertura. Las horas por su tarifa de venta por hora son la mano de obra; los galones por lo que usted paga por la pintura son el material.",
       "Las tarifas las fija usted, un conjunto por tipo de estimación, y ninguna sale de su lado: el cliente lee una línea y un monto, nunca la tarifa que hay detrás.",
@@ -1199,12 +1199,13 @@ export const ARTICLES = {
             head: ["Cifra", "Cómo se calcula"],
             rows: [
               ["Cantidad", "Sale de las medidas del área: las paredes de una habitación son 2 × (largo + ancho) × alto, en área bruta; no se descuentan puertas ni ventanas, porque los rendimientos se fijaron sobre el área bruta. Escriba encima de cualquier cifra para reemplazarla."],
-              ["Horas", "La cantidad dividida por el rendimiento de la tarifa — 414 pies² de pared a 100 pies² por hora son 4,14 horas — más las horas de preparación de la línea. Una superficie que se cuenta por pieza, como una puerta, usa horas por pieza."],
+              ["Horas", "La cantidad dividida por el rendimiento de la tarifa — 414 pies² de pared a 100 pies² por hora son 4,14 horas — más las horas de preparación de la línea. Una superficie que se cuenta por pieza, como una puerta, usa horas por pieza. Sus tarifas son para las manos estándar de cada superficie — dos para paredes, techos, molduras, puertas y gabinetes, una para el revestimiento exterior — y cada mano lleva más o menos el mismo tiempo: las mismas paredes son 2,07 horas a 1 mano y 6,21 a 3 manos. Las horas de preparación nunca cambian con las manos."],
               ["Mano de obra", "Las horas por la **Tarifa de venta por hora** del conjunto. Una tarifa con precio fijo por unidad vende la cantidad a ese precio, y sus horas de preparación a la tarifa por hora."],
               ["Pintura", "La cantidad por las manos, dividida por la cobertura del producto, por lo que usted paga por galón. El monto usa los galones que la línea consume de verdad, no los envases que va a comprar."],
             ],
           } },
-          { note: "Sus tarifas ya cubren dos manos. Una **Capa extra** ofrecida al cliente agrega una mano más de pintura y una parte de las horas de la línea, fijada en la tarjeta de tarifas." },
+          { note: "Una **Capa extra** ofrecida al cliente agrega una mano más de pintura y las horas de una mano: las horas de la línea divididas por sus manos. En puertas de gabinete y frentes de cajón solo cuentan como mano los minutos de pintura; el lijado, el desengrasado y la limpieza se hacen una vez." },
+          { p: "**Tiempo de secado entre capas**: un área con una línea a dos manos o más pregunta cuánto tiene que secar una mano (los gabinetes parten de la hora del modelo de mano de obra de gabinetes). Solo se cobra si marca **El equipo espera en la obra mientras secan las capas**: una vez por cada intervalo entre manos, a la tarifa por hora del área. Sin marcar, el equipo trabaja en otra parte mientras seca y no se agrega nada." },
         ],
       },
       {
@@ -1230,7 +1231,7 @@ export const ARTICLES = {
             "De cada tarifa, su nombre, la situación para la que sirve, cómo se cotiza — un rendimiento u horas por pieza por su tarifa por hora, o un precio fijo por unidad — y su cifra. Una cifra que usted cambia se resalta con un botón para restablecerla.",
             "Una tarifa predeterminada no se puede borrar, pero **Ocultar del selector** la quita de la lista en los presupuestos; una tarifa que usted agregó sí se puede quitar. Las etiquetas junto a las predeterminadas dicen de dónde vienen: **✓ recuperado** son cifras deducidas de trabajos terminados; **análogo** y **ejemplo** son posiciones iniciales que conviene revisar antes de cotizar con ellas.",
             "**Productos de pintura — lo que pagas**: el costo por galón de cada producto. Un producto sin precio se cuenta en galones y no se costea — nunca como pintura gratis.",
-            "**Capa extra — mano de obra, como parte de las horas de la línea**: lo que una mano más agrega en mano de obra, además de su pintura.",
+            "**Las capas cambian el tiempo de mano de obra**, activado por defecto: 1 mano es la mitad de las horas de 2, 3 manos una vez y media, con sus tarifas igual que con las nuestras. Desactívelo si sus tarifas ya incluyen las manos: entonces las manos solo cambian la pintura, y **Capa extra — mano de obra, como parte de las horas de la línea** fija lo que una mano más agrega en mano de obra.",
           ] },
         ],
       },

@@ -348,10 +348,15 @@ const PINNED = {
   // twice the gallons, still unpriced, the same total. A stored staining row
   // carries its own `products` (newPaintSubstrate copies them), so a real
   // quote keeps buying stain_oil. Every other pin is unchanged.
+  // Staining moved again the same day, for coats changing labour time: its
+  // stair rows are `coats: 2` — TWO coats of stain under the two clear, four
+  // against the substrate's standard three — so their coat share scales by
+  // 4/3 ($1,171.30 → $1,236.58; with the rule off it prints $1,171.30, as
+  // before). Every row at its standard coats is untouched.
   "cabinets/interior_painting": "720048313febc15bec7fe3d3c536b9b7",
   "cabinets/exterior_painting": "720048313febc15bec7fe3d3c536b9b7",
-  "staining/interior_painting": "9555fc0a16899211c95ffd4cef98ea75",
-  "staining/exterior_painting": "9555fc0a16899211c95ffd4cef98ea75",
+  "staining/interior_painting": "3c1964fc68bf4ac0ab1766683fa13f82",
+  "staining/exterior_painting": "3c1964fc68bf4ac0ab1766683fa13f82",
   "commercial/interior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "commercial/exterior_painting": "09f86c322bc1db930057cb57dfe88bba",
   "stairs/live": "07ace69015133fb88bfdb14ce72518ea",

@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 5 October 2026, late (painting presets against NPC — picket fence, exterior stain, cabinet boxes, French doors, built-ins sprayed/brushed, finished suggested rates, cabinet enamel coverage — and coats change labour time: hours × coats ÷ standard coats, prep never scaled, one extra-coat rule, a dry-time wait charged only when the crew waits on site, a company toggle. No schema change. See "Painting presets against NPC, and coats change labour time" below.)
 Last updated: 5 October 2026 (drawing read — the complete first pass: a measurement pass per elevation/plan/section sheet, quantities from scaled faces with sheet + scale + confidence, the book's height factors (NPC p. 139) and Resene prep allowances in the painting PRESET that the builder and the read share, crew plan, access priced from the company's rates or Craftsman's 2023 rental table, past jobs by trade, one-tap assumptions, one read → one quote per service, "What this price includes / Check before sending", Settings → Services → Equipment & access, a material list with primer/prep/sundries, and a setup step. No schema change. See "Drawing read — the complete first pass" below.)
 Last updated: 4 October 2026, late (subscription priced in local money for the UK and the EU — GBP and EUR plan rows at the AUD "same numbers" (£/€99, 169, 269, 369; annual ×10), VAT on top for £/€, the pricing page's "Show prices in" picker; AI credit plans sold to every company in USD on the separate USD add-on customer, and plan credit now RESETS monthly while top-ups persist. Schema additive — NOT applied; rows NOT seeded. See "Local-currency subscription, and AI plan credit that resets (4 October 2026)" below.)
 Last updated: 4 October 2026 (drawing read P1 + P2 — the read is scoped by the quote's own service (no trade picker), sends only the sheets that service needs, reads drywall/framing/roofing/electrical/plumbing/flooring with every quantity sourced and confidence-rated, prices them by the ladder (your rate card → your services → cited FieldQuo suggestions, framing book switched on, NECA ×1.0 commercial), recommends a price at your target margin with overhead as the job's share of the month's crew time, offers a margin adjustment line and notifies owner/managers/assignee when below target, and takes pricing figures from the chat only through a manual, diffed button; plus the first live read's five fixes (signed PDF fetch, browser split over 10 MB, failed sheets retried, unreadable-file message, UK/metric parsing). Schema: `PlanRead.scope` and `ForecastSettings.billableHoursPerMonth` (Int, shared with the hourly floor) are already in production — see "Start from drawings" and "Overhead by crew time".)
@@ -97,6 +98,69 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Painting presets against NPC, and coats change labour time (5 October 2026)
+
+The owner decided the painting calibration (Craftsman's National Painting
+Cost Estimator, every page cited beside the figure in
+`lib/pricing/paintTakeoff.js`). DEFAULTS only: a company's saved rates and
+every stored quote row are untouched.
+
+### What shipped (not deployed — unpushed branch)
+
+- **Seven preset corrections.** A picket-fence rate (`stain_fence_picket`,
+  40 sq ft/hr a face) beside the solid-board 120; an exterior stain product
+  (`stain_exterior`, 200 sq ft/gal a coat) for decks and fences, `stain_oil`
+  keeping 400 for cabinets (a saved deck row carries its own products and
+  keeps buying stain_oil); cabinet boxes 6 → 12 lnft/hr; French doors 1.5 →
+  0.75 h a side; built-ins keep 40 named "sprayed" with a brushed 20 beside
+  it (halving the default would double every quoted built-in on reopen);
+  `SUGGESTED_PRODUCTION` interior 250/200/75 → 110/120/45, called finished
+  rates; cabinet enamel reference 15 → 25 doors/gal (the takeoff buys 28),
+  the seed descriptions say twenty-five in all eight languages.
+- **Coats change labour time** (replaces the proposed 50% → 40% third
+  coat). A rate is for its substrate's standard coats (2 for walls, trim,
+  doors, cabinets; 1 for siding; stain + 2 clear for a stained piece); any
+  other count scales the coat share of the hours linearly — 1 coat is half,
+  3 coats 1.5×. Prep (line, area, condition, setup) never scales; per-piece
+  prep inside the cabinet rates (`coatShare`) does not either. A line at its
+  standard coats is byte-identical (md5 on the preset fixtures; every
+  substrate rule-on vs rule-off). The Extra coat option is one coat's hours
+  — one formula; the old `extraCoatHoursPct` applies only with the rule off.
+  Company toggle "Coats change labour time" (default on) on the Painting
+  rates card. Quote builder and drawing read share it; the read's line says
+  "2 coats × 2.07 h a coat = 4.14 h".
+- **Dry time between coats**, per area: preset 1 h on cabinet and stained
+  cabinet pieces (the cabinet labour model's `dryHoursPerCoat`), typed
+  otherwise; charged once per gap only when "Crew waits on site while coats
+  dry" is ticked.
+- The builder's Coats box now steers a row that carries its own products
+  (deck, fence, every staining row) — it changed nothing there before.
+
+### Price impact (default rates, rule off → on)
+
+1-coat lines get cheaper (den walls $413.25 → $237.30; 10 door sides
+$453.70 → $241.20), 3-coat lines dearer ($535.96 → $711.91), a 2-coat
+siding line doubles its hours (his siding rate is one coat). Every line at
+its standard coats prints as before.
+
+### Checks
+
+`check:paint-coats-labour` (in check:all; 8 mutations, all caught). Pins
+re-taken with the reason: check:estimate-kind-routing (cabinets, staining),
+check:plan-deep-read (the catalogue's new product), check:production-rates,
+check:trade-calibration, check:plan-read-live-fixes (the coats rule).
+
+### Waiting on the owner
+
+- The calibration's soft flags were not asked for: a flush exterior door
+  at ~0.75 h a side, and a deck at 120 when rails and steps are in the
+  area.
+- Stored quotes with a 1- or 3-coat line reprice when reopened in the
+  builder — that is the rule; a company that priced coats into its rates
+  turns it off.
+
+---
+
 ## Trade labour presets calibrated against the Craftsman guides (5 October 2026)
 
 The owner, 2026-10-05: "fill the gaps and fix the mismatches using their
@@ -143,7 +207,8 @@ modify them to adjust to their own rates."
 
 - HVAC air handlers: NRR prints 21–27 h (2–5 t) — high for a residential
   swap; NOT adopted.
-- Painting presets: untouched (the eight corrections are still pending).
+- Painting presets: decided the same day — see "Painting presets against
+  NPC, and coats change labour time" above.
 - `check:app-catalogue` fails on twelve English echoes that came in with the
   drawing-read branch (`app.planRead.equipment.*`, `app.planRead.slices.sqft`,
   `app.paint.condition.render`, `app.paintPreset.per100`) — not these strings.

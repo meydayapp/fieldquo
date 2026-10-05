@@ -1177,7 +1177,7 @@ export const ARTICLES = {
     title: "La peinture chiffrée au rendement",
     summary:
       "Mesurez la pièce ou la façade, dites ce qui s'y peint, et la soumission calcule les heures à partir de vos rendements et les gallons à partir du pouvoir couvrant — avec une grille de tarifs par type d'estimation que vous tenez dans les Paramètres.",
-    updated: "2026-09-25",
+    updated: "2026-10-05",
     intro: [
       "Dans FieldQuo, la peinture ne se chiffre pas au pied carré. Vous mesurez la pièce ou la face de la maison, vous dites ce qui s'y peint — murs, plafond, boiseries, portes — et la soumission calcule le temps que cela prend à partir de vos rendements, et la quantité de peinture à partir du pouvoir couvrant. Les heures multipliées par votre taux horaire de vente donnent la main-d'œuvre; les gallons multipliés par ce que vous payez la peinture donnent les matériaux.",
       "Les tarifs sont à vous, une grille par type d'estimation, et aucun ne quitte votre côté : le client lit une ligne et un montant, jamais le tarif qui est derrière.",
@@ -1199,12 +1199,13 @@ export const ARTICLES = {
             head: ["Chiffre", "Comment il se calcule"],
             rows: [
               ["Quantité", "Tirée des mesures de la zone — les murs d'une pièce font 2 × (longueur + largeur) × hauteur, en surface brute : les portes et fenêtres ne sont pas déduites, parce que les rendements ont été établis sur la surface brute. Tapez par-dessus n'importe quel chiffre pour le remplacer."],
-              ["Heures", "La quantité divisée par le rendement du tarif — 414 pi² de murs à 100 pi² l'heure, c'est 4,14 heures — plus les heures de préparation de la ligne. Une surface comptée à la pièce, comme une porte, utilise plutôt des heures par pièce."],
+              ["Heures", "La quantité divisée par le rendement du tarif — 414 pi² de murs à 100 pi² l'heure, c'est 4,14 heures — plus les heures de préparation de la ligne. Une surface comptée à la pièce, comme une porte, utilise plutôt des heures par pièce. Vos tarifs valent pour les couches standard de chaque surface — deux pour les murs, plafonds, boiseries, portes et armoires, une pour le revêtement extérieur — et chaque couche prend à peu près le même temps : les mêmes murs font 2,07 heures à 1 couche et 6,21 à 3 couches. Les heures de préparation ne changent jamais avec les couches."],
               ["Main-d'œuvre", "Les heures multipliées par le **Taux horaire de vente** de la grille. Un tarif à prix fixe par unité vend plutôt la quantité à ce prix, et ses heures de préparation au taux horaire."],
               ["Peinture", "La quantité multipliée par les couches, divisée par le pouvoir couvrant du produit, multipliée par ce que vous payez le gallon. Le montant utilise les gallons que la ligne consomme réellement, pas les contenants que vous achèterez."],
             ],
           } },
-          { note: "Vos tarifs couvrent déjà deux couches. Une **Couche supplémentaire** offerte au client ajoute une couche de peinture de plus et une part des heures de la ligne, fixée dans la grille." },
+          { note: "Une **Couche supplémentaire** offerte au client ajoute une couche de peinture de plus et les heures d'une couche — les heures de la ligne divisées par ses couches. Sur les portes d'armoires et les façades de tiroirs, seules les minutes de peinture comptent comme une couche; le ponçage, le dégraissage et l'époussetage se font une fois." },
+          { p: "**Temps de séchage entre les couches** : une zone qui a une ligne à deux couches ou plus demande combien de temps une couche doit sécher (les armoires partent de l'heure du modèle de main-d'œuvre des armoires). Il n'est facturé que si vous cochez **L'équipe attend sur place pendant le séchage** — une fois par intervalle entre les couches, au taux horaire de la zone. Sans la coche, l'équipe travaille ailleurs pendant le séchage et rien ne s'ajoute." },
         ],
       },
       {
@@ -1230,7 +1231,7 @@ export const ARTICLES = {
             "Pour chaque tarif, son nom, la situation à laquelle il sert, sa façon de le chiffrer — un rendement ou des heures par pièce multipliés par votre taux horaire, ou un prix fixe par unité — et son chiffre. Un chiffre que vous changez est mis en évidence avec un bouton pour le rétablir.",
             "Un tarif par défaut ne peut pas être supprimé, mais **Masquer dans le sélecteur** le retire de la liste dans les soumissions; un tarif que vous avez ajouté peut être retiré. Des étiquettes près des tarifs par défaut disent d'où ils viennent : **✓ recalculé** pour les chiffres déduits de chantiers terminés; **analogue** et **exemple** pour des positions de départ à vérifier avant de soumissionner avec.",
             "**Produits de peinture — ce que vous payez** : le coût au gallon de chaque produit. Un produit sans prix est compté en gallons et non chiffré — jamais comme de la peinture gratuite.",
-            "**Couche supplémentaire — main-d'œuvre, en part des heures de la ligne** : ce qu'une couche de plus ajoute en main-d'œuvre, en plus de sa peinture.",
+            "**Les couches changent le temps de main-d'œuvre**, activé par défaut : 1 couche, c'est la moitié des heures de 2, 3 couches une fois et demie, sur vos tarifs comme sur les nôtres. Désactivez-le si vos tarifs comptent déjà les couches — elles ne changent alors que la peinture, et **Couche supplémentaire — main-d'œuvre, en part des heures de la ligne** fixe ce qu'une couche de plus ajoute en main-d'œuvre.",
           ] },
         ],
       },

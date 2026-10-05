@@ -314,8 +314,12 @@ const xcCustom = withOptions([newPaintOption("extra_coat", { substrateIndex: 0, 
 eq("extra coat: a typed amount wins", xcCustom.amount, 180);
 eq("extra coat: and is marked custom", xcCustom.custom, true);
 eq("extra coat: the takeoff's figure is still there", xcCustom.computedAmount, 284.31);
-const xcNoLabour = paintTakeoff(living({ options: [newPaintOption("extra_coat", { substrateIndex: 0 })] }), { ...B, extraCoatHoursPct: 0 }).areas[0].options[0];
-eq("extra coat: at 0% it is paint alone", xcNoLabour.amount, 73.51);
+// The share applies only with "Coats change labour time" OFF (2026-10-05);
+// with it on (the default), an extra coat is one coat's hours, whatever the share.
+const xcNoLabour = paintTakeoff(living({ options: [newPaintOption("extra_coat", { substrateIndex: 0 })] }), { ...B, coatsChangeLabour: false, extraCoatHoursPct: 0 }).areas[0].options[0];
+eq("extra coat: rule off, at 0% it is paint alone", xcNoLabour.amount, 73.51);
+const xcRuleOn = paintTakeoff(living({ options: [newPaintOption("extra_coat", { substrateIndex: 0 })] }), { ...B, extraCoatHoursPct: 0 }).areas[0].options[0];
+eq("extra coat: rule on, the share is not read — one coat's hours", xcRuleOn.amount, 284.31);
 const xcOnMissing = withOptions([newPaintOption("extra_coat", { substrateIndex: 9 })]);
 eq("extra coat: on a row that does not exist → no option", xcOnMissing.areas[0].options.length, 0);
 const xcOnOptional = withOptions([newPaintOption("extra_coat", { substrateIndex: 0 })], { substrates: [sub("walls", { optional: true }, "interior")] });

@@ -223,7 +223,11 @@ export default function PaintRateSets({ book, overrides, onChange }) {
   const set = useMemo(() => own(takeoff.rateSets, type) || { rates: {} }, [takeoff, type]);
   const defaults = own(PAINT_TAKEOFF_DEFAULTS.rateSets, type) || { rates: {} };
   const ov = overrides || {};
-  const customised = Boolean(readPath(ov, "takeoff.rateSets") || readPath(ov, "takeoff.products") || readPath(ov, "takeoff.extraCoatHoursPct"));
+  const customised = Boolean(readPath(ov, "takeoff.rateSets") || readPath(ov, "takeoff.products") || readPath(ov, "takeoff.extraCoatHoursPct") || readPath(ov, "takeoff.coatsChangeLabour") !== undefined);
+  // Default ON (owner, 2026-10-05); only an explicit false turns it off. Read
+  // from the overrides being edited, not `book` (the last SAVED book), so the
+  // tick and the extra-coat row below follow the click before Save.
+  const coatsChangeLabour = readPath(ov, "takeoff.coatsChangeLabour") !== false;
 
   const setPath = (path, value) => onChange(withPath(ov, path, value));
   const isSet = (path) => readPath(ov, path) !== undefined;
@@ -495,7 +499,42 @@ export default function PaintRateSets({ book, overrides, onChange }) {
             </p>
           </div>
 
-          {/* Extra coat share */}
+          {/* Coats change labour time — on unless the company says its
+              rates already price the coats in (lib/pricing/paintTakeoff.js). */}
+          <div className="flex items-start gap-2">
+            <label className="flex flex-1 min-w-0 items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={coatsChangeLabour}
+                onChange={(e) => setPath("takeoff.coatsChangeLabour", e.target.checked ? undefined : false)}
+              />
+              <span>
+                {t("app.paint.coatsLabour", "Coats change labour time")}
+                <span className="block text-xs text-muted-foreground">
+                  {t(
+                    "app.paint.coatsLabourHint",
+                    "On: your rates are for each surface's standard coats (2 for walls, ceilings, trim, doors and cabinets; 1 for siding) and each coat takes about the same time — 1 coat is half the hours of 2, 3 coats one and a half times. Prep never scales. Turn it off if your rates already price the coats in: coats then change the paint only.",
+                  )}
+                </span>
+              </span>
+            </label>
+            {isSet("takeoff.coatsChangeLabour") ? (
+              <button type="button" onClick={() => setPath("takeoff.coatsChangeLabour", undefined)} className="p-1 text-muted-foreground" title={t("app.rateCard.resetToDefault")}>
+                <RotateCcw size={13} />
+              </button>
+            ) : (
+              <span className="w-[21px]" />
+            )}
+          </div>
+
+          {/* Extra coat — with coats changing labour, one coat's hours (one
+              rule, nothing to set); with it off, the company's share. */}
+          {coatsChangeLabour ? (
+            <p className="text-xs text-muted-foreground" data-extra-coat-linear>
+              {t("app.paint.extraCoatLinear", "An \"Extra coat\" option charges one more coat of paint and one coat's hours — the line's hours ÷ its coats.")}
+            </p>
+          ) : (
           <div className="flex items-center gap-2">
             <span className="flex-1 min-w-0 text-sm text-foreground">
               {t("app.paint.extraCoatPct", "Extra coat — labour, as a share of the line's hours")}
@@ -524,6 +563,7 @@ export default function PaintRateSets({ book, overrides, onChange }) {
               <span className="w-[21px]" />
             )}
           </div>
+          )}
         </div>
       )}
     </div>
