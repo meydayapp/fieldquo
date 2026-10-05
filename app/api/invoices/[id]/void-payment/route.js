@@ -18,6 +18,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { voidManualPayment } from "@/lib/payments/voidPayment";
 import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
@@ -36,6 +37,13 @@ export async function POST(request, { params }) {
       { status: 403 },
     );
   }
+  // And the grid, as every invoice money route asks it: a void takes a row
+  // off an invoice, which is the invoice DELETE level. Owners and admins are
+  // unrestricted on the grid today, so this changes nothing for them; it is
+  // here so the day an admin's grid can be narrowed, this route follows it
+  // rather than the role alone (check:crew-access).
+  const { response: denied } = await levelOrRefusal(member, "invoices", "view_create_edit_delete", "void a payment");
+  if (denied) return denied;
 
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "We couldn't read that request." }, { status: 400 });

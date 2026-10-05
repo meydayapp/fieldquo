@@ -604,8 +604,8 @@ export async function DELETE(request, { params }) {
         // cancel (when it was real work). Nothing about the refusal changed.
         error:
           `This job has ${reasons.join(" and ")} attached, so it can't be deleted — ` +
-          `those are records of work. If it was real work, set it to Cancelled; it stays on the ` +
-          `books and stops appearing as live work. If it was a test, first ` +
+          `those are records of work. Set it to Cancelled instead; it stays on the ` +
+          `books and stops appearing as live work. If it was only a test, first ` +
           [
             taskCount ? `delete its ${taskCount === 1 ? "task" : "tasks"} from To-do` : null,
             timeEntryCount

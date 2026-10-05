@@ -517,7 +517,7 @@ const REASON = "Test payment — no money was received";
   globalThis.__FQ_ROWS.timeEntry = [{ id: "te1", jobId: "job_test", status: "approved" }];
   const job = await del("owner", jobRoute, "job_test");
   t("a job with a task and a time entry is refused → 409", job.status, 409);
-  t("...naming both ways out: cancel if real, clear if a test", /set it to Cancelled/.test(job.body.error) && /If it was a test, first delete its task from To-do and delete its time entry from Timesheets/.test(job.body.error));
+  t("...naming both ways out: cancel if real, clear if a test", /Set it to Cancelled instead/.test(job.body.error) && /If it was only a test, first delete its task from To-do and delete its time entry from Timesheets/.test(job.body.error));
   t("...with the counts", job.body.code === "job_has_records" && job.body.counts.tasks === 1 && job.body.counts.timeEntries === 1);
   globalThis.__FQ_ROWS.task = [];
   globalThis.__FQ_ROWS.timeEntry = [];
