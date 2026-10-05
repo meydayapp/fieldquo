@@ -286,7 +286,7 @@ export const ARTICLES = {
     title: "Soumissions instantanées sur votre site web",
     summary:
       "Activez un métier, fixez vos tarifs et choisissez si le propriétaire voit une fourchette — chaque estimation atterrit dans Révision des estimations, et votre grille de tarifs ne quitte jamais l'entreprise.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Paramètres → Soumissions instantanées** permet à un propriétaire d'obtenir une vraie estimation de départ depuis votre site web en quelques secondes : un toit mesuré à partir de son adresse, une pelouse qu'il trace sur une carte, ou quelques chiffres qu'il tape. Le prix est calculé sur le serveur à partir des tarifs que vous fixez, montré comme une fourchette, et atterrit en brouillon dans votre file de révision avant que quoi que ce soit n'engage.",
       "Cet article est le côté réglages. Ce que voit le propriétaire est dans [[the-instant-estimate-page|La page d'estimation instantanée]], et la révision dans [[estimate-reviews|Révision des estimations]].",
@@ -344,6 +344,7 @@ export const ARTICLES = {
             "**Tranches de budget** — les quatre options montrées quand le formulaire demande son budget; fixez les trois seuils en ordre croissant, sinon les tranches standard sont utilisées.",
             "**Utiliser mes tarifs de services** — apparaît quand vos tarifs de Services et tarifs ont changé depuis l'enregistrement de la carte; il les adopte ici.",
             "**Financement** — facultatif, et FieldQuo n'offre pas de financement. Vos propres mots, ou un lien vers votre fournisseur. Si vous indiquez à la fois un taux annuel et une durée, l'estimation montre aussi une mensualité estimée selon ces conditions; laissez l'un des deux vide et aucune mensualité n'est jamais montrée.",
+            "**Langues de votre estimation instantanée** — cochez les langues que les propriétaires peuvent choisir en haut du formulaire, parmi l'anglais, le français, l'espagnol, l'ukrainien, le pendjabi, le tagalog, l'allemand et l'italien. Tant que vous n'avez rien enregistré, l'anglais, le français et l'espagnol sont offerts — comme tous les formulaires l'ont toujours fait. L'estimation, le courriel et le rapport sont rédigés dans la langue choisie par le propriétaire, et une langue non cochée n'est jamais servie.",
           ] },
           { warning: "Quelle que soit la visibilité, la page publique ne montre jamais la grille de tarifs — seulement une fourchette finale, et seulement quand vous avez choisi de la montrer. Le point d'accès public renvoie des services et des champs, jamais des tarifs. C'est une règle du produit, pas un réglage." },
         ],

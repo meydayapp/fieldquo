@@ -418,7 +418,7 @@ export const ARTICLES = {
     title: "The break-even price",
     summary:
       "The lowest price a job can go out at and still cover the business — your real monthly overhead divided by how many jobs you can take on — and where that figure shows up on a quote.",
-    updated: "2026-09-15",
+    updated: "2026-10-03",
     intro: [
       "Every contractor has a number they have never been able to work out: below what price does a job lose me money before a single hour is worked? FieldQuo works it out from your own fixed costs, salaries, debt and equipment, and shows it on **Settings → Overhead** as **Your minimum price**.",
       "It is not a rule of thumb and it is not an industry average. It is your rent, your truck and your office wage, divided by the jobs you said you can do in a week.",
@@ -484,6 +484,15 @@ export const ARTICLES = {
             "On every quote's **Cost & margin** panel as **Overhead (this job's share)**, with a note: “Overhead is $15,629.90/month of fixed costs spread across 6.5 jobs a month.”",
             "On **Settings → Expense Tracking**, where **Monthly burn rate** is the cash version of the same registers — cash and cost differ when a loan repays capital, and the Overhead screen says so when they do.",
           ] },
+        ],
+      },
+      {
+        id: "the-hourly-floor",
+        heading: "The hourly floor, for work billed by the hour",
+        blocks: [
+          { p: "Work you bill by the hour — an electrician's or plumber's labour, a cleaning crew — is judged per hour, not per job. Type **Billable hours a month** beside Jobs per week on **Settings → Overhead**: the hours the business can actually invoice in a month, across everyone (drive time and quoting are not billable). The screen then shows **Your hourly floor**: your monthly costs ÷ those hours." },
+          { p: "In the quote builder, beside **Cost & margin**, any quote with lines billed by the hour is checked: their average rate against the floor. Below it, an amber warning says what the hourly lines average, the floor, how much the quote is short, and where every number came from. It never blocks the save and never changes a price." },
+          { note: "No profit is included in the hourly floor — that is FieldQuo's default, so the floor is your break-even, not your target. Billable hours are never guessed: with none set, the builder says where to set them and checks nothing." },
         ],
       },
       {

@@ -36,7 +36,9 @@ const ok = (c, m, d) => {
   console.log((c ? "  ok   " : "  FAIL ") + m + (c || d === undefined ? "" : `  — got ${JSON.stringify(d)}`));
   if (!c) fail++;
 };
-const LANGS = ["en", "fr", "es"];
+// The instant form's eight (lib/i18n/instantQuoteCopy.js INSTANT_QUOTE_LANGUAGES):
+// a draft can be created in any of them, so the report is built in each.
+const LANGS = ["en", "fr", "es", "uk", "pa", "tl", "de", "it"];
 
 // ── 1. The copy table ───────────────────────────────────────────────────────
 console.log("\nCopy table");
@@ -44,9 +46,19 @@ console.log("\nCopy table");
   const en = ESTIMATE_REPORT_COPY.en;
   const sample = (fn) => fn("Acme Roofing", "roofing");
   // Words that ARE the same in another language and are allowed to be.
-  // "Date" and "Commercial" are French words spelled as in English.
-  const SAME = { fr: new Set(["Date", "Commercial"]), es: new Set([]) };
-  for (const lang of ["fr", "es"]) {
+  // "Date" and "Commercial" are French words spelled as in English; "Name" is
+  // German; Tagalog writes email, website and the foot units as English does;
+  // the unit after a figure ("… ft") and Italian's "per" are the same words.
+  const SAME = {
+    fr: new Set(["Date", "Commercial"]),
+    es: new Set([]),
+    uk: new Set([]),
+    pa: new Set([]),
+    tl: new Set(["Email", "Website", "Acme Roofing sq ft", "Acme Roofing ft"]),
+    de: new Set(["Name", "Acme Roofing ft"]),
+    it: new Set(["per Acme Roofing"]),
+  };
+  for (const lang of LANGS.filter((l) => l !== "en")) {
     const table = ESTIMATE_REPORT_COPY[lang];
     let missing = 0;
     let english = 0;
@@ -190,6 +202,10 @@ const DATA = new Set([
 
 // ── 3. The model, every trade × every language ──────────────────────────────
 console.log("\nModel");
+const SAME_IN_MODEL = {
+  tl: [/^Email$/, /^Website$/, /^[\d.,\s]+ (sq )?ft$/],
+  de: [/^Name$/, /^[\d.,\s]+ ft$/],
+};
 const enStrings = new Map();
 for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
   for (const language of LANGS) {
@@ -224,7 +240,11 @@ for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
     const strings = flatten(report).filter((s) => !DATA.has(s) && !/^[\d\s.,]+$/.test(s));
     if (language === "en") enStrings.set(trade, new Set(strings));
     else {
-      const leaked = strings.filter((s) => enStrings.get(trade).has(s));
+      // The same words the copy-table section allows (German "Name"; Tagalog
+      // writes "Email", "Website" and the foot units as English does), plus a
+      // figure followed by one of those units.
+      const sameOk = (s) => SAME_IN_MODEL[language]?.some((re) => re.test(s));
+      const leaked = strings.filter((s) => enStrings.get(trade).has(s) && !sameOk(s));
       ok(leaked.length === 0, `${label}: no English string in the model`, leaked.slice(0, 5));
     }
   }

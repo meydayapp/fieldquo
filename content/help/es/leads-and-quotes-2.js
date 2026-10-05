@@ -414,7 +414,7 @@ export const ARTICLES = {
     title: "El precio de equilibrio",
     summary:
       "El precio más bajo al que puede salir un trabajo y aun así cubrir el negocio — sus gastos generales mensuales reales divididos por cuántos trabajos puede asumir — y dónde aparece esa cifra en un presupuesto.",
-    updated: "2026-09-15",
+    updated: "2026-10-03",
     intro: [
       "Todo contratista tiene un número que nunca ha podido calcular: ¿por debajo de qué precio un trabajo me hace perder dinero antes de trabajar una sola hora? FieldQuo lo calcula a partir de sus propios costos fijos, salarios, deudas y equipos, y lo muestra en **Configuración → Gastos generales** como **Tu precio mínimo**.",
       "No es una regla de dedo ni un promedio de la industria. Es su alquiler, su camioneta y su sueldo de oficina, divididos por los trabajos que usted dijo que puede hacer en una semana.",
@@ -480,6 +480,15 @@ export const ARTICLES = {
             "En el panel **Costo y margen** de cada presupuesto como **Overhead (this job's share)**, con una nota: «Overhead is $15,629.90/month of fixed costs spread across 6.5 jobs a month.»",
             "En **Configuración → Control de gastos**, donde el **Ritmo de gasto mensual** es la versión en efectivo de los mismos registros — el efectivo y el costo difieren cuando un préstamo devuelve capital, y la pantalla de Gastos generales lo dice cuando ocurre.",
           ] },
+        ],
+      },
+      {
+        id: "the-hourly-floor",
+        heading: "El mínimo por hora, para el trabajo cobrado por hora",
+        blocks: [
+          { p: "El trabajo que cobra por hora — la mano de obra de un electricista o plomero, un equipo de limpieza — se juzga por hora, no por trabajo. Escriba las **Horas facturables al mes** junto a los trabajos por semana en **Configuración → Gastos generales**: las horas que la empresa realmente puede facturar en un mes, entre todos (los traslados y los presupuestos no son facturables). La pantalla muestra entonces **Su mínimo por hora**: sus costos mensuales ÷ esas horas." },
+          { p: "En el generador de presupuestos, junto a **Costo y margen**, se revisa todo presupuesto con líneas cobradas por hora: su tarifa promedio frente al mínimo. Por debajo, un aviso ámbar dice el promedio de las líneas por hora, el mínimo, cuánto falta en el presupuesto y de dónde sale cada cifra. Nunca bloquea el guardado ni cambia un precio." },
+          { note: "El mínimo por hora no incluye ganancia — es el valor predeterminado de FieldQuo, así que el mínimo es su punto de equilibrio, no su objetivo. Las horas facturables nunca se adivinan: sin ellas, el generador indica dónde fijarlas y no revisa nada." },
         ],
       },
       {

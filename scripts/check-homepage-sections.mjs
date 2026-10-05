@@ -240,7 +240,7 @@ section("4. The research is the report's, attributed, and worded as shares");
   ok("no figure beyond the report's eight", RESEARCH_STATS.length === 8);
   ok(
     "the source is named with its sample and date",
-    RESEARCH_SOURCE.report === "BuildOps 2026 Customer Benchmark Report" &&
+    RESEARCH_SOURCE.report === "2026 Customer Benchmark Report" && !/fieldquo/i.test(RESEARCH_SOURCE.report) &&
       RESEARCH_SOURCE.contractors === 54 &&
       RESEARCH_SOURCE.published.year === 2026 &&
       RESEARCH_SOURCE.published.month === 4,

@@ -295,7 +295,10 @@ console.log("\n10. The costing takeoff and the document evidence\n");
   ok(measureCaption(traced, "lawn_care", "en") === "Lawn measured: 1,850 sq ft", "EN: Lawn measured: 1,850 sq ft", measureCaption(traced, "lawn_care", "en"));
   ok(measureCaption(traced, "lawn_care", "fr") === MEASURE_DOC_COPY.fr.lawnMeasured(1850) && /^Pelouse mesurée\u00a0: 1\u00a0850 pi²$/u.test(measureCaption(traced, "lawn_care", "fr")), "FR (fr-CA groups thousands with a no-break space)", measureCaption(traced, "lawn_care", "fr"));
   ok(measureCaption(traced, "lawn_care", "es") === "Césped medido: 1850 pies²", "ES", measureCaption(traced, "lawn_care", "es"));
-  ok(measureCaption(traced, "lawn_care", "de") === "Lawn measured: 1,850 sq ft", "an unknown language falls back to English, never a translation");
+  // German is a row of its own since 2026-10-03 (the instant form creates
+  // drafts in all eight languages); zh is the app shell's, not a document's.
+  ok(measureCaption(traced, "lawn_care", "de") === "Rasen vermessen: 1.850 ft²", "DE (its own hand-written row)", measureCaption(traced, "lawn_care", "de"));
+  ok(measureCaption(traced, "lawn_care", "zh") === "Lawn measured: 1,850 sq ft", "an unknown language falls back to English, never a translation");
   ok(/minimum band/.test(measureCaption({ lawn: { areaSqft: 1500, basis: "minimum" } }, "lawn_care", "en")), "the minimum band is never captioned 'measured'");
   ok(/estimated/.test(measureCaption({ lawn: { areaSqft: 804, basis: "parcel", source: "parcel_gatineau" } }, "lawn_care", "en")), "a parcel figure is 'estimated'");
   ok(measureCaption({ areaSqft: 2163, pitchRise: 6, measuredFrom: "satellite" }, "roofing_service", "en") === "Roof measured from satellite: 2,163 sq ft, 6/12 pitch", "roofing caption");
@@ -344,12 +347,12 @@ console.log("\n11. The builder's lines, and the two doors producing one document
 console.log("\n12. Copy, and the callback payload against hostile input\n");
 {
   const keys = Object.keys(LAWN_ESTIMATE_COPY.en);
-  for (const l of ["fr", "es"]) ok(keys.every((k) => k in LAWN_ESTIMATE_COPY[l]), `lawnEstimateCopy.${l} has every English key`, keys.filter((k) => !(k in LAWN_ESTIMATE_COPY[l])));
+  for (const l of ["fr", "es", "uk", "pa", "tl", "de", "it"]) ok(keys.every((k) => k in LAWN_ESTIMATE_COPY[l]), `lawnEstimateCopy.${l} has every English key`, keys.filter((k) => !(k in LAWN_ESTIMATE_COPY[l])));
   ok(lawnEstimateCopy("xx") === LAWN_ESTIMATE_COPY.en && lawnEstimateCopy(null) === LAWN_ESTIMATE_COPY.en, "unknown language → English");
   ok(lawnSourceSentence("parcel_gatineau", "en") === LAWN_ESTIMATE_COPY.en.sourceParcel && lawnSourceSentence("traced", "fr") === LAWN_ESTIMATE_COPY.fr.sourceTraced && lawnSourceSentence("minimum", "es") === LAWN_ESTIMATE_COPY.es.sourceMinimum && lawnSourceSentence(undefined, "en") === LAWN_ESTIMATE_COPY.en.sourceMinimum, "the source sentence follows the source, unknown → minimum wording");
   ok(/trace your lawn to correct it/i.test(LAWN_ESTIMATE_COPY.en.sourceMinimum) && !/measured/i.test(LAWN_ESTIMATE_COPY.en.sourceMinimum), "the minimum-band sentence says 'estimated … trace to correct', never 'measured'");
   ok(JSON.stringify(CALLBACK_TIMES) === JSON.stringify(["morning", "afternoon", "evening", "anytime"]), "four preferred times");
-  ok(LAWN_ESTIMATE_COPY.fr.cbTimeOptions.length === 4 && LAWN_ESTIMATE_COPY.es.cbTimeOptions.length === 4, "…in every language");
+  ok(Object.values(LAWN_ESTIMATE_COPY).every((c) => c.cbTimeOptions.length === 4 && c.cbTimeOptions.every(([k], i) => k === CALLBACK_TIMES[i])), "…in every language, same keys in the same order");
 
   ok(cleanCallbackRequest({ name: "Ann" }).ok === false, "no phone → refused");
   ok(cleanCallbackRequest({ phone: "" }).ok === false && cleanCallbackRequest({ phone: "call me" }).ok === false && cleanCallbackRequest({ phone: "123" }).ok === false, "empty / letters / too short → refused");

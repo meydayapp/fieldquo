@@ -10,15 +10,13 @@
 // and Summit Ridge's tagline on the company card.
 //
 // DOCUMENT language: what the homeowner's pages and the draft are written in.
-// The real instant-quote form, its estimate report and the draft it creates
-// exist in English, French and Spanish only (lib/i18n/instantQuoteCopy.js
-// INSTANT_QUOTE_LANGUAGES), and a quote keeps the language it was created in
-// (non-negotiable #6). So a visitor reading in French or Spanish gets the
-// form, the report, the draft and the quote page in their language; one
-// reading in German, Ukrainian, Punjabi, Tagalog, Italian or Chinese gets
-// them in English, and step 1 says why (formLanguageNote). Rendering those
-// pages in a language the product cannot produce would show a homeowner page
-// that does not exist — the one thing this showcase must not do.
+// The walk-through shows the instant-quote form, its estimate report and the
+// draft it creates in English, French and Spanish only (SHOWCASE_DOCUMENT_
+// LANGUAGES below says why, now that the form itself has eight), and a quote
+// keeps the language it was created in (non-negotiable #6). So a visitor
+// reading in French or Spanish gets the form, the report, the draft and the
+// quote page in their language; one reading in any other site language gets
+// them in English, and step 1 says why (formLanguageNote).
 //
 // The sample company is treated as WRITING in the document language: its
 // company language, its saved option names and its own words (About, the
@@ -28,12 +26,25 @@
 //
 // Pure: no React. The fixture is never mutated.
 
-import { instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
+import { INSTANT_QUOTE_DEFAULT_LANGUAGES, instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
 import { summitRidgeContentFor } from "./summitRidgeContent";
+
+/**
+ * The document languages the walk-through shows — still English, French and
+ * Spanish. Since 2026-10-03 the real form can be read in all eight
+ * (INSTANT_QUOTE_LANGUAGES), but that is a per-company opt-in whose default
+ * is exactly these three, and step 1's own note (formLanguageNote in
+ * app/i18n/industries/*.js, every marketing language) still tells the reader
+ * the homeowner pages exist in English, French and Spanish. Widening this
+ * without rewording that note in every language would make the note false
+ * for the languages left over, so the two move together, in one change.
+ */
+export const SHOWCASE_DOCUMENT_LANGUAGES = INSTANT_QUOTE_DEFAULT_LANGUAGES;
 
 /** The language the homeowner's pages and the draft are in, for a site language. */
 export function documentLanguageFor(siteLanguage) {
-  return instantQuoteLanguage(siteLanguage) || "en";
+  const code = instantQuoteLanguage(siteLanguage);
+  return code && SHOWCASE_DOCUMENT_LANGUAGES.includes(code) ? code : "en";
 }
 
 /**

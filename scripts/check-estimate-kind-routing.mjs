@@ -549,13 +549,17 @@ console.log("8. researched defaults, the stain distinction, and existing quotes"
   {
     const cat = TF.find((c) => c.key === "cabinet_refinishing");
     const stained = newScopeGroup(cat, "Stained cabinets", null, { tempId: "s", intakeValues: { doorCount: 20, drawerCount: 8 }, addOns: ["stainFinish"] });
-    const lines = cabinetAddOnLinesFor(stained);
-    const line = lines.find((l) => /Stain finish/.test(l.description));
-    ok("a stained kitchen carries the premium per piece: 28 × $45 = $1,260", line && line.quantity === 28 && line.rate === 45 && line.amount === 1260, lines);
+    // 2026-10-04: a stained piece is priced ALL-IN on the unit line — the
+    // painting rate plus the stain difference ($150 + $45 = $195) — never an
+    // add-on line and never an hourly stripping line (check:stain-finish).
+    const saved = scopeGroupPayload(stained, null, "en");
+    ok("a stained kitchen is 28 × $195 all-in = $5,460, one line", saved.lineItems.length === 1 && saved.lineItems[0].quantity === 28 && saved.lineItems[0].rate === 195 && saved.lineItems[0].amount === 5460, saved.lineItems);
+    ok("…the same total origin/main charged as $150 + a $45 add-on", groupSubtotal(stained) === 5460);
+    ok("…and no add-on line for the stain", !cabinetAddOnLinesFor(stained).some((l) => /tain/.test(l.description)));
     const painted = newScopeGroup(cat, "Painted cabinets", null, { tempId: "p", intakeValues: { doorCount: 20, drawerCount: 8 } });
-    ok("a painted kitchen carries no stain line", !cabinetAddOnLinesFor(painted).some((l) => /Stain/.test(l.description)));
+    ok("a painted kitchen carries no stain line", !scopeGroupPayload(painted, null, "en").lineItems.some((l) => /stain/i.test(l.description)));
     const zeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
-    ok("a company that zeroed it cannot tick it", !zeroed.stainFinish);
+    ok("a company that zeroed the stain difference cannot tick it", !zeroed.stainFinish);
   }
   // Existing quotes, the second set, against origin/main f74dd7f9.
   const PINNED_MORE = {

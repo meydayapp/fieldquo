@@ -2,10 +2,12 @@
 //
 // The forecast settings anything in the product actually reads: job capacity
 // (per week or per month), which lib/analytics/minimumPrice.js divides
-// overhead by; the target margin it then marks the cost per job up by; and
-// billable crew hours a month, which a quote's overhead is shared by (the
-// job's crew-hours ÷ these — lib/costing/overheadShare.js, the owner's rule
-// of 2026-10-04) and which the hourly floor divides by.
+// overhead by; the target margin it then marks the cost per job up by; and,
+// since 2026-10-03, billable hours a month — the HOURLY floor's divisor
+// (lib/analytics/hourlyFloor.js, read by /api/analytics/hourly-floor and the
+// quote builder's warning) and, since 2026-10-04, the divisor a quote's
+// overhead is shared by (the job's crew-hours ÷ these —
+// lib/costing/overheadShare.js, the owner's rule).
 //
 // ── Why only these fields ───────────────────────────────────────────────────
 //
@@ -31,17 +33,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
-import { parseCapacity, parseBillableHours } from "@/lib/analytics/capacity";
-import { billableHoursFrom } from "@/lib/costing/overheadShare";
-
-// The columns both handlers read back — one list, so GET and PUT cannot
-// drift on which settings exist.
-const FORECAST_SELECT = {
-  jobsPerWeekCapacity: true,
-  jobsPerMonthCapacity: true,
-  targetMargin: true,
-  billableHoursPerMonth: true,
-};
+import { parseCapacity } from "@/lib/analytics/capacity";
+import { parseBillableHours, MAX_BILLABLE_HOURS_PER_MONTH } from "@/lib/analytics/hourlyFloor";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -49,7 +42,7 @@ export async function GET(request) {
 
   const row = await db.forecastSettings.findUnique({
     where: { companyId: member.companyId },
-    select: FORECAST_SELECT,
+    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true, billableHoursPerMonth: true },
   });
 
   return NextResponse.json({
@@ -60,10 +53,8 @@ export async function GET(request) {
     // month, as typed, rather than the weekly figure derived from it.
     jobsPerMonthCapacity: row?.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(row?.targetMargin),
-    // A Decimal on the row; a number or null here. Read through the same
-    // bound the quote costing reads it through, so a stored value the costing
-    // would ignore is not shown on the screen as if it counted.
-    billableHoursPerMonth: billableHoursFrom(row?.billableHoursPerMonth),
+    // The hourly floor's divisor (lib/analytics/hourlyFloor.js). null = not said.
+    billableHoursPerMonth: row?.billableHoursPerMonth ?? null,
   });
 }
 
@@ -123,14 +114,18 @@ export async function PUT(request) {
   }
   const marginWrite = margin.skip ? {} : { targetMargin: margin.value };
 
-  // Billable crew hours a month — the divisor a quote's overhead is shared
-  // by. Same discipline as the margin: refused, not clamped, and refused
-  // before anything is written (lib/analytics/capacity.js parseBillableHours).
-  const hours = parseBillableHours(body?.billableHoursPerMonth);
-  if (hours.error) {
-    return NextResponse.json({ error: hours.error }, { status: 400 });
+  // Billable hours a month — the hourly floor's divisor (2026-10-03,
+  // lib/analytics/hourlyFloor.js). Same three readings as the margin: absent
+  // leaves the column, null/"" clears it, anything else must be a whole
+  // number of hours a month could hold — rejected, never clamped.
+  const billable = parseBillableHours(body?.billableHoursPerMonth);
+  if (billable.error) {
+    return NextResponse.json(
+      { error: `Billable hours must be a whole number between 1 and ${MAX_BILLABLE_HOURS_PER_MONTH}.` },
+      { status: 400 },
+    );
   }
-  const hoursWrite = hours.skip ? {} : { billableHoursPerMonth: hours.value };
+  const billableWrite = billable.skip ? {} : { billableHoursPerMonth: billable.value };
 
   // Clearing it back to "unknown" has to be possible: the minimum-price
   // calculation refuses to answer without a capacity, and a company that isn't
@@ -146,23 +141,23 @@ export async function PUT(request) {
       jobsPerWeekCapacity: cap.week,
       jobsPerMonthCapacity: cap.month,
       ...marginWrite,
-      ...hoursWrite,
+      ...billableWrite,
     },
     update: {
       jobsPerWeekCapacity: cap.week,
       jobsPerMonthCapacity: cap.month,
       ...marginWrite,
-      ...hoursWrite,
+      ...billableWrite,
     },
-    select: FORECAST_SELECT,
+    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true, billableHoursPerMonth: true },
   });
 
   const marginWords = margin.skip
     ? ""
     : `, target margin ${margin.value === null ? "not set" : `${Math.round(margin.value * 100)}%`}`;
-  const hoursWords = hours.skip
+  const hoursWords = billable.skip
     ? ""
-    : `, billable crew hours ${hours.value === null ? "not set" : `${hours.value}/month`}`;
+    : `, billable hours ${billable.value === null ? "not set" : `${billable.value}/month`}`;
   await recordActivity(member, {
     action: "settings.forecast_updated",
     entityType: "settings",
@@ -171,7 +166,7 @@ export async function PUT(request) {
       jobsPerWeekCapacity: cap.week || null,
       ...(cap.month !== null ? { jobsPerMonthCapacity: cap.month } : {}),
       ...(margin.skip ? {} : { targetMarginPct: toPct(margin.value) }),
-      ...(hours.skip ? {} : { billableHoursPerMonth: hours.value }),
+      ...(billable.skip ? {} : { billableHoursPerMonth: billable.value }),
     },
   });
 
@@ -179,6 +174,6 @@ export async function PUT(request) {
     jobsPerWeekCapacity: saved.jobsPerWeekCapacity || null,
     jobsPerMonthCapacity: saved.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(saved.targetMargin),
-    billableHoursPerMonth: billableHoursFrom(saved.billableHoursPerMonth),
+    billableHoursPerMonth: saved.billableHoursPerMonth ?? null,
   });
 }

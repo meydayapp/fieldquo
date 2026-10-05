@@ -767,7 +767,7 @@ export const ARTICLES = {
     title: "Quote types and takeoffs",
     summary:
       "Settings → Services & Pricing: the quote types you turn on, the four ways a type prices — takeoff, unit grid, tiers or questions — the rate card behind each, and custom types.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "A **quote type** is what a service tile in the builder stands for: a kind of work, the questions it asks, and the rate card it prices from. **Settings → Services & Pricing** is where you turn types on and off, set the rates, and write what the quote says about each one. The tiles on **New Quote** are exactly the types that are on here.",
       "Some types price from a **takeoff** — a structured form that measures the job and writes the lines for you. Others price per unit, from a menu of tiers, or from a short set of questions and a flat rate.",
@@ -811,6 +811,19 @@ export const ARTICLES = {
             ],
           } },
           { p: "Sixteen trades carry a full rate card; the rest have a single **Rate** per unit. Whatever the method, the result is the same kind of line — a description and an amount — and the client-facing page, email and PDF read only those. Production rates, formulas and sell rates stay on your side." },
+        ],
+      },
+      {
+        id: "stain-gel-or-liquid",
+        heading: "Staining: gel or liquid",
+        blocks: [
+          { p: "Wherever a quote stains wood — the **Stained instead of painted** option on cabinet refinishing, and each staircase on stairs — you choose which stain:" },
+          { bullets: [
+            "**Liquid (penetrating) stain — bare wood.** It soaks into the wood, so the existing finish has to come off first. It can blotch on maple, birch, cherry and pine.",
+            "**Gel stain — over the existing finish.** It sits on top of the old finish after a clean and a light scuff, with no stripping, and does not blotch. It is slower per piece: more hand-wiped coats and longer drying between them.",
+          ] },
+          { p: "**Cabinets are priced all-in per stained door or drawer front** — one line on the quote, never a stain add-on and never a separate stripping charge. The stained rate is your painting rate plus the stain difference from your rate card: to bare wood (liquid, or any stain going **dark → light**) **+$45**, so **$195** a piece on the $150 default — about 30% over painting, the work of stripping or sanding to bare wood included; gel over the existing finish **+$0**, so the same **$150** as painting. Both differences are researched defaults on the rate card; type your own. An island stained beside painted cabinets is two lines: the painted pieces at your painting rate and the stained ones all-in." },
+          { p: "**Stripping is never charged twice.** On cabinets it is inside the stained rate; the **Chemical stripper** / **Sanding** buttons only set your crew's hours in **Cost & margin** (researched defaults: chemical 0.75 h a door and 0.25 h a drawer front, sanding 0.4 and 0.15 — internal rows on the rate card). On stairs the tread rate already includes sanding a clear finish; a **painted** staircase stained to bare wood (**What is on it now → Paint**) is priced on the **High** tier, whose rates include stripping the paint — the section says so and offers **Use the High tier**. The stair tread rate is the same for liquid and gel, and the choice is printed under the treads line. **Staining → Stairs** opens its staircase on liquid." },
         ],
       },
       {
@@ -867,6 +880,7 @@ export const ARTICLES = {
       { q: "Can a client see my rates?", a: "Never. The public form returns services and questions only; the takeoff, the formula and the rate card are not sent to any client-facing page." },
       { q: "What is the difference between a rate card and Products & Services?", a: "The rate card prices the main scope of a trade — per door, per square, per foot — and writes the core lines. Products & Services holds one-off extras you drop on any quote. See [[lines-from-your-price-book|Lines from your price book]]." },
       { q: "Why does my trade have no Rate card?", a: "Only sixteen trades ship a full card. The others take one Rate per unit here and price their lines by hand or from the price book." },
+      { q: "Why does a Drywall quote not ask the square footage or ceiling height?", a: "**Drywall** is the repair quote type: each repair is a fixed-price item from the **Repairs** panel — small patch, medium patch, large patch, sheet replacement — priced from your rate card whatever the size of the room. The two room questions changed no repair price, so they were taken off (3 October 2026). **Drywall Installation** still asks the square footage, because the hang and finishing lines bill by it." },
     ],
   },
 

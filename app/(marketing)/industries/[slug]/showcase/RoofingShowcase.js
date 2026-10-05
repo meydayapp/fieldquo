@@ -42,7 +42,6 @@ import Link from "next/link";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { industryChromeFor, industryShowcaseFor } from "@/app/i18n/industries";
-import { instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
 import InstantQuoteFlow from "@/app/instant-quote/[companySlug]/InstantQuoteFlow";
 import LeadsRoute from "@/app/app/leads/page";
 import EstimateReviewsPage from "@/app/app/estimate-reviews/page";
@@ -51,7 +50,7 @@ import MiniQuote from "./MiniQuote";
 import { QuotePagePreview, ReportPreview, ViewToggle } from "./ClientPreviews";
 import { defaultBody, runRequest } from "./roofingRun";
 import LiveAddress from "./LiveAddress";
-import { fixtureInLanguage } from "./showcaseLanguage";
+import { documentLanguageFor, fixtureInLanguage } from "./showcaseLanguage";
 
 function Step({ n, title, body, children, headingRef = null, id }) {
   return (
@@ -112,9 +111,10 @@ export default function RoofingShowcase({ fixture, anchor }) {
   const { language } = useTranslation();
   const copy = industryShowcaseFor(language);
   const chrome = industryChromeFor(language);
-  // The homeowner's page speaks the three languages the form is written in;
-  // any other site language reads it in English and says so.
-  const flowLang = instantQuoteLanguage(language) || "en";
+  // The homeowner's page speaks the three languages the walk-through shows
+  // (./showcaseLanguage.js SHOWCASE_DOCUMENT_LANGUAGES); any other site
+  // language reads it in English and says so.
+  const flowLang = documentLanguageFor(language);
 
   // The house on show: the sample's until the visitor measures a real address
   // or types a roof size (./LiveAddress.js), which hands back the same

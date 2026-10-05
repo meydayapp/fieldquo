@@ -8,6 +8,7 @@
 // with the reasons shown on the quote/PDF.
 
 import { resolveComplexity } from "@/lib/pricing/complexity";
+import { stainedPieceCount, stainPremiumPerUnit, stainedUnitRate } from "@/lib/pricing/stainFinish";
 
 export const UNIT_PRICED_CATEGORIES = ["cabinet_refinishing", "cabinet_refacing"];
 
@@ -162,6 +163,14 @@ export function groupUnits(group) {
 
 // Revenue from the base scope (units × final unit price). Add-on line items
 // are summed separately by the caller.
+//
+// Stained pieces (2026-10-04, lib/pricing/stainFinish.js) are priced all-in at
+// the final unit price plus the stain difference from the book; with no stain
+// tick there are none and this is units × final unit price exactly as before.
 export function unitPricingSubtotal(group, book = null) {
-  return groupUnits(group) * finalUnitPrice(group, book);
+  const units = groupUnits(group);
+  const rate = finalUnitPrice(group, book);
+  const stained = stainedPieceCount(group, units);
+  if (!stained) return units * rate;
+  return (units - stained) * rate + stained * stainedUnitRate(rate, stainPremiumPerUnit(group, book));
 }

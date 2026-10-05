@@ -93,11 +93,11 @@ const exitAt = flowSrc.indexOf("function RequestQuoteLink(");
 const exitComponent = balancedAfter(flowSrc, flowSrc.indexOf(") {", exitAt));
 ok("...renders an anchor to /quote/<slug>", /<a\s[\s\S]*href=\{`\/quote\/\$\{companySlug\}`\}/.test(exitComponent || ""));
 ok("...the route it points at exists on disk", existsSync(QUOTE_PAGE));
-// The text comes from the three-language table now (lib/i18n/
-// instantQuoteCopy.js `requestQuoteInstead`), so the anchor is checked for
-// the key and the table for the sentence in every language.
+// The text comes from the language table now (lib/i18n/instantQuoteCopy.js
+// `requestQuoteInstead`, eight languages), so the anchor is checked for the
+// key and the table for the sentence in every language.
 ok("...and the anchor carries visible text", /\{t\.requestQuoteInstead\}/.test(exitComponent || ""));
-ok("...in English, French and Spanish", ["en", "fr", "es"].every((c) => /→/.test(INSTANT_QUOTE_COPY[c].requestQuoteInstead)));
+ok("...in every language the form can be read in", Object.values(INSTANT_QUOTE_COPY).length === 8 && Object.values(INSTANT_QUOTE_COPY).every((c) => /→/.test(c.requestQuoteInstead)));
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\nEvery failure branch in the flow renders a route out");
@@ -454,12 +454,17 @@ ok("refinishing gets both complexity uplifts",
 // Eight since 2026-10-03: the stain finish (strip and re-stain), which the
 // estimator prices through cabinetAddOnLines when a call or form asks for it.
 ok("...and all eight upgrade rates", paths(refinishFields).filter((p) => p.startsWith("addOns.")).length === 8, paths(refinishFields));
+ok("...and no gel-stain box: the instant estimate never prices gel", !paths(refinishFields).includes("addOns.gelStainPerUnit"));
+ok("...nor a stripping-hours box: it has no labour rate to price them at", !paths(refinishFields).some((p) => p.startsWith("stripping.")));
 
 // Every rate the estimator can charge for has a box. The reverse of the dead
 // control: a live rate with no editor is the bug this whole section is about.
 const seedRefinish = INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing;
 const wantedPaths = [
-  ...Object.keys(seedRefinish.addOns).map((k) => `addOns.${k}`),
+  // Less the gel stain rate: the seed copies the book's add-ons, but the
+  // instant estimate asks no stain type, so it never prices gel
+  // (lib/estimate/instantRateFields.js BOOK_ONLY_FIELDS).
+  ...Object.keys(seedRefinish.addOns).filter((k) => k !== "gelStainPerUnit").map((k) => `addOns.${k}`),
   // `standard` is zero by definition, so the book declares no field for it.
   ...Object.keys(seedRefinish.complexityUpchargePerUnit)
     .filter((k) => k !== "standard")

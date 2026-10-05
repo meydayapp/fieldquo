@@ -414,7 +414,7 @@ export const ARTICLES = {
     title: "Le prix de rentabilité",
     summary:
       "Le prix le plus bas auquel un chantier peut sortir tout en couvrant l'entreprise — vos vrais frais généraux mensuels divisés par le nombre de chantiers que vous pouvez prendre — et où ce chiffre apparaît sur une soumission.",
-    updated: "2026-09-15",
+    updated: "2026-10-03",
     intro: [
       "Chaque entrepreneur a un chiffre qu'il n'a jamais pu calculer : sous quel prix un chantier me fait-il perdre de l'argent avant même la première heure travaillée ? FieldQuo le calcule à partir de vos propres coûts fixes, salaires, dettes et équipements, et l'affiche sous **Paramètres → Frais généraux** comme **Votre prix minimum**.",
       "Ce n'est pas une règle du pouce et ce n'est pas une moyenne de l'industrie. C'est votre loyer, votre camion et votre salaire de bureau, divisés par les chantiers que vous avez dit pouvoir faire en une semaine.",
@@ -480,6 +480,15 @@ export const ARTICLES = {
             "Sur le panneau **Coût et marge** de chaque soumission comme **Overhead (this job's share)**, avec une note : « Overhead is $15,629.90/month of fixed costs spread across 6.5 jobs a month. »",
             "Sous **Paramètres → Suivi des dépenses**, où le **Rythme de dépenses mensuel** est la version « encaisse » des mêmes registres — l'encaisse et le coût diffèrent quand un prêt rembourse du capital, et l'écran Frais généraux le dit quand c'est le cas.",
           ] },
+        ],
+      },
+      {
+        id: "the-hourly-floor",
+        heading: "Le plancher horaire, pour le travail facturé à l'heure",
+        blocks: [
+          { p: "Le travail facturé à l'heure — la main-d'œuvre d'un électricien ou d'un plombier, une équipe de nettoyage — se juge à l'heure, pas au chantier. Inscrivez les **Heures facturables par mois** à côté des chantiers par semaine dans **Paramètres → Frais généraux** : les heures que l'entreprise peut réellement facturer en un mois, pour toute l'équipe (les déplacements et les soumissions ne sont pas facturables). L'écran affiche alors **Votre plancher horaire** : vos coûts mensuels ÷ ces heures." },
+          { p: "Dans le générateur de soumissions, à côté de **Coût et marge**, toute soumission avec des lignes facturées à l'heure est vérifiée : leur taux moyen par rapport au plancher. En dessous, un avertissement ambré indique la moyenne des lignes à l'heure, le plancher, le manque sur la soumission et l'origine de chaque chiffre. Il ne bloque jamais l'enregistrement et ne change jamais un prix." },
+          { note: "Aucun profit n'est inclus dans le plancher horaire — c'est la valeur par défaut de FieldQuo, donc le plancher est votre seuil de rentabilité, pas votre objectif. Les heures facturables ne sont jamais devinées : sans elles, le générateur indique où les saisir et ne vérifie rien." },
         ],
       },
       {

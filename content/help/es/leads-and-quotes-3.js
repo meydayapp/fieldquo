@@ -286,7 +286,7 @@ export const ARTICLES = {
     title: "Cotizaciones instantáneas en su sitio web",
     summary:
       "Active un oficio, fije sus tarifas y elija si el propietario ve un rango — cada estimación llega a Revisión de estimaciones, y su lista de tarifas nunca sale de la empresa.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Configuración → Cotizaciones instantáneas** permite que un propietario obtenga una estimación inicial real desde su sitio web en segundos: un techo medido desde su dirección, un césped que traza en un mapa, o unas cuantas cifras que escribe. El precio se calcula en el servidor a partir de tarifas que usted fija, se muestra como un rango, y llega como borrador a su cola de revisión antes de que nada sea vinculante.",
       "Este artículo es el lado de la configuración. Lo que ve el propietario está en [[the-instant-estimate-page|La página de estimación instantánea]], y la revisión en [[estimate-reviews|Revisión de estimaciones]].",
@@ -344,6 +344,7 @@ export const ARTICLES = {
             "**Rangos de presupuesto** — las cuatro opciones que se muestran cuando el formulario pregunta su presupuesto; fije los tres cortes en orden creciente, o se usan los rangos estándar.",
             "**Usar mis precios de servicios** — aparece cuando sus tarifas de Servicios y precios cambiaron desde que se guardó la tarjeta; las adopta aquí.",
             "**Financiamiento** — opcional, y FieldQuo no ofrece financiamiento. Sus propias palabras, o un enlace a su proveedor. Si indica tanto una tasa anual como un plazo, la estimación también muestra una cuota mensual estimada con esas condiciones; deje uno de los dos vacío y nunca se muestra ninguna cuota mensual.",
+            "**Idiomas de su estimación instantánea** — marque los idiomas que los propietarios pueden elegir arriba del formulario, entre inglés, francés, español, ucraniano, panyabí, tagalo, alemán e italiano. Mientras no guarde una elección, se ofrecen inglés, francés y español — lo que todos los formularios han ofrecido siempre. La estimación, el correo y el informe se escriben en el idioma que usó el propietario, y un idioma que no marcó nunca se sirve.",
           ] },
           { warning: "Sea cual sea la visibilidad, la página pública nunca muestra la lista de tarifas — solo un rango final, y solo cuando usted eligió mostrarlo. El punto de acceso público devuelve servicios y campos, nunca tarifas. Es una regla del producto, no un ajuste." },
         ],

@@ -301,7 +301,7 @@ export const ARTICLES = {
     title: "Instant quotes on your website",
     summary:
       "Turn a trade on, set your rates and choose whether the homeowner sees a range — every estimate lands in Estimate Reviews, and your rate card never leaves the building.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Settings → Instant Quotes** lets a homeowner get a real starting estimate from your website in seconds: a roof measured from their address, a lawn they trace on a map, or a few numbers they type in. The price is computed on the server from rates you set, shown as a range, and lands as a draft in your review queue before anything is binding.",
       "This article is the settings side. What the homeowner sees is in [[the-instant-estimate-page|The instant estimate page]], and the review is in [[estimate-reviews|Estimate Reviews]].",
@@ -359,6 +359,7 @@ export const ARTICLES = {
             "**Budget bands** — the four options shown when the form asks their budget; set the three cut-off points in increasing order, or the standard bands are used.",
             "**Use my services pricing** — appears when your Services & Pricing rates have changed since the card was saved; it adopts them here.",
             "**Financing** — optional, and FieldQuo does not provide financing. Your own wording, or a provider link. If you state both an annual rate and a term, the estimate also shows an estimated monthly payment on those terms; leave either blank and no monthly figure is ever shown.",
+            "**Languages on your instant estimate** — tick the languages homeowners may pick at the top of the form, out of English, French, Spanish, Ukrainian, Punjabi, Tagalog, German and Italian. Until you save a choice, English, French and Spanish are offered — what every form has always offered. The estimate, the email and the report are written in the language the homeowner used, and a language you have not ticked is never served.",
           ] },
           { warning: "Whatever the visibility, the public page never shows the rate card — only a finished range, and only when you chose to show it. The public endpoint returns services and fields, never rates. That is a rule of the product, not a setting." },
         ],

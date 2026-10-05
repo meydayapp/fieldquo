@@ -48,7 +48,8 @@ import {
 import { crewMemberFromWorker } from "@/lib/costing/crew";
 import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
 import { priceFromBurn, jobsPerMonthFrom } from "@/lib/analytics/minimumPrice";
-import { parseCapacity, parseBillableHours } from "@/lib/analytics/capacity";
+import { parseCapacity } from "@/lib/analytics/capacity";
+import { parseBillableHours } from "@/lib/analytics/hourlyFloor";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 let pass = 0;
@@ -280,30 +281,31 @@ ok("PUT 201 a week → refused, as before", Boolean(parseCapacity({ jobsPerWeekC
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n4b. Billable crew hours a month — written AND read\n");
 
-// The PUT's parser: the same three states as the margin beside it.
+// The PUT's parser — ONE for the column, shared with the hourly floor
+// (lib/analytics/hourlyFloor.js, merged 2026-10-05): the same three states
+// as the margin beside it, a whole number of hours 1–744 (the column is Int).
 ok("PUT with no hours field: left alone (an older client)", parseBillableHours(undefined).skip === true);
 ok("PUT null / '' clears it", parseBillableHours(null).value === null && parseBillableHours("").value === null);
-ok("PUT 320 → 320; ' 320.5 ' → 320.5; 2 places kept", parseBillableHours(320).value === 320 && parseBillableHours(" 320.5 ").value === 320.5 && parseBillableHours(87.255).value === 87.26);
-ok("PUT 0 / negative / 'abc' / NaN / Infinity / 1e9 / 0.001 / true / {} → refused, never clamped",
-  [0, -1, "abc", NaN, Infinity, 1e9, 0.001, true, {}, []].every((v) => typeof parseBillableHours(v).error === "string"));
-ok("the refusal says what is accepted", /above 0 and no more than 150,000/.test(parseBillableHours(-1).error));
+ok("PUT 320 → 320; ' 320 ' → 320", parseBillableHours(320).value === 320 && parseBillableHours(" 320 ").value === 320);
+ok("PUT 0 / negative / 'abc' / NaN / Infinity / 1e9 / 320.5 / true / {} → refused, never clamped",
+  [0, -1, "abc", NaN, Infinity, 1e9, 320.5, true, {}, []].every((v) => parseBillableHours(v).error === true));
 {
   const schema = source("prisma/schema.prisma");
-  ok("ForecastSettings.billableHoursPerMonth Decimal? is in the schema (additive, nullable)",
-    /model ForecastSettings \{[\s\S]*?billableHoursPerMonth\s+Decimal\?\s+@db\.Decimal\(10, 2\)/.test(schema));
+  ok("ForecastSettings.billableHoursPerMonth Int? is in the schema (nullable — the column production already has)",
+    /model ForecastSettings \{[\s\S]*?billableHoursPerMonth\s+Int\?/.test(schema));
   const route = strip(source("app/api/settings/forecast/route.js"));
   ok("the forecast route parses, writes and returns it",
     /parseBillableHours\(body\?\.billableHoursPerMonth\)/.test(route) &&
-    /billableHoursPerMonth: hours\.value/.test(route) &&
-    /billableHoursPerMonth: billableHoursFrom\(row\?\.billableHoursPerMonth\)/.test(route) &&
-    /billableHoursPerMonth: billableHoursFrom\(saved\.billableHoursPerMonth\)/.test(route));
+    /billableHoursPerMonth: billable\.value/.test(route) &&
+    /billableHoursPerMonth: row\?\.billableHoursPerMonth \?\? null/.test(route) &&
+    /billableHoursPerMonth: saved\.billableHoursPerMonth \?\? null/.test(route));
   const min = strip(source("lib/analytics/minimumPrice.js"));
   ok("calculateMinimumPrice reads it (through billableHoursFrom) and calls calculateHourlyFloor",
     /billableHoursFrom\(forecast\?\.billableHoursPerMonth\)/.test(min) && /await calculateHourlyFloor\(\{ companyId, billableHoursPerMonth: hours, burn \}\)/.test(min));
   const screen = strip(source("app/app/settings/overhead/page.js"));
   ok("Settings → Overhead offers it, sends it, and shows the hourly figures",
-    /id="billable-hours"/.test(screen) &&
-    /billableHoursPerMonth: billableHours\.trim\(\) === "" \? null : billableHours\.trim\(\)/.test(screen) &&
+    /data-billable-hours/.test(screen) &&
+    /billableHoursPerMonth: billableHours === "" \? null : Number\(billableHours\)/.test(screen) &&
     /money\(minPrice\.hourlyFloor\)/.test(screen) && /money\(minPrice\.minimumPerHour\)/.test(screen));
   // Read by the quote: the builder and both server paths, through the one
   // reading of the answer.
