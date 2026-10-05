@@ -66,6 +66,8 @@ const PERMISSION_WORDS = {
     "mark a company as a test, leaving it out of every FieldQuo number (MRR, counts, funnels) — with a reason, logged",
   "company:unlock":
     "unlock a company FieldQuo locked or ended from the cancel panel — with a reason, logged; never touches Stripe",
+  "manual_library:manage":
+    "add manuals to the shared library and approve or reject the ones companies offer — logged; never edits a company's own copy",
 };
 
 function describe(permissions) {
