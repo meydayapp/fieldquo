@@ -1,20 +1,25 @@
 // app/i18n/homePage/fr.js — see en.js for what may and may not be typed here.
 export const HOME_PAGE_FR = {
-  "home.hero.title": "Gérez toute votre entreprise de services sur le terrain à partir d'un seul endroit.",
+  "home.hero.title":
+    "Gérez toute votre entreprise de services sur le terrain à partir d'un seul endroit.",
   "home.hero.subtitle":
     "Préparez vos soumissions. Planifiez votre équipe. Facturez vos clients. Soyez payé. Faites croître votre entreprise — sans jongler avec cinq applications différentes.",
   "home.hero.ctaPrimary": "Commencer l'essai gratuit",
   "home.hero.ctaSecondary": "Voir comment ça marche",
-  "home.hero.flow": "Du premier appel → à la soumission → au chantier → au paiement.",
+  "home.hero.flow":
+    "Du premier appel → à la soumission → au chantier → au paiement.",
   "home.trial.days": "{days} jours gratuits",
   "home.trial.noCard": "aucune carte requise",
   "home.trial.allFeatures": "toutes les fonctions dans chaque forfait",
 
   "home.sale.fallbackName": "Promo",
   "home.sale.offYear": "{percent} % de rabais sur les forfaits d'un an",
-  "home.sale.offPromoFirstMonth": "{percent} % de rabais sur votre premier mois",
-  "home.sale.offPromoMonths": "{percent} % de rabais sur vos {months} premiers mois",
-  "home.sale.offBoth": "{percent} % de rabais sur les forfaits mensuels et d'un an",
+  "home.sale.offPromoFirstMonth":
+    "{percent} % de rabais sur votre premier mois",
+  "home.sale.offPromoMonths":
+    "{percent} % de rabais sur vos {months} premiers mois",
+  "home.sale.offBoth":
+    "{percent} % de rabais sur les forfaits mensuels et d'un an",
   "home.sale.ends": "jusqu'au {date}",
   "home.sale.seePricing": "Voir les tarifs",
 
@@ -22,7 +27,8 @@ export const HOME_PAGE_FR = {
   "home.demo.subtitle":
     "Le bureau voit tout le pipeline. L'équipe voit les chantiers du jour sur son téléphone. C'est le même chantier aux deux endroits.",
   "home.demo.sample": "Données d'exemple — ce ne sont pas de vrais clients.",
-  "home.demo.figureLabel": "Illustration de FieldQuo avec des chantiers d'exemple, du nouveau prospect à la facture payée",
+  "home.demo.figureLabel":
+    "Illustration de FieldQuo avec des chantiers d'exemple, du nouveau prospect à la facture payée",
   "home.demo.nav.pipeline": "Pipeline",
   "home.demo.nav.schedule": "Horaire",
   "home.demo.nav.clients": "Clients",
@@ -46,45 +52,62 @@ export const HOME_PAGE_FR = {
   "home.demo.phone.startJob": "Commencer",
 
   "home.results.promise.volume": "Prenez plus de travail sans embaucher.",
-  "home.results.promise.overhead": "Les systèmes d'une grande entreprise, sans les frais d'une grande entreprise.",
-  "home.results.promise.techs": "Tirez plus de chaque technicien sur le terrain.",
-  "home.results.title": "Ce que rapportent les entrepreneurs après être passés à une plateforme connectée",
+  "home.results.promise.overhead":
+    "Les systèmes d'une grande entreprise, sans les frais d'une grande entreprise.",
+  "home.results.promise.techs":
+    "Tirez plus de chaque technicien sur le terrain.",
+  "home.results.title":
+    "Ce que rapportent les entrepreneurs après être passés à une plateforme connectée",
   "home.results.intro":
     "Une étude du secteur, pas des résultats de clients FieldQuo. Chaque chiffre est la part des entrepreneurs sondés qui ont constaté l'amélioration — pas son ampleur.",
-  "home.results.stat.volume": "disent que leur bureau gère plus de travail sans embaucher",
-  "home.results.stat.revenuePerTech": "constatent plus de revenus par technicien",
+  "home.results.stat.volume":
+    "disent que leur bureau gère plus de travail sans embaucher",
+  "home.results.stat.revenuePerTech":
+    "constatent plus de revenus par technicien",
   "home.results.stat.margins": "constatent de meilleures marges",
   "home.results.stat.growth": "constatent une croissance des revenus",
   "home.results.stat.invoicing": "constatent une facturation plus rapide",
-  "home.results.stat.quoteTurnaround": "constatent des soumissions envoyées plus vite",
-  "home.results.stat.winRate": "constatent un meilleur taux d'acceptation des soumissions",
+  "home.results.stat.quoteTurnaround":
+    "constatent des soumissions envoyées plus vite",
+  "home.results.stat.winRate":
+    "constatent un meilleur taux d'acceptation des soumissions",
   "home.results.stat.tools": "outils distincts remplacés, en moyenne",
-  "home.results.source": "Source : {report} ({count} entrepreneurs commerciaux, {date}).",
-  "home.results.fact.onePlatform": "Une seule plateforme au lieu de six applications",
+  "home.results.source":
+    "Source : {report} ({count} entrepreneurs commerciaux, {date}).",
+  "home.results.fact.onePlatform":
+    "Une seule plateforme au lieu de six applications",
   "home.results.fact.allFeatures": "Toutes les fonctions dans chaque forfait",
 
   "home.how.title": "Un chantier. Une façon simple de travailler.",
   "home.how.subtitle": "Six étapes, un seul dossier, rien à saisir deux fois.",
   "home.how.lead.title": "Recevez le prospect",
-  "home.how.lead.body": "Appels, formulaires web, votre page de réservation et les recommandations arrivent au même endroit.",
+  "home.how.lead.body":
+    "Appels, formulaires web, votre page de réservation et les recommandations arrivent au même endroit.",
   "home.how.quote.title": "Envoyez la soumission",
-  "home.how.quote.body": "Montez-la sur place à partir de vos propres prix et envoyez-la avant de quitter l'entrée.",
+  "home.how.quote.body":
+    "Montez-la sur place à partir de vos propres prix et envoyez-la avant de quitter l'entrée.",
   "home.how.schedule.title": "Planifiez le chantier",
-  "home.how.schedule.body": "La soumission acceptée devient un chantier. Placez-le au calendrier et assignez l'équipe.",
+  "home.how.schedule.body":
+    "La soumission acceptée devient un chantier. Placez-le au calendrier et assignez l'équipe.",
   "home.how.work.title": "Faites le travail",
-  "home.how.work.body": "Votre équipe pointe, ajoute des photos et suit la liste de vérification depuis son téléphone.",
+  "home.how.work.body":
+    "Votre équipe pointe, ajoute des photos et suit la liste de vérification depuis son téléphone.",
   "home.how.paid.title": "Soyez payé",
-  "home.how.paid.body": "Facturez à partir du chantier et encaissez en ligne, directement dans votre propre compte bancaire.",
+  "home.how.paid.body":
+    "Facturez à partir du chantier et encaissez en ligne, directement dans votre propre compte bancaire.",
   "home.how.numbers.title": "Connaissez vos chiffres",
-  "home.how.numbers.body": "Voyez ce que chaque chantier a vraiment rapporté par rapport à votre soumission.",
+  "home.how.numbers.body":
+    "Voyez ce que chaque chantier a vraiment rapporté par rapport à votre soumission.",
 
   "home.trades.title": "Conçu pour votre métier",
-  "home.trades.subtitle": "Choisissez votre métier pour voir le genre de soumission que vous enverriez depuis FieldQuo.",
+  "home.trades.subtitle":
+    "Choisissez votre métier pour voir le genre de soumission que vous enverriez depuis FieldQuo.",
   "home.trades.pick": "Choisir un métier",
   "home.trades.example": "Exemple",
   "home.trades.estimate": "Estimation",
   "home.trades.send": "Envoyer la soumission",
-  "home.trades.note": "Montants à titre d'illustration, pas une grille de prix — dans FieldQuo, vous fixez vos propres prix.",
+  "home.trades.note":
+    "Montants à titre d'illustration, pas une grille de prix — dans FieldQuo, vous fixez vos propres prix.",
   "home.trades.more": "En savoir plus sur FieldQuo pour ce métier",
   "home.trades.painting.job": "Peinture intérieure",
   "home.trades.painting.scope": "3 pièces · 1 450 pi²",
@@ -97,14 +120,17 @@ export const HOME_PAGE_FR = {
   "home.trades.electrical.job": "Mise à niveau du panneau électrique",
   "home.trades.electrical.scope": "100 A à 200 A · permis inclus",
   "home.trades.plumbing.job": "Remplacement du chauffe-eau",
-  "home.trades.plumbing.scope": "Réservoir au gaz de 50 gallons · ancien appareil retiré",
+  "home.trades.plumbing.scope":
+    "Réservoir au gaz de 50 gallons · ancien appareil retiré",
   "home.trades.handyman.job": "Liste de petites réparations",
   "home.trades.handyman.scope": "8 réparations · environ 6 heures",
   "home.trades.construction-contracting.job": "Finition de sous-sol",
-  "home.trades.construction-contracting.scope": "750 pi² · de la charpente à la peinture",
+  "home.trades.construction-contracting.scope":
+    "750 pi² · de la charpente à la peinture",
 
   "home.outcomes.title": "Ce que FieldQuo vous aide à faire",
-  "home.outcomes.subtitle": "Tout dans un seul système, regroupé selon ce que ça accomplit.",
+  "home.outcomes.subtitle":
+    "Tout dans un seul système, regroupé selon ce que ça accomplit.",
   "home.outcomes.win": "Décrocher plus de contrats",
   "home.outcomes.run": "Mener chaque chantier",
   "home.outcomes.paid": "Être payé",
@@ -136,14 +162,16 @@ export const HOME_PAGE_FR = {
   "home.ai.title": "Posez n'importe quelle question sur votre entreprise.",
   "home.ai.body":
     "Posez votre question en mots simples et obtenez une réponse tirée de vos propres soumissions, chantiers, factures et dépenses. Elle répond uniquement à partir des données de votre entreprise — jamais de celles d'une autre.",
-  "home.ai.q.profitable": "Quels chantiers ont été les plus rentables ce mois-ci?",
+  "home.ai.q.profitable":
+    "Quels chantiers ont été les plus rentables ce mois-ci?",
   "home.ai.q.followUp": "Quelles soumissions n'ont pas été relancées?",
   "home.ai.q.materials": "Combien avons-nous dépensé en matériaux?",
   "home.ai.q.owed": "Quels clients nous doivent encore de l'argent?",
   "home.ai.examples": "Exemples de questions",
   "home.ai.cta": "Comment fonctionne FieldQuo IA",
 
-  "home.why.title": "Arrêtez de gérer votre entreprise dans cinq applications différentes.",
+  "home.why.title":
+    "Arrêtez de gérer votre entreprise dans cinq applications différentes.",
   "home.why.body":
     "Chaque outil séparé garde sa propre copie de votre client, et c'est vous qui devez les tenir à jour. FieldQuo n'en garde qu'une.",
   "home.why.before": "Outils séparés",
@@ -161,7 +189,8 @@ export const HOME_PAGE_FR = {
 
   "home.pricing.title": "Toutes les fonctions. Dans chaque forfait.",
   "home.pricing.question": "Combien de personnes font rouler votre entreprise?",
-  "home.pricing.body": "Les forfaits ne diffèrent que par le nombre de personnes qui les utilisent. Rien n'est réservé à un forfait plus gros.",
+  "home.pricing.body":
+    "Les forfaits ne diffèrent que par le nombre de personnes qui les utilisent. Rien n'est réservé à un forfait plus gros.",
   "home.pricing.audience.solo": "Seulement moi",
   "home.pricing.audience.crew": "Petite équipe",
   "home.pricing.audience.shop": "En croissance",
@@ -169,15 +198,18 @@ export const HOME_PAGE_FR = {
   "home.pricing.compare": "Comparer les forfaits",
 
   "home.faq.trial.q": "Combien de temps dure l'essai gratuit?",
-  "home.faq.trial.a": "{days} jours, avec toutes les fonctions activées — assez pour envoyer de vraies soumissions à de vrais clients.",
+  "home.faq.trial.a":
+    "{days} jours, avec toutes les fonctions activées — assez pour envoyer de vraies soumissions à de vrais clients.",
   "home.faq.card.q": "Ai-je besoin d'une carte de crédit pour commencer?",
   "home.faq.card.aNoCard":
     "Non. Inscrivez-vous sans carte. Quand vous êtes prêt, choisissez un forfait et ajoutez une carte dans Compte et facturation. Si l'essai se termine sans forfait, votre compte passe en lecture seule pendant {grace} jours, puis se verrouille — rien n'est supprimé.",
-  "home.faq.card.aCard": "Oui — une carte est demandée à l'inscription, et rien n'est facturé avant la fin de l'essai de {days} jours.",
+  "home.faq.card.aCard":
+    "Oui — une carte est demandée à l'inscription, et rien n'est facturé avant la fin de l'essai de {days} jours.",
   "home.faq.cancel.q": "Puis-je annuler en tout temps?",
   "home.faq.cancel.a":
     "Oui, dans Compte et facturation. Un forfait payé continue de fonctionner jusqu'à la fin de la période qu'il couvre — un mois, ou un an avec l'engagement d'un an — et rien de plus n'est facturé.",
-  "home.faq.switch.q": "J'utilise déjà un autre outil. Puis-je apporter mes données?",
+  "home.faq.switch.q":
+    "J'utilise déjà un autre outil. Puis-je apporter mes données?",
   "home.faq.switch.a":
     "Oui. Les clients, vos produits et prix, et les chantiers passés ont chacun une importation par chiffrier (CSV), pour commencer avec votre historique en place.",
   "home.faq.migration.q": "Pouvez-vous transférer mes données pour moi?",
