@@ -23,7 +23,9 @@ import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { revisionCount } from "@/lib/jobs/documents";
+import { revisionCount, formatBytes } from "@/lib/jobs/documents";
+import { showToast } from "@/lib/toast";
+import { splitPdfFile } from "@/lib/planRead/pdfSplit";
 import { renderAndUploadPages } from "./pdfPages";
 
 /** The kinds a person may file on a quote. The system-filed ones (quote,
@@ -71,33 +73,74 @@ export default function QuoteFilesCard({ endpoint, chains = [], canUpload = true
   const [nextKind, setNextKind] = useState("");
   const [expanded, setExpanded] = useState({});
 
+  // A drawing set bigger than the company's file storage takes in ONE piece
+  // (Cloudinary's Free plan: 10 MB a raw file — the sign route refuses with
+  // code "too_large" and the binding maxBytes) is split here, in page order,
+  // into parts that fit, and each part is filed as its own document on the
+  // same read (lib/planRead/pdfSplit.js). Anything else that is too large is
+  // refused as before, with the sign route's own sentence.
+  async function uploadInParts(file) {
+    try {
+      return [{ file, uploaded: await uploadFile(file, { purpose: "plans" }) }];
+    } catch (err) {
+      if (!(err?.code === "too_large" && Number(err.maxBytes) > 0 && file.type === "application/pdf")) throw err;
+      const max = formatBytes(err.maxBytes);
+      setBusy(t("app.planRead.files.splitting", "{name} is {size} — more than your file storage takes in one piece ({max}). Splitting it into parts, in page order…", { name: file.name, size: formatBytes(file.size), max }));
+      let parts;
+      try {
+        parts = await splitPdfFile(file, Number(err.maxBytes));
+      } catch (e) {
+        if (e?.code === "page_too_large") {
+          throw new Error(t("app.planRead.files.splitPageTooLarge", "Sheet {page} of {name} is {size} on its own — more than your file storage takes ({max}). Export that sheet at a lower resolution and upload again.", { page: e.page, name: file.name, size: formatBytes(e.bytes), max }));
+        }
+        if (e?.code === "encrypted") throw new Error(t("app.planRead.files.splitEncrypted", "{name} is password-protected, so it can't be split. Save it without the password and upload again.", { name: file.name }));
+        throw new Error(t("app.planRead.files.splitFailed", "{name} is over {max} and couldn't be split here. Export it in smaller parts and upload them in order.", { name: file.name, max }));
+      }
+      const out = [];
+      for (const [i, part] of parts.entries()) {
+        setBusy(t("app.planRead.files.uploadingPart", "Uploading part {n} of {total}…", { n: i + 1, total: parts.length }));
+        out.push({ file: part, uploaded: await uploadFile(part, { purpose: "plans" }) });
+      }
+      showToast({ message: t("app.planRead.files.split", "{name} was over {max}, so it was filed as {n} parts in page order. One read covers them all.", { name: file.name, max, n: parts.length }), tone: "info" });
+      return out;
+    }
+  }
+
   async function fileOne(raw, supersedes) {
     const file = csvAware(raw);
     setBusy(t("app.planRead.files.uploading", "Uploading {name}…", { name: file.name }));
-    const uploaded = await uploadFile(file, { purpose: "plans" });
-    let pages = null;
-    if (renderPdfPages && file.type === "application/pdf") {
-      const out = await renderAndUploadPages(file, {
-        onProgress: (done, total) => setBusy(t("app.planRead.files.rendering", "Preparing sheet {done} of {total}…", { done, total })),
-      });
-      pages = out.pages;
+    const uploads = await uploadInParts(file);
+    const results = [];
+    for (const [i, { file: part, uploaded }] of uploads.entries()) {
+      let pages = null;
+      if (renderPdfPages && part.type === "application/pdf") {
+        const out = await renderAndUploadPages(part, {
+          onProgress: (done, total) => setBusy(t("app.planRead.files.rendering", "Preparing sheet {done} of {total}…", { done, total })),
+        });
+        pages = out.pages;
+      }
+      setBusy(t("app.planRead.files.reading", "Reading {name}…", { name: part.name }));
+      const kind = supersedes ? supersedes.kind : nextKind || defaultKindFor(part);
+      results.push(
+        await fetchJson(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: jsonBody({
+            name: part.name,
+            kind,
+            url: uploaded.url,
+            publicId: uploaded.publicId,
+            sizeBytes: part.size,
+            mimeType: part.type || null,
+            // A revision split into parts: the first part takes the old
+            // file's place; the rest are filed beside it.
+            supersedesId: i === 0 ? supersedes?.id || null : null,
+            pages,
+          }),
+        }),
+      );
     }
-    setBusy(t("app.planRead.files.reading", "Reading {name}…", { name: file.name }));
-    const kind = supersedes ? supersedes.kind : nextKind || defaultKindFor(file);
-    return fetchJson(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: jsonBody({
-        name: file.name,
-        kind,
-        url: uploaded.url,
-        publicId: uploaded.publicId,
-        sizeBytes: file.size,
-        mimeType: file.type || null,
-        supersedesId: supersedes?.id || null,
-        pages,
-      }),
-    });
+    return results;
   }
 
   async function onPick(e) {
@@ -106,8 +149,8 @@ export default function QuoteFilesCard({ endpoint, chains = [], canUpload = true
     if (!files.length) return;
     try {
       for (const f of files) {
-        const res = await fileOne(f, revising);
-        if (res?.ingest && res.ingest.ok === false) {
+        const results = await fileOne(f, revising);
+        if (results.some((res) => res?.ingest && res.ingest.ok === false)) {
           showError(t("app.planRead.files.unreadable", "{name} was saved, but FieldQuo couldn't read it. Check it opens, or upload it as a PDF, .xlsx or .csv.", { name: f.name }));
         }
         if (revising) break;
