@@ -29,6 +29,7 @@ import {
   quoteCostSummary,
 } from "@/lib/costing/quoteCosting";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
+import { overheadInputsFrom } from "@/lib/costing/overheadShare";
 import { companyMarginTarget } from "@/lib/costing/quoteCostEstimate";
 import { scopeGroupsLineItemCost } from "@/lib/costing/lineItemCost";
 import { customFactorHoursOf } from "@/lib/pricing/customFactors";
@@ -169,16 +170,20 @@ export async function buildQuoteCostingRow({
   // figure about the company, not about this quote, and a share of the price
   // is not a cost — quoting the same job twice at different prices does not
   // change what the rent was.
-  let overheadPerJob = null;
+  //
+  // And, when the company has told us its billable crew hours a month, the
+  // overhead per crew-hour — the job then carries its share of the month in
+  // TIME (lib/costing/overheadShare.js). Read off the answer through
+  // overheadInputsFrom, the same reading the builder's panel makes of the
+  // same endpoint, so the saved row is the figure the estimator was shown.
+  let overhead = overheadInputsFrom(null);
   try {
-    const min = await calculateMinimumPrice({ companyId });
-    if (!min?.error && Number.isFinite(Number(min?.costPerJob))) {
-      overheadPerJob = Number(min.costPerJob);
-    }
+    overhead = overheadInputsFrom(await calculateMinimumPrice({ companyId }));
   } catch {
     // An overhead we couldn't work out is absent, not zero. The percentage the
     // estimator chose stands in, and overheadBasis records that it did.
   }
+  const { overheadPerJob, overheadPerHour, billableHoursPerMonth } = overhead;
 
   const summary = quoteCostSummary({
     scopeGroups: groups,
@@ -193,6 +198,8 @@ export async function buildQuoteCostingRow({
     labourRate: clean.labourRate,
     overheadPct: clean.overheadPct,
     overheadPerJob,
+    overheadPerHour,
+    billableHoursPerMonth,
     price,
     marginTargetPct: target.pct,
     recipeOverridesByCategory,
