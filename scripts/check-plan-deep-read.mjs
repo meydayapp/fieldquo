@@ -56,6 +56,31 @@ import { sheetFacts, isScaleBarLine } from "@/lib/planRead/sheetFacts";
 import { pdfSheets, spreadsheetRows, fetchPlanFile } from "@/lib/planRead/ingest";
 import { splitPdfBytes, partName, pagesPerPart, PdfSplitError } from "@/lib/planRead/pdfSplit";
 import { sheetNeedsPass, sheetPassDone } from "@/lib/planRead/sheetState";
+import {
+  MULTI_TRADE_KEYS,
+  tradeCatalogueForModel,
+  tradesFromScope,
+  paintingFocus,
+  scopeHasPainting,
+  sanitiseScope,
+  isSpecPage,
+  specDigest,
+  routeSheets,
+  unregisteredItemKeys,
+} from "@/lib/planRead/tradeCatalogue";
+import { aggregateSheetCounts, buildCountIndex, buildScheduleIndex, sanitiseTradeSynthesis, computeTrade, computeTrades, applyTradeOps } from "@/lib/planRead/tradeModel";
+import { TRADE_SHEET_SCHEMA, TRADE_SYNTHESIS_SCHEMA } from "@/lib/planRead/tradePrompts";
+import { PRICING_CHAT_SCHEMA, verifyProposals, findPricingInputs, mergeAssumptions, pricingDiff } from "@/lib/planRead/pricingChat";
+import { priceTrade, assumptionsIndex, engineBooks } from "@/lib/planRead/tradePricing";
+import { recommendPrice } from "@/lib/planRead/recommendation";
+import { readPricing } from "@/lib/planRead/readPricing";
+import { applyPricingOps } from "@/lib/planRead/pricingOps";
+import { notifyBelowTarget } from "@/lib/planRead/marginNotify";
+import { overheadRates, overheadForJob } from "@/lib/costing/overheadShare";
+import { buildTradeLineItems } from "@/lib/pricing/tradeScope";
+import { NOTIFICATION_TYPES } from "@/lib/notifications/catalog";
+import { hrefFor } from "@/lib/notifications/render";
+import { MEASUREMENT_KEYS, TRADE_MEASUREMENTS, isMeasurementKey } from "@/lib/services/measurementKeys";
 import { parseScopeSheets, scopeSheetDigest } from "@/lib/planRead/excel";
 import {
   sanitiseSynthesis,
@@ -87,11 +112,11 @@ import {
   CHAT_DYNAMIC_MARK,
 } from "@/lib/planRead/prompts";
 import { estimateRead, settlement, addUsage } from "@/lib/planRead/billing";
-import { startRead, advanceRead, scanDimsFrom, retryPlan, SHEET_CONCURRENCY, MAX_READ_MS, readEstimate, hasWorkToRead, readInputs } from "@/lib/planRead/run";
+import { startRead, advanceRead, scanDimsFrom, retryPlan, SHEET_CONCURRENCY, MAX_READ_MS, readEstimate, hasWorkToRead, readInputs, inputsKey } from "@/lib/planRead/run";
 import { startTiming, timingSummary, timingMedians, formatDuration } from "@/lib/planRead/timing";
 import { resumeStalledReads, stalledWhere } from "@/lib/planRead/backstop";
 import { editLogEntry, chatHistory, withAuthors } from "@/lib/planRead/history";
-import { contentHashOf, reusableSheets, applySheetReuse, findSheetCache } from "@/lib/planRead/sheetCache";
+import { contentHashOf, reusableSheets, applySheetReuse, findSheetCache, remapSheetPass } from "@/lib/planRead/sheetCache";
 import { planReadView, reuseSavings } from "@/lib/planRead/view";
 import { chatTurn, chatContext } from "@/lib/planRead/chat";
 import { summariseSimilar, similarPastQuotes } from "@/lib/planRead/similar";
@@ -1207,6 +1232,490 @@ const unread = await startRead({ planReadId: "punread", companyId: "co1" }, { ..
 ok("a set that was added but couldn't be read is named, not \"add a drawing set first\"", unread.ok === false && unread.error === "files_unreadable" && unread.names[0] === "Church set.pdf", unread);
 const runRoute = code("app/api/plan-reads/[id]/run/route.js");
 ok("…and the run route says why, by name, with nothing charged", /files_unreadable/.test(runRoute) && /couldn't read \$\{started\.names\.join/.test(runRoute));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("21. P1 multi-trade: the quote's service decides what is read, every quantity sourced");
+// ═══════════════════════════════════════════════════════════════════════════
+
+// The reference painting read (section 14's, no scope) as it was before the
+// trades existed — any change to painting's prompt or model fails here.
+const PIN_PAINT_PROMPT = "87c5b9372b6ae32645a756b63d8a11f6";
+const PIN_PAINT_MODEL = "5616a7c9a0553d9ef592d23332006fce";
+
+ok("painting with no scope is pinned by md5 — the synthesis prompt and the model of the reference read", md5(seqP.synthPrompts[0]) === PIN_PAINT_PROMPT && md5(seq.row.model) === PIN_PAINT_MODEL, [md5(seqP.synthPrompts[0]), md5(seq.row.model)]);
+ok("every trade item names a REGISTERED measurement key (no second vocabulary)", unregisteredItemKeys().length === 0, unregisteredItemKeys());
+ok("…and the new keys are in the registry, with the read as their source", ["panels", "plumbingFixtures", "wallFramingFt", "headers", "penetrations", "transitions", "cornerBeadFt"].every((k) => isMeasurementKey(k) && /drawing read/.test(MEASUREMENT_KEYS[k].source)) && TRADE_MEASUREMENTS.plumbing.includes("plumbingFixtures") && TRADE_MEASUREMENTS.carpentry.includes("wallFramingFt"));
+ok("the catalogue the model sees carries no price, rate or cost", !JSON.stringify(MULTI_TRADE_KEYS.map((k) => tradeCatalogueForModel(k))).match(/price|rate"|cost|amount/i));
+
+// What the read is FOR, from the quote's services.
+const scopeOf = (...keys) => ({ categories: keys.map((key) => ({ key, label: key })), from: "quote" });
+ok("interior painting reads the inside, exterior the outside, both → both", paintingFocus(scopeOf("interior_painting")) === "interior" && paintingFocus(scopeOf("exterior_painting")) === "exterior" && paintingFocus(scopeOf("interior_painting", "exterior_painting")) === null);
+const mixedScope = tradesFromScope(scopeOf("drywall_install", "electrical", "roofing_service", "residential_cleaning"));
+ok("drywall, electrical and roofing services map to their trades; cleaning is said to be unmapped", mixedScope.trades.map((t) => t.tradeKey).join() === "drywall,roofing,electrical" && mixedScope.unmapped.join() === "residential_cleaning", mixedScope);
+ok("no scope stated = painting, as every read before scopes", !tradesFromScope(null).stated && scopeHasPainting(null) && !scopeHasPainting(scopeOf("electrical")));
+ok("a scope from the browser keeps only the company's own switched-on services", JSON.stringify(sanitiseScope(["electrical", "made_up", "roofing_service"], { companyCategories: [{ key: "electrical", label: "Electrical" }] })) === JSON.stringify({ categories: [{ key: "electrical", label: "Electrical" }], from: "estimator" }) && sanitiseScope(["x"], { companyCategories: [] }) === null);
+
+// A small commercial set, read in code.
+const TI = (str, x, y, fontSize = 10) => ({ str, x, y, fontSize, width: str.length * fontSize * 0.55 });
+const mkSheet = (page, items) => ({ ...sheetFacts(items, { page, pageWidth: 2592, pageHeight: 1728 }), docId: "dmt", docPage: page, read: null, scanDims: [] });
+const sA = mkSheet(1, [TI("FIRST FLOOR PLAN", 300, 1550, 28), TI("A-101", 2400, 80, 30), TI("1/4\" = 1'-0\"", 300, 1510, 12), TI("42'-6\"", 900, 1300), TI("18'-0\"", 600, 1200), TI("CLG HT 9'-0\"", 1100, 1100), TI("DOOR SCHEDULE", 1800, 1450, 14), TI("D1 3'-0\" X 7'-0\" HM DOORS 6", 1800, 1430, 9), TI("WALL TYPES", 1800, 1300, 14), TI("W1 3-5/8\" MTL STUD @ 16\" O.C. 5/8\" TYPE X EACH SIDE", 1800, 1280, 9)]);
+const sE = mkSheet(2, [TI("ELECTRICAL POWER PLAN", 300, 1550, 28), TI("E-101", 2400, 80, 30), TI("LIGHTING FIXTURE SCHEDULE", 1800, 1400, 14), TI("A1 2X4 LED TROFFER 12 277V", 1800, 1380, 9), TI("ANOTHER TABLE 99", 300, 1380, 9), TI("B2 DOWNLIGHT 8 120V", 1800, 1366, 9), TI("PANEL SCHEDULE", 1800, 1200, 14), TI("LP-1 200A 42 CIRCUITS", 1800, 1180, 9)]);
+const sX = mkSheet(3, [TI("EXTERIOR ELEVATIONS", 300, 1550, 28), TI("A-201", 2400, 80, 30), TI("24'-6\"", 900, 1300)]);
+const sR = mkSheet(4, [TI("ROOF PLAN", 300, 1550, 28), TI("A-301", 2400, 80, 30), TI("40'-0\"", 900, 1300), TI("30'-0\"", 600, 1200), TI("6:12 TYP.", 1200, 1000)]);
+const sP = mkSheet(5, [TI("PLUMBING PLAN", 300, 1550, 28), TI("P-201", 2400, 80, 30), TI("PLUMBING FIXTURE SCHEDULE", 1800, 1400, 14), TI("WC-1 WATER CLOSET FLOOR MOUNTED 4", 1800, 1380, 9)]);
+const sS = mkSheet(6, [TI("FOUNDATION PLAN", 300, 1550, 28), TI("S-101", 2400, 80, 30)]);
+const sT = mkSheet(7, [TI("COVER SHEET", 300, 1550, 28), TI("T-001", 2400, 80, 30), TI("SHEET INDEX A-101 A-201", 300, 1400, 12)]);
+const specLines = ["SECTION 09 29 00 - GYPSUM BOARD", "PART 3 - EXECUTION", "3.4 FINISHING: LEVEL 4 FINISH AT ALL PAINTED WALLS. LEVEL 5 AT LOBBY.", "BOARD: 5/8 IN TYPE X WHERE RATED.", ...Array.from({ length: 40 }, (_, i) => `GENERAL REQUIREMENT ${i + 1} OF THE GYPSUM BOARD ASSEMBLIES AS SPECIFIED HEREIN.`)];
+const sSpec = mkSheet(8, specLines.map((l, i) => TI(l, 200, 1600 - i * 30, 10)));
+const sScan = { ...mkSheet(9, []), sheetNumber: null, title: null, titles: [] };
+const allMt = [sA, sE, sX, sR, sP, sS, sT, sSpec, sScan];
+ok("schedules are read in code by their header, each row with an id; a table on the same baseline elsewhere is left out", sE.schedules.find((s) => s.kind === "LIGHTING FIXTURE")?.rows[0]?.text === "A1 2X4 LED TROFFER 12 277V" && !sE.schedules.some((s) => s.rows.some((r) => /ANOTHER TABLE/.test(r.text))) && sE.schedules.some((s) => s.kind === "PANEL") && sA.schedules.some((s) => s.kind === "DOOR") && sA.schedules.some((s) => s.kind === "WALL TYPE"), sE.schedules);
+ok("…and the finish schedule painting reads is untouched", Array.isArray(sA.schedule) && sA.schedule.length === 0);
+ok("a page of specification text is a spec page, never a drawing", isSpecPage(sSpec) && !isSpecPage(sA));
+const digest = specDigest([sSpec]);
+ok("the spec digest keeps the section and the lines that state a level or a board", digest[0]?.section === "09 29 00" && digest[0].lines.some((l) => /LEVEL 4/.test(l)) && digest[0].lines.some((l) => /TYPE X/.test(l)), digest);
+
+const routeKeys = (scope) => {
+  const r = routeSheets(allMt, tradesFromScope(scope).trades);
+  return allMt.filter((s) => r.get(s.key)?.send).map((s) => s.sheetNumber || "scan").join(",");
+};
+ok("no scope: every sheet is read (as before)", allMt.every((s) => routeSheets(allMt, []).get(s.key).send), routeKeys(null));
+ok("a drywall quote reads the floor plan (and the scan it cannot classify) — not the elevations, roof, E/P/S sheets or the cover", routeKeys(scopeOf("drywall_install")) === "A-101,scan", routeKeys(scopeOf("drywall_install")));
+ok("a roofing quote reads the roof plan and the elevations — not the inside", routeKeys(scopeOf("roofing_service")) === "A-201,A-301,scan", routeKeys(scopeOf("roofing_service")));
+ok("an electrical quote reads the E-sheet only", routeKeys(scopeOf("electrical")) === "E-101,scan", routeKeys(scopeOf("electrical")));
+ok("interior painting skips the exterior elevations and the roof", routeKeys(scopeOf("interior_painting")) === "A-101,scan", routeKeys(scopeOf("interior_painting")));
+ok("exterior painting reads the elevations", routeKeys(scopeOf("exterior_painting")).includes("A-201") && !routeKeys(scopeOf("exterior_painting")).includes("E-101"));
+const noE = routeSheets([sA, sX, sScan], tradesFromScope(scopeOf("electrical")).trades);
+ok("a set with no electrical sheets: the electrical read falls back to the floor plans", noE.get(sA.key).send && noE.get(sA.key).reason === "fallback" && !noE.get(sX.key).send);
+const ukRoutes = routeSheets(uk.sheets, tradesFromScope(scopeOf("drywall_install")).trades);
+ok("the UK set: a drywall quote reads P43 and E01 (status letters are not E/P disciplines) and never the location and block plan", ukRoutes.get(p43.key).send && ukRoutes.get(e01.key).send && !ukRoutes.get(p52.key).send, [...ukRoutes.entries()]);
+ok("the spec page is never sent as an image on a scoped read", routeSheets(allMt, tradesFromScope(scopeOf("drywall_install")).trades).get(sSpec.key).reason === "spec");
+
+// Symbol counts per tile → one count with a confidence.
+const counts = aggregateSheetCounts(
+  [
+    { tradeKey: "electrical", itemKey: "receptacle", symbol: "duplex", legendText: "DUPLEX RECEPTACLE", tile: 0, count: 37 },
+    ...[10, 9, 9, 9].map((n, i) => ({ tradeKey: "electrical", itemKey: "receptacle", symbol: "Duplex", legendText: "", tile: i + 1, count: n })),
+    { tradeKey: "electrical", itemKey: "receptacle_gfci", symbol: "GFI", legendText: "GFCI RECEPTACLE", tile: 0, count: 6 },
+    ...[2, 1, 1, 0].map((n, i) => ({ tradeKey: "electrical", itemKey: "receptacle_gfci", symbol: "GFI", legendText: "", tile: i + 1, count: n })),
+    { tradeKey: "electrical", itemKey: "switch", symbol: "S3", legendText: "", tile: 0, count: 5 },
+    { tradeKey: "electrical", itemKey: "switch", symbol: "S3", legendText: "", tile: 1, count: 5 },
+    { tradeKey: "electrical", itemKey: "solar_panel", symbol: "X", legendText: "", tile: 0, count: 3 },
+    { tradeKey: "electrical", itemKey: "conduit", symbol: "EMT", legendText: "", tile: 0, count: 3 },
+    { tradeKey: "electrical", itemKey: "receptacle", symbol: "duplex", legendText: "", tile: 7, count: 3 },
+    { tradeKey: "electrical", itemKey: "receptacle", symbol: "duplex", legendText: "", tile: 2, count: -1 },
+    { tradeKey: "plumbing", itemKey: "water_closet", symbol: "WC", legendText: "", tile: 0, count: 2 },
+  ],
+  sE.key,
+  { tradeKeys: ["electrical"] },
+);
+const cDup = counts.find((c) => c.itemKey === "receptacle");
+const cGfi = counts.find((c) => c.itemKey === "receptacle_gfci");
+const cSw = counts.find((c) => c.itemKey === "switch");
+ok("the four quarters are summed (37) and agree with the whole sheet; the legend is kept", cDup.count === 37 && cDup.agree && cDup.legend === "DUPLEX RECEPTACLE" && cDup.id === `${sE.key}.c1`, cDup);
+ok("quarters that disagree with the whole sheet are marked so (4 vs 6)", cGfi.count === 4 && !cGfi.agree, cGfi);
+ok("an unknown item, a length item, a trade not on the sheet, an impossible tile or a negative count are dropped", counts.length === 3, counts.map((c) => c.itemKey));
+sE.read = { relevant: true, summary: "E", areas: [], heights: [], finishes: [], access: [], counts, notes: [{ tradeKey: "electrical", text: "LP-1 200A" }] };
+sA.read = { relevant: true, summary: "A", areas: [], heights: [], finishes: [], access: [], counts: [], notes: [] };
+const mtSheets = [sA, sE, sR, sP];
+const mtCtx = { dims: buildDimIndex(mtSheets), counts: buildCountIndex(mtSheets), schedules: buildScheduleIndex(mtSheets), excel: null, photoRead: null };
+const mtIds = { dimIds: new Set(mtCtx.dims.keys()), countIds: new Set(mtCtx.counts.keys()), scheduleIds: new Set(mtCtx.schedules.keys()), specIds: new Set(digest.map((x) => x.id)), photoIds: new Set(), excel: null };
+const dimOf = (s, raw) => s.dims.find((d) => d.raw === raw)?.id;
+const rowOf = (s, kind) => s.schedules.find((x) => x.kind === kind)?.rows[0]?.id;
+const blankItem = { areaId: null, include: true, lengthRefs: [], widthRefs: [], multiplier: null, countRefs: [], count: null, scheduleRef: null, scheduleQty: null, specRef: null, excelSheet: null, excelRow: null, excelCol: null, photoSurfaceId: null, estimate: null, estimateBasis: null, sheet: null, note: null, attributes: {} };
+const synthOf = (items, extra = {}) => ({ summary: "", buildingType: "office", commercial: true, areas: [{ id: "a1", name: "Level 1", level: "1", include: true }], items: items.map((x, i) => ({ ...blankItem, id: `i${i + 1}`, areaId: "a1", label: x.itemKey, ...x })), complexity: { level: "medium", factors: [] }, assumptions: [], exclusions: [], questions: [], ...extra });
+const elec = computeTrade(
+  sanitiseTradeSynthesis(
+    synthOf([
+      { itemKey: "receptacle", countRefs: [cDup.id], price: 99, amount: 5 },
+      { itemKey: "receptacle_gfci", countRefs: [cGfi.id] },
+      { itemKey: "switch", countRefs: [cSw.id] },
+      { itemKey: "light_fixture", scheduleRef: rowOf(sE, "LIGHTING FIXTURE"), scheduleQty: "12", attributes: { fixtureType: "A1", pitch: 6 } },
+      { itemKey: "light_fixture", label: "B2 downlights", scheduleRef: sE.schedules.find((x) => x.kind === "LIGHTING FIXTURE").rows[1].id, scheduleQty: "9", count: 8 },
+      { itemKey: "panel", scheduleRef: rowOf(sE, "PANEL"), scheduleQty: "1", attributes: { amps: 200 } },
+      { itemKey: "circuit", scheduleRef: rowOf(sE, "PANEL"), scheduleQty: "42" },
+      { itemKey: "conduit", estimate: 300, estimateBasis: "home runs by eye" },
+      { itemKey: "solar_panel", count: 9 },
+      { itemKey: "data_drop", countRefs: ["p99.c1"] },
+    ]),
+    "electrical",
+    mtIds,
+  ),
+  mtCtx,
+);
+const eq = (label) => elec.items.find((i) => i.label === label)?.quantity;
+ok("electrical: 37 duplex receptacles from the summed quarters with a legend on a vector sheet — medium", eq("receptacle").value === 37 && eq("receptacle").confidence === "medium" && /DUPLEX RECEPTACLE/.test(eq("receptacle").sourceText), eq("receptacle"));
+ok("…GFCI where the quarters disagree with the sheet — low, and says why", eq("receptacle_gfci").value === 4 && eq("receptacle_gfci").confidence === "low" && /disagree/.test(eq("receptacle_gfci").sourceText), eq("receptacle_gfci"));
+ok("…switches with no legend — low", eq("switch").value === 5 && eq("switch").confidence === "low" && /no legend/.test(eq("switch").sourceText));
+ok("…12 A1 troffers from the fixture schedule row, the printed 12 checked in that row — high", eq("light_fixture").value === 12 && eq("light_fixture").source === "schedule" && eq("light_fixture").confidence === "high", eq("light_fixture"));
+ok("…a schedule quantity the row does NOT print (9 vs 8) is refused; the bare count stands, low", eq("B2 downlights").value === 8 && eq("B2 downlights").source === "count" && eq("B2 downlights").confidence === "low", eq("B2 downlights"));
+ok("…the panel and its 42 circuits from the panel schedule — high", eq("panel").value === 1 && eq("circuit").value === 42 && eq("circuit").confidence === "high");
+ok("…conduit by estimate is low and asked about", eq("conduit").source === "estimate" && eq("conduit").confidence === "low" && elec.questions.some((q) => /conduit/.test(q.text) && /estimated/.test(q.text)));
+ok("…an item outside the trade's vocabulary is dropped; a count id that doesn't exist is not cited", !elec.items.some((i) => i.itemKey === "solar_panel") && elec.items.find((i) => i.itemKey === "data_drop").countRefs.length === 0);
+ok("…a price volunteered is not kept, and an attribute the item doesn't take (pitch on a fixture) is dropped", !("price" in elec.items[0]) && !("amount" in elec.items[0]) && elec.items.find((i) => i.label === "light_fixture").attributes.fixtureType === "A1" && !("pitch" in elec.items.find((i) => i.label === "light_fixture").attributes));
+ok("…every quantity carries a source sentence and a confidence", elec.items.every((i) => i.quantity.sourceText && ["high", "medium", "low"].includes(i.quantity.confidence)) && elec.confidence.high === 3 && elec.confidence.medium === 1);
+
+const dry = computeTrade(
+  sanitiseTradeSynthesis(
+    synthOf([
+      { itemKey: "wall_board", label: "W1 partitions, Level 4", lengthRefs: [dimOf(sA, "42'-6\""), dimOf(sA, "18'-0\"")], widthRefs: [dimOf(sA, "9'-0\"")], multiplier: 2, attributes: { finishLevel: 4, layers: 1, boardType: "type_x" }, specRef: digest[0].id },
+      { itemKey: "ceiling_board", label: "Lobby ceiling, Level 5", lengthRefs: [dimOf(sA, "42'-6\"")], widthRefs: [dimOf(sA, "18'-0\"")], attributes: { finishLevel: 5 } },
+      { itemKey: "wall_board", label: "Bad level", lengthRefs: [dimOf(sA, "18'-0\"")], widthRefs: [dimOf(sA, "9'-0\"")], attributes: { finishLevel: 7 } },
+    ]),
+    "drywall",
+    mtIds,
+  ),
+  mtCtx,
+);
+const dq = (label) => dry.items.find((i) => i.label === label);
+ok("drywall: walls (42'-6\" + 18'-0\") × 9'-0\" × 2 faces = 1,089 sq ft at Level 4, from the drawing — high", dq("W1 partitions, Level 4").quantity.value === 1089 && dq("W1 partitions, Level 4").quantity.confidence === "high" && dq("W1 partitions, Level 4").attributes.finishLevel === 4 && dq("W1 partitions, Level 4").specRef === digest[0].id, dq("W1 partitions, Level 4"));
+ok("…the ceiling 42'-6\" × 18'-0\" = 765 sq ft at Level 5; levels kept per area", dq("Lobby ceiling, Level 5").quantity.value === 765 && dq("Lobby ceiling, Level 5").attributes.finishLevel === 5);
+ok("…a finish level outside GA-214's 0–5 is dropped, never clamped", !("finishLevel" in dq("Bad level").attributes));
+
+const fr = computeTrade(
+  sanitiseTradeSynthesis(
+    synthOf([
+      { itemKey: "wall_framing", label: "Exterior 2x6", lengthRefs: [dimOf(sA, "42'-6\""), dimOf(sA, "18'-0\"")], multiplier: 2, attributes: { studSize: "2x6", studSpacingIn: 16, material: "wood", bearing: true, heightFt: 9 } },
+      { itemKey: "header", label: "Door headers", scheduleRef: rowOf(sA, "DOOR"), scheduleQty: "6", attributes: { spanFt: 3 } },
+    ]),
+    "framing",
+    mtIds,
+  ),
+  mtCtx,
+);
+ok("framing: 121 lin ft of wall from the plan's printed lengths, studs and spacing kept — high", fr.items[0].quantity.value === 121 && fr.items[0].quantity.unit === "lnft" && fr.items[0].quantity.confidence === "high" && fr.items[0].attributes.studSpacingIn === 16, fr.items[0]);
+ok("…6 headers from the door schedule's printed 6 — high", fr.items[1].quantity.value === 6 && fr.items[1].quantity.source === "schedule", fr.items[1].quantity);
+
+const roof = computeTrade(
+  sanitiseTradeSynthesis(
+    synthOf([
+      { itemKey: "roof_plane", label: "Main roof 6:12", lengthRefs: [dimOf(sR, "40'-0\"")], widthRefs: [dimOf(sR, "30'-0\"")], attributes: { pitch: 6, material: "architectural asphalt shingles", layers: 1 } },
+      { itemKey: "roof_plane", label: "Porch, pitch not printed", lengthRefs: [dimOf(sR, "40'-0\"")], widthRefs: [dimOf(sR, "30'-0\"")] },
+      { itemKey: "ridge", lengthRefs: [dimOf(sR, "40'-0\"")] },
+    ]),
+    "roofing",
+    mtIds,
+  ),
+  mtCtx,
+);
+ok("roofing: 40' × 30' on plan at 6:12 = 1,341.6 sq ft sloped = 13.42 squares — high", roof.items[0].quantity.value === 13.42 && roof.items[0].quantity.unit === "sq" && roof.items[0].quantity.confidence === "high" && /sloped at 6\/12/.test(roof.items[0].quantity.sourceText), roof.items[0].quantity);
+ok("…with no pitch printed: 12 squares of PLAN area, low, and it says it understates", roof.items[1].quantity.value === 12 && roof.items[1].quantity.confidence === "low" && /understates/.test(roof.items[1].quantity.sourceText), roof.items[1].quantity);
+ok("…the ridge 40 lin ft", roof.items[2].quantity.value === 40 && roof.items[2].quantity.unit === "lnft");
+
+const lavCount = aggregateSheetCounts([{ tradeKey: "plumbing", itemKey: "lavatory", symbol: "L-1", legendText: "LAVATORY", tile: 0, count: 4 }, ...[1, 1, 1, 1].map((n, i) => ({ tradeKey: "plumbing", itemKey: "lavatory", symbol: "L-1", legendText: "", tile: i + 1, count: n }))], sP.key);
+sP.read = { relevant: true, summary: "P", areas: [], heights: [], finishes: [], access: [], counts: lavCount, notes: [] };
+const pCtx = { ...mtCtx, counts: buildCountIndex(mtSheets) };
+const pIds = { ...mtIds, countIds: new Set(pCtx.counts.keys()) };
+const plb = computeTrade(
+  sanitiseTradeSynthesis(
+    synthOf([
+      { itemKey: "water_closet", scheduleRef: rowOf(sP, "PLUMBING FIXTURE"), scheduleQty: "4" },
+      { itemKey: "lavatory", countRefs: [lavCount[0].id] },
+      { itemKey: "drain_pipe", estimate: 120, estimateBasis: "stack to the main by eye", attributes: { pipeSize: "4 in", material: "PVC" } },
+      { itemKey: "water_heater", count: 1 },
+    ]),
+    "plumbing",
+    pIds,
+  ),
+  pCtx,
+);
+ok("plumbing: 4 water closets from the fixture schedule (high), 4 lavatories counted with a legend (medium), DWV by estimate (low + asked), 1 water heater (low)", plb.items[0].quantity.value === 4 && plb.items[0].quantity.confidence === "high" && plb.items[1].quantity.value === 4 && plb.items[1].quantity.confidence === "medium" && plb.items[2].quantity.confidence === "low" && plb.questions.some((q) => /drain_pipe/.test(q.text)) && plb.items[3].quantity.confidence === "low", plb.items.map((i) => i.quantity));
+
+const flo = computeTrade(
+  sanitiseTradeSynthesis(
+    synthOf([
+      { itemKey: "floor_area", label: "LVT-1 open office", lengthRefs: [dimOf(sA, "42'-6\"")], widthRefs: [dimOf(sA, "18'-0\"")], attributes: { material: "LVT-1 luxury vinyl" } },
+      { itemKey: "base", lengthRefs: [dimOf(sA, "42'-6\""), dimOf(sA, "18'-0\"")], multiplier: 2 },
+      { itemKey: "transition", count: 3 },
+    ]),
+    "flooring",
+    mtIds,
+  ),
+  mtCtx,
+);
+ok("flooring: 765 sq ft of LVT-1 and 121 lin ft of base from the room's printed sides; transitions counted, low", flo.items[0].quantity.value === 765 && flo.items[1].quantity.value === 121 && flo.items[2].quantity.confidence === "low");
+
+const conflictTrade = computeTrade(sanitiseTradeSynthesis(synthOf([{ itemKey: "light_fixture", scheduleRef: rowOf(sE, "LIGHTING FIXTURE"), scheduleQty: "12", countRefs: [cDup.id] }]), "electrical", mtIds), mtCtx);
+ok("two firm sources that disagree (schedule 12, sheet count 37) → the first wins and a question is asked", conflictTrade.items[0].quantity.value === 12 && conflictTrade.questions.some((q) => q.source === "conflict" && /12/.test(q.text) && /37/.test(q.text)), conflictTrade.questions);
+
+const opsModel = { trades: [sanitiseTradeSynthesis(synthOf([{ itemKey: "wall_board", lengthRefs: [dimOf(sA, "42'-6\"")], widthRefs: [dimOf(sA, "9'-0\"")] }]), "drywall", mtIds)] };
+const byModel = applyTradeOps(opsModel, [{ op: "measure_item", tradeKey: "drywall", itemId: "i1", value: 400 }], { actor: "model" });
+const byPerson = applyTradeOps(opsModel, [{ op: "measure_item", tradeKey: "drywall", itemId: "i1", value: 400, sourceText: "Measured on A-101" }, { op: "exclude_trade", tradeKey: "electrical" }, { op: "set_price", tradeKey: "drywall" }], { actor: "person" });
+ok("only a person measures a trade item; an unknown op and a trade not on the read are refused by name", !byModel.model.trades[0].items[0].override && byPerson.model.trades[0].items[0].override.value === 400 && byPerson.dropped.length === 2 && computeTrade(byPerson.model.trades[0], mtCtx).items[0].quantity.source === "measured");
+
+for (const [name, schema] of Object.entries({ TRADE_SHEET_SCHEMA, TRADE_SYNTHESIS_SCHEMA, PRICING_CHAT_SCHEMA })) {
+  const bad = propNames(schema).filter((k) => MONEY.test(k));
+  ok(`${name} has no money-shaped field`, bad.length === 0, bad);
+  const lint = assertStrictSchema(schema);
+  ok(`${name} is inside the vendor's strict subset`, lint.ok, lint.errors);
+}
+
+// End to end: a drywall + electrical quote on a set with every kind of sheet.
+const mtDocs = (readId) => [
+  {
+    id: "dmt", companyId: "co1", planReadId: readId, kind: "plan", mimeType: "application/pdf", supersedesId: null, url: "https://res.cloudinary.com/x/raw/upload/mt.pdf",
+    uploadedAt: new Date(Date.now() - 60_000).toISOString(),
+    pages: allMt.map((s) => ({ page: s.docPage, url: `https://res.cloudinary.com/x/image/upload/v1/fieldquo/companies/co1/plans/mt${s.docPage}.jpg`, width: 3200, height: 2133 })),
+  },
+];
+const freshSheets = () => allMt.filter((s) => s !== sScan).map((s) => ({ ...s, read: null, scanDims: [] }));
+const mtRead = (id, scope) => ({ ...baseRead, id, scope, sheets: freshSheets() });
+const tradeProvider = () => {
+  const st = { calls: [], tradeSynth: 0, inFlight: 0, maxInFlight: 0, prompts: [] };
+  st.complete = async (args) => {
+    st.calls.push(args.schemaName);
+    await args.onUsage?.({ model: args.tier === "best" ? "gpt-5.5" : "gpt-5-mini", promptTokens: 9000, completionTokens: 2000, cachedTokens: 0, imageCount: (args.images || []).length });
+    if (args.schemaName === "plan_read_trade_sheet") {
+      const p = JSON.parse(args.prompt);
+      st.prompts.push(p);
+      const isE = p.sheet.number === "E-101";
+      return { ok: true, data: { relevant: true, summary: p.sheet.number, areas: [], heights: [], finishes: [], access: [], readDims: [], counts: isE ? [{ tradeKey: "electrical", itemKey: "receptacle", symbol: "duplex", legendText: "DUPLEX RECEPTACLE", tile: 0, count: 20 }, ...[5, 5, 5, 5].map((n, i) => ({ tradeKey: "electrical", itemKey: "receptacle", symbol: "duplex", legendText: "", tile: i + 1, count: n }))] : [], notes: [{ tradeKey: isE ? "electrical" : "drywall", text: isE ? "LP-1 200A" : "W1 TYPE X" }] } };
+    }
+    if (args.schemaName === "plan_read_trade") {
+      st.inFlight += 1;
+      st.maxInFlight = Math.max(st.maxInFlight, st.inFlight);
+      await wait(15);
+      st.inFlight -= 1;
+      st.tradeSynth += 1;
+      const [shared, tail] = args.prompt.split("\n=== TRADE ===\n");
+      const ctxJ = JSON.parse(shared);
+      const trade = JSON.parse(tail).trade;
+      const dimId = (raw) => ctxJ.dimensions.rows.find((r) => r[1] === raw)?.[0];
+      const countIds = ctxJ.sheets.flatMap((s) => s.counts).map((c) => c.id);
+      const items = trade === "drywall"
+        ? [{ ...blankItem, id: "i1", label: "Walls", itemKey: "wall_board", lengthRefs: [dimId("42'-6\"")], widthRefs: [dimId("9'-0\"")], multiplier: 2, attributes: { finishLevel: 4 } }]
+        : [{ ...blankItem, id: "i1", label: "Receptacles", itemKey: "receptacle", countRefs: countIds }];
+      return { ok: true, data: { summary: `${trade} scope`, buildingType: "office", commercial: true, areas: [], items, complexity: { level: "medium", factors: [] }, assumptions: [], exclusions: [], questions: [] } };
+    }
+    if (args.schemaName === "plan_read_synthesis") return goodModel;
+    return { ok: false, reason: "unexpected" };
+  };
+  return st;
+};
+const memMt = memDb({ planRead: [mtRead("pmt", scopeOf("drywall_install", "electrical"))], quoteDocument: mtDocs("pmt") });
+const lgMt = uniqueLedger();
+const estMt = readEstimate({ ...memMt.t.planRead[0], documents: mtDocs("pmt") });
+const estLegacy = readEstimate({ ...memMt.t.planRead[0], scope: null, documents: mtDocs("pmt") });
+ok("the estimate counts only the routed sheets and one synthesis per trade — no painting synthesis", estMt.breakdown.sheetsToRead === 2 && estMt.breakdown.synthMicros === 0 && estMt.breakdown.tradeSyntheses === 2 && estLegacy.breakdown.sheetsToRead === 8, [estMt.breakdown, estLegacy.breakdown]);
+const after = [];
+await startRead({ planReadId: "pmt", companyId: "co1" }, { ...p0Deps(lgMt), db: memMt });
+const provMt = tradeProvider();
+const outMt = await advanceRead("pmt", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(lgMt), db: memMt, complete: provMt.complete, afterReady: async (x) => after.push(x) });
+const rowMt = memMt.t.planRead[0];
+ok("the scoped read finishes", outMt.state === "ready" && rowMt.status === "ready", outMt);
+ok("only the two routed sheets were paid for (A-101 for drywall, E-101 for electrical), each with the TRADE sheet pass", provMt.calls.filter((c) => c === "plan_read_trade_sheet").length === 2 && !provMt.calls.includes("plan_read_sheet") && provMt.prompts.map((p) => p.sheet.number).sort().join() === "A-101,E-101", provMt.calls);
+ok("…each sheet's pass was asked only for its own trade, with that trade's catalogue", provMt.prompts.every((p) => p.job.trades.length === 1 && p.catalogues[0].trade === (p.sheet.number === "E-101" ? "electrical" : "drywall")));
+ok("no painting synthesis; one per trade, in parallel", !provMt.calls.includes("plan_read_synthesis") && provMt.tradeSynth === 2 && provMt.maxInFlight === 2);
+ok("the model holds both trades and says painting is not in scope", rowMt.model.painting === false && rowMt.model.trades.map((t) => t.tradeKey).join() === "drywall,electrical" && rowMt.model.surfaces.length === 0);
+ok("…their quantities computed from the read: 765 sq ft of walls, 20 receptacles (medium)", (() => {
+  const v = computeTrades(rowMt.model, { dims: buildDimIndex(rowMt.sheets), counts: buildCountIndex(rowMt.sheets), schedules: buildScheduleIndex(rowMt.sheets) });
+  return v[0].items[0].quantity.value === 765 && v[1].items[0].quantity.value === 20 && v[1].items[0].quantity.confidence === "medium";
+})());
+ok("usage and the stage clock keep the trades' syntheses as their own step", rowMt.usage.byStep.trade_synthesis.calls === 2 && rowMt.usage.byStep.sheets.calls === 2);
+ok("after settling, the read is priced and checked against the target once (the hook)", after.length === 1 && after[0].read.status === "ready" && after[0].read.model.trades.length === 2);
+const eRow = rowMt.sheets.find((s) => s.sheetNumber === "E-101");
+ok("a trade pass stores its counts, notes and what it was asked (scopeKey) — a painting pass stores none of it", Array.isArray(eRow.read.counts) && eRow.read.counts[0].count === 20 && eRow.read.scopeKey === "electrical:building" && !("counts" in (seq.row.sheets[0].read || {})));
+const viewMt = await planReadView({ ...rowMt, documents: mtDocs("pmt"), messages: [] }, { companyId: "co1", canSeeMoney: true, prisma: { companyServiceCategory: { findMany: async () => [] } }, scopeOptions: [{ key: "electrical", label: "Electrical", trade: "electrical" }] });
+ok("the view: trades computed, scope stated, every sheet's route said — 2 of 8 sent", viewMt.project.trades.length === 2 && viewMt.project.painting === false && viewMt.scope.stated && viewMt.scope.sent === 2 && viewMt.scope.total === 8 && viewMt.sheets.find((s) => s.name === "E-101").route.send && !viewMt.sheets.find((s) => s.name === "A-201").route.send && viewMt.scopeOptions.length === 1, viewMt.scope);
+const paintOnly = memDb({ planRead: [mtRead("pint", scopeOf("interior_painting"))], quoteDocument: mtDocs("pint") });
+await startRead({ planReadId: "pint", companyId: "co1" }, { ...p0Deps(uniqueLedger()), db: paintOnly });
+const sheetPrompts = [];
+await advanceRead("pint", { companyId: "co1", budgetMs: 10_000_000 }, { ...p0Deps(uniqueLedger()), db: paintOnly, afterReady: null, complete: async (args) => {
+  if (args.schemaName === "plan_read_sheet") sheetPrompts.push(JSON.parse(args.prompt));
+  await args.onUsage?.({ model: "gpt-5-mini", promptTokens: 100, completionTokens: 10, cachedTokens: 0, imageCount: 0 });
+  return args.schemaName === "plan_read_sheet" ? { ok: true, data: { relevant: true, summary: "x", areas: [], heights: [], finishes: [], access: [], readDims: [] } } : goodModel;
+} });
+ok("an interior painting quote: the painting pass, told to read the INSIDE only — and the elevations never sent", sheetPrompts.length === 1 && sheetPrompts[0].sheet.number === "A-101" && /INSIDE/.test(sheetPrompts[0].job.focus), sheetPrompts.map((p) => [p.sheet.number, p.job.focus]));
+const reuseRead = { ...rowMt, id: "pnew", companyId: "co1", status: "draft", documents: mtDocs("pnew").map((d) => ({ ...d, contentHash: "h1" })), sheets: rowMt.sheets.map((s) => ({ ...s, read: null })) };
+const tradeReuseSrc = (scope) => ({ id: "pmt", companyId: "co1", title: "x", trade: "painting", clientRequest: "", readAt: null, sheets: rowMt.sheets, scope, documents: [{ id: "dmt", companyId: "co1", contentHash: "h1" }] });
+ok("a trade pass is reused by a read asking the same; a read asking for painting is not offered it", reusableSheets({ read: reuseRead, companyId: "co1", sources: [tradeReuseSrc()] })[0]?.sheets.length === 2 && reusableSheets({ read: { ...reuseRead, scope: scopeOf("interior_painting") }, companyId: "co1", sources: [tradeReuseSrc()] }).length === 0);
+const remapped = remapSheetPass(eRow, "p41");
+ok("…and its count ids follow the sheet (p2.c1 → p41.c1)", remapped.read.counts[0].id === "p41.c1");
+ok("a roofing quote on a set with no roof sheet and nothing else to read is refused with the reason, not charged", (await startRead({ planReadId: "proof", companyId: "co1" }, { ...ledgerDeps, db: memDb({ planRead: [{ ...mtRead("proof", scopeOf("roofing_service")), sheets: freshSheets().filter((s) => s.sheetNumber === "E-101") }], quoteDocument: mtDocs("proof") }) })).error === "nothing_for_scope");
+const createSrc = code("app/api/plan-reads/route.js");
+ok("a read inherits the quote builder's services, or the lead's category — checked against the company's own", /resolveScope\(scopeKeys/.test(createSrc) && /lead\.category\?\.key/.test(createSrc) && /categories=\$\{encodeURIComponent/.test(code("app/components/quotes/builder/QuoteBuilder.js")) && /params\.get\("categories"\)/.test(code("app/app/quotes/drawings/new/page.js")));
+ok("changing the services is logged and new work; the browser's keys are looked up, never trusted", /resolveScope\(raw\.scope/.test(code("app/api/plan-reads/[id]/route.js")) && /Set what this read is for/.test(code("app/api/plan-reads/[id]/route.js")) && inputsKey({ documents: mtDocs("x"), scope: scopeOf("electrical") }) !== inputsKey({ documents: mtDocs("x"), scope: null }) && inputsKey({ documents: mtDocs("x"), scope: null }) === "dmt");
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("22. P2 pricing: your rates first, overhead by crew time, the target margin, the gap");
+// ═══════════════════════════════════════════════════════════════════════════
+
+// The company: USD, field crew at $40/h cost, a 25% target, $8,000 a month of
+// fixed costs, 320 billable crew-hours a month, two jobs a month.
+const receptacleService = {
+  id: "prod_rec",
+  name: "Receptacle install",
+  active: true,
+  templateEnabled: true,
+  categoryKeys: ["electrical"],
+  production: { key: "receptaclesPractical", amount: 3, basis: "per_hour" },
+  templateLines: [
+    { kind: "labour", name: "Install receptacle", qty: 1, unit: "each", unitPrice: 85, unitCost: 30, taxable: true, measurementKey: "receptaclesPractical" },
+    { kind: "material", name: "Device and box", qty: 1, unit: "each", unitPrice: 15, unitCost: 9.5, taxable: true, measurementKey: "receptaclesPractical" },
+    { kind: "other", name: "Permit", qty: 1, unit: "flat", unitPrice: 150, unitCost: 150, taxable: false },
+    { kind: "labour", name: "Panel tie-in", qty: 1, unit: "each", unitPrice: 300, unitCost: 120, taxable: true, measurementKey: "panelHours" },
+  ],
+};
+const pctx = {
+  currency: "USD",
+  labour: { rate: 40, source: "crew", workers: 3 },
+  target: { pct: 25, isDefault: false },
+  overhead: { rates: overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: 320, jobsPerMonth: 2 }), fallbackPct: 10, minimumPrice: 5333.33, hourlyFloor: 25, needsCapacity: false },
+  books: engineBooks({}),
+  services: [receptacleService],
+  enabledKeys: ["electrical", "drywall_install", "carpentry", "roofing_service", "plumbing"],
+};
+const tradeOf = (t) => ({ ...t, commercial: true });
+const pricedE = priceTrade(tradeOf(elec), { ...pctx, commercial: true, labourRate: 40, assumptions: assumptionsIndex([]) });
+const blk = (pt, label) => pt.blocks.find((b) => (b.label || "").includes(label) || b.source.includes(label));
+const recBlock = pricedE.blocks.find((b) => b.rung === "service");
+ok("rung 2: receptacles AND GFCIs priced by the company's OWN service, expanded once on their summed 41 (37 + 4)", recBlock && recBlock.itemIds.length === 2 && recBlock.lines.find((l) => l.description === "Install receptacle").quantity === 41 && recBlock.sell === 41 * 85 + 41 * 15 + 150, recBlock);
+ok("…its line keyed to a measurement the read did not take is left out and SAID, not priced at a made-up quantity", !recBlock.lines.some((l) => l.description === "Panel tie-in") && recBlock.notes.some((n) => /need a measurement/.test(n)));
+ok("…its cost is the service's own line costs; its hours come from its production rate × complexity (41 ÷ 3 × 1.15)", recBlock.lineCost === 41 * 30 + 41 * 9.5 + 150 && recBlock.hours === Math.round((41 / 3) * 1.15 * 100) / 100 && recBlock.labourCost === 0, recBlock);
+const fixBlock = pricedE.blocks.find((b) => b.rung === "suggestion" && b.itemIds.includes(elec.items.find((i) => i.label === "light_fixture").id));
+ok("rung 3: light fixtures — FieldQuo suggestion, NECA 45 min + 40% trim at the commercial factor 1.0 (published), × complexity", fixBlock && fixBlock.hours === Math.round(12 * (45 / 60) * 1.4 * 1.15 * 100) / 100 && fixBlock.sell === null && fixBlock.coefficients.some((c) => /NECA/.test(c.source) && c.tag === "READ") && fixBlock.coefficients.some((c) => c.name === "Productivity" && c.value === 1), fixBlock);
+const resE = priceTrade({ ...elec, commercial: false }, { ...pctx, commercial: false, labourRate: 40, assumptions: assumptionsIndex([]) });
+const resFix = resE.blocks.find((b) => b.rung === "suggestion" && b.itemIds.includes(elec.items.find((i) => i.label === "light_fixture").id));
+ok("…a house keeps the residential factor 0.456 (cited as fitted to one real rewire)", Math.abs(resFix.hours / fixBlock.hours - 0.456) < 0.01 && resFix.coefficients.some((c) => c.value === 0.456 && c.tag === "DERIVED"));
+ok("no rate anywhere (conduit, data) → \"No rate — add one\", never a $0 line", pricedE.unpriced.some((u) => u.label === "conduit") && !pricedE.blocks.some((b) => b.itemIds.includes(elec.items.find((i) => i.itemKey === "conduit").id)));
+ok("…and a CAD company gets no USD device cost: labour suggested, the material said to be missing", (() => {
+  const cad = priceTrade(tradeOf(elec), { ...pctx, currency: "CAD", commercial: true, labourRate: 40, assumptions: assumptionsIndex([]) });
+  const b = cad.blocks.find((x) => x.rung === "suggestion" && x.itemIds.includes(elec.items.find((i) => i.label === "light_fixture").id));
+  return b.materialCost === null && !b.costComplete && b.notes.some((n) => /US trade prices/.test(n));
+})());
+
+const pricedD = priceTrade(dry, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
+const wall = pricedD.blocks.find((b) => b.itemIds.includes(dq("W1 partitions, Level 4").id));
+ok("rung 1: drywall walls priced by the drywall rate card — hang + Level 4 at the standard tier (1,089 × (1.20 + 1.45))", wall.rung === "engine" && !wall.own && Math.abs(wall.sell - 1089 * (1.2 + 1.45)) < 0.02 && /starting rates/.test(wall.source), wall);
+ok("…its cost from the drywall recipe (hours and board, compound, tape, screws), with the figures cited", wall.hours > 0 && wall.materialCost > 0 && wall.costComplete && wall.coefficients.some((c) => /INTERIOR_RECIPES\.drywall_install/.test(c.source)));
+const ownBookD = priceTrade(dry, { ...pctx, books: engineBooks({ drywall_install: { complexity: { standard: { hangPricePerSqft: 2 } } } }), labourRate: 40, assumptions: assumptionsIndex([]) });
+ok("…the company's OWN drywall rates move the price and say \"Your drywall rate card\"", ownBookD.blocks[0].own && ownBookD.blocks[0].sell !== wall.sell && /^Your drywall rate card \(/.test(ownBookD.blocks[0].source));
+const lvl5 = pricedD.blocks.find((b) => b.itemIds.includes(dq("Lobby ceiling, Level 5").id));
+ok("…the Level 5 ceiling bills its level and the ceiling surcharge", lvl5.lines.some((l) => /Level 5/.test(l.description)) && lvl5.lines.some((l) => /Ceiling/.test(l.description)));
+const noLevel = pricedD.blocks.find((b) => b.itemIds.includes(dq("Bad level").id));
+ok("…a wall with no stated level is priced at Level 4 and SAYS it was assumed", noLevel.notes.some((n) => /Level 4/.test(n) && /not stated/.test(n)));
+
+const pricedF = priceTrade(fr, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
+const fw = pricedF.blocks[0];
+ok("framing: the framing book is switched on — 121 lin ft × $26 (2x6 exterior, standard), labelled FieldQuo's starting rates", fw.rung === "suggestion" && fw.sell === 121 * 26 && /framing price book/.test(fw.source) && fw.coefficients.some((c) => /structural\.js FRAMING/.test(c.source) && c.tag === "READ"), fw);
+ok("…its cost from the framing recipe: 0.16 h/lin ft, studs at 16 in plus plates (stated)", fw.hours === Math.round(121 * 0.16 * 1.15 * 100) / 100 && fw.coefficients.some((c) => c.name === "Plates" && c.tag === "GUESS"));
+ok("…headers from the book, their LVL costed off the printed span", pricedF.blocks[1].sell === 6 * 180 && pricedF.blocks[1].materialCost > 0);
+ok("…and a currency the book does not hold (EUR) gets no framing price", priceTrade(fr, { ...pctx, currency: "EUR", labourRate: 40, assumptions: assumptionsIndex([]) }).unpriced.length === 2);
+
+const pricedR = priceTrade(roof, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
+const rb = pricedR.blocks[0];
+const engineDirect = buildTradeLineItems("roofing_service", rb.takeoff, null).reduce((n, l) => n + l.amount, 0);
+ok("roofing: one roofing takeoff priced by the roofing rate card's own engine — the same total buildTradeLineItems gives", rb.rung === "engine" && Math.abs(rb.sell - engineDirect) < 0.01 && rb.takeoff.squares === 25.42 && rb.takeoff.pitchRise === 6 && rb.takeoff.ridgeHipFt === 40, { sell: rb.sell, engineDirect, takeoff: rb.takeoff });
+ok("…timed by roofLabour, shingle cost from Home Depot, and what the cost leaves out is said", rb.hours > 0 && rb.materialCost > 0 && rb.notes.some((n) => /shingles only/.test(n)));
+
+const pricedP = priceTrade(plb, { ...pctx, labourRate: 40, assumptions: assumptionsIndex([]) });
+ok("plumbing: no repo figure for a toilet's hours → no rate; a water heater's 3 h (the benchmark's 2–4 h midpoint)", pricedP.unpriced.some((u) => u.label === "water_closet") && pricedP.blocks.some((b) => b.rung === "suggestion" && b.hours === Math.round(3 * 1.15 * 100) / 100));
+
+// Overhead: the job's fair share of the month in crew time.
+const rates = overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: 320, jobsPerMonth: 2 });
+ok("a two-week job for two people (160 crew-h) in a 320-h month carries half the month: $4,000", overheadForJob({ rates, jobHours: 160 }).amount === 4000 && overheadForJob({ rates, jobHours: 160 }).basis === "per_hour" && overheadForJob({ rates, jobHours: 160 }).share === 0.5);
+ok("a two-day job (32 crew-h) carries a tenth: $800", overheadForJob({ rates, jobHours: 32 }).amount === 800);
+ok("no hours set: the month split evenly over jobs — 2 a month $4,000, capacity for 3 $2,666.67, 4 $2,000 (labelled per job)", [2, 3, 4].map((j) => overheadForJob({ rates: overheadRates({ monthlyFixedCosts: 8000, jobsPerMonth: j }), jobHours: 160 })).map((o) => `${o.basis}:${o.amount}`).join() === "per_job:4000,per_job:2666.67,per_job:2000");
+ok("nothing set: 10% of the price, said as a fallback", overheadForJob({ rates: overheadRates({}), price: 10000 }).basis === "pct_of_price" && overheadForJob({ rates: overheadRates({}), price: 10000 }).amount === 1000);
+ok("hostile capacity (0, -5, NaN, \"abc\", 1e9) is \"not said\", never a divisor", [0, -5, NaN, "abc", 1e9].every((v) => overheadRates({ monthlyFixedCosts: 8000, billableHoursPerMonth: v }).perHour === null));
+
+const recoOf = (trades, extra = {}) => recommendPrice({ painting: null, trades, equipment: { total: 0, unpriced: 0 }, labour: { rate: 40, source: "crew" }, target: { pct: 25 }, overhead: pctx.overhead, ...extra });
+const r1 = recoOf([pricedE, pricedD]);
+const jobH = r1.hours;
+ok(`the recommendation's overhead is the job's time share: ${jobH} h × $8,000 ÷ 320 = $${Math.round(8000 * jobH / 320 * 100) / 100}`, r1.overhead.basis === "per_hour" && Math.abs(r1.overhead.amountAtRecommended - (8000 * jobH) / 320) < 0.02, r1.overhead);
+const marginAt = (price) => (price - r1.costBeforeOverhead - r1.overhead.amountAtRecommended) / price;
+ok("the price at target holds the target exactly: margin at it = 25.00%", Math.abs(marginAt(r1.targetPrice) - 0.25) < 0.0001, { target: r1.targetPrice, m: marginAt(r1.targetPrice) });
+ok("your rates' price is your blocks (engine + service), never the suggestions", r1.yourPrice === Math.round((pricedE.blocks.concat(pricedD.blocks).filter((b) => b.rung !== "suggestion").reduce((n, b) => n + b.sell, 0)) * 100) / 100 && r1.flags.includes("suggestions"));
+const rPct = recommendPrice({ painting: null, trades: [pricedD], equipment: { total: 0, unpriced: 0 }, labour: { rate: 40 }, target: { pct: 25 }, overhead: { rates: overheadRates({}), fallbackPct: 10 } });
+ok("with overhead as 10% of price, target = cost ÷ (1 − 25% − 10%), and its margin is 25%", Math.abs(rPct.targetPrice - rPct.costBeforeOverhead / 0.65) < 0.02 && Math.abs((rPct.targetPrice - rPct.costBeforeOverhead - rPct.targetPrice * 0.1) / rPct.targetPrice - 0.25) < 0.0001);
+
+// The gap: rates that miss the target.
+const cheapService = { ...receptacleService, templateLines: receptacleService.templateLines.map((l) => (l.name === "Install receptacle" ? { ...l, unitPrice: 31 } : l)) };
+const cheap = priceTrade(tradeOf(elec), { ...pctx, services: [cheapService], commercial: true, labourRate: 40, assumptions: assumptionsIndex([]) });
+const rGap = recoOf([cheap]);
+ok("rates that miss the target: below target, the gap = target price − your price, the target price recommended", !rGap.meetsTarget && rGap.flags.includes("below_target") && rGap.gap === Math.round((rGap.targetPrice - rGap.withSuggestions) * 100) / 100 && rGap.recommended === rGap.targetPrice && rGap.gap > 0, rGap);
+const added = applyPricingOps({ trades: [] }, [{ op: "add_margin_adjustment", amount: 1 }], { recommendation: rGap, userId: "u1" });
+ok("one click adds a margin adjustment line for the SERVER's gap (a browser amount is ignored)", added.model.pricing.marginAdjustment.amount === rGap.gap && added.model.pricing.marginAdjustment.targetPct === 25 && /margin adjustment/.test(added.changes[0]));
+const rMeets = recoOf([pricedE]);
+ok("rates that hold the target: recommended as they are; the adjustment is refused", rMeets.meetsTarget && rMeets.recommended === rMeets.withSuggestions && applyPricingOps({}, [{ op: "add_margin_adjustment" }], { recommendation: rMeets }).dropped.length === 1, rMeets);
+const onlyReceptacles = { ...elec, items: elec.items.map((i) => ({ ...i, active: ["receptacle", "receptacle_gfci"].includes(i.itemKey) })) };
+const lossReco = recoOf([priceTrade(tradeOf(onlyReceptacles), { ...pctx, services: [{ ...receptacleService, templateLines: receptacleService.templateLines.map((l) => ({ ...l, unitPrice: 1 })) }], commercial: true, labourRate: 40, assumptions: assumptionsIndex([]) })], { overhead: { ...pctx.overhead, minimumPrice: 999999 } });
+ok("a loss at your rates is flagged as one; below your minimum price per job too", lossReco.flags.includes("loss") && lossReco.yourMarginPct < 0 && lossReco.flags.includes("below_minimum_price"), lossReco.flags);
+ok("the hourly floor is your labour cost + overhead per crew-hour ($40 + $25), and the recommended price earns at least it", r1.hourlyFloor === 65 && r1.earnedPerHour >= 65 && !r1.flags.includes("below_hourly_floor"), [r1.hourlyFloor, r1.earnedPerHour]);
+const sugOn = applyPricingOps({}, [{ op: "use_suggestions", tradeKey: "electrical", on: true }], { trades: ["electrical"] });
+ok("FieldQuo's suggested lines reach a quote only by a person's button, per trade", sugOn.model.pricing.useSuggestions.electrical === true && applyPricingOps({}, [{ op: "use_suggestions", tradeKey: "roofing", on: true }], { trades: ["electrical"] }).dropped.length === 1);
+
+// The notice: owner/managers (bell + push) and the assignee.
+const sent = [];
+const fakeNotify = async (e) => {
+  sent.push(e);
+  return { created: true };
+};
+const notifyDb = (assigneeRole, already = null) => ({
+  notificationEvent: { findFirst: async () => already },
+  quote: { findFirst: async () => ({ assignedToId: "u_pm" }) },
+  leadRequest: { findFirst: async () => null },
+  member: { findFirst: async () => ({ role: assigneeRole }) },
+});
+await notifyBelowTarget({ read: { id: "prx", title: "Office TI", quoteId: "q1", readAt: new Date().toISOString() }, recommendation: rGap, companyId: "co1" }, { prisma: notifyDb("employee"), notify: fakeNotify });
+ok("below target → the approvers' notice AND the quote's estimator, narrowed to that one person", sent.length === 2 && sent[0].type === "planRead.belowTarget" && sent[0].entityId === "prx" && sent[1].type === "planRead.belowTargetAssigned" && JSON.stringify(sent[1].recipientUserIds) === '["u_pm"]' && !("amount" in sent[0].params), sent);
+sent.length = 0;
+await notifyBelowTarget({ read: { id: "prx", title: "x", quoteId: "q1" }, recommendation: rGap, companyId: "co1" }, { prisma: notifyDb("owner"), notify: fakeNotify });
+ok("…an assignee who is already an approver is not told twice", sent.length === 1);
+sent.length = 0;
+await notifyBelowTarget({ read: { id: "prx", title: "x" }, recommendation: rGap, companyId: "co1" }, { prisma: notifyDb("employee", { id: "ev1" }), notify: fakeNotify });
+await notifyBelowTarget({ read: { id: "prx", title: "x" }, recommendation: rMeets, companyId: "co1" }, { prisma: notifyDb("employee"), notify: fakeNotify });
+ok("…once per finished read, and never when the rates hold the target", sent.length === 0);
+ok("the notice types are registered, link to the read and carry no money", NOTIFICATION_TYPES["planRead.belowTarget"]?.money === false && hrefFor({ entityType: "planRead", entityId: "prx" }) === "/app/quotes/drawings/prx");
+
+// The manual trigger: figures the estimator STATED, a diff, then a person's Apply.
+const chatMsgs = [
+  { id: "m1", role: "user", text: "My crew hangs 600 sq ft a day on this kind of board" },
+  { id: "m2", role: "assistant", text: "Noted — a typical crew does 800." },
+  { id: "m3", role: "user", text: "Labour costs us $42 an hour, aim for 30% on this one" },
+];
+const proposals = [
+  { kind: "production_rate", tradeKey: "drywall", itemKey: "wall_board", value: 600, basis: "per_day", messageId: "m1", quote: "hangs 600 sq ft a day" },
+  { kind: "production_rate", tradeKey: "drywall", itemKey: "wall_board", value: 700, basis: "per_day", messageId: "m1", quote: "hangs 600 sq ft a day" },
+  { kind: "production_rate", tradeKey: "drywall", itemKey: "wall_board", value: 800, basis: "per_day", messageId: "m2", quote: "a typical crew does 800" },
+  { kind: "labour_rate", tradeKey: null, itemKey: null, value: 42, basis: "per_hour", messageId: "m3", quote: "Labour costs us $42 an hour" },
+  { kind: "target_margin", tradeKey: null, itemKey: null, value: 30, basis: "percent", messageId: "m3", quote: "aim for 30%" },
+  { kind: "material_cost", tradeKey: "drywall", itemKey: null, value: 42, basis: "per_unit", messageId: "m3", quote: "Labour costs us $42 an hour" },
+  { kind: "waste", tradeKey: null, itemKey: null, value: 12, basis: "percent", messageId: "m3", quote: "allow 12% waste" },
+];
+const ver = verifyProposals(proposals, chatMsgs, { trades: ["drywall", "electrical"] });
+ok("only figures printed in the estimator's OWN words survive: 600/day, $42/h, 30%", ver.accepted.map((a) => `${a.kind}:${a.said}`).sort().join() === "labour_rate:42,production_rate:600,target_margin:30", ver.accepted);
+ok("…an invented number, the assistant's figure, an unquoted phrase and an item-less material cost are each refused with the reason", ver.rejected.map((r) => r.reason).sort().join() === "no_item,not_in_message,not_your_message,number_not_stated", ver.rejected.map((r) => r.reason));
+ok("…600 sq ft a day is stored per crew-hour (÷ 8), the words kept", ver.accepted.find((a) => a.kind === "production_rate").value === 75);
+const meterCalls = [];
+const fakeMeter = async () => ({ check: async () => ({ allowed: true }), record: async (u, o) => (meterCalls.push(o.ref), { chargedCents: 3 }) });
+const foundIn = await findPricingInputs({ read: { id: "prx", title: "x" }, companyId: "co1", userId: "u1", messages: chatMsgs, trades: ["drywall"] }, { complete: async (args) => (await args.onUsage({ model: "gpt-5-mini", promptTokens: 900, completionTokens: 200, cachedTokens: 0 }), { ok: true, data: { reply: "", proposals } }), meterFor: fakeMeter, recordAiUsage: async () => null, turnId: "t1" });
+ok("the button's call is metered and verified; nothing is written by it", foundIn.ok && foundIn.proposals.length === 3 && foundIn.chargedCents === 3 && meterCalls[0] === "plan_read_pricing:prx:t1");
+const failedIn = await findPricingInputs({ read: { id: "prx" }, companyId: "co1", messages: chatMsgs, trades: [] }, { complete: async (args) => (await args.onUsage({ model: "gpt-5-mini", promptTokens: 9, completionTokens: 2 }), { ok: false, reason: "vendor_error" }), meterFor: fakeMeter, recordAiUsage: async () => null });
+ok("…a failed call charges nothing; no estimator message → refused before any call", !failedIn.ok && meterCalls.length === 1 && (await findPricingInputs({ read: { id: "x" }, companyId: "co1", messages: [chatMsgs[1]], trades: [] }, { meterFor: fakeMeter })).error === "no_messages");
+const pricingModel = { ...rowMt.model, trades: [dry] };
+const baseView = readPricing({ computed: { trades: [dry], commercial: false }, pricedPaint: null, model: pricingModel, ctx: pctx });
+const tried = readPricing({ computed: { trades: [dry], commercial: false }, pricedPaint: null, model: { ...pricingModel, pricingAssumptions: mergeAssumptions([], ver.accepted) }, ctx: pctx });
+const diff = pricingDiff(baseView, tried);
+ok("the diff shows what the figures change before anything is applied: labour $40 → $42, the target 25% → 30%, the hours", diff.rows.find((r) => r.label === "labour")?.after === 42 && diff.rows.find((r) => r.label === "target")?.after === 30 && diff.rows.some((r) => r.label === "hours") && diff.lines.length > 0, diff);
+ok("…the 600/day becomes the wall's hours (1,089 ÷ 75) and is cited on the line as the estimator's figure", tried.trades[0].blocks.find((b) => b.itemIds.includes(dq("W1 partitions, Level 4").id)).hours === Math.round((1089 / 75) * 100) / 100 && tried.trades[0].blocks[0].coefficients.some((c) => /from the conversation/.test(c.name)));
+ok("…the what-if target is said to be one, beside the company's own", tried.recommendation.targetWhatIf?.companyPct === 25 && tried.recommendation.targetPct === 30);
+const appliedP = applyPricingOps({}, [{ op: "set_pricing_assumptions", assumptions: [...ver.accepted, { ...ver.accepted[0], said: 9999, quote: "hangs 600 sq ft a day" }] }], { messages: chatMsgs, trades: ["drywall", "electrical"], userId: "u1" });
+ok("Apply re-checks every figure against the stored messages — a tampered one is refused", appliedP.model.pricingAssumptions.length === 3 && appliedP.dropped.length === 1 && appliedP.changes.length === 3);
+ok("the figures stay on the read: removable, and never written to the company's settings", applyPricingOps(appliedP.model, [{ op: "remove_pricing_assumption", id: appliedP.model.pricingAssumptions[0].id }]).model.pricingAssumptions.length === 2 && !/companyServiceCategory|product\.update|forecastSettings/.test(code("lib/planRead/pricingOps.js") + code("app/api/plan-reads/[id]/pricing-from-chat/route.js")));
+const pfcSrc = code("app/api/plan-reads/[id]/pricing-from-chat/route.js");
+ok("the trigger route writes nothing, is money-gated and scoped to the member's company", !/\.(create|update|updateMany|upsert)\(/.test(pfcSrc) && /showPricing/.test(pfcSrc) && /member\.companyId/.test(pfcSrc) && /await params/.test(pfcSrc));
+const draftSrc = code("app/api/plan-reads/[id]/draft-quote/route.js");
+ok("the draft quote: your rates' lines always; suggestions only when switched on, each flagged aiSuggested; the adjustment as its own line", /b\.rung === "engine" \|\| b\.rung === "service"/.test(draftSrc) && /useSuggestions\[pt\.tradeKey\] === true/.test(draftSrc) && /aiSuggested: \{ source: b\.source, coefficients: b\.coefficients \}/.test(draftSrc) && /description: "Margin adjustment"/.test(draftSrc));
+const readRouteSrc = code("app/api/plan-reads/[id]/route.js");
+ok("pricing ops are money-gated; the gap comes from the server's own pricing; messages come from the database", /PRICING_PERSON_OPS/.test(readRouteSrc) && /showPricing/.test(readRouteSrc) && /priceReadNow\(read/.test(readRouteSrc) && /planReadMessage\.findMany\(\{ where: \{ planReadId: read\.id, companyId: member\.companyId, role: "user" \}/.test(readRouteSrc));
+const viewNoMoney = await planReadView({ ...rowMt, documents: mtDocs("pmt"), messages: [] }, { companyId: "co1", canSeeMoney: false, prisma: { companyServiceCategory: { findMany: async () => [] } }, pricingCtx: pctx });
+const viewMoney = await planReadView({ ...rowMt, documents: mtDocs("pmt"), messages: [] }, { companyId: "co1", canSeeMoney: true, prisma: { companyServiceCategory: { findMany: async () => [] } }, pricingCtx: pctx });
+ok("the screen gets the recommendation only with money access", viewNoMoney.pricing === null && viewMoney.pricing?.recommendation?.targetPct === 25 && viewMoney.pricing.trades.length === 2);
+ok("the AI is called only through lib/ai/provider.js", !/new OpenAI|from "openai"/.test(["lib/planRead/run.js", "lib/planRead/pricingChat.js", "lib/planRead/tradePrompts.js", "lib/planRead/tradePricing.js"].map(code).join("\n")));
+const paintPricing = readPricing({ computed: { ...computed, trades: [] }, pricedPaint: priced, model, ctx: pctx });
+ok("a painting read is costed by the Cost & margin panel's own formula (quoteCostSummary) and recommended the same way", paintPricing.painting.hours > 0 && paintPricing.painting.price === priced.paintTotal && paintPricing.recommendation.yourPrice === priced.subtotal && paintPricing.recommendation.targetPrice > 0, paintPricing.painting);
+ok("…its low-confidence lines are weighed for \"check before sending\"", paintPricing.painting.lowValue === Math.round(priced.lines.filter((l) => l.estimated).reduce((n, l) => n + l.amount, 0) * 100) / 100);
 
 console.log(`\ncheck-plan-deep-read: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

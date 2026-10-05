@@ -34,6 +34,9 @@ import { findSheetCache } from "@/lib/planRead/sheetCache";
 import { loadScopeOptions, resolveScope } from "@/lib/planRead/scope";
 import { applyTradeOps, TRADE_PERSON_OPS } from "@/lib/planRead/tradeModel";
 import { Prisma } from "@prisma/client";
+import { applyPricingOps, PRICING_PERSON_OPS } from "@/lib/planRead/pricingOps";
+import { priceReadNow, pricingContextFor } from "@/lib/planRead/priceRead";
+import { tradesFromScope } from "@/lib/planRead/tradeCatalogue";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -70,14 +73,26 @@ export async function GET(request, { params }) {
       return [];
     }),
   ]);
+  // The company's pricing context — its books, services, labour cost rate,
+  // target margin and overhead — for the recommendation. Money: only for a
+  // member who may see prices, and a failed lookup shows no recommendation
+  // (said on screen), never a broken page.
+  const canSeeMoney = hasToggle(full, "showPricing");
+  const pricingCtx = canSeeMoney && read.model
+    ? await pricingContextFor(member.companyId, { prisma: db }).catch((err) => {
+        console.error("[planRead] pricing context:", err?.message);
+        return null;
+      })
+    : null;
   const view = await planReadView(read, {
     companyId: member.companyId,
-    canSeeMoney: hasToggle(full, "showPricing"),
+    canSeeMoney,
     balanceCents,
     sheetKey,
     authors,
     reuseOffer: cache.offers[0] || null,
     scopeOptions,
+    pricingCtx,
   });
   return NextResponse.json({ ...view, currency: company?.currency || null });
 }
@@ -155,11 +170,35 @@ export async function PATCH(request, { params }) {
     changes.push(...result.changes);
   }
 
-  if (Array.isArray(raw?.ops) && read.model && raw.ops.some((o) => o && !TRADE_PERSON_OPS.includes(o.op))) {
+  // A person's pricing choices — money, so only for a member who sees
+  // prices. The margin adjustment's amount is the server's own current gap
+  // (priceReadNow), and figures from the conversation are re-checked against
+  // the read's stored messages (lib/planRead/pricingOps.js).
+  const pricingOps = Array.isArray(raw?.ops) ? raw.ops.filter((o) => o && PRICING_PERSON_OPS.includes(o.op)) : [];
+  if (pricingOps.length && read.model) {
+    if (!hasToggle(full, "showPricing")) return NextResponse.json({ error: "Prices are hidden by your access level." }, { status: 403 });
+    const current = data.model || read.model;
+    const needsPrice = pricingOps.some((o) => o.op === "add_margin_adjustment");
+    const priced = needsPrice ? await priceReadNow(read, { companyId: member.companyId, prisma: db, model: current }) : null;
+    const messages = pricingOps.some((o) => o.op === "set_pricing_assumptions")
+      ? await db.planReadMessage.findMany({ where: { planReadId: read.id, companyId: member.companyId, role: "user" }, orderBy: { createdAt: "asc" }, select: { id: true, role: true, text: true } })
+      : [];
+    const result = applyPricingOps(current, pricingOps, {
+      recommendation: priced?.pricing?.recommendation || null,
+      messages,
+      trades: tradesFromScope(read.scope).trades.map((t) => t.tradeKey),
+      userId: member.userId || null,
+    });
+    data.model = result.model;
+    changes.push(...result.changes, ...result.dropped.map((x) => `Not applied: ${x}`));
+  }
+
+  const otherOps = Array.isArray(raw?.ops) ? raw.ops.filter((o) => o && !TRADE_PERSON_OPS.includes(o.op) && !PRICING_PERSON_OPS.includes(o.op)) : [];
+  if (otherOps.length && read.model) {
     // A price for equipment is money on the estimator's own draft; a member
     // whose access hides pricing may not set one.
     const canSeeMoney = hasToggle(full, "showPricing");
-    const ops = raw.ops.filter((o) => o && !TRADE_PERSON_OPS.includes(o.op) && (canSeeMoney || o.op !== "set_access_price")).slice(0, 20);
+    const ops = otherOps.filter((o) => canSeeMoney || o.op !== "set_access_price").slice(0, 20);
     const { books } = await loadPaintBooks(member.companyId);
     const book = books.interior_painting;
     const { sheets, excel } = readInputs(read);
