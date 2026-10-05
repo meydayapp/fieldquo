@@ -21,6 +21,10 @@
 //   4. Cancelling an AI bundle stops FUTURE grants (the Stripe subscription is
 //      actually cancelled) without clawing back credit already on the ledger,
 //      and without deleting any row — the ledger is append-only.
+//   6. (2026-10-04) Plan credit RESETS monthly and top-ups persist: the
+//      reset arithmetic, the plan-first draw order and the two worked
+//      examples run against a ledger fake that answers aggregate/findMany
+//      the way Postgres would.
 //   5. The three settlement doors this money moves through — a top-up's
 //      redirect+webhook, a bundle's checkout-confirm+invoice-webhook, and the
 //      platform billing webhook's own subscription events — cannot be
@@ -55,8 +59,21 @@ import {
   resolveAiBundleSubscription,
   settleAiBundleCheckoutSession,
   cancelAiBundle,
-  BUNDLE_ROLLOVER_NOTICE,
+  BUNDLE_RESET_NOTICE,
+  bundleAvailability,
+  bundleCustomerKind,
+  oneMonthAfter,
 } from "@/lib/ai/creditBundle";
+import {
+  planCreditLeft,
+  splitAiBalance,
+  expirePlanGrant,
+  expireDuePlanCredit,
+  aiPlanCreditStatus,
+  planExpiryRef,
+  PLAN_EXPIRY_KIND,
+} from "@/lib/ai/planCreditReset";
+import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { BUNDLES } from "@/lib/ai/imageEconomics";
 
@@ -138,16 +155,24 @@ function makeWorld({ ledger = [], bundles = [] } = {}) {
   // can silently make it pass by hand-choosing the wallet. `poolForKind` is
   // the one real import; the ref-uniqueness enforcement is the one this
   // reproduces, same as check-voice-topup.mjs's fakeLedger.
-  const addCredit = async ({ companyId, cents, kind, stripeRef, ref, note }) => {
+  const addCredit = async ({ companyId, cents, kind, stripeRef, ref, note, expiresAt = null }) => {
     if (stripeRef && rows.some((r) => r.companyId === companyId && r.stripeRef === stripeRef)) {
       return null;
     }
     if (ref && rows.some((r) => r.companyId === companyId && r.ref === ref)) {
       return null; // P2002 — the unique (companyId, ref) index refusing a second write.
     }
-    const row = { id: `e${++n}`, companyId, cents, kind, pool: poolForKind(kind), stripeRef, ref, note };
+    const row = { id: `e${++n}`, companyId, cents, kind, pool: poolForKind(kind), stripeRef, ref, note, expiresAt };
     rows.push(row);
     return row;
+  };
+
+  // The month-end reset grantAiBundlePeriod runs before each grant — counted
+  // here, executed for real in section 6 against a ledger that can sum.
+  const resetCalls = [];
+  const expireDuePlanCreditStub = async (args) => {
+    resetCalls.push(args?.companyId || null);
+    return { grants: 0, reset: 0, expiredCents: 0 };
   };
 
   const balanceFor = async (companyId, _prisma, pool = POOLS.VOICE) =>
@@ -186,7 +211,8 @@ function makeWorld({ ledger = [], bundles = [] } = {}) {
     activity,
     stripeCalls,
     stripeSubscriptions,
-    deps: { db, addCredit, balanceFor, recordActivity, stripe },
+    resetCalls,
+    deps: { db, addCredit, balanceFor, recordActivity, stripe, expireDuePlanCredit: expireDuePlanCreditStub },
   };
 }
 
@@ -221,6 +247,36 @@ section("0. Starting a plan refuses an unpriced bundle key before touching Strip
   });
   ok("an unknown bundle key is refused, not silently priced at whatever the request said",
     result.ok === false && result.reason === "unknown_bundle");
+
+  // ── Any company, in US dollars (owner, 2026-10-04) ───────────────────────
+  for (const cur of ["CAD", "AUD", "GBP", "EUR"]) {
+    const a = bundleAvailability(cur);
+    ok(`a ${cur} company may start a plan, and is told it bills in US dollars`, a.ok === true && a.usdNote === true && a.currency === "USD");
+    ok(`…on its separate USD add-on customer, never the ${cur} plan's customer`, bundleCustomerKind(cur) === "usd_add_ons");
+  }
+  ok("a USD company uses its one customer and reads no disclaimer about itself",
+    bundleAvailability("USD").usdNote === false && bundleCustomerKind("USD") === "plan" && bundleCustomerKind(null) === "plan");
+  for (const [cur, want] of [["GBP", "cus_usd_addons"], ["USD", "cus_plan"]]) {
+    const calls = { usd: 0, plan: 0, sessions: [] };
+    const fakeStripe = { checkout: { sessions: { create: async (p) => { calls.sessions.push(p); return { url: "https://checkout.stripe.test/x" }; } } } };
+    const started = await createAiBundleCheckoutSession({
+      company: { id: `co_${cur}`, name: "Test Co", currency: cur },
+      bundleKey: "busy",
+      successUrl: "https://app/success",
+      cancelUrl: "https://app/cancel",
+      deps: {
+        stripe: fakeStripe,
+        getOrCreateUsdAddOnCustomer: async () => { calls.usd++; return "cus_usd_addons"; },
+        getOrCreateStripeCustomer: async () => { calls.plan++; return "cus_plan"; },
+      },
+    });
+    const sent = calls.sessions[0];
+    ok(`${cur} company: checkout opens on ${want}`, started.ok === true && sent?.customer === want && calls.usd + calls.plan === 1);
+    ok(`${cur} company: the line is US$50.00 a month, whatever the company's currency`,
+      sent?.line_items?.[0]?.price_data?.currency === "usd" && sent.line_items[0].price_data.unit_amount === 5000 && sent.line_items[0].price_data.recurring.interval === "month");
+    ok(`${cur} company: the subscription carries companyId + kind (what settles it, never the customer)`,
+      sent?.subscription_data?.metadata?.companyId === `co_${cur}` && sent.subscription_data.metadata.kind === "ai_bundle_subscription");
+  }
 
   // resolveAiBundleSubscription: the shared lookup both the invoice-succeeded
   // path and the invoice-failed guard depend on. An id Stripe has never heard
@@ -305,6 +361,9 @@ section("3. A bundle grant is idempotent within a period, and fires again next p
   ok("first delivery of March's invoice grants", r1.handled === true && r1.granted === true);
   ok("for exactly the starter bundle's credits", w.rows.length === 1 && w.rows[0].cents === bundle.credits);
   ok("kind is ai_bundle", w.rows[0].kind === "ai_bundle");
+  ok("the grant carries the month it is for: expiresAt = the period end (one calendar month on when the line has none)",
+    w.rows[0].expiresAt instanceof Date && w.rows[0].expiresAt.getTime() === new Date("2026-10-01T00:00:00Z").getTime());
+  ok("last month's plan credit is reset BEFORE the grant, for this company", w.resetCalls.length === 1 && w.resetCalls[0] === "co1");
   ok("the row it just created for the FIRST event this subscription ever produced",
     w.bundleRows.length === 1 && w.bundleRows[0].key === "starter");
 
@@ -325,6 +384,19 @@ section("3. A bundle grant is idempotent within a period, and fires again next p
   const r2Again = await grantAiBundlePeriod(invoiceFor("sub_1", P2), { deps: w.deps });
   ok("April redelivered is ALSO a no-op — idempotency isn't a one-time fluke",
     w.rows.length === 2 && r2Again.handled === true);
+
+  // An invoice line that names its end is believed over the month arithmetic.
+  const w3 = makeWorld();
+  w3.stripeSubscriptions.set("sub_end", {
+    id: "sub_end", customer: "cus_end", status: "active", current_period_end: P2,
+    metadata: { companyId: "co_end", kind: "ai_bundle_subscription", bundleKey: "busy" },
+  });
+  const endUnix = Math.floor(new Date("2026-09-30T12:00:00Z").getTime() / 1000);
+  await grantAiBundlePeriod(invoiceFor("sub_end", P1, { lines: { data: [{ period: { start: P1, end: endUnix } }] } }), { deps: w3.deps });
+  ok("the invoice's own period.end is the reset date", w3.rows[0]?.expiresAt?.getTime() === endUnix * 1000);
+  ok("one month on is calendar-clamped (31 Jan → 28 Feb, 31 Aug → 30 Sep)",
+    oneMonthAfter(new Date("2027-01-31T10:00:00Z")).toISOString() === "2027-02-28T10:00:00.000Z" &&
+      oneMonthAfter(new Date("2026-08-31T00:00:00Z")).toISOString() === "2026-09-30T00:00:00.000Z");
 }
 
 section("3b. An invoice for a subscription that is NOT a bundle is refused, not guessed at");
@@ -404,7 +476,7 @@ section("3c. The browser-return confirm and the invoice webhook are two doors, o
    4. Cancelling stops future grants without clawing back or deleting rows.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-section("4. Cancelling stops future grants, keeps what's already granted, deletes nothing");
+section("4. Cancelling stops future grants, keeps this month's credit until its reset date, deletes nothing");
 {
   const w = makeWorld({
     bundleRows: [],
@@ -430,7 +502,7 @@ section("4. Cancelling stops future grants, keeps what's already granted, delete
 
   ok("the ledger is untouched by cancelling — no row added, none removed",
     w.rows.length === rowCountBefore);
-  ok("…and the balance already granted is still spendable, not clawed back",
+  ok("…and the month already paid for is still spendable — nothing is clawed back AT cancel; it resets on its own date (section 6)",
     (await w.deps.balanceFor("co2", null, POOLS.AI)) === balanceBefore);
 
   // Cancel again — must not double-cancel at Stripe or error.
@@ -576,22 +648,179 @@ section("6. Refusals distinguish not-configured, zero balance, and unreachable S
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   6. Plan credit resets monthly; top-ups persist — executed, not described.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function makeSummingLedger() {
+  const rows = [];
+  let n = 0;
+  const clock = { now: new Date("2026-10-01T00:00:00Z") };
+  const cmp = (v, cond) => {
+    if (cond === undefined) return true;
+    if (cond === null || typeof cond !== "object" || cond instanceof Date) {
+      return cond instanceof Date ? v instanceof Date && v.getTime() === cond.getTime() : v === cond;
+    }
+    if ("not" in cond && v === cond.not) return false;
+    const t = v instanceof Date ? v.getTime() : v;
+    const at = (x) => (x instanceof Date ? x.getTime() : x);
+    if ("lt" in cond && !(v != null && t < at(cond.lt))) return false;
+    if ("lte" in cond && !(v != null && t <= at(cond.lte))) return false;
+    if ("gt" in cond && !(v != null && t > at(cond.gt))) return false;
+    if ("gte" in cond && !(v != null && t >= at(cond.gte))) return false;
+    return true;
+  };
+  const match = (where = {}) => (r) => Object.entries(where).every(([k, c]) => cmp(r[k], c));
+  const ledger = {
+    rows,
+    clock,
+    voiceCreditEntry: {
+      findFirst: async ({ where, orderBy }) => {
+        const hits = rows.filter(match(where));
+        if (orderBy?.createdAt === "desc") hits.sort((a, b) => b.createdAt - a.createdAt);
+        return hits[0] || null;
+      },
+      findMany: async ({ where, orderBy, take }) => {
+        const hits = rows.filter(match(where));
+        if (orderBy?.expiresAt === "asc") hits.sort((a, b) => a.expiresAt - b.expiresAt);
+        return take ? hits.slice(0, take) : hits;
+      },
+      aggregate: async ({ where }) => ({ _sum: { cents: rows.filter(match(where)).reduce((s, r) => s + r.cents, 0) || null } }),
+      create: async ({ data }) => {
+        if (data.ref && rows.some((r) => r.companyId === data.companyId && r.ref === data.ref)) {
+          throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+        }
+        const row = { id: `L${++n}`, ref: null, stripeRef: null, callId: null, expiresAt: null, createdAt: new Date(clock.now), ...data };
+        rows.push(row);
+        return row;
+      },
+    },
+  };
+  // Writes through the REAL addCredit/debitCredit → writeEntry chain, so the
+  // pool and the unique ref are the production rules, not this file's.
+  ledger.at = (iso) => { clock.now = new Date(iso); };
+  return ledger;
+}
+
+section("6. Plan credit resets each month; top-ups persist (owner, 2026-10-04)");
+{
+  const { addCredit: realAddCredit, debitCredit: realDebit } = await import("@/lib/voice/credits");
+  ok("the reset row is an AI-wallet kind — never the phone balance", poolForKind(PLAN_EXPIRY_KIND) === POOLS.AI);
+
+  // Pure arithmetic first.
+  ok("quiet month: 7,000 granted, 4,000 spent → 3,000 left to reset", planCreditLeft({ grantCents: 7000, spentCents: 4000, balanceCents: 3000 }) === 3000);
+  ok("busy month: 7,500 spent of a 7,000 grant → nothing left; the top-up paid the rest", planCreditLeft({ grantCents: 7000, spentCents: 7500, balanceCents: 500 }) === 0);
+  ok("a balance below the grant's remainder caps it — what is not there cannot expire", planCreditLeft({ grantCents: 7000, spentCents: 0, balanceCents: 2000 }) === 2000);
+  ok("an overdrawn balance resets nothing", planCreditLeft({ grantCents: 7000, spentCents: 0, balanceCents: -50 }) === 0);
+  const split = splitAiBalance({ balanceCents: 7500, grantCents: 7000, spentCents: 0, resetsOn: "2026-12-01" });
+  ok("the split: 7,000 plan (resets) + 500 top-up (persists)", split.planCents === 7000 && split.topupCents === 500 && split.resetsOn instanceof Date);
+  ok("no plan month running → all of it persists", splitAiBalance({ balanceCents: 1200 }).planCents === 0 && splitAiBalance({ balanceCents: 1200 }).topupCents === 1200);
+
+  // Worked example 1 — the quiet month, through the real ledger chain.
+  {
+    const L = makeSummingLedger();
+    L.at("2026-10-01T00:05:00Z");
+    const grant = await realAddCredit({ companyId: "q", cents: 7000, kind: "ai_bundle", ref: "ai_bundle:sub_q:2026-10-01", expiresAt: new Date("2026-11-01T00:00:00Z"), prisma: L });
+    L.at("2026-10-12T00:00:00Z");
+    await realDebit({ companyId: "q", cents: 4000, kind: "image_generation", ref: "gen:q:1", prisma: L });
+    const early = await expirePlanGrant(grant, { prisma: L, now: new Date("2026-10-20T00:00:00Z") });
+    ok("quiet month: nothing resets before the month ends", early.expired === 0 && early.reason === "month_not_over");
+    const mid = await aiPlanCreditStatus("q", { prisma: L, now: new Date("2026-10-20T00:00:00Z") });
+    ok("mid-month the screen says 3,000 plan credit, resets 1 Nov; 0 top-up", mid.planCents === 3000 && mid.topupCents === 0 && mid.resetsOn.toISOString().startsWith("2026-11-01"));
+    L.at("2026-11-01T00:10:00Z");
+    const r = await expireDuePlanCredit({ companyId: "q", prisma: L, now: new Date("2026-11-01T00:10:00Z") });
+    ok("1 Nov: −3,000 reset, written once", r.expiredCents === 3000 && L.rows.filter((x) => x.kind === PLAN_EXPIRY_KIND).length === 1);
+    const resetRow = L.rows.find((x) => x.kind === PLAN_EXPIRY_KIND);
+    ok("…as a negative AI-wallet row under the grant's own ref", resetRow.cents === -3000 && resetRow.pool === POOLS.AI && resetRow.ref === planExpiryRef(grant.id));
+    const again = await expireDuePlanCredit({ companyId: "q", prisma: L, now: new Date("2026-11-02T00:00:00Z") });
+    ok("the daily sweep running again resets nothing twice", again.expiredCents === 0 && L.rows.filter((x) => x.kind === PLAN_EXPIRY_KIND).length === 1);
+    await realAddCredit({ companyId: "q", cents: 7000, kind: "ai_bundle", ref: "ai_bundle:sub_q:2026-11-01", expiresAt: new Date("2026-12-01T00:00:00Z"), prisma: L });
+    const bal = L.rows.filter((x) => x.companyId === "q" && x.pool === POOLS.AI).reduce((s, x) => s + x.cents, 0);
+    ok("then +7,000 for November: balance 7,000 — last month did NOT roll over", bal === 7000);
+  }
+
+  // Worked example 2 — the busy month with a top-up.
+  {
+    const L = makeSummingLedger();
+    L.at("2026-10-01T00:05:00Z");
+    const grant = await realAddCredit({ companyId: "b", cents: 7000, kind: "ai_bundle", ref: "ai_bundle:sub_b:2026-10-01", expiresAt: new Date("2026-11-01T00:00:00Z"), prisma: L });
+    L.at("2026-10-15T00:00:00Z");
+    await realDebit({ companyId: "b", cents: 6500, kind: "ai_employee_reply", ref: "emp:b:1", prisma: L });
+    L.at("2026-10-20T00:00:00Z");
+    await realAddCredit({ companyId: "b", cents: 1000, kind: "ai_topup", ref: "ai_topup:pi_b", stripeRef: "pi_b", prisma: L });
+    const after = await aiPlanCreditStatus("b", { prisma: L, now: new Date("2026-10-20T01:00:00Z") });
+    ok("after the top-up: 500 plan credit (resets) + 1,000 top-up (persists)", after.planCents === 500 && after.topupCents === 1000);
+    L.at("2026-10-25T00:00:00Z");
+    await realDebit({ companyId: "b", cents: 1000, kind: "plan_read", ref: "read:b:1", prisma: L });
+    const late = await aiPlanCreditStatus("b", { prisma: L, now: new Date("2026-10-26T00:00:00Z") });
+    ok("1,000 more spent: the plan's last 500 went first, then 500 of the top-up", late.planCents === 0 && late.topupCents === 500);
+    const r = await expirePlanGrant(grant, { prisma: L, now: new Date("2026-11-01T00:01:00Z") });
+    ok("1 Nov: the plan month was fully spent — no reset row, and the top-up is untouched", r.expired === 0 && r.reason === "month_fully_spent" && !L.rows.some((x) => x.kind === PLAN_EXPIRY_KIND));
+    L.at("2026-11-01T00:05:00Z");
+    await realAddCredit({ companyId: "b", cents: 7000, kind: "ai_bundle", ref: "ai_bundle:sub_b:2026-11-01", expiresAt: new Date("2026-12-01T00:00:00Z"), prisma: L });
+    const nov = await aiPlanCreditStatus("b", { prisma: L, now: new Date("2026-11-02T00:00:00Z") });
+    ok("November: 7,500 = 7,000 plan (resets 1 Dec) + 500 top-up (never expires)",
+      nov.balanceCents === 7500 && nov.planCents === 7000 && nov.topupCents === 500 && nov.resetsOn.toISOString().startsWith("2026-12-01"));
+  }
+
+  // A cancelled plan: the paid month runs out, then the sweep resets it.
+  {
+    const L = makeSummingLedger();
+    L.at("2026-10-01T00:05:00Z");
+    await realAddCredit({ companyId: "c", cents: 4000, kind: "ai_bundle", ref: "ai_bundle:sub_c:2026-10-01", expiresAt: new Date("2026-11-01T00:00:00Z"), prisma: L });
+    await realAddCredit({ companyId: "c", cents: 1000, kind: "ai_topup", ref: "ai_topup:pi_c", stripeRef: "pi_c", prisma: L });
+    const before = await expireDuePlanCredit({ prisma: L, now: new Date("2026-10-31T23:00:00Z") });
+    ok("cancelled mid-month: the sweep leaves the paid month alone until it ends", before.expiredCents === 0);
+    const after = await expireDuePlanCredit({ prisma: L, now: new Date("2026-11-01T05:45:00Z") });
+    const bal = L.rows.filter((x) => x.companyId === "c").reduce((s, x) => s + x.cents, 0);
+    ok("…then resets the unused 4,000 and leaves the 1,000 top-up", after.expiredCents === 4000 && bal === 1000);
+    ok("top-ups never carry an expiry", L.rows.filter((x) => x.kind === "ai_topup").every((x) => x.expiresAt === null));
+  }
+
+  // Older grants (written before this decision) carry no expiresAt and are never reset.
+  {
+    const L = makeSummingLedger();
+    await realAddCredit({ companyId: "old", cents: 4000, kind: "ai_bundle", ref: "ai_bundle:sub_old:2026-09-01", prisma: L });
+    const r = await expireDuePlanCredit({ prisma: L, now: new Date("2027-01-01T00:00:00Z") });
+    ok("a grant with no expiresAt (sold under the rollover promise) is never reset", r.grants === 0 && r.expiredCents === 0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    7. The rollover policy is one sentence, read from one place, stated before
    anyone pays.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-section("7. Rollover vs expiry is a stated decision, not silence");
+section("7. Reset vs rollover is a stated decision, not silence (owner, 2026-10-04: plan credit resets, top-ups persist)");
 {
-  ok("the notice exists and says credit does not expire",
-    /roll(s)? over/i.test(BUNDLE_ROLLOVER_NOTICE) && /never/i.test(BUNDLE_ROLLOVER_NOTICE));
+  ok("the notice says plan credit resets every month and top-ups don't expire",
+    /resets every month/i.test(BUNDLE_RESET_NOTICE) && /top-ups don't expire/i.test(BUNDLE_RESET_NOTICE) && !/rolls? over/i.test(BUNDLE_RESET_NOTICE));
+  ok("the English the page prints IS that notice — the code and the screen cannot drift",
+    APP_MESSAGES.en["app.setAiCredit.resetNotice"] === BUNDLE_RESET_NOTICE);
+  for (const [lang, m] of Object.entries(APP_MESSAGES)) {
+    ok(`${lang}: the reset notice, the plan/top-up split and the persists line are translated`,
+      ["app.setAiCredit.resetNotice", "app.setAiCredit.planLeft", "app.setAiCredit.topupLeft", "app.setAiCredit.topupPersists", "app.setAiCredit.cancelNote", "app.setAiCredit.cancelNoteNoDate"].every((k) => String(m[k] || "").length > 10) &&
+        String(m["app.setAiCredit.planLeft"]).includes("{date}") && String(m["app.setAiCredit.planLeft"]).includes("{amount}") &&
+        String(m["app.setAiCredit.cancelNote"]).includes("{date}"));
+  }
+  ok("no language still promises plan credit never expires on cancel",
+    Object.values(APP_MESSAGES).every((m) => !/never gets taken back|doesn't expire\.$/.test(String(m["app.setAiCredit.cancelNote"] || ""))));
 
   const page = code(read("app/app/settings/ai-credit/page.js"));
-  ok("the settings page renders the SAME notice object — not a rewritten paraphrase",
-    /ai\.bundleRolloverNotice/.test(page));
+  ok("the settings page prints the translated reset notice before the Subscribe buttons",
+    /"app\.setAiCredit\.resetNotice"/.test(page) && page.indexOf("app.setAiCredit.resetNotice") < page.indexOf("subscribeBundle(b.key)"));
+  ok("…and the split: plan credit with its reset date, top-up credit that doesn't expire",
+    /PlanCreditSplit/.test(page) && /"app\.setAiCredit\.planLeft"/.test(page) && /"app\.setAiCredit\.topupLeft"/.test(page) && /ai\.planCredit/.test(page));
+  ok("the top-up card says top-ups don't expire, where they are bought",
+    /"app\.setAiCredit\.topupPersists"/.test(code(read("app/app/settings/ai-credit/AiCreditCard.js"))));
 
   const creditRoute = code(read("app/api/settings/ai/credit/route.js"));
-  ok("…which the unified route actually sends to the browser",
-    /bundleRolloverNotice/.test(creditRoute));
+  ok("the unified route sends the split from the reset's own arithmetic (aiPlanCreditStatus)",
+    /aiPlanCreditStatus\(/.test(creditRoute) && /planCredit:/.test(creditRoute) && /bundleResetNotice/.test(creditRoute));
+
+  const cron = code(read("app/api/cron/ai-plan-reset/route.js"));
+  const vercel = JSON.parse(read("vercel.json"));
+  ok("the daily sweep for a month that ended with no renewal is a real, scheduled, authenticated cron",
+    vercel.crons.some((c) => c.path === "/api/cron/ai-plan-reset") && /requireCronSecret\(request\)/.test(cron) && /expireDuePlanCredit\(/.test(cron));
 
   ok("BUNDLES matches the owner-approved economics (starter/busy/agency)",
     BUNDLES.length === 3 &&

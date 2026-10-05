@@ -338,7 +338,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Votre forfait comprend FieldQuo AI et le copilote. Deux choses sont comptées à part, contre du crédit que vous achetez d'avance : la **réceptionniste téléphonique** (et les textos de l'équipe), et les **images IA** (la génération, et la lecture approfondie payante des photos d'une soumission). Elles puisent dans deux soldes différents, séparés volontairement, et les deux sont affichés dans **Paramètres → Crédit IA**.",
-      "Le crédit s'achète de FieldQuo par Stripe en **dollars américains**, quelle que soit la devise de votre forfait. Il n'expire jamais, et il n'est jamais remboursé — y compris quand vous annulez le forfait.",
+      "Le crédit s'achète de FieldQuo par Stripe en **dollars américains**, quelle que soit la devise de votre forfait. Une recharge n'expire jamais. Le crédit d'un forfait mensuel de crédit IA est remis à zéro chaque mois — ce qui reste à la date de renouvellement disparaît et le crédit du mois suivant arrive. Ni l'un ni l'autre n'est jamais remboursé, y compris quand vous annulez le forfait.",
     ],
     sections: [
       {
@@ -357,7 +357,7 @@ export const ARTICLES = {
           { bullets: [
             "**Crédit téléphonique** — le solde, une mention **bientôt épuisé** quand il reste moins de dix minutes, la note que les textos de l'équipe puisent dans ce même solde, **Ajouter du crédit téléphonique** (qui ouvre la page des réglages du téléphone), et le relevé.",
             "**Crédit image IA** — le solde avec ce qu'il achète entre parenthèses (environ N images, ou N lectures approfondies), les deux choses qui le dépensent, **Ajouter du crédit** avec quatre montants, et le relevé.",
-            "**Forfait crédit IA** — la promesse de report en mots clairs, puis soit les trois forfaits avec **S'abonner**, soit le forfait où vous êtes, sa date de renouvellement, et **Annuler le forfait**.",
+            "**Forfait crédit IA** — la règle de remise à zéro en mots clairs (le crédit du forfait repart à zéro chaque mois, les recharges n'expirent pas), le crédit de forfait restant et la date de sa remise à zéro, puis soit les trois forfaits avec **S'abonner**, soit le forfait où vous êtes, sa date de renouvellement, et **Annuler le forfait**.",
             "**Quel forfait convient à l'IA que vous utiliserez ?** — indiquez à peu près combien de conversations de l'employé IA, de jeux de plans et de révisions IA de soumissions vous prévoyez par mois. Il nomme le forfait de crédit IA qui couvre les conversations et les lectures de plans (elles sont payées par le crédit IA, quel que soit votre forfait FieldQuo) et dit combien de révisions de soumissions l'allocation IA de votre forfait couvre (elles puisent dans le forfait). Chaque forfait de crédit IA dit aussi environ combien de conversations ou de lectures de plans il achète. Chaque allocation est plafonnée ; les chiffres sont des estimations aux prix d'aujourd'hui. La même boîte est sous les forfaits dans **Compte et facturation**, où chaque forfait dit environ combien de révisions il couvre, et sur la page publique des prix.",
           ] },
         ],
@@ -394,7 +394,7 @@ export const ARTICLES = {
             "**busy** — 50 $ par mois pour 7 000 crédits (environ 583 images).",
             "**agency** — 80 $ par mois pour 11 500 crédits (environ 958 images).",
           ] },
-          { p: "Un crédit vaut un cent de valeur à l'usage, alors une génération coûte 12 crédits et une lecture approfondie 25. Le crédit de forfait inutilisé est reporté : rien n'expire, et annuler le forfait arrête le prélèvement et le crédit du mois suivant mais ne reprend jamais le crédit déjà accordé. Les forfaits sont facturés en dollars américains sur le même client Stripe que votre abonnement, alors une entreprise dont le forfait est facturé en **CAD** ne peut pas en démarrer un — le bouton **S'abonner** est désactivé et dit pourquoi. Les recharges ponctuelles fonctionnent quand même sur un compte en CAD." },
+          { p: "Un crédit vaut un cent de valeur à l'usage, alors une génération coûte 12 crédits et une lecture approfondie 25. Le crédit du forfait est remis à zéro chaque mois : ce qui reste à la date de renouvellement disparaît, et le crédit du mois suivant arrive. Le crédit du forfait est toujours dépensé avant une recharge, alors une recharge n'est jamais la partie remise à zéro — les recharges restent jusqu'à ce que vous les utilisiez. Annuler arrête le prélèvement et le crédit du mois suivant; le mois déjà payé garde son crédit jusqu'à sa date de remise à zéro. Les forfaits sont facturés en dollars américains pour toutes les entreprises — l'IA derrière eux s'achète en dollars américains. Une entreprise dont le forfait FieldQuo est facturé en CAD, AUD, GBP ou EUR s'abonne sur un dossier de facturation distinct en dollars américains réservé aux options, alors son propre forfait n'est pas touché, et la carte indique qu'il est facturé en dollars américains, avec une conversion approximative." },
         ],
       },
       {
@@ -419,8 +419,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Pourquoi le crédit est-il en dollars américains alors que mon forfait est en CAD?", a: "Les minutes téléphoniques et l'IA sont achetées en dollars américains et les taux de change bougent, alors les soldes sont tenus dans la devise où ils coûtent. Seul le forfait mensuel de crédit IA n'est pas disponible sur un compte en CAD; les recharges ponctuelles de l'un ou l'autre solde fonctionnent." },
-      { q: "Le crédit inutilisé expire-t-il?", a: "Non. Aucun des deux soldes n'expire, et le crédit de forfait est reporté de mois en mois. Il n'est jamais remboursé non plus, y compris quand vous annulez votre forfait FieldQuo." },
+      { q: "Pourquoi le crédit est-il en dollars américains alors que mon forfait est en CAD?", a: "Les minutes téléphoniques et l'IA sont achetées en dollars américains et les taux de change bougent, alors les soldes sont tenus dans la devise où ils coûtent. Toutes les entreprises peuvent acheter les deux, en dollars américains; votre banque convertit le montant." },
+      { q: "Le crédit inutilisé expire-t-il?", a: "Pas les recharges. Le crédit d'un forfait mensuel, oui : il est remis à zéro à la date de renouvellement affichée sur la page Crédit IA, et le crédit du mois suivant arrive. Le crédit du forfait est dépensé en premier, alors une recharge n'est jamais ce qui est remis à zéro. Rien n'est remboursé, y compris quand vous annulez." },
       { q: "FieldQuo AI — poser des questions sur mes propres soumissions et factures — est-il compté?", a: "Non. FieldQuo AI et le copilote sont inclus dans chaque forfait. Seuls les minutes téléphoniques, le loyer de numéro, la génération d'images et la lecture approfondie de photos puisent dans le crédit." },
       { q: "Où est-ce que je vois à quoi le crédit a servi?", a: "Sous Où le crédit est passé sur chaque carte de la page Crédit IA : chaque débit et chaque recharge, datés. La page du téléphone porte le même relevé." },
     ],
@@ -517,10 +517,10 @@ export const ARTICLES = {
   "taxes-and-currency-on-your-subscription": {
     title: "Taxes et devise de votre abonnement",
     summary:
-      "Pourquoi une entreprise canadienne paie en CAD et une américaine en USD, comment les taxes de vente s'ajoutent au prélèvement de FieldQuo à la page de paiement, et pourquoi rien de tout ça ne touche aux taxes de vos propres factures.",
+      "Pourquoi une entreprise canadienne paie en CAD, une australienne en AUD, une britannique en GBP, une de l'UE en EUR et une américaine en USD, comment les taxes de vente s'ajoutent au prélèvement de FieldQuo à la page de paiement, et pourquoi rien de tout ça ne touche aux taxes de vos propres factures.",
     updated: "2026-09-25",
     intro: [
-      "FieldQuo facture dans **votre propre devise** : dollars canadiens pour une entreprise au Canada, dollars australiens pour une entreprise en Australie, dollars américains partout ailleurs. Les prix des forfaits sont le même nombre dans chacune — Solo, c'est 99 en CAD pour un Canadien et 99 en USD pour un Américain — alors personne ne paie un prix affiché plus un taux de change plus des frais de carte. Les taxes de vente sur ce prélèvement sont calculées par Stripe d'après votre adresse de facturation et ajoutées à la page de paiement.",
+      "FieldQuo facture dans **votre propre devise** : dollars canadiens pour une entreprise au Canada, dollars australiens pour une entreprise en Australie, livres sterling pour une entreprise au Royaume-Uni, euros pour une entreprise dans l'UE, dollars américains partout ailleurs. Les prix des forfaits sont le même nombre dans chacune — Solo, c'est 99 en CAD pour un Canadien et 99 en USD pour un Américain — alors personne ne paie un prix affiché plus un taux de change plus des frais de carte. Les taxes de vente sur ce prélèvement sont calculées par Stripe d'après votre adresse de facturation et ajoutées à la page de paiement.",
       "C'est le prélèvement de FieldQuo envers vous. Ça n'a rien à voir avec les taxes que vous facturez à vos clients : celles-là se règlent dans **Paramètres → Profil de l'entreprise** et s'appliquent à vos soumissions et à vos factures, et les deux ne se croisent jamais.",
     ],
     sections: [
@@ -541,11 +541,13 @@ export const ARTICLES = {
               ["Canada", "CAD", "CA$"],
               ["États-Unis", "USD", "US$"],
               ["Australie", "AUD", "A$"],
-              ["Tout autre pays desservi par Stripe (Royaume-Uni, UE, Nouvelle-Zélande…)", "USD — les mêmes chiffres; il n'y a pas de forfaits en GBP ni en EUR", "US$"],
+              ["Royaume-Uni", "GBP — les mêmes chiffres, hors TVA", "£"],
+              ["Un pays de l'Union européenne (les 27, y compris ceux hors zone euro)", "EUR — les mêmes chiffres, hors TVA", "€"],
+              ["Tout autre pays desservi par Stripe (Suisse, Norvège, Nouvelle-Zélande…)", "USD — les mêmes chiffres", "US$"],
               ["Un pays que Stripe ne dessert pas, ou pas encore d'adresse", "Pas décidée — la grille Forfaits vous demande d'abord d'ajouter l'adresse de votre entreprise", "—"],
             ],
           } },
-          { p: "Les quatre échelons sont 99, 169, 269 et 369 par mois, les mêmes chiffres dans l'une ou l'autre devise, et un **Engagement d'un an**, c'est dix mois pour douze — voir [[the-four-plans|Les quatre forfaits]] et [[monthly-or-a-year-commitment|Au mois, ou un engagement d'un an]]. Si Compte et facturation dit qu'il doit savoir où se trouve votre entreprise, appuyez sur **Ajouter l'adresse de votre entreprise**, enregistrez le pays, et revenez." },
+          { p: "Les quatre échelons sont 99, 169, 269 et 369 par mois, les mêmes chiffres dans chaque devise, et un **Engagement d'un an**, c'est dix mois pour douze — voir [[the-four-plans|Les quatre forfaits]] et [[monthly-or-a-year-commitment|Au mois, ou un engagement d'un an]]. Si Compte et facturation dit qu'il doit savoir où se trouve votre entreprise, appuyez sur **Ajouter l'adresse de votre entreprise**, enregistrez le pays, et revenez." },
         ],
       },
       {
@@ -566,7 +568,7 @@ export const ARTICLES = {
         id: "what-is-not-taxed-here",
         heading: "Les autres prélèvements de FieldQuo",
         blocks: [
-          { p: "Le crédit téléphonique, le crédit image IA et le forfait mensuel de crédit IA sont tarifés en **dollars américains** quelle que soit la devise de votre forfait, parce que les minutes et l'IA s'achètent en dollars américains — voir [[ai-credit-and-phone-credit|Crédit IA et crédit téléphonique]]. Le forfait mensuel de crédit IA ne peut pas être démarré sur un compte en CAD pour cette raison; les recharges ponctuelles, oui. Le service de migration est tarifé par FieldQuo sur la demande elle-même. La taxe automatique de Stripe s'applique à la page de paiement de l'abonnement et à ses renouvellements; ces autres prélèvements ponctuels n'y passent pas aujourd'hui." },
+          { p: "Le crédit téléphonique, le crédit image IA et le forfait mensuel de crédit IA sont tarifés en **dollars américains** quelle que soit la devise de votre forfait, parce que les minutes et l'IA s'achètent en dollars américains — voir [[ai-credit-and-phone-credit|Crédit IA et crédit téléphonique]]. Toutes les entreprises peuvent les acheter; une entreprise facturée dans une autre devise les paie sur un dossier de facturation distinct en dollars américains, alors son propre forfait n'est pas touché. Le service de migration est tarifé par FieldQuo sur la demande elle-même. La taxe automatique de Stripe s'applique à la page de paiement de l'abonnement et à ses renouvellements; ces autres prélèvements ponctuels n'y passent pas aujourd'hui." },
         ],
       },
       {

@@ -775,11 +775,12 @@ export const ARTICLES = {
         blocks: [
           { p: "The plan is a recurring allowance on the same AI image balance, at a lower price per credit than buying as you go. One credit is one cent of pay-as-you-go value: an image is 12 credits, a deep read 25. Three sizes are offered: **starter** ($30 for 4,000 credits), **busy** ($50 for 7,000) and **agency** ($80 for 11,500)." },
           { bullets: [
-            "Credit rolls over. Whatever you do not use this month is still there next month — nothing expires.",
-            "**Cancel plan** stops next month's charge and next month's credit. Credit already on your balance stays; it is never taken back.",
+            "Plan credit resets every month: whatever is left on the renewal date is gone, and the next month's credit lands. The page shows how much plan credit is left and the date it resets.",
+            "Run out before then and top up — top-ups don't expire, and a plan's credit is always spent before a top-up.",
+            "**Cancel plan** stops next month's charge and next month's credit. The month already paid for keeps its plan credit until its reset date; top-ups stay until you use them.",
             "The plan renews on the date shown under **Renews**, and the credit is added when the payment succeeds.",
           ] },
-          { warning: "Plans are billed in US dollars. A company whose FieldQuo subscription bills in another currency cannot add one — Stripe cannot run both on one account — and the Subscribe button is disabled with that reason. One-time top-ups still work." },
+          { warning: "Plans are billed in US dollars for every company — the AI is bought in US dollars. A company whose FieldQuo subscription bills in CAD, AUD, GBP or EUR subscribes on a separate US-dollar billing record kept for add-ons, so its own plan is untouched; the card says it is billed in US dollars, with an approximate conversion." },
         ],
       },
       {
@@ -793,7 +794,7 @@ export const ARTICLES = {
     faq: [
       { q: "Does asking FieldQuo AI a question cost credit?", a: "No. FieldQuo AI and the quote copilot are included in every plan. Credit meters phone minutes, crew texting, image generation and the deep photo read only." },
       { q: "Why are there two balances?", a: "The phone provider bills a monthly floor and the AI provider bills only on use, so the two are metered separately and never merged. Buying one does not fund the other." },
-      { q: "Does credit expire?", a: "No. Top-ups and plan credit both stay on the balance until spent, and cancelling a plan never removes credit already granted." },
+      { q: "Does credit expire?", a: "Top-ups don't — they stay until spent. Plan credit resets on the renewal date shown on the page, including the last paid month after you cancel." },
     ],
   },
 

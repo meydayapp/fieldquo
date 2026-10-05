@@ -13,6 +13,7 @@ import { marketingMetadata } from "@/lib/marketing/metadata";
 import { oneRowPerTier } from "@/lib/pricing/oneRowPerTier";
 import PricingPlans from "./PricingPlans";
 import { resolveAiCap } from "@/lib/ai/usage";
+import { chosenCurrency, currencyOptions } from "@/lib/pricing/visitorCurrency";
 import { aiAdviceUnits, aiAdviceBundles } from "@/lib/ai/planAdviceUnits";
 
 // Rendered per request, not at build time.
@@ -36,7 +37,7 @@ export const metadata = marketingMetadata({
 // too. Re-exported so check:pricing-page's import of it from here still holds.
 export { oneRowPerTier };
 
-export default async function PricingPage() {
+export default async function PricingPage({ searchParams } = {}) {
   // Deliberately no `select`. A narrow one would have to remember `isPublic`,
   // and isSellable reads a MISSING column as "not stated" rather than as
   // "private" — so the day somebody trims this query for tidiness, a rate
@@ -54,13 +55,20 @@ export default async function PricingPage() {
   // answer when there is nothing to sell: a human beats a checkout that can't
   // complete.
   const { sellable } = partitionPlans(allPlans);
-  const plans = oneRowPerTier(sellable);
+  // searchParams is a Promise in Next 16; the check calls this with nothing.
+  const query = (await searchParams) || {};
+  const shownCurrency = chosenCurrency(query.currency, sellable);
+  // A chosen currency shows ITS rows (plus any legacy row with no tierKey,
+  // which has no twin and always stood alone); otherwise the collapse below.
+  const plans = oneRowPerTier(
+    shownCurrency ? sellable.filter((p) => !p.tierKey || p.currency === shownCurrency) : sellable,
+  );
 
-  // There is no geo read here any more, and that is the fix rather than an
-  // omission. x-vercel-ip-country told us where the REQUEST came from, which is
-  // not where the business is; the copy under the grid now explains that the
-  // billing currency comes from the address given at signup, which is the only
-  // thing about it that is knowable from this page.
+  // There is no geo read here, and that is the fix rather than an omission.
+  // x-vercel-ip-country told us where the REQUEST came from, which is not
+  // where the business is; the copy under the grid explains that the billing
+  // currency comes from the address given at signup. The visitor may CHOOSE
+  // the currency the cards are printed in (chosenCurrency above).
 
   // Prisma Decimal doesn't cross the server/client boundary. Serialise here
   // rather than letting the RSC payload throw at render time.
@@ -72,9 +80,11 @@ export default async function PricingPage() {
   // for is shown: this page cannot know the visitor's currency, and a
   // CAD-only sale printed here would be promised to an American.
   const now = new Date();
+  // With a chosen currency the page stands in for that one alone, so a sale
+  // scoped to it may be shown; otherwise every currency it collapses.
   const promotions = universalPromotions(
     await livePromotions({ now }),
-    [...new Set(sellable.filter((p) => p.tierKey).map((p) => p.currency))],
+    shownCurrency ? [shownCurrency] : [...new Set(sellable.filter((p) => p.tierKey).map((p) => p.currency))],
   );
   const offersById = new Map(withOffers(plans, { promotions, now }).map((p) => [p.id, p.offers]));
 
@@ -117,5 +127,12 @@ export default async function PricingPage() {
     : null;
   if (customOffer) customOffer.offers = customOfferTable(customOffer, { promotions, now });
 
-  return <PricingPlans plans={serialised} customOffer={customOffer} aiAdvice={aiAdvice} />;
+  return (
+    <PricingPlans
+      plans={serialised}
+      customOffer={customOffer}
+      aiAdvice={aiAdvice}
+      currencyChoice={{ shown: shownCurrency, options: currencyOptions(sellable) }}
+    />
+  );
 }

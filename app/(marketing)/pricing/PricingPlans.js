@@ -19,6 +19,7 @@ import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSea
 import PlanOfferPrice, { OfferRibbon, offerMoney, yearTabLabel } from "@/app/components/billing/PlanOfferPrice";
 import { yearTabSaving } from "@/lib/pricing/planOffer";
 import { currencyMeta } from "@/lib/currency";
+import { currencyLabel, planTaxBehavior } from "@/lib/pricing/ladder";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import { featureEntry } from "@/lib/marketing/featureLabels";
@@ -309,11 +310,11 @@ export { peopleLines };
  * exactly as the rung cards do; signup resolves it against the currency it
  * works out from the address.
  */
-function CustomPlanCard({ offer, t, price, interval, locale }) {
+function CustomPlanCard({ offer, t, price, interval, locale, symbolFor = (c) => currencyMeta(c).symbol }) {
   const [seats, setSeats] = useState(20);
   if (!offer) return null;
   const tier = pickedTier(offer, seats);
-  const symbol = currencyMeta(offer.currency).symbol;
+  const symbol = symbolFor(offer.currency);
   // This size's figures on the chosen tab, resolved on the server for every
   // size (lib/billing/promotions.js customOfferTable). A year this size cannot
   // be sold on falls back to its monthly offer rather than a blank card.
@@ -392,8 +393,19 @@ function CustomPlanCard({ offer, t, price, interval, locale }) {
   );
 }
 
-export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf(), aiAdvice = null }) {
+export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf(), aiAdvice = null, currencyChoice = null }) {
   const { t, language } = useTranslation();
+  // ── The visitor's chosen currency (lib/pricing/visitorCurrency.js) ───────
+  //
+  // Unchosen, every card keeps the bare symbol of the row that represents its
+  // tier, as before — the number is the one every currency shares. Chosen,
+  // the cards are that currency's own rows and say so unambiguously
+  // (currencyLabel: CA$, US$, A$, £, €), and a currency that carries VAT on
+  // top says "+ VAT" under the grid.
+  const shownCurrency = currencyChoice?.shown || null;
+  const symbolFor = (currency) =>
+    shownCurrency ? currencyLabel(currency) || currencyMeta(currency).symbol : currencyMeta(currency).symbol;
+  const plusVat = Boolean(shownCurrency && planTaxBehavior(shownCurrency) === "exclusive");
   // The AI advisor's plans, memoised for the same reason Account & Billing's
   // are (the advisor hands its answer back; a fresh array would loop).
   const advisorPlans = useMemo(
@@ -441,6 +453,27 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
         </div>
       ) : (
         <>
+          {/* Show prices in: a link per ladder currency, server-rendered so it
+              works with no script. Only drawn when there is a choice to make. */}
+          {currencyChoice?.options?.length > 1 && (
+            <nav aria-label={t("pricingPage.currencyPicker", "Show prices in")} className="mb-6 flex flex-wrap justify-center items-center gap-2 text-sm" data-pricing-currency-picker>
+              <span className="text-muted-foreground">{t("pricingPage.currencyPicker", "Show prices in")}</span>
+              {currencyChoice.options.map((code) => (
+                <Link
+                  key={code}
+                  href={`/pricing?currency=${code}`}
+                  aria-current={shownCurrency === code ? "true" : undefined}
+                  className={`px-3 py-1 rounded-full border transition-colors ${
+                    shownCurrency === code
+                      ? "border-foreground bg-inverted text-inverted-foreground"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {currencyLabel(code) || code} {code}
+                </Link>
+              ))}
+            </nav>
+          )}
           {anyYear && (
             <div className="mb-8 flex justify-center">
               <div role="tablist" className="inline-flex flex-wrap justify-center items-center gap-1 rounded-full border border-border bg-card p-1">
@@ -483,14 +516,14 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
                     <PlanOfferPrice
                       offer={offer}
                       t={t}
-                      money={offerMoney(currencyMeta(plan.currency).symbol, locale)}
+                      money={offerMoney(symbolFor(plan.currency), locale)}
                       locale={locale}
                       className="mt-3"
                     />
                   ) : (
                   <div className="mt-3 flex items-baseline flex-wrap gap-x-1.5">
                     <span className="text-3xl font-bold text-foreground">
-                      {currencyMeta(plan.currency).symbol}
+                      {symbolFor(plan.currency)}
                       {price(plan.priceMonthly)}
                     </span>
                     {/* ── No currency CODE, and that is the point ──────────
@@ -595,7 +628,7 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
             })}
           </div>
 
-          <CustomPlanCard offer={customOffer} t={t} price={price} interval={cadence} locale={locale} />
+          <CustomPlanCard offer={customOffer} t={t} price={price} interval={cadence} locale={locale} symbolFor={symbolFor} />
 
           {/* Which plan fits the AI you'll use (owner, 2026-10-04). No
               account yet, so no link to the AI credit page. */}
@@ -620,22 +653,32 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
               until they sign up, so that sentence was a guess wearing a
               statement's clothes.
 
-              What IS true from here: the numbers are one set, not two; the
+              What IS true from here: the numbers are one set, not five; the
               billing currency is decided by the business address at signup;
-              and the supported currencies carry the same number rather than a
-              converted one (SUPPORTED_CURRENCIES — CAD, AUD and USD, the last
-              for everywhere else Stripe serves; the owner, 2026-09-24: no GBP
-              or EUR rows, so nothing here may imply one). Tax stays a second
-              sentence because it is a second fact — Ontario adds 13% HST on
-              top of whichever. The card prices keep a bare "$": a visitor's
-              country is not known until the address at signup, and all
-              three currencies are dollars. */}
+              and every ladder currency carries the same number rather than a
+              converted one (SUPPORTED_CURRENCIES — CAD, USD, AUD, GBP and EUR
+              since 2026-10-04, USD for everywhere else Stripe serves). Tax
+              stays a second sentence because it is a second fact — Ontario
+              adds 13% HST on top of whichever. When the visitor has CHOSEN
+              pounds or euros, a third sentence says VAT is added on top
+              (lib/pricing/ladder.js VAT_EXCLUSIVE_CURRENCIES — the Stripe line
+              is sent tax-exclusive for exactly those, so this is true by
+              construction). */}
           <p className="mt-8 text-center text-sm text-muted-foreground max-w-2xl mx-auto">
             {t(
               "pricingPage.currencyBasis",
-              "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, Australian companies in Australian dollars, and companies everywhere else in US dollars — the same number either way, not a converted one.",
+              "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, Australian companies in Australian dollars, UK companies in British pounds, EU companies in euros, and companies everywhere else in US dollars — the same number either way, not a converted one.",
             )}{" "}
             {t("pricingPage.taxNote")}
+            {plusVat ? (
+              <span data-pricing-vat-note>
+                {" "}
+                {t(
+                  "pricingPage.vatNote",
+                  "Prices in pounds and euros are before VAT: where VAT applies, it is added at checkout at your country's rate, and none is charged if you give a valid VAT number.",
+                )}
+              </span>
+            ) : null}
           </p>
           {/* What taking a payment costs, from the same constants the
               charge creators use (lib/stripe/processingFee.js) — the

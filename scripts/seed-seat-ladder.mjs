@@ -32,46 +32,17 @@
 
 import "dotenv/config";
 import { db } from "../lib/db.js";
-import { SEAT_LADDER, SUPPORTED_CURRENCIES, defaultAnnualPrice } from "../lib/pricing/ladder.js";
+import { ladderSeedRows } from "../lib/pricing/ladder.js";
 
 const DRY = process.argv.includes("--dry");
 
-const rows = SUPPORTED_CURRENCIES.flatMap((currency) =>
-  SEAT_LADDER.map((tier) => ({
-    tierKey: tier.tierKey,
-    currency,
-    // "Solo", not "Solo (CAD)". The name is CUSTOMER-facing — it is what the
-    // plan card and the Stripe line item say — and a Canadian only ever sees
-    // the row matching their address, so a currency in the name invites the
-    // question of what the other one costs. The answer is "the same number",
-    // which is not a question worth prompting.
-    //
-    // Two rows now share a name. The console tells them apart by the currency
-    // column it already renders, and /api/platform/analytics/overview keys its
-    // plan mix by name AND currency rather than by name alone — otherwise the
-    // two would merge into one bucket and hide the CAD/USD split.
-    name: tier.label,
-    priceMonthly: tier.price,
-    // Two months free. Annual is a real DISCOUNT, not merely a different
-    // interval: a commitment that saves nothing asks a customer to give up
-    // flexibility for nothing, so nobody takes it. See ANNUAL_FREE_MONTHS.
-    priceAnnual: defaultAnnualPrice(tier.price),
-    seats: tier.seats,
-    crewSeats: tier.crewSeats,
-    // maxUsers counted PEOPLE and still has readers (the company-facing plan
-    // picker prints "N users"). Seats plus crew is the honest total for a row
-    // that now carries both.
-    maxUsers: tier.seats + tier.crewSeats,
-    sortOrder: tier.sortOrder,
-    aiCopilotEnabled: true,
-    // No stripePriceId. The platform console already prints "No Stripe price
-    // ID — checkout will fail" on such a row and /api/marketing/plans withholds
-    // it from the public page rather than offering something unbuyable, so a
-    // seeded row is inert until somebody pastes the id in. Inventing a
-    // plausible-looking id would be worse than leaving it blank.
-    isPublic: true,
-  })),
-);
+// The rows are built by lib/pricing/ladder.js ladderSeedRows — one builder,
+// shared with scripts/plan-currencies-dry-run.mjs, so the dry run prints
+// exactly the rows this creates. GBP and EUR joined SUPPORTED_CURRENCIES on
+// 2026-10-04; the first run after that mints their four rungs (and AUD's,
+// which the 2026-09-24 decision added to the list but nobody had run this
+// for), and leaves every existing row alone.
+const rows = ladderSeedRows();
 
 const fmt = (v) => (v === null || v === undefined ? "—" : String(v));
 

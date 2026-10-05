@@ -53,7 +53,15 @@ import {
   CUSTOM_MAX_SEATS,
   CUSTOM_QUICK_PICKS,
   MAX_COMPANY_PEOPLE,
+  EUR_LADDER_COUNTRIES,
+  VAT_EXCLUSIVE_CURRENCIES,
+  planTaxBehavior,
+  ladderSeedRows,
 } from "@/lib/pricing/ladder";
+import { EU_COUNTRIES } from "@/lib/platform/taxRegistrations";
+import { planLine } from "@/lib/billing/planLine";
+import { chosenCurrency, currencyOptions } from "@/lib/pricing/visitorCurrency";
+import { COUNTRIES, currencyForCountry as quotingCurrencyForCountry } from "@/lib/currency";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import { MESSAGES } from "@/app/i18n/messages";
 
@@ -224,21 +232,68 @@ ok("spelled out works too", currencyForCountry("Canada") === "CAD" && currencyFo
 // is picking a discount. Unknown must therefore never resolve to one.
 ok("no country is NOT CAD", currencyForCountry(null) === null);
 ok("an empty country is NOT CAD", currencyForCountry("  ") === null);
-// The owner, 2026-09-24: Australia pays the same numbers in AUD; any other
-// country Stripe serves pays them in USD; no GBP or EUR rows.
+// The owner, 2026-09-24: Australia pays the same numbers in AUD. 2026-10-04:
+// the UK pays them in pounds and the EU in euros ("the only price we do in
+// local currency for CAD, USD, British pounds and EU is the actual
+// subscription"); every other country Stripe serves still pays in USD.
 ok("Australia is AUD", currencyForCountry("AU") === "AUD" && currencyForCountry("australia") === "AUD");
-ok("the United Kingdom is billed on the USD rows, not GBP", currencyForCountry("GB") === "USD");
-ok("...spelled UK too", currencyForCountry("uk") === "USD");
-ok("an EU country is billed on the USD rows, not EUR", currencyForCountry("DE") === "USD" && currencyForCountry("ie") === "USD");
+ok("the United Kingdom is billed on the GBP rows", currencyForCountry("GB") === "GBP");
+ok("...spelled UK too", currencyForCountry("uk") === "GBP" && currencyForCountry("United Kingdom") === "GBP");
+ok("eurozone countries are billed on the EUR rows", ["DE", "ie", "FR", "IT", "ES", "NL", "PT", "BE", "AT"].every((c) => currencyForCountry(c) === "EUR"));
+ok("...and so are EU members outside the euro — the owner priced \"EU\"", ["PL", "SE", "DK", "CZ", "HU", "RO"].every((c) => currencyForCountry(c) === "EUR"));
+ok("the EUR ladder is exactly the EU-27 the tax page registers for", EUR_LADDER_COUNTRIES.length === 27 && EUR_LADDER_COUNTRIES.every((c) => EU_COUNTRIES.includes(c)) && EU_COUNTRIES.every((c) => EUR_LADDER_COUNTRIES.includes(c)));
+ok("Switzerland, Norway and Gibraltar (Europe, not EU) stay on USD", ["CH", "NO", "GI", "LI"].every((c) => currencyForCountry(c) === "USD"));
 ok("New Zealand (Stripe-served, not Australia) is USD", currencyForCountry("NZ") === "USD");
 ok("a country Stripe does not serve is null, not a guess", currencyForCountry("UA") === null && currencyForCountry("KE") === null);
 ok("a non-country is null", currencyForCountry("ZZ") === null && currencyForCountry("__proto__") === null && currencyForCountry("constructor") === null);
-ok("AUD is a priced currency", SUPPORTED_CURRENCIES.includes("AUD") && !SUPPORTED_CURRENCIES.includes("GBP") && !SUPPORTED_CURRENCIES.includes("EUR"));
+ok("the ladder is priced in CAD, USD, AUD, GBP and EUR — nothing else", SUPPORTED_CURRENCIES.join(",") === "CAD,USD,AUD,GBP,EUR");
+ok("every signup country is billed in its own quoting currency where the ladder has one",
+  COUNTRIES.filter((c) => SUPPORTED_CURRENCIES.includes(c.currency)).every((c) => currencyForCountry(c.code) === c.currency),
+  COUNTRIES.filter((c) => SUPPORTED_CURRENCIES.includes(c.currency) && currencyForCountry(c.code) !== c.currency).map((c) => c.code).join(","));
+ok("Italy, Portugal, Belgium and Austria can be picked at signup, and quote in EUR",
+  ["IT", "PT", "BE", "AT"].every((code) => COUNTRIES.some((c) => c.code === code) && quotingCurrencyForCountry(code) === "EUR"));
 // A bare $ in front of an American price shown to a Canadian is the ambiguity
 // the address rule exists to remove.
 ok("USD is written US$", currencyLabel("USD") === "US$");
 ok("CAD is written CA$", currencyLabel("CAD") === "CA$");
 ok("AUD is written A$", currencyLabel("AUD") === "A$");
+ok("GBP is written £ and EUR €", currencyLabel("GBP") === "£" && currencyLabel("EUR") === "€");
+
+console.log("\nThe new rows: same numbers, minted additively, VAT on top for £ and €");
+{
+  const rows = ladderSeedRows();
+  ok("the seeder mints four rungs per currency — twenty rows", rows.length === 20, rows.length);
+  for (const cur of ["GBP", "EUR", "AUD"]) {
+    const mine = rows.filter((r) => r.currency === cur);
+    ok(`${cur}: 99 / 169 / 269 / 369 a month, the AUD "same numbers" precedent`, mine.map((r) => r.priceMonthly).join(",") === "99,169,269,369");
+    ok(`${cur}: the year is ten months (990 / 1690 / 2690 / 3690)`, mine.map((r) => r.priceAnnual).join(",") === "990,1690,2690,3690");
+    ok(`${cur}: named without a currency, public, no invented Stripe id`, mine.every((r) => !/GBP|EUR|AUD|£|€/.test(r.name) && r.isPublic === true && !("stripePriceId" in r)));
+  }
+  ok("only GBP and EUR are sent tax-exclusive", VAT_EXCLUSIVE_CURRENCIES.join(",") === "GBP,EUR" && planTaxBehavior("gbp") === "exclusive" && planTaxBehavior("EUR") === "exclusive");
+  ok("CAD, USD and AUD send no tax_behavior — their subscriptions are not re-taxed", ["CAD", "usd", "AUD", null, ""].every((c) => planTaxBehavior(c) === null));
+  const solo = rows.find((r) => r.tierKey === "solo" && r.currency === "GBP");
+  const gbpMonth = planLine({ plan: solo, interval: "month", currency: "gbp" });
+  ok("a GBP Solo month is £99.00 in pence, exclusive of VAT", gbpMonth.price_data.unit_amount === 9900 && gbpMonth.price_data.currency === "gbp" && gbpMonth.price_data.tax_behavior === "exclusive");
+  const gbpYear = planLine({ plan: solo, interval: "year", currency: "gbp" });
+  ok("...and its year £990.00", gbpYear.price_data.unit_amount === 99000 && gbpYear.price_data.recurring.interval === "year");
+  const cadMonth = planLine({ plan: rows.find((r) => r.tierKey === "solo" && r.currency === "CAD"), interval: "month", currency: "cad" });
+  ok("a CAD line carries no tax_behavior key at all (byte-for-byte what it sent before)", !("tax_behavior" in cadMonth.price_data));
+  ok("worked VAT: £99 + 20% UK VAT = £118.80 for a buyer without a VAT number", Math.round(99 * 1.2 * 100) / 100 === 118.8);
+}
+
+console.log("\n/pricing: the visitor CHOOSES the currency; nothing is guessed");
+{
+  const sellable = [
+    { tierKey: "solo", currency: "CAD" },
+    { tierKey: "solo", currency: "GBP" },
+    { tierKey: null, currency: "CAD" },
+  ];
+  ok("?currency=GBP shows GBP when GBP rows exist", chosenCurrency("GBP", sellable) === "GBP" && chosenCurrency("gbp", sellable) === "GBP");
+  ok("a ladder currency with no rows is not honoured (no page of empty cards)", chosenCurrency("EUR", sellable) === null);
+  ok("a currency the ladder does not price is not honoured", chosenCurrency("CHF", sellable) === null && chosenCurrency("<script>", sellable) === null);
+  ok("no choice → null (the collapsed grid, as before)", chosenCurrency(undefined, sellable) === null && chosenCurrency("", sellable) === null);
+  ok("the picker offers only currencies with rows, in ladder order", currencyOptions(sellable).join(",") === "CAD,GBP");
+}
 
 console.log("\nA year's commitment actually saves money");
 // It did not. The owner said "billed annually instead of the no commitment" and

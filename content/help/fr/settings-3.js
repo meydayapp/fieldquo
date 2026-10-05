@@ -775,11 +775,12 @@ export const ARTICLES = {
         blocks: [
           { p: "Le forfait est une allocation récurrente sur le même solde image IA, à un prix par crédit plus bas qu'un achat à l'unité. Un crédit vaut un cent de valeur à l'unité : une image fait 12 crédits, une lecture approfondie 25. Trois tailles sont offertes : **starter** (30 $ pour 4 000 crédits), **busy** (50 $ pour 7 000) et **agency** (80 $ pour 11 500)." },
           { bullets: [
-            "Le crédit se reporte. Ce que vous n'utilisez pas ce mois-ci est encore là le mois prochain — rien n'expire.",
-            "**Annuler le forfait** arrête le paiement du mois suivant et le crédit du mois suivant. Le crédit déjà sur votre solde reste; il n'est jamais repris.",
+            "Le crédit du forfait est remis à zéro chaque mois : ce qui reste à la date de renouvellement disparaît, et le crédit du mois suivant arrive. La page montre le crédit de forfait restant et la date de sa remise à zéro.",
+            "À court avant? Rechargez — les recharges n'expirent pas, et le crédit du forfait est toujours dépensé avant une recharge.",
+            "**Annuler le forfait** arrête le paiement du mois suivant et le crédit du mois suivant. Le mois déjà payé garde son crédit de forfait jusqu'à sa date de remise à zéro; les recharges restent jusqu'à ce que vous les utilisiez.",
             "Le forfait se renouvelle à la date indiquée sous **Se renouvelle le**, et le crédit est ajouté quand le paiement réussit.",
           ] },
-          { warning: "Les forfaits sont facturés en dollars américains. Une entreprise dont l'abonnement FieldQuo est facturé dans une autre devise ne peut pas en ajouter un — Stripe ne peut pas faire tourner les deux sur un même compte — et le bouton S'abonner est désactivé avec cette raison. Les recharges ponctuelles fonctionnent quand même." },
+          { warning: "Les forfaits sont facturés en dollars américains pour toutes les entreprises — l'IA s'achète en dollars américains. Une entreprise dont l'abonnement FieldQuo est facturé en CAD, AUD, GBP ou EUR s'abonne sur un dossier de facturation distinct en dollars américains réservé aux options, alors son propre forfait n'est pas touché; la carte indique qu'il est facturé en dollars américains, avec une conversion approximative." },
         ],
       },
       {
@@ -793,7 +794,7 @@ export const ARTICLES = {
     faq: [
       { q: "Poser une question à FieldQuo AI coûte-t-il du crédit?", a: "Non. FieldQuo AI et le copilote de soumission sont inclus dans chaque forfait. Le crédit ne mesure que les minutes de téléphone, les textos d'équipe, la génération d'images et la lecture photo approfondie." },
       { q: "Pourquoi y a-t-il deux soldes?", a: "Le fournisseur téléphonique facture un plancher mensuel et le fournisseur d'IA ne facture qu'à l'usage, alors les deux sont mesurés séparément et jamais fusionnés. Acheter l'un ne finance pas l'autre." },
-      { q: "Le crédit expire-t-il?", a: "Non. Les recharges et le crédit de forfait restent tous deux sur le solde jusqu'à ce qu'ils soient dépensés, et annuler un forfait ne retire jamais du crédit déjà accordé." },
+      { q: "Le crédit expire-t-il?", a: "Pas les recharges — elles restent jusqu'à ce qu'elles soient dépensées. Le crédit du forfait est remis à zéro à la date de renouvellement affichée sur la page, y compris le dernier mois payé après une annulation." },
     ],
   },
 

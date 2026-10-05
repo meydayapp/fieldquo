@@ -965,10 +965,11 @@ ok("the module imports them rather than restating them",
 ok("the same-number-in-both-currencies fact is recorded",
   FIELDQUO_REFERENCE.sameNumberBothCurrencies === true);
 // Three since 2026-09-24 (AUD — the owner: Australia pays the same numbers in
-// Australian dollars). Still one price list: the count is asserted so a
-// fourth currency is a deliberate edit here, not a silent drift.
-ok("...and it is true of the ladder as shipped — one price list, three currencies",
-  SUPPORTED_CURRENCIES.length === 3 && SEAT_LADDER.every((t) => Number.isFinite(t.price)));
+// Australian dollars); five since 2026-10-04 (GBP and EUR, same numbers).
+// Still one price list: the count is asserted so a sixth currency is a
+// deliberate edit here, not a silent drift.
+ok("...and it is true of the ladder as shipped — one price list, five currencies",
+  SUPPORTED_CURRENCIES.length === 5 && SEAT_LADDER.every((t) => Number.isFinite(t.price)));
 ok("the entry tier is the cheapest rung, not a hand-picked one",
   FIELDQUO_REFERENCE.entryTier.price === Math.min(...SEAT_LADDER.map((t) => t.price)),
   FIELDQUO_REFERENCE.entryTier);

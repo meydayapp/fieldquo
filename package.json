@@ -295,6 +295,7 @@
     "check:trade-labour": "node --import ./scripts/alias-loader.mjs scripts/check-trade-labour.mjs",
     "seed:categories": "node scripts/seed-categories.mjs",
     "seed:seat-ladder": "node --import ./scripts/alias-loader.mjs scripts/seed-seat-ladder.mjs",
+    "plan-currencies:dry-run": "node --import ./scripts/alias-loader.mjs scripts/plan-currencies-dry-run.mjs",
     "check:pricing-console": "node --import ./scripts/alias-loader.mjs scripts/check-platform-pricing-console.mjs",
     "check:plan-sellability": "node --import ./scripts/alias-loader.mjs scripts/check-plan-sellability.mjs",
     "check:plan-change": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/billing-stub-loader.mjs scripts/check-plan-change.mjs",

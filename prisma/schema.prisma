@@ -12006,11 +12006,28 @@ model VoiceCreditEntry {
 
   note      String?
 
+  /// When this row's credit stops being spendable — set ONLY on an AI credit
+  /// plan's monthly grant (kind "ai_bundle"), to the end of the period the
+  /// invoice paid for. Null on everything else, and null means "never": a
+  /// top-up, a refund, phone credit and every grant written before
+  /// 2026-10-04 keep the no-expiry promise they were sold under.
+  ///
+  /// The owner, 2026-10-04: plan credit RESETS each month and does not roll
+  /// over; top-ups persist until used. The balance stays a SUM (lib/voice/
+  /// credits.js) — what expires is written as its own negative row, kind
+  /// "ai_plan_expiry", ref "ai_plan_expiry:<this row's id>", by lib/ai/
+  /// planCreditReset.js, which also holds the draw-order rule (plan credit is
+  /// spent before top-ups) that decides how much of a grant is left.
+  expiresAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@unique([companyId, ref])
   @@index([companyId, createdAt])
   @@index([companyId, pool])
+  /// The daily reset sweep reads "grants whose period has ended" — this
+  /// index keeps that a range scan instead of a pass over every call row.
+  @@index([expiresAt])
 }
 
 /// Buy more credit automatically when the balance runs low.
@@ -12175,40 +12192,39 @@ model VoiceAutoTopup {
 /// OWN recurring charge, and this row is what remembers which one a company
 /// picked and where Stripe is with it.
 ///
-/// ── Rollover, not expiry — and this is a decision, not a default ───────────
+/// ── Plan credit resets monthly; top-ups persist (owner, 2026-10-04) ─────────
 ///
-/// Unused bundle credit ROLLS OVER. It is not clawed back at the end of a
-/// period, and it is not clawed back on cancellation either — see
-/// cancelAiBundle in lib/ai/creditBundle.js. Two reasons, and neither is
-/// laziness:
+/// This model was first built with rollover, for two reasons that were
+/// right at the time: the ledger is a SUM with no per-month lots, and every
+/// other balance in the product persists. The owner decided otherwise on
+/// 2026-10-04 — "monthly credits reset each month and do not roll over; when a
+/// company hits its monthly limit it can top up" — and there were no plan
+/// subscribers yet, so nobody had been sold the old promise.
 ///
-///   1. The ledger is a SUM (lib/voice/credits.js's own header). There is no
-///      column that says "these 4,000 credits were part of March's grant" —
-///      a generation debits the wallet, not a specific month's row. Expiring
-///      "the unused part of March" would mean either a second, per-lot ledger
-///      (a real schema change, not a policy flip) or writing a debit for
-///      money the company already paid for and never spent — which is not an
-///      expiry, it is FieldQuo taking money back, dressed as one.
-///   2. It matches every other balance in this product. Phone credit doesn't
-///      expire. A pay-as-you-go AI top-up doesn't expire. A bundle that did
-///      would be the one balance in FieldQuo that punishes a quiet month, on
-///      the one feature (advertising) contractors already use in bursts —
-///      busy before a season, quiet after.
+/// The lot problem is answered narrowly: a plan grant row carries
+/// VoiceCreditEntry.expiresAt, plan credit is spent BEFORE top-ups, and at the
+/// end of the month the unused part is written off as one "ai_plan_expiry"
+/// row (lib/ai/planCreditReset.js, worked examples there). Top-ups, refunds
+/// and phone credit carry no expiresAt and never expire. The page says all of
+/// this before anyone pays — "app.setAiCredit.resetNotice", the translated
+/// BUNDLE_RESET_NOTICE in lib/ai/creditBundle.js.
 ///
-/// The UI has to say this in plain words before anyone pays — silence here
-/// is the failure AGENTS.md calls out by name — see BUNDLE_ROLLOVER_NOTICE in
-/// lib/ai/creditBundle.js, which the settings page and the bundle route both
-/// read from the one place rather than each writing their own sentence.
-///
-/// ── Cancelling stops FUTURE grants, and nothing else ────────────────────────
+/// ── Cancelling stops FUTURE grants; the paid month runs out ────────────────
 ///
 /// cancelAiBundle() cancels the Stripe subscription itself, immediately.
 /// That is the entire enforcement: no subscription, no more invoices, no more
 /// invoice.payment_succeeded events, no more grants — lib/ai/creditBundle.js
 /// does not gate the grant on this row's own `status` column, because this
 /// row is a cache of what Stripe already decided, not a second switch that
-/// could disagree with it. Already-granted credit is an ordinary balance of
-/// ai_bundle-kind rows in VoiceCreditEntry and is never touched.
+/// could disagree with it. The month already paid for keeps its credit until
+/// its own expiresAt; the daily /api/cron/ai-plan-reset sweep then resets it
+/// like any other month.
+///
+/// ── Which Stripe customer ────────────────────────────────────────────────────
+///
+/// A USD company's one customer; for a company billed in CAD, AUD, GBP or EUR,
+/// its separate USD add-on customer (getOrCreateUsdAddOnCustomer, 2026-10-04)
+/// — the plan is a USD subscription and Stripe holds one currency per customer.
 model AiCreditBundle {
   id        String  @id @default(cuid())
   companyId String  @unique
@@ -12220,9 +12236,9 @@ model AiCreditBundle {
   /// correction everywhere, including for a company already subscribed.
   key String
 
-  /// The same platform Billing customer as the company's own subscription and
-  /// VoiceAutoTopup — see lib/stripe.js's warning never to mix a Connect
-  /// account into a Billing call.
+  /// A platform Billing customer — the company's own (USD companies) or its
+  /// USD add-on customer (every other currency; see the model header). Never
+  /// a Connect account: lib/stripe.js's warning.
   stripeCustomerId     String
   stripeSubscriptionId String @unique
 

@@ -775,11 +775,12 @@ export const ARTICLES = {
         blocks: [
           { p: "El plan es una asignación recurrente sobre el mismo saldo de imágenes con IA, a un precio por crédito más bajo que comprando sobre la marcha. Un crédito es un centavo de valor a precio por uso: una imagen son 12 créditos, una lectura profunda 25. Se ofrecen tres tamaños: **starter** ($30 por 4,000 créditos), **busy** ($50 por 7,000) y **agency** ($80 por 11,500)." },
           { bullets: [
-            "El crédito se acumula. Lo que no use este mes sigue ahí el mes que viene — nada vence.",
-            "**Cancelar plan** detiene el cobro del mes siguiente y el crédito del mes siguiente. El crédito que ya está en su saldo se queda; nunca se retira.",
+            "El crédito del plan se reinicia cada mes: lo que quede en la fecha de renovación se pierde y llega el crédito del mes siguiente. La página muestra cuánto crédito del plan queda y la fecha en que se reinicia.",
+            "Si se le acaba antes, recargue: las recargas no vencen, y el crédito del plan siempre se gasta antes que una recarga.",
+            "**Cancelar plan** detiene el cobro del mes siguiente y el crédito del mes siguiente. El mes ya pagado conserva su crédito del plan hasta su fecha de reinicio; las recargas se quedan hasta que las use.",
             "El plan se renueva en la fecha mostrada bajo **Se renueva el**, y el crédito se agrega cuando el pago se procesa con éxito.",
           ] },
-          { warning: "Los planes se facturan en dólares estadounidenses. Una empresa cuya suscripción a FieldQuo se factura en otra moneda no puede añadir uno — Stripe no puede llevar ambos en una misma cuenta — y el botón Suscribirse está desactivado con ese motivo. Las recargas únicas siguen funcionando." },
+          { warning: "Los planes se facturan en dólares estadounidenses para todas las empresas: la IA se compra en dólares estadounidenses. Una empresa cuya suscripción a FieldQuo se factura en CAD, AUD, GBP o EUR se suscribe en un registro de facturación aparte en dólares estadounidenses reservado para complementos, así que su propio plan no se toca; la tarjeta indica que se cobra en dólares estadounidenses, con una conversión aproximada." },
         ],
       },
       {
@@ -793,7 +794,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Preguntarle algo a FieldQuo AI cuesta crédito?", a: "No. FieldQuo AI y el copiloto de presupuestos están incluidos en todos los planes. El crédito mide solo los minutos de teléfono, los mensajes a la cuadrilla, la generación de imágenes y la lectura profunda de fotos." },
       { q: "¿Por qué hay dos saldos?", a: "El proveedor telefónico cobra un mínimo mensual y el proveedor de IA cobra solo por uso, así que los dos se miden por separado y nunca se fusionan. Comprar uno no financia el otro." },
-      { q: "¿El crédito vence?", a: "No. Tanto las recargas como el crédito del plan se quedan en el saldo hasta que se gastan, y cancelar un plan nunca retira crédito ya otorgado." },
+      { q: "¿El crédito vence?", a: "Las recargas no: se quedan hasta que se gastan. El crédito del plan se reinicia en la fecha de renovación que muestra la página, incluido el último mes pagado después de cancelar." },
     ],
   },
 

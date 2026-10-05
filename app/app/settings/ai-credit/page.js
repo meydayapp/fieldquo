@@ -31,6 +31,28 @@ import { bundleCovers } from "@/lib/ai/planAdvice";
 // Card, Statement and the credit-currency formatter live in ./AiCreditCard.js
 // with the AI wallet card, which the home page's set-up dialog renders too.
 
+/**
+ * The AI balance in its two parts (owner, 2026-10-04): plan credit, which
+ * resets on its date, and top-up credit, which never expires. The split is
+ * the server's (lib/ai/planCreditReset.js aiPlanCreditStatus) — plan credit
+ * is spent first, the same rule the reset applies — so the page never works
+ * out a different number from the one that will actually go.
+ */
+function PlanCreditSplit({ t, split }) {
+  if (!split?.resetsOn) return null;
+  const date = new Date(split.resetsOn).toLocaleDateString();
+  return (
+    <ul className="mt-2 space-y-1 text-xs text-foreground" data-ai-plan-credit-split>
+      <li>
+        {t("app.setAiCredit.planLeft", "Plan credit left: {amount} — resets on {date}", { amount: money(split.planCents), date })}
+      </li>
+      <li className="text-muted-foreground">
+        {t("app.setAiCredit.topupLeft", "Top-up credit: {amount} — doesn't expire", { amount: money(split.topupCents) })}
+      </li>
+    </ul>
+  );
+}
+
 export default function AiCreditPage() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
@@ -127,7 +149,7 @@ export default function AiCreditPage() {
         await reportResponseError(res, t("app.setAiCredit.bundleCancelError", "Couldn't cancel that plan."));
         return;
       }
-      setNotice({ tone: "ok", text: t("app.setAiCredit.bundleCancelled", "Your AI credit plan is cancelled. Credit already granted is still yours to spend — it doesn't expire.") });
+      setNotice({ tone: "ok", text: t("app.setAiCredit.bundleCancelled", "Your AI credit plan is cancelled. This month's plan credit stays until the month ends; top-ups you've bought don't expire.") });
       await load();
     } finally {
       setBusy(false);
@@ -249,11 +271,17 @@ export default function AiCreditPage() {
         icon={Sparkles}
         hint={t("app.setAiCredit.bundleHint", "A recurring allowance on the same AI balance above, at a lower price per credit than buying as you go.")}
       >
-        {/* The rollover policy, in plain words, BEFORE anyone pays — the
-            exact sentence lib/ai/creditBundle.js's BUNDLE_ROLLOVER_NOTICE
-            states, so the UI and the code can never say two different
-            things. */}
-        <p className="text-sm text-muted-foreground">{ai.bundleRolloverNotice}</p>
+        {/* The reset policy, in plain words, BEFORE anyone pays (owner,
+            2026-10-04: plan credit resets monthly, top-ups don't expire) —
+            the translated form of lib/ai/creditBundle.js's
+            BUNDLE_RESET_NOTICE, which check:ai-credit keeps in step with
+            what lib/ai/planCreditReset.js actually does. */}
+        <p className="text-sm text-muted-foreground" data-ai-plan-reset-notice>
+          {t(
+            "app.setAiCredit.resetNotice",
+            "Plan credit resets every month: whatever you don't use by your renewal date is gone, and the next month's credit lands. Run out before then and you can top up — top-ups don't expire. Cancelling stops next month's charge; this month's plan credit stays until the month ends.",
+          )}
+        </p>
         {/* The AI credit plans are US-dollar subscriptions (owner, 2026-09-06). */}
         <UsdBillingNote className="mt-2" />
 
@@ -285,6 +313,7 @@ export default function AiCreditPage() {
                 {t("app.setAiCredit.renews", "Renews {date}", { date: new Date(bundle.currentPeriodEnd).toLocaleDateString() })}
               </p>
             )}
+            <PlanCreditSplit t={t} split={ai.planCredit} />
             <button
               type="button"
               disabled={busy}
@@ -294,10 +323,19 @@ export default function AiCreditPage() {
               {t("app.setAiCredit.cancelPlan", "Cancel plan")}
             </button>
             <p className="text-xs text-muted-foreground mt-2">
-              {t("app.setAiCredit.cancelNote", "Cancelling stops next month's charge and next month's credit. Credit already on your balance stays — it never gets taken back.")}
+              {ai.planCredit?.resetsOn
+                ? t("app.setAiCredit.cancelNote", "Cancelling stops next month's charge and next month's credit. This month's plan credit stays until {date}, then resets; top-ups you've bought stay until you use them.", {
+                    date: new Date(ai.planCredit.resetsOn).toLocaleDateString(),
+                  })
+                : t("app.setAiCredit.cancelNoteNoDate", "Cancelling stops next month's charge and next month's credit. This month's plan credit stays until the month ends, then resets; top-ups you've bought stay until you use them.")}
             </p>
           </div>
         ) : (
+          <>
+          {/* A cancelled (or lapsed) plan whose paid month is still running
+              keeps its credit until the reset date — said, not left to be
+              discovered when it goes. */}
+          {ai.planCredit?.resetsOn && <PlanCreditSplit t={t} split={ai.planCredit} />}
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {ai.bundles.map((b) => (
               <div key={b.key} className="rounded-lg border border-border p-4 flex flex-col">
@@ -328,11 +366,12 @@ export default function AiCreditPage() {
                     {t("app.aiAdvisor.recommendedBadge", "Fits what you entered")}
                   </span>
                 )}
-                {/* Off, with the reason, when this company cannot start one —
-                    a CAD-billed customer cannot add a USD subscription. A
-                    live button that 502s is the failure this repo is swept
-                    for; the sentence comes from the server so it is the same
-                    one the API would answer. */}
+                {/* Every company may subscribe since 2026-10-04 (a non-USD
+                    company on its separate USD add-on customer). The off
+                    state stays for any future refusal: a live button that
+                    502s is the failure this repo is swept for, and the
+                    sentence comes from the server so it is the same one the
+                    API would answer. */}
                 <button
                   type="button"
                   disabled={busy || ai.bundleAvailable?.ok === false}
@@ -347,6 +386,7 @@ export default function AiCreditPage() {
               </div>
             ))}
           </div>
+          </>
         )}
       </Card>
     </div>

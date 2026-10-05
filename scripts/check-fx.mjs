@@ -446,8 +446,10 @@ ok("converting with no target currency is refused",
   approximateInCurrency(good, { asOf: TODAY }).approx === null);
 ok("converting to a currency we hold no rate for is refused",
   /no rate for this pair/.test(approximateInCurrency(good, { to: "EUR", asOf: TODAY }).refusedBecause || ""));
-ok("...and there is no FieldQuo price in that currency either, which is the real reason",
-  !SUPPORTED_CURRENCIES.includes("EUR"));
+// EUR has had FieldQuo plan rows since 2026-10-04, so the refusal above is
+// the missing RATE alone — the module still never guesses one.
+ok("...even though EUR now has a FieldQuo price — a ladder row is not a rate",
+  SUPPORTED_CURRENCIES.includes("EUR"));
 ok("conversion refuses to guess what day it is",
   (() => { try { approximateInCurrency(good, { to: "CAD" }); return false; } catch { return true; } })());
 ok("every call returns BOTH fields, so an ignored refusal still renders nothing",

@@ -516,11 +516,18 @@ ok("subscriptionLines is built on the shared line builder, so every path is one 
 ok("the shared line builder prices from the plan and refuses rather than falls back", () => {
   const line = body(code("lib/platform/stripeBilling.js"), "function recurringLine(");
   assert.match(line, /chargeFor\(plan, interval\)/);
-  before(line, "if (!charge)", "price_data", "recurringLine");
+  // Since 2026-10-04 the line's SHAPE is built by the pure lib/billing/
+  // planLine.js (so the GBP/EUR dry run prints exactly what is sent); the
+  // refusal still comes first, here, before that builder is reached.
+  before(line, "if (!charge)", "planLine(", "recurringLine");
   assert.match(line, /throw new Error/);
+  const builder = code("lib/billing/planLine.js");
+  assert.match(builder, /chargeFor\(plan, interval\)/);
+  assert.match(builder, /unit_amount: charge\.unitAmountCents/);
+  assert.match(builder, /recurring: \{ interval: charge\.interval \}/);
   // The literal that made "1 year commitment" bill monthly.
   assert.ok(
-    !/interval:\s*"month"/.test(line),
+    !/interval:\s*"month"/.test(line) && !/interval:\s*"month"/.test(builder),
     "the recurring line hardcodes a monthly interval again",
   );
 });

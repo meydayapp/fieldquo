@@ -17,7 +17,7 @@ import AiPlanAdvisor from "@/app/components/billing/AiPlanAdvisor";
 import TrialPhoneCard from "@/app/components/billing/TrialPhoneCard";
 import ResumePlanButton from "@/app/components/billing/ResumePlanButton";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
-import { customSeatsFromTierKey, currencyLabel } from "@/lib/pricing/ladder";
+import { customSeatsFromTierKey, currencyLabel, planTaxBehavior } from "@/lib/pricing/ladder";
 import { yearTabSaving } from "@/lib/pricing/planOffer";
 import PlanOfferPrice, { OfferRibbon, offerMoney, yearTabLabel } from "@/app/components/billing/PlanOfferPrice";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
@@ -1043,6 +1043,14 @@ function AccountBillingScreen() {
           {plans.length === 0 && planCurrency !== null && (
             <p className="text-sm text-muted-foreground col-span-3">
               {t("app.billing.noPlans", "No plans configured yet.")}
+            </p>
+          )}
+          {/* Pounds and euros go to Stripe tax-exclusive (lib/pricing/
+              ladder.js VAT_EXCLUSIVE_CURRENCIES): said here, before the
+              Choose plan button opens a checkout that adds it. */}
+          {plans.length > 0 && planTaxBehavior(planCurrency) === "exclusive" && (
+            <p className="text-xs text-muted-foreground col-span-3" data-billing-vat-note>
+              {t("app.signup.plan.plusVat", "Plus VAT where it applies, at your country's rate — none if you give a valid VAT number at checkout.")}
             </p>
           )}
         </div>

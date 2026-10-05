@@ -338,7 +338,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Su plan incluye FieldQuo AI y el copiloto. Dos cosas se miden aparte, contra crédito que compra por adelantado: la **recepcionista telefónica** (y los mensajes de texto de la cuadrilla), y las **imágenes con IA** (la generación, y la lectura profunda de pago de las fotos de un presupuesto). Consumen dos saldos distintos, separados a propósito, y ambos se muestran en **Configuración → Crédito de IA**.",
-      "El crédito se compra a FieldQuo a través de Stripe en **dólares estadounidenses**, sea cual sea la moneda en que se cobra su plan. Nunca vence, y nunca se reembolsa, incluso cuando cancela el plan.",
+      "El crédito se compra a FieldQuo a través de Stripe en **dólares estadounidenses**, sea cual sea la moneda en que se cobra su plan. Una recarga nunca vence. El crédito de un plan mensual de crédito de IA se reinicia cada mes: lo que quede en la fecha de renovación se pierde y llega el del mes siguiente. Ninguno se reembolsa nunca, incluso cuando cancela el plan.",
     ],
     sections: [
       {
@@ -357,7 +357,7 @@ export const ARTICLES = {
           { bullets: [
             "**Crédito telefónico**: el saldo, un aviso **quedando poco** cuando quedan menos de diez minutos, la nota de que los mensajes de texto de la cuadrilla consumen este mismo saldo, **Agregar crédito telefónico** (que abre la página de configuración del teléfono), y el estado de cuenta.",
             "**Crédito de imágenes con IA**: el saldo con lo que compra entre paréntesis (unas N imágenes, o N lecturas profundas), las dos cosas que lo gastan, **Añadir crédito** con cuatro montos, y el estado de cuenta.",
-            "**Plan de crédito de IA**: la promesa de acumulación en palabras claras, y luego o los tres planes con **Suscribirse**, o el plan en el que está, su fecha de renovación, y **Cancelar plan**.",
+            "**Plan de crédito de IA**: la regla de reinicio en palabras claras (el crédito del plan se reinicia cada mes, las recargas no vencen), cuánto crédito del plan queda y la fecha en que se reinicia, y luego o los tres planes con **Suscribirse**, o el plan en el que está, su fecha de renovación, y **Cancelar plan**.",
             "**¿Qué plan se ajusta a la IA que usarás?** — indique más o menos cuántas conversaciones del empleado IA, juegos de planos y revisiones de presupuestos con IA espera al mes. Nombra el plan de crédito de IA que cubre las conversaciones y las lecturas de planos (se pagan con crédito de IA, sea cual sea su plan de FieldQuo) y dice cuántas revisiones de presupuestos cubre la asignación de IA de su plan (salen del plan). Cada plan de crédito de IA dice también cuántas conversaciones o lecturas de planos compra, más o menos. Toda asignación tiene un tope; las cifras son estimaciones a los precios de hoy. El mismo recuadro está bajo los planes en **Cuenta y facturación**, donde cada plan dice cuántas revisiones cubre, y en la página pública de precios.",
           ] },
         ],
@@ -394,7 +394,7 @@ export const ARTICLES = {
             "**busy**: $50 al mes por 7,000 créditos (unas 583 imágenes).",
             "**agency**: $80 al mes por 11,500 créditos (unas 958 imágenes).",
           ] },
-          { p: "Un crédito es un centavo de valor a demanda, así que una generación son 12 créditos y una lectura profunda 25. El crédito del plan no usado se acumula: nada vence, y cancelar el plan detiene el cobro y el crédito del mes siguiente pero nunca retira el crédito ya otorgado. Los planes se cobran en dólares estadounidenses en el mismo cliente de Stripe que su suscripción, así que una empresa cuyo plan se cobra en **CAD** no puede iniciar uno: el botón **Suscribirse** está desactivado y dice por qué. Las recargas únicas sí funcionan en una cuenta en CAD." },
+          { p: "Un crédito es un centavo de valor a demanda, así que una generación son 12 créditos y una lectura profunda 25. El crédito del plan se reinicia cada mes: lo que quede en la fecha de renovación se pierde y llega el crédito del mes siguiente. El crédito del plan siempre se gasta antes que una recarga, así que una recarga nunca es la parte que se reinicia: las recargas se quedan hasta que las use. Cancelar detiene el cobro y el crédito del mes siguiente; el mes ya pagado conserva su crédito hasta su fecha de reinicio. Los planes se cobran en dólares estadounidenses para todas las empresas: la IA detrás de ellos se compra en dólares estadounidenses. Una empresa cuyo plan de FieldQuo se cobra en CAD, AUD, GBP o EUR se suscribe en un registro de facturación aparte en dólares estadounidenses reservado para complementos, así que su propio plan no se toca, y la tarjeta indica que se cobra en dólares estadounidenses, con una conversión aproximada." },
         ],
       },
       {
@@ -419,8 +419,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Por qué el crédito está en dólares estadounidenses cuando mi plan está en CAD?", a: "Los minutos de teléfono y la IA se compran en dólares estadounidenses y los tipos de cambio se mueven, así que los saldos se mantienen en la moneda en que cuestan. Solo el plan mensual de crédito de IA no está disponible en una cuenta en CAD; las recargas únicas de cualquiera de los dos saldos funcionan." },
-      { q: "¿El crédito no usado vence?", a: "No. Ninguno de los dos saldos vence, y el crédito del plan se acumula mes a mes. Tampoco se reembolsa nunca, incluso cuando cancela su plan de FieldQuo." },
+      { q: "¿Por qué el crédito está en dólares estadounidenses cuando mi plan está en CAD?", a: "Los minutos de teléfono y la IA se compran en dólares estadounidenses y los tipos de cambio se mueven, así que los saldos se mantienen en la moneda en que cuestan. Todas las empresas pueden comprar ambos, en dólares estadounidenses; su banco convierte el cargo." },
+      { q: "¿El crédito no usado vence?", a: "Las recargas no. El crédito de un plan mensual sí: se reinicia en la fecha de renovación que muestra la página de crédito de IA, y llega el crédito del mes siguiente. El crédito del plan se gasta primero, así que una recarga nunca es lo que se reinicia. Nada se reembolsa, tampoco al cancelar." },
       { q: "¿FieldQuo AI — hacer preguntas sobre mis propios presupuestos y facturas — se mide?", a: "No. FieldQuo AI y el copiloto están incluidos en cada plan. Solo los minutos de teléfono, el alquiler de número, la generación de imágenes y la lectura profunda de fotos consumen crédito." },
       { q: "¿Dónde veo en qué se gastó el crédito?", a: "Bajo En qué se fue el crédito en cada tarjeta de la página Crédito de IA: cada débito y cada recarga, con fecha. La página del teléfono lleva el mismo estado de cuenta." },
     ],
@@ -517,10 +517,10 @@ export const ARTICLES = {
   "taxes-and-currency-on-your-subscription": {
     title: "Impuestos y moneda de su suscripción",
     summary:
-      "Por qué una empresa canadiense paga en CAD y una estadounidense en USD, cómo se agrega el impuesto sobre las ventas al cobro de FieldQuo en la página de pago, y por qué nada de eso toca el impuesto de sus propias facturas.",
+      "Por qué una empresa canadiense paga en CAD, una australiana en AUD, una del Reino Unido en GBP, una de la UE en EUR y una estadounidense en USD, cómo se agrega el impuesto sobre las ventas al cobro de FieldQuo en la página de pago, y por qué nada de eso toca el impuesto de sus propias facturas.",
     updated: "2026-09-25",
     intro: [
-      "FieldQuo cobra en **su propia moneda**: dólares canadienses para una empresa en Canadá, dólares australianos para una en Australia, dólares estadounidenses en cualquier otro lugar. Los precios de los planes son el mismo número en cada una — Solo es 99 en CAD para un canadiense y 99 en USD para un estadounidense —, así que nadie paga un precio de lista más un tipo de cambio más una comisión de tarjeta. El impuesto sobre las ventas de ese cobro lo calcula Stripe a partir de su dirección de facturación y se agrega en la página de pago.",
+      "FieldQuo cobra en **su propia moneda**: dólares canadienses para una empresa en Canadá, dólares australianos para una en Australia, libras esterlinas para una en el Reino Unido, euros para una en la UE, dólares estadounidenses en cualquier otro lugar. Los precios de los planes son el mismo número en cada una — Solo es 99 en CAD para un canadiense y 99 en USD para un estadounidense —, así que nadie paga un precio de lista más un tipo de cambio más una comisión de tarjeta. El impuesto sobre las ventas de ese cobro lo calcula Stripe a partir de su dirección de facturación y se agrega en la página de pago.",
       "Este es el cobro de FieldQuo a usted. No tiene nada que ver con el impuesto que usted cobra a sus clientes: ese se configura en **Configuración → Configuración de la empresa** y se aplica a sus presupuestos y facturas, y los dos nunca se cruzan.",
     ],
     sections: [
@@ -541,11 +541,13 @@ export const ARTICLES = {
               ["Canadá", "CAD", "CA$"],
               ["Estados Unidos", "USD", "US$"],
               ["Australia", "AUD", "A$"],
-              ["Cualquier otro país donde opera Stripe (Reino Unido, la UE, Nueva Zelanda…)", "USD: las mismas cifras; no hay planes en GBP ni en EUR", "US$"],
+              ["Reino Unido", "GBP: las mismas cifras, sin IVA", "£"],
+              ["Un país de la Unión Europea (los 27, incluidos los que no usan el euro)", "EUR: las mismas cifras, sin IVA", "€"],
+              ["Cualquier otro país donde opera Stripe (Suiza, Noruega, Nueva Zelanda…)", "USD: las mismas cifras", "US$"],
               ["Un país donde Stripe no opera, o sin dirección todavía", "Sin decidir: la cuadrícula Planes le pide primero agregar la dirección de su negocio", "—"],
             ],
           } },
-          { p: "Los cuatro peldaños son 99, 169, 269 y 369 al mes, las mismas cifras en cualquiera de las dos monedas, y un **Compromiso de 1 año** son diez meses por doce — vea [[the-four-plans|Los cuatro planes]] y [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]. Si Cuenta y facturación dice que necesita saber dónde está su negocio, pulse **Agregar la dirección de tu negocio**, guarde el país, y vuelva." },
+          { p: "Los cuatro peldaños son 99, 169, 269 y 369 al mes, las mismas cifras en cada moneda, y un **Compromiso de 1 año** son diez meses por doce — vea [[the-four-plans|Los cuatro planes]] y [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]. Si Cuenta y facturación dice que necesita saber dónde está su negocio, pulse **Agregar la dirección de tu negocio**, guarde el país, y vuelva." },
         ],
       },
       {
@@ -566,7 +568,7 @@ export const ARTICLES = {
         id: "what-is-not-taxed-here",
         heading: "Otros cobros de FieldQuo",
         blocks: [
-          { p: "El crédito telefónico, el crédito de imágenes con IA y el plan mensual de crédito de IA se cobran en **dólares estadounidenses** sea cual sea la moneda de su plan, porque los minutos y la IA se compran en dólares estadounidenses — vea [[ai-credit-and-phone-credit|Crédito de IA y crédito telefónico]]. El plan mensual de crédito de IA no se puede iniciar en una cuenta en CAD por esa razón; las recargas únicas sí. El servicio de migración lo cotiza FieldQuo en la propia solicitud. El impuesto automático de Stripe se aplica a la página de pago de la suscripción y a sus renovaciones; esos otros cobros únicos no pasan por él hoy." },
+          { p: "El crédito telefónico, el crédito de imágenes con IA y el plan mensual de crédito de IA se cobran en **dólares estadounidenses** sea cual sea la moneda de su plan, porque los minutos y la IA se compran en dólares estadounidenses — vea [[ai-credit-and-phone-credit|Crédito de IA y crédito telefónico]]. Cualquier empresa puede comprarlos; una empresa que paga en otra moneda los paga en un registro de facturación aparte en dólares estadounidenses, así que su propio plan no se toca. El servicio de migración lo cotiza FieldQuo en la propia solicitud. El impuesto automático de Stripe se aplica a la página de pago de la suscripción y a sus renovaciones; esos otros cobros únicos no pasan por él hoy." },
         ],
       },
       {

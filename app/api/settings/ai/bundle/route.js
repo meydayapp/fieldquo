@@ -2,7 +2,7 @@
 //
 // A monthly AI credit allowance — subscribe, confirm, cancel. See
 // lib/ai/creditBundle.js for the economics, the idempotent grant and why
-// unused credit rolls over rather than expiring.
+// unused plan credit resets each month while top-ups never expire.
 //
 //   GET                → current subscription status + the three plans on offer
 //   GET  ?session_id=…  → confirm a just-completed subscription checkout
@@ -29,7 +29,7 @@ import {
   cancelAiBundle,
   aiCreditBundleFor,
   publicAiBundle,
-  BUNDLE_ROLLOVER_NOTICE,
+  BUNDLE_RESET_NOTICE,
   bundleAvailability,
 } from "@/lib/ai/creditBundle";
 import { stripe } from "@/lib/stripe";
@@ -81,7 +81,7 @@ export async function GET(request) {
     // purchase controls.
     aiConfigured: isAiConfigured(),
     bundles: BUNDLES,
-    rolloverNotice: BUNDLE_ROLLOVER_NOTICE,
+    resetNotice: BUNDLE_RESET_NOTICE,
     config: publicAiBundle(row),
   });
 }
@@ -107,9 +107,10 @@ export async function POST(request) {
   const company = await db.company.findUnique({ where: { id: member.companyId } });
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
-  // Refused BEFORE Stripe is asked, with the reason in words — see
-  // bundleAvailability. Stripe would refuse anyway; it just would not say why
-  // in a sentence a contractor can use.
+  // Every company may start one since 2026-10-04 (a non-USD company on its
+  // separate USD add-on customer — lib/ai/creditBundle.js). The gate stays so
+  // a future refusal has one place to say its reason in words before Stripe
+  // is asked.
   const availability = bundleAvailability(company.currency);
   if (!availability.ok) {
     return NextResponse.json({ error: availability.reason, reason: "currency_locked" }, { status: 409 });

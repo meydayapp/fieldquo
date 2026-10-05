@@ -378,10 +378,15 @@ ok("a tier that does not exist is refused", () => {
   assert.match(error, /isn't one of the tiers/);
 });
 
+// GBP and EUR are priced since 2026-10-04; NZD is still not.
 ok("a currency FieldQuo does not price is refused", () => {
   assert.ok(
-    parsePromotionFields({ ...good, currencies: ["GBP"] }, { now: NOW }).error,
+    parsePromotionFields({ ...good, currencies: ["NZD"] }, { now: NOW }).error,
   );
+});
+
+ok("a sale may be scoped to the new GBP and EUR ladders", () => {
+  assert.ok(!parsePromotionFields({ ...good, currencies: ["GBP", "EUR"] }, { now: NOW }).error);
 });
 
 ok("an empty scope list is stored as null — 'all' has one spelling", () => {

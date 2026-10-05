@@ -346,16 +346,21 @@ console.log("\nCurrency comes from the address, and absence is not CAD");
   });
   eq("'Canada Street, Buffalo, NY, USA' is in the United States", buffalo.country, "US");
 
-  // The owner, 2026-09-24: Australia is priced in AUD, every other country
-  // Stripe serves on the USD rows — no EUR or GBP rows, and still never CAD.
+  // The owner, 2026-09-24: Australia is priced in AUD; 2026-10-04: the UK in
+  // GBP and the EU in EUR; every other country Stripe serves on the USD rows,
+  // and still never CAD.
   const ireland = billingBasis({ country: "IE", address: "" });
   eq("a country the visitor PICKED is kept", ireland.country, "IE");
-  eq("...and priced on the USD rows, not EUR and not CAD", ireland.planCurrency, "USD");
+  eq("...and priced on the EUR rows, not USD and not CAD", ireland.planCurrency, "EUR");
+  const italy = billingBasis({ country: "IT", address: "" });
+  eq("Italy can be picked at signup (2026-10-04) and is priced in EUR", `${italy.country}/${italy.planCurrency}`, "IT/EUR");
+  const zurich = billingBasis({ country: "CH", address: "" });
+  eq("Switzerland — Europe, not the EU — stays on the USD rows", zurich.planCurrency, "USD");
   const sydney = billingBasis({ country: "AU", address: "1 George St, Sydney NSW 2000, Australia" });
   eq("Australia is kept", sydney.country, "AU");
   eq("...and priced in AUD", sydney.planCurrency, "AUD");
   const london = billingBasis({ country: "GB", address: "" });
-  eq("the United Kingdom is priced on the USD rows, not GBP", london.planCurrency, "USD");
+  eq("the United Kingdom is priced on the GBP rows", london.planCurrency, "GBP");
 
   const junk = billingBasis({ country: "ZZ", address: "" });
   eq("a country code the form never offers is not believed", junk.country, null);

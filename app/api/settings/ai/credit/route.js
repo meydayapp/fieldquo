@@ -34,8 +34,9 @@ import {
   ratePerMinute,
   TOPUP_OPTIONS,
 } from "@/lib/voice/credits";
-import { aiCreditBundleFor, publicAiBundle, BUNDLE_ROLLOVER_NOTICE, bundleAvailability } from "@/lib/ai/creditBundle";
+import { aiCreditBundleFor, publicAiBundle, BUNDLE_RESET_NOTICE, bundleAvailability } from "@/lib/ai/creditBundle";
 import { estimateChargeCents } from "@/lib/ai/walletMeter";
+import { aiPlanCreditStatus } from "@/lib/ai/planCreditReset";
 import { aiAdviceUnits } from "@/lib/ai/planAdviceUnits";
 
 export async function GET(request) {
@@ -71,6 +72,10 @@ export async function GET(request) {
     recentEntries(member.companyId, 20, POOLS.AI),
     aiCreditBundleFor(member.companyId),
   ]);
+  // The AI balance split into plan credit (resets on its date) and top-up
+  // credit (never expires) — lib/ai/planCreditReset.js, the same draw-order
+  // rule the reset itself uses, so the screen and the reset cannot disagree.
+  const split = await aiPlanCreditStatus(member.companyId, { balanceCents: aiCents });
 
   const entryShape = (e) => ({
     at: e.createdAt,
@@ -111,11 +116,16 @@ export async function GET(request) {
       topups: TOPUP_OPTIONS,
       bundles: BUNDLES,
       bundle: publicAiBundle(bundleRow),
-      bundleRolloverNotice: BUNDLE_ROLLOVER_NOTICE,
-      // Whether the bundle button can work for THIS company — a CAD-billed
-      // customer cannot add a USD subscription (Stripe's currency lock). The
-      // page turns the button off and prints the reason rather than offering
-      // a control that 502s.
+      bundleResetNotice: BUNDLE_RESET_NOTICE,
+      // { planCents, topupCents, resetsOn } — planCents 0 and resetsOn null
+      // when no plan month is running (all of the balance then persists).
+      planCredit: split
+        ? { planCents: split.planCents, topupCents: split.topupCents, resetsOn: split.resetsOn }
+        : null,
+      // Whether the plan button can work for THIS company — every company
+      // since 2026-10-04 (a non-USD company subscribes on its separate USD
+      // add-on customer); `usdNote` says the "billed in US dollars" line is
+      // owed.
       bundleAvailable: bundleAvailability(companyRow?.currency),
       // The advisor's unit costs (owner, 2026-10-04): what one AI-employee
       // conversation and one drawing read take from this credit, from the

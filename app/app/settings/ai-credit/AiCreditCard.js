@@ -153,6 +153,13 @@ export default function AiCreditCard({ ai }) {
           </button>
         ))}
       </div>
+      {/* Owner, 2026-10-04: AI credit PLAN credit resets monthly; a top-up
+          persists until used (lib/ai/planCreditReset.js — plan credit is
+          spent first, so a top-up is never the part that resets). Said where
+          the top-up is bought. */}
+      <p className="text-xs text-muted-foreground mt-2" data-ai-topup-persists>
+        {t("app.setAiCredit.topupPersists", "Top-ups don't expire — they stay on your balance until you use them, and a plan's monthly credit is always spent first.")}
+      </p>
 
       <div className="mt-4">
         <Statement t={t} entries={ai.entries} empty={t("app.setAiCredit.aiEmpty", "Nothing spent from the AI balance yet.")} />

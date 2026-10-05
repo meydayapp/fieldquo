@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026, late (subscription priced in local money for the UK and the EU — GBP and EUR plan rows at the AUD "same numbers" (£/€99, 169, 269, 369; annual ×10), VAT on top for £/€, the pricing page's "Show prices in" picker; AI credit plans sold to every company in USD on the separate USD add-on customer, and plan credit now RESETS monthly while top-ups persist. Schema additive — NOT applied; rows NOT seeded. See "Local-currency subscription, and AI plan credit that resets (4 October 2026)" below.)
 Last updated: 4 October 2026 (owner decisions 4 October — five builds, one commit each: crew access (client phone on own jobs as its own switch, crew tick materials bought, crew see no upsell amounts, Managers read the activity log without pay rows); booking a visit gives the job its dates; phone verification charged to phone & text credit; the video pack sold to every company in USD, with a "billed in US dollars" note on every USD add-on; an AI plan recommendation. See "Owner decisions 4 October 2026 (evening)" below.)
 Last updated: 4 October 2026 (AI employee knowledge, phase 1: the reference library reads PDF manuals page by page — private storage, "Read N of M pages", scanned pages named and readable with AI at a shown price; error-code lookup from the company's manuals then FieldQuo's own 34-row table; the installed-equipment card; a known client's callback becomes a ClientTicket; AI callbacks get the leads board's Callback badge and an urgency; the "great assistant" playbook in every prompt; the close-the-loop line and one reply past the cap — see "AI employee knowledge, phase 1" below. Schema additive — applied in production 2026-10-04 (SQL in that section).)
 Last updated: 4 October 2026 (team chat phases 3 and 4: photos and files — PRIVATE, opened only through a reader-bound link that expires — work-order / job / quote cards drawn per reader with no price for anybody, Save to job photos, an offline outbox for text; reply-quote, pins, edit within 15 minutes, soft removal hidden from everybody (the owner included), and search. No new schema — the reserved columns are now written and read. See "Team chat: photos, files, cards, reply, pins, edit, remove, search" below)
@@ -89,6 +90,84 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Local-currency subscription, and AI plan credit that resets (4 October 2026)
+
+The owner, 2026-10-04: "the only price we do in local currency for CAD, USD,
+British pounds and EU is the actual subscription for using fieldquo"; AI credit
+plans unlocked for Canadian, Australian, UK and EU companies in USD; plan credit
+resets monthly with top-ups separate.
+
+### What shipped (not deployed — unpushed branch)
+
+- **GBP and EUR ladders.** `SUPPORTED_CURRENCIES` = CAD, USD, AUD, GBP, EUR
+  (lib/pricing/ladder.js). `currencyForCountry`: GB/UK → GBP; the EU-27 → EUR
+  (all 27, including PL/SE/DK/CZ/HU/RO — the owner priced "EU", and the
+  alternative was USD); CH, NO, GI, NZ and the rest Stripe serves stay USD.
+  Same numbers as the AUD precedent — £/€99, 169, 269, 369 a month, ×10 a
+  year — as the DEFAULT a row is minted with; the row is the price afterwards.
+  `ladderSeedRows()` is the one builder (scripts/seed-seat-ladder.mjs uses it).
+- **AUD confirmed.** AUD was already in the code list (2026-09-24) but its
+  rows were never seeded — production has CAD and USD only. The same seeder
+  run creates AUD's four rungs too.
+- **VAT.** GBP and EUR lines go to Stripe with `tax_behavior: "exclusive"`
+  (VAT on top: UK £99 + 20% = £118.80 without a VAT number; Ireland
+  €99 + 23% = €121.77; reverse charge with a VAT number), so the "+ VAT"
+  line on /pricing, the signup plan step and Account & Billing is true by
+  construction. CAD/USD/AUD lines are byte-for-byte unchanged (no key sent).
+  Stripe Tax only charges it once the UK / EU-OSS registration is added
+  (/platform/billing/tax — lib/platform/taxRegistrations.js).
+  The line shape now lives in one pure builder, lib/billing/planLine.js.
+- **Signup / billing currency** follows the address exactly as CAD vs USD
+  did. Italy, Portugal, Belgium and Austria added to the signup country list
+  (they could not say where they were); room presets map them.
+- **/pricing "Show prices in: CA$ · US$ · A$ · £ · €"** — chosen by the
+  visitor (`?currency=`), never read off the IP (the owner's earlier "you
+  can't tell … until they sign up" still stands; check:pricing-page keeps
+  asserting no geo read). Unchosen, the page is the collapsed grid as before.
+- **AI credit plans for every company, in USD** — a non-USD company
+  subscribes on its USD add-on customer (getOrCreateUsdAddOnCustomer, the
+  video pack's mechanism). "Billed in US dollars" note already on the card.
+- **Plan credit resets monthly; top-ups persist** (reverses the original
+  rollover; zero plan subscribers existed). Each grant carries
+  `VoiceCreditEntry.expiresAt` (period end); plan credit is spent before
+  top-ups; at the month's end the unused part is one `ai_plan_expiry` row
+  (lib/ai/planCreditReset.js) — at renewal before the new grant, and daily
+  from /api/cron/ai-plan-reset (05:45 UTC) for a month that ended with no
+  renewal. The AI credit page shows "Plan credit left: X — resets on DATE" and
+  "Top-up credit: Y — doesn't expire". Worked example (Busy, US$50 / 7,000
+  credits): 4,000 spent → 3,000 reset on the renewal date, then +7,000;
+  or 6,500 spent, 1,000 topped up, 1,000 more spent → nothing reset, balance
+  7,500 = 7,000 plan + 500 top-up.
+
+### Schema (additive — NOT applied)
+
+```sql
+ALTER TABLE "VoiceCreditEntry" ADD COLUMN "expiresAt" TIMESTAMP(3);
+CREATE INDEX "VoiceCreditEntry_expiresAt_idx" ON "VoiceCreditEntry"("expiresAt");
+```
+
+Apply BEFORE deploying: every ledger write (calls, top-ups, AI spend) returns
+the full row, and Prisma will ask for the new column.
+
+### Owed (owner)
+
+- Run `npm run seed:seat-ladder` (creates the 12 AUD/GBP/EUR rows; additive),
+  after `npm run plan-currencies:dry-run -- --db` to see them.
+- VAT exclusive vs inclusive for £/€ is the default chosen here (B2B norm);
+  inclusive would net £82.50 of a UK £99.
+- Today's money (Bank of Canada, 2 Oct): £99 ≈ US$131, €99 ≈ US$111,
+  A$99 ≈ US$69, CA$99 ≈ US$69 — same numbers make the UK ~32% and the EU
+  ~13% dearer than the US in dollar terms. The ExchangeRate table holds
+  USD/CAD only; GBP/EUR/AUD pairs are not fetched by fx-refresh yet, so the
+  "about £X" hint beside USD add-ons is not drawn for those companies.
+
+### Checks
+
+check:seat-ladder (188), check:ai-credit (148 — sections 0, 3, 6, 7),
+check:pricing-page (168), plus currency-assumption updates in
+check:leave-templates, check:signup-order, check:plan-sellability, check:fx,
+check:compare-pages, check:competitors, check:pricing-console.
 
 ## Owner decisions 4 October 2026 (evening)
 

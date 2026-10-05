@@ -777,7 +777,7 @@ export const ARTICLES = {
             "bullets": [
               "Cuenta desde que pasa su primer pago, y mientras esté pagado.",
               "**Dejar de renovar** lo mantiene contando hasta el final del mes pagado, y luego termina. No se toca nada de lo ya publicado.",
-              "Los paquetes de videos se facturan en dólares estadounidenses para todas las empresas, sea cual sea la moneda de tu plan: el almacenamiento de video detrás de ellos le cobra a FieldQuo en dólares estadounidenses. Una empresa que paga en dólares canadienses o australianos lo ve escrito junto al precio, con una conversión aproximada, y su banco convierte el cargo.",
+              "Los paquetes de videos se facturan en dólares estadounidenses para todas las empresas, sea cual sea la moneda de tu plan: el almacenamiento de video detrás de ellos le cobra a FieldQuo en dólares estadounidenses. Una empresa que paga en dólares canadienses o australianos, en libras o en euros lo ve escrito junto al precio, con una conversión aproximada, y su banco convierte el cargo.",
               "Por ahora, un clip puede pesar al subirlo hasta el tamaño que indica la tarjeta de **Cuenta y facturación** — recorta antes en el teléfono una grabación más pesada. Ese límite es de cada subida, no de cuántos videos tienes."
             ]
           }

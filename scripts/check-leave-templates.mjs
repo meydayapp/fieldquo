@@ -111,11 +111,11 @@ is("the USA still resolves", resolveCountry({ address: "12 Main St, Buffalo, NY 
 // The trap the endings are anchored for; a substring match prices Buffalo in CAD.
 is("a street called Canada, in the USA, is still the USA",
   resolveCountry({ address: "9 Canada Street, Buffalo, NY, USA" }).country, "US");
-// Money follows the owner's rule of 2026-09-24, not the widening: a British
-// company is billed on the USD rows (no GBP row exists), because GB is a
-// country Stripe serves — not because this reader heard it.
-is("a GB company is billed on the USD ladder, never a GBP one",
-  currencyForCountry(statedCountry({ country: "GB" }).country), "USD");
+// Money follows the owner's rule, not the widening: since 2026-10-04 a
+// British company is billed on the GBP rows (it was the USD rows from
+// 2026-09-24) — because the ladder prices GB, not because this reader heard it.
+is("a GB company is billed on the GBP ladder (owner, 2026-10-04)",
+  currencyForCountry(statedCountry({ country: "GB" }).country), "GBP");
 is("a CA company still bills in CAD",
   currencyForCountry(statedCountry({ country: null, address: "1039 Bank St, Ottawa, ON, Canada" }).country),
   "CAD");

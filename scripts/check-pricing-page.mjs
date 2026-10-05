@@ -92,11 +92,15 @@ db.plan = { findMany: async () => planRows };
 // 2026-09-28 — none unless a block below scripts one.
 let promotionRows = [];
 db.platformPromotion = { findMany: async () => promotionRows };
-const renderPage = async (rows, promotions = []) => {
+const renderPage = async (rows, promotions = [], searchParams = undefined) => {
   planRows = rows;
   promotionRows = promotions;
   return renderToStaticMarkup(
-    createElement(LanguageProvider, { initialLanguage: "en" }, await PricingPage()),
+    createElement(
+      LanguageProvider,
+      { initialLanguage: "en" },
+      await PricingPage(searchParams ? { searchParams: Promise.resolve(searchParams) } : undefined),
+    ),
   );
 };
 
@@ -186,7 +190,7 @@ const legacy = {
 const TABLE = [...ladderRows, bespoke, legacy];
 
 console.log("\nThe premise: one tier, two rows, the same number");
-ok("twelve ladder rows exist (four rungs × CAD, USD, AUD), not four", ladderRows.length === 12, ladderRows.length);
+ok("twenty ladder rows exist (four rungs × CAD, USD, AUD, GBP, EUR), not four", ladderRows.length === 20, ladderRows.length);
 ok(
   "each tier appears once per supported currency",
   SEAT_LADDER.every((tier) =>
@@ -204,11 +208,12 @@ ok(
     return new Set(prices).size === 1;
   }),
 );
-// If a fourth currency is ever added, the disclaimer below stops being true
-// and this fails on purpose rather than shipping copy that names three. AUD
-// joined 2026-09-24 (the owner: Australia = same numbers in AUD; everywhere
-// else Stripe serves = USD; no GBP or EUR rows).
-ok("only CAD, USD and AUD are priced", SUPPORTED_CURRENCIES.join(",") === "CAD,USD,AUD");
+// If a sixth currency is ever added, the disclaimer below stops being true
+// and this fails on purpose rather than shipping copy that names five. AUD
+// joined 2026-09-24; GBP and EUR on 2026-10-04 (the owner: "the only price we
+// do in local currency for CAD, USD, British pounds and EU is the actual
+// subscription"; everywhere else Stripe serves = USD).
+ok("only CAD, USD, AUD, GBP and EUR are priced", SUPPORTED_CURRENCIES.join(",") === "CAD,USD,AUD,GBP,EUR");
 
 console.log("\nFour cards, not eight");
 const { sellable } = partitionPlans(TABLE);
@@ -533,13 +538,33 @@ async function main() {
   ok("no bare currency CODE is printed beside a price", !/>\s*(CAD|USD|AUD)\s*</.test(html));
   ok("no A$ / CA$ / US$ beside a card price either — the card says \"$\" as it always did", !/(A|CA|US)\$\d/.test(html));
   ok("it names the address as what decides", /business address/i.test(html));
-  ok("...says every currency", /Canadian dollars/i.test(html) && /US dollars/i.test(html) && /Australian dollars/i.test(html));
+  ok("...says every currency", /Canadian dollars/i.test(html) && /US dollars/i.test(html) && /Australian dollars/i.test(html) && /British pounds/i.test(html) && /euros/i.test(html));
   ok("...and that everywhere else is billed in US dollars", /everywhere else in US dollars/i.test(html));
   ok("...says the number is the same either way", /same number/i.test(html));
   ok("...and that it is not a conversion", /not a converted/i.test(html) || /not a conversion/i.test(html));
   ok("...and still mentions tax", /applicable taxes/i.test(html));
-  // Only two currencies are supported, so nothing may imply a third.
-  ok("nothing offers euros or pounds", !/euro/i.test(html) && !/pound/i.test(html));
+  // Unchosen, the page has no currency to put VAT on — so it says nothing
+  // about VAT beyond the tax line it always had.
+  ok("with no currency chosen, no \"+ VAT\" sentence is printed", !html.includes("data-pricing-vat-note") && !/before VAT/i.test(html));
+  ok("the currency picker is drawn, a link per ladder currency, server-rendered",
+    html.includes("data-pricing-currency-picker") && SUPPORTED_CURRENCIES.every((c) => html.includes(`href="/pricing?currency=${c}"`)));
+
+  // ── A visitor who CHOSE pounds (the owner, 2026-10-04: the pricing page
+  //    shows the visitor's currency — chosen, never read off their IP) ──────
+  const gbp = await renderPage(ladderRows, [], { currency: "GBP" });
+  const gbpCount = (needle) => gbp.split(needle).length - 1;
+  ok("?currency=GBP: still four rung cards and the fifth — that currency's rows, not twenty cards", gbpCount("rounded-2xl") === 5, gbpCount("rounded-2xl"));
+  ok("…priced £99 / £169 / £269 / £369", ["£99", "£169", "£269", "£369"].every((p) => gbp.includes(p)) && !/US\$\d|CA\$\d|A\$\d/.test(gbp));
+  ok("…with the VAT sentence, because GBP is sent tax-exclusive", gbp.includes("data-pricing-vat-note") && /before VAT/i.test(gbp));
+  {
+    const at = gbp.indexOf('aria-current="true"');
+    const chip = at < 0 ? "" : gbp.slice(gbp.lastIndexOf("<a", at), gbp.indexOf("</a>", at));
+    ok("…and the GBP chip, and only it, marked as the current one", chip.includes("currency=GBP") && gbp.split('aria-current="true"').length === 2, chip);
+  }
+  const cad = await renderPage(ladderRows, [], { currency: "CAD" });
+  ok("?currency=CAD: CA$ prices and no VAT sentence (HST is the tax line's business)", cad.includes("CA$99") && !cad.includes("data-pricing-vat-note"));
+  const junk = await renderPage(ladderRows, [], { currency: "XYZ" });
+  ok("a currency nobody prices falls back to the collapsed grid, not an error", junk.includes("rounded-2xl") && !junk.includes("data-pricing-vat-note") && !junk.includes('aria-current="true"'));
   // And the geo guess is gone at the source, not just unused in the copy.
   ok("the page no longer reads the visitor's IP country", !/x-vercel-ip-country/.test(pageCode));
   ok("...nor imports the geo currency helper", !/currencyForCountry/.test(pageCode));

@@ -35,7 +35,7 @@ import { signUp, signOut } from "@/lib/auth-client";
 import { TRIAL_PRICE, TRIAL_DAYS, TRIAL_CARD_REQUIRED, trialLabel } from "@/lib/pricing";
 import { billingBasis } from "@/lib/signup/funnel";
 import { annualPriceOf, annualSaving, chargeFor } from "@/lib/billing/interval";
-import { currencyLabel } from "@/lib/pricing/ladder";
+import { currencyLabel, planTaxBehavior } from "@/lib/pricing/ladder";
 import { yearTabSaving } from "@/lib/pricing/planOffer";
 import { offerMoney } from "@/app/components/billing/PlanOfferPrice";
 import PricingCard from "@/app/components/marketing/PricingCard";
@@ -627,14 +627,18 @@ export default function SignupPage() {
   const basis = billingBasis(finishCheckout || {});
   const planCurrency = basis.planCurrency;
   const symbol = currencyLabel(planCurrency);
-  const currencyName =
-    planCurrency === "CAD"
-      ? "Canadian dollars"
-      : planCurrency === "USD"
-        ? "US dollars"
-        : planCurrency === "AUD"
-          ? "Australian dollars"
-          : null;
+  // Every ladder currency by name (lib/pricing/ladder.js SUPPORTED_CURRENCIES
+  // — GBP and EUR since 2026-10-04), translated, so "Prices in {currency}."
+  // stops dropping into English mid-sentence. A currency with no name here
+  // prints no sentence rather than a code.
+  const CURRENCY_NAMES = {
+    CAD: t("app.currencyName.CAD", "Canadian dollars"),
+    USD: t("app.currencyName.USD", "US dollars"),
+    AUD: t("app.currencyName.AUD", "Australian dollars"),
+    GBP: t("app.currencyName.GBP", "British pounds"),
+    EUR: t("app.currencyName.EUR", "euros"),
+  };
+  const currencyName = CURRENCY_NAMES[planCurrency] || null;
   const countryName =
     COUNTRIES.find((c) => c.code === basis.country)?.name || basis.country;
 
@@ -1260,6 +1264,12 @@ export default function SignupPage() {
                 {currencyName
                   ? ` ${t("app.signup.plan.pricesIn", "Prices in {currency}.", { currency: currencyName })}`
                   : ""}
+                {/* Pounds and euros are sent to Stripe tax-exclusive
+                    (lib/pricing/ladder.js VAT_EXCLUSIVE_CURRENCIES), so the
+                    screen that takes the card says so before it does. */}
+                {planTaxBehavior(planCurrency) === "exclusive"
+                  ? ` ${t("app.signup.plan.plusVat", "Plus VAT where it applies, at your country's rate — none if you give a valid VAT number at checkout.")}`
+                  : ""}
               </p>
             </div>
 
@@ -1276,7 +1286,7 @@ export default function SignupPage() {
                 <p className="text-sm text-muted-foreground mt-2">
                   {t(
                     "app.signup.plan.whereBody",
-                    "We price in Canadian and US dollars, and the address you gave us doesn't say which country you're in — so we'd be guessing at your price. Add it and these plans will fill in.",
+                    "Your plan's currency comes from your country, and the address you gave us doesn't say which country you're in — so we'd be guessing at your price. Add it and these plans will fill in.",
                   )}
                 </p>
                 <button

@@ -140,7 +140,7 @@ export const ARTICLES = {
           { p: "Un montant fixe de **0,25 $ US** par exécution, pris sur le solde **Crédit image IA** — le même solde que la génération d'images par IA, et volontairement pas le solde téléphonique. Le prix est fixe plutôt qu'à la photo pour ne jamais vous inciter à téléverser moins d'images ; toute la valeur est d'en voir plus." },
           { bullets: [
             "Si le solde est insuffisant, le bouton ouvre une fenêtre de recharge qui nomme le prix, le solde et le manque au cent près. Rien n'est facturé au retour — vous appuyez de nouveau sur le bouton quand vous êtes prêt.",
-            "Les recharges ponctuelles sont de 10 $ US, 30 $ US, 50 $ US et 100 $ US. Un forfait mensuel sur le même solde coûte moins cher par crédit, et le crédit inutilisé est reporté.",
+            "Les recharges ponctuelles sont de 10 $ US, 30 $ US, 50 $ US et 100 $ US. Un forfait mensuel sur le même solde coûte moins cher par crédit; son crédit est remis à zéro chaque mois, alors que les recharges n'expirent jamais.",
             "La révision gratuite n'est pas facturée et continue de tourner, que vous achetiez du crédit ou non — elle ne lit simplement jamais les photos.",
           ] },
         ],

@@ -1580,8 +1580,9 @@ async function main() {
         run([fig({ verification: UNVERIFIED })]).refusal !== null);
       ok("...and a stale reading empties it the way the price rows empty",
         run([fig()], { asOf: "2027-06-01" }).refusal !== null);
+      // GBP and EUR have ladder rows since 2026-10-04; NZD still has none.
       ok("a price in a currency our ladder has no row for is refused",
-        run([fig({ price: { ...fig().price, currency: "GBP" } })]).refusal !== null);
+        run([fig({ price: { ...fig().price, currency: "NZD" } })]).refusal !== null);
       ok("a price at or above our rung is not a gap",
         run([fig({ price: { ...fig().price, amount: 99 } })]).refusal !== null &&
           run([fig({ price: { ...fig().price, amount: 149 } })]).refusal !== null);

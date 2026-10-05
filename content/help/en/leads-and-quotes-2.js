@@ -144,7 +144,7 @@ export const ARTICLES = {
           { p: "A flat **US$0.25** per run, off the **AI image credit** balance — the same balance AI image generation draws, and deliberately not the phone balance. It is flat rather than per photo so that you are never taught to upload fewer pictures; the whole value is in seeing more of them." },
           { bullets: [
             "If the balance is short, the button opens a top-up dialog that names the price, the balance and the shortfall to the cent. Nothing is charged on the way back — you press the button again when you are ready.",
-            "One-time top-ups are US$10, US$30, US$50 and US$100. A monthly plan on the same balance is cheaper per credit, and unused credit rolls over.",
+            "One-time top-ups are US$10, US$30, US$50 and US$100. A monthly plan on the same balance is cheaper per credit; its credit resets each month, while top-ups never expire.",
             "The free review is not charged and keeps running whether or not you ever buy credit — it just never reads the photos.",
           ] },
         ],

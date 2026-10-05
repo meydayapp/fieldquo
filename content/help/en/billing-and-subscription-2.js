@@ -343,7 +343,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Your plan includes FieldQuo AI and the copilot. Two things are metered separately, against credit you buy in advance: the **phone receptionist** (and crew texting), and **AI images** (generation, and the paid deep read of a quote's photos). They draw two different balances, kept apart on purpose, and both are shown on **Settings → AI credit**.",
-      "Credit is bought from FieldQuo through Stripe in **US dollars**, whatever currency your plan bills in. It never expires, and it is never refunded — including when you cancel the plan.",
+      "Credit is bought from FieldQuo through Stripe in **US dollars**, whatever currency your plan bills in. A top-up never expires. A monthly AI credit plan's credit resets each month — what is left on the renewal date is gone and the next month's lands. Neither is ever refunded, including when you cancel the plan.",
     ],
     sections: [
       {
@@ -362,7 +362,7 @@ export const ARTICLES = {
           { bullets: [
             "**Phone credit** — the balance, a **running low** flag when fewer than ten minutes remain, the note that crew texting draws this same balance, **Add phone credit** (which opens the phone settings page), and the statement.",
             "**AI image credit** — the balance with what it buys in brackets (about N images, or N deep reads), the two things that spend it, **Add credit** with four amounts, and the statement.",
-            "**AI credit plan** — the rollover promise in plain words, then either the three plans with **Subscribe**, or the plan you are on, its renewal date, and **Cancel plan**.",
+            "**AI credit plan** — the reset rule in plain words (plan credit resets monthly, top-ups don't expire), how much plan credit is left and the date it resets, then either the three plans with **Subscribe**, or the plan you are on, its renewal date, and **Cancel plan**.",
             "**Which plan fits the AI you'll use?** — type roughly how many AI employee conversations, drawing sets and AI quote reviews you expect a month. It names the AI credit plan that covers the conversations and drawing reads (they are paid from AI credit, whatever your FieldQuo plan) and says how many quote reviews your plan's AI allowance covers (they come out of the plan). Each AI credit plan also says about how many conversations or drawing reads it buys. Every allowance is capped; the figures are estimates at today's prices. The same box is under the plans on **Account & Billing**, where each plan says about how many quote reviews it covers, and on the public pricing page.",
           ] },
         ],
@@ -399,7 +399,7 @@ export const ARTICLES = {
             "**busy** — $50 a month for 7,000 credits (about 583 images).",
             "**agency** — $80 a month for 11,500 credits (about 958 images).",
           ] },
-          { p: "One credit is one cent of pay-as-you-go value, so a generation is 12 credits and a deep read 25. Unused plan credit rolls over: nothing expires, and cancelling the plan stops next month's charge and next month's credit but never takes back credit already granted. The plans are billed in US dollars on the same Stripe customer as your subscription, so a company whose plan bills in **CAD** cannot start one — the **Subscribe** button is off and says why. One-off top-ups still work on a CAD account." },
+          { p: "One credit is one cent of pay-as-you-go value, so a generation is 12 credits and a deep read 25. Plan credit resets every month: whatever is left on the renewal date is gone, and the next month's credit lands. A plan's credit is always spent before a top-up, so a top-up is never the part that resets — top-ups stay until you use them. Cancelling stops next month's charge and next month's credit; the month already paid for keeps its credit until its reset date. The plans are billed in US dollars for every company — the AI behind them is bought in US dollars. A company whose FieldQuo plan bills in CAD, AUD, GBP or EUR subscribes on a separate US-dollar billing record kept for add-ons, so its own plan is untouched, and the card says it is billed in US dollars with an approximate conversion." },
         ],
       },
       {
@@ -424,8 +424,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Why is credit priced in US dollars when my plan is in CAD?", a: "The phone minutes and the AI are bought in US dollars and exchange rates move, so the balances are kept in the currency they cost. Only the monthly AI credit plan is unavailable on a CAD account; one-off top-ups of either balance work." },
-      { q: "Does unused credit expire?", a: "No. Neither balance expires, and plan credit rolls over month to month. It is also never refunded, including when you cancel your FieldQuo plan." },
+      { q: "Why is credit priced in US dollars when my plan is in CAD?", a: "The phone minutes and the AI are bought in US dollars and exchange rates move, so the balances are kept in the currency they cost. Every company can buy both, in US dollars; your bank converts the charge." },
+      { q: "Does unused credit expire?", a: "Top-ups don't. A monthly plan's credit does: it resets on the renewal date shown on the AI credit page, and the next month's credit lands. Plan credit is spent first, so a top-up is never what resets. Nothing is refunded, including when you cancel." },
       { q: "Is FieldQuo AI — asking questions about my own quotes and invoices — metered?", a: "No. FieldQuo AI and the copilot are included in every plan. Only phone minutes, number rent, image generation and the deep photo read draw credit." },
       { q: "Where do I see what the credit was spent on?", a: "Under Where the credit went on each card of the AI credit page: every debit and every top-up, dated. The phone page carries the same statement." },
     ],
@@ -522,10 +522,10 @@ export const ARTICLES = {
   "taxes-and-currency-on-your-subscription": {
     title: "Taxes and currency on your subscription",
     summary:
-      "Why a Canadian company pays in CAD, an Australian one in AUD and everyone else in USD, how sales tax, VAT or GST is added to FieldQuo's charge at checkout, and how none of it touches the tax on your own invoices.",
+      "Why a Canadian company pays in CAD, an Australian one in AUD, a UK one in GBP, an EU one in EUR and everyone else in USD, how sales tax, VAT or GST is added to FieldQuo's charge at checkout, and how none of it touches the tax on your own invoices.",
     updated: "2026-09-25",
     intro: [
-      "FieldQuo bills in **your own currency**: Canadian dollars for a company in Canada, Australian dollars for one in Australia, US dollars everywhere else. The plan prices are the same number in each — Solo is 99 in CAD for a Canadian and 99 in USD for an American — so nobody pays a sticker price plus an exchange rate plus a card fee. Sales tax on that charge is worked out by Stripe from your billing address and added at checkout.",
+      "FieldQuo bills in **your own currency**: Canadian dollars for a company in Canada, Australian dollars for one in Australia, British pounds for one in the UK, euros for one in the EU, US dollars everywhere else. The plan prices are the same number in each — Solo is 99 in CAD for a Canadian and 99 in USD for an American — so nobody pays a sticker price plus an exchange rate plus a card fee. Sales tax on that charge is worked out by Stripe from your billing address and added at checkout.",
       "This is FieldQuo's charge to you. It has nothing to do with the tax you charge your clients: that is set on **Settings → Company Settings** and applied to your quotes and invoices, and the two never meet.",
     ],
     sections: [
@@ -546,11 +546,13 @@ export const ARTICLES = {
               ["Canada", "CAD", "CA$"],
               ["United States", "USD", "US$"],
               ["Australia", "AUD", "A$"],
-              ["Any other country Stripe serves (the UK, the EU, New Zealand…)", "USD — the same numbers; there are no GBP or EUR plans", "US$"],
+              ["United Kingdom", "GBP — the same numbers, before VAT", "£"],
+              ["A European Union country (all 27, including those outside the euro)", "EUR — the same numbers, before VAT", "€"],
+              ["Any other country Stripe serves (Switzerland, Norway, New Zealand…)", "USD — the same numbers", "US$"],
               ["Somewhere Stripe does not serve, or no address yet", "Not decided — the Plans grid asks you to add your business address first", "—"],
             ],
           } },
-          { p: "The four rungs are 99, 169, 269 and 369 a month, the same figures in either currency, and a **1 year commitment** is ten months for twelve — see [[the-four-plans|The four plans]] and [[monthly-or-a-year-commitment|Monthly, or a one-year commitment]]. If Account & Billing says it needs to know where your business is, press **Add your business address**, save the country, and come back." },
+          { p: "The four rungs are 99, 169, 269 and 369 a month, the same figures in every currency, and a **1 year commitment** is ten months for twelve — see [[the-four-plans|The four plans]] and [[monthly-or-a-year-commitment|Monthly, or a one-year commitment]]. If Account & Billing says it needs to know where your business is, press **Add your business address**, save the country, and come back." },
         ],
       },
       {
@@ -571,7 +573,7 @@ export const ARTICLES = {
         id: "what-is-not-taxed-here",
         heading: "Other charges from FieldQuo",
         blocks: [
-          { p: "Phone credit, AI image credit and the monthly AI credit plan are priced in **US dollars** whatever your plan's currency, because the minutes and the AI are bought in US dollars — see [[ai-credit-and-phone-credit|AI credit and phone credit]]. The monthly AI credit plan cannot be started on a CAD account for that reason; one-off top-ups can. The migration service is priced by FieldQuo on the request itself. Stripe's automatic tax is applied to the subscription checkout and its renewals; those other one-off charges are not run through it today." },
+          { p: "Phone credit, AI image credit and the monthly AI credit plan are priced in **US dollars** whatever your plan's currency, because the minutes and the AI are bought in US dollars — see [[ai-credit-and-phone-credit|AI credit and phone credit]]. Any company can buy them; a company billed in another currency pays them on a separate US-dollar billing record, so its own plan is untouched. The migration service is priced by FieldQuo on the request itself. Stripe's automatic tax is applied to the subscription checkout and its renewals; those other one-off charges are not run through it today." },
         ],
       },
       {

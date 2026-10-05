@@ -140,7 +140,7 @@ export const ARTICLES = {
           { p: "Un monto fijo de **US$0.25** por ejecución, del saldo **Crédito de imágenes con IA** — el mismo saldo del que sale la generación de imágenes con IA, y a propósito no el saldo telefónico. Es fijo y no por foto para que nunca le enseñe a subir menos imágenes; todo el valor está en ver más de ellas." },
           { bullets: [
             "Si el saldo no alcanza, el botón abre un diálogo de recarga que nombra el precio, el saldo y el faltante al centavo. No se cobra nada al volver — usted pulsa el botón de nuevo cuando esté listo.",
-            "Las recargas únicas son de US$10, US$30, US$50 y US$100. Un plan mensual sobre el mismo saldo cuesta menos por crédito, y el crédito sin usar se acumula.",
+            "Las recargas únicas son de US$10, US$30, US$50 y US$100. Un plan mensual sobre el mismo saldo cuesta menos por crédito; su crédito se reinicia cada mes, mientras que las recargas nunca vencen.",
             "La revisión gratuita no se cobra y sigue funcionando compre usted crédito o no — solo que nunca lee las fotos.",
           ] },
         ],

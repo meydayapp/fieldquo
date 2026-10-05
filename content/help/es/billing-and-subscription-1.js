@@ -64,7 +64,7 @@ export const ARTICLES = {
         heading: "La cuadrícula Planes",
         blocks: [
           { p: "Bajo **Planes**, un selector **Mensual** / **Compromiso de 1 año** y una tarjeta por nivel, cada una con su precio, su línea de licencias y cuadrilla, **FieldQuo AI incluido**, y un botón. La tarjeta en la que está dice **Plan actual** y aparece atenuada; las demás dicen **Elegir plan**. Con el selector en el año, el botón de su propio nivel dice **Cambiar a anual** en su lugar, porque tomar el compromiso es un cambio real aunque el nivel sea el mismo." },
-          { p: "El selector arranca en la frecuencia con la que ya se le cobra, y cambiarlo solo vuelve a poner precio a las tarjetas: la línea del plan de arriba no se mueve hasta que confirma realmente un cambio. La cuadrícula muestra la escalera solo en su moneda: dólares canadienses para una dirección en Canadá, dólares australianos para una en Australia, dólares estadounidenses para cualquier otro lugar. Una empresa cuya dirección no tiene país ve una invitación a agregarlo en lugar de una lista de precios." },
+          { p: "El selector arranca en la frecuencia con la que ya se le cobra, y cambiarlo solo vuelve a poner precio a las tarjetas: la línea del plan de arriba no se mueve hasta que confirma realmente un cambio. La cuadrícula muestra la escalera solo en su moneda: dólares canadienses para una dirección en Canadá, dólares australianos para una en Australia, libras esterlinas para una en el Reino Unido, euros para una en la UE, dólares estadounidenses para cualquier otro lugar. Una empresa cuya dirección no tiene país ve una invitación a agregarlo en lugar de una lista de precios." },
           { tip: "Cada tarjeta lleva las palabras **1 puesto · 5 miembros de cuadrilla incluidos gratis**, **3 puestos · 8 miembros de cuadrilla incluidos gratis**, y así sucesivamente. Compárelas con la línea **licencias usadas** de **Gestionar equipo** antes de subir de plan: la cuadrilla que ya tiene quizá cabe en el plan en el que está." },
         ],
       },
@@ -108,7 +108,7 @@ export const ARTICLES = {
               ["Scale", "$369", "$3,690", "10", "15"],
             ],
           } },
-          { p: "El mismo número en cualquiera de las dos monedas: una empresa canadiense paga estas cifras en dólares canadienses, una australiana en dólares australianos y todas las demás en dólares estadounidenses. La moneda en la que se le cobra la decide la dirección de su negocio, nunca un selector — vea [[taxes-and-currency-on-your-subscription|Impuestos y moneda de su suscripción]]. El precio anual son diez meses por doce; vea [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]." },
+          { p: "El mismo número en cada moneda: una empresa canadiense paga estas cifras en dólares canadienses, una australiana en dólares australianos, una del Reino Unido en libras esterlinas, una de la UE en euros y todas las demás en dólares estadounidenses. Las libras y los euros son sin IVA, que se añade al pagar donde corresponda. La moneda en la que se le cobra la decide la dirección de su negocio, nunca un selector — vea [[taxes-and-currency-on-your-subscription|Impuestos y moneda de su suscripción]]. El precio anual son diez meses por doce; vea [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]." },
           { figure: "harness:plan", caption: "Cuenta y facturación — las cuatro tarjetas de plan, cada una con su línea de licencias y cuadrilla, FieldQuo AI incluido, y Elegir plan o Plan actual." },
         ],
       },
@@ -159,7 +159,7 @@ export const ARTICLES = {
       { q: "¿Puedo comprar una licencia extra en lugar de subir de plan?", a: "No. Los cuatro planes son toda la lista de precios; cuando ha usado cada licencia, el siguiente plan es la forma de agregar una. **Gestionar equipo** le dice cuál es." },
       { q: "¿Una persona desactivada sigue usando una licencia?", a: "No. Solo cuentan los miembros activos: una cuenta desactivada no puede escribir un presupuesto, así que no se cobra como licencia." },
       { q: "Tengo más licencias en uso de las que incluye mi plan. ¿Estoy bloqueado?", a: "No. El límite le impide agregar otra licencia; nunca le quita una que ya tiene. Todos siguen trabajando, y Gestionar equipo dice **En el límite de tu plan** hasta que suba de plan o pase a alguien a Crew." },
-      { q: "¿Es algo más barato en dólares estadounidenses?", a: "No. Los números son idénticos en ambas monedas, y su dirección decide en cuál paga." },
+      { q: "¿Es algo más barato en dólares estadounidenses?", a: "No. Los números son idénticos en cada moneda, y su dirección decide en cuál paga." },
     ],
   },
 
@@ -527,7 +527,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "FieldQuo le cobra a través de Stripe Billing, en su propia moneda: dólares canadienses para una dirección en Canadá, dólares australianos para una en Australia, dólares estadounidenses para cualquier otro lugar. Cada período, Stripe emite una factura, cobra la tarjeta registrada y marca la factura como pagada; la factura pagada es el recibo. No hay un correo de recibo separado con la marca de FieldQuo por cada cobro." },
+          { p: "FieldQuo le cobra a través de Stripe Billing, en su propia moneda: dólares canadienses para una dirección en Canadá, dólares australianos para una en Australia, libras esterlinas para una en el Reino Unido, euros para una en la UE, dólares estadounidenses para cualquier otro lugar. Cada período, Stripe emite una factura, cobra la tarjeta registrada y marca la factura como pagada; la factura pagada es el recibo. No hay un correo de recibo separado con la marca de FieldQuo por cada cobro." },
           { p: "Estas van en la dirección opuesta a las facturas de su pantalla **Facturas**, que son las suyas para sus clientes y pasan por su propia cuenta de Stripe conectada. Las dos nunca se mezclan: su factura de suscripción nunca aparece entre sus facturas a clientes, y el pago de un cliente nunca está en su cliente de Stripe." },
         ],
       },
