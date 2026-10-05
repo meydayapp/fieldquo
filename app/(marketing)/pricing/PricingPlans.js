@@ -11,7 +11,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import AiPlanAdvisor from "@/app/components/billing/AiPlanAdvisor";
+import { recommendAiPlan } from "@/lib/ai/planAdvice";
 import { CheckCircle2 } from "lucide-react";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
 import PlanOfferPrice, { OfferRibbon, offerMoney, yearTabLabel } from "@/app/components/billing/PlanOfferPrice";
@@ -390,8 +392,18 @@ function CustomPlanCard({ offer, t, price, interval, locale }) {
   );
 }
 
-export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf() }) {
+export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf(), aiAdvice = null }) {
   const { t, language } = useTranslation();
+  // The AI advisor's plans, memoised for the same reason Account & Billing's
+  // are (the advisor hands its answer back; a fresh array would loop).
+  const advisorPlans = useMemo(
+    () => plans.filter((p) => p.aiAllowance).map((p) => ({ id: p.id, name: p.name, priceMonthly: p.priceMonthly, allowance: p.aiAllowance })),
+    [plans],
+  );
+  const reviewsByPlanId = useMemo(
+    () => (aiAdvice?.units ? recommendAiPlan({ units: aiAdvice.units, plans: advisorPlans }).reviewsByPlanId : {}),
+    [aiAdvice, advisorPlans],
+  );
   const locale = numberLocaleFor(language);
 
   const columns = pricingColumns(plans.length);
@@ -540,6 +552,17 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
                         {t("pricing.aiIncluded")}
                       </li>
                     ) : null}
+                    {/* Capped, said as a count (owner, 2026-10-04): the plan's
+                        AI allowance in quote reviews, from resolveAiCap. */}
+                    {reviewsByPlanId[plan.id] != null ? (
+                      <li className="flex items-center gap-2 text-sm text-foreground" data-plan-ai-reviews>
+                        <CheckCircle2
+                          size={16}
+                          className="text-green-600 shrink-0"
+                        />
+                        {t("app.aiAdvisor.planLine", { reviews: reviewsByPlanId[plan.id].toLocaleString(locale) })}
+                      </li>
+                    ) : null}
 
                     {/* Free-form per-plan flags set in /platform. They're data,
                         not catalogue keys, so they stay in whatever language
@@ -573,6 +596,18 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
           </div>
 
           <CustomPlanCard offer={customOffer} t={t} price={price} interval={cadence} locale={locale} />
+
+          {/* Which plan fits the AI you'll use (owner, 2026-10-04). No
+              account yet, so no link to the AI credit page. */}
+          {aiAdvice?.units && (
+            <AiPlanAdvisor
+              className="mt-8 max-w-3xl mx-auto text-left"
+              units={aiAdvice.units}
+              plans={advisorPlans}
+              bundles={aiAdvice.bundles}
+              creditHref={null}
+            />
+          )}
 
           <IncludedEverywhere t={t} />
 

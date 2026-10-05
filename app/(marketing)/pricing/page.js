@@ -12,6 +12,8 @@ import { livePromotions, universalPromotions, withOffers, customOfferTable } fro
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import { oneRowPerTier } from "@/lib/pricing/oneRowPerTier";
 import PricingPlans from "./PricingPlans";
+import { resolveAiCap } from "@/lib/ai/usage";
+import { aiAdviceUnits, aiAdviceBundles } from "@/lib/ai/planAdviceUnits";
 
 // Rendered per request, not at build time.
 //
@@ -95,8 +97,14 @@ export default async function PricingPage() {
     maxUsers: plan.maxUsers,
     maxQuotesPerMonth: plan.maxQuotesPerMonth,
     aiCopilotEnabled: plan.aiCopilotEnabled,
+    // The plan's capped AI allowance (owner, 2026-10-04: every plan keeps a
+    // cap) — resolved by the gate's own function and sent as { cap, unit },
+    // never a price. The card turns it into "about N quote reviews a month".
+    aiAllowance: resolveAiCap({ subscription: { plan } }),
     features: plan.features || null,
   }));
+  // Unit costs for the AI advisor, from the metered prices — lib/ai/planAdviceUnits.js.
+  const aiAdvice = { units: aiAdviceUnits(), bundles: aiAdviceBundles() };
 
   // The fifth card — "Need more people?" — prices itself from the Scale row
   // this page is already showing, through the same function the server mints
@@ -109,5 +117,5 @@ export default async function PricingPage() {
     : null;
   if (customOffer) customOffer.offers = customOfferTable(customOffer, { promotions, now });
 
-  return <PricingPlans plans={serialised} customOffer={customOffer} />;
+  return <PricingPlans plans={serialised} customOffer={customOffer} aiAdvice={aiAdvice} />;
 }

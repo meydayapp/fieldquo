@@ -1,7 +1,7 @@
 // app/app/settings/account-billing/page.js
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw, X, CalendarClock } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -13,6 +13,7 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import CancelFlow from "./CancelFlow";
 import { VideoPackCard } from "@/app/components/designer/VideoAllowance";
 import { AiAllowanceCard } from "@/app/components/billing/AiAllowance";
+import AiPlanAdvisor from "@/app/components/billing/AiPlanAdvisor";
 import TrialPhoneCard from "@/app/components/billing/TrialPhoneCard";
 import ResumePlanButton from "@/app/components/billing/ResumePlanButton";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
@@ -161,6 +162,16 @@ function AccountBillingScreen() {
   // stepper, seeded from the size the company is already on so a company on
   // "Custom · 20 seats" opens the card at 20, not at the default.
   const [customOffer, setCustomOffer] = useState(null);
+  // The AI advisor's inputs from the server (unit costs, AI credit plans) and
+  // its latest advice, which marks the plan cards (owner, 2026-10-04).
+  const [aiAdvice, setAiAdvice] = useState(null);
+  const [aiAdvisorResult, setAiAdvisorResult] = useState(null);
+  // Memoised: the advisor recomputes when its inputs change and hands the
+  // result back, so a fresh array every render would loop.
+  const advisorPlans = useMemo(
+    () => plans.filter((p) => p.aiAllowance).map((p) => ({ id: p.id, name: p.name, priceMonthly: p.priceMonthly, allowance: p.aiAllowance })),
+    [plans],
+  );
   const [customSeats, setCustomSeats] = useState(20);
   // ── The card the trial banner pointed at ─────────────────────────────────
   //
@@ -255,6 +266,7 @@ function AccountBillingScreen() {
         current ?? ((Array.isArray(planList) ? planList : []).some((p) => annualPriceOf(p) !== null) ? "year" : "month"),
       );
       setCustomOffer(body && !Array.isArray(body) && body.custom ? body.custom : null);
+      setAiAdvice(body && !Array.isArray(body) && body.aiAdvice ? body.aiAdvice : null);
       const onCustom = customSeatsFromTierKey(sub?.plan?.tierKey);
       if (onCustom) setCustomSeats(onCustom);
       if (!planRes.ok) {
@@ -869,6 +881,23 @@ function AccountBillingScreen() {
                     {t("app.billing.aiIncluded", "FieldQuo AI included")}
                   </p>
                 )}
+                {/* The plan's capped AI allowance in a unit a contractor can
+                    weigh (lib/ai/planAdvice.js), and whether it covers what
+                    they typed into the advisor below. */}
+                {aiAdvisorResult?.reviewsByPlanId?.[plan.id] != null && (
+                  <p className="text-xs text-muted-foreground mt-0.5" data-plan-ai-reviews>
+                    {t("app.aiAdvisor.planLine", "AI allowance: about {reviews} quote reviews a month", {
+                      reviews: aiAdvisorResult.reviewsByPlanId[plan.id].toLocaleString(),
+                    })}
+                  </p>
+                )}
+                {aiAdvisorResult?.input?.quoteReviews > 0 &&
+                  aiAdvisorResult.reviewsByPlanId?.[plan.id] != null &&
+                  aiAdvisorResult.reviewsByPlanId[plan.id] >= aiAdvisorResult.input.quoteReviews && (
+                    <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900" data-plan-ai-fits>
+                      {t("app.aiAdvisor.coversBadge", "Covers your quote reviews")}
+                    </span>
+                  )}
                 <button
                   onClick={() => handleChoosePlan(plan)}
                   disabled={isCurrent || unsellable || busyPlanId === plan.id}
@@ -1023,6 +1052,18 @@ function AccountBillingScreen() {
           This month's video posts and the packs held; "Add video pack" is a
           real Stripe Checkout for an owner or admin (lib/marketing/
           videoPack.js). Prices come from lib/marketing/videoAllowance.js. */}
+      {/* Which plan fits the AI they'll use (owner, 2026-10-04) — quote
+          reviews against each plan's capped allowance, the AI employee and
+          drawing reads against AI credit. lib/ai/planAdvice.js. */}
+      {!endedByFieldQuo && aiAdvice && (
+        <AiPlanAdvisor
+          units={aiAdvice.units}
+          plans={advisorPlans}
+          bundles={aiAdvice.bundles}
+          bundlesAvailable={aiAdvice.bundlesAvailable !== false}
+          onAdvice={setAiAdvisorResult}
+        />
+      )}
       {!endedByFieldQuo && <VideoPackCard returnPath="/app/settings/account-billing" />}
       {/* What this month's FieldQuo AI has used of the plan's allowance —
           "US$X of US$Y" once the plan's allowance is in dollars. */}

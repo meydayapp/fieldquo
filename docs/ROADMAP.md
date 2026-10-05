@@ -184,6 +184,42 @@ owner's message said US$31; the code, the pricing page and the help all say
 $77 (owner-set 2026-09-29) — unchanged here, needs his word.
 `check:video-posts` 230 → 243. Help en/fr/es.
 
+### 5. AI plans: capped, and a recommendation on the pickers
+
+No plan's price or cap changed. `lib/ai/planAdvice.js` (pure) +
+`lib/ai/planAdviceUnits.js` (unit costs from the metering itself) +
+`AiPlanAdvisor`: three numbers in (AI-employee conversations, drawing sets,
+quote reviews a month), two answers out, because they are paid apart —
+quote reviews spend the PLAN's capped allowance (`resolveAiCap`: dollars,
+else tokens, else 750,000 tokens — never unlimited); the AI employee and
+drawing reads are paid from AI CREDIT, so those name the AI credit plan
+(BUNDLES) that covers them, or the top-up past the biggest. On Account &
+Billing (each plan card: "AI allowance: about N quote reviews a month" +
+"Covers your quote reviews"), the AI credit page (each bundle: "about N
+conversations or N drawing reads"; the fitting one marked) and /pricing.
+Unit costs today: a conversation **13¢** of AI credit (9,000/600 tokens on
+gpt-5.5 × 2), a 20-sheet drawing read **$1.29** (held $1.62), a quote review
+**6,000 tokens ≈ 0.30¢** of FieldQuo cost (3,500/2,500 on gpt-5-mini). Bundles:
+Starter $30 → ~307 conversations or ~31 reads; Busy $50 → ~538 / ~54;
+Agency $80 → ~884 / ~89. `check:ai-plan-advice` (46).
+
+**Proposed plan allowances — for the owner to approve (nothing set):**
+
+| Plan | Price | Allowance today | ≈ $ at review mix ($0.49/M) | ≈ $ at best-model mix ($6.56/M) | Proposed `aiMonthlyAllowanceCents` | ≈ quote reviews |
+|---|---|---|---|---|---|---|
+| Solo | $99 | live cap — read on /platform/billing/plans (null → 750,000 tokens) | 750k → US$0.37 | 750k → US$4.92 | **US$1.00** | ~338 |
+| Crew | $169 | same | same | same | **US$2.00** | ~676 |
+| Shop | $269 | same | same | same | **US$3.00** | ~1,015 |
+| Scale | $369 | same | same | same | **US$5.00** | ~1,692 |
+
+The live caps could not be read from this session (production reads were
+refused), so the "today" column is the code's default; /platform/billing/plans
+already prints each plan's cap converted at the measured blended rate.
+Proposed dollars keep FieldQuo's worst-case model cost under ~1.4% of each
+plan's price, and the copilot's fair-use ceiling (lib/ai/featurePayer.js, the
+same size as the allowance, FieldQuo-paid) moves with them — that is the
+cost-increasing half, hence approval first.
+
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 
 A Past jobs import creates its quotes and jobs TODAY with last year's dates.

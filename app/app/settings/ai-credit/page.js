@@ -24,6 +24,8 @@ import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import BackToHome from "@/app/components/BackToHome";
 import AiCreditCard, { Card, Statement, money } from "./AiCreditCard";
+import AiPlanAdvisor from "@/app/components/billing/AiPlanAdvisor";
+import { bundleCovers } from "@/lib/ai/planAdvice";
 
 // Card, Statement and the credit-currency formatter live in ./AiCreditCard.js
 // with the AI wallet card, which the home page's set-up dialog renders too.
@@ -34,6 +36,8 @@ export default function AiCreditPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
+  // The advisor's latest answer, which marks the bundle that fits.
+  const [advice, setAdvice] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/ai/credit");
@@ -248,6 +252,20 @@ export default function AiCreditPage() {
             things. */}
         <p className="text-sm text-muted-foreground">{ai.bundleRolloverNotice}</p>
 
+        {/* Which AI credit plan fits (owner, 2026-10-04): the AI employee's
+            conversations and drawing reads are paid from this credit; quote
+            reviews from the plan's allowance — the advisor says both. */}
+        {ai.adviceUnits && (
+          <AiPlanAdvisor
+            className="mt-4"
+            units={ai.adviceUnits}
+            bundles={ai.bundles}
+            bundlesAvailable={ai.bundleAvailable?.ok !== false}
+            creditHref={null}
+            onAdvice={setAdvice}
+          />
+        )}
+
         {bundle?.active ? (
           <div className="mt-4 rounded-lg border border-border bg-muted/50 px-4 py-3">
             <p className="text-sm font-semibold text-foreground">
@@ -286,6 +304,25 @@ export default function AiCreditPage() {
                     images: imagesFor(b.credits),
                   })}
                 </p>
+                {/* The same credit, in the two uses a contractor weighs — the
+                    AI employee's conversations and drawing reads — from the
+                    metered unit costs (lib/ai/planAdviceUnits.js). */}
+                {ai.adviceUnits && (() => {
+                  const covers = bundleCovers(b, ai.adviceUnits);
+                  return covers.conversations != null && covers.drawingReads != null ? (
+                    <p className="text-xs text-muted-foreground mt-1" data-bundle-covers>
+                      {t("app.aiAdvisor.bundleCovers", "Or about {conversations} AI employee conversations, or {reads} drawing reads, a month", {
+                        conversations: covers.conversations.toLocaleString(),
+                        reads: covers.drawingReads.toLocaleString(),
+                      })}
+                    </p>
+                  ) : null;
+                })()}
+                {advice?.credit?.fits && advice.credit.bundle?.key === b.key && (
+                  <span className="mt-2 self-start text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900" data-bundle-fits>
+                    {t("app.aiAdvisor.recommendedBadge", "Fits what you entered")}
+                  </span>
+                )}
                 {/* Off, with the reason, when this company cannot start one —
                     a CAD-billed customer cannot add a USD subscription. A
                     live button that 502s is the failure this repo is swept
