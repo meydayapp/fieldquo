@@ -747,7 +747,10 @@ export default function BookingFlow({
       }
       setConfirmed({ startTime: chosen, ...data });
       try {
-        onBooked?.();
+        // The booking's id only — the instant estimate passes it to the pixel
+        // as eventID, the id the server-side Schedule uses (lib/meta/capi/
+        // capture.js), so Meta counts the pair once.
+        onBooked?.({ id: typeof data?.id === "string" ? data.id : null });
       } catch {
         /* a caller's measurement must never undo a confirmed booking */
       }

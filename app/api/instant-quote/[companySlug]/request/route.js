@@ -38,6 +38,8 @@ import { checkServiceArea, serviceAreaConfigured, postalCodeFromAddress } from "
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 import { visitForSubmit, linkVisitToLead } from "@/lib/tracking/visits";
 import { estimateBucket, pixelParams } from "@/lib/tracking/attribution";
+import { captureWebsiteLead } from "@/lib/meta/capi/capture";
+import { afterResponse } from "@/lib/meta/capi/afterResponse";
 import { roomSummary } from "@/lib/estimate/roomPresets";
 
 export async function POST(request, { params }) {
@@ -438,6 +440,12 @@ export async function POST(request, { params }) {
     await linkVisitToLead(visit, leadRow.id, { trade }).catch((err) =>
       console.error("[instant-quote/request] visit not linked:", err?.message),
     );
+    // "Send lead results to Meta": the server twin of the page's Lead pixel
+    // event, same event id (the lead id). The instant estimate loads the
+    // COMPANY's pixel, which capture reads itself. After the response; only
+    // for an ad-click visit on a company that switched it on.
+    const leadId = leadRow.id;
+    afterResponse(() => captureWebsiteLead(db, { companyId: company.id, leadId, request }));
   }
 
   // They submitted a request that said someone would be in touch — record the

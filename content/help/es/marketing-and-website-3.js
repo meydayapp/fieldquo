@@ -3,7 +3,8 @@
 // Parte 3 de la categoría «marketing-and-website» en español (ver el
 // compositor, marketing-and-website.js). Slugs asignados a esta parte
 // (lib/help/tree.js): get-facebook-and-instagram-lead-ads-into-fieldquo,
-// answer-facebook-and-instagram-messages-from-fieldquo, whatsapp-coming-soon.
+// answer-facebook-and-instagram-messages-from-fieldquo, whatsapp-coming-soon,
+// send-lead-results-to-meta.
 //
 // Misma estructura que el inglés (mismas secciones, mismos bloques, mismas
 // figuras); las palabras en pantalla vienen del bloque `es` de
@@ -335,6 +336,125 @@ export const ARTICLES = {
     faq: [
       { q: "¿Puedo tener acceso anticipado?", a: "No. Mientras la App Review de Meta no otorgue el acceso avanzado a los dos permisos de WhatsApp, el registro de Meta rechaza a toda empresa que no sea la de FieldQuo, así que no hay una puerta que abrir antes." },
       { q: "¿Cuándo estará listo?", a: "Cuando la App Review de Meta otorgue el acceso avanzado: Meta fija los tiempos, no FieldQuo. FieldQuo activa la tarjeta ese mismo día." },
+    ],
+  },
+  // Redactado el 2026-10-05 a partir de app/app/settings/meta-ads/MetaConversionsPanel.js,
+  // app/api/settings/meta-conversions/*, lib/meta/capi/* y
+  // docs/META-CONVERSIONS-API.md. Las palabras de la pantalla son el bloque
+  // `es` de app/i18n/appMessages.js (app.setMetaCapi.*).
+  "send-lead-results-to-meta": {
+    title: "Enviar los resultados de los clientes potenciales a Meta",
+    summary:
+      "Dile a Facebook e Instagram cuáles de sus clientes potenciales eran reales, cuáles no, y cuáles reservaron, recibieron un presupuesto y compraron — para que Meta encuentre más personas como tus clientes.",
+    updated: "2026-10-05",
+    intro: [
+      "Meta cuenta cada toque en un formulario como un cliente potencial y cada chat abierto como una conversación, lo quisiera la persona o no. Tus anuncios aprenden entonces a buscar más gente que toca. **Enviar los resultados de los clientes potenciales a Meta** devuelve lo que FieldQuo sabe y Meta no: qué clientes potenciales eran reales, cuáles no, y cuáles reservaron, recibieron un presupuesto y compraron.",
+      "Es un solo interruptor en **Configuración → Meta Ads**, apagado hasta que un propietario o un administrador lo active. Cubre tus formularios de Facebook e Instagram, tus embudos y tu presupuesto instantáneo cuando el visitante viene de un anuncio y — cuando Meta apruebe la app de FieldQuo para ello — tus conversaciones de Messenger e Instagram desde anuncios.",
+    ],
+    sections: [
+      {
+        id: "what-is-sent",
+        heading: "Lo que FieldQuo le dice a Meta",
+        blocks: [
+          {
+            p: "Para un cliente potencial de un formulario de Facebook o Instagram, FieldQuo envía cada etapa que alcanza, una sola vez, con el ID de cliente potencial de Meta:",
+          },
+          {
+            table: {
+              head: ["Etapa", "Cuándo se envía"],
+              rows: [
+                ["**Raw Lead**", "Cuando el cliente potencial llega a FieldQuo."],
+                ["**Qualified**", "Cuando el cliente potencial está tibio o caliente — y, si llegó por una conversación, esa conversación se consideró un cliente potencial real."],
+                ["**Disqualified**", "Cuando la conversación fue solo un toque o no trataba de tu trabajo, cuando alguien marca el cliente potencial como perdido por no ser una consulta real, o lo elimina como no cliente potencial."],
+                ["**Appointment Booked**", "Cuando se reserva una cita para el cliente o el presupuesto del cliente potencial."],
+                ["**Quote Sent**", "Cuando se envía el presupuesto del cliente potencial."],
+                ["**Converted**", "Cuando se acepta el presupuesto, o la conversación se marca como ganada — con el importe y tu moneda."],
+              ],
+            },
+          },
+          {
+            bullets: [
+              "**Conversaciones de Messenger e Instagram desde anuncios**: **LeadSubmitted** cuando la conversación se convierte en un cliente potencial tibio o caliente, y **Purchase** con el importe cuando ese cliente acepta un presupuesto. Una conversación que fue solo un toque, o que no trataba de tu trabajo, no envía nada.",
+              "**Tus embudos y tu presupuesto instantáneo**: cuando el visitante viene de un anuncio de Meta, el mismo **Lead** que ya dispara el píxel de tu página también se envía desde el servidor de FieldQuo con el mismo ID de evento, para que Meta lo cuente una sola vez. Una reserva envía **Schedule**, y un presupuesto aceptado envía **Purchase**.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "turn-it-on",
+        heading: "Cómo activarlo",
+        blocks: [
+          {
+            steps: [
+              "Abre **Configuración → Meta Ads** y busca **Enviar los resultados de los clientes potenciales a Meta**.",
+              "En **1. Condiciones de las herramientas para empresas de Meta**, marca la casilla y pulsa **Aceptar**. La pantalla registra quién aceptó y cuándo.",
+              "En **2. Tu conjunto de datos de Meta (píxel)**, escribe el ID de tu conjunto de datos — o pulsa **Elegir de mi cuenta publicitaria** si tu cuenta publicitaria de Meta está conectada. Si definiste un píxel de seguimiento para tu presupuesto instantáneo, ya está escrito.",
+              "En el Administrador de eventos de Meta, abre ese conjunto de datos y luego \"Configuración\", \"API de conversiones\", \"Generar token de acceso\". Pega el token en **Token de acceso de la API de conversiones** y pulsa **Guardar**.",
+              "En **3. Enviar un evento de prueba**, copia el código de prueba de la pestaña \"Probar eventos\" del conjunto de datos, pégalo y pulsa **Enviar evento de prueba**. El evento solo aparece en la pestaña \"Probar eventos\" de Meta.",
+              "Activa el interruptor de la parte superior de la tarjeta.",
+            ],
+          },
+          {
+            figure: "live:app-settings-meta-ads",
+            caption: "Configuración → Meta Ads — Enviar los resultados de los clientes potenciales a Meta está debajo de la tarjeta de formularios de Facebook.",
+          },
+          {
+            note: "El interruptor no se puede activar antes de aceptar las condiciones, y **Enviar evento de prueba** sigue en gris mientras falten el ID, el token o las condiciones — pasa el puntero por encima para ver qué falta.",
+          },
+        ],
+      },
+      {
+        id: "what-is-being-sent",
+        heading: "Cómo leer «Qué se envía»",
+        blocks: [
+          {
+            p: "La tarjeta muestra cuatro líneas — formularios, tus embudos y tu presupuesto instantáneo, Messenger e Instagram — y dice para cada una si está **enviando** o qué espera.",
+          },
+          {
+            bullets: [
+              "**Necesita el permiso de Meta page_events** (o **instagram_manage_events**) — los eventos de Messenger e Instagram necesitan un permiso que Meta debe aprobar para la app de FieldQuo. No se envía nada hasta entonces, y no tienes que hacer nada.",
+              "**desactivado mientras pidas permiso a los visitantes antes del seguimiento publicitario** — si activaste preguntar a los visitantes antes de cargar los píxeles, FieldQuo no puede ver su respuesta en el servidor, así que tus páginas no envían nada desde el servidor.",
+              "Debajo de la lista, la tarjeta muestra la última sincronización y, para los últimos 30 días, cuántos eventos se enviaron, fallaron, están en espera o eran demasiado antiguos para Meta.",
+            ],
+          },
+        ],
+      },
+      {
+        id: "conversion-leads",
+        heading: "Configura tu campaña para usar los resultados",
+        blocks: [
+          {
+            steps: [
+              "En el Administrador de anuncios, crea o edita una campaña de Clientes potenciales que use un formulario instantáneo.",
+              "En el conjunto de anuncios, en \"Objetivo de rendimiento\", elige \"Maximizar el número de clientes potenciales de conversión\".",
+              "Elige el mismo conjunto de datos y luego la etapa a optimizar — normalmente **Qualified**, o **Converted** cuando tengas suficientes ventas.",
+              "Deja la campaña funcionando. Meta necesita unas semanas de resultados antes de aprender.",
+            ],
+          },
+          {
+            warning: "Las reglas de Meta para este objetivo: los resultados deben subirse al menos una vez al día (FieldQuo envía cada 15 minutos, con una puesta al día diaria), y la etapa que optimices debe ocurrir dentro de los 28 días posteriores al cliente potencial, para entre el 1 % y el 40 % de ellos. Meta también pide unos 200 clientes potenciales al mes.",
+          },
+        ],
+      },
+      {
+        id: "privacy",
+        heading: "Privacidad y lo que nunca sale",
+        blocks: [
+          {
+            bullets: [
+              "Los correos y teléfonos se cifran con hash (SHA-256) antes de salir de FieldQuo. Meta nunca los recibe en texto plano, y tampoco se guardan en texto plano en la cola.",
+              "No se envía nada mientras el interruptor esté apagado. Apagarlo lo detiene todo; los eventos en espera no se envían.",
+              "Meta rechaza los eventos de más de 7 días, así que FieldQuo nunca envía uno más antiguo.",
+              "Tu token de acceso se guarda cifrado, solo se envía a Meta y nunca se vuelve a mostrar — la tarjeta muestra sus cuatro últimos caracteres.",
+            ],
+          },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Se enviarán mis clientes potenciales antiguos?", a: "Solo las etapas de los últimos 7 días, porque Meta rechaza todo lo que sea más antiguo. FieldQuo puede hacer un envío único del historial para tu empresa; primero muestra el número por etapa." },
+      { q: "¿Cambia mis anuncios?", a: "No. FieldQuo nunca crea ni edita un anuncio. Solo le dice a Meta qué pasó con los clientes potenciales; tu campaña lo usa cuando eliges \"Maximizar el número de clientes potenciales de conversión\"." },
+      { q: "¿Por qué Messenger dice que necesita un permiso de Meta?", a: "Meta exige que la app de FieldQuo esté aprobada para page_events e instagram_manage_events antes de poder enviar los resultados de las conversaciones. Los formularios y tus propias páginas funcionan sin él." },
     ],
   },
 };

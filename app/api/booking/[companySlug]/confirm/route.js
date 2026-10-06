@@ -33,6 +33,8 @@ import { findVisit, linkVisitToBooking } from "@/lib/tracking/visits";
 import { attributionFromVisit } from "@/lib/tracking/attribution";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 import { ensureBookingLead } from "@/lib/booking/bookingLead";
+import { captureWebsiteBooking } from "@/lib/meta/capi/capture";
+import { afterResponse } from "@/lib/meta/capi/afterResponse";
 
 // The one refusal this route makes in the visitor's own language: the "when
 // do you need this done?" question is required, and a homeowner reading the
@@ -612,6 +614,13 @@ export async function POST(request, { params }) {
   });
 
   const visit = await linkBookingVisit(company.id, visitToken, booking.id);
+  // "Send lead results to Meta": a free booking from an ad-click visit is a
+  // website Schedule (event id = the booking id, the eventID the instant
+  // estimate's pixel uses). After the response, after the visit link above —
+  // capture reads the click off the visit that link just stamped. A PAID
+  // booking confirms on Stripe's webhook, where there is no visitor's browser
+  // to describe, so it sends nothing server-side.
+  afterResponse(() => captureWebsiteBooking(db, { companyId: company.id, bookingId: booking.id, request }));
 
   // The confirmation email, consent record and reminder — shared with the paid
   // path so the two can't drift. Best-effort: the booking already exists.

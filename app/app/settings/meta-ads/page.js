@@ -30,6 +30,7 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchJson } from "@/lib/fetchJson";
 import MetaLeadFormsPanel from "./MetaLeadFormsPanel";
+import MetaConversionsPanel from "./MetaConversionsPanel";
 import SocialPublishingPanel from "@/app/components/settings/SocialPublishingPanel";
 import WhatsAppPanel from "@/app/components/settings/WhatsAppPanel";
 
@@ -437,6 +438,14 @@ function MetaAdsPageScreen() {
       {status?.fullyConfigured && (
         <MetaLeadFormsPanel />
       )}
+
+      {/* "Send lead results to Meta" (lib/meta/capi/) — what FieldQuo knows
+          about each lead, sent back so Meta's delivery finds real customers.
+          Rendered in every state: its lead-form half needs no FieldQuo Meta
+          app at all (a dataset token from Events Manager), and the panel
+          states each half's own precondition, including the Meta permission
+          the messaging half still waits on. */}
+      <MetaConversionsPanel />
 
       {/* Facebook/Instagram PUBLISHING — a third thing a Meta account can do,
           and the one with its own OAuth round trip: posting needs
