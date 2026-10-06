@@ -3865,6 +3865,24 @@ model QuoteImport {
   createdAt   DateTime @default(now())
   createdById String?
 
+  /// Whether this price is ON the GC's quote or only held to compare.
+  ///
+  ///   "line"   — a scope group on the quote (targetLineId names it). Every
+  ///              row written before options existed, hence the default.
+  ///   "option" — held beside competing bids for the same trade so the GC
+  ///              can pick one (lib/quotes/importOptions.js). On no client
+  ///              document; targetLineId is "" because that column predates
+  ///              options and is NOT NULL — every reader asks `placement`
+  ///              first, never targetLineId.
+  ///
+  /// "On a change order" is deliberately NOT a value here. It is DERIVED from
+  /// ChangeOrder.quoteImportId on a live (pending / waiting / approved)
+  /// change order, so a client declining the change order turns the import
+  /// back into an unused option without anything having to remember to
+  /// write that — the same reasoning the header gives for not storing the
+  /// commit status.
+  placement String @default("line")
+
   // A given source quote lands in a given target quote at most once.
   @@unique([targetQuoteId, sourceQuoteId])
   @@index([sourceCompanyId])
@@ -6701,8 +6719,21 @@ model ChangeOrder {
   /// Plan steps on hold until this is signed (Task.waitingOnChangeOrderId).
   waitingTasks Task[] @relation("TaskWaitingOnChangeOrder")
 
+  /// The subcontractor's quote this change order carries, when the extra
+  /// work came from a sub's FieldQuo quote brought in AFTER the client had
+  /// approved (lib/quotes/importQuote.js raiseChangeOrderFromImport). The
+  /// priceDelta was derived from that import's snapshot × (1 + markup) on
+  /// the server; the sub's cost reaches job costing only once this change
+  /// order is approved (lib/subcontractors/sourceLink.js
+  /// syncChangeOrderImport). Not a relation, for the reason
+  /// JobSubcontractor.quoteImportId gives: an import belongs to the QUOTE
+  /// and can be removed from it independently. Never sent to the client —
+  /// the homeowner never learns there is a sub.
+  quoteImportId String?
+
   @@index([jobId])
   @@index([invoiceId])
+  @@index([quoteImportId])
 }
 
 model JobChecklistTemplate {

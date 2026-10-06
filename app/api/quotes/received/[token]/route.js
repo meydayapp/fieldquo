@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, hasLevel, hasToggle } from "@/lib/permissions/enforce";
 import { sourceCostAmount } from "@/lib/quotes/importQuote";
 import { isPubliclyReadable } from "@/lib/quotes/shareToken";
 
@@ -103,6 +103,37 @@ export async function GET(request, { params }) {
     }));
   }
 
+  // ── Approved quotes: the sub's price arrives after the client said yes ──
+  //
+  // The owner's real case (2026-10-05): the sub's quote lands AFTER the GC's
+  // client signed. Those quotes were missing from the list above, so there
+  // was nowhere to put the price. An approved quote WITH a job is a target
+  // now — the import does not touch the signed quote, it raises a pending
+  // change order to the client (lib/quotes/importQuote.js). Offered only to
+  // someone the import route will let raise one: the change-order gates
+  // (jobs: view_create_edit + showPricing), the same pair POST
+  // /api/jobs/[id]/change-orders asks.
+  let approvedQuotes = [];
+  const canRaiseChange =
+    canImport && hasLevel(full, "jobs", "view_create_edit") && hasToggle(full, "showPricing");
+  if (canRaiseChange) {
+    const quotes = await db.quote.findMany({
+      where: { companyId: member.companyId, status: "accepted", jobs: { some: {} } },
+      orderBy: { acceptedAt: "desc" },
+      take: 40,
+      select: {
+        id: true,
+        quoteNumber: true,
+        client: { select: { name: true } },
+      },
+    });
+    approvedQuotes = quotes.map((q) => ({
+      id: q.id,
+      quoteNumber: q.quoteNumber,
+      clientName: q.client?.name || null,
+    }));
+  }
+
   return NextResponse.json({
     sourceCompanyName: source.company?.name || null,
     sourceQuoteNumber: source.quoteNumber,
@@ -113,5 +144,6 @@ export async function GET(request, { params }) {
     canImport,
     canStartNew,
     openQuotes,
+    approvedQuotes,
   });
 }

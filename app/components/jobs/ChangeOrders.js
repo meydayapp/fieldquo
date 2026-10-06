@@ -43,7 +43,7 @@ import MediaUploader from "@/app/components/MediaUploader";
 // priced in pounds is not a cosmetic slip.
 const signed = (v, money) => `${Number(v) > 0 ? "+" : ""}${money(v)}`;
 
-export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
+export default function ChangeOrders({ jobId, changeOrders, onChanged, newLabel = null, extraActions = null }) {
   const money = useCompanyMoney();
   const { formatDate, formatDateTime } = useCompanyPreferences();
   const { t } = useTranslation();
@@ -189,12 +189,17 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
           <FileEdit size={15} className="text-muted-foreground" />
           {t("app.changeOrder.title", "Change orders")}
         </h2>
-        {canLog && !adding && (
-          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted">
-            <Plus size={13} />
-            {t("app.changeOrder.new", "New change order")}
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* The quote page puts "Add a sub's quote" here, beside the
+              ordinary way in — same card, same list it lands in. */}
+          {canLog && extraActions}
+          {canLog && !adding && (
+            <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted">
+              <Plus size={13} />
+              {newLabel || t("app.changeOrder.new", "New change order")}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

@@ -831,7 +831,9 @@ const MUTATIONS = [
   ],
   [
     "drops the changeOrderId provenance key, disarming the double-add guard",
-    (s) => s.replace("    changeOrderId: co.id,\n  }));", "  }));"),
+    // The line now comes from changeOrderInvoiceLine, shared with the
+    // pay-on-approval invoice (lib/jobs/changeOrderPayment.js).
+    (s) => s.replace("    changeOrderId: co?.id,\n  };", "  };"),
   ],
   [
     "reports a schedule shortfall on a job that has no schedule",

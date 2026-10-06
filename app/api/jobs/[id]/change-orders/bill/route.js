@@ -48,7 +48,7 @@ import { resolveJobInvoice } from "@/lib/invoices/jobLink";
 import { billChangeOrders, changeOrderSummary } from "@/lib/jobs/changeOrderValue";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { familyPayments } from "@/lib/invoices/family";
-import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { changeOrderBillWording } from "@/lib/jobs/changeOrderPayment";
 import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
 const INVOICE_SELECT = {
@@ -85,14 +85,10 @@ const CO_BILL_SELECT = {
  * for lib/jobs/changeOrderValue.js's billChangeOrders.
  */
 function billWording(invoice) {
-  const language = invoice?.language || "en";
-  const labels = documentLabels(language);
-  const { date } = documentFormatters(language);
-  return {
-    changeOrder: labels.changeOrder,
-    approvedBy: (name, when) => labels.changeOrderApprovedBy.replace("{name}", name).replace("{date}", when),
-    date: (at) => date(at),
-  };
+  // One wording for both documents a change order can be billed on — this
+  // invoice and the one the client pays on approval
+  // (lib/jobs/changeOrderPayment.js).
+  return changeOrderBillWording(invoice?.language || "en");
 }
 
 /**

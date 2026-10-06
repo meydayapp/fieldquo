@@ -1,6 +1,7 @@
 // app/api/quotes/[id]/pdf/route.js
 export const runtime = "nodejs";
 
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -14,6 +15,7 @@ import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { hashQuote } from "@/lib/documents/signatureAudit";
 import { localisedCompany } from "@/lib/i18n/companyText";
+import { quoteChangeOrderAddendum } from "@/lib/quotes/importOptions";
 import {
   requireMoney,
   permissionErrorResponse,
@@ -98,12 +100,26 @@ export async function POST(request, { params }) {
   // answer the definition did not flag. Labels in the document's language.
   const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id, { language: documentLanguage });
 
+  // An approved quote's change orders print under its totals as an addendum
+  // (lib/documentSections/TotalsSection.js) — approved ones, and ones out for
+  // the client's signature marked pending. A separate key: the quote's own
+  // lines and totals are what they were when signed, and hashQuote() below
+  // is computed from `quote`, which this never touches.
+  let changeOrderAddendum = null;
+  if (quote.status === "accepted") {
+    const changeOrders = await db.changeOrder.findMany({
+      where: { job: { quoteId: quote.id, companyId: member.companyId } },
+      select: { id: true, seq: true, createdAt: true, description: true, priceDelta: true, status: true, decidedAt: true, signature: true },
+    });
+    changeOrderAddendum = quoteChangeOrderAddendum({ quote, changeOrders });
+  }
+
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
     language: documentLanguage,
     // `...quote` last would overwrite the enriched scopeGroups with the raw
     // ones — spread first, then the keys that matter.
-    data: { ...quote, client: quote.client, scopeGroups, customFields },
+    data: { ...quote, client: quote.client, scopeGroups, customFields, changeOrderAddendum },
     company: companyText,
   });
 
@@ -143,7 +159,15 @@ export async function POST(request, { params }) {
     // exactly which archived file the client put their name to.
     uploaded = await uploadBuffer(pdfBuffer, {
       folder: `fieldquo/${member.companyId}/quotes`,
-      publicId: `${quote.quoteNumber}-${hashQuote(quote).slice(0, 12)}`,
+      // A copy carrying the change-order addendum is a DIFFERENT document
+      // from the signed quote alone, though the quote's hash is the same —
+      // keyed apart, so the addendum copy never overwrites the copy of what
+      // the client signed.
+      publicId: `${quote.quoteNumber}-${hashQuote(quote).slice(0, 12)}${
+        changeOrderAddendum
+          ? `-co-${createHash("sha256").update(JSON.stringify(changeOrderAddendum)).digest("hex").slice(0, 8)}`
+          : ""
+      }`,
       resourceType: "raw",
     });
     await db.quote.update({

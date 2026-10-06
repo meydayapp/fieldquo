@@ -29,7 +29,11 @@ const MARKUP_PRESETS = [0, 10, 20, 30];
 // `initialCtx`: the add-this-price page (app/q/[token]/add) has already
 // fetched the context to decide what to show around this card, so it hands it
 // over rather than having the same request made twice.
-export default function ContractorImportPanel({ token, initialCtx = null }) {
+//
+// `preferTarget`: the quote page's "Add a sub's quote" sends the contractor
+// here with the quote they started from (…/add?target=<id>), so that quote is
+// pre-selected when it is one of theirs that can take the price.
+export default function ContractorImportPanel({ token, initialCtx = null, preferTarget = null }) {
   // The viewer here is a signed-in contractor, never the homeowner, so the
   // app catalogue (their own language) is the right one — the white-label
   // document above this card speaks the QUOTE's language, this card speaks
@@ -48,6 +52,9 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
   // a homeowner or a business because somebody said so (lib/quotes/importTarget.js).
   const [newClientName, setNewClientName] = useState("");
   const [newClientType, setNewClientType] = useState("");
+  // Hold it beside other bids for the same trade instead of putting it in
+  // front of the client now. A yes/no — the server decides what it means.
+  const [asOption, setAsOption] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -57,8 +64,12 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
     let cancelled = false;
     const adopt = (data) => {
       setCtx(data);
-      // Newest open quote first; with none, a new one when that is allowed.
-      if (data.openQuotes?.length) setTargetQuoteId(data.openQuotes[0].id);
+      const known = [...(data.openQuotes || []), ...(data.approvedQuotes || [])];
+      // The quote they came from, when it can take the price; else the
+      // newest open quote; else an approved one; else a new one when allowed.
+      if (preferTarget && known.some((q) => q.id === preferTarget)) setTargetQuoteId(preferTarget);
+      else if (data.openQuotes?.length) setTargetQuoteId(data.openQuotes[0].id);
+      else if (data.approvedQuotes?.length) setTargetQuoteId(data.approvedQuotes[0].id);
       else if (data.canStartNew) setTargetQuoteId(NEW_TARGET);
     };
     if (initialCtx) {
@@ -83,7 +94,7 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
     return () => {
       cancelled = true;
     };
-  }, [token, initialCtx]);
+  }, [token, initialCtx, preferTarget]);
 
   if (loading || !ctx || ctx.error) return null;
   // The sender viewing their own quote, or a homeowner's white-label quote —
@@ -130,13 +141,30 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
                 quote: done.quoteNumber || t("app.quoteImport.yourQuote"),
               })}
             </p>
-            <p className="text-sm text-[#2d2520]/70 mt-1">
-              {t("app.quoteImport.clientPriceIs", { price: money(done.clientPrice) })}
-              {done.targetTotal != null && (
-                <> {t("app.quoteImport.totalNow", { total: money(done.targetTotal) })}</>
-              )}{" "}
-              {t("app.quoteImport.pendingUntil")}
-            </p>
+            {/* Three different outcomes, said as what they are: a line on the
+                quote, a change order the client still has to sign, or an
+                option nobody but the contractor can see yet. */}
+            {done.placement === "change_order" ? (
+              <p className="text-sm text-[#2d2520]/70 mt-1">
+                {t("app.quoteImport.clientPriceIs", { price: money(done.clientPrice) })}{" "}
+                {t("app.quoteImport.addedAsCo", {
+                  quote: done.quoteNumber || t("app.quoteImport.yourQuote"),
+                  co: done.changeOrderLabel || "",
+                })}
+              </p>
+            ) : done.placement === "option" ? (
+              <p className="text-sm text-[#2d2520]/70 mt-1">
+                {t("app.quoteImport.addedAsOption", { quote: done.quoteNumber || t("app.quoteImport.yourQuote") })}
+              </p>
+            ) : (
+              <p className="text-sm text-[#2d2520]/70 mt-1">
+                {t("app.quoteImport.clientPriceIs", { price: money(done.clientPrice) })}
+                {done.targetTotal != null && (
+                  <> {t("app.quoteImport.totalNow", { total: money(done.targetTotal) })}</>
+                )}{" "}
+                {t("app.quoteImport.pendingUntil")}
+              </p>
+            )}
             <a
               href={done.quoteId ? `/app/quotes/${done.quoteId}` : "/app/quotes"}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#06356b] mt-3"
@@ -152,9 +180,13 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
     );
   }
 
-  const noQuotes = !ctx.openQuotes?.length && !ctx.canStartNew;
+  const approvedQuotes = ctx.approvedQuotes || [];
+  const noQuotes = !ctx.openQuotes?.length && !approvedQuotes.length && !ctx.canStartNew;
   const startingNew = targetQuoteId === NEW_TARGET;
   const newReady = !startingNew || (newClientName.trim() && newClientType);
+  // An approved quote is not edited: the price goes to the client as a
+  // change order to sign (or is held as an option to compare first).
+  const approvedTarget = approvedQuotes.some((q) => q.id === targetQuoteId);
 
   async function submit() {
     if (!targetQuoteId || submitting || !newReady) return;
@@ -169,17 +201,20 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
           markupPercent: markup,
           display,
           label: label.trim() || undefined,
+          ...(asOption && !startingNew ? { asOption: true } : {}),
           ...(startingNew ? { newClient: { name: newClientName.trim(), type: newClientType } } : {}),
         }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || t("app.quoteImport.addError"));
-      const q = ctx.openQuotes.find((x) => x.id === targetQuoteId);
+      const q = [...ctx.openQuotes, ...approvedQuotes].find((x) => x.id === targetQuoteId);
       setDone({
         targetTotal: data.targetTotal,
         clientPrice: data.import?.clientPrice ?? clientPrice,
         quoteNumber: data.targetQuoteNumber || q?.quoteNumber,
         quoteId: data.targetQuoteId || null,
+        placement: data.placement || "line",
+        changeOrderLabel: data.changeOrder?.label || null,
       });
     } catch (e) {
       setError(e.message);
@@ -224,17 +259,57 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
               onChange={(e) => setTargetQuoteId(e.target.value)}
               className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm"
             >
-              {ctx.openQuotes.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.quoteNumber}
-                  {q.clientName ? ` — ${q.clientName}` : ""}
-                </option>
-              ))}
+              {approvedQuotes.length > 0 ? (
+                <>
+                  {ctx.openQuotes.length > 0 && (
+                    <optgroup label={t("app.quoteImport.openGroup")}>
+                      {ctx.openQuotes.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.quoteNumber}
+                          {q.clientName ? ` — ${q.clientName}` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label={t("app.quoteImport.approvedGroup")}>
+                    {approvedQuotes.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.quoteNumber}
+                        {q.clientName ? ` — ${q.clientName}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                </>
+              ) : (
+                ctx.openQuotes.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.quoteNumber}
+                    {q.clientName ? ` — ${q.clientName}` : ""}
+                  </option>
+                ))
+              )}
               {ctx.canStartNew && (
                 <option value={NEW_TARGET}>{t("app.quoteImport.startNew")}</option>
               )}
             </select>
           </label>
+
+          {approvedTarget && (
+            <p className="text-xs text-[#2d2520]/70 -mt-2">{t("app.quoteImport.approvedHint")}</p>
+          )}
+
+          {/* Several subs quoting the same trade: hold this one to compare,
+              and choose on the quote page. Not offered for a brand-new
+              quote — there is nothing yet to compare it with. */}
+          {!startingNew && (
+            <label className="flex items-start gap-2 text-sm text-[#2d2520]">
+              <input type="checkbox" checked={asOption} onChange={(e) => setAsOption(e.target.checked)} className="mt-1" />
+              <span>
+                {t("app.quoteImport.asOption")}
+                <span className="block text-[11px] text-[#2d2520]/55">{t("app.quoteImport.asOptionHint")}</span>
+              </span>
+            </label>
+          )}
 
           {/* A new quote needs a client, and the page can't know who it is. */}
           {startingNew && (
@@ -391,7 +466,11 @@ export default function ContractorImportPanel({ token, initialCtx = null }) {
             ) : (
               <Plus size={15} />
             )}
-            {t("app.quoteImport.submit")}
+            {asOption && !startingNew
+              ? t("app.quoteImport.submitOption")
+              : approvedTarget
+                ? t("app.quoteImport.submitApproved")
+                : t("app.quoteImport.submit")}
           </button>
         </div>
       )}

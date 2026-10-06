@@ -11,7 +11,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Building2, Check, Loader2, MessageCircleQuestion } from "lucide-react";
+import { Building2, Check, CreditCard, FileText, Loader2, MessageCircleQuestion } from "lucide-react";
 import SignaturePad from "@/app/components/SignaturePad";
 import { documentTheme, fillPair, ruleColor, washPair } from "@/lib/documents/theme";
 import { documentFormatters, documentLabels } from "@/lib/i18n/documentLabels";
@@ -30,6 +30,8 @@ export default function ChangeOrderApproval({ token }) {
   const [sigConsent, setSigConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
 
   const copyFor = (d) => clientDocCopy(d?.language || "en").changeOrder;
 
@@ -75,6 +77,30 @@ export default function ChangeOrderApproval({ token }) {
       setActionError(err.message || copyFor(data).signFailed);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // No amount in the body — the server bills from the row (AGENTS.md #5).
+  async function payNow() {
+    setPaying(true);
+    setPayError("");
+    try {
+      const res = await fetch(`/api/public/change-orders/${token}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || !d?.payUrl) {
+        // The offer may have changed since the page loaded (paid in another
+        // tab, the office billed it) — re-read and show what is true now.
+        if (res.status === 409) await load();
+        throw new Error("");
+      }
+      window.location.href = d.payUrl;
+    } catch {
+      setPayError(copyFor(data).payFailed);
+      setPaying(false);
     }
   }
 
@@ -245,6 +271,48 @@ export default function ChangeOrderApproval({ token }) {
 
           {approved && (
             <Settled tone="green" title={copy.approvedTitle} body={`${copy.approvedBody(c.name)}${co.signedAt ? ` ${copy.approvedOn(date(co.signedAt))}` : ""}`} />
+          )}
+
+          {/* ── Pay after approving ─────────────────────────────────────────
+              Offered only when the server says it can be (data.pay — decided
+              from the row, the company's online payments and the invoice;
+              lib/quotes/importOptions.js payNowState). The button posts
+              nothing but the link's own token: the server bills the change
+              on its own invoice and sends the client to that invoice's page,
+              where the ordinary Pay button takes the money. */}
+          {approved && data.pay?.offer && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={payNow}
+                disabled={paying}
+                className="inline-flex items-center gap-2 px-6 py-3 min-h-11 rounded-full text-sm font-semibold disabled:opacity-60"
+                style={{ backgroundColor: fill.bg, color: fill.fg }}
+              >
+                {paying ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
+                {copy.payNow(money(data.pay.amount))}
+              </button>
+              <p className="text-xs text-[#2d2520]/70 mt-1.5">{copy.payNowHint}</p>
+              {payError && <p className="text-sm text-red-700 mt-2">{payError}</p>}
+            </div>
+          )}
+          {approved && !data.pay?.offer && data.pay?.reason === "paid" && (
+            <p className="text-sm text-[#2d2520]/70 mt-3">{copy.paidNote}</p>
+          )}
+          {approved && data.pay?.canOpenInvoice && data.pay?.invoiceNumber && (
+            <div className="mt-3">
+              <p className="text-sm text-[#2d2520]/70">{copy.onInvoiceNote(data.pay.invoiceNumber)}</p>
+              <button
+                type="button"
+                onClick={payNow}
+                disabled={paying}
+                className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 min-h-11 rounded-full text-sm font-semibold border border-black/15 text-[#2d2520] disabled:opacity-60"
+              >
+                {paying ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+                {copy.viewInvoice(data.pay.invoiceNumber)}
+              </button>
+              {payError && <p className="text-sm text-red-700 mt-2">{payError}</p>}
+            </div>
           )}
           {withdrawn && <Settled tone="muted" title={copy.withdrawnTitle} body={copy.withdrawnBody(c.name)} />}
           {!approved && !withdrawn && !open && <Settled tone="muted" title={copy.notFound} body={copy.notFoundBody} />}
