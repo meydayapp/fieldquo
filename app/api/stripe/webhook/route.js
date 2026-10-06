@@ -10,6 +10,7 @@ import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleC
 import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
 import { affirmStatusFor } from "@/lib/stripe/affirm";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
+import { settleCardPayment, PORTAL_CARD_FLOW } from "@/lib/stripe/clientCardCharge";
 import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 
 // There is deliberately no route-local invoice recorder here any more. Both
@@ -211,6 +212,14 @@ export async function POST(request) {
       const intent = event.data.object;
       if (intent.metadata?.servicePlanOccurrenceId) {
         await settleOccurrenceFromIntent(intent);
+      } else if (
+        event.type === "payment_intent.succeeded" &&
+        intent.metadata?.fq_flow === PORTAL_CARD_FLOW
+      ) {
+        // The portal's own card form (lib/stripe/clientCardCharge.js) —
+        // usually already recorded by its confirm response; idempotent, so
+        // this is the backstop, with the hourly reconciler behind it.
+        await settleCardPayment(intent.id);
       }
       break;
     }

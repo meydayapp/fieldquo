@@ -117,7 +117,7 @@ console.log("\n── 1. the exported lists equal the handlers' case labels ─�
   ok("REQUIRED_EVENTS.billing is the union, sorted, unique", sameSet(REQUIRED_EVENTS.billing, [...new Set(billingUnion)]) && REQUIRED_EVENTS.billing.join() === [...REQUIRED_EVENTS.billing].sort().join());
   ok("REQUIRED_EVENTS.connect is CONNECT_EVENTS, sorted", sameSet(REQUIRED_EVENTS.connect, [...CONNECT_EVENTS]));
   ok("every optional event is a required one (an exemption, not a third list)", Object.entries(OPTIONAL_EVENTS).every(([k, list]) => list.every((e) => REQUIRED_EVENTS[k].includes(e))));
-  ok("15 billing events, 10 connect — what docs/VERCEL.md used to type by hand", REQUIRED_EVENTS.billing.length === 15 && REQUIRED_EVENTS.connect.length === 10, { b: REQUIRED_EVENTS.billing.length, c: REQUIRED_EVENTS.connect.length });
+  ok("16 billing events, 10 connect — what docs/VERCEL.md used to type by hand, plus payment_intent.succeeded for the portal card form (2026-10-05)", REQUIRED_EVENTS.billing.length === 16 && REQUIRED_EVENTS.connect.length === 10, { b: REQUIRED_EVENTS.billing.length, c: REQUIRED_EVENTS.connect.length });
 }
 
 // ── 2. compareDestinations against fixtures ─────────────────────────────────
@@ -142,13 +142,13 @@ const good = (over = {}) => [
 
   const r = compareDestinations(good());
   ok("correct pair: both ok, no problems", r.billing.ok && r.connect.ok && r.billing.problems.length === 0 && r.connect.problems.length === 0, r);
-  ok("correct pair: green sentence carries the count", r.billing.summary === "Destination OK (15 events)" && r.connect.summary === "Destination OK (10 events)", [r.billing.summary, r.connect.summary]);
+  ok("correct pair: green sentence carries the count", r.billing.summary === "Destination OK (16 events)" && r.connect.summary === "Destination OK (10 events)", [r.billing.summary, r.connect.summary]);
   ok("correct pair: id, url, status, apiVersion, scope reported", r.billing.id === "we_b" && r.billing.url === BILLING_URL && r.billing.status === "enabled" && r.billing.apiVersion === "2026-06-24.dahlia" && r.billing.scope === "self");
 
   // The real 2026-09-12 shape: six subscription-ish events, nothing else.
   const owner = compareDestinations(good({ billing: { enabled_events: ["checkout.session.completed", "customer.subscription.created", "customer.subscription.deleted", "customer.subscription.updated", "invoice.payment_succeeded", "invoice.payment_failed"] } }));
   ok("missing: found, not ok, problem is missing_events", owner.billing.found && !owner.billing.ok && sameSet(owner.billing.problems, ["missing_events"]), owner.billing.problems);
-  ok("missing: lists exactly the nine absent events, sorted", sameSet(owner.billing.missing, ["charge.dispute.closed", "charge.dispute.created", "charge.dispute.updated", "charge.refunded", "checkout.session.async_payment_failed", "checkout.session.async_payment_succeeded", "subscription_schedule.canceled", "subscription_schedule.completed", "subscription_schedule.released"]), owner.billing.missing);
+  ok("missing: lists exactly the ten absent events, sorted", sameSet(owner.billing.missing, ["charge.dispute.closed", "charge.dispute.created", "charge.dispute.updated", "charge.refunded", "checkout.session.async_payment_failed", "checkout.session.async_payment_succeeded", "payment_intent.succeeded", "subscription_schedule.canceled", "subscription_schedule.completed", "subscription_schedule.released"]), owner.billing.missing);
   ok("missing: the sentence names them and says where to fix it", /^Billing destination is missing: charge\.dispute\.closed, .* — edit it in Stripe$/.test(owner.billing.summary), owner.billing.summary);
   ok("missing: the other destination is untouched", owner.connect.ok);
 
@@ -303,7 +303,7 @@ const cacheRow = () => rows.platformSetting.find((r) => r.key === AUDIT_SETTING_
   ok("flag: both destinations flagged, two error rows", sameSet(b1.flagged, ["billing", "connect"]) && errorRows().length === 2, { flagged: b1.flagged, rows: errorRows().length });
   const row = errorRows()[0].data;
   ok("flag: area billing, the documented code, the same sentence the dashboard shows", row.area === "billing" && row.code === MISCONFIGURED_CODE && row.message.includes(b1.billing.summary) && /live mode/.test(row.message), row);
-  ok("flag: detail carries destination, id, url, problems, missing", row.detail.destination === "billing" && row.detail.id === "we_b" && row.detail.url === BILLING_URL && sameSet(row.detail.problems, ["missing_events"]) && row.detail.missing.length === 9, row.detail);
+  ok("flag: detail carries destination, id, url, problems, missing", row.detail.destination === "billing" && row.detail.id === "we_b" && row.detail.url === BILLING_URL && sameSet(row.detail.problems, ["missing_events"]) && row.detail.missing.length === 10, row.detail);
   ok("flag: lastFlaggedAt stamped per destination in the SAME setting", cacheRow()?.value?.lastFlaggedAt?.billing === T0.toISOString() && cacheRow()?.value?.lastFlaggedAt?.connect === T0.toISOString(), cacheRow()?.value);
 
   // Six hours later, still broken: the cron runs again, no new row.

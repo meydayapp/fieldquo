@@ -7,6 +7,7 @@ import { syncSubscriptionFromStripeEvent } from "@/lib/platform/stripeBilling";
 import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { invoiceSubscriptionId } from "@/lib/billing/subscriptionChargeEvent";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
+import { settleCardPayment, PORTAL_CARD_FLOW } from "@/lib/stripe/clientCardCharge";
 import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
 import {
   VIDEO_PACK_KIND,
@@ -35,6 +36,11 @@ export const BILLING_ROUTE_EVENTS = Object.freeze([
   "charge.dispute.created",
   "charge.dispute.updated",
   "charge.dispute.closed",
+  // The portal's own card form (lib/stripe/clientCardCharge.js) creates its
+  // PaymentIntent on the platform account, so its succeeded event arrives
+  // HERE. The confirm response and the hourly reconciler record it too; this
+  // makes it immediate after 3-D Secure.
+  "payment_intent.succeeded",
 ]);
 
 // Raw body required for Stripe signature verification — Next.js needs the request
@@ -158,6 +164,33 @@ export async function POST(request) {
   if (event.type === "checkout.session.async_payment_failed") {
     await failCheckoutSession(event.data.object);
     return NextResponse.json({ received: true, settled: "async_payment_failed" });
+  }
+
+  // ── A payment from the portal's own card form ───────────────────────────
+  //
+  // Same destination-charge reasoning as above: the intent is created on the
+  // PLATFORM account (lib/stripe/clientCardCharge.js), so its succeeded event
+  // may land here rather than on the Connect endpoint. Usually the confirm
+  // response already recorded it; the settler is idempotent on the intent
+  // id. 500 on failure so Stripe redelivers — the hourly reconciler is
+  // behind this too.
+  if (
+    event.type === "payment_intent.succeeded" &&
+    event.data?.object?.metadata?.fq_flow === PORTAL_CARD_FLOW
+  ) {
+    try {
+      await settleCardPayment(event.data.object.id);
+      return NextResponse.json({ received: true, settled: "portal_card" });
+    } catch (err) {
+      await recordError({
+        area: "billing-webhook",
+        code: "settle_portal_card",
+        message: `Settling a portal card payment failed: ${err?.message}`,
+        companyId: event.data.object.metadata?.companyId || null,
+        detail: { eventId: event?.id, paymentIntentId: event.data.object.id, needsManualReconciliation: true },
+      });
+      return NextResponse.json({ error: "Settlement failed" }, { status: 500 });
+    }
   }
 
   // ── A refund or a chargeback ────────────────────────────────────────────

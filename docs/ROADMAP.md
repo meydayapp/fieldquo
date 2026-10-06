@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
 Last updated: 5 October 2026, night (four gaps from testing: drawing read "Read again" — a confirmed, credit-showing full re-read of a finished read, edit permission only — and MEASURE_VERSION so sheets measured by an older measurement pass are measured again and the read says so; a no-show outcome for past appointments — Held / No-show / Rescheduled / Cancelled one tap on the calendar, a daily "Did this visit happen?" nudge to the assignee, no-show rate and a corrected adjusted close rate in the agency metrics and Marketing results; and booking-page / AI bookings with no prior enquiry now become leads (source booking_page, no extra alert, linked not duplicated within 180 days). Schema additive — applied in production 2026-10-05. Booking leads take the booker's "when do you need this done?" as their timeline. See "Read again, no-shows, and bookings as leads" below.)
 Last updated: 5 October 2026 (marketing agency access: Settings › Marketing agency access keys + sharing switches, the /api/v1 marketing API and REST-hook events, a Zapier app in integrations/zapier (not pushed), and Marketing › Marketing results from the same code — see "Marketing agency access" below. Schema additive, NOT applied; SQL in that section.)
 Last updated: 5 October 2026, late (painting presets against NPC — picket fence, exterior stain, cabinet boxes, French doors, built-ins sprayed/brushed, finished suggested rates, cabinet enamel coverage — and coats change labour time: hours × coats ÷ standard coats, prep never scaled, one extra-coat rule, a dry-time wait charged only when the crew waits on site, a company toggle. No schema change. See "Painting presets against NPC, and coats change labour time" below.)
@@ -99,6 +100,130 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Client credit-card fee — passing the card cost on to clients (5 October 2026)
+
+The owner (Ontario contractor) asked for a setting that passes the card
+processing cost on to clients as a credit-card surcharge: OFF by default (the
+company absorbs it, as now), ON adds it to credit card payments. Separate from,
+and compatible with, "3% off for e-transfer or cheque" (untouched).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **The rules**, one pure module, `lib/stripe/clientCardSurcharge.js` (+ the
+  browser-safe arithmetic in `clientCardSurchargeMath.js`), each rule cited:
+  Canada only (allowed since 2022-10-06, the Visa/Mastercard settlement); never
+  a Quebec company, never a client whose address is in Quebec, never a Quebec
+  job site, never a client whose province is unknown or who is outside Canada;
+  credit cards only (Stripe `card.funding === "credit"`; debit, prepaid and
+  unknown are not); same rate on every brand; capped at the lesser of cost of
+  acceptance and 2.4% (`CLIENT_CARD_SURCHARGE_MAX_BPS` in
+  `lib/stripe/processingFee.js`), rounded DOWN; no GST/HST (CRA GI-200 — the
+  fee is never added to a document, so it never reaches a taxable subtotal).
+- **The setting** — Settings › Payments, its own card
+  (`app/app/settings/payments/ClientCardSurchargeCard.js`,
+  `/api/settings/client-card-surcharge`). Not rendered at all for a US company.
+  A Quebec company, or one with no province, is told why instead of a switch.
+  Switching on requires ticking "we gave our processor 30 days' written notice"
+  — who and when are recorded (`clientCardSurchargeNoticeConfirmedById/At`),
+  switching off clears them. The card shows the net effect on a $1,000 invoice
+  using the real functions, the rules, every card flow marked fee / no fee, and
+  links to CFIB, Stripe and CRA GI-200.
+- **The one flow that can carry it — the portal's own card form**
+  (`app/portal/[token]/CardPayPanel.js`, `/api/portal/[token]/card-pay`,
+  `lib/stripe/clientCardCharge.js`). Every other card flow is a hosted Stripe
+  page that fixes the amount before the card is known, so the fee could be
+  neither disclosed nor charged. When the fee may apply to a client, the card
+  button opens Stripe's Payment Element (Stripe.js from js.stripe.com):
+  ConfirmationToken → the server reads the card's funding type from Stripe and
+  creates the PaymentIntent for invoice + fee → the client sees "Invoice amount
+  / Credit card fee 2.4% / Total" and pays or uses another card → the server
+  re-checks everything fresh and confirms; 3-D Secure via
+  `stripe.handleNextAction`. Before the card is entered the page already says
+  "A 2.4% fee applies to credit cards; debit and prepaid have none" and that
+  the other ways to pay on the page have none. The fee goes to Stripe as
+  `amount_details.surcharge` with `enforce_validation: enabled` (Stripe's
+  surcharging API — public preview, API version `2026-03-25.preview`, sent per
+  request on that intent only); if Stripe refuses those fields the client is
+  shown and charged NO fee and /platform/errors says so. Apple/Google Pay are
+  off on this form (their sheet shows an amount before the card is known).
+  Affirm stays reachable as its own "Pay over time instead" button (hosted page,
+  no fee).
+- **Recording** — `Payment.clientCardSurchargeCents / RateBps`. `amount` stays
+  the INVOICE money, so balances, revenue by job, the agency feed and every
+  report that sums payments are untouched; `processingFeeCents`/`netCents`
+  describe the whole charge (FieldQuo's 3% + 30¢ is on the total, fee included).
+  Settled by the confirm response, `payment_intent.succeeded` on BOTH webhook
+  endpoints, and an hourly reconciler (`/api/cron/card-payments`, logs to
+  /platform/errors whenever it had to).
+- **Shown** — the client's invoice page (receipt lines "Credit card fee 2.4% ·
+  date", returned fees too), the office invoice page's payment record ("+ $24.00
+  credit card fee (2.4%) paid by the client — $1,024.00 charged in all"), the
+  accounting export (last column "Client card fee (not job revenue)", and its
+  own summary total; payments received stay gross invoice money).
+- **Refunds** — `lib/invoices/refund.js`: Stripe gets the invoice money plus a
+  pro-rated, CUMULATIVE share of the fee (a full refund returns all of it; the
+  shares of any run of partials add up to exactly the fee); the refund row
+  carries the fee returned as a negative. A refund made in the Stripe
+  dashboard is split pro-rata in `recordStripeRefund.js` so fee money never
+  moves the invoice balance. The refund dialog says how much fee goes back.
+- **i18n** — 19 portal sentences in all eight document languages
+  (`clientDocCopy.cardFee`, decimal comma where the language writes one) and 36
+  app strings in all nine app languages.
+
+### Card flows
+
+| Flow | Fee? | Why |
+|---|---|---|
+| Invoice paid by card from the portal | Yes | the portal's own card form |
+| Payment-schedule stage requests | Yes | their emails open the same portal page |
+| Payment link created from the invoice screen (`checkout-link`) | No | hosted Checkout — amount fixed before the card is known |
+| Affirm / pay over time | No | not a credit card; hosted page |
+| Bank debit (PAD / ACH) | No | not a card |
+| Booking visit fee | No | hosted Checkout |
+| Service plans (mandate set-up + off-session charges) | No | agreed price, client not present; no disclosure possible |
+
+### Schema (additive — NOT applied)
+
+```sql
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "clientCardSurcharge" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "clientCardSurchargeNoticeConfirmedAt" TIMESTAMP(3);
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "clientCardSurchargeNoticeConfirmedById" TEXT;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "clientCardSurchargeCents" INTEGER;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "clientCardSurchargeRateBps" INTEGER;
+```
+
+### Owed / open
+
+- **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel** (docs/VERCEL.md). Until
+  then the setting cannot be switched on and nothing changes for anyone.
+- **Add `payment_intent.succeeded` to the billing (platform) webhook
+  destination** in Stripe — the destinations audit on /platform now lists it as
+  required; until then the confirm response and the hourly reconciler record
+  these payments (the reconciler files an error each time it has to).
+- **Stripe's surcharging fields are a public preview.** If Stripe refuses them
+  on the account, no fee is charged (and /platform/errors says
+  `client_card_surcharge / processor_refused`); ask Stripe to enable surcharging
+  on the platform before the first company switches this on.
+- Not tested against live Stripe from here (no keys in this environment) —
+  first real payment should be a small test invoice on the owner's company.
+
+### Checks
+
+`npm run check:client-card-surcharge` (202 assertions, wired into `check:all`):
+the rules against hostile input (Quebec company, Quebec client of an Ontario
+company, Quebec site, unknown province, US client/company, debit/prepaid/unknown
+funding, every non-card method, $0.01, Stripe's max charge, 5,000 random
+amounts, setting off, notice unconfirmed); the charge flow against a scripted
+Stripe (review/confirm/3-D Secure/decline/stale balance/setting switched off
+mid-payment/refused surcharge fields); refunds (issue + dashboard); the export;
+source guards (every Stripe charge creator in app/ and lib/ classified; only the
+portal card form sends surcharge fields or calls the decision); and 15 mutants
+of the rules and arithmetic, every one caught. `check:processing-fee` and
+`check:stripe-destinations` updated for the new, deliberate client-facing fee
+line and the new billing event.
 
 ---
 

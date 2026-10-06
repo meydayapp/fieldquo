@@ -13,6 +13,7 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ProcessingFeesCard from "./ProcessingFeesCard";
 import InstantPayoutCard from "./InstantPayoutCard";
 import PaymentMethodsCard from "./PaymentMethodsCard";
+import ClientCardSurchargeCard from "./ClientCardSurchargeCard";
 
 // The country Stripe reports for the connected account, in the reader's
 // language ("Canada", "Royaume-Uni"), falling back to the code Stripe gave
@@ -212,6 +213,10 @@ function PaymentsPageScreen() {
       {/* The offline methods the invoice email, portal and PDF print as
           "Accepted: …" — Company.paymentMethods had no writer until this. */}
       <PaymentMethodsCard company={company} onSaved={loadCompany} />
+      {/* Passing the card fee on to clients who pay by CREDIT card — its own
+          card, Canada only (it renders nothing for any other company), and
+          separate from the e-transfer/cheque discount above. */}
+      <ClientCardSurchargeCard currency={company?.currency} />
 
       {/* ── Your Stripe account ────────────────────────────────────────────
           The contractor holds the Stripe relationship; FieldQuo holds the

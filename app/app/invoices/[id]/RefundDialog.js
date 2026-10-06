@@ -15,7 +15,7 @@
 import { useMemo, useState } from "react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { refundableCents } from "@/lib/invoices/refund";
+import { refundableCents, refundCardFeeCents } from "@/lib/invoices/refund";
 
 export default function RefundDialog({ invoiceId, payment, refundRows, money, onClose, onDone }) {
   const { t } = useTranslation();
@@ -29,6 +29,12 @@ export default function RefundDialog({ invoiceId, payment, refundRows, money, on
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The client's credit-card fee that goes back with this refund — the same
+  // pure function the route runs (lib/invoices/refund.js), so the sentence
+  // and the Stripe refund cannot disagree. Zero for a payment without one.
+  const cardFeeBack = viaStripe
+    ? refundCardFeeCents(payment, refundRows, Math.round((Number(amount) || 0) * 100))
+    : 0;
 
   async function submit(e) {
     e.preventDefault();
@@ -98,6 +104,14 @@ export default function RefundDialog({ invoiceId, payment, refundRows, money, on
           <p data-refund-note={viaStripe ? "stripe" : "manual"} className="text-xs text-muted-foreground">
             {viaStripe ? t("app.invoiceDetail.refundStripeNote") : t("app.invoiceDetail.refundManualNote")}
           </p>
+          {cardFeeBack > 0 && (
+            <p data-refund-card-fee className="text-xs text-muted-foreground">
+              {t("app.invoiceDetail.refundCardFeeNote", {
+                fee: money(cardFeeBack / 100),
+                total: money((Math.round((Number(amount) || 0) * 100) + cardFeeBack) / 100),
+              })}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

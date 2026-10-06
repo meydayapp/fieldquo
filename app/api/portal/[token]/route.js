@@ -12,6 +12,13 @@ import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { bankDebitOffer } from "@/lib/stripe/bankDebit";
 import { invoiceBalanceCents } from "@/lib/stripe";
+import { invoicePaymentCurrency } from "@/lib/stripe/paymentCurrency";
+import {
+  clientJurisdictionRow,
+  invoiceSiteAddress,
+  portalCardOffer,
+  stripePublishableKey,
+} from "@/lib/stripe/clientCardOffer";
 import { howToPayFor, onlineOptions, HOW_TO_PAY_COMPANY_SELECT } from "@/lib/payments/offlineMethods";
 import { orderPlan, planStatus } from "@/lib/jobs/plan";
 import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
@@ -91,6 +98,14 @@ export async function GET(request, { params }) {
           // screen instead of Stripe — app/portal/[token]/demo-pay. Stripped
           // below with the Stripe fields; only `demoPayments` leaves.
           isDemo: true,
+          // Whether a client paying by credit card is shown (and charged)
+          // the company's credit-card fee — decided below per invoice
+          // (lib/stripe/clientCardSurcharge.js) and stripped from `company`:
+          // the homeowner receives the rate that applies to them, never the
+          // setting or who confirmed it.
+          clientCardSurcharge: true,
+          clientCardSurchargeNoticeConfirmedAt: true,
+          clientCardSurchargeNoticeConfirmedById: true,
           // The "How to pay" block is rendered per invoice below from these
           // (a stored block wins — see howToPayFor) and every one of them
           // is stripped from `company` before the response: the homeowner
@@ -323,13 +338,37 @@ export async function GET(request, { params }) {
       const payments = memberIds.length
         ? await db.payment.findMany({
             where: { invoiceId: { in: memberIds } },
-            select: { invoiceId: true, amount: true, refundedAmount: true, disputeStatus: true },
+            select: {
+              invoiceId: true,
+              amount: true,
+              refundedAmount: true,
+              disputeStatus: true,
+              // The client's receipt line for a credit-card fee they paid —
+              // read below into `cardFeesPaid`, three fields per payment,
+              // never the row.
+              kind: true,
+              date: true,
+              clientCardSurchargeCents: true,
+              clientCardSurchargeRateBps: true,
+            },
           })
         : [];
       for (const inv of current) {
         const root = inv.parentInvoiceId || inv.id;
         const familyRows = payments.filter((p) => rootOf.get(p.invoiceId) === root);
         inv.amountPaid = computeInvoiceState({ total: inv.total, payments: familyRows }).amountPaid;
+        // "Credit card fee 2.4% — $24.00, paid 5 Oct": its own line on the
+        // client's copy, beside the invoice rather than inside its total
+        // (lib/stripe/clientCardSurcharge.js — the fee is not part of the
+        // invoice and carries no tax). A returned fee is a negative line.
+        inv.cardFeesPaid = familyRows
+          .filter((p) => Number(p.clientCardSurchargeCents) !== 0 && p.clientCardSurchargeCents != null)
+          .map((p) => ({
+            date: p.date,
+            cents: Number(p.clientCardSurchargeCents),
+            rateBps: Number(p.clientCardSurchargeRateBps) || null,
+            refund: p.kind === "refund",
+          }));
       }
       client.invoices = current;
     }
@@ -364,6 +403,9 @@ export async function GET(request, { params }) {
     vatRegistered: _vatRegistered,
     usTaxOverrides: _usTaxOverrides,
     arrivalWindowMinutes: _arrivalWindowMinutes,
+    clientCardSurcharge: _clientCardSurcharge,
+    clientCardSurchargeNoticeConfirmedAt: _clientCardSurchargeAt,
+    clientCardSurchargeNoticeConfirmedById: _clientCardSurchargeBy,
     isDemo,
     ...companyView
   } = client.company || {};
@@ -385,6 +427,36 @@ export async function GET(request, { params }) {
   // contractor's).
   const offerFor = (amountCents) =>
     onlinePayments ? bankDebitOffer({ company: client.company, amountCents }) : null;
+
+  // ── The credit-card fee, per invoice ─────────────────────────────────────
+  //
+  // When the company passes its card fee on (Company.clientCardSurcharge)
+  // and THIS client may be charged it — a Canadian address outside Quebec,
+  // a job site not in Quebec (lib/stripe/clientCardSurcharge.js) — the
+  // invoice carries `cardFee: { rateBps }`, the portal says "a 2.4% fee
+  // applies to credit cards" before the card is entered, and the card button
+  // opens the portal's own card form (CardPayPanel.js) instead of Stripe's
+  // hosted page, which cannot show a fee. Null everywhere else, and the
+  // card button is exactly what it was. The rate only — whether a given
+  // card is credit is Stripe's answer at review, never the browser's.
+  const cardFeeOn = Boolean(
+    onlinePayments && !demoPayments && client.company?.clientCardSurcharge === true && client.invoices.length,
+  );
+  const cardClient = cardFeeOn ? await clientJurisdictionRow(db, client.id) : null;
+  const cardSites = new Map(
+    cardFeeOn
+      ? await Promise.all(client.invoices.map(async (inv) => [inv.id, await invoiceSiteAddress(db, inv.id)]))
+      : [],
+  );
+  const cardFeeFor = (invoiceId) =>
+    cardFeeOn
+      ? portalCardOffer({
+          company: client.company,
+          client: cardClient,
+          siteAddress: cardSites.get(invoiceId) || null,
+          onlinePayments,
+        })
+      : null;
 
   // Per invoice, because each was raised on its own day with its own decision
   // about tax. `asOf` is the invoice's creation date so a rate change last
@@ -480,6 +552,11 @@ export async function GET(request, { params }) {
       // The bank-debit offer for the invoice's whole remaining balance —
       // null when the company cannot take bank debit at all.
       bankDebit: offerFor(invoiceBalanceCents(invoice)),
+      // The credit-card fee rate this client would pay on a CREDIT card, or
+      // null — see cardFeeFor above. The same for a stage's share.
+      cardFee: cardFeeFor(invoice.id),
+      // The fee lines already paid (and returned), for the receipt.
+      cardFeesPaid: invoice.cardFeesPaid || [],
       // Pending / failed bank debit, as a state and Stripe's reason — no
       // intent id, nothing the browser can act on.
       pendingPayment: invoice.pendingPaymentAt && !invoice.pendingPaymentFailedAt
@@ -772,6 +849,19 @@ export async function GET(request, { params }) {
     company: demoSafeContact(companyView, demoPayments),
     onlinePayments,
     demoPayments,
+    // What the portal's own card form needs to load Stripe.js — only when
+    // some invoice here carries a credit-card fee (`cardFee`). The
+    // publishable key is public by design; the currency is the one the
+    // charge is made in. `affirm` keeps "pay over time" reachable: that
+    // offer lives on Stripe's hosted page, so it stays a separate button
+    // there (no card fee is added on the hosted page — it cannot show one).
+    cardForm: invoices.some((inv) => inv.cardFee)
+      ? {
+          publishableKey: stripePublishableKey(),
+          currency: invoicePaymentCurrency(client.company?.currency),
+          affirm: onlineOptions(client.company).affirm === true,
+        }
+      : null,
     // No company-level `bankDebit` here any more: the answer depends on the
     // amount, so it lives on each invoice and each stage above.
     quotes: client.quotes,

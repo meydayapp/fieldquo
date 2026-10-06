@@ -375,8 +375,17 @@ console.log("\n── 2b. Bank debit on invoices: one method, its own fee, only 
   ok("  ^ a bank return says pending (?paid=bank), a card return says received (?paid=true)", /paid=\$\{method === "card" \? "true" : "bank"\}/.test(pay));
   for (const f of ["app/portal/[token]/ClientPortal.js", "app/portal/[token]/invoices/[id]/PortalInvoice.js"]) {
     const src = read(f);
-    ok(`${f.split("/").pop()}: the bank button renders only behind an eligible bank offer and sends method 'bank'; no fee is printed`,
-      /data-pay-bank=/.test(src) && /pay\((inv\.id, )?"bank"\)/.test(src) && !/fee/i.test(src.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")));
+    // "No fee" means the CONTRACTOR's processing fee. Since 2026-10-05 the
+    // portal may print the CLIENT credit-card fee (Company.clientCardSurcharge
+    // — a separate, disclosed line the client pays, always named cardFee /
+    // card-fee; scripts/check-client-card-surcharge.mjs holds it), so those
+    // names are set aside and every other mention of a fee still fails.
+    const code = src
+      .replace(/\/\/.*$/gm, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\w*[Cc]ardFee\w*|card-fee[\w-]*/g, "");
+    ok(`${f.split("/").pop()}: the bank button renders only behind an eligible bank offer and sends method 'bank'; no processing fee is printed`,
+      /data-pay-bank=/.test(src) && /pay\((inv\.id, )?"bank"\)/.test(src) && !/fee/i.test(code));
   }
   const { CLIENT_DOC_COPY } = await import("@/lib/i18n/clientDocCopy.js");
   ok("the client copy has payCard / payBank / bankNote / bankPending / bankFailed in all 8 portal languages",

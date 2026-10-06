@@ -14,6 +14,7 @@ import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { jsonBody } from "@/lib/jsonBody";
+import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
 import JobProgressCard from "./JobProgressCard";
 import PlansAndVisits from "./PlansAndVisits";
 import TicketsAndRequests from "./TicketsAndRequests";
@@ -326,7 +327,15 @@ export default function ClientPortal({ token }) {
                       </span>
                     )}
                     <button
-                      onClick={() => pay(inv.id, "card")}
+                      // With the company's credit-card fee in play the card
+                      // is taken on the invoice page's own form, which shows
+                      // the fee before payment (CardPayPanel.js); otherwise
+                      // Stripe's hosted page, as always.
+                      onClick={() =>
+                        inv.cardFee && data.cardForm?.publishableKey
+                          ? (window.location.href = `/portal/${token}/invoices/${inv.id}?pay=card`)
+                          : pay(inv.id, "card")
+                      }
                       disabled={Boolean(payingId)}
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
                       style={{ backgroundColor: accent, color: accentOn }}
@@ -349,6 +358,11 @@ export default function ClientPortal({ token }) {
                         <Landmark size={13} />
                         {copy.payBank(money(due))}
                       </button>
+                    )}
+                    {inv.cardFee && data.cardForm?.publishableKey && (
+                      <span data-card-fee-notice className="text-xs text-[#2d2520]/60 text-right max-w-[15rem]">
+                        {copy.cardFee.notice(surchargeRatePercent(inv.cardFee.rateBps))}
+                      </span>
                     )}
                     {bankOffer && !bankOffer.eligible && (
                       <span

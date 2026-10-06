@@ -69,6 +69,7 @@ import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
 import { methodsForCountry, paymentCountry, enabledMethods, offlineMethodLabel } from "@/lib/payments/offlineMethods";
 import { feeRateKey } from "@/lib/stripe/feeRateKey";
+import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
 import RefundDialog from "./RefundDialog";
 import VoidPaymentDialog from "./VoidPaymentDialog";
 import { voidRefusal, wentThroughProcessor } from "@/lib/payments/voidPayment";
@@ -1415,6 +1416,28 @@ export default function InvoiceDetailPage() {
                 {!invoice.pricingHidden && (
                   <span className="tabular-nums text-right">
                     {money(p.amount)}
+                    {/* The client's credit-card fee, paid ON TOP of this
+                        payment (Settings → Payments, "pass the card fee on")
+                        — its own line, never part of the invoice amount, so
+                        the balance above is untouched by it. The processing
+                        fee line below is on the whole charge, fee included:
+                        that is what Stripe charged and deducted from. */}
+                    {Number(p.clientCardSurchargeCents) !== 0 && p.clientCardSurchargeCents != null && (
+                      <span data-client-card-fee className="block text-xs text-muted-foreground">
+                        {t(
+                          p.kind === "refund"
+                            ? "app.invoiceDetail.clientCardFeeReturnedLine"
+                            : "app.invoiceDetail.clientCardFeeLine",
+                          {
+                            pct: surchargeRatePercent(p.clientCardSurchargeRateBps || undefined),
+                            fee: money(Math.abs(p.clientCardSurchargeCents) / 100),
+                            charged: money(
+                              (Math.abs(Math.round(Number(p.amount) * 100)) + Math.abs(p.clientCardSurchargeCents)) / 100,
+                            ),
+                          },
+                        )}
+                      </span>
+                    )}
                     {/* What Stripe deducted before the money reached the
                         bank — only on a row that carries it (a manual
                         payment has no fee; a Stripe payment recorded before

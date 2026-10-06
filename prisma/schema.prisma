@@ -1629,6 +1629,25 @@ model Company {
   /// offering a discount for a method the client cannot use, so the offer
   /// also needs one of them in `paymentMethods`.
   offlinePaymentDiscount Boolean          @default(false)
+  /// "Pass the card fee on to clients who pay by credit card" — CANADA
+  /// ONLY, outside Quebec, default OFF (the company absorbs the fee, as
+  /// every company did before this). When on, a client paying by CREDIT
+  /// card through the portal sees a separate "Credit card fee 2.4%" line
+  /// before confirming, and pays it; debit, prepaid, bank and every other
+  /// method never do. All of the rules live in
+  /// lib/stripe/clientCardSurcharge.js. Not the same thing as
+  /// offlinePaymentDiscount above (a discount for paying off-card) — both
+  /// may be on at once.
+  ///
+  /// Read as ON only together with the two columns below: the law asks the
+  /// merchant (the contractor — on_behalf_of in lib/stripe.js) to give its
+  /// processor 30 days' written notice before surcharging, and the setting
+  /// cannot be switched on without somebody confirming they have. Who and
+  /// when are recorded, and cleared when the setting goes off, so turning it
+  /// back on asks again.
+  clientCardSurcharge                   Boolean   @default(false)
+  clientCardSurchargeNoticeConfirmedAt  DateTime?
+  clientCardSurchargeNoticeConfirmedById String?
   /// Which quote builder this company's estimators open — "document", the
   /// document-shaped builder (mockup b7: the estimator edits the page the
   /// client will read, with the cost panel in a drawer), or "classic", the
@@ -4584,6 +4603,21 @@ model Payment {
   // the earliest month recovered ("2026-09"). See lib/stripe/connectFeeLedger.js.
   accountFeeRecoveredCents Int?
   accountFeePeriod         String?
+
+  // ── The client's credit-card fee, paid ON TOP of this payment ─────────────
+  //
+  // Company.clientCardSurcharge: a client paying by credit card was shown and
+  // charged a separate "Credit card fee 2.4%". `amount` above stays the
+  // INVOICE money only — the invoice balance, revenue by job, the agency
+  // feed and every report that sums payments keep reading `amount` and are
+  // never inflated by the fee. The fee is not job revenue and carries no
+  // GST/HST (CRA GI-200); the export lists it in its own column. Stripe
+  // charged amount + fee, so processingFeeCents and netCents describe the
+  // WHOLE charge. On a refund row both are the fee RETURNED, negative like
+  // the row's amount (lib/invoices/refund.js). Null = no card fee was
+  // charged, which is every payment before this existed.
+  clientCardSurchargeCents   Int?
+  clientCardSurchargeRateBps Int?
 
   // ── What a chargeback cost the contractor ────────────────────────────────
   //

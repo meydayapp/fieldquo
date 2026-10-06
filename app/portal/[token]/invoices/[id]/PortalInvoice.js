@@ -33,12 +33,27 @@ import { taxIdLine } from "@/lib/documents/taxId";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { jsonBody } from "@/lib/jsonBody";
 import { reviewQrCopy } from "@/lib/reviews/reviewQrCopy";
+import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
+import CardPayPanel from "../../CardPayPanel";
 
 export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paying, setPaying] = useState(false);
+  // The portal's own card form (CardPayPanel), open. Arrives open when the
+  // portal index's Pay button sent the client here with ?pay=card.
+  const [cardOpen, setCardOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("pay") === "card") {
+      setCardOpen(true);
+      url.searchParams.delete("pay");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,6 +181,12 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   const bankDebit = bankOffer?.eligible ? bankOffer.method : null;
   const pendingBank = invoice.pendingPayment || null;
   const failedBank = invoice.failedPayment || null;
+  // The company passes its card fee on to clients paying by CREDIT card, and
+  // this client may be charged it (decided server-side — `cardFee` is null
+  // otherwise). The card button then opens the portal's own card form,
+  // which shows the fee before payment; Stripe's hosted page could not.
+  const cardFee = onlinePayments && data.cardForm?.publishableKey ? invoice.cardFee || null : null;
+  const cardFeesPaid = Array.isArray(invoice.cardFeesPaid) ? invoice.cardFeesPaid : [];
 
   return (
     <Shell token={token} backLabel={copy.backToAccount}>
@@ -325,6 +346,20 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
             {Number(invoice.amountPaid) > 0 && (
               <Row label={copy.paid} value={-Number(invoice.amountPaid)} money={money} />
             )}
+            {/* The credit-card fee the client paid on top of a payment — a
+                line of its own on their receipt, outside the invoice total
+                (it is not part of the invoice and carries no tax). */}
+            {cardFeesPaid.map((line, i) => (
+              <div key={`${line.date}-${i}`} data-card-fee-paid className="flex justify-between text-xs text-[#2d2520]/60">
+                <span>
+                  {(line.refund ? copy.cardFee.receiptReturned : copy.cardFee.receiptLine)(
+                    surchargeRatePercent(line.rateBps || undefined),
+                    line.date ? date(line.date) : "",
+                  )}
+                </span>
+                <span className="tabular-nums">{money(line.cents / 100)}</span>
+              </div>
+            ))}
             {/* The rate came from the contractor's province rather than this
                 household's, because we hold no address for them. */}
             {invoice.taxAssumedRegion && (
@@ -394,19 +429,58 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
                   {copy.bankFailed(failedBank.reason)}
                 </div>
               )}
-              <button
-                onClick={() => pay("card")}
-                disabled={Boolean(paying)}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold disabled:opacity-60"
-                style={{ backgroundColor: accent, color: accentOn }}
-              >
-                {paying === "card" ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <CreditCard size={15} />
-                )}
-                {bankDebit ? copy.payCard(money(due)) : copy.pay(money(due))}
-              </button>
+              {cardFee && cardOpen ? (
+                <CardPayPanel
+                  token={token}
+                  invoiceId={invoice.id}
+                  stageId={stage ? stageId : null}
+                  dueCents={Math.round(due * 100)}
+                  form={data.cardForm}
+                  rateBps={cardFee.rateBps}
+                  copy={copy}
+                  money={money}
+                  accent={accent}
+                  accentOn={accentOn}
+                  otherWaysFree={Boolean(bankDebit) || howToPay?.methods?.length > 0}
+                  onPaid={() => {
+                    window.location.href = `/portal/${token}?paid=true`;
+                  }}
+                />
+              ) : (
+                <button
+                  onClick={() => (cardFee ? setCardOpen(true) : pay("card"))}
+                  disabled={Boolean(paying)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold disabled:opacity-60"
+                  style={{ backgroundColor: accent, color: accentOn }}
+                >
+                  {paying === "card" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <CreditCard size={15} />
+                  )}
+                  {bankDebit ? copy.payCard(money(due)) : copy.pay(money(due))}
+                </button>
+              )}
+              {cardFee && !cardOpen && (
+                <p data-card-fee-notice className="text-center text-xs text-[#2d2520]/60">
+                  {copy.cardFee.notice(surchargeRatePercent(cardFee.rateBps))}
+                </p>
+              )}
+              {/* Pay-over-time lives on Stripe's hosted page; with the card
+                  fee on, the card button no longer goes there, so it gets
+                  its own button rather than silently disappearing. */}
+              {cardFee && data.cardForm?.affirm && (
+                <button
+                  data-pay-over-time
+                  onClick={() => pay("card")}
+                  disabled={Boolean(paying)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-semibold border disabled:opacity-60"
+                  style={{ borderColor: accent, color: accent }}
+                >
+                  {paying === "card" ? <Loader2 size={13} className="animate-spin" /> : null}
+                  {copy.cardFee.payOverTime}
+                </button>
+              )}
               {bankDebit && (
                 <>
                   <button
