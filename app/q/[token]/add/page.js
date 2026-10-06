@@ -37,9 +37,15 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AddToQuotePage({ params }) {
-  // Next 16: params is a Promise.
+export default async function AddToQuotePage({ params, searchParams }) {
+  // Next 16: params and searchParams are Promises.
   const { token } = await params;
+  // `?target=<quote id>` — from "Add a sub's quote" on the contractor's own
+  // quote page. A preference only: the panel uses it when it names one of
+  // the reader's own quotes the server listed, and the import route checks
+  // ownership again whatever arrives.
+  const { target } = (await searchParams) || {};
+  const preferTarget = typeof target === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(target) ? target : null;
   const quote = token
     ? await db.quote.findFirst({
         where: { shareToken: token },
@@ -61,6 +67,7 @@ export default async function AddToQuotePage({ params }) {
       senderName={quote.company?.name || null}
       amount={sourceCostAmount(quote)}
       currency={quote.company?.currency || null}
+      preferTarget={preferTarget}
     />
   );
 }

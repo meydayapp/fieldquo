@@ -118,8 +118,10 @@ export async function GET(request, { params }) {
       },
       // The job this quote became, if it has. One per quote in practice
       // (ensureJobForAcceptedQuote's own lock), but the relation is a list —
-      // see that file for why it was left one — so the first is taken.
-      jobs: { select: { id: true, title: true }, take: 1 },
+      // see that file for why it was left one — so the first is taken: the
+      // OLDEST, the one the acceptance created, which is the job a sub's
+      // late price raises its change order on (lib/quotes/importQuote.js).
+      jobs: { select: { id: true, title: true }, orderBy: { createdAt: "asc" }, take: 1 },
     },
   });
 
@@ -164,8 +166,9 @@ export async function GET(request, { params }) {
   // Which scope groups came from an import — the editor renders these read-only
   // (the received cost is fixed; the markup is edited from the quote page). The
   // targetLineId of each import is the scope group id it created.
+  // Lines only — a held option has no group (lib/quotes/importOptions.js).
   const imports = await db.quoteImport.findMany({
-    where: { targetQuoteId: id },
+    where: { targetQuoteId: id, placement: "line" },
     select: { targetLineId: true },
   });
   const importedGroupIds = imports.map((i) => i.targetLineId);

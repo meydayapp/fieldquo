@@ -1378,6 +1378,57 @@ export default function QuoteApproval({ token, sample = null }) {
             </span>
           </div>
 
+          {/* ── What changed after they signed ─────────────────────────────
+              Under the signed total, never inside it: the quote's own lines
+              and total above are what the client signed. Approved changes
+              and the total they make; changes waiting for this client's
+              signature, said in words and linked to their own page. Built
+              server-side (lib/quotes/importOptions.js
+              quoteChangeOrderAddendum) from an allow-list. */}
+          {quote.changeOrderAddendum?.rows?.length > 0 && (
+            <div className="rounded-xl border border-black/10 px-4 py-3.5" data-quote-change-orders>
+              <p className="text-sm font-semibold text-[#2d2520]">{labels.coAddendumTitle}</p>
+              <p className="text-xs text-[#2d2520]/65 mt-0.5">{labels.coAddendumNote}</p>
+              <ul className="mt-2 divide-y divide-black/5">
+                {quote.changeOrderAddendum.rows.map((r) => (
+                  <li key={r.label} className="py-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-[#2d2520]">
+                        <span className="font-semibold">{r.label}</span> · {r.description}
+                      </p>
+                      <p className={`text-xs font-semibold mt-0.5 ${r.status === "approved" ? "text-[#15803d]" : "text-[#92400e]"}`}>
+                        {r.status === "approved" ? labels.coStatusApproved : labels.coStatusPending}
+                        {r.status === "pending" && r.reviewToken && (
+                          <>
+                            {" · "}
+                            <a href={`/co/${encodeURIComponent(r.reviewToken)}`} className="underline underline-offset-2">
+                              {labels.coReview}
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <span className={`text-sm tabular-nums shrink-0 ${r.status === "approved" ? "text-[#2d2520] font-semibold" : "text-[#2d2520]/70"}`}>
+                      {`${r.priceDelta > 0 ? "+ " : ""}${money(r.priceDelta)}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {quote.changeOrderAddendum.newTotal !== null && quote.changeOrderAddendum.approvedTotal !== 0 && (
+                <div className="flex items-center justify-between pt-2 mt-1 border-t border-black/10">
+                  <span className="text-sm font-semibold text-[#2d2520]">{labels.coTotalWithChanges}</span>
+                  <span className="text-base font-bold tabular-nums text-[#2d2520]">{money(quote.changeOrderAddendum.newTotal)}</span>
+                </div>
+              )}
+              {quote.changeOrderAddendum.pendingTotal !== 0 && (
+                <p className="text-xs text-[#2d2520]/65 mt-1.5">{labels.coPendingNote}</p>
+              )}
+              {quote.changeOrderAddendum.taxKnown === false && (
+                <p className="text-xs text-[#2d2520]/65 mt-1">{labels.coBeforeTax}</p>
+              )}
+            </div>
+          )}
+
           {/* ── Financing ──────────────────────────────────────────────────
               Directly under the total, because "can I afford this" is the
               question the total just provoked.

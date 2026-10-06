@@ -265,6 +265,99 @@ the old 10% low-confidence flag to hint at it.
   that re-measures the 13 sheets (measurement + synthesis only; the sheet
   readings are kept) and restores real measurements under version 2.
 - Check: `check:plan-read-first-pass` §21 (and §2's lint now real).
+## A sub's quote after the client approved, choosing between subs, and pay on approval (5 October 2026)
+
+The owner, 2026-10-05: *"If the subcontractor sends a quote, the contractor
+should be able to select the one they want to work with, add it to their
+quote, and it would be pending until their client approves it"* — then *"the
+option to pay."* Before this, a sub's quote could only be imported into a
+draft/sent quote, the approved quote's page had no change orders at all, and
+the change-order page had no way to pay.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **An approved quote is an import target.** `/q/<token>/add` (and the panel
+  under `/q/<token>`) lists the contractor's APPROVED quotes that have a job,
+  in their own group, to anyone allowed to raise a change order (jobs
+  view_create_edit + showPricing). Importing into one does **not** edit the
+  signed quote — row, lines and signature hash are byte-identical (executed).
+  It holds the import and raises a **pending change order** on the job at
+  snapshot × (1 + markup), worked out on the server from the stored import
+  (`lib/quotes/importQuote.js` `raiseChangeOrderFromImport`,
+  `lib/quotes/importOptions.js` `changeOrderDraftFromImport`). A second live
+  change order for the same trade is refused (and rolled back) — hold it as an
+  option instead.
+- **Choosing between subs.** "Keep as an option to compare first" on the
+  import card holds a price on NO client document (`QuoteImport.placement =
+  "option"`). On the quote page, *Subcontractor costs* now groups prices by
+  trade side by side: sub, cost + markup = client price, and insurance / WSIB
+  expiry from the GC's own roster row (`lib/subcontractors/expiry.js`; "not
+  recorded" when the sub is not on the roster, never "expired"). **Use this
+  one** puts an option on an open quote and steps the trade's current line back
+  to an option in the same transaction; on an approved quote it reads **Offer
+  as extra work** and raises the pending change order. Options survive editor
+  saves, are never materialised to job costing at acceptance, and tell the sub
+  "pending" — never "confirmed" off an accepted quote they did not win
+  (`deriveImportCommitStatus`).
+- **The approved quote's page.** A *Change orders* card (the job page's own
+  component) under the quote when it is approved: **Add extra work** opens the
+  existing change-order form (against a quote line or a plan step); **Add a
+  sub's quote** takes the link from the sub's email and opens the add page with
+  this quote pre-selected. The list shows pending / waiting / approved /
+  rejected and "on INV-…" when billed.
+- **The client sees changes beside the signed quote, not inside it.**
+  `/q/<token>` for an approved quote and the quote PDF print an addendum under
+  the totals: approved change orders, change orders waiting on the client
+  ("Waiting for your approval" + their review link), and the total with the
+  approved ones at the quote's own tax rate (the `/co` page's arithmetic).
+  Unsent drafts and declined ones are not shown. Allow-list:
+  `quoteChangeOrderAddendum`. The PDF archive key gains a suffix when an
+  addendum is printed, so it never overwrites the copy of what was signed.
+- **Approval books the sub; a decline takes it back.** On every decision door
+  (`applyChangeOrderDecision` → `syncChangeOrderImport`): approved →
+  the import's cost is materialised to the job's expenses and the sub joins the
+  job as `agreed` adopting it (counted once); anything else → the row goes
+  back to `quoted`, the expense is removed, the import is an unused option
+  again. Nothing is billed for a declined change order.
+- **Pay $X now on `/co/<token>`.** After the client signs, when the company
+  takes online payments, the page offers the change with tax (the figure they
+  just signed). The server bills it on the change order's **own** invoice
+  (issued, so the portal pays it), once, under a row lock, then sends the
+  client to that invoice's portal page — the shared pay route, so the card
+  surcharge being built in parallel applies with nothing here. Billed onto the
+  job's shared invoice → "This change is on your invoice INV-…" with a link;
+  paid → "This change has been paid". Rule and reasons:
+  `lib/jobs/changeOrderPayment.js` header.
+
+### Schema (additive — NOT applied; MUST be applied before this deploys)
+
+```sql
+ALTER TABLE "QuoteImport" ADD COLUMN IF NOT EXISTS "placement" TEXT NOT NULL DEFAULT 'line';
+ALTER TABLE "ChangeOrder" ADD COLUMN IF NOT EXISTS "quoteImportId" TEXT;
+CREATE INDEX IF NOT EXISTS "ChangeOrder_quoteImportId_idx" ON "ChangeOrder"("quoteImportId");
+```
+
+Production (read-only, 2026-10-05): neither column exists; 0 QuoteImport
+rows, 19 change orders (2 billed), 210 approved quotes with a job. The change
+orders route reads every ChangeOrder column, so the code fails without the
+column — apply first.
+
+### Checks
+
+`check:sub-change-orders` (new, in `check:all`): 215 assertions + 16 mutants (237 in all),
+all caught. Existing checks re-run green: change-order-money (mutant updated
+to the shared line builder), subcontractors, quote-builder, job-plan,
+quote-approval, client-portal, crew-access, role-access, translations,
+language-completeness, public-payload, client-surfaces, job-costing, kpis,
+route-callers and others.
+
+### Owed / for the owner
+
+- Whether a change order paid on approval should go on its OWN invoice (built)
+  or wait for the job's invoice; whether losing subs are told; whether the
+  `targetLineId` column should become nullable — see the agent report.
+
+---
 
 ## Read again, no-shows, and bookings as leads (5 October 2026)
 

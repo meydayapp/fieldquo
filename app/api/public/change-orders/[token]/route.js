@@ -35,6 +35,7 @@ import {
 } from "@/lib/jobs/changeOrderAddendum";
 import { applyChangeOrderDecision } from "@/lib/jobs/changeOrderDecision";
 import { syncForSourceJob } from "@/lib/subcontractors/sourceLink";
+import { payNowState } from "@/lib/quotes/importOptions";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -87,9 +88,28 @@ const SELECT = {
         },
       },
       company: {
-        select: { name: true, logoUrl: true, brandColor: true, phone: true, email: true, currency: true, defaultLanguage: true },
+        select: {
+          name: true,
+          logoUrl: true,
+          brandColor: true,
+          phone: true,
+          email: true,
+          currency: true,
+          defaultLanguage: true,
+          // Read to decide whether "Pay now" can be offered
+          // (lib/quotes/importOptions.js takesOnlinePayments) and never
+          // sent: present() builds `company` field by field.
+          stripeAccountId: true,
+          stripeChargesEnabled: true,
+          isDemo: true,
+        },
       },
     },
+  },
+  // The invoice it was billed on, for the pay offer: its balance and whether
+  // it is this change order's own. Only the number reaches the page.
+  invoice: {
+    select: { id: true, invoiceNumber: true, status: true, sentAt: true, total: true, amountPaid: true, lineItems: true },
   },
 };
 
@@ -160,6 +180,21 @@ async function present(co) {
       signedAt: co.signature?.signedAt || null,
     },
     money,
+    // "Pay $X now" after approval — decided here, from the row, the company
+    // and the invoice; the page renders it or the reason. The amount is the
+    // addendum's own "this change including tax", never anything the
+    // browser sent (AGENTS.md #5).
+    pay: (() => {
+      const state = payNowState({ changeOrder: co, company, invoice: co.invoice || null, money });
+      return {
+        offer: state.offer,
+        reason: state.offer ? null : state.reason,
+        amount: state.offer ? state.amount : null,
+        invoiceNumber: state.invoiceNumber || null,
+        // A shared invoice the client can still open and pay in full.
+        canOpenInvoice: state.reason === "on_invoice",
+      };
+    })(),
     schedule: {
       // The finish as the job records it — already shifted once approved, so
       // "before" is derived back for an approved row rather than re-shifted.

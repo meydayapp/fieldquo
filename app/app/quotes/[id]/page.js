@@ -144,6 +144,7 @@ import EmailSectionsPanel from "./EmailSectionsPanel";
 import PresentationPanel from "./PresentationPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import QuoteChangeOrders from "./QuoteChangeOrders";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
@@ -206,6 +207,9 @@ export default function QuoteDetailPage() {
   // client sees when they open the link) — two decisions about what to
   // SEND, one strip, above the document (client mockup §2).
   const [sendTab, setSendTab] = useState("email");
+  // Bumped when the sub-price panel raises a change order, so the change
+  // order list on an approved quote re-reads instead of going stale.
+  const [changeOrdersVersion, setChangeOrdersVersion] = useState(0);
   // The company's billing currency, the reader's language. All eight money
   // renders below go through this — they used to go through a private
   // toFixed(2) helper that printed $2100.00 on the page a client opens.
@@ -1410,6 +1414,13 @@ export default function QuoteDetailPage() {
           signed contract, each invoice as it went out. Read-only here; the
           job page is where documents are added. Absent until there is a job,
           and absent for a member the route withholds money kinds from. */}
+      {/* After the client approved: extra work and a sub's late quote go
+          to them as change orders to sign, listed here with their state —
+          the signed quote above is never edited. Same card as the job page. */}
+      {quote.status === "accepted" && !quote.historicalImportedAt && (
+        <QuoteChangeOrders quoteId={id} jobId={quote.jobs?.[0]?.id || null} refreshKey={changeOrdersVersion} />
+      )}
+
       {quote.jobs?.[0]?.id && <LinkedJobDocuments jobId={quote.jobs[0].id} />}
 
       {/* The quote's own files — drawings, scope sheets, permits, site
@@ -1522,8 +1533,18 @@ export default function QuoteDetailPage() {
       <ImportedCostsPanel
         quoteId={id}
         currency={quote.company?.currency}
-        editable={["draft", "sent"].includes(quote.status)}
         onTotalChange={(total) => setQuote((q) => ({ ...q, total }))}
+        // "Use this one" moved the quote's lines (open quote) or raised a
+        // change order (approved): re-read both so the page shows them.
+        onChanged={async () => {
+          try {
+            const r = await fetch(`/api/quotes/${id}`);
+            if (r.ok) setQuote(await r.json());
+          } catch {
+            /* the panel already says what happened; the list refreshes below */
+          }
+          setChangeOrdersVersion((v) => v + 1);
+        }}
       />
 
       {/* The property this quote is for, from the street — the job address,

@@ -526,3 +526,35 @@ $7,188/yr tier; we have them on every plan") is now factually available, but it
 would rest on an `UNVERIFIED`, owner-relayed feature list — and that file's own
 header warns against exactly that asymmetry. It is a sales decision, not a
 correctness one.
+
+---
+
+# Addendum, 2026-10-05 — paying a change order on approval
+
+The client can now press **Pay $X now** on `/co/<token>` after signing. That
+needed a decision this document had left open: which invoice the money goes on.
+
+The bill route above writes onto the job's invoice only while it is a **draft**,
+and refuses a **sent** one. Neither serves a client paying on their phone: the
+draft is the contractor's unfinished whole-job document (issuing it on a
+client's tap would be money moved by surprise, and the portal refuses to charge
+a draft), and a sent one is the amendment this document already refuses to
+duplicate.
+
+So a change order paid on approval gets its **own** invoice
+(`lib/jobs/changeOrderPayment.js`): one line from the same builder as the bill
+route (`changeOrderInvoiceLine`), tax at the signed quote's rate — exactly the
+"this change including tax" the client just signed — issued so the portal pay
+page takes it, and linked through `ChangeOrder.invoiceId`, which is "billed" by
+this document's own definition, so the staff button can never add it to the
+job's invoice as well. It carries neither `jobId` nor `quoteId`, because
+`resolveJobInvoice` answers "the job's invoice" from those two columns;
+`resolveInvoiceJob` reaches the job through the change order instead. Once:
+the row is locked, re-read, and linked with an `invoiceId: null` predicate.
+The charge itself is the portal's shared pay route, never a checkout built here.
+
+A change order that carries a subcontractor's price (`ChangeOrder.quoteImportId`)
+books the sub's cost to the job when approved and releases it on any other
+decision — `lib/subcontractors/sourceLink.js` `syncChangeOrderImport`, called
+from `applyChangeOrderDecision` so every door does the same. See
+`docs/ROADMAP.md`, "A sub's quote after the client approved".

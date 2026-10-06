@@ -43,6 +43,7 @@ import {
   projectProposal,
 } from "@/lib/proposal/load";
 import { pendingWaiversForQuote, fileSignedWaiversForJob } from "@/lib/waivers/service";
+import { quoteChangeOrderAddendum } from "@/lib/quotes/importOptions";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -615,6 +616,40 @@ export async function GET(request, { params }) {
   // for it — in a preview they would be two controls that cannot work, since
   // the POST refuses a draft outright.
   if (preview) presented.preview = true;
+
+  // ── What changed after they signed ───────────────────────────────────────
+  //
+  // An approved quote's page shows the change orders beside it as an
+  // ADDENDUM: approved ones (part of the contract), and ones waiting for the
+  // client's signature, marked pending with their own review link. The
+  // quote's own lines, totals and signature hash are not touched — this is
+  // a separate key the page renders under the document. An allow-list
+  // (lib/quotes/importOptions.js quoteChangeOrderAddendum): never a staff
+  // name, the import a price came from, or a sub.
+  if (quote.status === "accepted") {
+    try {
+      const changeOrders = await db.changeOrder.findMany({
+        where: { job: { quoteId: quote.id, companyId: quote.companyId } },
+        select: {
+          id: true,
+          seq: true,
+          createdAt: true,
+          description: true,
+          priceDelta: true,
+          status: true,
+          decidedAt: true,
+          shareToken: true,
+          signature: true,
+        },
+      });
+      presented.changeOrderAddendum = quoteChangeOrderAddendum({ quote, changeOrders });
+    } catch (err) {
+      // The quote is the thing the client came for; an addendum that failed
+      // to load must not take it off the screen.
+      console.error("[public quote] change orders load failed:", err?.message);
+      presented.changeOrderAddendum = null;
+    }
+  }
 
   // ── The proposal beside the document ─────────────────────────────────────
   //

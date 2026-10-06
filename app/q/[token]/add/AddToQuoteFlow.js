@@ -26,7 +26,7 @@ import {
 } from "@/lib/quotes/addToQuoteLink";
 import ContractorImportPanel from "../ContractorImportPanel";
 
-export default function AddToQuoteFlow({ token, language, senderName, amount, currency }) {
+export default function AddToQuoteFlow({ token, language, senderName, amount, currency, preferTarget = null }) {
   const { t, setPageLanguage } = useTranslation();
   const [ctx, setCtx] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -115,7 +115,7 @@ export default function AddToQuoteFlow({ token, language, senderName, amount, cu
             <p className="mt-6 text-sm text-red-700">{t("app.addToQuote.loadFailed")}</p>
           )}
 
-          {ctx && ctx.canImport && <ContractorImportPanel token={token} initialCtx={ctx} />}
+          {ctx && ctx.canImport && <ContractorImportPanel token={token} initialCtx={ctx} preferTarget={preferTarget} />}
 
           {ctx && !ctx.authenticated && (
             <div className="mt-6 rounded-2xl border border-[#06356b]/15 bg-[#eef2f7] p-5 sm:p-6">
