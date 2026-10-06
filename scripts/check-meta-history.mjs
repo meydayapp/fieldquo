@@ -735,7 +735,7 @@ section("8. Source guards");
   ok("history is honoured only together with `imported`", /const history = event\.imported === true && event\.history === true;/.test(ingest));
   ok("history never reopens and never counts as unread", /const reopened = !history &&/.test(ingest) && /\.\.\.\(history\s*\?\s*\{\}/.test(ingest));
   ok("the AI employee, the push and live lead capture stay off imported messages", /created && event\.direction === "in" && !event\.imported && !event\.noAutoReply/.test(ingest) && /created && event\.direction === "in" && !event\.imported && \(CAPTURE_PLATFORMS/.test(ingest));
-  ok("a history lead sends no new-lead notification", /if \(!importedAt\) notifyEvent\(/.test(code("lib/leads/createLead.js")));
+  ok("a history lead sends no new-lead notification", /if \(!importedAt(?: && [^)]*)?\) notifyEvent\(/.test(code("lib/leads/createLead.js")));
   ok("the walk reviews with imported: true", /capture\(\{ companyId, threadId, imported: true, allowAi, now \}\)/.test(code("lib/meta/historyBackfill.js")));
   const allScopes = [META_PAGES_SCOPE, META_LEADS_SCOPE, META_MESSAGING_SCOPE, META_OAUTH_SCOPE].flat().join(",");
   ok("ads_management is NOT requested (owner: later, after the current reviews)", !/ads_management/.test(allScopes) && !/ads_management/.test(code("lib/meta/client.js")), allScopes);
