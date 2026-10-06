@@ -42,10 +42,14 @@ import { ST_PAULS_SHEETS } from "./fixtures/stPaulsSheets.mjs";
 import { presetFixtures, SAME, MOVES } from "./fixtures/paintPresetFixtures.mjs";
 import { sheetKind, isMeasurableKind } from "@/lib/planRead/sheetKinds";
 import { MEASURE_SCHEMA, MEASURE_SYSTEM, MEASURE_VERSION, measurePrompt } from "@/lib/planRead/measurePrompts";
-import { SYNTHESIS_SCHEMA, SYNTHESIS_SYSTEM, projectContext } from "@/lib/planRead/prompts";
+import { SYNTHESIS_SCHEMA, SYNTHESIS_SYSTEM, SHEET_SCHEMA, PHOTO_SCHEMA, projectContext } from "@/lib/planRead/prompts";
+import { TRADE_SHEET_SCHEMA, TRADE_SYNTHESIS_SCHEMA } from "@/lib/planRead/tradePrompts";
+import { waiveUsage, settlement } from "@/lib/planRead/billing";
+import { guessedShare } from "@/lib/planRead/slices";
+import { estimateCostMicros } from "@/lib/ai/usage";
 import { sanitiseMeasure, buildTakeoff, takeoffForPrompt, printedAreasIn, faceQuantity, cleanBox, wallHeight, heightKind, solidPerimeter, ARCH_SHARE, WALL_HEIGHT_TOLERANCE } from "@/lib/planRead/takeoff";
 import { buildDimIndex, computeProject, applyOps, sanitiseSynthesis } from "@/lib/planRead/projectModel";
-import { startRead, advanceRead, readEstimate, measureNeeded, measurePlanned, hasWorkToRead, measureStale, readAgainFlag, readInputs } from "@/lib/planRead/run";
+import { startRead, advanceRead, readEstimate, measureNeeded, measurePlanned, hasWorkToRead, measureStale, readAgainFlag, readInputs, measureOutcome, hasMeasurements } from "@/lib/planRead/run";
 import { planReadView } from "@/lib/planRead/view";
 import { estimateRead, READ_TOKENS } from "@/lib/planRead/billing";
 import { priceProject } from "@/lib/planRead/pricing";
@@ -134,14 +138,19 @@ const propNames = (schema, out = []) => {
   if (schema.items) propNames(schema.items, out);
   return out;
 };
-let strictErr = null;
-try {
-  assertStrictSchema(MEASURE_SCHEMA, "plan_read_measure");
-  assertStrictSchema(SYNTHESIS_SCHEMA, "plan_read_synthesis");
-} catch (e) {
-  strictErr = e.message;
-}
-ok("MEASURE_SCHEMA and the extended SYNTHESIS_SCHEMA pass the vendor's strict-mode lint (depth ≤ 5, every key required)", !strictErr, strictErr);
+// assertStrictSchema RETURNS { ok, errors } — it never throws. This used to be
+// a try/catch around it, which could not fail: MEASURE_SCHEMA sat six levels
+// deep from 5a300fc9f, provider.js refused it before every call, and this
+// line said "ok" the whole time (the church's Read again, 2026-10-06).
+const lints = {
+  MEASURE_SCHEMA: assertStrictSchema(MEASURE_SCHEMA),
+  SYNTHESIS_SCHEMA: assertStrictSchema(SYNTHESIS_SCHEMA),
+  SHEET_SCHEMA: assertStrictSchema(SHEET_SCHEMA),
+  PHOTO_SCHEMA: assertStrictSchema(PHOTO_SCHEMA),
+  TRADE_SHEET_SCHEMA: assertStrictSchema(TRADE_SHEET_SCHEMA),
+  TRADE_SYNTHESIS_SCHEMA: assertStrictSchema(TRADE_SYNTHESIS_SCHEMA),
+};
+ok("every schema a drawing read sends passes the vendor's strict-mode lint (depth ≤ 5, every key required) — the lint provider.js runs before each call", Object.values(lints).every((l) => l.ok === true), Object.fromEntries(Object.entries(lints).filter(([, l]) => !l.ok).map(([k, l]) => [k, l.errors])));
 ok("no money-shaped property in either", !propNames(MEASURE_SCHEMA).some((k) => MONEY.test(k)) && !propNames(SYNTHESIS_SCHEMA).some((k) => MONEY.test(k)), [...propNames(MEASURE_SCHEMA), ...propNames(SYNTHESIS_SCHEMA)].filter((k) => MONEY.test(k)));
 ok("the system prompts say the model points and code measures, and never a price", /You\s+point; FieldQuo measures/.test(MEASURE_SYSTEM) && /Never state a price/.test(MEASURE_SYSTEM) && /FIRST PASS/.test(SYNTHESIS_SYSTEM) && /Never\s+turn one of these/.test(SYNTHESIS_SYSTEM));
 const mp = JSON.parse(measurePrompt(sheetsBase[4], { clientRequest: "Repaint the church inside and out" }));
@@ -288,8 +297,16 @@ const deps = {
 };
 const calls = [];
 const usages = [];
-const provider = (synth) => async (args) => {
+const provider = (synth, measures = MEASURES) => async (args) => {
   calls.push(args);
+  // provider.js's own pre-flight, before anything is sent or billed: a
+  // schema the vendor would refuse comes back bad_schema with no usage. The
+  // scripted model used to skip it, which is how every run here measured
+  // while every live run failed.
+  if (args.schema) {
+    const lint = assertStrictSchema(args.schema);
+    if (!lint.ok) return { ok: false, reason: "bad_schema", message: lint.errors.join("; ") };
+  }
   // Token counts as the live calls would report them, per kind of call.
   const u =
     args.schemaName === "plan_read_measure"
@@ -304,7 +321,7 @@ const provider = (synth) => async (args) => {
     const key = JSON.parse(args.prompt).sheet.dims[0]?.id.split(".")[0] || null;
     const page = Number(String(args.images[0]).match(/\/p(\d+)\.jpg/)?.[1]);
     const k = key || `p${page}`;
-    return { ok: true, data: MEASURES[k] || { sheetType: "other", sheetTypeReason: "x", views: [], faces: [], heights: [] } };
+    return { ok: true, data: measures[k] || { sheetType: "other", sheetTypeReason: "x", views: [], faces: [], heights: [] } };
   }
   if (args.schemaName === "plan_read_synthesis") return { ok: true, data: synth };
   return { ok: false, reason: "unexpected" };
@@ -317,7 +334,7 @@ const row = mem.t.planRead[0];
 ok("the read finishes", run.state === "ready" && row.status === "ready", run);
 const measureCalls = calls.filter((c) => c.schemaName === "plan_read_measure");
 ok(`a measurement pass ran on each routed measurable sheet (${measureCalls.length}), on the best tier, the whole sheet once, high detail`, measureCalls.length >= 7 && measureCalls.every((c) => c.tier === "best" && c.images.length === 1 && c.imageDetail === "high" && /c_limit,w_2400/.test(c.images[0])), measureCalls.length);
-ok("…beside the sheet passes (each sheet's two passes in flight together) and recorded as their own step", row.usage.byStep.measure.calls === measureCalls.length && row.usage.byStep.sheets.calls >= 7);
+ok("…beside the sheet passes (each sheet's two passes in flight together) and recorded as their own step", row.usage.byStep.measure?.calls === measureCalls.length && row.usage.byStep.sheets.calls >= 7);
 ok("the synthesis was SHOWN the takeoff", JSON.parse(calls.find((c) => c.schemaName === "plan_read_synthesis").prompt).takeoff?.faces?.rows?.length >= 5);
 const view1 = computeRead({ ...row, documents: docs("pc1") }, { books });
 const comp = view1.computed;
@@ -769,7 +786,7 @@ ok("(c) arches: the plan's own arch widths win over the ¾ assumption", (() => {
   return near(sp.ft, f.perimeterFt - 59, 0.01) && /measured on the plan/.test(sp.note) && !/FieldQuo assumption/.test(sp.note);
 })());
 ok("…without them, the ¾ fallback says the plan gave none", /the plan gives no arch widths/.test(solidPerimeter(churchTakeoff.faces.get("p3.f2"), churchTakeoff).note));
-ok("…and the measurement pass is asked for them (openings on a room: arch / opening, printed width or box)", MEASURE_SCHEMA.properties.faces.items.required.includes("openings") && /ARCH or wide opening/.test(MEASURE_SYSTEM));
+ok("…and the measurement pass is asked for them (openings on a room, by its faceId: arch / opening, printed width or box — at the schema's root, see 21)", MEASURE_SCHEMA.required.includes("openings") && MEASURE_SCHEMA.properties.openings?.items?.required?.includes("faceId") && !("openings" in MEASURE_SCHEMA.properties.faces.items.properties) && /ARCH or wide opening/.test(MEASURE_SYSTEM));
 ok("…a scaled arch width comes from the sheet's own scale", (() => {
   const facts = sheetsBase.find((x) => x.sheetNumber === "P-45");
   const m = sanitiseMeasure({ sheetType: "plan", sheetTypeReason: "x", views: [{ id: "v1", title: "Whole church", viewType: "plan", side: "interior", scaleText: null, box: [0, 0, 1, 1], groundY: null }], faces: [{ id: "f1", viewId: "v1", name: "Crossing", kind: "room", side: "interior", box: [0.4, 0.4, 0.48, 0.59], shape: "rectangle", lengthDimRef: null, heightDimRef: null, lengthText: null, heightText: null, printedAreaText: null, openingsShare: 0, openingsBasis: null, material: null, note: null, openings: [{ kind: "arch", dimRef: null, text: null, box: [0.4, 0.4, 0.44, 0.405] }] }], heights: [] }, facts);
@@ -933,6 +950,179 @@ section("20. Read again, and measuring again when the reader improved");
   ok("\"Read again\" asks first, showing what it holds, then posts { force: true }", /function ReadAgain\(/.test(ws) && /readAgainConfirmBody/.test(ws) && /c\.readAgainCents/.test(ws) && /jsonBody\(\{ force: true \}\)/.test(ws) && /onRun\(\{ force: true \}\)/.test(ws));
   const route = code("app/api/plan-reads/[id]/run/route.js");
   ok("the route takes force only through readAgainFlag with the caller's own edit level, and refuses a flag it will not honour", /readAgainFlag\(body, \{ canEdit: hasLevel\(full, "quotes", "view_create_edit"\) \}\)/.test(route) && /read_again_denied/.test(route) && /startRead\(\{[^}]*force \}/.test(route));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("21. Read again never trades measurements for guesses (the church, 2026-10-06)");
+// ═══════════════════════════════════════════════════════════════════════════
+// Production, read cmuun5kc…: "Read again" on the church finished in 68 s,
+// charged, and came back with NO measurements — every measurement pass was
+// refused before it was sent (MEASURE_SCHEMA nested its arches six levels
+// deep; provider.js's pre-flight allows five), each failure was written over
+// the sheet's measured faces, and the price became round-number guesses
+// (26,900 sq ft, $73,626) with nothing on the screen to say so.
+{
+  // ── The cause: the schema ─────────────────────────────────────────────────
+  const nested = JSON.parse(JSON.stringify(MEASURE_SCHEMA));
+  const openingProps = { kind: { type: "string", enum: ["arch", "opening"] }, dimRef: { type: ["string", "null"] }, text: { type: ["string", "null"] }, box: { type: ["array", "null"], items: { type: "number" } } };
+  nested.properties.faces.items.properties.openings = { type: "array", items: { type: "object", additionalProperties: false, required: Object.keys(openingProps), properties: openingProps } };
+  nested.properties.faces.items.required.push("openings");
+  delete nested.properties.openings;
+  nested.required = nested.required.filter((k) => k !== "openings");
+  const nestedLint = assertStrictSchema(nested);
+  ok("the arches are at the schema's root, by faceId — nested in the face (as 5a300fc9f shipped them) the pre-flight refuses the whole schema", lints.MEASURE_SCHEMA.ok && !nestedLint.ok && nestedLint.errors.some((e) => /faces\[\]\.openings\[\]\..*nesting deeper than 5/.test(e)) && MEASURE_SCHEMA.required.includes("openings"), nestedLint.errors);
+  ok("…and the prompt tells the model where they go", /"openings": for a ROOM on a plan/.test(MEASURE_SYSTEM) && /"faceId"/.test(MEASURE_SYSTEM));
+  const p11 = sheetsBase.find((s) => s.key === "p11");
+  const rooted = sanitiseMeasure({ ...MEASURES.p11, openings: [{ faceId: "f1", kind: "arch", dimRef: null, text: "4.2 m", box: null }, { faceId: " f1 ", kind: "opening", dimRef: null, text: null, box: [0.3, 0.3, 0.34, 0.31] }, { faceId: "nope", kind: "arch", dimRef: null, text: "9 m", box: null }] }, p11);
+  const nave1 = rooted.faces.find((x) => x.id === "f1");
+  ok("sanitiseMeasure puts root openings back on their room (by its cleaned id), and drops one for a room that isn't there", nave1.openings.length === 2 && nave1.openings[0].kind === "arch" && nave1.openings[0].text === "4.2 m" && rooted.faces.find((x) => x.id === "f2").openings.length === 0 && !JSON.stringify(rooted).includes("9 m"), rooted.faces.map((x) => [x.id, x.openings]));
+
+  // ── The rule: measureOutcome (pure) ──────────────────────────────────────
+  const prior = { sheetType: "elevation", reason: "West elevation", views: [], faces: [{ id: "f1" }], heights: [{ id: "h1" }], at: "t0" };
+  const failedNext = { sheetType: "other", reason: "", views: [], faces: [], heights: [], failed: true, failedRun: "r2", failure: "bad_schema", at: "t1" };
+  const emptyNext = { sheetType: "detail", reason: "a detail", views: [], faces: [], heights: [], at: "t1", version: MEASURE_VERSION };
+  const goodNext = { sheetType: "elevation", reason: "x", views: [], faces: [{ id: "f9" }], heights: [], at: "t1", version: MEASURE_VERSION };
+  const o1 = measureOutcome(prior, failedNext, { runRef: "r2" });
+  ok("a FAILED pass over a measured sheet keeps the measurement, says why and which run, and is not charged", o1.kept && o1.waive && o1.measure.faces === prior.faces && o1.measure.heights === prior.heights && o1.measure.reason === "West elevation" && o1.measure.remeasure.failure === "bad_schema" && o1.measure.remeasure.run === "r2" && !o1.measure.failed, o1);
+  const o2 = measureOutcome(prior, emptyNext, { runRef: "r2" });
+  ok("…an EMPTY answer over a measured sheet is a failed re-measure too: kept, \"empty\", not charged", o2.kept && o2.waive && o2.measure.faces === prior.faces && o2.measure.remeasure.failure === "empty", o2);
+  const o3 = measureOutcome(prior, goodNext, { runRef: "r2" });
+  ok("…a pass that measured REPLACES it, whole (no remeasure left behind), and is charged", !o3.kept && !o3.waive && o3.measure === goodNext);
+  ok("…with nothing measured before: a failure is stored as the failure (not charged), an empty answer as the answer (charged)", (() => { const a = measureOutcome(null, failedNext); const b = measureOutcome({ ...failedNext }, failedNext); const c = measureOutcome(null, emptyNext); return a.measure === failedNext && !a.kept && a.waive && !b.kept && c.measure === emptyNext && !c.kept && !c.waive; })());
+  ok("…a failure never replaces an ANSWER, even \"nothing to measure here\" (a site plan) — but a newer empty answer does", (() => { const site = { sheetType: "site", reason: "x", views: [], faces: [], heights: [], version: 1 }; const a = measureOutcome(site, failedNext, { runRef: "r2" }); const b = measureOutcome(site, emptyNext, { runRef: "r2" }); return a.kept && a.waive && a.measure.sheetType === "site" && a.measure.remeasure.failure === "bad_schema" && !b.kept && b.measure === emptyNext && !b.waive; })());
+  ok("hasMeasurements: a face or a height, never a failed pass", hasMeasurements(prior) && hasMeasurements({ faces: [], heights: [{ id: "h" }] }) && !hasMeasurements({ faces: [{ id: "f" }], failed: true }) && !hasMeasurements(emptyNext) && !hasMeasurements(null));
+
+  // ── Billing: waived calls stay on the books, off the bill ────────────────
+  const mu = { model: "gpt-5.5", promptTokens: 6200, completionTokens: 6500, cachedTokens: 0, imageCount: 1 };
+  const muMicros = estimateCostMicros(mu);
+  const w = waiveUsage(waiveUsage({ vendorMicros: 5 * muMicros, run: { vendorMicros: 5 * muMicros } }, mu), mu);
+  ok("waiveUsage: the vendor cost stays (what FieldQuo paid), waivedMicros says what the company is not charged", w.vendorMicros === 5 * muMicros && w.run.vendorMicros === 5 * muMicros && w.run.waivedMicros === 2 * muMicros && w.waivedMicros === 2 * muMicros);
+  const sNo = settlement({ reservedCents: 10_000, runVendorMicros: w.run.vendorMicros });
+  const sW = settlement({ reservedCents: 10_000, runVendorMicros: w.run.vendorMicros, waivedMicros: w.run.waivedMicros });
+  ok(`settlement takes the waiver off: ${sNo.chargedCents}¢ → ${sW.chargedCents}¢, the rest of the hold refunded`, sW.chargedCents === settlement({ reservedCents: 10_000, runVendorMicros: 3 * muMicros }).chargedCents && sW.chargedCents < sNo.chargedCents && sW.refundCents === 10_000 - sW.chargedCents);
+
+  // ── guessedShare (pure) ──────────────────────────────────────────────────
+  const gs = guessedShare({ lines: [{ amount: 700, source: "estimate" }, { amount: 100, source: "photo" }, { amount: 200, source: "face" }, { amount: 0, hours: 0, source: "estimate" }] });
+  ok("guessedShare: the share of the price on guessed quantities (estimate, photo) — 80% here, mostly", gs.share === 0.8 && gs.mostly === true && gs.lines === 2, gs);
+  ok("…by hours when nothing is priced; a scaled face or a count is not a guess; exactly half is not \"mostly\"; nothing priced → null", guessedShare({ lines: [{ amount: 0, hours: 10, source: "estimate" }, { amount: 0, hours: 30, source: "face" }] }).share === 0.25 && guessedShare({ lines: [{ amount: 50, source: "count" }, { amount: 50, source: "face" }] }).share === 0 && guessedShare({ lines: [{ amount: 50, source: "estimate" }, { amount: 50, source: "face" }] }).mostly === false && guessedShare({ lines: [] }) === null && guessedShare(null) === null);
+
+  // ── The church, end to end ───────────────────────────────────────────────
+  // A finished read measured by the OLDER pass (no version stamp) — the
+  // church's sheets before its Read again.
+  const mBase = memDb({ planRead: [churchRead("pc30")], quoteDocument: docs("pc30") });
+  await startRead({ planReadId: "pc30", companyId: "co1" }, { ...deps, db: mBase });
+  await advanceRead("pc30", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: mBase, complete: provider(zeroSynthesis) });
+  const baseRow = mBase.t.planRead[0];
+  baseRow.sheets = baseRow.sheets.map((s) => (hasMeasurements(s.measure) ? { ...s, measure: (({ version: _v, ...m }) => m)(s.measure) } : s));
+  const measuredKeys = baseRow.sheets.filter((s) => hasMeasurements(s.measure)).map((s) => s.key);
+  const fingerprint = (row) => md5(row.sheets.filter((s) => measuredKeys.includes(s.key)).map((s) => [s.key, s.measure.faces, s.measure.heights]));
+  const priorPrint = fingerprint(baseRow);
+  const priorTake = buildTakeoff(baseRow.sheets, buildDimIndex(baseRow.sheets));
+  const inp30 = readInputs({ ...baseRow, documents: docs("pc30") });
+  const planned30 = inp30.routed.filter((s) => measurePlanned(s, { ...baseRow, documents: docs("pc30") }, inp30.routes.get(s.key))).length;
+  ok(`the starting point: ${measuredKeys.length} sheets measured by version 1 — ${priorTake.faces.size} faces, ${priorTake.heights.size} heights`, measuredKeys.length >= 5 && priorTake.faces.size >= 7 && priorTake.heights.size >= 2 && planned30 > measuredKeys.length);
+  const fork = (id) => memDb({ planRead: [{ ...JSON.parse(JSON.stringify(baseRow)), id }], quoteDocument: docs(id) });
+  const badSchema = (synth) => async (args) => {
+    if (args.schemaName !== "plan_read_measure") return provider(synth)(args);
+    calls.push(args);
+    return { ok: false, reason: "bad_schema", message: "root.faces[].openings[].kind: nesting deeper than 5 levels" };
+  };
+
+  // A. Read again, every measurement pass refused — exactly production.
+  const mA = fork("pc31");
+  const heldA = await startRead({ planReadId: "pc31", companyId: "co1", force: true }, { ...deps, db: mA });
+  const refA = mA.t.planRead[0].reservationRef;
+  const cA = calls.length;
+  const runA = await advanceRead("pc31", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: mA, complete: badSchema(zeroSynthesis) });
+  const rowA = mA.t.planRead[0];
+  const viewA = await planReadView({ ...rowA, documents: docs("pc31") }, { companyId: "co1", canSeeMoney: true, prisma: mA, balanceCents: 5000 });
+  ok("A. a forced re-read whose every measurement is refused still finishes (the sheets and the synthesis were fine)", heldA.forced === true && runA.state === "ready" && rowA.status === "ready" && calls.slice(cA).filter((c) => c.schemaName === "plan_read_measure").length === planned30 * 2);
+  ok(`A. …and KEEPS every earlier measurement: ${measuredKeys.length} sheets, faces and heights byte for byte`, fingerprint(rowA) === priorPrint, rowA.sheets.map((s) => [s.key, s.measure?.faces?.length, s.measure?.failed]));
+  ok("A. …each marked: the re-measure failed, why, in which run", rowA.sheets.filter((s) => measuredKeys.includes(s.key)).every((s) => s.measure.remeasure?.failed === true && s.measure.remeasure.failure === "bad_schema" && s.measure.remeasure.run === refA && !s.measure.failed));
+  ok("A. the synthesis was still SHOWN the measured takeoff — not an empty one", (JSON.parse(calls.slice(cA).find((c) => c.schemaName === "plan_read_synthesis").prompt).takeoff?.faces?.rows?.length || 0) === [...priorTake.faces.values()].length);
+  ok(`A. the screen: ${viewA.firstPass.faces.length} measured faces still there; "measuring again failed on ${viewA.firstPass.remeasureFailed} sheets … nothing was replaced"`, viewA.firstPass.faces.length === priorTake.faces.size && viewA.firstPass.heights.length === priorTake.heights.size && viewA.firstPass.remeasureFailed === planned30 && viewA.firstPass.measureFailed === 0 && viewA.firstPass.measureMissing === false && viewA.staleMeasures === measuredKeys.length, { faces: viewA.firstPass.faces.length, remeasureFailed: viewA.firstPass.remeasureFailed, measureFailed: viewA.firstPass.measureFailed, measureMissing: viewA.firstPass.measureMissing, stale: viewA.staleMeasures });
+  ok("A. …and the price rests on the measurements, not on guesses", viewA.firstPass.guessed && viewA.firstPass.guessed.mostly === false, viewA.firstPass.guessed);
+  ok("A. the sheets are still out of date, so the next run measures them again (and this run does not)", measureNeeded(rowA.sheets.find((s) => s.key === measuredKeys[0]), { ...rowA, documents: docs("pc31") }, inp30.routes.get(measuredKeys[0]), null) === true && measureNeeded(rowA.sheets.find((s) => s.key === measuredKeys[0]), { ...rowA, documents: docs("pc31") }, inp30.routes.get(measuredKeys[0]), refA) === false && hasWorkToRead({ ...rowA, documents: docs("pc31") }) === true);
+
+  // A2. The same, paused part-way: the resumed run never re-measures a sheet
+  // it already tried (remeasureTriedIn), and never pays for it twice.
+  const mA2 = fork("pc32");
+  await startRead({ planReadId: "pc32", companyId: "co1", force: true }, { ...deps, db: mA2 });
+  let clockA2 = 0;
+  const slowA2 = { ...deps, db: mA2, now: () => clockA2, sheetConcurrency: 1, complete: async (a) => { clockA2 += 60_000; return badSchema(zeroSynthesis)(a); } };
+  // Which sheet a measurement call was for — the scripted model's own rule.
+  const measureKey = (a) => JSON.parse(a.prompt).sheet.dims[0]?.id.split(".")[0] || `p${Number(String(a.images[0]).match(/\/p(\d+)\.jpg/)?.[1])}`;
+  const firstA2 = await advanceRead("pc32", { companyId: "co1", budgetMs: 300_000 }, slowA2);
+  const refA2 = mA2.t.planRead[0].reservationRef;
+  const triedFirst = mA2.t.planRead[0].sheets.filter((s) => s.measure?.remeasure?.run === refA2).map((s) => s.key);
+  mA2.t.planRead[0].leaseUntil = null;
+  clockA2 += 1;
+  const cA2 = calls.length;
+  const secondA2 = await advanceRead("pc32", { companyId: "co1", budgetMs: 10_000_000 }, { ...slowA2, now: () => clockA2 });
+  const againA2 = calls.slice(cA2).filter((c) => c.schemaName === "plan_read_measure").map(measureKey);
+  ok(`A2. a forced run that pauses (${triedFirst.length} sheets tried) resumes without re-measuring any of them, and keeps every earlier measurement`, firstA2.state === "more" && secondA2.state === "ready" && triedFirst.length > 0 && againA2.length > 0 && !againA2.some((k) => triedFirst.includes(k)) && fingerprint(mA2.t.planRead[0]) === priorPrint && mA2.t.planRead[0].sheets.filter((s) => s.measure?.remeasure?.run === refA2).length === planned30, { triedFirst, againA2 });
+
+  // B. Read again, every measurement ANSWERS but with nothing in it.
+  const mB = fork("pc33");
+  const heldB = await startRead({ planReadId: "pc33", companyId: "co1", force: true }, { ...deps, db: mB });
+  const cB = calls.length;
+  const ledgerB = ledger.length;
+  await advanceRead("pc33", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: mB, complete: provider(zeroSynthesis, {}) });
+  const rowB = mB.t.planRead[0];
+  const measureCallsB = calls.slice(cB).filter((c) => c.schemaName === "plan_read_measure").length;
+  const waivedB = measuredKeys.length * muMicros;
+  ok(`B. a forced re-read whose measurement comes back EMPTY keeps the earlier measurements, marked "empty"`, measureCallsB === planned30 && fingerprint(rowB) === priorPrint && rowB.sheets.filter((s) => measuredKeys.includes(s.key)).every((s) => s.measure.remeasure?.failure === "empty"));
+  ok(`B. …and the empty answers over measured sheets are not charged: ${measuredKeys.length} calls waived (${waivedB} µ$), the rest of the run charged`, rowB.usage.run.waivedMicros === waivedB && rowB.chargedCents - baseRow.chargedCents === settlement({ reservedCents: heldB.heldCents, runVendorMicros: rowB.usage.run.vendorMicros, waivedMicros: waivedB }).chargedCents && rowB.chargedCents - baseRow.chargedCents < settlement({ reservedCents: heldB.heldCents, runVendorMicros: rowB.usage.run.vendorMicros }).chargedCents, { waived: rowB.usage.run.waivedMicros, expect: waivedB, charged: rowB.chargedCents - baseRow.chargedCents });
+  ok("B. …the unused hold goes back, under the hold's own ref", ledger.slice(ledgerB).some((e) => e.refund && e.ref === rowB.usage.forceRun && e.cents === heldB.heldCents - (rowB.chargedCents - baseRow.chargedCents)));
+
+  // C. Read again that MEASURES: the new measurements replace the old.
+  const MEASURES_V2 = JSON.parse(JSON.stringify(MEASURES));
+  for (const m of Object.values(MEASURES_V2)) for (const fc of m.faces) fc.name = `${fc.name} (v2)`;
+  const mC = fork("pc34");
+  await startRead({ planReadId: "pc34", companyId: "co1", force: true }, { ...deps, db: mC });
+  const refC = mC.t.planRead[0].reservationRef;
+  await advanceRead("pc34", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: mC, complete: provider(zeroSynthesis, MEASURES_V2) });
+  const rowC = mC.t.planRead[0];
+  const viewC = await planReadView({ ...rowC, documents: docs("pc34") }, { companyId: "co1", canSeeMoney: true, prisma: mC, balanceCents: 5000 });
+  ok("C. a forced re-read that measures REPLACES the earlier measurements: the new faces, the current version, this run's stamp, no remeasure mark", rowC.sheets.filter((s) => measuredKeys.includes(s.key)).every((s) => s.measure.version === MEASURE_VERSION && s.measure.run === refC && !s.measure.remeasure && s.measure.faces.every((fc) => / \(v2\)$/.test(fc.name))) && fingerprint(rowC) !== priorPrint);
+  ok("C. …the screen: nothing stale, nothing failed, nothing to warn about", viewC.staleMeasures === 0 && viewC.firstPass.remeasureFailed === 0 && viewC.firstPass.measureFailed === 0 && viewC.firstPass.measureMissing === false && viewC.firstPass.faces.length === priorTake.faces.size && rowC.usage.run.waivedMicros === undefined);
+
+  // D. Where production is now: measurements failed with nothing to keep,
+  // and the synthesis priced round-number estimates.
+  const estSynthesis = { ...zeroSynthesis, surfaces: [{ ...zeroSynthesis.surfaces[0], estimate: 11000, estimateBasis: "rough facade area" }, { ...zeroSynthesis.surfaces[1], estimate: 15900, estimateBasis: "rough wall area" }] };
+  const mD = memDb({ planRead: [churchRead("pc35")], quoteDocument: docs("pc35") });
+  await startRead({ planReadId: "pc35", companyId: "co1" }, { ...deps, db: mD });
+  const truncated = (synth) => async (args) => {
+    if (args.schemaName !== "plan_read_measure") return provider(synth)(args);
+    calls.push(args);
+    await args.onUsage?.(mu);
+    return { ok: false, reason: "truncated", message: "reply was truncated" };
+  };
+  await advanceRead("pc35", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: mD, complete: truncated(estSynthesis) });
+  const rowD = mD.t.planRead[0];
+  const viewD = await planReadView({ ...rowD, documents: docs("pc35") }, { companyId: "co1", canSeeMoney: true, prisma: mD, balanceCents: 5000, pricingCtx: null });
+  ok(`D. a read whose every measurement fails stores the failure and why, and is not charged for it (${planned30} sheets × 2 attempts waived)`, rowD.status === "ready" && rowD.sheets.filter((s) => s.measure).length === planned30 && rowD.sheets.filter((s) => s.measure).every((s) => s.measure.failed && s.measure.failure === "truncated") && rowD.usage.run.waivedMicros === planned30 * 2 * muMicros);
+  ok(`D. the screen says measuring FAILED on ${viewD.firstPass.measureFailed} sheets — not "made before FieldQuo measured"`, viewD.firstPass.measureMissing === true && viewD.firstPass.measureFailed === planned30 && viewD.firstPass.remeasureFailed === 0 && viewD.firstPass.faces.length === 0);
+  ok(`D. …and that the price is mostly guessed (${Math.round((viewD.firstPass.guessed?.share || 0) * 100)}%), whole and per quote`, viewD.firstPass.guessed?.mostly === true && viewD.firstPass.guessed.share > 0.8 && viewD.firstPass.slices.length === 2 && viewD.firstPass.slices.every((sl) => sl.guessed?.mostly === true), { guessed: viewD.firstPass.guessed, slices: viewD.firstPass.slices.map((sl) => sl.guessed) });
+
+  // E. From there, the ordinary "Measure the drawings" run (no force)
+  // measures again — the sheet passes already paid for are not re-read.
+  const startE = await startRead({ planReadId: "pc35", companyId: "co1" }, { ...deps, db: mD });
+  const cE = calls.length;
+  await advanceRead("pc35", { companyId: "co1", budgetMs: 10_000_000 }, { ...deps, db: mD, complete: provider(zeroSynthesis) });
+  const rowE = mD.t.planRead[0];
+  const viewE = await planReadView({ ...rowE, documents: docs("pc35") }, { companyId: "co1", canSeeMoney: true, prisma: mD, balanceCents: 5000 });
+  ok(`E. a plain run on that read measures again (${calls.slice(cE).filter((c) => c.schemaName === "plan_read_measure").length} sheets), reads no sheet twice, and the measurements are back`, startE.ok === true && !startE.forced && calls.slice(cE).filter((c) => c.schemaName === "plan_read_measure").length === planned30 && calls.slice(cE).filter((c) => c.schemaName === "plan_read_sheet").length === 0 && viewE.firstPass.faces.length === priorTake.faces.size && viewE.firstPass.measureFailed === 0 && viewE.firstPass.guessed?.mostly === false);
+
+  // ── Wiring: the screen says it ───────────────────────────────────────────
+  const ws21 = code("app/components/planRead/PlanReadWorkspace.js");
+  const fpc21 = code("app/components/planRead/FirstPassCards.js");
+  ok("the read card says a re-measure failed and nothing was replaced, from view.firstPass.remeasureFailed", /view\.firstPass\?\.remeasureFailed > 0 &&/.test(ws21) && /t\("app\.planRead\.remeasureFailed"/.test(ws21));
+  ok("…and a failed measurement as failed (measureFailedNote), keeping the old note for reads made before measuring", /view\.firstPass\.measureFailed > 0\s*\?\s*t\("app\.planRead\.measureFailedNote"/.test(ws21) && /app\.planRead\.measureAgainNote/.test(ws21));
+  ok("the mostly-guessed banner sits in the overview AND above the price; each quote part says it too", (ws21.match(/<GuessedBanner guessed=\{view\.firstPass\?\.guessed\}/g) || []).length === 2 && /function GuessedBanner\(/.test(ws21) && /guessed\?\.mostly/.test(ws21) && /sl\.guessed\?\.mostly && /.test(fpc21) && /app\.planRead\.slices\.guessed/.test(fpc21));
+  const newKeys = ["app.planRead.remeasureFailed", "app.planRead.measureFailedNote", "app.planRead.guessed.title", "app.planRead.guessed.body", "app.planRead.slices.guessed"];
+  const missing21 = newKeys.flatMap((k) => Object.keys(APP_MESSAGES).filter((l) => typeof APP_MESSAGES[l][k] !== "string").map((l) => `${l}:${k}`));
+  ok(`the new strings exist in all ${Object.keys(APP_MESSAGES).length} languages`, missing21.length === 0, missing21);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

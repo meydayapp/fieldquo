@@ -1,6 +1,8 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
+Last updated: 6 October 2026 (drawing read: the measurement schema was refused before every call since 5a300fc9f, and "Read again" wrote those failures over the church's measured faces. Schema fixed; a failed or empty re-measure now keeps the earlier measurement, says so on the read card and is not charged; a price mostly on guessed quantities says so. No schema change. See "Drawing read — Read again threw measurements away" below.)
+
 Last updated: 5 October 2026, night (four gaps from testing: drawing read "Read again" — a confirmed, credit-showing full re-read of a finished read, edit permission only — and MEASURE_VERSION so sheets measured by an older measurement pass are measured again and the read says so; a no-show outcome for past appointments — Held / No-show / Rescheduled / Cancelled one tap on the calendar, a daily "Did this visit happen?" nudge to the assignee, no-show rate and a corrected adjusted close rate in the agency metrics and Marketing results; and booking-page / AI bookings with no prior enquiry now become leads (source booking_page, no extra alert, linked not duplicated within 180 days). Schema additive — applied in production 2026-10-05. Booking leads take the booker's "when do you need this done?" as their timeline. See "Read again, no-shows, and bookings as leads" below.)
 Last updated: 5 October 2026 (marketing agency access: Settings › Marketing agency access keys + sharing switches, the /api/v1 marketing API and REST-hook events, a Zapier app in integrations/zapier (not pushed), and Marketing › Marketing results from the same code — see "Marketing agency access" below. Schema additive, NOT applied; SQL in that section.)
 Last updated: 5 October 2026, late (painting presets against NPC — picket fence, exterior stain, cabinet boxes, French doors, built-ins sprayed/brushed, finished suggested rates, cabinet enamel coverage — and coats change labour time: hours × coats ÷ standard coats, prep never scaled, one extra-coat rule, a dry-time wait charged only when the crew waits on site, a company toggle. No schema change. See "Painting presets against NPC, and coats change labour time" below.)
@@ -226,6 +228,43 @@ of the rules and arithmetic, every one caught. `check:processing-fee` and
 line and the new billing event.
 
 ---
+## Drawing read — Read again threw measurements away (6 October 2026)
+
+Found in production on the church read (`cmuun5kc…`, Painting Demo —
+Daniel): "Read again" finished, charged $0.57, and came back with **no
+measurements** — 64 faces and 13 heights replaced by round-number estimates
+(26,900 sq ft, $73,626 recommended, was 16,738 sq ft / $46,587), with only
+the old 10% low-confidence flag to hint at it.
+
+- **Cause:** 5a300fc9f nested the arches inside each face
+  (`faces[].openings[].kind`) — six levels, past the vendor's five.
+  `lib/ai/provider.js` lints every schema before sending and returned
+  `bad_schema` in milliseconds, so **every measurement pass since that
+  deploy failed** (only this read was affected in production). The worker
+  then wrote each failure over the sheet's good measurement. The check that
+  should have caught it wrapped `assertStrictSchema` — which returns, never
+  throws — in a try/catch, and its scripted model skipped the pre-flight.
+- **Fixed:** the arches sit at the schema's root by `faceId`
+  (`sanitiseMeasure` puts them back on the room; stored shape unchanged;
+  MEASURE_VERSION stays 2 — no sheet was ever measured under the broken 2).
+  `measureOutcome` (lib/planRead/run.js): a failed pass never replaces one
+  that answered, and an empty answer never replaces a measured sheet — the
+  earlier measurement stays, marked `remeasure` (run, why), the read card
+  says **"Measuring again failed on N sheets — the earlier measurements were
+  kept and nothing was replaced"**, and those calls are not charged
+  (`billing.js waiveUsage` → `settlement`'s `waivedMicros`; also for any
+  measurement that fails outright — a cost-reducing change, named here).
+  A first measurement that failed now says so ("Measuring the drawings
+  failed on N sheets…") instead of "made before FieldQuo measured".
+- **New:** a price mostly (> 50% by amount) on guessed quantities — the
+  model's estimates or photo sizes, `slices.js guessedShare` — says so in a
+  box in the overview and above the price, and on each quote part.
+- **The church today:** its earlier measurements are gone from the database
+  (they lived only in `PlanRead.sheets`; no other row holds them). After
+  this deploys, the read card offers **Measure the drawings** — a plain run
+  that re-measures the 13 sheets (measurement + synthesis only; the sheet
+  readings are kept) and restores real measurements under version 2.
+- Check: `check:plan-read-first-pass` §21 (and §2's lint now real).
 
 ## Read again, no-shows, and bookings as leads (5 October 2026)
 

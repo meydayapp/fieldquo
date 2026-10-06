@@ -422,6 +422,15 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
           {t("app.planRead.measureStale", "Measured with an older version — Read again to update.")}
         </p>
       )}
+      {/* A re-measure that failed or came back empty never replaces the
+          measurements the read had (lib/planRead/run.js measureOutcome) —
+          and the estimator is told, rather than left to notice. */}
+      {view.firstPass?.remeasureFailed > 0 && (
+        <p className="mb-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300" role="status">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
+          {t("app.planRead.remeasureFailed", "Measuring again failed on {n} sheets — the earlier measurements were kept and nothing was replaced. The failed measuring was not charged.", { n: view.firstPass.remeasureFailed })}
+        </p>
+      )}
       {view.canRead && view.reuse && <ReuseOffer reuse={view.reuse} t={t} language={language} credits={credits} onReuse={onReuse} reusing={reusing} />}
       {view.canRead ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -442,7 +451,13 @@ function ReadCard({ view, t, language, credits, starting, onRun, onReuse, reusin
                 })}
               </p>
             ) : null}
-            {view.status === "ready" && view.firstPass?.measureMissing && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.measureAgainNote", "This read was made before FieldQuo measured the drawings itself. Measuring scales every elevation, plan and section, prices height, prep and access, and keeps the sheet readings you already paid for.")}</p>}
+            {view.status === "ready" && view.firstPass?.measureMissing && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {view.firstPass.measureFailed > 0
+                  ? t("app.planRead.measureFailedNote", "Measuring the drawings failed on {n} sheets, so their quantities are estimates, not measurements. The failed measuring was not charged. Measuring again keeps the sheet readings you already paid for.", { n: view.firstPass.measureFailed })
+                  : t("app.planRead.measureAgainNote", "This read was made before FieldQuo measured the drawings itself. Measuring scales every elevation, plan and section, prices height, prep and access, and keeps the sheet readings you already paid for.")}
+              </p>
+            )}
             {view.status === "ready" && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.readAgainNote", "Reading again rebuilds the overview from all the files; changes made in the chat are replaced.")}</p>}
             <RoutedSheets view={view} t={t} />
             {took && <p className="text-xs text-muted-foreground mt-1">{t("app.planRead.lastReadTook", "The last read took {time}.", { time: took })}</p>}
@@ -493,6 +508,26 @@ function SourceBadge({ q, t }) {
   return <Badge tone="warn">{t("app.planRead.source.estimated", "Estimated · verify")}</Badge>;
 }
 
+/**
+ * A price that is mostly a guess says so, in a box, beside the quantities and
+ * above the price — not only as one of the recommendation's flags
+ * (lib/planRead/slices.js guessedShare).
+ */
+function GuessedBanner({ guessed, t }) {
+  if (!guessed?.mostly) return null;
+  return (
+    <div className="mb-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" role="status">
+      <p className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
+        <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
+        {t("app.planRead.guessed.title", "This price is mostly estimated, not measured")}
+      </p>
+      <p className="text-xs mt-0.5 text-amber-900 dark:text-amber-200">
+        {t("app.planRead.guessed.body", "{pct}% of it rests on quantities FieldQuo estimated because it could not measure them on the drawings. Measure them on the sheet or tell the chat their sizes before you send.", { pct: Math.round(guessed.share * 100) })}
+      </p>
+    </div>
+  );
+}
+
 function OverviewCard({ view, t, money, onMeasure, onToggle }) {
   const p = view.project;
   const similar = view.similar;
@@ -510,6 +545,7 @@ function OverviewCard({ view, t, money, onMeasure, onToggle }) {
       {p.summary && <p className="text-sm mb-1">{p.summary}</p>}
       <UnmeasuredBanner view={view} t={t} />
       {view.clientRequest && <p className="text-xs text-muted-foreground mb-3">{t("app.planRead.overview.client", "Client: {text}", { text: view.clientRequest })}</p>}
+      <GuessedBanner guessed={view.firstPass?.guessed} t={t} />
       {p.estimatedCount > 0 && (
         <p className="text-xs text-amber-800 dark:text-amber-300 mb-3">{t("app.planRead.overview.estimatedCount", "{n} quantities are estimated — check them before you send.", { n: p.estimatedCount })}</p>
       )}
@@ -1023,6 +1059,7 @@ function RecommendationCard({ view, t, money, onOp }) {
   return (
     <section className={card}>
       <h2 className="text-sm font-semibold mb-2">{t("app.planRead.reco.title", "Price at your target margin")}</h2>
+      <GuessedBanner guessed={view.firstPass?.guessed} t={t} />
       {row(
         t("app.planRead.reco.labour", "Labour"),
         money(r.labour.cost),
