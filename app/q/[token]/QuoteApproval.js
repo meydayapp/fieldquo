@@ -1388,7 +1388,7 @@ export default function QuoteApproval({ token, sample = null }) {
           {quote.changeOrderAddendum?.rows?.length > 0 && (
             <div className="rounded-xl border border-black/10 px-4 py-3.5" data-quote-change-orders>
               <p className="text-sm font-semibold text-[#2d2520]">{labels.coAddendumTitle}</p>
-              <p className="text-xs text-[#2d2520]/65 mt-0.5">{labels.coAddendumNote}</p>
+              <p className="text-xs text-[#2d2520]/70 mt-0.5">{labels.coAddendumNote}</p>
               <ul className="mt-2 divide-y divide-black/5">
                 {quote.changeOrderAddendum.rows.map((r) => (
                   <li key={r.label} className="py-2 flex items-start justify-between gap-3">
@@ -1421,10 +1421,10 @@ export default function QuoteApproval({ token, sample = null }) {
                 </div>
               )}
               {quote.changeOrderAddendum.pendingTotal !== 0 && (
-                <p className="text-xs text-[#2d2520]/65 mt-1.5">{labels.coPendingNote}</p>
+                <p className="text-xs text-[#2d2520]/70 mt-1.5">{labels.coPendingNote}</p>
               )}
               {quote.changeOrderAddendum.taxKnown === false && (
-                <p className="text-xs text-[#2d2520]/65 mt-1">{labels.coBeforeTax}</p>
+                <p className="text-xs text-[#2d2520]/70 mt-1">{labels.coBeforeTax}</p>
               )}
             </div>
           )}

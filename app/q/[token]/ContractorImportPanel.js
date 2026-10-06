@@ -306,7 +306,7 @@ export default function ContractorImportPanel({ token, initialCtx = null, prefer
               <input type="checkbox" checked={asOption} onChange={(e) => setAsOption(e.target.checked)} className="mt-1" />
               <span>
                 {t("app.quoteImport.asOption")}
-                <span className="block text-[11px] text-[#2d2520]/55">{t("app.quoteImport.asOptionHint")}</span>
+                <span className="block text-[11px] text-[#2d2520]/70">{t("app.quoteImport.asOptionHint")}</span>
               </span>
             </label>
           )}
