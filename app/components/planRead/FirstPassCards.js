@@ -260,6 +260,7 @@ export function SlicesCard({ view, t, money, onCreate }) {
                 .join(" · ")}
             </p>
             {sl.unmeasured > 0 && <p className="text-xs text-amber-800 dark:text-amber-300">{t("app.planRead.slices.unmeasured", "{n} surfaces not measured", { n: sl.unmeasured })}</p>}
+            {sl.guessed?.mostly && <p className="text-xs font-medium text-amber-800 dark:text-amber-300">{t("app.planRead.slices.guessed", "Mostly estimated, not measured — {pct}% of this price", { pct: Math.round(sl.guessed.share * 100) })}</p>}
             {view.canSeeMoney && sl.recommended !== undefined && sl.recommended !== null && (
               <p className="text-sm">
                 {t("app.planRead.slices.recommended", "Recommended {v} at your {pct}% target", { v: money(sl.recommended), pct: sl.targetPct })}
