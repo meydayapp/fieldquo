@@ -206,7 +206,7 @@ export default function WaiversCard({ target, editable = true, compact = false, 
       <div>
         <h3 className="font-semibold text-foreground text-sm">{t("app.waivers.title", "Waivers")}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {t("app.waivers.hint", "A release the client reads, ticks line by line and signs. The signed copy is filed on the job and shown in their portal.")}
+          {t("app.waivers.hint", "A release the client reads, ticks line by line and signs. The signed copy is filed on the job and shown in their portal. Clients see it as a “Project acknowledgement”.")}
         </p>
       </div>
       {body}
