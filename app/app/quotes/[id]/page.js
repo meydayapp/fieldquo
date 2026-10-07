@@ -73,6 +73,7 @@ import { moneyFormatter } from "@/lib/format/money";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import SendConfirmModal from "@/app/components/SendConfirmModal";
+import BusinessQuestion from "@/app/components/quotes/BusinessQuestion";
 import {
   ArrowLeft,
   Trash2,
@@ -1293,6 +1294,9 @@ export default function QuoteDetailPage() {
           "They'll get it by email straight away. You can't unsend it.",
         )}
         confirmLabel={t("app.quoteDetail.send", "Send")}
+        // Once per client: a company-sounding name saved as an individual
+        // would get no "Add this price to your own quote" line.
+        extra={pendingSend ? <BusinessQuestion clientId={quote?.client?.id} /> : null}
       />
 
       {justSent && (

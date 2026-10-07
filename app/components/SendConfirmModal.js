@@ -48,6 +48,10 @@ export default function SendConfirmModal({
   confirmLabel,
   cancelLabel,
   icon,
+  // Anything a caller needs asked before the send — the quote dialogs put
+  // "Is <name> a business?" here (app/components/quotes/BusinessQuestion.js).
+  // Absent for every other caller, which renders exactly as before.
+  extra = null,
 }) {
   // "View as company": the one irreversible button is drawn off, with the
   // note, before anyone presses it (the request would be refused anyway —
@@ -88,6 +92,8 @@ export default function SendConfirmModal({
             {detail}
           </p>
         )}
+
+        {extra}
 
         <div className="flex gap-3 mt-6">
           <button

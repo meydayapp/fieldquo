@@ -50,6 +50,7 @@ import MediaUploader from "@/app/components/MediaUploader";
 import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
 import SendConfirmModal from "@/app/components/SendConfirmModal";
+import BusinessQuestion from "@/app/components/quotes/BusinessQuestion";
 import StaleWriteBanner from "@/app/components/StaleWriteBanner";
 import { readStaleConflict } from "@/lib/concurrency/staleWriteClient";
 import { fetchJson } from "@/lib/fetchJson";
@@ -3552,6 +3553,8 @@ export function QuoteBuilderForm({
       title={t("app.quoteNew.confirmSendTitle")}
       detail={t("app.quoteNew.confirmSendDetail")}
       confirmLabel={t("app.quoteNew.confirmSendCta")}
+      // The quote page's question, here too — see BusinessQuestion.
+      extra={pendingSend ? <BusinessQuestion clientId={selectedClient?.id} /> : null}
     />
     </>
   );
