@@ -75,7 +75,9 @@ export default function WaiverSign({ waiver, company = {}, language = "en", embe
             acknowledgements: [...ticked].sort((a, b) => a - b),
             signature: { name: name.trim(), dataUrl, consent },
           },
-          "waiver",
+          // jsonBody prints this label to the client if serialising fails —
+          // the client's word, not the staff one (lib/i18n/clientDocCopy.js).
+          "acknowledgement",
         ),
       });
       const data = await res.json().catch(() => null);

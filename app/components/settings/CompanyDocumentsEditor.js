@@ -106,7 +106,8 @@ export default function CompanyDocumentsEditor({ compact = false, onChanged }) {
         {/* "Waiver" stays the staff word; the client reads "Project
             acknowledgement" (lib/i18n/clientDocCopy.js). The legal line is
             there because a soft title invites a soft body, and a release
-            that hides what it is is the one a court sets aside. */}
+            that hides what it is is harder to enforce. The company's own
+            title and text are never rewritten for them. */}
         {t("app.companyDocuments.hint", "These appear under “Important documents” on every quote, and a homeowner can open each one. Expiry dates are shown to you, never to the client. A waiver is text the client reads, ticks and signs. Clients see it as a “Project acknowledgement”. A softer title is fine, but the sections should still say plainly what the client is agreeing to — a release that hides what it is is harder to enforce.")}
       </p>
 

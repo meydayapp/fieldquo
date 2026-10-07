@@ -228,6 +228,27 @@ section("6. Nothing client-facing says FieldQuo");
     const text = JSON.stringify(Object.fromEntries(Object.entries(block).filter(([k]) => k.startsWith("waiver") || k === "proposal" || k === "portalDocumentsHeading")), (k, v) => (typeof v === "function" ? v("X", "Y") : v));
     ok(`${lang}: proposal + waiver copy never names FieldQuo`, !/fieldquo/i.test(text));
     ok(`${lang}: the 25 proposal strings and 18 waiver strings exist`, Object.keys(block.proposal || {}).length === 25 && Object.keys(block).filter((k) => k.startsWith("waiver") || k === "signWaiver").length === 18);
+    // Owner, 2026-10-05: a homeowner shown "Waiver" / "Release of liability"
+    // beside Approve reads it as a warning. Our chrome says "Project
+    // acknowledgement" in every language; only the company's own typed title
+    // and text may say otherwise. One pattern across all locales, because an
+    // English loanword ("waiver" in Tagalog) is as scary as the native one.
+    // Values only — the keys are our internal name and say "waiver" on purpose.
+    const chrome = Object.entries(block)
+      .filter(([k]) => k.startsWith("waiver") || k === "signWaiver")
+      .map(([, v]) => (typeof v === "function" ? v("X", "Y") : String(v)))
+      .join("\n");
+    const RELEASE_WORDS = /waiver|release|liabilit|décharge|responsabilit|exenci|відмов|відповідальн|ਛੋਟ|ਦੇਣਦਾਰੀ|pananagutan|pagpapawalang|haftung|verzicht|liberatori/i;
+    ok(`${lang}: the waiver chrome reads as an acknowledgement, never a release`, !RELEASE_WORDS.test(chrome), (chrome.match(RELEASE_WORDS) || [])[0]);
+  }
+  {
+    // The two English fallbacks a client can still meet: the approval
+    // refusal's error (the page prints its own localised line, this is for a
+    // stale page) and the emailed PDF's filename when a title is missing.
+    const route = read("app/api/public/quotes/[token]/route.js");
+    const svc = read("lib/waivers/service.js");
+    ok("approve refusal fallback says project acknowledgement, not waiver", /Please sign the project acknowledgement before approving this quote\./.test(route) && !/sign the attached waiver/i.test(route));
+    ok("signed-copy attachment fallback name is project-acknowledgement", /"project-acknowledgement"/.test(svc) && !/\|\| "waiver"/.test(svc));
   }
 }
 
