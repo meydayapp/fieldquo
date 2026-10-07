@@ -1,5 +1,7 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 7 October 2026 (drawing read: one room, one wall, one state of the building. A room or wall drawn on several sheets is counted once from its best drawing (the existing drawing when the set has one), a set drawn "as existing" and "proposed" is priced in ONE state chosen from the request with a one-tap "Include them" on the review panel — pinned there, interior quote only — and annexe rooms no longer take the nave's inside height. Computed on view — the church re-prices when opened (interior 22,754 → 10,005 sq ft; 14,523 with "Include them"; exterior 4,082), no re-read, no charge; its saved draft quote is NOT changed. No schema change. See "Drawing read — one room, one wall, one state" below.)
+
 Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
 Last updated: 6 October 2026 (drawing read: the measurement schema was refused before every call since 5a300fc9f, and "Read again" wrote those failures over the church's measured faces. Schema fixed; a failed or empty re-measure now keeps the earlier measurement, says so on the read card and is not charged; a price mostly on guessed quantities says so. No schema change. See "Drawing read — Read again threw measurements away" below.)
 
@@ -272,6 +274,102 @@ read as 425,050, and a country "canada" truncated into "CA".
   reuse the nullable source + `subcontractorId` here rather than a new model.
 
 ---
+## Drawing read — one room, one wall, one state (6–7 October 2026)
+
+Church run 5 (`cmuun5kc…`, after 196fa397c): interior **22,754 sq ft**
+against 11,392 on run 3. The set draws the same rooms on three plans — "Part
+church floor plan showing proposed extensions" (1:100), "Scheme C4 - Whole
+Church Plan" (1:200) and "Plan - as existing" (1:100) — and the takeoff
+measured all three (the nave at 1,338 / 3,036 / 2,208 sq ft of floor).
+
+- **What the stored read actually did** (recomputed from production's JSON,
+  read-only): the synthesis cited only the 1:200 **scheme** — so it priced
+  the PROPOSED building, extension rooms included, at the coarser scale —
+  and `takeoff.js insideFor` gave the annexe rooms (boiler, vestry, cafe,
+  kitchen…) the NAVE's 19 ft truss feet from the interior photos, over the
+  synthesis's own citation of the extension's 3.2 m wall plate: 11,119 sq ft
+  of annexe walls. The three plans were not literally summed in this read;
+  nothing stopped a read that cited them in separate lines from being.
+  (Verified 7 October: the pre-change code run on production's stored
+  JSON gives exactly 22,754 — nave 3,531, transepts/crossing/chancel 8,104,
+  new annexe 7,488, existing annexe 3,631, every face from page 3.)
+- **`lib/planRead/sameSurface.js` (new, pure):** faces that are the same
+  room or wall — same normalised name or "/" alternative, same side, room
+  perimeter within 2× / wall area within 2.5×, same level when both views
+  name one, same orientation for an elevation (a wall with none is never
+  merged), never a name drawn twice on one view — are ONE surface, kept from
+  the best drawing (printed sizes > larger scale > confidence > the drawing
+  as existing) and named on the line: "Nave: also drawn on … — the same
+  room, counted once, from “Plan - as existing” (page 11, 1:100)". Another
+  line citing the same room for the same measure says where it is counted;
+  a room's walls and its ceiling stay two surfaces; a left-out line claims
+  nothing. In a set drawn both ways, a room the existing drawings show is
+  kept FROM them even if the proposed plan prints its sizes — the proposed
+  plan draws the room after the works (the part plan's nave is 1,338 sq ft,
+  cut by the new lobbies; as it stands, 2,208) — and the line says so
+  ("the drawing as existing — the layout priced").
+- **Existing vs proposed:** when an "as existing" and a "proposed"/scheme
+  drawing share a room, ONE state is priced. FieldQuo's choice: the
+  existing layout, plus the proposed new rooms only when the request says
+  so ("extension", "new build", "proposed", "new rooms" — not after "no /
+  not / excluding"). The review panel says it as a check with a one-tap
+  answer: **"Priced the existing layout; the proposed extension rooms Cafe,
+  Kitchen, Meeting room, Store, Annexe WC and service rooms and Office are
+  not included — include them?" [Include them]** (PATCH op
+  `set_plan_state`, person only, who and when stored on `model.planState`;
+  then "…plus the proposed new rooms … — leave them out?" [Existing rooms
+  only]). "Taken into account" lists what was merged and the state; each
+  drawing on "Measured on the drawings" says which one is counted. The
+  state check is PINNED like the read's own questions (a fixed impact
+  figure would rank it under a big job's default-rate and access checks
+  and into the collapsed list), and a scoped draft carries only its own
+  side's summary — the exterior quote no longer gets the interior's check.
+  A room drawn only as proposed is left out only where an existing drawing
+  of the same level (or an elevation facing the same way) shows the
+  building as it stands. Sheet states, levels and the request are also
+  read in French and Spanish ("Plan existant", "projeté", "propuesta",
+  rez-de-chaussée, "y compris l'agrandissement", "sin la ampliación"), and
+  "except for / leave out / apart from" negate.
+- **Why the church defaults to the existing layout:** its request says
+  "the annexe rooms" — which may be the existing annexe (boiler, vestry,
+  the lobby/link) — and never "extension", "new rooms" or "proposed". The
+  synthesis itself put the Office under "Existing annexe"; it is drawn
+  only on the scheme, so FieldQuo leaves it out and names it in the check.
+- **Annexe heights:** an annexe surface takes an inside height only when it
+  is the annexe's own or names no main church space (nave, transept,
+  chancel, crossing…) — the converse of `eavesFor`'s rule.
+- **Re-pricing the church costs nothing:** quantities are computed on every
+  view (`computeRead` → `computeProject`, now with the read's request), so
+  the stored read shows the de-duplicated figures the next time it is
+  opened after deploy — no run, no re-read, no re-measure, no charge.
+  MEASURE_VERSION is NOT bumped: nothing the measurement pass returns
+  changed, and a bump would force a paid re-measure for no new information.
+  (The B. rule below — "bump on takeoff/photo-height logic" — means logic
+  that changes what the pass must RETURN; logic applied to stored answers
+  is recomputed on view and needs no bump.) There is NO re-synthesis-only
+  path: every run synthesises (a model call), an unchanged read is refused
+  ("nothing_to_read") and "Read again" re-reads every sheet, paid — none
+  is needed here. What is NOT re-priced: the church's saved draft quote
+  (`cmuv9pk0y…`, saved 5 October from an earlier run) keeps its lines —
+  draft a new quote from the read ("Create quote" → draft-quote, computed
+  fresh) for the corrected figures. The read's stored `similar` past jobs
+  were chosen at run time against the old 26,836 sq ft.
+- **The church, recomputed from production's stored faces:** interior
+  **10,005 sq ft** (existing layout: nave, crossing, transepts, chancel from
+  "Plan - as existing"; boiler and vestry at the extension's wall plate);
+  **14,523** with "Include them". Exterior **4,082** unchanged — the cited
+  elevation faces have no second drawing. Merged: Nave (3 drawings),
+  North Transept (3), Crossing, South Transept, Chancel / sanctuary,
+  Boiler and Vestry (2 each) — all kept from "Plan - as existing"; with
+  "Include them" also Cafe, Kitchen, Meeting room and Store (kept from the
+  1:100 part plan over the 1:200 scheme). Computed by running this code on
+  production's stored read (read-only), 7 October.
+- Check: `check:plan-read-first-pass` §22 on production's own three plans
+  (`scripts/fixtures/churchThreePlans.mjs`, re-compared with production key
+  by key: identical apart from the cuts its header lists); 42 mutations of
+  the new code across sameSurface, projectModel, review, slices, takeoff,
+  backfill, computeRead, view and the PATCH route — every one caught. No
+  schema change.
 
 ## Client credit-card fee — passing the card cost on to clients (5 October 2026)
 
