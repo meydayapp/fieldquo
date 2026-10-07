@@ -139,30 +139,37 @@ existing add-to-quote page (`lib/quotes/addToQuoteLink.js`, `/q/<token>/add`).
    the client; never blocks the send.
 5. **Upload a sub's quote (PDF or photo)** on the compare panel
    (`ImportedCostsPanel` + `SubQuoteUploads.js`). Simple read (sub, trade,
-   total, tax, valid-until) the receipt reader's way; a paid **deep read of
-   every line** offered with its credit price first. Both through
-   `lib/ai/provider.js`, metered to the company's **AI credit**
-   (`sub_quote_read`, `sub_quote_lines` in `lib/ai/featurePayer.js`). The GC
-   confirms every figure (Confirm stays off until they tick that they checked);
-   only confirmed values reach `SubQuoteUpload.costAmount` (`usableCost`).
-   Confirmed uploads sit in the **same trade groups** as FieldQuo subs, with
-   markup, remove and "Use this one" (one price per trade — an import and an
-   upload step each other back); or straight onto the quote as cost lines with
-   markup (QuoteImport's group builder, sub name scrubbed). Matched to a roster
-   Subcontractor by exact normalised name, or "Add <name> to my
-   subcontractors". Editor reconcile and job-cost booking cover uploads.
+   total, tax, valid-until) the receipt reader's way (`…/sub-uploads/read`);
+   a paid **deep read of every line** (`…/sub-uploads/lines`) offered with its
+   credit price on the button. Both through `lib/ai/provider.js`, metered to
+   the company's **AI credit** (`sub_quote_read`, `sub_quote_lines`). The reads
+   **store nothing** — the transcription goes to the confirm card only. The GC
+   confirms every figure (Confirm stays off until they tick that they checked)
+   and names the sub on their roster (matched by exact normalised name, or
+   added). Confirm creates the **same source-less `QuoteImport`** a
+   no-account reply to a price request becomes (merged from "Request prices
+   from subs", per the coordinator: no second model, no second compare):
+   `snapshotAmount` = the confirmed total, `subcontractorId`, and
+   `uploadedSource` (files, confirmed lines, tax, valid-until). The compare
+   tags it "Read from an uploaded quote — the figure you confirmed"; markup,
+   remove, "Use this one", the change order on an approved quote and job
+   costing are the import machinery unchanged. The sub's name is scrubbed from
+   the label and every line in the forms a sub's own quote uses
+   (`scrubSubName` — exact-name scrubbing let "Volt Brothers — …" through).
 
 ### Schema (additive — NOT applied; MUST be applied before this deploys)
 
 `Client.businessAskedAt` (the `include: { client: true }` reads select it) and
-the new `SubQuoteUpload` table. Exact SQL in the hand-off report.
+`QuoteImport.uploadedSource` (Json). On top of the price-requests SQL, which
+is already applied. Exact SQL in the hand-off report.
 
 ### Checks
 
-`check:gc-onramp` (new, in `check:all`): 182 assertions, 15/15 mutants caught.
-`check:sub-change-orders` gained the upload half (247, 17/17 mutants);
-`check:auth-pages` renders the Sign-in-with-next link (189);
-`check:welcome-flow` 264.
+`check:gc-onramp` (new, in `check:all`): 192 assertions; 17/17 mutants of
+the key rules fail it. `check:sub-change-orders` executes the upload end to
+end on the import fake — option, itemised line, swap with a FieldQuo import,
+job booking (255, 18/18 mutants). `check:auth-pages` renders the
+Sign-in-with-next link (189); `check:welcome-flow` 264.
 
 ### Owed / for the owner
 
@@ -172,10 +179,11 @@ the new `SubQuoteUpload` table. Exact SQL in the hand-off report.
   prefilled. Recommendation: print the business client's contact block on the
   page (business clients only, the PDF's own fields); the prefill follows
   automatically through `quotePageClientFacts`.
-- **An upload on an APPROVED quote** can be compared but not raised as a change
-  order (`ChangeOrder.quoteImportId` points at QuoteImport only).
+- **A read that is never confirmed is lost** (nothing unconfirmed is stored);
+  reading the same file again is charged again.
 - **The deep read** is a best-model line transcription billed like the plan
   read (price first, AI credit), not the drawing-set pipeline itself.
+
 ## Price requests to subs — a GC asks the subs they have, the answers land in the compare (6 October 2026)
 
 The owner, 2026-10-06: *"the GC sending a request for quote to the subs they

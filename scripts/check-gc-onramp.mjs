@@ -42,17 +42,17 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { looksLikeBusinessName, shouldAskIfBusiness, businessAnswerUpdate } from "@/lib/clients/businessQuestion";
 import {
   readConfirmation,
-  usableCost,
-  uploadClientPrice,
-  uploadView,
   clientFacingLabel,
+  scrubSubName,
   matchSubcontractor,
   normaliseSubQuoteReading,
   isoDateOrNull,
 } from "@/lib/quotes/subQuoteUpload";
 import { parseMoneyInput } from "@/lib/quotes/moneyInput";
-import { confirmUpload, materializeUploadedSubCosts, placeUploadLine } from "@/lib/quotes/subQuoteUploadWrite";
+import { createUploadedImport } from "@/lib/quotes/subQuoteUploadWrite";
 import { meteredRead, uploadFilesOrRefusal, UPLOAD_FAILED_SENTENCE } from "@/lib/quotes/subQuoteUploadServer";
+import { compareImportOptions } from "@/lib/quotes/importOptions";
+import { clientPrice } from "@/lib/quotes/importedStatus";
 import { PAYER_FEATURES } from "@/lib/ai/featurePayer";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -259,65 +259,94 @@ console.log("\n3. Homeowners never see a FieldQuo-branded line");
 
 /* ═══ 4. An AI-read amount is never used unconfirmed ════════════════════════ */
 console.log("\n4. Nothing read by the AI is used until the GC confirms it");
-const unconfirmed = {
-  id: "u1",
-  companyId: "gc",
-  quoteId: "q1",
-  status: "needs_review",
-  files: [{ url: OURS("raw/upload/q.pdf"), kind: "document", filename: "q.pdf" }],
-  reading: normaliseSubQuoteReading({ subName: "Sparky Electric", trade: "Electrical", printedTotal: "$9,999.00", unreadable: [] }),
-  // A cost column populated by something other than Confirm must still not count.
-  costAmount: 9999,
-  confirmedAt: null,
-  markupPercent: 20,
-  placement: "line",
-  targetLineId: "",
-  subName: "Sparky Electric",
-  trade: "Electrical",
-};
-{
-  ok("usableCost is null without a confirmation, even with a cost on the row", usableCost(unconfirmed) === null);
-  ok("...and so is the client price", uploadClientPrice(unconfirmed) === null);
-  const view = uploadView(unconfirmed);
-  ok("an unconfirmed upload's view carries no cost, price or compare key", !["costAmount", "clientPrice", "comparisonKey", "markupPercent"].some((k) => k in view), Object.keys(view));
-  ok("...only its reading, as printed strings", view.reading?.printedTotal === "$9,999.00");
-  ok("the reading keeps every figure a string", Object.entries(normaliseSubQuoteReading({ printedTotal: 1234, printedTax: 5 })).every(([k, v]) => !["printedTotal", "printedTax"].includes(k) || v === null));
-  ok("an impossible valid-until is dropped, not rolled over", isoDateOrNull("2026-02-31") === null && isoDateOrNull("2026-02-28") === "2026-02-28");
 
-  // Confirm reads the figures from the BODY the GC posted, never from the reading.
-  const r = readConfirmation({ subName: "Sparky Electric", trade: "Electrical" });
-  ok("Confirm without a total is refused, even though the reading has one", !r.ok && r.field === "total", r);
-
-  // Booking to the job: only the confirmed line.
-  const exp = [];
-  const fakeDb = {
-    subQuoteUpload: {
-      findMany: async ({ where }) =>
-        [
-          { id: "a", companyId: "gc", quoteId: "q1", placement: "line", expenseId: null, costAmount: 500, confirmedAt: new Date(), trade: "Drywall", subName: "Dry Co" },
-          { ...unconfirmed, id: "b", expenseId: null },
-        ].filter((u) => u.placement === where.placement && u.expenseId === where.expenseId),
-      update: async () => ({}),
+// A tiny in-memory database for createUploadedImport's option path: the
+// quote, the roster, the import row it writes.
+function uploadDb() {
+  const T = { quote: [{ id: "q1", companyId: "gc", status: "draft" }], subcontractor: [{ id: "s1", companyId: "gc", name: "Sparky Electric" }, { id: "s9", companyId: "other", name: "Not yours" }], quoteImport: [] };
+  const match = (row, where) => Object.entries(where || {}).every(([k, v]) => row[k] === v);
+  const db = {
+    T,
+    quote: { findFirst: async ({ where }) => T.quote.find((r) => match(r, where)) || null },
+    subcontractor: {
+      findFirst: async ({ where }) => T.subcontractor.find((r) => match(r, where)) || null,
+      create: async ({ data }) => {
+        const row = { id: `s${T.subcontractor.length + 1}`, ...data };
+        T.subcontractor.push(row);
+        return row;
+      },
     },
-    expense: { create: async ({ data }) => (exp.push(data), { id: `e${exp.length}` }) },
+    quoteImport: {
+      create: async ({ data }) => {
+        const row = { id: `i${T.quoteImport.length + 1}`, ...data };
+        T.quoteImport.push(row);
+        return row;
+      },
+    },
   };
-  const made = await materializeUploadedSubCosts(fakeDb, { quoteId: "q1", jobId: "j1", companyId: "gc" });
-  ok("job costing books the confirmed line and skips the unconfirmed one", made === 1 && exp.length === 1 && Number(exp[0].amount) === 500, exp);
+  db.$transaction = async (fn) => fn(db);
+  return db;
+}
+const GC = { companyId: "gc", userId: "u1" };
+const FILES = [{ url: OURS("raw/upload/q.pdf"), kind: "document", filename: "q.pdf" }];
+{
+  // The read routes answer the screen and write nothing.
+  for (const rel of ["app/api/quotes/[id]/sub-uploads/read/route.js", "app/api/quotes/[id]/sub-uploads/lines/route.js"]) {
+    const src = code(rel).replace(/\/\/.*$/gm, "");
+    ok(`${rel.split("/").slice(-2, -1)[0]}: the read route stores nothing (no database write, no db import)`, !/\.(create|update|upsert|delete)\w*\(/.test(src) && !/from "@\/lib\/db"/.test(src));
+  }
 
-  const err = await throwsAsync(() =>
-    placeUploadLine({
-      db: { subQuoteUpload: { findFirst: async () => ({ ...unconfirmed, placement: "option", quote: { id: "q1", status: "draft" } }) } },
-      member: { companyId: "gc" },
+  // Confirm reads the figures from what the GC CONFIRMED — a reading riding
+  // along in the body is not a figure.
+  const db = uploadDb();
+  const refused = await throwsAsync(() =>
+    createUploadedImport({
+      db,
+      member: GC,
       quoteId: "q1",
-      uploadId: "u1",
+      body: { subName: "Sparky", trade: "Electrical", subcontractorId: "s1", reading: { printedTotal: "$9,999.00" }, printedTotal: "$9,999.00" },
+      files: FILES,
       targetCompany: {},
     }),
   );
-  ok("'Use this one' on an unconfirmed upload is refused", err && err.status === 400, err?.message);
+  ok("Confirm without a confirmed total is refused, whatever reading rides along", refused?.status === 400 && refused?.field === "total", refused?.message);
+  ok("...and nothing was written", db.T.quoteImport.length === 0);
+
+  const made = await createUploadedImport({
+    db,
+    member: GC,
+    quoteId: "q1",
+    body: { subName: "Sparky Electric", trade: "Electrical", total: "1,250.00", subcontractorId: "s1", markupPercent: 10, reading: { printedTotal: "$9,999.00" } },
+    files: FILES,
+    readBy: "ai",
+    targetCompany: {},
+  });
+  const row = db.T.quoteImport[0];
+  ok("the price written is the CONFIRMED total, not the reading's", Number(row?.snapshotAmount) === 1250, row?.snapshotAmount);
+  ok("...at the markup the GC chose — the client price is derived from the two", Number(row?.markupPercent) === 10 && clientPrice(row.snapshotAmount, row.markupPercent) === 1375);
+  ok("...as a source-less import held to compare", row?.sourceQuoteId === null && row?.sourceCompanyId === null && row?.placement === "option" && made.placement === "option");
+  ok("...naming the GC's own roster row", row?.subcontractorId === "s1");
+  ok("...and its record keeps no reading, only confirmed values", !JSON.stringify(row?.uploadedSource || {}).includes("9,999") && row?.uploadedSource?.readBy === "ai");
+  const other = await throwsAsync(() =>
+    createUploadedImport({ db, member: GC, quoteId: "q1", body: { subName: "X", trade: "T", total: "5", subcontractorId: "s9" }, files: FILES, targetCompany: {} }),
+  );
+  ok("another company's roster row is refused", other?.status === 400 && /isn't on your list/.test(other.message));
+  const noSub = readConfirmation({ subName: "S", trade: "T", total: "5" });
+  ok("a price must name a sub on the roster (matched or added)", !noSub.ok && noSub.field === "sub");
+  const decided = uploadDb();
+  decided.T.quote[0].status = "declined";
+  const late = await throwsAsync(() => createUploadedImport({ db: decided, member: GC, quoteId: "q1", body: { subName: "S", trade: "T", total: "5", subcontractorId: "s1" }, files: FILES, targetCompany: {} }));
+  ok("a decided quote takes no new price", late?.status === 400);
+  const foreign = await throwsAsync(() => createUploadedImport({ db: uploadDb(), member: { companyId: "intruder", userId: "x" }, quoteId: "q1", body: { subName: "S", trade: "T", total: "5", createSubcontractor: true }, files: FILES, targetCompany: {} }));
+  ok("another company's quote is not found", foreign?.status === 404);
+
+  ok("the reading keeps every figure a string", Object.entries(normaliseSubQuoteReading({ printedTotal: 1234, printedTax: 5 })).every(([k, v]) => !["printedTotal", "printedTax"].includes(k) || v === null));
+  ok("an impossible valid-until is dropped, not rolled over", isoDateOrNull("2026-02-31") === null && isoDateOrNull("2026-02-28") === "2026-02-28");
 
   const ui = code("app/app/quotes/[id]/SubQuoteUploads.js");
   ok("the confirm form posts only once the GC ticks that they checked", /if \(busy \|\| !checked\) return;/.test(ui) && /disabled=\{!checked \|\| Boolean\(busy\)\}/.test(ui));
   ok("...and editing any figure un-ticks it", /setChecked\(false\);/.test(ui.slice(ui.indexOf("const set = (k, v)"), ui.indexOf("const set = (k, v)") + 200)));
+  ok("...and the form posts no price, only the figures and a markup percent", !/clientPrice|priceDollars/.test(ui.slice(ui.indexOf("async function confirm()"), ui.indexOf("async function confirm()") + 1400)));
 }
 
 /* ═══ 5. A hostile file is refused, nothing charged ═════════════════════════ */
@@ -414,11 +443,11 @@ console.log("\n5. A malformed or hostile file: a plain sentence, nothing charged
 /* ═══ 6. The markup is derived on the server ════════════════════════════════ */
 console.log("\n6. The client price is derived on the server");
 {
-  const c = readConfirmation({ subName: "Sparky", trade: "Electrical", total: "1,000.00", markupPercent: 20, clientPrice: 1, priceDollars: 1, subtotal: 1 });
+  const c = readConfirmation({ subName: "Sparky", trade: "Electrical", total: "1,000.00", markupPercent: 20, clientPrice: 1, priceDollars: 1, subtotal: 1, subcontractorId: "s1" });
   ok("readConfirmation keeps no price the browser sent", c.ok && !("clientPrice" in c.data) && !("priceDollars" in c.data) && !("subtotal" in c.data), c);
-  ok("cost 1,000 at 20% → 1,200, computed", uploadClientPrice({ confirmedAt: new Date(), costAmount: c.data.costAmount, markupPercent: c.data.markupPercent }) === 1200);
+  ok("cost 1,000 at 20% → 1,200, computed from the stored row", clientPrice(c.data.costAmount, c.data.markupPercent) === 1200);
   for (const [m, want] of [[-50, 0], ["abc", 0], [1e9, 1000], [Infinity, 0], [12.345, 12.35]]) {
-    const r = readConfirmation({ subName: "S", trade: "T", total: "100", markupPercent: m });
+    const r = readConfirmation({ subName: "S", trade: "T", total: "100", markupPercent: m, subcontractorId: "s1" });
     ok(`a markup of ${m} is stored as ${want}`, r.ok && r.data.markupPercent === want, r.data?.markupPercent);
   }
   for (const [input, want] of [
@@ -450,89 +479,58 @@ console.log("\n6. The client price is derived on the server");
     [{ subName: "S", trade: "T", total: "100", validUntil: "2026-13-01" }, "validUntil"],
     [{ subName: "S", trade: "T", total: "100", lines: [{ description: "", amount: "5" }] }, "lines"],
     [{ subName: "S", trade: "T", total: "100", lines: [{ description: "x", amount: "-5" }] }, "lines"],
+    [{ subName: "S", trade: "T", total: "100", subcontractorId: "../../x" }, "sub"],
   ]) {
-    const r = readConfirmation(body);
+    const r = readConfirmation({ subcontractorId: "s1", ...body });
     ok(`Confirm refuses a bad ${field}`, !r.ok && r.field === field, r);
   }
 
-  // confirmUpload against an in-memory database: the line the client sees.
-  const groups = [];
-  const quoteUpdates = [];
-  const uploadsTable = [{ ...unconfirmed, placement: "option", quote: { id: "q1", status: "draft", discount: 0, taxEnabled: false } }];
-  const tx = {
-    subQuoteUpload: {
-      findFirst: async () => uploadsTable[0],
-      findMany: async () => [],
-      update: async ({ data }) => Object.assign(uploadsTable[0], data),
-    },
-    quoteImport: { findMany: async () => [] },
-    subcontractor: { findFirst: async () => null, create: async ({ data }) => ({ id: "sub1", ...data }) },
-    serviceCategory: { upsert: async () => ({ id: "cat1" }) },
-    quoteScopeGroup: {
-      findMany: async () => groups.map((g) => ({ id: g.id, subtotal: g.subtotal })),
-      create: async ({ data }) => {
-        const g = { id: `g${groups.length + 1}`, ...data };
-        groups.push(g);
-        return g;
-      },
-      deleteMany: async () => ({}),
-    },
-    quote: { update: async ({ data }) => (quoteUpdates.push(data), data) },
-  };
-  tx.$transaction = async (fn) => fn(tx);
-  const result = await confirmUpload({
-    db: tx,
-    member: { companyId: "gc", userId: "u" },
-    quoteId: "q1",
-    uploadId: "u1",
-    body: {
-      confirm: true,
-      subName: "Sparky Electric",
-      trade: "Sparky Electric electrical",
-      total: "1000",
-      markupPercent: 25,
-      placement: "line",
-      display: "itemized",
-      lines: [
-        { description: "Sparky Electric — panel upgrade", amount: "600" },
-        { description: "Rough-in", amount: "400" },
-      ],
-      clientPrice: 1,
-      priceDollars: 1,
-    },
-    targetCompany: { taxRate: 13 },
-  });
-  const g = groups[0];
-  ok("the quote line is cost × (1 + markup), whatever the body said", g && Number(g.subtotal) === 1250, g?.subtotal);
-  ok("...the itemised lines add up to it to the penny", g && Math.round(g.lineItems.reduce((s, l) => s + l.amount, 0) * 100) === 125000, g?.lineItems);
-  ok("...and the quote total was recomputed from the groups", quoteUpdates.at(-1)?.subtotal === 1250 && quoteUpdates.at(-1)?.total === 1250, quoteUpdates.at(-1));
-  ok("the sub's name never reaches the client's label", g && !/sparky/i.test(g.label), g?.label);
-  ok("...or a client-facing line description", g && g.lineItems.every((l) => !/sparky/i.test(l.description)), g?.lineItems);
-  ok("clientFacingLabel falls back to a neutral label when the trade was only the name", clientFacingLabel({ trade: "Sparky Electric", subName: "Sparky Electric" }) === "Subcontracted work");
-  ok("confirming stamped confirmedAt and the confirmed cost", uploadsTable[0].confirmedAt instanceof Date && uploadsTable[0].costAmount === 1000 && result.targetTotal === 1250);
+  // White-label: the sub's name, in the forms a quote they wrote uses.
+  for (const [text, name] of [
+    ["Volt Brothers — pot lights", "Volt Brothers Electric Ltd."],
+    ["Sparky Electric Inc. panel upgrade", "Sparky Electric Inc."],
+    ["sparky electric: rough-in", "Sparky Electric"],
+  ]) {
+    const out = scrubSubName(text, name);
+    ok(`"${text}" loses the sub's name`, !/volt brothers|sparky electric/i.test(out) && out.length > 0, out);
+  }
+  ok("one word of the name alone is kept (it may be the work)", scrubSubName("Volt meter install", "Volt Brothers Electric") === "Volt meter install");
+  ok("a trade that was only the sub's name falls back to a neutral label", clientFacingLabel("Sparky Electric", "Sparky Electric") === "Subcontracted work");
 
   ok("roster match: legal form and case ignored", matchSubcontractor("SPARKY ELECTRIC LTD.", [{ id: "s1", name: "Sparky Electric" }])?.id === "s1");
   ok("...a near miss is NOT a match (no wrong insurance beside a price)", matchSubcontractor("Sparky", [{ id: "s1", name: "Sparky Electric" }]) === null);
   ok("...an empty name matches nothing", matchSubcontractor("", [{ id: "s1", name: "" }]) === null);
 
-  const routeConfirm = code("app/api/quotes/[id]/sub-uploads/[uploadId]/route.js");
-  ok("the confirm route hands the body to confirmUpload and computes no price itself", /confirmUpload\(\{ db, member, quoteId: id, uploadId, body, targetCompany \}\)/.test(routeConfirm) && !/clientPrice\s*[:=]/.test(routeConfirm));
+  const route = code("app/api/quotes/[id]/sub-uploads/route.js");
+  ok("the confirm route hands the body to createUploadedImport and computes no price itself", /createUploadedImport\(\{/.test(route) && !/clientPrice\s*[:=]/.test(route));
   const writer = code("lib/quotes/subQuoteUploadWrite.js");
-  ok("every writer prices from uploadClientPrice / usableCost only", !/body\.(total|clientPrice|price)/.test(writer));
+  ok("the writer stores the confirmed cost and markup, never a price from the body", /snapshotAmount: c\.costAmount,/.test(writer) && /markupPercent: c\.markupPercent,/.test(writer) && !/body\.(total|clientPrice|price)/.test(writer));
 }
 
-/* ═══ The compare and the parallel RFQ work ═════════════════════════════════ */
+/* ═══ The compare — one compare, the source-less import ═════════════════════ */
 console.log("\nThe compare screen");
 {
+  const [g] = compareImportOptions({
+    imports: [
+      { id: "fq", label: "Electrical", sourceQuoteId: "sq", sourceCompanyId: "sc", sourceCompany: { name: "Sparky" }, snapshotAmount: 100, markupPercent: 0 },
+      { id: "reply", label: "Electrical", sourceQuoteId: null, subcontractorId: "s2", snapshotAmount: 90, markupPercent: 0 },
+      { id: "upload", label: "Electrical", sourceQuoteId: null, subcontractorId: "s1", uploadedSource: { files: [] }, snapshotAmount: 80, markupPercent: 0 },
+    ],
+    subsById: { s1: { id: "s1", name: "Volt Brothers" }, s2: { id: "s2", name: "Dry Co" } },
+  });
+  const by = Object.fromEntries(g.options.map((o) => [o.id, o]));
+  ok("an upload sits in the SAME trade group as FieldQuo and emailed prices", g.options.length === 3);
+  ok("...tagged as read from an uploaded quote, not as an emailed reply", by.upload.viaUpload === true && by.upload.viaReply === false);
+  ok("...the emailed reply keeps its own tag", by.reply.viaReply === true && by.reply.viaUpload === false);
+  ok("...a FieldQuo quote carries neither", by.fq.viaReply === false && by.fq.viaUpload === false);
+  ok("...named from the GC's roster row", by.upload.sourceCompanyName === "Volt Brothers");
+
   const panel = code("app/app/quotes/[id]/ImportedCostsPanel.js");
-  ok("uploads join the SAME trade groups as FieldQuo subs", /for \(const r of \[\.\.\.rows, \.\.\.confirmedUploads\]\)/.test(panel));
-  ok("the upload button is reachable on a quote with no imports yet", /if \(rows\.length === 0 && uploads\.length === 0 && !uploadCtx\?\.canEdit\) return null;/.test(panel));
+  ok("the panel draws the upload tag", /\{r\.viaUpload && \(/.test(panel) && /app\.importedCosts\.viaUpload/.test(panel));
+  ok("the upload button is reachable on a quote with no imports yet", /if \(rows\.length === 0 && !uploadCtx\?\.canEdit\) return null;/.test(panel));
+  ok("there is ONE list of rows — no second compare", /for \(const r of rows\) \{/.test(panel) && !/UploadedOptionRow/.test(panel));
   const imp = code("lib/quotes/importQuote.js");
-  ok("'Use this one' on an import steps an uploaded line of the same trade back too", /await tx\.subQuoteUpload\.update\(\{ where: \{ id: other\.id \}, data: \{ placement: "option", targetLineId: NO_LINE \} \}\);/.test(imp) && /stepBackTradeLines\(tx, \{/.test(imp));
-  const quoteRoute = code("app/api/quotes/[id]/route.js");
-  ok("the quote editor's save reconciles uploads like imports", /await reconcileSubUploadsForQuote\(tx, id\);/.test(quoteRoute));
-  const job = code("lib/jobs/createJobFromQuote.js");
-  ok("a new job books uploaded lines to job costing", /materializeUploadedSubCosts\(prisma, \{ quoteId, jobId: job\.id, companyId: job\.companyId \}\)/.test(job));
+  ok("an itemised upload uses its confirmed lines when it goes on the quote", /source\?\.sourceQuote \|\| uploadAsSourceQuote\(imp\.uploadedSource\) \|\| null/.test(imp) && /uploadedSource: true,/.test(imp));
 }
 
 console.log(`\n${failed.length ? `FAILED — ${failed.length} of ${passed + failed.length}` : `PASSED — ${passed}/${passed} assertions`}`);

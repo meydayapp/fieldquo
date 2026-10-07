@@ -1,62 +1,52 @@
 // app/api/quotes/[id]/sub-uploads/route.js
 //
 // "Upload a sub's quote (PDF or photo)" on the GC's own quote — the compare
-// screen's other way in, for a subcontractor who is not on FieldQuo
+// panel's way in for a subcontractor who is not on FieldQuo
 // (lib/quotes/subQuoteUpload.js says what is read and why nothing read is
-// used unconfirmed).
+// stored unconfirmed).
 //
-//   GET   the quote's uploads, as the compare draws them, plus what each read
-//         costs in AI credits (shown before the button) and the GC's roster
-//         for "which of your subcontractors is this?".
-//   POST  { files } — save the upload, then the simple read. A file that is
-//         malformed, too big, not ours or not a PDF is refused with a plain
-//         sentence before anything is charged; the row stays so the GC can
-//         type the figures instead, or remove it.
+//   GET   may this reader upload, what each read costs in AI credits (shown
+//         on the buttons before they are pressed), the quote's status and the
+//         GC's roster for "which of your subcontractors is this?".
+//   POST  the GC's Confirm: { files, readBy, subName, trade, total, tax,
+//         validUntil, lines?, display, markupPercent, placement,
+//         subcontractorId | createSubcontractor } — creates the price as a
+//         source-less import "Read from an uploaded quote"
+//         (lib/quotes/subQuoteUploadWrite.js). The files are checked as ours
+//         again here; the client price is derived, never posted.
+//
+// The reads are …/read and …/lines; they answer the screen and store nothing.
 //
 // Next 16: params is a Promise.
 export const runtime = "nodejs";
-// A multi-page PDF read at high detail can take the better part of a minute.
-export const maxDuration = 90;
 
 import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { db } from "@/lib/db";
-import { readSubQuote } from "@/lib/quotes/subQuoteRead";
+import { ImportError } from "@/lib/quotes/importQuote";
+import { createUploadedImport } from "@/lib/quotes/subQuoteUploadWrite";
 import {
-  READ_FEATURE,
-  SUB_SELECT,
   UPLOAD_FAILED_SENTENCE,
   loadRoster,
-  meteredRead,
   ownQuote,
-  presentUpload,
   readEstimates,
   uploadFilesOrRefusal,
   uploadGate,
 } from "@/lib/quotes/subQuoteUploadServer";
+import { recordActivity } from "@/lib/activity/log";
 
 export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const { canEdit, mayCost, response: denied } = await uploadGate(member);
+  const { canEdit, response: denied } = await uploadGate(member);
   if (denied) return denied;
   const quote = await ownQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const [uploads, roster] = await Promise.all([
-    db.subQuoteUpload.findMany({
-      where: { quoteId: id, companyId: member.companyId },
-      orderBy: { createdAt: "asc" },
-      include: { subcontractor: { select: SUB_SELECT } },
-    }),
-    canEdit ? loadRoster(member.companyId) : [],
-  ]);
   return NextResponse.json({
-    uploads: uploads.map((u) => presentUpload(u, { roster, mayCost })),
-    roster: roster.filter((s) => s.active !== false).map((s) => ({ id: s.id, name: s.name })),
     canEdit,
     quoteStatus: quote.status,
+    roster: canEdit ? await loadRoster(member.companyId) : [],
     ...readEstimates(),
   });
 }
@@ -65,58 +55,49 @@ export async function POST(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const { mayCost, response: denied } = await uploadGate(member, { write: true });
+  const { response: denied } = await uploadGate(member, { write: true });
   if (denied) return denied;
-  const quote = await ownQuote(member, id);
-  if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await request.json().catch(() => null);
-  const files = uploadFilesOrRefusal(body?.files);
+  const body = (await request.json().catch(() => null)) || {};
+  const files = uploadFilesOrRefusal(body.files);
   if (!files.ok) {
     return NextResponse.json(
       { error: UPLOAD_FAILED_SENTENCE[files.code] || UPLOAD_FAILED_SENTENCE.failed, code: files.code },
       { status: 400 },
     );
   }
-
-  // Saved before it is read, the receipt book's order: the file is the GC's
-  // record of what the sub sent, whether or not the read works.
-  const created = await db.subQuoteUpload.create({
-    data: { companyId: member.companyId, quoteId: id, files: files.files, status: "reading", createdById: member.userId },
-  });
-
-  const read = await meteredRead({
-    feature: READ_FEATURE,
-    member,
-    upload: created,
-    read: readSubQuote,
-    ref: `${READ_FEATURE}:${created.id}`,
-  });
-
-  // A refusal before the vendor (a bad PDF, no credit, the demo) leaves a row
-  // the GC can still confirm by hand: needs_review with the reason. A read
-  // that reached the vendor and failed is "unreadable" — also confirmable by
-  // hand; the status says which happened.
-  const updated = await db.subQuoteUpload.update({
-    where: { id: created.id },
-    data: read.ok
-      ? { status: "needs_review", reading: read.data, readError: null }
-      : { status: read.charged ? "unreadable" : "needs_review", readError: read.code },
-    include: { subcontractor: { select: SUB_SELECT } },
-  });
-  const roster = await loadRoster(member.companyId);
-  const upload = presentUpload(updated, { roster, mayCost });
-  if (!read.ok) {
-    // The upload exists and is shown with the sentence; the response says
-    // what happened and whether anything was charged.
-    return NextResponse.json({
-      upload,
-      readFailed: {
-        code: read.code,
-        message: UPLOAD_FAILED_SENTENCE[read.code] || UPLOAD_FAILED_SENTENCE.failed,
-        charged: read.charged,
-      },
+  const targetCompany = await db.company.findUnique({ where: { id: member.companyId }, select: { taxRate: true } });
+  try {
+    const result = await createUploadedImport({
+      db,
+      member,
+      quoteId: id,
+      body,
+      files: files.files,
+      readBy: body.readBy === "ai" ? "ai" : "typed",
+      targetCompany,
     });
+    await recordActivity(member, {
+      action: "quote.sub_quote_uploaded",
+      entityType: "quote",
+      entityId: id,
+      summary: "Added an uploaded subcontractor quote to compare",
+      metadata: { importId: result.import.id, placement: result.placement },
+    }).catch(() => {});
+    return NextResponse.json({
+      ok: true,
+      importId: result.import.id,
+      placement: result.placement,
+      targetTotal: result.targetTotal,
+      swappedOut: result.swappedOut || [],
+    });
+  } catch (err) {
+    if (err instanceof ImportError) {
+      return NextResponse.json(
+        { error: err.message, ...(err.field ? { field: err.field, code: err.code } : {}) },
+        { status: err.status },
+      );
+    }
+    throw err;
   }
-  return NextResponse.json({ upload });
 }

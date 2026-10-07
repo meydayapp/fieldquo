@@ -21,7 +21,6 @@ import {
   reconcileScopeGroups,
   reconcileImportsForQuote,
 } from "@/lib/quotes/importQuote";
-import { reconcileSubUploadsForQuote } from "@/lib/quotes/subQuoteUploadWrite";
 import {
   onQuoteAccepted,
   onQuoteDeclined,
@@ -602,9 +601,6 @@ export async function PATCH(request, { params }) {
       if (scopeGroups) {
         await reconcileScopeGroups(tx, id, scopeGroups);
         await reconcileImportsForQuote(tx, id);
-        // An uploaded sub's quote whose line was deleted in the editor goes
-        // back to being an option (lib/quotes/subQuoteUploadWrite.js).
-        await reconcileSubUploadsForQuote(tx, id);
       }
       return tx.quote.findUnique({
         where: { id },
