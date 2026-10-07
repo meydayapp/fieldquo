@@ -47,6 +47,7 @@ import {
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
 import { visitorError } from "@/lib/signup/visitorErrors";
 import { pendingAddToQuotePath } from "@/lib/quotes/addToQuoteLink";
+import { pendingPriceRequestPath } from "@/lib/subRequests/model";
 
 /** The analytics beacon a screen sends when shown — lib/analytics/product/events.js SIGNUP_STEP_BAR. */
 export const WELCOME_BEACON = Object.freeze(Object.fromEntries(WELCOME_STEPS.map((s) => [s, `w_${s}`])));
@@ -64,6 +65,10 @@ function afterSetupUrl() {
   try {
     const pending = pendingAddToQuotePath(document.cookie);
     if (isInternalPath(pending)) return pending;
+    // …and one that began on a general contractor's price request lands back
+    // on the request, signed in, to price it (lib/subRequests/model.js).
+    const request = pendingPriceRequestPath(document.cookie);
+    if (isInternalPath(request)) return request;
   } catch {
     // Blocked cookies: the dashboard.
   }

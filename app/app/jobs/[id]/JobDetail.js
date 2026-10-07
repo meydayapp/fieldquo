@@ -43,6 +43,7 @@ import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
 import FiledEmails from "@/app/components/mailbox/FiledEmails";
 import ConversationTabs from "@/app/components/conversations/ConversationTabs";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
+import PriceRequestsPanel from "@/app/components/subRequests/PriceRequestsPanel";
 import JobCommissions from "@/app/components/commissions/JobCommissions";
 import DailyLog from "@/app/components/jobs/DailyLog";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
@@ -780,6 +781,12 @@ export default function JobDetail({ jobId }) {
           amounts, the status and the payments are written. Renders itself
           away for someone who can neither see a sub on the job nor add one. */}
       <JobSubcontractors jobId={job.id} onChanged={() => setCostingKey((k) => k + 1)} />
+
+      {/* "Request prices from subs" for this job — the answers land in the
+          side-by-side compare on the job's quote (the compare lives on a
+          quote). Absent for a job with no quote, and for a member who may
+          not use it (the panel hides itself on the route's refusal). */}
+      {job.quoteId && <PriceRequestsPanel jobId={job.id} />}
 
       {/* Who earns commission on this job, and what they have earned from the
           money collected so far. Under the costing and the subs because on

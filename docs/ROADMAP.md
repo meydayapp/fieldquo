@@ -176,6 +176,94 @@ the new `SubQuoteUpload` table. Exact SQL in the hand-off report.
   order (`ChangeOrder.quoteImportId` points at QuoteImport only).
 - **The deep read** is a best-model line transcription billed like the plan
   read (price first, AI credit), not the drawing-set pipeline itself.
+## Price requests to subs — a GC asks the subs they have, the answers land in the compare (6 October 2026)
+
+The owner, 2026-10-06: *"the GC sending a request for quote to the subs they
+have; the sub gets an email asking them to log into FieldQuo to ease the
+linkage between the two."* Built on the compare-by-trade screen, the
+change-order path and the add-to-quote signup resume from 2026-10-05 — no
+second compare, no second import writer. Everything is in `lib/subRequests/`
+(model.js decides, server.js writes, email.js and send.js send).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **"Request prices from subs"** — a "Prices from subs" card on the quote
+  page (draft, sent and approved quotes) and on the job page (jobs with a
+  quote; the answers go to that quote's compare). The dialog: the trade, the
+  subs from Subcontractors (several; one without an email can't be ticked),
+  the scope, which of the quote's / job's photos to include (checked against
+  what is on file — never a URL the browser invents), and a wanted-by date.
+  It says what is shared: the job address, the trade, the scope and the
+  ticked photos — never the client's name, phone or email (none of those is
+  even stored on a request).
+- **The email** comes from the GC's company (their domain, or the platform
+  sender wearing their name) on their stationery, in eight languages: trade,
+  AREA of the job (the street line stays behind the token), scope, photo
+  count, wanted-by, and three ways to answer — "Log in to FieldQuo to price
+  it", "Create your free account" (14 days, no card), "Reply with a price
+  without an account" — plus decline.
+- **The sub's page** `/price-request/<token>` (GC's colours, contrast
+  measured): the request; "Price it in FieldQuo" when signed in; log in /
+  create an account (both come back here — a way-back cookie survives a
+  signup that outlives its tab, like `/q/<token>/add`); the reply form
+  (price, note, optional PDF uploaded straight to Cloudinary into the GC's
+  `price-replies` folder); decline with a reason.
+- **Signup prefill** — `/signup` opens with the email the GC holds for the
+  sub ("log in instead" if it already has an account); the welcome questions
+  open with company name, contact name, phone and (exact match only) trade —
+  what the GC entered about THAT sub, in blanks only; they press Next.
+- **Linking, on the sub's own action** — "Price it in FieldQuo" (requests
+  create level, never a support session): in the SUB's company the GC
+  becomes ONE business client (`Client.linkedCompanyId`, unique per company)
+  and the request becomes a lead (source `gc_request`, the job address via
+  `buildLeadIntake`, the photos), identity-linked to that client so
+  converting quotes the GC with the job address as the site. The GC's roster
+  row gets `linkedCompanyId` when it was blank; a row or request linked to a
+  different company refuses. Idempotent: pressing twice, or a second request
+  from the same GC, makes no second client or lead.
+- **The answer comes back by itself** — when the sub SENDS that quote,
+  `onQuoteSent` lands it in the GC's compare as an **option** (markup 0, the
+  roster row named), through `performImport` — never a line, never a change
+  order. On an approved quote the GC uses "Offer as extra work" as before.
+- **No account** — the reply is the sub's own pending option: the form can
+  only write that recipient's reply, and not once it is declined, linked or
+  confirmed. The GC sees it on the card and presses **Add to compare**
+  (reads no body — the stored figure); it becomes an option beside the
+  others, marked "Emailed price". Below jobCosting the figure is withheld,
+  as the compare's cost is.
+- **Status per sub** — not sent (with Send again), sent, opened, quoting,
+  quoted, declined (with the reason) — derived from timestamps, never stored.
+- **One reminder** — Subcontractors page, "Remind a sub who hasn't answered a
+  price request": Off / 1–14 days, default 3. The daily follow-ups cron sends
+  one, never two, never after the wanted-by date.
+
+Also fixed on the way: a price with no source quote must not match "any
+unlinked sub" when adopted onto a job — `sourceLink.js` and the job-subs
+route now use the roster row the price names.
+
+### Schema (additive — NOT applied; MUST be applied before this deploys)
+
+New `SubPriceRequest`, `SubPriceRequestRecipient`; `Company.subRequestReminderDays`
+(default 3); `Client.linkedCompanyId` + unique (companyId, linkedCompanyId);
+`QuoteImport.subcontractorId`, and `QuoteImport.sourceQuoteId` /
+`sourceCompanyId` made nullable (a confirmed no-account reply has no source
+quote; production has 0 QuoteImport rows). Exact SQL is in the hand-off.
+
+### Checks
+
+`npm run check:sub-price-requests` (in check:all) — 190 assertions + 20
+mutants, all caught: tenants, homeowner leak, idempotent linking, option-not-
+line, reply-only-its-own, confirm once, reminder once, adoption finds its
+sub, email in every language. It found and fixed two real bugs: "4 250,50"
+read as 425,050, and a country "canada" truncated into "CA".
+
+### Owed / for the owner
+
+- The other agent's "upload a sub's PDF quote" reader needs the same thing a
+  no-account reply does (a price with no FieldQuo quote behind it): it should
+  reuse the nullable source + `subcontractorId` here rather than a new model.
+
+---
 
 ## Client credit-card fee — passing the card cost on to clients (5 October 2026)
 

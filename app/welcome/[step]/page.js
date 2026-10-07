@@ -22,7 +22,7 @@
 // /app sends the owner here with the same rule the other way round
 // (lib/signup/welcomeGate.js), and the two cannot loop: this page sends to
 // /app only when that gate would let them through.
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -33,6 +33,8 @@ import { categoryLabel } from "@/lib/i18n/translateContent";
 import { INDUSTRY_MESSAGES } from "@/app/i18n/industries";
 import WelcomeFlow from "@/app/welcome/WelcomeFlow";
 import { gcWelcomeContext } from "@/lib/signup/gcWelcome";
+import { PRICE_REQUEST_COOKIE, isRequestTokenShape, mergeWelcomePrefill } from "@/lib/subRequests/model";
+import { prefillForToken } from "@/lib/subRequests/server";
 
 export const dynamic = "force-dynamic";
 
@@ -89,10 +91,22 @@ export default async function WelcomeStepPage({ params }) {
   const language = user?.language || state.company.defaultLanguage || "en";
   const groups = step === "business" ? await translatedGroups(language) : null;
 
-  // Only into a field that is still EMPTY: an answer the owner already gave
-  // is never replaced by what the sub has on file.
-  const prefill = welcomePrefill(state, language);
-  if (gc.gc && !prefill.company.name && gc.prefill.companyName) prefill.company.name = gc.prefill.companyName;
+  // A sub signing up from a general contractor's price request opens with
+  // what the GC entered about THEM — company name, contact name, phone,
+  // trade — in the blanks only; they confirm each by pressing Next
+  // (lib/subRequests/model.js signupPrefill / mergeWelcomePrefill). The
+  // cookie is the token the request page left; nothing else is read from it.
+  let prefill = welcomePrefill(state, language);
+  const requestToken = (await cookies()).get(PRICE_REQUEST_COOKIE)?.value;
+  if (isRequestTokenShape(requestToken)) {
+    const fromRequest = await prefillForToken(db, requestToken).catch(() => null);
+    if (fromRequest) prefill = mergeWelcomePrefill(prefill, fromRequest, { groups });
+  }
+  // A general contractor from a sub's quote: the business name the quote
+  // page shows, only into a field still EMPTY (lib/signup/gcWelcome.js).
+  if (gc.gc && !prefill.company.name && gc.prefill.companyName) {
+    prefill = { ...prefill, company: { ...prefill.company, name: gc.prefill.companyName } };
+  }
 
   return (
     <WelcomeFlow
@@ -103,5 +117,5 @@ export default async function WelcomeStepPage({ params }) {
       steps={gc.steps}
       gcSender={gc.gc ? gc.senderName || "" : null}
     />
-  );;
+  );
 }
