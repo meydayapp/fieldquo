@@ -33,6 +33,9 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
+// A sub who is NOT on FieldQuo: their PDF or photo, read and confirmed, in the
+// same compare (owner 2026-10-06). Its own file — see SubQuoteUploads.js.
+import { SubQuoteUploadArea, UploadedOptionRow } from "./SubQuoteUploads";
 
 const STATUS = {
   pending: { key: "app.quoteImports.pending", Icon: Clock, cls: "text-amber-600 dark:text-amber-400" },
@@ -68,6 +71,10 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
   const [mk, setMk] = useState(0);
   const [savingMk, setSavingMk] = useState(false);
 
+  // Uploaded sub's quotes (PDF or photo): the list, and what the reads cost.
+  const [uploads, setUploads] = useState([]);
+  const [uploadCtx, setUploadCtx] = useState(null);
+
   const load = useCallback(async () => {
     try {
       const r = await fetch(`/api/quotes/${quoteId}/imports`);
@@ -77,13 +84,27 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
     } catch {
       setRows([]);
     }
+    try {
+      const r = await fetch(`/api/quotes/${quoteId}/sub-uploads`);
+      const d = r.ok ? await r.json() : null;
+      setUploads(d?.uploads || []);
+      setUploadCtx(d ? { ...d, uploads: undefined } : null);
+    } catch {
+      // No upload list is no upload button — never a broken quote page.
+      setUploads([]);
+      setUploadCtx(null);
+    }
   }, [quoteId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (!rows || rows.length === 0) return null;
+  // Drawn when there is something to compare, OR when this reader may upload
+  // a sub's quote — the button is how the first price gets here.
+  const confirmedUploads = uploads.filter((u) => u.confirmed);
+  if (!rows) return null;
+  if (rows.length === 0 && uploads.length === 0 && !uploadCtx?.canEdit) return null;
 
   const money = (n) => formatMoney(n, currency);
   const open = ["draft", "sent"].includes(ctx?.status);
@@ -92,7 +113,7 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
   // Grouped by trade (the server's comparison key), in the order they came.
   const groups = [];
   const byKey = new Map();
-  for (const r of rows) {
+  for (const r of [...rows, ...confirmedUploads]) {
     const key = r.comparisonKey || r.id;
     if (!byKey.has(key)) {
       const g = { key, label: r.label, rows: [] };
@@ -102,6 +123,13 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
     byKey.get(key).rows.push(r);
   }
   const competing = groups.some((g) => g.rows.length > 1);
+
+  // After an upload is confirmed, placed or removed, the imports may have
+  // moved too (one price per trade) — re-read both, and the quote's lines.
+  const uploadsChanged = async (data) => {
+    await load();
+    if (typeof onChanged === "function") await onChanged(data);
+  };
 
   async function remove(importId) {
     if (busy) return;
@@ -198,10 +226,23 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
         <h2 className="text-sm font-semibold text-foreground">{t("app.importedCosts.title")}</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        {competing || rows.some((r) => r.placement === "option")
-          ? t("app.importedCosts.compareHint")
-          : t("app.importedCosts.subtitle")}
+        {groups.length === 0
+          ? t("app.subUpload.emptyHint")
+          : competing || groups.some((g) => g.rows.some((r) => r.placement === "option"))
+            ? t("app.importedCosts.compareHint")
+            : t("app.importedCosts.subtitle")}
       </p>
+
+      <div className="mb-3">
+        <SubQuoteUploadArea
+          quoteId={quoteId}
+          currency={currency}
+          ctx={uploadCtx}
+          uploads={uploads}
+          onChanged={uploadsChanged}
+          onTotalChange={onTotalChange}
+        />
+      </div>
 
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
       {notice && <p className="text-sm text-emerald-700 dark:text-emerald-400 mb-2">{notice}</p>}
@@ -214,6 +255,23 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
             ) : null}
             <ul className={`grid gap-2 ${g.rows.length > 1 ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
               {g.rows.map((r) => {
+                if (r.kind === "upload") {
+                  return (
+                    <UploadedOptionRow
+                      key={r.id}
+                      r={r}
+                      group={g}
+                      quoteId={quoteId}
+                      currency={currency}
+                      ctx={ctx || { status: uploadCtx?.quoteStatus }}
+                      canEditQuote={Boolean(uploadCtx?.canEdit)}
+                      canChoose={Boolean(uploadCtx?.canEdit) && canChoose}
+                      Credentials={Credentials}
+                      onChanged={uploadsChanged}
+                      onTotalChange={onTotalChange}
+                    />
+                  );
+                }
                 const s = STATUS[r.status] || STATUS.pending;
                 const { Icon } = s;
                 const isEditing = editingId === r.id;

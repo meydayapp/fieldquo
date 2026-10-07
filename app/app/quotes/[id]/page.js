@@ -1533,7 +1533,9 @@ export default function QuoteDetailPage() {
       <ImportedByPanel quoteId={id} />
 
       {/* Importer side: subcontractor costs pulled INTO this quote, removable
-          while it's still open. Self-hides when there are none. */}
+          while it's still open, and "Upload a sub's quote (PDF or photo)"
+          for a sub who is not on FieldQuo. Self-hides when there are none
+          and the reader may not upload one. */}
       <ImportedCostsPanel
         quoteId={id}
         currency={quote.company?.currency}
