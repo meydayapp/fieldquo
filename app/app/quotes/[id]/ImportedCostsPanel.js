@@ -48,7 +48,7 @@ const CO_STATUS_KEY = {
   approved: "app.importedCosts.coApproved",
 };
 
-export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, onChanged }) {
+export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, onChanged, refreshKey = 0 }) {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   // Both routes behind the markup and remove buttons require
@@ -79,9 +79,11 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
     }
   }, [quoteId]);
 
+  // refreshKey: bumped by the page when a price arrives from elsewhere — a
+  // sub's emailed price added on the price-requests panel.
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   if (!rows || rows.length === 0) return null;
 
@@ -230,6 +232,11 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
                         <p className="text-sm font-medium text-foreground truncate">{r.sourceCompanyName || r.label || "—"}</p>
                         {r.sourceCompanyName && r.label && g.rows.length === 1 && groups.length === 1 && (
                           <p className="text-xs text-muted-foreground truncate">{r.label}</p>
+                        )}
+                        {/* A price the sub typed into a price request's reply
+                            form — no FieldQuo quote behind it. */}
+                        {r.viaReply && (
+                          <p className="text-[11px] text-muted-foreground">{t("app.importedCosts.viaReply")}</p>
                         )}
                         {/* Cost and markup only for a reader with jobCosting — the
                             server withholds them otherwise (costHidden) and the

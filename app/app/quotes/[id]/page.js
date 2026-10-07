@@ -144,6 +144,7 @@ import EmailSectionsPanel from "./EmailSectionsPanel";
 import PresentationPanel from "./PresentationPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import PriceRequestsPanel from "@/app/components/subRequests/PriceRequestsPanel";
 import QuoteChangeOrders from "./QuoteChangeOrders";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
@@ -210,6 +211,8 @@ export default function QuoteDetailPage() {
   // Bumped when the sub-price panel raises a change order, so the change
   // order list on an approved quote re-reads instead of going stale.
   const [changeOrdersVersion, setChangeOrdersVersion] = useState(0);
+  // Bumped when a price a sub emailed back is added to the compare.
+  const [compareVersion, setCompareVersion] = useState(0);
   // The company's billing currency, the reader's language. All eight money
   // renders below go through this — they used to go through a private
   // toFixed(2) helper that printed $2100.00 on the page a client opens.
@@ -1533,6 +1536,9 @@ export default function QuoteDetailPage() {
       <ImportedCostsPanel
         quoteId={id}
         currency={quote.company?.currency}
+        // A price a sub emailed back, confirmed on the panel below, joins
+        // the compare — re-read it then.
+        refreshKey={compareVersion}
         onTotalChange={(total) => setQuote((q) => ({ ...q, total }))}
         // "Use this one" moved the quote's lines (open quote) or raised a
         // change order (approved): re-read both so the page shows them.
@@ -1546,6 +1552,17 @@ export default function QuoteDetailPage() {
           setChangeOrdersVersion((v) => v + 1);
         }}
       />
+
+      {/* "Request prices from subs": ask the subs on the roster to price a
+          trade on this quote; each sub's status, and the prices emailed
+          back waiting for "Add to compare". Their answers land in the
+          compare above. Self-hides for a member who may not use it. */}
+      {!quote.historicalImportedAt && (
+        <PriceRequestsPanel
+          quoteId={id}
+          onCompareChanged={() => setCompareVersion((v) => v + 1)}
+        />
+      )}
 
       {/* The property this quote is for, from the street — the job address,
           else an individual client's own (the rule lib/quotes/jobAddress.js
