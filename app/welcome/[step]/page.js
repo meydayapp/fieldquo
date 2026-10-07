@@ -32,6 +32,7 @@ import { loadWelcomeState, welcomePrefill } from "@/lib/signup/welcomeState";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 import { INDUSTRY_MESSAGES } from "@/app/i18n/industries";
 import WelcomeFlow from "@/app/welcome/WelcomeFlow";
+import { gcWelcomeContext } from "@/lib/signup/gcWelcome";
 
 export const dynamic = "force-dynamic";
 
@@ -75,15 +76,32 @@ export default async function WelcomeStepPage({ params }) {
   if (!member?.companyId) redirect("/signup");
   if (member.impersonation || member.role !== "owner") redirect("/app");
 
-  const state = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId });
+  // A contractor who came to add a sub's price to their own quote walks the
+  // short list and finds their business name filled in — lib/signup/gcWelcome.js.
+  const gc = await gcWelcomeContext(h.get("cookie"));
+  const state = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId, steps: gc.steps });
   if (!state || !state.company.onboardingStep || !state.resume) redirect("/app");
 
-  const allowed = allowedWelcomeStep(step, state);
+  const allowed = allowedWelcomeStep(step, state, { steps: gc.steps });
   if (allowed !== step) redirect(welcomePath(allowed));
 
   const user = await db.user.findUnique({ where: { id: member.userId }, select: { language: true } }).catch(() => null);
   const language = user?.language || state.company.defaultLanguage || "en";
   const groups = step === "business" ? await translatedGroups(language) : null;
 
-  return <WelcomeFlow step={step} resume={state.resume} prefill={welcomePrefill(state, language)} groups={groups} />;
+  // Only into a field that is still EMPTY: an answer the owner already gave
+  // is never replaced by what the sub has on file.
+  const prefill = welcomePrefill(state, language);
+  if (gc.gc && !prefill.company.name && gc.prefill.companyName) prefill.company.name = gc.prefill.companyName;
+
+  return (
+    <WelcomeFlow
+      step={step}
+      resume={state.resume}
+      prefill={prefill}
+      groups={groups}
+      steps={gc.steps}
+      gcSender={gc.gc ? gc.senderName || "" : null}
+    />
+  );;
 }

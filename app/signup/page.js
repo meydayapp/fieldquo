@@ -51,6 +51,8 @@ import { CAPTURE_ENDPOINT } from "@/lib/signup/leadCapture";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
 import { isNetworkFailure, visitorError } from "@/lib/signup/visitorErrors";
+import { addPathToken } from "@/lib/quotes/gcSignup";
+import { addToQuoteCookie } from "@/lib/quotes/addToQuoteLink";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -321,7 +323,10 @@ export function validateAccountFields(form, t = englishOnly) {
  * scripts/check-auth-pages.mjs can execute it and prove each field is still
  * bound to its key of `form`.
  */
-export function AccountFields({ form, setForm, fieldErrors, existingLogin = null, t = englishOnly }) {
+// `loginNext`: an internal path the "Sign in" link carries, so a contractor
+// who began on a sub's quote (/q/<token>/add) and already has a login lands
+// back on it after signing in instead of on the dashboard.
+export function AccountFields({ form, setForm, fieldErrors, existingLogin = null, loginNext = "", t = englishOnly }) {
   return (
     <>
       <div>
@@ -346,7 +351,13 @@ export function AccountFields({ form, setForm, fieldErrors, existingLogin = null
           >
             <p className="break-words">{t("app.signup.error.loginExists")}</p>
             <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-              <Link href={`/login?email=${encodeURIComponent(existingLogin)}`} className="font-medium underline underline-offset-2">
+              <Link
+                href={`/login?email=${encodeURIComponent(existingLogin)}${
+                  isInternalPath(loginNext) ? `&next=${encodeURIComponent(loginNext)}` : ""
+                }`}
+                className="font-medium underline underline-offset-2"
+                data-signup-login-instead
+              >
                 {t("app.signup.error.loginExistsSignIn")}
               </Link>
               <Link href={`/forgot-password?email=${encodeURIComponent(existingLogin)}`} className="underline underline-offset-2">
@@ -548,6 +559,38 @@ export default function SignupPage() {
       // Private mode or a full quota: a worse experience, not a broken one.
     }
   }, [form.email, referralCode, salesCode, utm, signupLinkToken, nextPath]);
+
+  // ── A signup that began on a sub's quote (/q/<token>/add) ───────────────
+  //
+  // The add page leaves the hand-off cookie when its buttons are pressed; a
+  // contractor who reached /signup?next=/q/<token>/add some other way gets
+  // it here, so the welcome questions know to take the short way back
+  // (lib/signup/gcWelcome.js). The note names the sender — the one fact this
+  // reads, and one /q/<token> already shows. Nothing about the CLIENT (the
+  // reader) is fetched here: see lib/quotes/gcSignup.js for the rule.
+  const [gcSender, setGcSender] = useState(null);
+  useEffect(() => {
+    const token = addPathToken(nextPath);
+    if (!token) {
+      setGcSender(null);
+      return undefined;
+    }
+    try {
+      const c = addToQuoteCookie(token);
+      if (c) document.cookie = c;
+    } catch {
+      // Blocked cookies: ?next= still brings them back in this tab.
+    }
+    let cancelled = false;
+    setGcSender("");
+    fetch(`/api/quotes/received/${encodeURIComponent(token)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => !cancelled && setGcSender(d?.sourceCompanyName || ""))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [nextPath]);
 
   // "Opened" — the first thing a rep on the phone wants to see.
   useEffect(() => {
@@ -1224,7 +1267,23 @@ export default function SignupPage() {
 
         {entryChecked && !accountReady && !alreadyOnFieldquo && !finishCheckout && !resumeElsewhere && (
           <form onSubmit={handleAccountSubmit} className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5">
-            <AccountFields form={form} setForm={setForm} fieldErrors={fieldErrors} existingLogin={existingLogin} t={t} />
+            {gcSender !== null && (
+              // Signing up from a sub's quote: say what happens next, in the
+              // reader's words — the sender's name is what /q/<token> shows.
+              <p className="text-sm text-foreground" data-signup-gc-note>
+                {gcSender
+                  ? t("app.signup.gc.note", { company: gcSender })
+                  : t("app.signup.gc.noteNoName")}
+              </p>
+            )}
+            <AccountFields
+              form={form}
+              setForm={setForm}
+              fieldErrors={fieldErrors}
+              existingLogin={existingLogin}
+              loginNext={nextPath}
+              t={t}
+            />
             <p className="text-xs text-muted-foreground">
               {(() => {
                 const sentence = t("app.signup.terms", "By starting your trial you agree to the {terms} and the {privacy}.");

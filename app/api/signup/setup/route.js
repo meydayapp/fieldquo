@@ -38,6 +38,7 @@ import {
   withSetupLock,
 } from "@/lib/signup/setupStages";
 import { loadWelcomeState } from "@/lib/signup/welcomeState";
+import { gcWelcomeContext } from "@/lib/signup/gcWelcome";
 import { stampSignupWelcomeDoneByCompany } from "@/lib/sales/signupProgress";
 
 export async function POST(request) {
@@ -61,7 +62,15 @@ export async function POST(request) {
   // A company on the welcome questions may run only once every question is
   // answered — lib/signup/setupStages.js setupStagesAllowed says why.
   const welcomeResume = member?.company?.onboardingStep
-    ? (await loadWelcomeState(db, { companyId: member.companyId, userId: session.user.id }))?.resume
+    ? (
+        await loadWelcomeState(db, {
+          companyId: member.companyId,
+          userId: session.user.id,
+          // The short list for a contractor from a sub's quote, as the
+          // welcome page and the personalize route judged it.
+          steps: (await gcWelcomeContext(request.headers.get("cookie"))).steps,
+        })
+      )?.resume
     : undefined;
   const gate = setupStagesAllowed({ member, now: new Date(), welcomeResume });
   if (!gate.ok) {

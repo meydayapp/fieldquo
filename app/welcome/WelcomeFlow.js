@@ -122,9 +122,12 @@ export function errorText(t, code) {
 }
 
 /** The question counter above each screen: "Question 3 of 7". */
-function QuestionRail({ step }) {
+function QuestionRail({ step, steps = WELCOME_STEPS }) {
   const { t } = useTranslation();
-  const questions = WELCOME_STEPS.filter((s) => s !== "setup");
+  // The list in force — two questions for a contractor from a sub's quote
+  // (lib/signup/welcome.js GC_WELCOME_STEPS), so the counter never promises
+  // seven when two are asked.
+  const questions = steps.filter((s) => s !== "setup");
   const n = questions.indexOf(step) + 1;
   if (n <= 0) return null;
   const pct = Math.round((n / questions.length) * 100);
@@ -146,9 +149,9 @@ function QuestionRail({ step }) {
   );
 }
 
-function BackButton({ step, onBack }) {
+function BackButton({ step, steps, onBack }) {
   const { t } = useTranslation();
-  if (!previousWelcomeStep(step)) return null;
+  if (!previousWelcomeStep(step, { steps })) return null;
   return (
     <button type="button" onClick={onBack} className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground">
       ← {t("app.welcome.back", "Back")}
@@ -183,7 +186,7 @@ function MultiChips({ options, value, onChange, name }) {
 
 /* ── The setup screen ─────────────────────────────────────────────────────── */
 
-function SetupScreen({ prefill }) {
+function SetupScreen({ prefill, steps }) {
   const { t } = useTranslation();
   const router = useRouter();
   const [creating, setCreating] = useState(null);
@@ -258,7 +261,7 @@ function SetupScreen({ prefill }) {
       slowNavigation={creating.slowNavigation}
       appUrl={afterSetupUrl()}
       onRetry={run}
-      onBack={() => router.push(welcomePath("source"))}
+      onBack={() => router.push(welcomePath(previousWelcomeStep("setup", { steps }) || "source"))}
       onContinue={carryOn}
     />
   );
@@ -266,7 +269,10 @@ function SetupScreen({ prefill }) {
 
 /* ── The questions ────────────────────────────────────────────────────────── */
 
-export default function WelcomeFlow({ step, prefill, groups = null }) {
+// `steps`: the screens in force (the server chose them — app/welcome/[step]/
+// page.js). `gcSender`: the subcontractor whose quote this signup began from,
+// when it did ("" when the quote names none); null otherwise.
+export default function WelcomeFlow({ step, prefill, groups = null, steps = WELCOME_STEPS, gcSender = null }) {
   const { t, language } = useTranslation();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -365,7 +371,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
   }
 
   function back() {
-    const prev = previousWelcomeStep(step);
+    const prev = previousWelcomeStep(step, { steps });
     if (prev) router.push(welcomePath(prev));
   }
 
@@ -374,7 +380,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
       <>
         <MarketingHeader />
         <AuthShell eyebrow={t("app.welcome.setup.eyebrow", "Almost there")} title={t("app.welcome.setup.title", "Setting up your account")}>
-          <SetupScreen prefill={p} />
+          <SetupScreen prefill={p} steps={steps} />
         </AuthShell>
       </>
     );
@@ -563,7 +569,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         <button type="submit" disabled={saving} className={PRIMARY_BUTTON}>
           {submitLabel}
         </button>
-        <BackButton step={step} onBack={back} />
+        <BackButton step={step} steps={steps} onBack={back} />
       </form>
     );
   } else if (step === "size") {
@@ -610,7 +616,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         >
           {submitLabel}
         </button>
-        <BackButton step={step} onBack={back} />
+        <BackButton step={step} steps={steps} onBack={back} />
       </div>
     );
   } else if (step === "revenue") {
@@ -646,7 +652,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         >
           {submitLabel}
         </button>
-        <BackButton step={step} onBack={back} />
+        <BackButton step={step} steps={steps} onBack={back} />
       </div>
     );
   } else if (step === "priority") {
@@ -687,7 +693,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         >
           {submitLabel}
         </button>
-        <BackButton step={step} onBack={back} />
+        <BackButton step={step} steps={steps} onBack={back} />
       </div>
     );
   } else if (step === "focus") {
@@ -719,7 +725,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         >
           {submitLabel}
         </button>
-        <BackButton step={step} onBack={back} />
+        <BackButton step={step} steps={steps} onBack={back} />
       </div>
     );
   } else if (step === "source") {
@@ -756,7 +762,7 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         <button type="submit" disabled={saving} className={PRIMARY_BUTTON}>
           {saving ? t("app.welcome.saving", "Saving…") : t("app.welcome.source.submit", "Get started")}
         </button>
-        <BackButton step={step} onBack={back} />
+        <BackButton step={step} steps={steps} onBack={back} />
       </form>
     );
   }
@@ -768,7 +774,20 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         eyebrow={eyebrow}
         title={title}
         subtitle={subtitle}
-        rail={<QuestionRail step={step} />}
+        rail={
+          <>
+            {/* Why there are only two questions, and where they go after:
+                straight back to the sub's price (lib/signup/gcWelcome.js). */}
+            {gcSender !== null && (
+              <p className="mb-3 text-sm text-foreground" data-welcome-gc-note>
+                {gcSender
+                  ? t("app.welcome.gc.note", { company: gcSender })
+                  : t("app.welcome.gc.noteNoName")}
+              </p>
+            )}
+            <QuestionRail step={step} steps={steps} />
+          </>
+        }
         aside={<WelcomeAside step={step} />}
       >
         {error && (

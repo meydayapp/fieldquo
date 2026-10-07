@@ -451,7 +451,7 @@ for (const [step, expected] of [
 }
 {
   const flowSrc = code("app/welcome/WelcomeFlow.js");
-  ok("the rail is wired to the live step, not to a constant", /rail=\{<QuestionRail step=\{step\} \/>\}/.test(flowSrc));
+  ok("the rail is wired to the live step, not to a constant", /<QuestionRail step=\{step\} steps=\{steps\} \/>/.test(flowSrc));
   ok("...and the aside likewise", /aside=\{<WelcomeAside step=\{step\} \/>\}/.test(flowSrc));
 }
 ok(

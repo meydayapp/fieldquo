@@ -15163,6 +15163,11 @@ const en = {
   "app.quoteImport.newClientBusiness": "A business",
   "app.quoteImport.openQuote": "Open {quote}",
   "app.addToQuote.title": "Add this price to your own quote",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Create your free account to add {company}'s price to your own quote. Two quick questions after this, then straight back to it.",
+  "app.signup.gc.noteNoName": "Create your free account to add this price to your own quote. Two quick questions after this, then straight back to it.",
+  "app.welcome.gc.note": "Two quick questions, then straight back to {company}'s price.",
+  "app.welcome.gc.noteNoName": "Two quick questions, then straight back to the price you were adding.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "Is {name} a business (a contractor you work for)?",
   "app.businessQuestion.why": "If so, the quote email lets them add your price to their own quote. We'll only ask once.",
@@ -33939,6 +33944,11 @@ const fr = {
   "app.quoteImport.newClientBusiness": "Une entreprise",
   "app.quoteImport.openQuote": "Ouvrir {quote}",
   "app.addToQuote.title": "Ajouter ce prix à votre propre soumission",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Créez votre compte gratuit pour ajouter le prix de {company} à votre propre soumission. Deux questions rapides ensuite, puis retour direct au prix.",
+  "app.signup.gc.noteNoName": "Créez votre compte gratuit pour ajouter ce prix à votre propre soumission. Deux questions rapides ensuite, puis retour direct au prix.",
+  "app.welcome.gc.note": "Deux questions rapides, puis retour direct au prix de {company}.",
+  "app.welcome.gc.noteNoName": "Deux questions rapides, puis retour direct au prix que vous ajoutiez.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "{name} est-il une entreprise (un entrepreneur pour qui vous travaillez)?",
   "app.businessQuestion.why": "Si oui, le courriel de la soumission lui permet d'ajouter votre prix à sa propre soumission. Nous ne le demanderons qu'une fois.",
@@ -53065,6 +53075,11 @@ const es = {
   "app.quoteImport.newClientBusiness": "Una empresa",
   "app.quoteImport.openQuote": "Abrir {quote}",
   "app.addToQuote.title": "Agrega este precio a tu propia cotización",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Crea tu cuenta gratuita para añadir el precio de {company} a tu propia cotización. Dos preguntas rápidas después y vuelves directo a él.",
+  "app.signup.gc.noteNoName": "Crea tu cuenta gratuita para añadir este precio a tu propia cotización. Dos preguntas rápidas después y vuelves directo a él.",
+  "app.welcome.gc.note": "Dos preguntas rápidas y vuelves directo al precio de {company}.",
+  "app.welcome.gc.noteNoName": "Dos preguntas rápidas y vuelves directo al precio que estabas añadiendo.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "¿{name} es una empresa (un contratista para el que trabajas)?",
   "app.businessQuestion.why": "Si es así, el correo del presupuesto le permite añadir tu precio a su propio presupuesto. Solo lo preguntaremos una vez.",
@@ -71572,6 +71587,11 @@ const uk = {
   "app.quoteImport.newClientBusiness": "Компанія",
   "app.quoteImport.openQuote": "Відкрити {quote}",
   "app.addToQuote.title": "Додайте цю ціну до власного кошторису",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Створіть безкоштовний обліковий запис, щоб додати ціну {company} до власного кошторису. Далі два короткі запитання — і одразу назад до неї.",
+  "app.signup.gc.noteNoName": "Створіть безкоштовний обліковий запис, щоб додати цю ціну до власного кошторису. Далі два короткі запитання — і одразу назад до неї.",
+  "app.welcome.gc.note": "Два короткі запитання — і одразу назад до ціни {company}.",
+  "app.welcome.gc.noteNoName": "Два короткі запитання — і одразу назад до ціни, яку ви додавали.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "{name} — це компанія (підрядник, на якого ви працюєте)?",
   "app.businessQuestion.why": "Якщо так, лист із кошторисом дозволить їм додати вашу ціну до власного кошторису. Ми запитаємо лише раз.",
@@ -90108,6 +90128,11 @@ const pa = {
   "app.quoteImport.newClientBusiness": "ਇੱਕ ਕਾਰੋਬਾਰ",
   "app.quoteImport.openQuote": "{quote} ਖੋਲ੍ਹੋ",
   "app.addToQuote.title": "ਇਹ ਕੀਮਤ ਆਪਣੇ ਖੁਦ ਦੇ ਕੋਟ ਵਿੱਚ ਜੋੜੋ",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "{company} ਦੀ ਕੀਮਤ ਆਪਣੇ ਖੁਦ ਦੇ ਕੋਟ ਵਿੱਚ ਜੋੜਨ ਲਈ ਆਪਣਾ ਮੁਫ਼ਤ ਖਾਤਾ ਬਣਾਓ। ਇਸ ਤੋਂ ਬਾਅਦ ਦੋ ਛੋਟੇ ਸਵਾਲ, ਫਿਰ ਸਿੱਧਾ ਵਾਪਸ ਉਸੇ ਕੀਮਤ ਤੇ।",
+  "app.signup.gc.noteNoName": "ਇਹ ਕੀਮਤ ਆਪਣੇ ਖੁਦ ਦੇ ਕੋਟ ਵਿੱਚ ਜੋੜਨ ਲਈ ਆਪਣਾ ਮੁਫ਼ਤ ਖਾਤਾ ਬਣਾਓ। ਇਸ ਤੋਂ ਬਾਅਦ ਦੋ ਛੋਟੇ ਸਵਾਲ, ਫਿਰ ਸਿੱਧਾ ਵਾਪਸ ਉਸੇ ਕੀਮਤ ਤੇ।",
+  "app.welcome.gc.note": "ਦੋ ਛੋਟੇ ਸਵਾਲ, ਫਿਰ ਸਿੱਧਾ ਵਾਪਸ {company} ਦੀ ਕੀਮਤ ਤੇ।",
+  "app.welcome.gc.noteNoName": "ਦੋ ਛੋਟੇ ਸਵਾਲ, ਫਿਰ ਸਿੱਧਾ ਵਾਪਸ ਉਸ ਕੀਮਤ ਤੇ ਜੋ ਤੁਸੀਂ ਜੋੜ ਰਹੇ ਸੀ।",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "ਕੀ {name} ਇੱਕ ਕਾਰੋਬਾਰ ਹੈ (ਇੱਕ ਠੇਕੇਦਾਰ ਜਿਸ ਲਈ ਤੁਸੀਂ ਕੰਮ ਕਰਦੇ ਹੋ)?",
   "app.businessQuestion.why": "ਜੇ ਹਾਂ, ਤਾਂ ਕੋਟ ਵਾਲੀ ਈਮੇਲ ਉਹਨਾਂ ਨੂੰ ਤੁਹਾਡੀ ਕੀਮਤ ਆਪਣੇ ਕੋਟ ਵਿੱਚ ਜੋੜਨ ਦਿੰਦੀ ਹੈ। ਅਸੀਂ ਸਿਰਫ਼ ਇੱਕ ਵਾਰ ਪੁੱਛਾਂਗੇ।",
@@ -108654,6 +108679,11 @@ const tl = {
   "app.quoteImport.newClientBusiness": "Isang negosyo",
   "app.quoteImport.openQuote": "Buksan ang {quote}",
   "app.addToQuote.title": "Idagdag ang presyong ito sa sarili mong quote",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Gumawa ng libreng account para idagdag ang presyo ng {company} sa sarili mong quote. Dalawang mabilis na tanong pagkatapos nito, saka diretso pabalik dito.",
+  "app.signup.gc.noteNoName": "Gumawa ng libreng account para idagdag ang presyong ito sa sarili mong quote. Dalawang mabilis na tanong pagkatapos nito, saka diretso pabalik dito.",
+  "app.welcome.gc.note": "Dalawang mabilis na tanong, saka diretso pabalik sa presyo ng {company}.",
+  "app.welcome.gc.noteNoName": "Dalawang mabilis na tanong, saka diretso pabalik sa presyong idinadagdag mo.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "Negosyo ba ang {name} (isang contractor na pinagtatrabahuhan mo)?",
   "app.businessQuestion.why": "Kung oo, hinahayaan sila ng email ng quote na idagdag ang presyo mo sa sarili nilang quote. Isang beses lang namin itatanong.",
@@ -127202,6 +127232,11 @@ const de = {
   "app.quoteImport.newClientBusiness": "Ein Unternehmen",
   "app.quoteImport.openQuote": "{quote} öffnen",
   "app.addToQuote.title": "Diesen Preis in Ihr eigenes Angebot übernehmen",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Erstellen Sie Ihr kostenloses Konto, um den Preis von {company} in Ihr eigenes Angebot zu übernehmen. Danach zwei kurze Fragen, dann direkt zurück zum Preis.",
+  "app.signup.gc.noteNoName": "Erstellen Sie Ihr kostenloses Konto, um diesen Preis in Ihr eigenes Angebot zu übernehmen. Danach zwei kurze Fragen, dann direkt zurück zum Preis.",
+  "app.welcome.gc.note": "Zwei kurze Fragen, dann direkt zurück zum Preis von {company}.",
+  "app.welcome.gc.noteNoName": "Zwei kurze Fragen, dann direkt zurück zu dem Preis, den Sie übernehmen wollten.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "Ist {name} ein Unternehmen (ein Auftraggeber, für den Sie arbeiten)?",
   "app.businessQuestion.why": "Wenn ja, kann der Empfänger Ihren Preis über die Angebots-E-Mail in sein eigenes Angebot übernehmen. Wir fragen nur einmal.",
@@ -145626,6 +145661,11 @@ const zh = {
   "app.quoteImport.newClientBusiness": "企业",
   "app.quoteImport.openQuote": "打开 {quote}",
   "app.addToQuote.title": "将此价格加入您自己的报价",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "创建免费账户，把 {company} 的价格加入您自己的报价。之后回答两个简短问题，然后直接回到这个价格。",
+  "app.signup.gc.noteNoName": "创建免费账户，把这个价格加入您自己的报价。之后回答两个简短问题，然后直接回到这个价格。",
+  "app.welcome.gc.note": "两个简短问题，然后直接回到 {company} 的价格。",
+  "app.welcome.gc.noteNoName": "两个简短问题，然后直接回到您正在添加的价格。",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "{name} 是一家企业（您为其工作的承包商）吗？",
   "app.businessQuestion.why": "如果是，报价邮件会让对方把您的价格加入他们自己的报价。我们只会问一次。",
@@ -164352,6 +164392,11 @@ const it = {
   "app.quoteImport.newClientBusiness": "Un'azienda",
   "app.quoteImport.openQuote": "Apri {quote}",
   "app.addToQuote.title": "Aggiungi questo prezzo al tuo preventivo",
+  // ── Signing up from a sub's quote, the short way back (2026-10-06) — lib/signup/gcWelcome.js ──
+  "app.signup.gc.note": "Crea il tuo account gratuito per aggiungere il prezzo di {company} al tuo preventivo. Poi due domande veloci e torni subito lì.",
+  "app.signup.gc.noteNoName": "Crea il tuo account gratuito per aggiungere questo prezzo al tuo preventivo. Poi due domande veloci e torni subito lì.",
+  "app.welcome.gc.note": "Due domande veloci, poi torni subito al prezzo di {company}.",
+  "app.welcome.gc.noteNoName": "Due domande veloci, poi torni subito al prezzo che stavi aggiungendo.",
   // ── Is <name> a business? on the send dialog (2026-10-06) — lib/clients/businessQuestion.js ──
   "app.businessQuestion.title": "{name} è un'azienda (un appaltatore per cui lavori)?",
   "app.businessQuestion.why": "Se sì, l'email del preventivo gli permette di aggiungere il tuo prezzo al proprio preventivo. Lo chiediamo una sola volta.",

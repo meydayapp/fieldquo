@@ -232,13 +232,13 @@ ok("the gate only ever sends to /welcome — never /app, never /signup (no loop 
 {
   const page = code("app/welcome/[step]/page.js");
   ok("/welcome only renders for the owner of an unfinished flow — the same condition the gate redirects on", /if \(member\.impersonation \|\| member\.role !== "owner"\) redirect\("\/app"\);/.test(page) && /if \(!state \|\| !state\.company\.onboardingStep \|\| !state\.resume\) redirect\("\/app"\);/.test(page));
-  ok("...and redirects a skipped-ahead URL to the allowed step", /const allowed = allowedWelcomeStep\(step, state\);\s*if \(allowed !== step\) redirect\(welcomePath\(allowed\)\);/.test(page));
+  ok("...and redirects a skipped-ahead URL to the allowed step", /const allowed = allowedWelcomeStep\(step, state, \{ steps: gc\.steps \}\);\s*if \(allowed !== step\) redirect\(welcomePath\(allowed\)\);/.test(page));
   ok("the params are awaited (Next 16)", /const \{ step \} = await params;/.test(page));
   const api = code("app/api/signup/personalize/route.js");
   ok("the PATCH refuses a support session (the GET serves it the owner's answer) and a non-owner", /if \(write && member\.impersonation\)/.test(api) && /welcomeOwner\(request, \{ write: true \}\)/.test(api) && /if \(member\.role !== "owner"\)/.test(api));
   ok("...a company from before the flow and a finished one", /code: "not_on_flow"/.test(api) && /code: "already_personalized"/.test(api));
   ok("...a question after the one they are on", /code: "out_of_order"/.test(api));
-  ok("...and recomputes where they are from the answers after every write", /const resume = fresh\?\.resume \|\| resumeWelcomeStep\(fresh \|\| \{\}\);/.test(api) && /data: \{ onboardingStep: resume \}/.test(api));
+  ok("...and recomputes where they are from the answers after every write", /const resume = fresh\?\.resume \|\| resumeWelcomeStep\(fresh \|\| \{\}, \{ steps \}\);/.test(api) && /data: \{ onboardingStep: resume \}/.test(api));
   ok("a changed trade switches the old one OFF, never deletes it", /updateMany\(\{\s*where: \{ companyId: member\.companyId, categoryId: \{ not: category\.id \}, enabled: true \},\s*data: \{ enabled: false \},/.test(api) && !/companyServiceCategory\.delete/.test(api));
   ok("the provisional slug is re-derived once, from the name", /PROVISIONAL_SLUG\.test\(state\.company\.slug \|\| ""\)/.test(api));
 }
