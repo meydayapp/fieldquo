@@ -105,6 +105,75 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Request payment: next stage, full balance, or a different amount (7 October 2026)
+
+The owner, on TrueFinish INV-2026-0022 ($8,927, 30/30/40 schedule, client
+wants to pay $6,500): "request payment should say request full amount or
+maybe portion amount".
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Invoice page › Request payment** opens "What to ask for": *Next scheduled
+  payment* (the stage Send asks for, "Deposit (1 of 3) · $2,678.10" — the
+  default when the schedule has one left), *Full balance* (the old chase,
+  unchanged), *A different amount* (staff type it; the route parses it
+  strictly and refuses 0, negative, over the balance, NaN, "6,500.00").
+  Each stage is listed with what the money received covers of it.
+- `app/api/invoices/[id]/request-payment`: `mode` = balance (default, the old
+  behaviour byte for byte) | next_stage (stage link, stage marked requested)
+  | custom (an `InvoicePaymentRequest` row; the email links `?request=<id>`;
+  the row is payable only once the email is accepted; a newer request
+  supersedes older ones).
+- **Client's pay page**: on a stage or request link the client chooses
+  between the figure asked and the full balance — two server figures, radio
+  buttons, never a typed number. Pay, card-pay (credit-card fee) and bank
+  debit all price from the row (`lib/portal/payableInvoice.js`).
+- **Allocation** (`lib/invoices/paymentRequest.js`, the rule sendAsk.js
+  already kept): money received covers stages in sequence. $6,500 → Deposit
+  paid, Job start paid (pre-paid while still awaiting its date, never
+  requested), Job end $1,143.80 covered / **$2,427.00 still due** (= the
+  balance). A covered stage is never asked for again — the cron returns
+  `covered`, its old link falls back to the balance; a part-covered stage
+  asks only for its remainder. The job page's schedule card reads "Paid" /
+  "$X paid · $Y still due".
+- Invoice email plain-text half now prints the requested figure (it printed
+  the whole balance under a stage's HTML amount).
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+```sql
+CREATE TABLE "InvoicePaymentRequest" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "invoiceId" TEXT NOT NULL,
+    "amountCents" INTEGER NOT NULL,
+    "paidCentsAtRequest" INTEGER NOT NULL DEFAULT 0,
+    "note" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'open',
+    "sentToEmail" TEXT,
+    "requestedById" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "InvoicePaymentRequest_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "InvoicePaymentRequest_companyId_invoiceId_idx" ON "InvoicePaymentRequest"("companyId", "invoiceId");
+```
+
+Without it: the portal still renders (its read is caught), but "A different
+amount" fails on the press.
+
+### Checks
+
+`check:payment-request` (in check:all) — hostile amounts, the $6,500 case,
+2,000 random schedules agreeing with Send's stage, the resolver against a
+scripted DB (other tenant's invoice/stage/request, spent/superseded/unsent
+requests, tampered body), wiring, strings in 9 app + 8 client languages.
+Mutation-tested. Adjusted fixtures: check-client-po (invoice total),
+check-bank-debit-cap, dbStub (new model), check-invoice-chase and
+check-sent-email-history (new metadata / kind shape).
+
+---
+
 ## Client credit-card fee — passing the card cost on to clients (5 October 2026)
 
 The owner (Ontario contractor) asked for a setting that passes the card
