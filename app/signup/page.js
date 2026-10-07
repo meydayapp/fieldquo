@@ -48,6 +48,7 @@ import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { CAPTURE_ENDPOINT } from "@/lib/signup/leadCapture";
+import { isRequestTokenShape } from "@/lib/subRequests/model";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
 import { isNetworkFailure, visitorError } from "@/lib/signup/visitorErrors";
@@ -453,6 +454,23 @@ export default function SignupPage() {
           if (found?.prefill?.accountExists && found.prefill.email) {
             setExistingLogin(String(found.prefill.email).trim().toLowerCase());
           }
+        }
+
+        // ── A sub signing up from a general contractor's price request ─────
+        //
+        // The email the GC holds for them, and whether it already has a
+        // login (then "log in instead", never a second account). Only this —
+        // the rest of what the GC entered about them waits on the welcome
+        // questions (lib/subRequests/model.js signupPrefill).
+        const rfq = new URLSearchParams(window.location.search).get("rfq");
+        if (rfq && isRequestTokenShape(rfq)) {
+          const found = await fetch(`/api/public/price-request/${encodeURIComponent(rfq)}/prefill`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+          if (cancelled) return;
+          const email = found?.prefill?.email;
+          if (email) setForm((f) => (f.email ? f : { ...f, email }));
+          if (email && found.prefill.accountExists) setExistingLogin(String(email).trim().toLowerCase());
         }
 
         // ── A company created and never paid for (before 2026-09-24) ──────
