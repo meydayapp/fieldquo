@@ -18,6 +18,7 @@ import { serviceName, isMeasure } from "@/lib/schedule/clientNotice";
 import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { pickAbout, prefillLocation, aboutLabel } from "@/lib/schedule/appointmentAbout";
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
+import { resolveFamily, familyFill } from "@/lib/schedule/appointmentFamily";
 import { geocodeAppointment, appointmentAddress } from "@/lib/geo/geocodeAppointment";
 import { loadScheduleFeed } from "@/lib/schedule/feed";
 import { attachCalendarTexts } from "@/lib/sms/deliveryStore";
@@ -276,6 +277,14 @@ export async function POST(request) {
       createdById: member.userId,
       assignedToId: assignedToId || null,
       ...(about && { [`${about.kind}Id`]: about.id }),
+      // What it is about, and the rest of that record's family — the job's
+      // quote and invoice, the invoice's job and quote — so the appointment
+      // shows on all three (lib/schedule/appointmentFamily.js). Company-
+      // scoped; a link the family can't name exactly once stays empty.
+      ...(about && {
+        aboutKind: about.kind,
+        ...familyFill({ [`${about.kind}Id`]: about.id }, await resolveFamily(db, member.companyId, about), about.kind),
+      }),
     },
     include: {
       client: true,

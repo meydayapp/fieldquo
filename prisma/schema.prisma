@@ -5632,6 +5632,18 @@ model Appointment {
   job                Job?              @relation(fields: [jobId], references: [id])
   invoiceId          String?
   invoice            Invoice?          @relation(fields: [invoiceId], references: [id])
+  /// Since 2026-10-07 the server fills the OTHER two of quoteId / jobId /
+  /// invoiceId from the picked record's own links, so one appointment shows
+  /// on the quote, the job and the invoice alike — NULLs only, never
+  /// overwriting a set link (lib/schedule/appointmentFamily.js). This column
+  /// records which of the three it was booked ABOUT ("quote" | "job" |
+  /// "invoice"): aboutLabel() names THAT record on the calendar and in the
+  /// client's letters, and isQuoteMeasure() keeps an appointment booked
+  /// about a job — which gains its quote's id through the fill — from being
+  /// listed or logged as the estimator's measure. Null on rows from before
+  /// the fill, which carry at most one link; the old reading (invoice, else
+  /// job, else quote) is exact for them.
+  aboutKind          String?
   scheduledAt        DateTime
   location           String?
   requiresSupervisor Boolean           @default(false)

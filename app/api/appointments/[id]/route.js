@@ -26,6 +26,7 @@ import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
 import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
+import { resolveFamily, familyFill, aboutKindOf, isQuoteMeasure } from "@/lib/schedule/appointmentFamily";
 import { geocodeAppointment, locationChanged } from "@/lib/geo/geocodeAppointment";
 import { scheduleSync } from "@/lib/calendar/googleSync";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
@@ -307,7 +308,29 @@ export async function PATCH(request, { params }) {
       quoteId: picked.about?.kind === "quote" ? picked.about.id : null,
       jobId: picked.about?.kind === "job" ? picked.about.id : null,
       invoiceId: picked.about?.kind === "invoice" ? picked.about.id : null,
+      aboutKind: picked.about?.kind || null,
     };
+    // The rest of the NEW record's family (its job's quote, its invoice…),
+    // into the links the relink just cleared — lib/schedule/appointmentFamily.js.
+    if (picked.about) {
+      Object.assign(
+        aboutChange,
+        familyFill(aboutChange, await resolveFamily(db, member.companyId, picked.about), picked.about.kind),
+      );
+    }
+  } else {
+    // Any other edit of an appointment that is about something: fill the
+    // family links it is missing — NULLs only, never one that is set. This
+    // is how a row booked before the fill heals the first time it is moved.
+    const kind = aboutKindOf(existing);
+    if (kind) {
+      const fill = familyFill(
+        existing,
+        await resolveFamily(db, member.companyId, { kind, id: existing[`${kind}Id`] }),
+        kind,
+      );
+      if (Object.keys(fill).length) aboutChange = fill;
+    }
   }
 
   // ── Moving it: the booking page's own arithmetic, with an override ───────
@@ -552,7 +575,10 @@ export async function PATCH(request, { params }) {
   // already become one; a job created later gets the row carried at
   // conversion instead (lib/jobs/createJobFromQuote.js). The row is what was
   // just saved, so the cancel reason on it is the one the office typed.
-  const verb = existing.quote ? siteVisitVerbForStatus(existing.status, updated.status) : null;
+  // A MEASURE's — not any row that carries a quoteId: since the family fill
+  // an appointment booked about the job carries its quote's id too, and its
+  // being held is not the estimator's visit (lib/schedule/appointmentFamily.js).
+  const verb = existing.quote && isQuoteMeasure(existing) ? siteVisitVerbForStatus(existing.status, updated.status) : null;
   if (verb) {
     await recordSiteVisit(member, verb, {
       appointment: updated,

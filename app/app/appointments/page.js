@@ -40,6 +40,7 @@ import { hasLevel } from "@/lib/permissions/enforce";
 import { mayActOnEntry } from "@/lib/schedule/entryCard";
 import {
   aboutLabel,
+  familyLabels,
   aboutHref,
   clientMismatch,
   prefillLocation,
@@ -1473,6 +1474,24 @@ function AppointmentDetails({ appt, panelId, canOpenClient, t, language = "en" }
             {t("app.appts.openAbout", { label: aboutText(aboutLabel(appt), t) })}
           </Link>
         )}
+        {/* And the rest of its family — the job, the quote and the invoice
+            the fill linked (lib/schedule/appointmentFamily.js) — one link
+            each, the one already above left out. */}
+        {familyLabels(appt)
+          .filter((l) => {
+            const main = aboutLabel(appt);
+            return !(main && main.kind === l.kind && main.id === l.id) && aboutHref(l);
+          })
+          .map((l) => (
+            <Link
+              key={`${l.kind}-${l.id}`}
+              href={aboutHref(l)}
+              className="inline-block text-sm font-medium underline underline-offset-2"
+              data-family-link={l.kind}
+            >
+              {t("app.appts.openAbout", { label: aboutText(l, t) })}
+            </Link>
+          ))}
       </div>
     </div>
   );

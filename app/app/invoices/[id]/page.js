@@ -1566,12 +1566,16 @@ export default function InvoiceDetailPage() {
           Same rows the quote page draws for its measures; read-only here,
           edited on the calendar. Only when there is one: a heading over
           nothing would claim a call that never happened. */}
-      {invoice.appointments?.length > 0 && (
-        <section className="bg-card border border-border rounded-xl p-5 mb-6">
+      {/* Since 2026-10-07 the whole family's: booked about this invoice,
+          the job it bills or the quote it came from
+          (lib/schedule/appointmentFamily.js), each row linking to the
+          others. */}
+      {(invoice.familyAppointments || invoice.appointments)?.length > 0 && (
+        <section className="bg-card border border-border rounded-xl p-5 mb-6" data-family-appointments>
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            {t("app.appts.aboutThisRecord", "Appointments about this")}
+            {t("app.appts.familyHeading")}
           </div>
-          <SiteVisitRows visits={invoice.appointments} />
+          <SiteVisitRows visits={invoice.familyAppointments || invoice.appointments} here={{ kind: "invoice", id: invoice.id }} />
         </section>
       )}
 

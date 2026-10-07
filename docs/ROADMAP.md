@@ -174,6 +174,44 @@ check-sent-email-history (new metadata / kind shape).
 
 ---
 
+## One job, one family: appointments on the quote, the job and the invoice (7 October 2026)
+
+Maureen Faulkner's Oct 10 appointment was booked from the invoice
+(invoiceId only), so neither the job nor the quote listed it.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- `lib/schedule/appointmentFamily.js`: creating an appointment against a
+  quote, job or invoice (POST /api/appointments), relinking it, or any other
+  edit (PATCH) fills the other links from that record's own links, same
+  company only, NULLs only; a link the family can't name exactly once (two
+  jobs on a quote, two invoice families on a job) stays empty. clientId is
+  never touched. `Appointment.aboutKind` records what it was booked about, so
+  the calendar card, the client's letters and the site-visit (measure)
+  activity are unchanged by the extra links.
+- The job page, the quote page and the invoice page list the whole family's
+  appointments ("Appointments for this job — quote, job and invoice"), found
+  by query so un-filled rows show too; each row links to the other records.
+  The quote's on-site-visit panel keeps measures only.
+- The calendar's appointment detail links the job, the quote and the invoice.
+- `scripts/backfill-appointment-family.mjs` — dry run read-only by default;
+  `--apply` (COALESCE, NULLs only) needs the column below. Dry run against
+  production 2026-10-07: 4 linked appointments, 2 to fill — Maureen's
+  (quoteId + jobId) and one quote measure in company cmua1a5mq… (jobId + invoiceId, aboutKind quote).
+
+### Schema (additive — NOT applied; apply BEFORE this deploys — every appointment query selects it)
+
+```sql
+ALTER TABLE "Appointment" ADD COLUMN "aboutKind" TEXT;
+```
+
+### Checks
+
+`check:appointment-family` (in check:all), mutation-tested;
+check-appointment-about updated for the family lists.
+
+---
+
 ## Client credit-card fee — passing the card cost on to clients (5 October 2026)
 
 The owner (Ontario contractor) asked for a setting that passes the card

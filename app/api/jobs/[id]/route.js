@@ -40,6 +40,8 @@ import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 import { familyPayments } from "@/lib/invoices/family";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { stageCoverage } from "@/lib/invoices/paymentRequest";
+import { loadFamilyAppointments, QUOTE_MEASURE_WHERE } from "@/lib/schedule/appointmentFamily";
+import { hasLevel as hasLevelFor, canSeeInvoices as canSeeInvoicesFor } from "@/lib/permissions/enforce";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -74,7 +76,11 @@ export async function GET(request, { params }) {
           // existed (lib/quotes/siteVisit.js). The job page lists them above
           // the crew's visits so "somebody has already been to the house" is
           // on the screen the crew reads, not only in the activity log.
+          // Measures only — an appointment booked about this JOB carries
+          // the quote's id too since the family fill, and is listed with the
+          // family's appointments below, not as the estimator's visit.
           appointments: {
+            where: QUOTE_MEASURE_WHERE,
             orderBy: { scheduledAt: "asc" },
             select: {
               id: true,
@@ -242,6 +248,18 @@ export async function GET(request, { params }) {
   // a chat read that fails leaves the button off, never the job page.
   const chatRoomId = await jobRoomIdFor(member, job.id).catch(() => null);
 
+  // Every appointment of this job's family — booked about the job, the quote
+  // it was won on or the invoice it is billed on — each linking to the
+  // others (lib/schedule/appointmentFamily.js). Maureen Faulkner's Oct 10
+  // visit was booked from the invoice and never showed here. The quote and
+  // invoice labels follow the reader's grid, like the job's own redaction.
+  const familyAppointments = await loadFamilyAppointments(
+    db,
+    member.companyId,
+    { jobIds: [job.id], quoteIds: job.quoteId ? [job.quoteId] : [] },
+    { quotes: hasLevelFor(full, "quotes", "view_only"), invoices: canSeeInvoicesFor(full) },
+  );
+
   // ── The job is a crew member's door onto the client record ──────────────
   //
   // Jobs are `view_only` for both Worker presets and the job page is where a
@@ -267,6 +285,7 @@ export async function GET(request, { params }) {
       changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders, full)),
       quotedCrew,
       chatRoomId,
+      familyAppointments,
     }),
   );
 }

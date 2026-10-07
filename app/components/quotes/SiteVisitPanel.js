@@ -41,6 +41,19 @@ import {
   appointmentStatusLabel,
 } from "@/lib/appointments/statusLabels";
 import EntryActions from "@/app/components/schedule/EntryActions";
+import { familyLabels, aboutHref } from "@/lib/schedule/appointmentAbout";
+
+/** The row's family records other than the page it is listed on. */
+function familyLinks(v, here) {
+  return familyLabels(v).filter((l) => !(l.kind === here?.kind && l.id === here?.id) && aboutHref(l));
+}
+
+/** "Quote Q-2026-0022", "Job: Kitchen", "Invoice INV-2026-0022" — the calendar's words. */
+function familyLabelText(label, t) {
+  if (label.kind === "job") return t("app.appts.aboutJob", { title: label.title || "" });
+  if (label.kind === "invoice") return t("app.appts.aboutInvoice", { ref: label.ref || "" });
+  return t("app.appts.aboutQuote", { ref: label.ref || "" });
+}
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -61,8 +74,13 @@ function languageName(code) {
  * @param {object[]} visits   Appointment rows { id, scheduledAt, status, assignedTo, cancelReason }
  * @param {object}  [client]  the (redacted) client, for EntryActions' letters
  * @param {function} [onChanged] when given, each row gets the office actions
+ * @param {object}  [here]    { kind, id } of the page this list is on. When
+ *                            given, each row links the OTHER records of its
+ *                            family — the quote, the job, the invoice
+ *                            (lib/schedule/appointmentFamily.js) — so the
+ *                            three pages lead to one another.
  */
-export function SiteVisitRows({ visits, client = null, onChanged = null }) {
+export function SiteVisitRows({ visits, client = null, onChanged = null, here = null }) {
   const { t } = useTranslation();
   const { formatDateTime } = useCompanyPreferences();
   const caller = usePermissions();
@@ -105,6 +123,15 @@ export function SiteVisitRows({ visits, client = null, onChanged = null }) {
                 {t("app.siteVisit.seeOnCalendar", "See on calendar")}
               </Link>
             </div>
+            {here && familyLinks(v, here).length > 0 && (
+              <p className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5" data-family-links>
+                {familyLinks(v, here).map((label) => (
+                  <Link key={`${label.kind}-${label.id}`} href={aboutHref(label)} className="underline underline-offset-2">
+                    {t("app.appts.openAbout", { label: familyLabelText(label, t) })}
+                  </Link>
+                ))}
+              </p>
+            )}
             {v.location && (
               <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1">
                 <MapPin size={12} /> {v.location}

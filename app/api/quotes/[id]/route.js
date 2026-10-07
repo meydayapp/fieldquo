@@ -40,6 +40,8 @@ import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
 import { linkInstantVisits } from "@/lib/quotes/linkInstantVisits";
+import { loadFamilyAppointments, QUOTE_MEASURE_WHERE } from "@/lib/schedule/appointmentFamily";
+import { hasLevel as hasLevelFor, canSeeInvoices as canSeeInvoicesFor } from "@/lib/permissions/enforce";
 import { draftInvoicesFollowingJobPo, normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
 import { releaseHeldForPo } from "@/lib/paymentSchedule/run";
 import {
@@ -103,7 +105,13 @@ export async function GET(request, { params }) {
       // because a called-off measure is a fact about the quote, the same
       // reason the calendar keeps them. Only the assignee's name rides
       // along: the client is already on the quote, redacted below.
+      //
+      // Measures only (QUOTE_MEASURE_WHERE): since the family fill
+      // (lib/schedule/appointmentFamily.js) an appointment booked about this
+      // quote's JOB or INVOICE carries the quote's id too — it is listed as
+      // one of the family's appointments, not as a visit the estimator made.
       appointments: {
+        where: QUOTE_MEASURE_WHERE,
         orderBy: { scheduledAt: "asc" },
         select: {
           id: true,
@@ -142,7 +150,7 @@ export async function GET(request, { params }) {
       const linked = member.impersonationMode === "read_only" ? 0 : await linkInstantVisits(db, quote);
       if (linked > 0) {
         quote.appointments = await db.appointment.findMany({
-          where: { quoteId: quote.id },
+          where: { quoteId: quote.id, ...QUOTE_MEASURE_WHERE },
           orderBy: { scheduledAt: "asc" },
           select: {
             id: true,
@@ -198,8 +206,16 @@ export async function GET(request, { params }) {
   // restriction cosmetic: the token and the client's email were one click away
   // on the detail endpoint. Redacting after the spread rather than before it so
   // importedGroupIds can't reintroduce a key the redactor just removed.
+  // Every appointment of this quote's family — booked about the quote, its
+  // job or its invoice — each row linking to the others
+  // (lib/schedule/appointmentFamily.js). A record kind this reader may not
+  // open is listed without its label.
+  const familyAppointments = await loadFamilyAppointments(db, member.companyId, { quoteIds: [quote.id] }, {
+    invoices: canSeeInvoicesFor(full),
+    jobs: hasLevelFor(full, "jobs", "view_only"),
+  });
   return NextResponse.json(
-    redactQuote(full, { ...quote, importedGroupIds, canOpenKitchenDesigner, automatedFollowUps }),
+    redactQuote(full, { ...quote, importedGroupIds, canOpenKitchenDesigner, automatedFollowUps, familyAppointments }),
   );
 }
 

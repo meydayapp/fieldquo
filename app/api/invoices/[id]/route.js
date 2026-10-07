@@ -8,6 +8,8 @@ import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
 import { requestOptions } from "@/lib/invoices/paymentRequest";
+import { loadFamilyAppointments } from "@/lib/schedule/appointmentFamily";
+import { hasLevel as hasLevelFor } from "@/lib/permissions/enforce";
 import { familyPayments, familyMembers } from "@/lib/invoices/family";
 import { voidRefusal } from "@/lib/payments/voidPayment";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -205,6 +207,21 @@ export async function GET(request, { params }) {
   // from. redactInvoice does client, quote and money in one call for exactly
   // the reason this comment gives about the share token: three routes each
   // remembering three rules is two routes that forget one.
+  // Every appointment of this invoice's family — booked about the invoice,
+  // the job it bills or the quote it came from — each linking to the others
+  // (lib/schedule/appointmentFamily.js). Replaces the page's read of this
+  // row's own appointments only, which is still sent for older screens.
+  invoice.familyAppointments = await loadFamilyAppointments(
+    db,
+    member.companyId,
+    {
+      invoiceIds: [invoice.id],
+      jobIds: invoice.jobId ? [invoice.jobId] : [],
+      quoteIds: invoice.quoteId ? [invoice.quoteId] : [],
+    },
+    { quotes: hasLevelFor(full, "quotes", "view_only"), jobs: hasLevelFor(full, "jobs", "view_only") },
+  );
+
   return NextResponse.json(redactInvoice(full, invoice));
 }
 

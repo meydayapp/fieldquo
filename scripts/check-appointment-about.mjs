@@ -173,8 +173,8 @@ ok(page.includes("members.filter((m) => m.userId === myUserId)"), "the create fo
 const clients = read("app/api/clients/route.js");
 ok(clients.includes('{ address: { contains: q, mode: "insensitive" } }'), "the client search covers the address");
 
-ok(read("app/api/jobs/[id]/route.js").includes("appointments: {") && read("app/app/jobs/[id]/JobDetail.js").includes("visits={job.appointments}"), "the job page lists its appointments");
-ok(read("app/api/invoices/[id]/route.js").includes("appointments: {") && read("app/app/invoices/[id]/page.js").includes("visits={invoice.appointments}"), "the invoice page lists its appointments");
+ok(read("app/api/jobs/[id]/route.js").includes("appointments: {") && /job\.familyAppointments \|\| job\.appointments/.test(read("app/app/jobs/[id]/JobDetail.js")), "the job page lists its appointments");
+ok(read("app/api/invoices/[id]/route.js").includes("appointments: {") && read("app/app/invoices/[id]/page.js").includes("visits={invoice.familyAppointments || invoice.appointments}"), "the invoice page lists its appointments");
 
 const templates = read("app/admin/lib/email/templates.js");
 ok((templates.match(/\.\.\.aboutLine\(\{ about, quoteNumber \}, copy\)/g) || []).length === 3, "all three letters go through aboutLine");

@@ -972,14 +972,23 @@ export default function JobDetail({ jobId }) {
             walk-through — as opposed to the crew's visits below. Same rows
             as the measures above: one component, one way of describing an
             appointment. Read-only here for the same reason. */}
-        {job.appointments?.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-border">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              {t("app.appts.aboutThisRecord", "Appointments about this")}
+        {/* Since 2026-10-07: the whole family's — booked about this job,
+            its quote or its invoice (lib/schedule/appointmentFamily.js) —
+            less the measures already listed above, each row linking to the
+            quote and the invoice. The job's own list is the fallback for a
+            payload from before the field existed. */}
+        {(() => {
+          const shown = new Set((job.quote?.appointments || []).map((a) => a.id));
+          const rows = (job.familyAppointments || job.appointments || []).filter((a) => !shown.has(a.id));
+          return rows.length > 0 ? (
+            <div className="mb-4 pb-4 border-b border-border" data-family-appointments>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                {t("app.appts.familyHeading")}
+              </div>
+              <SiteVisitRows visits={rows} here={{ kind: "job", id: job.id }} />
             </div>
-            <SiteVisitRows visits={job.appointments} />
-          </div>
-        )}
+          ) : null;
+        })()}
 
         {!job.visits?.length ? (
           <p className="text-sm text-muted-foreground">

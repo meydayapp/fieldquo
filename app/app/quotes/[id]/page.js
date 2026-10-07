@@ -146,7 +146,7 @@ import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 import QuoteChangeOrders from "./QuoteChangeOrders";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
-import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
+import SiteVisitPanel, { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import QuoteFiles from "@/app/components/planRead/QuoteFiles";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
@@ -1407,7 +1407,25 @@ export default function QuoteDetailPage() {
         </div>
       )}
       {!quote.historicalImportedAt && (
+        <>
         <SiteVisitPanel quoteId={id} quote={quote} />
+        {/* The rest of this quote's family — appointments booked about its
+            job or its invoice (lib/schedule/appointmentFamily.js); the
+            measures stay in the panel above. Each row links to the job and
+            the invoice. Nothing renders when there are none. */}
+        {(() => {
+          const shown = new Set((quote.appointments || []).map((a) => a.id));
+          const rows = (quote.familyAppointments || []).filter((a) => !shown.has(a.id));
+          return rows.length > 0 ? (
+            <section className="bg-card border border-border rounded-xl p-5" data-family-appointments>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                {t("app.appts.familyHeading")}
+              </div>
+              <SiteVisitRows visits={rows} here={{ kind: "quote", id }} />
+            </section>
+          ) : null;
+        })()}
+        </>
       )}
 
       {/* What the job this quote became has on file — the quote as sent, the
