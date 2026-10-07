@@ -19,6 +19,7 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 
 import { NextResponse } from "next/server";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { db } from "@/lib/db";
 import { readSubQuote } from "@/lib/quotes/subQuoteRead";
 import {
@@ -31,13 +32,15 @@ import {
   presentUpload,
   readEstimates,
   uploadFilesOrRefusal,
-  uploadMember,
+  uploadGate,
 } from "@/lib/quotes/subQuoteUploadServer";
 
 export async function GET(request, { params }) {
   const { id } = await params;
-  const { member, canEdit, mayCost, response } = await uploadMember(request);
+  const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  const { canEdit, mayCost, response: denied } = await uploadGate(member);
+  if (denied) return denied;
   const quote = await ownQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -60,8 +63,10 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   const { id } = await params;
-  const { member, mayCost, response } = await uploadMember(request, { write: true });
+  const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  const { mayCost, response: denied } = await uploadGate(member, { write: true });
+  if (denied) return denied;
   const quote = await ownQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

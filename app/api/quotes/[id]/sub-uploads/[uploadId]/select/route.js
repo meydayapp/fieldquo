@@ -14,15 +14,18 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { db } from "@/lib/db";
 import { ImportError } from "@/lib/quotes/importQuote";
 import { placeUploadLine } from "@/lib/quotes/subQuoteUploadWrite";
-import { uploadMember } from "@/lib/quotes/subQuoteUploadServer";
+import { uploadGate } from "@/lib/quotes/subQuoteUploadServer";
 
 export async function POST(request, { params }) {
   const { id, uploadId } = await params;
-  const { member, response } = await uploadMember(request, { write: true });
+  const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  const { response: denied } = await uploadGate(member, { write: true });
+  if (denied) return denied;
   const targetCompany = await db.company.findUnique({ where: { id: member.companyId }, select: { taxRate: true } });
   try {
     const result = await placeUploadLine({ db, member, quoteId: id, uploadId, targetCompany });

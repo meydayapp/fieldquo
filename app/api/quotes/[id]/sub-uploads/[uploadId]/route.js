@@ -15,10 +15,11 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { db } from "@/lib/db";
 import { ImportError } from "@/lib/quotes/importQuote";
 import { confirmUpload, removeUpload, updateUploadMarkup } from "@/lib/quotes/subQuoteUploadWrite";
-import { SUB_SELECT, loadRoster, presentUpload, uploadMember } from "@/lib/quotes/subQuoteUploadServer";
+import { SUB_SELECT, loadRoster, presentUpload, uploadGate } from "@/lib/quotes/subQuoteUploadServer";
 import { recordActivity } from "@/lib/activity/log";
 
 function refusal(err) {
@@ -37,8 +38,10 @@ async function targetCompanyOf(member) {
 
 export async function PATCH(request, { params }) {
   const { id, uploadId } = await params;
-  const { member, mayCost, response } = await uploadMember(request, { write: true });
+  const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  const { mayCost, response: denied } = await uploadGate(member, { write: true });
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) || {};
   const targetCompany = await targetCompanyOf(member);
 
@@ -82,8 +85,10 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id, uploadId } = await params;
-  const { member, response } = await uploadMember(request, { write: true });
+  const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  const { response: denied } = await uploadGate(member, { write: true });
+  if (denied) return denied;
   try {
     const result = await removeUpload({ db, member, quoteId: id, uploadId, targetCompany: await targetCompanyOf(member) });
     return NextResponse.json({ ok: true, ...result });

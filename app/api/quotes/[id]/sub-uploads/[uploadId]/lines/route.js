@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 
 import { NextResponse } from "next/server";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { db } from "@/lib/db";
 import { readSubQuoteLines } from "@/lib/quotes/subQuoteRead";
 import {
@@ -21,13 +22,15 @@ import {
   loadRoster,
   meteredRead,
   presentUpload,
-  uploadMember,
+  uploadGate,
 } from "@/lib/quotes/subQuoteUploadServer";
 
 export async function POST(request, { params }) {
   const { id, uploadId } = await params;
-  const { member, mayCost, response } = await uploadMember(request, { write: true });
+  const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  const { mayCost, response: denied } = await uploadGate(member, { write: true });
+  if (denied) return denied;
   const upload = await db.subQuoteUpload.findFirst({ where: { id: uploadId, quoteId: id, companyId: member.companyId } });
   if (!upload) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (upload.placement === "line") {
