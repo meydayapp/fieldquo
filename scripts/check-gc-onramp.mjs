@@ -200,11 +200,12 @@ console.log("\n2. An existing login is offered Sign in, not a second account");
 {
   const signup = code("app/signup/page.js");
   const fn = signup.slice(signup.indexOf("async function handleAccountSubmit"), signup.indexOf("async function handleStartSignedIn"));
-  const exists = fn.indexOf("USER_ALREADY_EXISTS");
-  const ret = fn.indexOf("return;", exists);
-  const create = fn.indexOf("createCompany()");
-  ok("USER_ALREADY_EXISTS returns BEFORE the company is created", exists > 0 && ret > exists && create > ret);
-  ok("...and marks the address as an existing login", /setExistingLogin\(form\.email\.trim\(\)\.toLowerCase\(\)\)/.test(fn.slice(exists, ret)));
+  // The whole branch, from the code test to its closing brace: it must mark
+  // the address as an existing login and RETURN, so createCompany() below is
+  // never reached for an address that already has a login.
+  const branch = /if \(result\.error\.code === "USER_ALREADY_EXISTS"[^{]*\{([\s\S]*?)\n {8}\}/.exec(fn);
+  ok("USER_ALREADY_EXISTS marks the address as an existing login", Boolean(branch) && /setExistingLogin\(form\.email\.trim\(\)\.toLowerCase\(\)\);/.test(branch[1]));
+  ok("...and returns before the company is created", Boolean(branch) && /\breturn;\s*$/.test(branch[1].trim() + "\n") && fn.indexOf("createCompany()") > fn.indexOf(branch[0]), branch?.[1]);
   ok("the Sign in link carries the way back to the add page (internal paths only)", /isInternalPath\(loginNext\) \? `&next=\$\{encodeURIComponent\(loginNext\)\}` : ""/.test(signup));
   ok("...and the signup page hands it nextPath", /loginNext=\{nextPath\}/.test(signup));
   const login = code("app/login/page.js");
@@ -425,6 +426,8 @@ console.log("\n6. The client price is derived on the server");
     ["1 234,56", 1234.56],
     ["12.345,67", 12345.67],
     ["CAD 1,200", 1200],
+    ["12,345", 12345],
+    ["1,5", 1.5],
     ["1200 USD", 1200],
     ["-5", null],
     ["(500)", null],
