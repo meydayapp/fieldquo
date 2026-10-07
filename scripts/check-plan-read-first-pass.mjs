@@ -1242,6 +1242,9 @@ section("22. One room, one wall, one state of the building — however many shee
   })());
   ok("…a wall with no stated orientation is never merged (“New glazed west porch” is drawn on the west, north and south elevations — three faces)", planOf([wall("a.f1", "p5", "Cross Section", "Porch"), wall("b.f1", "p9", "Cross Section", "Porch")]).groups.length === 2);
   const extState = planOf([wall("p5.f1", "p5", "West elevation as existing", "West wall"), wall("p6.f1", "p6", "Proposed west elevation", "West wall"), wall("p6.f2", "p6", "Proposed west elevation", "New porch side wall")], { request: "Repaint the outside" });
+  ok("…the inside face of the west wall (an interior elevation) is not its outside face, however alike their names and sizes", planOf([wall("p5.f1", "p5", "West elevation", "West wall"), fx22("p14.f1", "p14", "West elevation — inside", "West wall", { room: false, side: "interior" })]).groups.length === 2);
+  const floors = planOf([fx22("e.f1", "p20", "Ground floor plan as existing", "Hall"), fx22("q.f1", "p21", "Proposed ground floor plan", "Hall"), fx22("q.f2", "p21", "Proposed ground floor plan", "Kitchen"), fx22("r.f1", "p22", "Proposed first floor plan", "Bedroom")], { request: "Repaint" });
+  ok("…a room drawn only as proposed is left out only where an existing drawing of the same level shows the building as it stands: the new ground-floor kitchen is out, the first-floor bedroom (no existing first-floor plan) is not", floors.state.value === "existing" && floors.out.has("q.f2") && !floors.out.has("r.f1") && !floors.out.has("q.f1") && floors.groupOf.get("q.f1").keep === "e.f1");
   ok("…existing and proposed elevations of the same side: one state — the existing wall once, the proposed porch left out", extState.state.value === "existing" && extState.groupOf.get("p6.f1").keep === "p5.f1" && extState.out.has("p6.f2") && !extState.out.has("p6.f1"));
 
   // Backfill: one surface per room, not per drawing.
