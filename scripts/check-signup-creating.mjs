@@ -588,7 +588,10 @@ async function main() {
     ok("the run starts once per visit (no second run from a double mount)", /if \(ref\.current\.started\) return;/.test(screen));
     ok("no timer moves a stage: the screen's only timeout is the slow-navigation link", (screen.match(/setTimeout\(/g) || []).length === 1 && /slowNavigation: true/.test(screen));
     ok("'Go to my dashboard anyway' stamps the answers finished first", /onContinue=\{carryOn\}/.test(screen) && /body: JSON\.stringify\(\{ step: "done" \}\)/.test(screen));
-    ok("Back (only before the answers are confirmed) returns to the questions", /onBack=\{\(\) => router\.push\(welcomePath\("source"\)\)\}/.test(screen));
+    // The question before setup in the list in force: "source" on the full
+    // list, "business" on a GC's short one (lib/signup/welcome.js
+    // GC_WELCOME_STEPS, 2026-10-06; check:gc-onramp executes both).
+    ok("Back (only before the answers are confirmed) returns to the questions", /onBack=\{\(\) => router\.push\(welcomePath\(previousWelcomeStep\("setup", \{ steps \}\) \|\| "source"\)\)\}/.test(screen));
 
     const route = code("app/api/companies/route.js");
     ok("/api/companies reads stagedSetup, stages the one-screen signup, and seeds inline otherwise", /stagedSetup,\n/.test(route) && /const staged = \(stagedSetup === true && !plan\) \|\| welcomeFlow;/.test(route) && /if \(!staged\) \{[\s\S]*?runSetupInline\(/.test(route));

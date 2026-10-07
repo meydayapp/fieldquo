@@ -184,7 +184,12 @@ ok("the paid path's own default reads the visit that booking was made from", /vi
 section("4. Into the agency funnel");
 // ═══════════════════════════════════════════════════════════════════════════
 ok("a booking_page lead is the company's website channel; with an ad's landing it is the ad's", channelOf({ source: "booking_page" }) === "website" && channelOf({ source: "booking_page", attribution: landing }) === "facebook_ad");
-const appt = await db.appointment.create({ data: { companyId: CO, clientId: "cl_new", scheduledAt: daysAgo(-2), status: "scheduled", createdAt: NOW } });
+// Booked when the lead was made. The lead's createdAt is the database's own
+// default (the real clock), not NOW: this used `createdAt: NOW` and began
+// failing two days after NOW, when the fixed appointment fell more than the
+// rule's one day before a lead stamped "today" (lib/agency/leadFacts.js).
+const leadRow = await db.leadRequest.findFirst({ where: { id: r1.leadId } });
+const appt = await db.appointment.create({ data: { companyId: CO, clientId: "cl_new", scheduledAt: daysAgo(-2), status: "scheduled", createdAt: new Date(leadRow.createdAt) } });
 await db.booking.update({ where: { id: "bk_1" }, data: { appointmentId: appt.id } });
 const { facts } = await loadLeadFacts({ db, companyId: CO, where: { id: { in: [r1.leadId] } }, now: new Date(NOW.getTime() + 60_000), assignRefs: false });
 ok("the booking's appointment is the lead's appointment (it reaches \"appointments\" in the funnel)", facts[0]?.appointment?.id === appt.id, facts[0]?.appointment);

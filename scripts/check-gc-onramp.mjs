@@ -229,6 +229,7 @@ console.log("\nThe welcome questions, cut to what a GC needs");
   ok("...and the full list still allows size", allowedWelcomeStep("size", answered) === "size");
   ok("business → setup on the GC list", nextWelcomeStep("business", { steps: GC_WELCOME_STEPS }) === "setup");
   ok("Back from setup is business on the GC list", previousWelcomeStep("setup", { steps: GC_WELCOME_STEPS }) === "business");
+  ok("...and source on the full list, as before", previousWelcomeStep("setup") === "source");
   ok("an unanswered profile still comes first", resumeWelcomeStep({ user: {}, company: {}, tradeKeys: [] }, { steps: GC_WELCOME_STEPS }) === "profile");
   for (const [steps, why] of [
     [["setup"], "a list that skips the questions entirely"],

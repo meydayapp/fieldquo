@@ -13,6 +13,7 @@ export const maxDuration = 90;
 
 import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { readSubQuoteLines } from "@/lib/quotes/subQuoteRead";
 import { LINES_FEATURE, UPLOAD_FAILED_SENTENCE, meteredRead, ownQuote, uploadFilesOrRefusal, uploadGate } from "@/lib/quotes/subQuoteUploadServer";
 
@@ -20,7 +21,9 @@ export async function POST(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const { response: denied } = await uploadGate(member, { write: true });
+  const { full, response: noLevel } = await levelOrRefusal(member, "quotes", "view_create_edit", "add a subcontractor's quote");
+  if (noLevel) return noLevel;
+  const { response: denied } = uploadGate(member, full, { write: true });
   if (denied) return denied;
   const quote = await ownQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });

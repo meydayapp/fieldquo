@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { rateLimit } from "@/lib/rateLimit";
 import { canAccept, canDecline, canReply } from "@/lib/subRequests/model";
@@ -26,8 +26,11 @@ export async function GET(request, { params }) {
   const r = await loadRecipientByToken(db, String(token || ""));
   if (!r) return NextResponse.json({ error: "This request link isn't valid." }, { status: 404 });
 
-  // A lapsed or absent session is "signed out", never an error on a public page.
-  const member = await getCurrentMember(request).catch(() => null);
+  // A lapsed or absent session is "signed out", never an error on a public
+  // page: the shared shaper's refusal (401, or a billing/feature gate) is read
+  // as "no member" and the page answers as it would to a stranger.
+  let { member = null, response: signedOut } = await memberOrRefusal(request).catch(() => ({ member: null, response: true }));
+  if (signedOut) member = null;
   const authenticated = Boolean(member && member.userId);
   const ownCompany = Boolean(member && member.companyId === r.request.companyId);
   if (!ownCompany) await markOpened(db, { recipientId: r.id }).catch(() => {});
