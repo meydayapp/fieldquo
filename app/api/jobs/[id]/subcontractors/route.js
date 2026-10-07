@@ -289,7 +289,9 @@ export async function POST(request, { params }) {
       // Blanks only — a value the GC typed stays theirs.
       const { data: fill } = profileFillPatch(matched, profile);
       if (Object.keys(fill).length) {
-        await db.subcontractor.update({ where: { id: matched.id }, data: fill, select: { id: true } });
+        // Scoped by company in the write itself: `matched` comes from one of
+        // two lookups now, and the write should not depend on reading which.
+        await db.subcontractor.updateMany({ where: { id: matched.id, companyId: member.companyId }, data: fill });
       }
     } else {
       // The GC has never listed this company. Create the roster entry from

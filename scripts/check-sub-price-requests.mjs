@@ -47,6 +47,7 @@ import { importerOptionView } from "@/lib/quotes/importedStatus";
 import { syncChangeOrderImport } from "@/lib/subcontractors/sourceLink";
 import { leadSourceLabelKey } from "@/lib/leads/sourceLabel";
 import { unaskedForScoring } from "@/lib/leads/qualifiers";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -451,7 +452,8 @@ const GC_MEMBER = { companyId: "GC", userId: "uGC", id: "mGC" };
 const SUB_MEMBER = { companyId: "SUB", userId: "uSub", id: "mSub" };
 let mintN = 0;
 const mint = () => `tok${String(++mintN).padStart(40, "x")}`;
-const createLead = (db) => async (data) => db.leadRequest.create({ data: { ...data, quoteId: null } });
+// The route's own wrapper, reproduced: the address through the shared shape.
+const createLead = (db) => async ({ address, ...data }) => db.leadRequest.create({ data: { ...data, intake: buildLeadIntake({ address }), quoteId: null } });
 const linkLeadToClient = async (db, { companyId, leadId, clientId }) =>
   db.leadIdentityLink.create({ data: { companyId, leadId, clientId, kind: "client", status: "linked" } });
 

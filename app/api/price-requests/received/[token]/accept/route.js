@@ -23,6 +23,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { acceptRequest, RequestError } from "@/lib/subRequests/server";
 import { requestLabels } from "@/lib/subRequests/email";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { linkLeadToClient } from "@/lib/leads/identityLinks";
 import { recordActivity } from "@/lib/activity/log";
 
@@ -40,7 +41,9 @@ export async function POST(request, { params }) {
     const result = await acceptRequest(db, {
       token: String(token || ""),
       member,
-      createLead: createScoredLead,
+      // The job address goes in through the shared intake shape, like every
+      // other lead path (scripts/check-lead-intake.mjs).
+      createLead: ({ address, ...lead }) => createScoredLead({ ...lead, intake: buildLeadIntake({ address }) }),
       linkLeadToClient,
       leadLabels: requestLabels(company?.defaultLanguage || "en"),
     });
