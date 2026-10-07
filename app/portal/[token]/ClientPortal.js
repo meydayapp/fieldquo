@@ -419,6 +419,21 @@ export default function ClientPortal({ token }) {
                     {copy.review}
                   </a>
                 )}
+                {/* A business client can carry any of this contractor's
+                    quotes into its own — later, or several at once, not only
+                    at the moment of approving. The server says whether this
+                    client is a business (data.addToQuote); a homeowner's
+                    portal never draws it. The add page itself gates on the
+                    quote being readable, same as /q/<token>. */}
+                {data.addToQuote === true && q.shareToken && (
+                  <a
+                    href={`/q/${q.shareToken}/add`}
+                    className="inline-flex items-center min-h-11 text-sm font-semibold underline text-[#2d2520]"
+                    data-portal-add-to-own-quote
+                  >
+                    {copy.addToOwnQuote}
+                  </a>
+                )}
               </div>
             </div>
           ))}
