@@ -26,6 +26,14 @@ export default async function DemoPayPage({ params, searchParams }) {
   const { token } = await params;
   // Next 16: both are Promises. `invoice` and `stage` name the record only —
   // the figure is re-derived by the pay route, never read from here.
-  const { invoice, stage } = (await searchParams) || {};
-  return <DemoPay token={token} invoiceId={invoice || null} stageId={stage || null} />;
+  // `request` likewise names the office's "different amount" request.
+  const { invoice, stage, request } = (await searchParams) || {};
+  return (
+    <DemoPay
+      token={token}
+      invoiceId={invoice || null}
+      stageId={stage || null}
+      requestId={typeof request === "string" ? request : null}
+    />
+  );
 }

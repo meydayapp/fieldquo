@@ -4838,6 +4838,49 @@ model JobPaymentStage {
   @@index([invoiceId])
 }
 
+/// A payment the office asked a client for that is NOT one of the schedule's
+/// stages — "A different amount" in the invoice page's Request payment
+/// dialog. The client wants to pay $6,500 against a 30/30/40 schedule; the
+/// office types 6500; this row is what the client's link names
+/// (`?request=<id>`), and the pay routes read the amount from HERE, never
+/// from the browser (non-negotiable #5). See lib/invoices/paymentRequest.js.
+///
+/// The amount is what the office asked for. What the client is charged is
+/// that amount less whatever has been collected since the request was made
+/// (`paidCentsAtRequest` is the family's net paid at that moment), capped at
+/// the invoice's balance — so a request that has been paid, by any method,
+/// stops asking, and the link falls back to the balance. No "paid" flag is
+/// kept here, for the reason JobPaymentStage gives: the invoice's Payment
+/// rows are the ledger, and a second record of "paid" is a second place that
+/// can disagree.
+///
+/// Plain ids, not relations: nothing joins from Company or Invoice to here,
+/// and a relation would add back-references to two models other changes are
+/// editing for a link only ever followed this way. Every lookup is scoped by
+/// companyId AND invoiceId.
+model InvoicePaymentRequest {
+  id                 String   @id @default(cuid())
+  companyId          String
+  /// The invoice version the request was made on. The pay routes accept it
+  /// only while that version is still the current one — an amended invoice
+  /// is a new document, and its balance is asked for afresh.
+  invoiceId          String
+  amountCents        Int
+  paidCentsAtRequest Int      @default(0)
+  /// The office's optional line, printed in the email above the amount.
+  note               String?
+  /// "open" | "superseded". A newer request on the same invoice supersedes
+  /// the older one, so an old link stops asking for a figure the office has
+  /// since changed its mind about.
+  status             String   @default("open")
+  sentToEmail        String?
+  requestedById      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([companyId, invoiceId])
+}
+
 // ============================================================
 // SERVICE CATALOG / PRICING
 // ============================================================

@@ -4,12 +4,12 @@
 // CREDIT card can be charged the company's credit-card fee
 // (Company.clientCardSurcharge). Three steps, each a POST with `step`:
 //
-//   review    { invoiceId, stageId?, confirmationTokenId }
+//   review    { invoiceId, stageId?, requestId?, confirmationTokenId }
 //             → the lines the client is shown BEFORE paying: invoice amount,
 //               "Credit card fee 2.4%" (credit cards only), total.
-//   confirm   { invoiceId, stageId?, intentId }
+//   confirm   { invoiceId, stageId?, requestId?, intentId }
 //             → charges exactly what was reviewed, after re-checking it all.
-//   finalize  { invoiceId, stageId?, intentId }
+//   finalize  { invoiceId, stageId?, requestId?, intentId }
 //             → after 3-D Secure in the browser: Stripe's own answer.
 //
 // The browser never sends an amount (non-negotiable #5): an invoice id, a
@@ -65,6 +65,9 @@ export async function POST(request, { params }) {
     token,
     invoiceId: body.invoiceId,
     stageId: body.stageId || null,
+    // The office's "different amount" request, named not priced — the same
+    // hint the pay route takes (lib/portal/payableInvoice.js).
+    requestId: typeof body.requestId === "string" ? body.requestId : null,
   });
   if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: resolved.status });
 

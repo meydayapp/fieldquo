@@ -93,6 +93,30 @@ import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
 
 
 
+// The refusals the request-payment route answers with a code, each a
+// sentence in the reader's language. Anything else keeps the route's text.
+const REQUEST_REFUSAL_KEYS = {
+  invalid_amount: "app.invoiceChase.refused.invalid_amount",
+  not_positive: "app.invoiceChase.refused.not_positive",
+  over_balance: "app.invoiceChase.refused.over_balance",
+  no_next_stage: "app.invoiceChase.refused.no_next_stage",
+  nothing_owed: "app.invoiceChase.refused.nothing_owed",
+};
+
+/**
+ * The choice the dialog is on. Nothing picked yet means the default: the next
+ * scheduled payment when the job's schedule has one left to ask for (what
+ * Send asks for too), otherwise the balance. A remembered "next_stage" on an
+ * invoice that no longer has one falls back the same way rather than posting
+ * a choice the route would refuse.
+ */
+function chaseModeFor(picked, invoice) {
+  const hasStage = Boolean(invoice?.requestOptions?.nextStage);
+  if (picked === "custom" || picked === "balance") return picked;
+  if (picked === "next_stage" && hasStage) return "next_stage";
+  return hasStage ? "next_stage" : "balance";
+}
+
 export default function InvoiceDetailPage() {
   const { t, language } = useTranslation();
   const { formatDate } = useCompanyPreferences();
@@ -152,6 +176,13 @@ export default function InvoiceDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [showChase, setShowChase] = useState(false);
   const [chaseNote, setChaseNote] = useState("");
+  // What Request payment asks for — "next_stage" | "balance" | "custom" —
+  // and, for "custom", the figure the office typed. The figures beside each
+  // choice come from the server (invoice.requestOptions); the route prices
+  // the press again and refuses a typed amount it does not accept.
+  const [chaseMode, setChaseMode] = useState("");
+  const [chaseAmount, setChaseAmount] = useState("");
+  const [chaseError, setChaseError] = useState("");
   // `method` starts empty and resolves to the company's first switched-on
   // offline method (else the first its country has) when the company row
   // arrives — a US company must not record "e_transfer" because a
@@ -396,23 +427,48 @@ export default function InvoiceDetailPage() {
    * paths close it once the balance is settled. A second reminder-writing
    * mechanism on this page would be the copy that rots.
    */
+  // Opened fresh every time: the default choice is re-read from the invoice
+  // as it is now (a payment since the last press may have moved the next
+  // stage on), and nothing typed last time is carried into a new request.
+  function openChase() {
+    setChaseMode("");
+    setChaseAmount("");
+    setChaseError("");
+    setShowChase(true);
+  }
+
   async function handleChase(e) {
     e?.preventDefault?.();
     setRequesting(true);
     setError("");
     setRequested(null);
     try {
+      const mode = chaseModeFor(chaseMode, invoice);
       const res = await fetch(`/api/invoices/${id}/request-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({ note: chaseNote.trim() }, "invoice reminder"),
+        // The typed figure goes as the text that was typed: the route parses
+        // it strictly and holds it to the balance it computes itself.
+        body: jsonBody(
+          { note: chaseNote.trim(), mode, ...(mode === "custom" ? { amount: String(chaseAmount).trim() } : {}) },
+          "invoice reminder",
+        ),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok)
+      if (!res.ok) {
+        // A refused figure keeps the dialog open with the reason, in the
+        // reader's language; anything else closes it into the page banner.
+        if (data?.code && REQUEST_REFUSAL_KEYS[data.code]) {
+          setChaseError(t(REQUEST_REFUSAL_KEYS[data.code], { amount: money(Number(data.balance || 0)) }));
+          return;
+        }
         throw new Error(data?.error || t("app.invoiceDetail.requestError"));
+      }
       setRequested(data);
       setShowChase(false);
       setChaseNote("");
+      setChaseAmount("");
+      setChaseError("");
       // The route stamps sentAt and can move a draft to sent, so the banners
       // above must be re-read or they keep offering to send an invoice that
       // has just gone out.
@@ -569,7 +625,8 @@ export default function InvoiceDetailPage() {
             <div>
               {t("app.invoiceDetail.paymentRequestSentTo")}{" "}
               <strong>{requested.to}</strong> —{" "}
-              {money(requested.balance)}.
+              {requested.stage?.label ? `${requested.stage.label}: ` : ""}
+              {money(requested.requested ?? requested.balance)}.
               {/* The email still goes out — the client just can't pay through
                   it. Better they hear from you than get a dead button. */}
               {requested.onlinePaymentsEnabled === false && (
@@ -655,7 +712,7 @@ export default function InvoiceDetailPage() {
                 still something owing on it — and never on a past job. */}
             {invoice.status !== "draft" && owing && !historical && (
               <button
-                onClick={() => setShowChase(true)}
+                onClick={openChase}
                 disabled={requesting}
                 className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
               >
@@ -747,7 +804,7 @@ export default function InvoiceDetailPage() {
         busy={sending ? "send" : requesting ? "chase" : ""}
         handlers={{
           send: () => sendInvoice(),
-          chase: () => setShowChase(true),
+          chase: openChase,
           createJob: () => setJobFocus(`create:${Date.now()}`),
           scheduleVisit: () => setJobFocus(`visit:${Date.now()}`),
         }}
@@ -1668,12 +1725,34 @@ export default function InvoiceDetailPage() {
               <FileText size={16} /> {t("app.invoiceChase.title")}
             </h2>
             <p className="text-xs text-muted-foreground mb-3">
-              {t("app.invoiceChase.hint", {
+              {/* With choices on the screen the figure is the one picked
+                  below, so the sentence stops naming one. */}
+              {t(invoice.requestOptions ? "app.invoiceChase.hintChoose" : "app.invoiceChase.hint", {
                 name: invoice.client?.name || "",
                 amount: money(amountDue),
               })}
             </p>
             <form onSubmit={handleChase} className="space-y-3">
+              <RequestChoices
+                invoice={invoice}
+                mode={chaseModeFor(chaseMode, invoice)}
+                onMode={(m) => {
+                  setChaseMode(m);
+                  setChaseError("");
+                }}
+                amount={chaseAmount}
+                onAmount={(v) => {
+                  setChaseAmount(v);
+                  setChaseError("");
+                }}
+                money={money}
+                t={t}
+              />
+              {chaseError && (
+                <p className="text-sm text-red-700 dark:text-red-300" data-request-error>
+                  {chaseError}
+                </p>
+              )}
               <textarea
                 rows={3}
                 value={chaseNote}
@@ -1698,7 +1777,9 @@ export default function InvoiceDetailPage() {
                   {requesting && (
                     <Loader2 size={14} className="animate-spin" />
                   )}
-                  {t("app.invoiceChase.send")}
+                  {chaseModeFor(chaseMode, invoice) === "balance"
+                    ? t("app.invoiceChase.send")
+                    : t("app.invoiceChase.sendRequest")}
                 </button>
               </div>
             </form>
@@ -1716,6 +1797,108 @@ export default function InvoiceDetailPage() {
         busy={deleting}
       />
     </div>
+  );
+}
+
+/**
+ * What Request payment asks for: the next scheduled payment, the full
+ * balance, or a different amount the office types.
+ *
+ * Every figure printed here came from the server (GET /api/invoices/[id]
+ * → requestOptions, lib/invoices/paymentRequest.js). The typed amount is the
+ * only number this page sends, and the route parses it strictly and refuses
+ * anything over the balance it computes itself — staff deciding what to bill,
+ * which is not the client's browser non-negotiable #5 is about. The client is
+ * then asked for exactly the stored figure.
+ *
+ * The schedule's stages are listed under the choices with what the money
+ * received covers of each, so "the client paid $6,500" reads as Deposit paid,
+ * Job start paid, Job end part paid — the same allocation the pay routes use.
+ */
+function RequestChoices({ invoice, mode, onMode, amount, onAmount, money, t }) {
+  const opts = invoice?.requestOptions;
+  // Money hidden from this role: the route still answers, the page has no
+  // figures to show — so it offers no choice it cannot describe.
+  if (!opts) return null;
+  const option = (value, title, sub, extra = null) => (
+    <label
+      key={value}
+      className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer ${
+        mode === value ? "border-foreground" : "border-border"
+      }`}
+    >
+      <input
+        type="radio"
+        name="request-mode"
+        value={value}
+        checked={mode === value}
+        onChange={() => onMode(value)}
+        className="mt-1"
+        data-request-mode={value}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-foreground">{title}</span>
+        {sub && <span className="block text-xs text-muted-foreground">{sub}</span>}
+        {extra}
+      </span>
+    </label>
+  );
+  const stages = Array.isArray(opts.stages) ? opts.stages.filter((s) => s.state !== "waived") : [];
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+        {t("app.invoiceChase.askFor")}
+      </legend>
+      {opts.nextStage &&
+        option(
+          "next_stage",
+          t("app.invoiceChase.optionNextStage"),
+          t("app.invoiceChase.optionNextStageSub", {
+            label: opts.nextStage.label,
+            index: opts.nextStage.index,
+            count: opts.nextStage.count,
+            amount: money(opts.nextStage.requested),
+          }),
+        )}
+      {option("balance", t("app.invoiceChase.optionBalance"), money(opts.balance))}
+      {option(
+        "custom",
+        t("app.invoiceChase.optionCustom"),
+        t("app.invoiceChase.optionCustomSub", { amount: money(opts.balance) }),
+        mode === "custom" ? (
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0.01"
+            step="0.01"
+            max={opts.balance}
+            value={amount}
+            onChange={(e) => onAmount(e.target.value)}
+            placeholder={t("app.invoiceChase.amountPlaceholder")}
+            aria-label={t("app.invoiceChase.optionCustom")}
+            className="mt-2 w-full border border-border rounded-lg px-3 py-2 text-sm bg-card tabular-nums"
+            data-request-amount
+            autoFocus
+          />
+        ) : null,
+      )}
+      {stages.length > 0 && (
+        <ul className="pt-1 space-y-0.5 text-xs text-muted-foreground" data-request-stages>
+          {stages.map((s, i) => (
+            <li key={`${s.label}-${i}`} className="flex justify-between gap-3">
+              <span className="truncate">{s.label}</span>
+              <span className="tabular-nums shrink-0">
+                {s.state === "paid"
+                  ? t("app.invoiceChase.stagePaid", { amount: money(s.amount) })
+                  : s.state === "part_paid"
+                    ? t("app.invoiceChase.stagePartPaid", { covered: money(s.covered), amount: money(s.amount), remaining: money(s.remaining) })
+                    : t("app.invoiceChase.stageDue", { amount: money(s.amount) })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </fieldset>
   );
 }
 

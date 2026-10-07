@@ -28,7 +28,7 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { jsonBody } from "@/lib/jsonBody";
 
-export default function DemoPay({ token, invoiceId, stageId = null }) {
+export default function DemoPay({ token, invoiceId, stageId = null, requestId = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,7 +63,7 @@ export default function DemoPay({ token, invoiceId, stageId = null }) {
         headers: { "Content-Type": "application/json" },
         // A yes, not a figure: the route derives the amount from the invoice
         // and the stage row, exactly as for a card.
-        body: jsonBody({ invoiceId, stageId, method: "card", demoConfirm: true }, "payment"),
+        body: jsonBody({ invoiceId, stageId, requestId, method: "card", demoConfirm: true }, "payment"),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.checkoutUrl) throw new Error(d?.error || "Couldn't complete the payment.");
@@ -105,7 +105,10 @@ export default function DemoPay({ token, invoiceId, stageId = null }) {
   const accentOn = readableForeground(accent);
   const balance = Math.max(0, Number(invoice.total || 0) - Number(invoice.amountPaid || 0));
   const stage = stageId ? (invoice.jobPaymentStages || []).find((s) => s.id === stageId) : null;
-  const due = stage ? Math.min(stage.amountCents / 100, balance) : balance;
+  const request =
+    !stage && requestId ? (invoice.paymentRequests || []).find((r) => r.id === requestId) || null : null;
+  const picked = stage || request;
+  const due = picked ? Math.min(picked.amountCents / 100, balance) : balance;
 
   return (
     <Shell token={token} backLabel={copy.backToAccount}>

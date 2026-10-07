@@ -12,6 +12,7 @@ import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { bankDebitOffer } from "@/lib/stripe/bankDebit";
 import { invoiceBalanceCents } from "@/lib/stripe";
+import { stageCoverage, requestRemainingCents } from "@/lib/invoices/paymentRequest";
 import { invoicePaymentCurrency } from "@/lib/stripe/paymentCurrency";
 import {
   clientJurisdictionRow,
@@ -227,10 +228,16 @@ export async function GET(request, { params }) {
           // "Deposit — $X due now" instead of the invoice's full remaining
           // balance when the client arrived via a stage's own email link
           // (?stage=<id>) — see lib/paymentSchedule/run.js.
+          //
+          // Every stage is READ (seq and status too), because what a
+          // requested stage still asks for is its uncovered share — money
+          // already received covers the stages in sequence
+          // (lib/invoices/paymentRequest.js stageCoverage). Only `requested`
+          // stages with something left are SHIPPED, below, as id, label and
+          // that remaining amount.
           jobPaymentStages: {
-            where: { status: "requested" },
             orderBy: { seq: "asc" },
-            select: { id: true, label: true, amountCents: true },
+            select: { id: true, label: true, amountCents: true, seq: true, status: true },
           },
         },
       },
@@ -488,6 +495,32 @@ export async function GET(request, { params }) {
     client.invoices.flatMap((invoice) => (invoice.jobPaymentStages || []).map((stage) => ({ ns: "paymentStage", text: stage.label }))),
   );
 
+  // ── Payments the office asked for by amount ──────────────────────────────
+  //
+  // "A different amount" on the invoice page (InvoicePaymentRequest): the
+  // link carries `?request=<id>`, and this is where the page learns what
+  // that request still asks for — the amount less whatever has come in since
+  // it was made, capped at the balance (lib/invoices/paymentRequest.js). A
+  // spent request is not shipped at all, so its link shows the balance.
+  // Best-effort: a failed read costs the request's own figure, never the
+  // portal — the balance is always payable.
+  const openRequests = client.invoices.length
+    ? await db.invoicePaymentRequest
+        .findMany({
+          where: {
+            companyId: client.companyId,
+            invoiceId: { in: client.invoices.map((i) => i.id) },
+            status: "open",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, invoiceId: true, amountCents: true, paidCentsAtRequest: true },
+        })
+        .catch((err) => {
+          console.error("[portal] payment requests:", err?.message);
+          return [];
+        })
+    : [];
+
   const invoices = client.invoices.map((invoice) => {
     const statement = taxStatement({
       taxEnabled: invoice.taxEnabled,
@@ -544,11 +577,42 @@ export async function GET(request, { params }) {
       // and the pay route charges the stage's share, so the stage's share
       // is what the cap is measured against (capped at the balance, as the
       // charge itself is — lib/stripe.js createInvoiceCheckoutSession).
-      jobPaymentStages: (invoice.jobPaymentStages || []).map((stage) => ({
-        ...stage,
-        label: trStage("paymentStage", stage.label),
-        bankDebit: offerFor(Math.min(stage.amountCents, invoiceBalanceCents(invoice))),
-      })),
+      //
+      // `amountCents` is the stage's UNCOVERED share since 2026-10-07: a
+      // client who paid $6,500 against a $2,678.10 deposit has covered it,
+      // and its link must not ask for it again (the pay routes re-derive the
+      // same figure — lib/portal/payableInvoice.js). A covered stage is
+      // dropped, so its link falls back to the balance.
+      jobPaymentStages: (() => {
+        const balanceCents = invoiceBalanceCents(invoice);
+        const paidCents = Math.round(Number(invoice.amountPaid || 0) * 100);
+        const cover = new Map(
+          stageCoverage({ stages: invoice.jobPaymentStages || [], paidCents }).map((s) => [s.id, s]),
+        );
+        return (invoice.jobPaymentStages || [])
+          .filter((stage) => stage.status === "requested")
+          .map((stage) => {
+            const left = Math.min(cover.get(stage.id)?.remainingCents ?? 0, balanceCents);
+            return left > 0
+              ? { id: stage.id, label: trStage("paymentStage", stage.label), amountCents: left, bankDebit: offerFor(left) }
+              : null;
+          })
+          .filter(Boolean);
+      })(),
+      // The office's "different amount" requests still asking for something
+      // — id and figure only (see openRequests above).
+      paymentRequests: openRequests
+        .filter((r) => r.invoiceId === invoice.id)
+        .map((r) => {
+          const left = requestRemainingCents({
+            amountCents: r.amountCents,
+            paidCentsAtRequest: r.paidCentsAtRequest,
+            paidCents: Math.round(Number(invoice.amountPaid || 0) * 100),
+            balanceCents: invoiceBalanceCents(invoice),
+          });
+          return left > 0 ? { id: r.id, amountCents: left, bankDebit: offerFor(left) } : null;
+        })
+        .filter(Boolean),
       // The bank-debit offer for the invoice's whole remaining balance —
       // null when the company cannot take bank debit at all.
       bankDebit: offerFor(invoiceBalanceCents(invoice)),

@@ -12,6 +12,7 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { recordError } from "@/lib/platform/errorLog";
 import { recordDemoPayment } from "@/lib/demo/demoPayment";
+import { stageShareCents, requestShareCents } from "@/lib/portal/payableInvoice";
 
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -33,7 +34,11 @@ export async function POST(request, { params }) {
   // `method` names HOW the client wants to pay — "card" (default) or "bank"
   // — never what it costs. Resolved below against what the company can
   // actually take; anything else is refused rather than passed to Stripe.
-  const { invoiceId, stageId, method: requestedMethod = "card" } = body;
+  // `requestId` is the same kind of hint as stageId: it names an
+  // InvoicePaymentRequest (the office's "different amount"), whose figure is
+  // read from that row below. Nothing else in the body is read — an
+  // `amount` a browser adds is ignored, not refused.
+  const { invoiceId, stageId, requestId, method: requestedMethod = "card" } = body;
   if (requestedMethod !== "card" && requestedMethod !== "bank") {
     return NextResponse.json({ error: "Unknown payment method" }, { status: 400 });
   }
@@ -153,7 +158,17 @@ export async function POST(request, { params }) {
       },
       select: { amountCents: true },
     });
-    if (stage) amountCents = stage.amountCents;
+    // Its UNCOVERED share, not its whole share: a client who has already
+    // paid past this stage (a larger payment, a cheque) is not asked for it
+    // again, and a stage only part covered asks for the rest. Covered →
+    // undefined → the balance, like any stage this route does not accept.
+    amountCents = await stageShareCents(db, { companyId: client.companyId, current, stageId, stage });
+  }
+  // The office's "different amount" (lib/invoices/paymentRequest.js), when
+  // the link names one and no stage applies: an open request of THIS
+  // company's THIS invoice, priced from its row and the ledger.
+  if (amountCents == null && requestId) {
+    amountCents = await requestShareCents(db, { companyId: client.companyId, current, requestId });
   }
 
   // Every sentence from here on is read by the homeowner, under the
@@ -194,6 +209,7 @@ export async function POST(request, { params }) {
     if (body.demoConfirm !== true) {
       const qs = new URLSearchParams({ invoice: current.id });
       if (stageId && amountCents != null) qs.set("stage", stageId);
+      else if (requestId && amountCents != null) qs.set("request", requestId);
       return NextResponse.json({ checkoutUrl: `${baseUrl}/portal/${_params.token}/demo-pay?${qs}`, demo: true });
     }
     await recordDemoPayment({ invoice: current, amountCents: chargeCents, stageId: amountCents != null ? stageId : null });

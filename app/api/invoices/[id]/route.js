@@ -7,6 +7,7 @@ import { readTaxResolution, resolutionForDocument, resolutionMatchesAmount } fro
 import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
+import { requestOptions } from "@/lib/invoices/paymentRequest";
 import { familyPayments, familyMembers } from "@/lib/invoices/family";
 import { voidRefusal } from "@/lib/payments/voidPayment";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -119,6 +120,25 @@ export async function GET(request, { params }) {
     });
     const ask = invoiceSendAsk({ totalCents: Math.round(Number(invoice.total) * 100), paidCents: Math.round(invoice.amountPaid * 100), stages });
     invoice.sendAsk = { kind: ask.kind, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? { label: ask.stage.label, index: ask.stage.index, count: ask.stage.count } : null };
+    // The Request payment dialog's three choices, priced here so the page
+    // only ever displays them (lib/invoices/paymentRequest.js): the next
+    // scheduled payment (null when there is none left to ask for), the
+    // balance, and each stage's cover so far. The route re-derives all of
+    // it on the press; this is what the radio buttons say beforehand.
+    const options = requestOptions({ totalCents: Math.round(Number(invoice.total) * 100), paidCents: Math.round(invoice.amountPaid * 100), stages });
+    invoice.requestOptions = {
+      balance: options.balanceCents / 100,
+      nextStage: options.nextStage
+        ? { label: options.nextStage.label, index: options.nextStage.index, count: options.nextStage.count, requested: options.nextStage.requestCents / 100 }
+        : null,
+      stages: options.stages.map((s) => ({
+        label: s.label,
+        amount: s.amountCents / 100,
+        covered: s.coveredCents / 100,
+        remaining: s.remainingCents / 100,
+        state: s.state,
+      })),
+    };
   }
 
   // ── The chase trail, family-wide, on the payload the page already loads ──

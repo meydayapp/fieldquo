@@ -35,8 +35,9 @@ import { jsonBody } from "@/lib/jsonBody";
 import { reviewQrCopy } from "@/lib/reviews/reviewQrCopy";
 import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
 import CardPayPanel from "../../CardPayPanel";
+import { clientPayChoices } from "@/lib/invoices/paymentRequest";
 
-export default function PortalInvoice({ token, invoiceId, stageId = null }) {
+export default function PortalInvoice({ token, invoiceId, stageId = null, requestId = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,6 +45,11 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   // The portal's own card form (CardPayPanel), open. Arrives open when the
   // portal index's Pay button sent the client here with ?pay=card.
   const [cardOpen, setCardOpen] = useState(false);
+  // The client's one choice on a link that asks for part of the bill: the
+  // figure asked for (default), or the whole balance. Both figures come from
+  // the server; choosing the balance just leaves the stage/request hint off
+  // the pay request, which is the plain balance checkout that always existed.
+  const [payFull, setPayFull] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -90,7 +96,17 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
         // figure from the JobPaymentStage row itself and caps it against the
         // invoice's real balance (lib/stripe.js). The browser never sends
         // money amounts (non-negotiable #5).
-        body: jsonBody({ invoiceId, stageId, method }, "payment"),
+        // `requestId` is the same kind of hint, for the office's "different
+        // amount". Choosing the full balance sends neither.
+        body: jsonBody(
+          {
+            invoiceId,
+            stageId: payFull ? null : stageId,
+            requestId: payFull || stage ? null : request ? requestId : null,
+            method,
+          },
+          "payment",
+        ),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.checkoutUrl) {
@@ -155,11 +171,24 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   const stage = stageId
     ? (invoice.jobPaymentStages || []).find((s) => s.id === stageId)
     : null;
-  const stageAmount = stage ? Math.min(stage.amountCents / 100, balance) : null;
-  // What THIS page asks for: a stage's own share when one applies, otherwise
-  // the invoice's full remaining balance — unchanged from before this
-  // feature existed.
-  const due = stageAmount != null ? stageAmount : balance;
+  // The office's "different amount" request this link names, when no stage
+  // applies — id and the figure it still asks for, from the server (a spent
+  // request is not in the list, so its link shows the balance).
+  const request =
+    !stage && requestId ? (invoice.paymentRequests || []).find((r) => r.id === requestId) || null : null;
+  const picked = stage || request;
+  const stageAmount = picked ? Math.min(picked.amountCents / 100, balance) : null;
+  // The two figures this link may pay, both server-derived — only offered
+  // as a choice when they differ (lib/invoices/paymentRequest.js).
+  const choices = picked
+    ? clientPayChoices({ requestedCents: Math.round(stageAmount * 100), balanceCents: Math.round(balance * 100) })
+    : [];
+  const asking = picked && !(payFull && choices.length > 1) ? stageAmount : null;
+  // What THIS page asks for: the stage's (or request's) remaining share
+  // when one applies and the client has not chosen the full balance,
+  // otherwise the invoice's full remaining balance — unchanged from before
+  // this feature existed.
+  const due = asking != null ? asking : balance;
   const overdue =
     invoice.dueDate && due > 0.005 && new Date(invoice.dueDate) < new Date();
   // Same flag the portal index reads — the company may never have finished
@@ -176,7 +205,7 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   // clears in 3–5 business days, so a pending one is said out loud beside
   // the balance rather than looking unpaid.
   const bankOffer = onlinePayments
-    ? (stage ? stage.bankDebit : invoice.bankDebit) || null
+    ? (asking != null ? picked.bankDebit : invoice.bankDebit) || null
     : null;
   const bankDebit = bankOffer?.eligible ? bankOffer.method : null;
   const pendingBank = invoice.pendingPayment || null;
@@ -387,8 +416,10 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
           >
             <span className="text-sm font-bold tracking-wide uppercase">
               {due > 0.005
-                ? stage
-                  ? stage.label
+                ? asking != null
+                  ? stage
+                    ? stage.label
+                    : copy.payChoice.requested
                   : labels.balanceDue
                 : copy.paidInFull}
             </span>
@@ -423,6 +454,46 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
             </div>
           ) : due > 0.005 ? (
             <div className="space-y-3">
+              {/* What was asked for, or everything owed — two figures the
+                  server computed, never a box to type in. Only when they
+                  differ; a change closes the card form, whose review was
+                  for the other figure. */}
+              {choices.length > 1 && (
+                <fieldset className="space-y-2" data-pay-choice>
+                  <legend className="text-sm font-semibold text-[#2d2520] mb-1">{copy.payChoice.title}</legend>
+                  {choices.map((choice) => {
+                    const on = choice.choice === "balance" ? payFull : !payFull;
+                    return (
+                      <label
+                        key={choice.choice}
+                        className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 cursor-pointer bg-white"
+                        style={{ borderColor: on ? accent : "rgba(0,0,0,0.12)" }}
+                      >
+                        <span className="flex items-center gap-2.5 text-sm text-[#2d2520]">
+                          <input
+                            type="radio"
+                            name="pay-choice"
+                            checked={on}
+                            onChange={() => {
+                              setPayFull(choice.choice === "balance");
+                              setCardOpen(false);
+                            }}
+                            data-pay-choice-option={choice.choice}
+                          />
+                          {choice.choice === "balance"
+                            ? copy.payChoice.balance
+                            : stage
+                              ? stage.label
+                              : copy.payChoice.requested}
+                        </span>
+                        <span className="text-sm font-semibold tabular-nums text-[#2d2520]">
+                          {money(choice.cents / 100)}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+              )}
               {failedBank && (
                 <div className="flex items-start gap-2 text-sm text-red-700">
                   <AlertCircle size={15} className="shrink-0 mt-0.5" />
@@ -433,7 +504,8 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
                 <CardPayPanel
                   token={token}
                   invoiceId={invoice.id}
-                  stageId={stage ? stageId : null}
+                  stageId={stage && asking != null ? stageId : null}
+                  requestId={request && asking != null ? requestId : null}
                   dueCents={Math.round(due * 100)}
                   form={data.cardForm}
                   rateBps={cardFee.rateBps}

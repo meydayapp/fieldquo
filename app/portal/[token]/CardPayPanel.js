@@ -69,6 +69,9 @@ export default function CardPayPanel({
   token,
   invoiceId,
   stageId = null,
+  // The office's "different amount" request this card payment is for — a
+  // hint like stageId; the route prices it from the row.
+  requestId = null,
   dueCents,
   form, // { publishableKey, currency }
   rateBps,
@@ -149,6 +152,7 @@ export default function CardPayPanel({
         step: "review",
         invoiceId,
         stageId,
+        requestId,
         confirmationTokenId: confirmationToken.id,
       });
       if (!ok || !d?.review) throw new Error(d?.error || f.reenterCard);
@@ -167,11 +171,11 @@ export default function CardPayPanel({
     setError("");
     setPhase("paying");
     try {
-      let { ok, d } = await post(token, { step: "confirm", invoiceId, stageId, intentId: review.intentId });
+      let { ok, d } = await post(token, { step: "confirm", invoiceId, stageId, requestId, intentId: review.intentId });
       if (ok && d?.status === "requires_action" && d.clientSecret) {
         const { error: actionError } = await stripeRef.current.handleNextAction({ clientSecret: d.clientSecret });
         if (actionError) throw new Error(actionError.message || f.declined);
-        ({ ok, d } = await post(token, { step: "finalize", invoiceId, stageId, intentId: review.intentId }));
+        ({ ok, d } = await post(token, { step: "finalize", invoiceId, stageId, requestId, intentId: review.intentId }));
       }
       // The review no longer stands (the balance or the fee changed) or the
       // card was declined: the error says which.

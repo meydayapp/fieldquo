@@ -36,6 +36,16 @@ export default async function PortalInvoicePage({ params, searchParams }) {
   // payment-schedule stage's own email link (lib/paymentSchedule/run.js) so
   // this page can ask for that stage's amount instead of the invoice's full
   // remaining balance — see PortalInvoice.js.
-  const { stage } = (await searchParams) || {};
-  return <PortalInvoice token={token} invoiceId={id} stageId={stage || null} />;
+  //
+  // `?request=<id>` arrives the same way on the office's "different amount"
+  // email (app/api/invoices/[id]/request-payment) — an id, never a figure.
+  const { stage, request } = (await searchParams) || {};
+  return (
+    <PortalInvoice
+      token={token}
+      invoiceId={id}
+      stageId={typeof stage === "string" ? stage : null}
+      requestId={typeof request === "string" ? request : null}
+    />
+  );
 }
