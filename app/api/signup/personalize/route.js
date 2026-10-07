@@ -36,6 +36,7 @@ import {
   WELCOME_STEPS,
 } from "@/lib/signup/welcome";
 import { loadWelcomeState, welcomePrefill } from "@/lib/signup/welcomeState";
+import { gcWelcomeContext } from "@/lib/signup/gcWelcome";
 import { SIGNUP_SOURCE } from "@/lib/signup/leads";
 import { stampSignupWelcomeDoneByCompany } from "@/lib/sales/signupProgress";
 
@@ -61,7 +62,10 @@ async function welcomeOwner(request, { write = false } = {}) {
 export async function GET(request) {
   const { member, response } = await welcomeOwner(request);
   if (response) return response;
-  const state = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId });
+  // The short list for a contractor from a sub's quote — the same answer the
+  // welcome page got for this request (lib/signup/gcWelcome.js).
+  const { steps } = await gcWelcomeContext(request.headers.get("cookie"));
+  const state = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId, steps });
   if (!state) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const language = new URL(request.url).searchParams.get("lang") || state.company.defaultLanguage || "en";
   return NextResponse.json({
@@ -102,7 +106,10 @@ export async function PATCH(request) {
   const step = body?.step;
   const answers = body?.answers && typeof body.answers === "object" ? body.answers : {};
 
-  const state = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId });
+  // The short list for a contractor from a sub's quote — the same answer the
+  // welcome page got for this request (lib/signup/gcWelcome.js).
+  const { steps } = await gcWelcomeContext(request.headers.get("cookie"));
+  const state = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId, steps });
   if (!state) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!state.company.onboardingStep) {
     return NextResponse.json({ error: "This business was set up before these questions existed.", code: "not_on_flow" }, { status: 409 });
@@ -139,7 +146,7 @@ export async function PATCH(request) {
     return NextResponse.json({ error: "Unknown step.", code: "step" }, { status: 400 });
   }
   // A question after the one they are on cannot be answered by URL.
-  if (WELCOME_STEPS.indexOf(step) > WELCOME_STEPS.indexOf(state.resume)) {
+  if (steps.indexOf(step) > steps.indexOf(state.resume)) {
     return NextResponse.json(
       { error: "Answer the earlier question first.", code: "out_of_order", step: state.resume, nextUrl: welcomePath(state.resume) },
       { status: 409 },
@@ -221,11 +228,11 @@ export async function PATCH(request) {
   }
 
   // Where they are now, from the stored answers — never a counter.
-  const fresh = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId });
-  const resume = fresh?.resume || resumeWelcomeStep(fresh || {});
+  const fresh = await loadWelcomeState(db, { companyId: member.companyId, userId: member.userId, steps });
+  const resume = fresh?.resume || resumeWelcomeStep(fresh || {}, { steps });
   if (resume && resume !== state.company.onboardingStep) {
     await db.company.update({ where: { id: member.companyId }, data: { onboardingStep: resume } });
   }
-  const next = nextWelcomeStep(step);
+  const next = nextWelcomeStep(step, { steps });
   return NextResponse.json({ ok: true, resume, next, nextUrl: welcomePath(next) });
 }

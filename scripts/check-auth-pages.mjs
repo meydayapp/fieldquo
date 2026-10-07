@@ -249,6 +249,32 @@ ok("an address that already has a login is told to sign in, not refused",
     walk(createElement(AccountFields, { form: { ...BASE_FORM, email: "a@b.co" }, setForm: () => {}, fieldErrors: {}, existingLogin: "a@b.co" }), out);
     return out.some((n) => n.host && n.props["data-signup-login-exists"] !== undefined);
   })());
+// A contractor who began on a sub's quote (/q/<token>/add) and already has a
+// login: Sign in carries the way back, and only ever an internal path.
+{
+  // next/link is a forwardRef OBJECT, which walk() above neither records nor
+  // enters — so this search looks at every element's props, whatever its type.
+  const find = (node) => {
+    if (node == null || typeof node !== "object") return null;
+    if (Array.isArray(node)) {
+      for (const c of node) {
+        const hit = find(c);
+        if (hit) return hit;
+      }
+      return null;
+    }
+    const props = node.props || {};
+    if (props["data-signup-login-instead"] !== undefined) return props;
+    if (typeof node.type === "function" && OURS.has(node.type.name)) return find(node.type(props));
+    return find(props.children);
+  };
+  const signInHref = (loginNext) =>
+    find(createElement(AccountFields, { form: { ...BASE_FORM, email: "a@b.co" }, setForm: () => {}, fieldErrors: {}, existingLogin: "a@b.co", loginNext }))?.href || "";
+  const back = `/q/${"A".repeat(43)}/add`;
+  ok("an existing login's Sign in link carries ?next back to the sub's quote", signInHref(back) === `/login?email=a%40b.co&next=${encodeURIComponent(back)}`, signInHref(back));
+  ok("...never an external one", !signInHref("//evil.example").includes("next=") && !signInHref("https://evil.example").includes("next="));
+  ok("...and with no next it is the plain sign-in link", signInHref("") === "/login?email=a%40b.co");
+}
 for (const [form, field, why] of [
   [{ email: "nope", password: "longenough" }, "email", "an address that is not one"],
   [{ email: "a@b.co", password: "short" }, "password", "a password under 8"],
@@ -451,7 +477,7 @@ for (const [step, expected] of [
 }
 {
   const flowSrc = code("app/welcome/WelcomeFlow.js");
-  ok("the rail is wired to the live step, not to a constant", /rail=\{<QuestionRail step=\{step\} \/>\}/.test(flowSrc));
+  ok("the rail is wired to the live step, not to a constant", /<QuestionRail step=\{step\} steps=\{steps\} \/>/.test(flowSrc));
   ok("...and the aside likewise", /aside=\{<WelcomeAside step=\{step\} \/>\}/.test(flowSrc));
 }
 ok(

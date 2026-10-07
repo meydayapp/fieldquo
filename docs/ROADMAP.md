@@ -1,5 +1,7 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 7 October 2026 (drawing read: one room, one wall, one state of the building. A room or wall drawn on several sheets is counted once from its best drawing (the existing drawing when the set has one), a set drawn "as existing" and "proposed" is priced in ONE state chosen from the request with a one-tap "Include them" on the review panel — pinned there, interior quote only — and annexe rooms no longer take the nave's inside height. Computed on view — the church re-prices when opened (interior 22,754 → 10,005 sq ft; 14,523 with "Include them"; exterior 4,082), no re-read, no charge; its saved draft quote is NOT changed. No schema change. See "Drawing read — one room, one wall, one state" below.)
+
 Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
 Last updated: 6 October 2026 (drawing read: the measurement schema was refused before every call since 5a300fc9f, and "Read again" wrote those failures over the church's measured faces. Schema fixed; a failed or empty re-measure now keeps the earlier measurement, says so on the read card and is not charged; a price mostly on guessed quantities says so. No schema change. See "Drawing read — Read again threw measurements away" below.)
 
@@ -252,6 +254,269 @@ as written and were not touched (no data change — TrueFinish renames its own
 - Server logs, activity-log summaries and staff errors keep "waiver".
 
 ---
+## The GC on-ramp — a sub's quote brings the general contractor in (6 October 2026)
+
+The owner, 2026-10-06: a sub's quote email should let a GC who isn't on FieldQuo
+sign up fast and bring this (and their other subs') quotes into FieldQuo, from
+their portal too, later as well as at approval. Five gaps on top of the
+existing add-to-quote page (`lib/quotes/addToQuoteLink.js`, `/q/<token>/add`).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+1. **Signup from a sub's quote.** `/signup?next=/q/<token>/add` says whose
+   price they are adding, leaves the hand-off cookie, and an address that
+   already has a login gets **Sign in** carrying `?next` back to the add page
+   (never a second account). The welcome questions are cut to **profile +
+   business, then setup** for that contractor (`GC_WELCOME_STEPS`,
+   `lib/signup/gcWelcome.js`, chosen per request from the cookie and re-checked
+   against the database; no cookie = the full list), then straight back to the
+   add page. **Prefill = only what `/q/<token>` shows the token holder**, built
+   from the same object the public quote route returns
+   (`quotePageClientFacts`, `lib/quotes/gcSignup.js`) — today that is the
+   business name only. See "Owed" for why email/phone/address/contact are not
+   prefilled.
+2. **Approved screen.** After a business client approves, the confirmation
+   offers "Add this price to your own quote →" (`addToQuote` boolean from the
+   public route; homeowners: false, nothing drawn).
+3. **Client portal.** A business client's portal offers the same line on every
+   non-draft quote (`addToQuote` from `/api/portal/<token>`).
+4. **Sub side.** The send dialog (quote page and builder) asks once "Is <name> a
+   business (a contractor you work for)?" for an individual whose name reads
+   like a company's (`lib/clients/businessQuestion.js`,
+   `POST /api/clients/[id]/business-answer`). Yes → `type = company`; either
+   answer stamps `Client.businessAskedAt`. Asked only of members who could edit
+   the client; never blocks the send.
+5. **Upload a sub's quote (PDF or photo)** on the compare panel
+   (`ImportedCostsPanel` + `SubQuoteUploads.js`). Simple read (sub, trade,
+   total, tax, valid-until) the receipt reader's way (`…/sub-uploads/read`);
+   a paid **deep read of every line** (`…/sub-uploads/lines`) offered with its
+   credit price on the button. Both through `lib/ai/provider.js`, metered to
+   the company's **AI credit** (`sub_quote_read`, `sub_quote_lines`). The reads
+   **store nothing** — the transcription goes to the confirm card only. The GC
+   confirms every figure (Confirm stays off until they tick that they checked)
+   and names the sub on their roster (matched by exact normalised name, or
+   added). Confirm creates the **same source-less `QuoteImport`** a
+   no-account reply to a price request becomes (merged from "Request prices
+   from subs", per the coordinator: no second model, no second compare):
+   `snapshotAmount` = the confirmed total, `subcontractorId`, and
+   `uploadedSource` (files, confirmed lines, tax, valid-until). The compare
+   tags it "Read from an uploaded quote — the figure you confirmed"; markup,
+   remove, "Use this one", the change order on an approved quote and job
+   costing are the import machinery unchanged. The sub's name is scrubbed from
+   the label and every line in the forms a sub's own quote uses
+   (`scrubSubName` — exact-name scrubbing let "Volt Brothers — …" through).
+
+### Schema (additive — NOT applied; MUST be applied before this deploys)
+
+`Client.businessAskedAt` (the `include: { client: true }` reads select it) and
+`QuoteImport.uploadedSource` (Json). On top of the price-requests SQL, which
+is already applied. Exact SQL in the hand-off report.
+
+### Checks
+
+`check:gc-onramp` (new, in `check:all`): 208 assertions; 22/22 mutants of
+the key rules fail it. `check:sub-change-orders` executes the upload end to
+end on the import fake — option, itemised line, swap with a FieldQuo import,
+job booking (255, 18/18 mutants). `check:auth-pages` renders the
+Sign-in-with-next link (189); `check:welcome-flow` 264.
+
+### Owed / for the owner
+
+- **Prefill — decided 2026-10-06 (owner, via coordinator): done.** `/q/<token>`
+  now shows a BUSINESS client's contact block (contact, email, phone, office
+  address — the PDF's own "Prepared for" panel, so no new exposure); a
+  homeowner's page is unchanged. The signup (email, and "Log in" when it
+  already has a login) and the welcome screens (name, phone, business name,
+  address — blanks only) are prefilled from that same object.
+- **A read that is never confirmed is lost** (nothing unconfirmed is stored);
+  reading the same file again is charged again.
+- **The deep read** is a best-model line transcription billed like the plan
+  read (price first, AI credit), not the drawing-set pipeline itself.
+
+## Price requests to subs — a GC asks the subs they have, the answers land in the compare (6 October 2026)
+
+The owner, 2026-10-06: *"the GC sending a request for quote to the subs they
+have; the sub gets an email asking them to log into FieldQuo to ease the
+linkage between the two."* Built on the compare-by-trade screen, the
+change-order path and the add-to-quote signup resume from 2026-10-05 — no
+second compare, no second import writer. Everything is in `lib/subRequests/`
+(model.js decides, server.js writes, email.js and send.js send).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **"Request prices from subs"** — a "Prices from subs" card on the quote
+  page (draft, sent and approved quotes) and on the job page (jobs with a
+  quote; the answers go to that quote's compare). The dialog: the trade, the
+  subs from Subcontractors (several; one without an email can't be ticked),
+  the scope, which of the quote's / job's photos to include (checked against
+  what is on file — never a URL the browser invents), and a wanted-by date.
+  It says what is shared: the job address, the trade, the scope and the
+  ticked photos — never the client's name, phone or email (none of those is
+  even stored on a request).
+- **The email** comes from the GC's company (their domain, or the platform
+  sender wearing their name) on their stationery, in eight languages: trade,
+  AREA of the job (the street line stays behind the token), scope, photo
+  count, wanted-by, and three ways to answer — "Log in to FieldQuo to price
+  it", "Create your free account" (14 days, no card), "Reply with a price
+  without an account" — plus decline.
+- **The sub's page** `/price-request/<token>` (GC's colours, contrast
+  measured): the request; "Price it in FieldQuo" when signed in; log in /
+  create an account (both come back here — a way-back cookie survives a
+  signup that outlives its tab, like `/q/<token>/add`); the reply form
+  (price, note, optional PDF uploaded straight to Cloudinary into the GC's
+  `price-replies` folder); decline with a reason.
+- **Signup prefill** — `/signup` opens with the email the GC holds for the
+  sub ("log in instead" if it already has an account); the welcome questions
+  open with company name, contact name, phone and (exact match only) trade —
+  what the GC entered about THAT sub, in blanks only; they press Next.
+- **Linking, on the sub's own action** — "Price it in FieldQuo" (requests
+  create level, never a support session): in the SUB's company the GC
+  becomes ONE business client (`Client.linkedCompanyId`, unique per company)
+  and the request becomes a lead (source `gc_request`, the job address via
+  `buildLeadIntake`, the photos), identity-linked to that client so
+  converting quotes the GC with the job address as the site. The GC's roster
+  row gets `linkedCompanyId` when it was blank; a row or request linked to a
+  different company refuses. Idempotent: pressing twice, or a second request
+  from the same GC, makes no second client or lead.
+- **The answer comes back by itself** — when the sub SENDS that quote,
+  `onQuoteSent` lands it in the GC's compare as an **option** (markup 0, the
+  roster row named), through `performImport` — never a line, never a change
+  order. On an approved quote the GC uses "Offer as extra work" as before.
+- **No account** — the reply is the sub's own pending option: the form can
+  only write that recipient's reply, and not once it is declined, linked or
+  confirmed. The GC sees it on the card and presses **Add to compare**
+  (reads no body — the stored figure); it becomes an option beside the
+  others, marked "Emailed price". Below jobCosting the figure is withheld,
+  as the compare's cost is.
+- **Status per sub** — not sent (with Send again), sent, opened, quoting,
+  quoted, declined (with the reason) — derived from timestamps, never stored.
+- **One reminder** — Subcontractors page, "Remind a sub who hasn't answered a
+  price request": Off / 1–14 days, default 3. The daily follow-ups cron sends
+  one, never two, never after the wanted-by date.
+
+Also fixed on the way: a price with no source quote must not match "any
+unlinked sub" when adopted onto a job — `sourceLink.js` and the job-subs
+route now use the roster row the price names.
+
+### Schema (additive — NOT applied; MUST be applied before this deploys)
+
+New `SubPriceRequest`, `SubPriceRequestRecipient`; `Company.subRequestReminderDays`
+(default 3); `Client.linkedCompanyId` + unique (companyId, linkedCompanyId);
+`QuoteImport.subcontractorId`, and `QuoteImport.sourceQuoteId` /
+`sourceCompanyId` made nullable (a confirmed no-account reply has no source
+quote; production has 0 QuoteImport rows). Exact SQL is in the hand-off.
+
+### Checks
+
+`npm run check:sub-price-requests` (in check:all) — 190 assertions + 20
+mutants, all caught: tenants, homeowner leak, idempotent linking, option-not-
+line, reply-only-its-own, confirm once, reminder once, adoption finds its
+sub, email in every language. It found and fixed two real bugs: "4 250,50"
+read as 425,050, and a country "canada" truncated into "CA".
+
+### Owed / for the owner
+
+- The other agent's "upload a sub's PDF quote" reader needs the same thing a
+  no-account reply does (a price with no FieldQuo quote behind it): it should
+  reuse the nullable source + `subcontractorId` here rather than a new model.
+
+---
+## Drawing read — one room, one wall, one state (6–7 October 2026)
+
+Church run 5 (`cmuun5kc…`, after 196fa397c): interior **22,754 sq ft**
+against 11,392 on run 3. The set draws the same rooms on three plans — "Part
+church floor plan showing proposed extensions" (1:100), "Scheme C4 - Whole
+Church Plan" (1:200) and "Plan - as existing" (1:100) — and the takeoff
+measured all three (the nave at 1,338 / 3,036 / 2,208 sq ft of floor).
+
+- **What the stored read actually did** (recomputed from production's JSON,
+  read-only): the synthesis cited only the 1:200 **scheme** — so it priced
+  the PROPOSED building, extension rooms included, at the coarser scale —
+  and `takeoff.js insideFor` gave the annexe rooms (boiler, vestry, cafe,
+  kitchen…) the NAVE's 19 ft truss feet from the interior photos, over the
+  synthesis's own citation of the extension's 3.2 m wall plate: 11,119 sq ft
+  of annexe walls. The three plans were not literally summed in this read;
+  nothing stopped a read that cited them in separate lines from being.
+  (Verified 7 October: the pre-change code run on production's stored
+  JSON gives exactly 22,754 — nave 3,531, transepts/crossing/chancel 8,104,
+  new annexe 7,488, existing annexe 3,631, every face from page 3.)
+- **`lib/planRead/sameSurface.js` (new, pure):** faces that are the same
+  room or wall — same normalised name or "/" alternative, same side, room
+  perimeter within 2× / wall area within 2.5×, same level when both views
+  name one, same orientation for an elevation (a wall with none is never
+  merged), never a name drawn twice on one view — are ONE surface, kept from
+  the best drawing (printed sizes > larger scale > confidence > the drawing
+  as existing) and named on the line: "Nave: also drawn on … — the same
+  room, counted once, from “Plan - as existing” (page 11, 1:100)". Another
+  line citing the same room for the same measure says where it is counted;
+  a room's walls and its ceiling stay two surfaces; a left-out line claims
+  nothing. In a set drawn both ways, a room the existing drawings show is
+  kept FROM them even if the proposed plan prints its sizes — the proposed
+  plan draws the room after the works (the part plan's nave is 1,338 sq ft,
+  cut by the new lobbies; as it stands, 2,208) — and the line says so
+  ("the drawing as existing — the layout priced").
+- **Existing vs proposed:** when an "as existing" and a "proposed"/scheme
+  drawing share a room, ONE state is priced. FieldQuo's choice: the
+  existing layout, plus the proposed new rooms only when the request says
+  so ("extension", "new build", "proposed", "new rooms" — not after "no /
+  not / excluding"). The review panel says it as a check with a one-tap
+  answer: **"Priced the existing layout; the proposed extension rooms Cafe,
+  Kitchen, Meeting room, Store, Annexe WC and service rooms and Office are
+  not included — include them?" [Include them]** (PATCH op
+  `set_plan_state`, person only, who and when stored on `model.planState`;
+  then "…plus the proposed new rooms … — leave them out?" [Existing rooms
+  only]). "Taken into account" lists what was merged and the state; each
+  drawing on "Measured on the drawings" says which one is counted. The
+  state check is PINNED like the read's own questions (a fixed impact
+  figure would rank it under a big job's default-rate and access checks
+  and into the collapsed list), and a scoped draft carries only its own
+  side's summary — the exterior quote no longer gets the interior's check.
+  A room drawn only as proposed is left out only where an existing drawing
+  of the same level (or an elevation facing the same way) shows the
+  building as it stands. Sheet states, levels and the request are also
+  read in French and Spanish ("Plan existant", "projeté", "propuesta",
+  rez-de-chaussée, "y compris l'agrandissement", "sin la ampliación"), and
+  "except for / leave out / apart from" negate.
+- **Why the church defaults to the existing layout:** its request says
+  "the annexe rooms" — which may be the existing annexe (boiler, vestry,
+  the lobby/link) — and never "extension", "new rooms" or "proposed". The
+  synthesis itself put the Office under "Existing annexe"; it is drawn
+  only on the scheme, so FieldQuo leaves it out and names it in the check.
+- **Annexe heights:** an annexe surface takes an inside height only when it
+  is the annexe's own or names no main church space (nave, transept,
+  chancel, crossing…) — the converse of `eavesFor`'s rule.
+- **Re-pricing the church costs nothing:** quantities are computed on every
+  view (`computeRead` → `computeProject`, now with the read's request), so
+  the stored read shows the de-duplicated figures the next time it is
+  opened after deploy — no run, no re-read, no re-measure, no charge.
+  MEASURE_VERSION is NOT bumped: nothing the measurement pass returns
+  changed, and a bump would force a paid re-measure for no new information.
+  (The B. rule below — "bump on takeoff/photo-height logic" — means logic
+  that changes what the pass must RETURN; logic applied to stored answers
+  is recomputed on view and needs no bump.) There is NO re-synthesis-only
+  path: every run synthesises (a model call), an unchanged read is refused
+  ("nothing_to_read") and "Read again" re-reads every sheet, paid — none
+  is needed here. What is NOT re-priced: the church's saved draft quote
+  (`cmuv9pk0y…`, saved 5 October from an earlier run) keeps its lines —
+  draft a new quote from the read ("Create quote" → draft-quote, computed
+  fresh) for the corrected figures. The read's stored `similar` past jobs
+  were chosen at run time against the old 26,836 sq ft.
+- **The church, recomputed from production's stored faces:** interior
+  **10,005 sq ft** (existing layout: nave, crossing, transepts, chancel from
+  "Plan - as existing"; boiler and vestry at the extension's wall plate);
+  **14,523** with "Include them". Exterior **4,082** unchanged — the cited
+  elevation faces have no second drawing. Merged: Nave (3 drawings),
+  North Transept (3), Crossing, South Transept, Chancel / sanctuary,
+  Boiler and Vestry (2 each) — all kept from "Plan - as existing"; with
+  "Include them" also Cafe, Kitchen, Meeting room and Store (kept from the
+  1:100 part plan over the 1:200 scheme). Computed by running this code on
+  production's stored read (read-only), 7 October.
+- Check: `check:plan-read-first-pass` §22 on production's own three plans
+  (`scripts/fixtures/churchThreePlans.mjs`, re-compared with production key
+  by key: identical apart from the cuts its header lists); 42 mutations of
+  the new code across sameSurface, projectModel, review, slices, takeoff,
+  backfill, computeRead, view and the PATCH route — every one caught. No
+  schema change.
 
 ## Client credit-card fee — passing the card cost on to clients (5 October 2026)
 

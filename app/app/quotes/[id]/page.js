@@ -73,6 +73,7 @@ import { moneyFormatter } from "@/lib/format/money";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import SendConfirmModal from "@/app/components/SendConfirmModal";
+import BusinessQuestion from "@/app/components/quotes/BusinessQuestion";
 import {
   ArrowLeft,
   Trash2,
@@ -144,6 +145,7 @@ import EmailSectionsPanel from "./EmailSectionsPanel";
 import PresentationPanel from "./PresentationPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import PriceRequestsPanel from "@/app/components/subRequests/PriceRequestsPanel";
 import QuoteChangeOrders from "./QuoteChangeOrders";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import SiteVisitPanel, { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
@@ -210,6 +212,8 @@ export default function QuoteDetailPage() {
   // Bumped when the sub-price panel raises a change order, so the change
   // order list on an approved quote re-reads instead of going stale.
   const [changeOrdersVersion, setChangeOrdersVersion] = useState(0);
+  // Bumped when a price a sub emailed back is added to the compare.
+  const [compareVersion, setCompareVersion] = useState(0);
   // The company's billing currency, the reader's language. All eight money
   // renders below go through this — they used to go through a private
   // toFixed(2) helper that printed $2100.00 on the page a client opens.
@@ -1293,6 +1297,9 @@ export default function QuoteDetailPage() {
           "They'll get it by email straight away. You can't unsend it.",
         )}
         confirmLabel={t("app.quoteDetail.send", "Send")}
+        // Once per client: a company-sounding name saved as an individual
+        // would get no "Add this price to your own quote" line.
+        extra={pendingSend ? <BusinessQuestion clientId={quote?.client?.id} /> : null}
       />
 
       {justSent && (
@@ -1547,10 +1554,15 @@ export default function QuoteDetailPage() {
       <ImportedByPanel quoteId={id} />
 
       {/* Importer side: subcontractor costs pulled INTO this quote, removable
-          while it's still open. Self-hides when there are none. */}
+          while it's still open, and "Upload a sub's quote (PDF or photo)"
+          for a sub who is not on FieldQuo. Self-hides when there are none
+          and the reader may not upload one. */}
       <ImportedCostsPanel
         quoteId={id}
         currency={quote.company?.currency}
+        // A price a sub emailed back, confirmed on the panel below, joins
+        // the compare — re-read it then.
+        refreshKey={compareVersion}
         onTotalChange={(total) => setQuote((q) => ({ ...q, total }))}
         // "Use this one" moved the quote's lines (open quote) or raised a
         // change order (approved): re-read both so the page shows them.
@@ -1564,6 +1576,17 @@ export default function QuoteDetailPage() {
           setChangeOrdersVersion((v) => v + 1);
         }}
       />
+
+      {/* "Request prices from subs": ask the subs on the roster to price a
+          trade on this quote; each sub's status, and the prices emailed
+          back waiting for "Add to compare". Their answers land in the
+          compare above. Self-hides for a member who may not use it. */}
+      {!quote.historicalImportedAt && (
+        <PriceRequestsPanel
+          quoteId={id}
+          onCompareChanged={() => setCompareVersion((v) => v + 1)}
+        />
+      )}
 
       {/* The property this quote is for, from the street — the job address,
           else an individual client's own (the rule lib/quotes/jobAddress.js

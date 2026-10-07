@@ -32,6 +32,9 @@ import { localizeTemplate } from "@/lib/email/templateTranslation";
 import { translationsForSend } from "@/lib/email/templateTranslationStore";
 import { mergeDataFor, followUpLanguage } from "@/lib/followUps/mergeData";
 import { runCallbackRotation } from "@/lib/callbacks/build";
+import { runPriceRequestReminders } from "@/lib/subRequests/server";
+import { sendPriceRequestEmail } from "@/lib/subRequests/send";
+import { getAppOrigin } from "@/lib/appUrl";
 
 function cutoffFor(rule) {
   const ms =
@@ -468,6 +471,24 @@ export async function GET(request) {
     callbacks = { error: err?.message || "failed" };
   }
 
+  // ── The one reminder to a sub who hasn't answered a price request ─────────
+  //
+  // Same daily run, same reasoning as the callbacks above: a lookup and a few
+  // sends, not worth a cron of its own. Each company sets the delay on the
+  // Subcontractors page (Company.subRequestReminderDays; 0 = off). Never a
+  // second reminder (lib/subRequests/model.js reminderDue).
+  let priceRequestReminders = null;
+  try {
+    const origin = getAppOrigin(request);
+    priceRequestReminders = await runPriceRequestReminders(db, {
+      now: new Date(),
+      send: (recipientId) => sendPriceRequestEmail({ recipientId, origin, reminder: true }),
+    });
+  } catch (err) {
+    console.error("[follow-ups] price request reminders failed:", err?.message);
+    priceRequestReminders = { error: err?.message || "failed" };
+  }
+
   return NextResponse.json({
     success: true,
     sent,
@@ -477,5 +498,6 @@ export async function GET(request) {
     skippedUnsubscribed,
     stopped,
     callbacks,
+    priceRequestReminders,
   });
 }

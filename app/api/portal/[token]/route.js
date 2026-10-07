@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isBusinessClient } from "@/lib/quotes/addToQuoteLink";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestPerFamily } from "@/lib/invoices/family";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
@@ -764,6 +765,11 @@ export async function GET(request, { params }) {
   // opens this for — still render.
   let plans = [];
   let visits = { next: null, upcoming: [], past: [] };
+  // "Add this price to your own quote" on each quote — a business client
+  // only (lib/quotes/addToQuoteLink.js isBusinessClient), read off the same
+  // narrow `home` row the visit cards use. False until that read succeeds:
+  // a failure here must leave a homeowner's portal exactly as it was.
+  let businessClient = false;
   try {
     const yearAgo = new Date(now.getTime() - 365 * 86400000);
     const scope = { clientId: client.id, companyId: client.companyId };
@@ -844,6 +850,7 @@ export async function GET(request, { params }) {
       }),
       openChangeRequestKeys({ client }),
     ]);
+    businessClient = isBusinessClient(home);
 
     // Photos for visits that have happened: only JobPhoto rows (which carry
     // a stage), never the "issue" stage, never one filed
@@ -929,6 +936,9 @@ export async function GET(request, { params }) {
     // No company-level `bankDebit` here any more: the answer depends on the
     // amount, so it lives on each invoice and each stage above.
     quotes: client.quotes,
+    // Whether each quote may offer "Add this price to your own quote" — one
+    // boolean for the page, never the client's type itself.
+    addToQuote: businessClient,
     invoices,
     jobs,
   });

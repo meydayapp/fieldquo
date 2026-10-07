@@ -71,6 +71,7 @@ import { addendumMoney, quoteTaxRate } from "@/lib/jobs/changeOrderAddendum";
 import { isBillableChangeOrder, changeOrderSummary } from "@/lib/jobs/changeOrderValue";
 import { hashQuote } from "@/lib/documents/signatureAudit";
 import { shareTokenFromLink } from "@/lib/quotes/addToQuoteLink";
+import { createUploadedImport } from "@/lib/quotes/subQuoteUploadWrite";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -371,7 +372,7 @@ function makeDb() {
     findUnique: async ({ where = {}, select, include } = {}) => shape(name, T[name].find((r) => matches(r, where)), { select, include }),
     count: async ({ where = {} } = {}) => T[name].filter((r) => matches(r, where)).length,
     create: async ({ data, select, include }) => {
-      if (name === "quoteImport" && T.quoteImport.some((r) => r.targetQuoteId === data.targetQuoteId && r.sourceQuoteId === data.sourceQuoteId))
+      if (name === "quoteImport" && data.sourceQuoteId != null && T.quoteImport.some((r) => r.targetQuoteId === data.targetQuoteId && r.sourceQuoteId === data.sourceQuoteId))
         throw Object.assign(new Error("unique"), { code: "P2002" });
       const row = { id: id(name), createdAt: new Date(2026, 9, 5, 0, 0, ++seq), ...data };
       if (name === "quoteImport" && row.placement === undefined) row.placement = "line"; // the column default
@@ -586,6 +587,82 @@ console.log("\n3. Choosing between subs on an OPEN quote — only the chosen one
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n3b. An uploaded sub's quote (PDF or photo) is a source-less import like a no-account reply\n");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const w = world();
+  const { db } = w;
+  const q = () => w.T.quote.find((x) => x.id === "GQO");
+  const files = [{ url: "https://res.cloudinary.com/x/raw/upload/q.pdf", kind: "document", filename: "volt.pdf" }];
+  const confirm = (extra) => ({
+    subName: "Volt Brothers Electric",
+    trade: "Electrical",
+    total: "2,000.00",
+    tax: "230",
+    validUntil: "2026-11-30",
+    markupPercent: 25,
+    placement: "option",
+    createSubcontractor: true,
+    // A browser that tries to set the price is ignored.
+    clientPrice: 1,
+    priceDollars: 1,
+    ...extra,
+  });
+
+  const up = await createUploadedImport({ db, member, quoteId: "GQO", body: confirm(), files, readBy: "ai", targetCompany: { taxRate: 0 } });
+  const row = w.T.quoteImport.find((i) => i.id === up.import.id);
+  eq("Confirm writes ONE source-less import: no source quote, no source company", [row.sourceQuoteId, row.sourceCompanyId, row.placement], [null, null, "option"]);
+  eq("…at the CONFIRMED total, with the markup the GC chose", [Number(row.snapshotAmount), Number(row.markupPercent)], [2000, 25]);
+  ok("…naming a roster row it created for the sub", Boolean(row.subcontractorId) && w.T.subcontractor.some((s) => s.id === row.subcontractorId && s.name === "Volt Brothers Electric"));
+  ok("…with the files and the confirmed record beside it", row.uploadedSource?.files?.[0]?.filename === "volt.pdf" && row.uploadedSource.taxAmount === 230 && row.uploadedSource.readBy === "ai");
+  ok("…and a label that never names the sub", !containsSub(row.label), row.label);
+  eq("the quote's total did not move for an option", q().total, 5000);
+
+  await rejects("Confirm without a sub on the roster is refused", () => createUploadedImport({ db, member, quoteId: "GQO", body: confirm({ createSubcontractor: false }), files, targetCompany: { taxRate: 0 } }), /highlighted/);
+  await rejects("Confirm with a negative total is refused", () => createUploadedImport({ db, member, quoteId: "GQO", body: confirm({ total: "-5" }), files, targetCompany: { taxRate: 0 } }), /highlighted/);
+  w.T.subcontractor.push({ id: "SUB_OTHER", companyId: "OTHER_GC", name: "Someone else's sub", createdAt: new Date() });
+  await rejects("another company's roster row is refused", () => createUploadedImport({ db, member, quoteId: "GQO", body: confirm({ createSubcontractor: false, subcontractorId: "SUB_OTHER" }), files, targetCompany: { taxRate: 0 } }), /isn't on your list/);
+
+  // Itemised, straight onto the open quote: the confirmed lines, scrubbed, scaled.
+  const lined = await createUploadedImport({
+    db,
+    member,
+    quoteId: "GQO",
+    body: confirm({
+      trade: "Lighting",
+      total: "1000",
+      markupPercent: 20,
+      placement: "line",
+      display: "itemized",
+      lines: [
+        { description: "Volt Brothers — pot lights", amount: "600" },
+        { description: "Dimmers", amount: "400" },
+      ],
+    }),
+    files,
+    targetCompany: { taxRate: 0 },
+  });
+  const g = w.T.quoteScopeGroup.find((x) => x.id === w.T.quoteImport.find((i) => i.id === lined.import.id).targetLineId);
+  eq("'Add to this quote now': a line at cost × (1 + markup), 1,000 → 1,200", [Number(g?.subtotal), lined.targetTotal], [1200, 6200]);
+  eq("…its itemised lines add to the client price to the cent", Math.round(g.lineItems.reduce((s, l) => s + l.amount, 0) * 100), 120000);
+  ok("…and no line names the sub", !containsSub(g), g.lineItems);
+
+  // The same compare: a FieldQuo import for the same trade swaps with it.
+  const a = await performImport({ db, member, sourceQuote: loadQuote(w.T, "SQ1"), targetQuote: loadQuote(w.T, "GQO"), targetCompany: { taxRate: 0 }, markupPercent: 20, display: "blended", label: "Electrical", asOption: true });
+  const placedUpload = await placeImportOption({ db, member, quoteId: "GQO", importId: up.import.id, targetCompany: { taxRate: 0 } });
+  eq("'Use this one' on the upload: it becomes the Electrical line", placedUpload.placement, "line");
+  const back = await placeImportOption({ db, member, quoteId: "GQO", importId: a.import.id, targetCompany: { taxRate: 0 } });
+  eq("…and a FieldQuo import for the trade steps it back — one price per trade", back.swappedOut, [up.import.id]);
+
+  // Accepted: only lines are booked, at the confirmed cost.
+  q().status = "accepted";
+  w.T.job.push({ id: "JU", companyId: "GC", quoteId: "GQO", clientId: "CL", createdAt: new Date() });
+  const made = await materializeImportedCosts(db, { quoteId: "GQO", jobId: "JU", companyId: "GC" });
+  eq("acceptance books the uploaded line's confirmed cost and the chosen import, never the held upload", [made, w.T.expense.map((e) => Number(e.amount)).sort((x, y) => x - y)], [2, [1000, 3000]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log("\n4. Approval books the sub's cost once; a decline takes it back and leaves an unused option\n");
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -749,6 +826,9 @@ const MUTATIONS = [
   ["lib/quotes/importQuote.js", "acceptance books every bid, options included", (s) => s.replace('      expenseId: null,\n      placement: "line",', "      expenseId: null,")],
   ["lib/quotes/importQuote.js", "an editor save wipes the options", (s) => s.replace('where: { targetQuoteId: quoteId, placement: "line" },', "where: { targetQuoteId: quoteId },")],
   ["lib/quotes/importQuote.js", "'Use this one' leaves the trade's old line on the quote", (s) => s.replace("if (other.id === imp.id || comparisonKey(other.label) !== key) continue;", "continue;")],
+  // An uploaded sub's quote: its confirmed lines reach the client's quote scrubbed of the sub's name.
+  ["lib/quotes/subQuoteUploadWrite.js", "an uploaded quote's line names the sub", (s) => s.replace('description: scrubSubName(l.description, c.subName) || "Item"', "description: l.description")],
+  ["lib/quotes/subQuoteUploadWrite.js", "Confirm takes another company's roster row", (s) => s.replace("where: { id: subcontractorId, companyId: member.companyId },", "where: { id: subcontractorId },")],
   ["lib/subcontractors/sourceLink.js", "a sub's cost is booked before the client approves", (s) => s.replace("if (isApprovedChangeOrder(co)) {", "if (true) {")],
   ["lib/subcontractors/sourceLink.js", "a decline leaves the sub's cost on the job", (s) => s.replace('await db.jobSubcontractor.update({ where: { id: row.id }, data: { status: "quoted" } });', "")],
   ["lib/jobs/changeOrderPayment.js", "pay-on-approval bills twice", (s) => s.replace("if (co.invoiceId) return { ok: true, invoiceId: co.invoiceId, created: false };", "")],

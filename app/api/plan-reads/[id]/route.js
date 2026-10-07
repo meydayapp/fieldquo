@@ -227,9 +227,10 @@ export async function PATCH(request, { params }) {
     const canSeeMoney = hasToggle(full, "showPricing");
     let ops = otherOps.filter((o) => canSeeMoney || (o.op !== "set_access_price" && o.op !== "confirm_access")).slice(0, 20);
     // Who and when, from the session — never from the body — on the ops the
-    // read records them for (a left-out access line's reason, a ticked check).
+    // read records them for (a left-out access line's reason, a ticked check,
+    // the building state priced).
     const at = new Date().toISOString();
-    ops = ops.map((o) => (o.op === "set_access_reason" || o.op === "review_check" ? { ...o, userId: member.userId || null, at } : o));
+    ops = ops.map((o) => (o.op === "set_access_reason" || o.op === "review_check" || o.op === "set_plan_state" ? { ...o, userId: member.userId || null, at } : o));
     // "Confirm" an estimated access line: the amount is the server's own,
     // worked out from the read now (lib/planRead/firstPass.js priceAccessLine)
     // — a price in the request is never read (AGENTS.md rule 5's spirit).

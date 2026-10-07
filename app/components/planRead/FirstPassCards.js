@@ -89,6 +89,9 @@ export function MeasuredCard({ view, t }) {
                 <ConfidenceChip value={f.confidence} t={t} />
               </div>
               <p className="text-[11px] text-muted-foreground mt-0.5">{f.sentence}</p>
+              {f.sameAs && <p className="text-[11px] mt-0.5">{t("app.planRead.firstPass.sameAs", "The same {what} as on {where} — counted once, from there", { what: f.room ? t("app.planRead.firstPass.room", "room") : t("app.planRead.firstPass.wall", "wall"), where: f.sameAs })}</p>}
+              {f.alsoOn?.length > 0 && <p className="text-[11px] mt-0.5">{t("app.planRead.firstPass.alsoOn", "Also drawn on {where} — counted once, from this drawing", { where: f.alsoOn.join(", ") })}</p>}
+              {f.stateOut && <p className="text-[11px] mt-0.5 text-amber-800 dark:text-amber-300">{t("app.planRead.firstPass.stateOut", "Only on the proposed drawings — not in the existing layout this price is for")}</p>}
               {f.check && <p className="text-[11px] mt-0.5">{t("app.planRead.firstPass.check", "Check: {what}", { what: f.check })}</p>}
             </li>
           ))}

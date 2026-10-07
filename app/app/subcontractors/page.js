@@ -28,6 +28,7 @@ import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import ExpiryBadge from "@/app/components/ExpiryBadge";
+import PriceRequestReminderSetting from "@/app/components/subRequests/PriceRequestReminderSetting";
 
 export default function SubcontractorsPage() {
   const { t } = useTranslation();
@@ -200,6 +201,11 @@ export default function SubcontractorsPage() {
           ))}
         </div>
       </ListState>
+
+      {/* The one reminder a sub gets when they haven't answered a price
+          request from a quote or job page. Only for someone who may change
+          the roster — the setting's route asks the same. */}
+      {data?.canEdit && <PriceRequestReminderSetting />}
     </div>
   );
 }

@@ -714,6 +714,20 @@ export default function QuoteApproval({ token, sample = null }) {
           <p className="text-lg font-semibold text-[#2d2520]">
             {quote.client?.name}
           </p>
+          {/* A BUSINESS client's contact block — the same lines the PDF's
+              "Prepared for" panel prints in the email that brought them
+              here, plus their named contact. The server sends these fields
+              for a business client only (lib/quotes/gcSignup.js
+              quotePageClientFacts); a homeowner's object is the name alone,
+              so nothing renders for them. Values only, in the document's own
+              colours — the client's details, nothing of FieldQuo's. */}
+          {[quote.client?.contactName, quote.client?.address, [quote.client?.email, quote.client?.phone].filter(Boolean).join(" · ")]
+            .filter(Boolean)
+            .map((line, i) => (
+              <p key={i} className="text-sm text-[#2d2520]/70 break-words" data-client-contact-line>
+                {line}
+              </p>
+            ))}
           {/* Where the work is — the same line the PDF's "Prepared for"
               panel prints, when the quote names a site. */}
           {quote.siteAddress && (
@@ -1613,11 +1627,30 @@ export default function QuoteApproval({ token, sample = null }) {
 
         <div ref={approveRef} className="px-6 sm:px-8 py-6 bg-[#faf8f4] border-t border-black/5 scroll-mt-24">
           {decided === "accepted" ? (
-            <Settled
-              tone="ok"
-              title={copy.approvedTitle}
-              body={copy.approvedBody(c.name)}
-            />
+            <>
+              <Settled
+                tone="ok"
+                title={copy.approvedTitle}
+                body={copy.approvedBody(c.name)}
+              />
+              {/* A business that just approved a sub's price is usually about
+                  to put it in its own quote. The same line the email carries
+                  (lib/quotes/addToQuoteLink.js), for business clients only —
+                  the server sends `addToQuote` false for a homeowner, whose
+                  page stays exactly the contractor's. No FieldQuo name here:
+                  the page it opens explains, and that is the reader's choice. */}
+              {quote.addToQuote === true && !sample && (
+                <p className="mt-3 text-center">
+                  <a
+                    href={`/q/${encodeURIComponent(token)}/add`}
+                    className="inline-flex items-center min-h-11 text-sm font-semibold underline underline-offset-2 text-[#2d2520]"
+                    data-add-to-own-quote
+                  >
+                    {copy.addToOwnQuote}
+                  </a>
+                </p>
+              )}
+            </>
           ) : decided === "declined" ? (
             <Settled
               tone="muted"

@@ -130,8 +130,13 @@ const COMPANY = {
   logoUrl: null,
   brandColor: "#1f3a5f",
 };
-const T0 = new Date("2026-10-06T14:00:00Z"); // Tue 10:00 AM Toronto
-const T1 = new Date("2026-10-08T18:30:00Z"); // Thu 2:30 PM Toronto
+// Always in the FUTURE, and always in June so Toronto is on daylight time
+// (UTC-4) and the wall-clock assertions below hold. These were fixed dates in
+// October 2026, and the check started failing the day after T0 — the client
+// "moving their own visit" was refused as a visit that had already happened.
+const FUTURE_YEAR = new Date().getUTCFullYear() + 1;
+const T0 = new Date(`${FUTURE_YEAR}-06-08T14:00:00Z`); // 10:00 AM Toronto
+const T1 = new Date(`${FUTURE_YEAR}-06-10T18:30:00Z`); // 2:30 PM Toronto
 const PHONE = "819-238-7263";
 const E164 = "+18192387263";
 

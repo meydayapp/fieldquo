@@ -44,6 +44,8 @@ import {
 } from "@/lib/proposal/load";
 import { pendingWaiversForQuote, fileSignedWaiversForJob } from "@/lib/waivers/service";
 import { quoteChangeOrderAddendum } from "@/lib/quotes/importOptions";
+import { quotePageClientFacts } from "@/lib/quotes/gcSignup";
+import { isBusinessClient } from "@/lib/quotes/addToQuoteLink";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -76,7 +78,12 @@ async function loadQuote(token) {
     where: { shareToken: token },
     include: {
       client: {
-        select: { name: true, email: true, address: true, language: true },
+        // `type` decides two things and is never forwarded itself: the
+        // addToQuote boolean below, and whether quotePageClientFacts adds a
+        // BUSINESS client's contact block (contactName, email, phone,
+        // address — the PDF's own "Prepared for" panel; lib/quotes/gcSignup.js
+        // says why that is no new exposure). A homeowner's object is the name.
+        select: { name: true, email: true, address: true, language: true, type: true, contactName: true, phone: true },
       },
       company: {
         // No id. `present()` returns this object wholesale to an
@@ -427,7 +434,15 @@ function present(quote, { financingTr = null } = {}) {
     // and a plan never changes the one-time total above (it is billed per
     // visit, which the page says).
     planOffers: (quote.planOffers || []).map((o) => publicPlanOffer(o, quote)),
-    client: { name: quote.client?.name || "" },
+    // Built by the one function the GC signup prefill is built from
+    // (lib/quotes/gcSignup.js), so the prefill can never show more about the
+    // client than this page does.
+    client: quotePageClientFacts(quote.client),
+    // "Add this price to your own quote →" under the approved confirmation —
+    // a business client only (Client.type === "company"), exactly the rule
+    // the email's line uses (lib/quotes/addToQuoteLink.js). A homeowner's
+    // page is byte-for-byte what it was: false, and nothing is drawn.
+    addToQuote: isBusinessClient(quote.client),
     // Where the work is — the quote's own job address, or nothing. A
     // homeowner's own address is not repeated here; the PDF's "Prepared for"
     // panel already carries it, and this page names the client only.

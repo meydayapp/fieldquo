@@ -33,6 +33,9 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
+// A sub who is NOT on FieldQuo: their PDF or photo, read and confirmed, in the
+// same compare (owner 2026-10-06). Its own file — see SubQuoteUploads.js.
+import { SubQuoteUploadArea } from "./SubQuoteUploads";
 
 const STATUS = {
   pending: { key: "app.quoteImports.pending", Icon: Clock, cls: "text-amber-600 dark:text-amber-400" },
@@ -48,7 +51,7 @@ const CO_STATUS_KEY = {
   approved: "app.importedCosts.coApproved",
 };
 
-export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, onChanged }) {
+export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, onChanged, refreshKey = 0 }) {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   // Both routes behind the markup and remove buttons require
@@ -68,6 +71,10 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
   const [mk, setMk] = useState(0);
   const [savingMk, setSavingMk] = useState(false);
 
+  // "Upload a sub's quote": who may, what the reads cost, the roster. A
+  // confirmed upload is an ordinary row of `rows` (a source-less import).
+  const [uploadCtx, setUploadCtx] = useState(null);
+
   const load = useCallback(async () => {
     try {
       const r = await fetch(`/api/quotes/${quoteId}/imports`);
@@ -77,13 +84,25 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
     } catch {
       setRows([]);
     }
+    try {
+      const r = await fetch(`/api/quotes/${quoteId}/sub-uploads`);
+      setUploadCtx(r.ok ? await r.json() : null);
+    } catch {
+      // No context is no upload button — never a broken quote page.
+      setUploadCtx(null);
+    }
   }, [quoteId]);
 
+  // refreshKey: bumped by the page when a price arrives from elsewhere — a
+  // sub's emailed price added on the price-requests panel.
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
-  if (!rows || rows.length === 0) return null;
+  // Drawn when there is something to compare, OR when this reader may upload
+  // a sub's quote — the button is how the first price gets here.
+  if (!rows) return null;
+  if (rows.length === 0 && !uploadCtx?.canEdit) return null;
 
   const money = (n) => formatMoney(n, currency);
   const open = ["draft", "sent"].includes(ctx?.status);
@@ -102,6 +121,13 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
     byKey.get(key).rows.push(r);
   }
   const competing = groups.some((g) => g.rows.length > 1);
+
+  // After an upload is confirmed it is a row here, and if it went on the
+  // quote another line may have stepped back — re-read, and the quote.
+  const uploadsChanged = async (data) => {
+    await load();
+    if (typeof onChanged === "function") await onChanged(data);
+  };
 
   async function remove(importId) {
     if (busy) return;
@@ -198,10 +224,22 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
         <h2 className="text-sm font-semibold text-foreground">{t("app.importedCosts.title")}</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        {competing || rows.some((r) => r.placement === "option")
-          ? t("app.importedCosts.compareHint")
-          : t("app.importedCosts.subtitle")}
+        {groups.length === 0
+          ? t("app.subUpload.emptyHint")
+          : competing || groups.some((g) => g.rows.some((r) => r.placement === "option"))
+            ? t("app.importedCosts.compareHint")
+            : t("app.importedCosts.subtitle")}
       </p>
+
+      <div className="mb-3">
+        <SubQuoteUploadArea
+          quoteId={quoteId}
+          currency={currency}
+          ctx={uploadCtx}
+          onChanged={uploadsChanged}
+          onTotalChange={onTotalChange}
+        />
+      </div>
 
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
       {notice && <p className="text-sm text-emerald-700 dark:text-emerald-400 mb-2">{notice}</p>}
@@ -230,6 +268,16 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
                         <p className="text-sm font-medium text-foreground truncate">{r.sourceCompanyName || r.label || "—"}</p>
                         {r.sourceCompanyName && r.label && g.rows.length === 1 && groups.length === 1 && (
                           <p className="text-xs text-muted-foreground truncate">{r.label}</p>
+                        )}
+                        {/* A price the sub typed into a price request's reply
+                            form — no FieldQuo quote behind it. */}
+                        {r.viaReply && (
+                          <p className="text-[11px] text-muted-foreground">{t("app.importedCosts.viaReply")}</p>
+                        )}
+                        {/* A PDF or photo the GC uploaded — the figure is the
+                            one they confirmed (lib/quotes/subQuoteUpload.js). */}
+                        {r.viaUpload && (
+                          <p className="text-[11px] text-muted-foreground">{t("app.importedCosts.viaUpload")}</p>
                         )}
                         {/* Cost and markup only for a reader with jobCosting — the
                             server withholds them otherwise (costHidden) and the
