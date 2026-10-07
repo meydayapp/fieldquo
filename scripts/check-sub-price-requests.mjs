@@ -434,14 +434,15 @@ function world() {
     clientPhotos: [{ url: "https://res.cloudinary.com/fq/a.jpg", kind: "photo" }], createdAt: new Date(2026, 9, 1),
   });
   T.subcontractor.push(
+    // An UNLINKED sub on the GC's roster that has nothing to do with any
+    // request — first in the table, so a "linkedCompanyId: null" lookup
+    // would land on it.
+    { id: "sAaaUnrelated", companyId: "GC", name: "Aaa Unrelated", email: "u@u.example", linkedCompanyId: null, active: true, createdAt: new Date(2025, 0, 1) },
     { id: "sSparky", companyId: "GC", name: "Sparky Electric", contactName: "Sam Sparks", email: "sam@sparky.example", phone: "613-555-0123", trade: "Electrical", linkedCompanyId: null, active: true, insuranceExpiresAt: null, clearanceExpiresAt: null, createdAt: new Date(2026, 0, 1) },
     { id: "sVolt", companyId: "GC", name: "Volt Brothers", email: "volt@volt.example", trade: "Electrical", linkedCompanyId: null, active: true, createdAt: new Date(2026, 0, 2) },
     { id: "sNoMail", companyId: "GC", name: "No Mail Ltd", email: null, linkedCompanyId: null, active: true, createdAt: new Date(2026, 0, 3) },
     // Another tenant's roster row — never sendable from the GC.
     { id: "sForeign", companyId: "RIVAL", name: "Foreign Sub", email: "f@f.example", linkedCompanyId: null, active: true, createdAt: new Date(2026, 0, 4) },
-    // An UNLINKED sub on the GC's roster that has nothing to do with any
-    // request — the row a "linkedCompanyId: null" lookup would wrongly match.
-    { id: "sAaaUnrelated", companyId: "GC", name: "Aaa Unrelated", email: "u@u.example", linkedCompanyId: null, active: true, createdAt: new Date(2025, 0, 1) },
   );
   return w;
 }
@@ -539,7 +540,7 @@ console.log("\n3. Flows — tenants, the homeowner, linking, the compare, the re
   eq("…as an OPTION at the sub's price, markup 0, naming the roster row", [imp.placement, Number(imp.snapshotAmount), Number(imp.markupPercent), imp.subcontractorId, imp.targetCompanyId, imp.label], ["option", 4200, 0, "sSparky", "GC", "Electrical"]);
   eq("…never a line: the GC's quote and total are untouched", [w.T.quoteScopeGroup.filter((g) => g.quoteId === "gcq").length, w.T.quote.find((q) => q.id === "gcq").total], [0, gcTotal]);
   eq("…and the recipient reads quoted, in the compare", [M.recipientStatus(w.T.subPriceRequestRecipient.find((r) => r.id === rSparky.id)), Boolean(w.T.subPriceRequestRecipient.find((r) => r.id === rSparky.id).quoteImportId)], ["quoted", true]);
-  const groups = compareImportOptions({ imports: w.T.quoteImport.map((i) => ({ ...i, sourceCompany: w.T.company.find((c) => c.id === i.sourceCompanyId) })), subsById: { sSparky: w.T.subcontractor[0] } });
+  const groups = compareImportOptions({ imports: w.T.quoteImport.map((i) => ({ ...i, sourceCompany: w.T.company.find((c) => c.id === i.sourceCompanyId) })), subsById: { sSparky: w.T.subcontractor.find((s) => s.id === "sSparky") } });
   eq("…the compare shows it, not chosen", [groups[0].options[0].placement, groups[0].chosenId], ["option", null]);
   await S.landRequestedQuote(w.db, { quoteId: "subq" });
   eq("a re-send lands nothing twice", w.T.quoteImport.filter((i) => i.sourceQuoteId === "subq").length, 1);
@@ -554,6 +555,9 @@ console.log("\n3. Flows — tenants, the homeowner, linking, the compare, the re
   w.T.subPriceRequestRecipient.find((r) => r.id === rVolt.id).leadId = null;
 
   // ── The no-account reply ────────────────────────────────────────────────
+  // A bystander: another sub asked on another request, untouched by anything
+  // below except its own token.
+  const bystander = (await sendRequest(w, ["sAaaUnrelated"], { trade: "Painting" })).recipients[0];
   const replyBefore = structuredClone(w.T.subPriceRequestRecipient.find((r) => r.id === rSparky.id));
   await rejects("a linked sub cannot use the reply form", () => S.submitReply(w.db, { token: rSparky.token, input: { amount: 1, note: "" } }), /FieldQuo account/);
   eq("…and its row did not move", JSON.stringify(w.T.subPriceRequestRecipient.find((r) => r.id === rSparky.id)), JSON.stringify(replyBefore));
@@ -561,6 +565,7 @@ console.log("\n3. Flows — tenants, the homeowner, linking, the compare, the re
   const v1 = w.T.subPriceRequestRecipient.find((r) => r.id === rVolt.id);
   eq("the reply lands on its OWN recipient only", [Number(v1.replyAmount), v1.replyNote, w.T.subPriceRequestRecipient.find((r) => r.id === rSparky.id).replyAmount ?? null], [3900, "Includes permit", null]);
   eq("…and nothing reached the compare yet", w.T.quoteImport.filter((i) => i.subcontractorId === "sVolt").length, 0);
+  eq("…a bystander's row is untouched", [w.T.subPriceRequestRecipient.find((r) => r.id === bystander.id).replyAmount ?? null, w.T.subPriceRequestRecipient.find((r) => r.id === bystander.id).repliedAt ?? null], [null, null]);
   await S.submitReply(w.db, { token: rVolt.token, input: { amount: 3800, note: "" } });
   eq("they can change it while the GC hasn't confirmed", Number(w.T.subPriceRequestRecipient.find((r) => r.id === rVolt.id).replyAmount), 3800);
   await rejects("another company cannot confirm the GC's reply", () => S.confirmReply(w.db, { member: { companyId: "RIVAL", userId: "u" }, recipientId: rVolt.id }), /wasn't found/);
@@ -613,7 +618,7 @@ console.log("\n3. Flows — tenants, the homeowner, linking, the compare, the re
   sentLog.length = 0;
   await run(new Date(Date.UTC(2026, 9, 10)));
   await run(new Date(Date.UTC(2026, 9, 12)));
-  eq("one reminder, to the one sub who hasn't answered — never two", sentLog, [fourth.recipients[0].id]);
+  eq("one reminder each, only to the subs who haven't answered — never two", [...sentLog].sort(), [bystander.id, fourth.recipients[0].id].sort());
   w.T.company.find((c) => c.id === "GC").subRequestReminderDays = 0;
   const fifth = await sendRequest(w, ["sVolt"], { trade: "Drywall" });
   sentLog.length = 0;
