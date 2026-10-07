@@ -105,6 +105,78 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The GC on-ramp — a sub's quote brings the general contractor in (6 October 2026)
+
+The owner, 2026-10-06: a sub's quote email should let a GC who isn't on FieldQuo
+sign up fast and bring this (and their other subs') quotes into FieldQuo, from
+their portal too, later as well as at approval. Five gaps on top of the
+existing add-to-quote page (`lib/quotes/addToQuoteLink.js`, `/q/<token>/add`).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+1. **Signup from a sub's quote.** `/signup?next=/q/<token>/add` says whose
+   price they are adding, leaves the hand-off cookie, and an address that
+   already has a login gets **Sign in** carrying `?next` back to the add page
+   (never a second account). The welcome questions are cut to **profile +
+   business, then setup** for that contractor (`GC_WELCOME_STEPS`,
+   `lib/signup/gcWelcome.js`, chosen per request from the cookie and re-checked
+   against the database; no cookie = the full list), then straight back to the
+   add page. **Prefill = only what `/q/<token>` shows the token holder**, built
+   from the same object the public quote route returns
+   (`quotePageClientFacts`, `lib/quotes/gcSignup.js`) — today that is the
+   business name only. See "Owed" for why email/phone/address/contact are not
+   prefilled.
+2. **Approved screen.** After a business client approves, the confirmation
+   offers "Add this price to your own quote →" (`addToQuote` boolean from the
+   public route; homeowners: false, nothing drawn).
+3. **Client portal.** A business client's portal offers the same line on every
+   non-draft quote (`addToQuote` from `/api/portal/<token>`).
+4. **Sub side.** The send dialog (quote page and builder) asks once "Is <name> a
+   business (a contractor you work for)?" for an individual whose name reads
+   like a company's (`lib/clients/businessQuestion.js`,
+   `POST /api/clients/[id]/business-answer`). Yes → `type = company`; either
+   answer stamps `Client.businessAskedAt`. Asked only of members who could edit
+   the client; never blocks the send.
+5. **Upload a sub's quote (PDF or photo)** on the compare panel
+   (`ImportedCostsPanel` + `SubQuoteUploads.js`). Simple read (sub, trade,
+   total, tax, valid-until) the receipt reader's way; a paid **deep read of
+   every line** offered with its credit price first. Both through
+   `lib/ai/provider.js`, metered to the company's **AI credit**
+   (`sub_quote_read`, `sub_quote_lines` in `lib/ai/featurePayer.js`). The GC
+   confirms every figure (Confirm stays off until they tick that they checked);
+   only confirmed values reach `SubQuoteUpload.costAmount` (`usableCost`).
+   Confirmed uploads sit in the **same trade groups** as FieldQuo subs, with
+   markup, remove and "Use this one" (one price per trade — an import and an
+   upload step each other back); or straight onto the quote as cost lines with
+   markup (QuoteImport's group builder, sub name scrubbed). Matched to a roster
+   Subcontractor by exact normalised name, or "Add <name> to my
+   subcontractors". Editor reconcile and job-cost booking cover uploads.
+
+### Schema (additive — NOT applied; MUST be applied before this deploys)
+
+`Client.businessAskedAt` (the `include: { client: true }` reads select it) and
+the new `SubQuoteUpload` table. Exact SQL in the hand-off report.
+
+### Checks
+
+`check:gc-onramp` (new, in `check:all`): 182 assertions, 15/15 mutants caught.
+`check:sub-change-orders` gained the upload half (247, 17/17 mutants);
+`check:auth-pages` renders the Sign-in-with-next link (189);
+`check:welcome-flow` 264.
+
+### Owed / for the owner
+
+- **Prefill beyond the business name.** `/q/<token>` shows the client's name
+  only; email, phone, office address and contact person are on the PDF in the
+  sub's email, not on the page — so under the exposure rule they are not
+  prefilled. Recommendation: print the business client's contact block on the
+  page (business clients only, the PDF's own fields); the prefill follows
+  automatically through `quotePageClientFacts`.
+- **An upload on an APPROVED quote** can be compared but not raised as a change
+  order (`ChangeOrder.quoteImportId` points at QuoteImport only).
+- **The deep read** is a best-model line transcription billed like the plan
+  read (price first, AI credit), not the drawing-set pipeline itself.
+
 ## Client credit-card fee — passing the card cost on to clients (5 October 2026)
 
 The owner (Ontario contractor) asked for a setting that passes the card
