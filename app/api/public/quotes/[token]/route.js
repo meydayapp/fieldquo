@@ -745,7 +745,9 @@ export async function POST(request, { params }) {
     if (pending.length) {
       return NextResponse.json(
         {
-          error: "Please sign the attached waiver before approving this quote.",
+          // The client-facing word (lib/i18n/clientDocCopy.js); the page
+          // prints its own localised copy, this is the fallback.
+          error: "Please sign the project acknowledgement before approving this quote.",
           needsWaiver: true,
           waivers: pending.map((w) => ({ token: w.token, title: w.document?.title || "" })),
         },

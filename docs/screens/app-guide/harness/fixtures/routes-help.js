@@ -144,7 +144,7 @@ const proposalFor = (ctx) => {
     waivers: [
       {
         token: "wv_fixture000000000000001",
-        title: t("Release of liability — cabinet installation", "Décharge de responsabilité — installation d'armoires", "Exención de responsabilidad — instalación de gabinetes"),
+        title: t("Project acknowledgement — cabinet installation", "Prise de connaissance du projet — installation d'armoires", "Conformidad del proyecto — instalación de gabinetes"),
         sections: [
           { heading: t("Furniture and belongings", "Meubles et effets personnels", "Muebles y pertenencias"), text: t("We move and cover furniture in the rooms we work in. Fragile items, electronics and valuables should be removed by you before we arrive.", "Nous déplaçons et couvrons les meubles dans les pièces où nous travaillons. Les objets fragiles, l'électronique et les objets de valeur doivent être retirés par vous avant notre arrivée.", "Movemos y cubrimos los muebles de las habitaciones donde trabajamos. Los objetos frágiles, la electrónica y los objetos de valor deben retirarse antes de nuestra llegada.") },
           { heading: t("Existing surfaces", "Surfaces existantes", "Superficies existentes"), text: t("Removing old cabinets can reveal damage behind them. Repairs beyond the quoted lines are agreed with you as a change order before they are done.", "Le retrait des anciennes armoires peut révéler des dommages derrière elles. Les réparations au-delà des lignes soumises sont convenues avec vous par avenant avant d'être faites.", "Retirar los gabinetes viejos puede revelar daños detrás. Las reparaciones más allá de lo presupuestado se acuerdan con usted como orden de cambio antes de hacerse.") },
@@ -683,7 +683,7 @@ const COMPANY_DOCUMENTS = [
   { id: "cd_rbq", type: "licence", title: "RBQ licence", summary: "RBQ 5812-4471-01", fileUrl: "https://res.cloudinary.com/demo/raw/upload/rbq.pdf", mimeType: "application/pdf", expiresAt: iso(day(20, 0)), showOnQuotes: true, sortOrder: 1, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: true, signable: null, visibleToClients: true },
   { id: "cd_cnesst", type: "wsib", title: "CNESST clearance", summary: null, fileUrl: "https://res.cloudinary.com/demo/raw/upload/cnesst.pdf", mimeType: "application/pdf", expiresAt: iso(day(-12, 0)), showOnQuotes: true, sortOrder: 2, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: true, expiresSoon: false, signable: null, visibleToClients: false },
   { id: "cd_warranty", type: "warranty", title: "Workmanship warranty", summary: "5 years on finish and hardware", fileUrl: "https://res.cloudinary.com/demo/raw/upload/warranty.pdf", mimeType: "application/pdf", expiresAt: null, showOnQuotes: true, sortOrder: 3, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: false, signable: null, visibleToClients: true },
-  { id: "cd_waiver", type: "waiver", title: "Release of liability — cabinet installation", summary: null, fileUrl: null, mimeType: null, expiresAt: null, showOnQuotes: false, sortOrder: 4, body: { sections: [{ heading: "Furniture and belongings", text: "We move and cover furniture in the rooms we work in." }, { heading: "Existing surfaces", text: "Removing old cabinets can reveal damage behind them." }], acknowledgements: ["I understand I am responsible for removing fragile items and valuables before the crew arrives.", "I understand that hidden damage may show once the old cabinets are out and that additional repair is quoted separately."] }, attachToQuotes: true, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: false, signable: true, visibleToClients: false },
+  { id: "cd_waiver", type: "waiver", title: "Project acknowledgement — cabinet installation", summary: null, fileUrl: null, mimeType: null, expiresAt: null, showOnQuotes: false, sortOrder: 4, body: { sections: [{ heading: "Furniture and belongings", text: "We move and cover furniture in the rooms we work in." }, { heading: "Existing surfaces", text: "Removing old cabinets can reveal damage behind them." }], acknowledgements: ["I understand I am responsible for removing fragile items and valuables before the crew arrives.", "I understand that hidden damage may show once the old cabinets are out and that additional repair is quoted separately."] }, attachToQuotes: true, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: false, signable: true, visibleToClients: false },
 ];
 const PRESENTATION_SETTINGS = {
   story: "Érable started in a garage in Laval in 2010. Today four of us build, spray and install every kitchen ourselves — one of the two brothers is on every site, and we don't leave until you've opened every door.",
@@ -712,12 +712,12 @@ const QUOTE_PRESENTATION = (detail) => ({
   documents: COMPANY_DOCUMENTS.filter((d) => d.type !== "waiver").map((d) => ({ id: d.id, title: d.title, type: d.type, expired: d.expired, visibleToClients: d.visibleToClients, included: d.visibleToClients && d.id !== "cd_warranty" })),
   documentIds: ["cd_coi", "cd_rbq"],
   plan: { totalHours: 37, crewSize: 2, crewSizeOverride: 2, days: [{ day: 1 }, { day: 2 }, { day: 3 }] },
-  waivers: [{ id: "ds_1", documentId: "cd_waiver", title: "Release of liability — cabinet installation", status: "pending", signedAt: null, sentAt: iso(day(-1, 16)) }],
-  waiverLibrary: [{ id: "cd_waiver", title: "Release of liability — cabinet installation", signable: true }],
+  waivers: [{ id: "ds_1", documentId: "cd_waiver", title: "Project acknowledgement — cabinet installation", status: "pending", signedAt: null, sentAt: iso(day(-1, 16)) }],
+  waiverLibrary: [{ id: "cd_waiver", title: "Project acknowledgement — cabinet installation", signable: true }],
 });
 const WAIVERS_FOR = (target) => ({
-  waivers: [{ id: "ds_1", documentId: "cd_waiver", title: "Release of liability — cabinet installation", status: "pending", signedAt: null, sentAt: iso(day(-1, 16)), signedName: "", acknowledged: 0, jobDocumentId: null, ...target }],
-  library: [{ id: "cd_waiver", title: "Release of liability — cabinet installation", signable: true }],
+  waivers: [{ id: "ds_1", documentId: "cd_waiver", title: "Project acknowledgement — cabinet installation", status: "pending", signedAt: null, sentAt: iso(day(-1, 16)), signedName: "", acknowledged: 0, jobDocumentId: null, ...target }],
+  library: [{ id: "cd_waiver", title: "Project acknowledgement — cabinet installation", signable: true }],
 });
 
 const EDIT_ROUTES = (detail) => [

@@ -209,6 +209,47 @@ ALTER TABLE "Appointment" ADD COLUMN "aboutKind" TEXT;
 
 `check:appointment-family` (in check:all), mutation-tested;
 check-appointment-about updated for the family lists.
+## Clients see "Project acknowledgement", not "Waiver" (7 October 2026)
+
+Owner feedback from a real user (2026-10-05): homeowners read "Waiver" /
+"Release of liability" beside an Approve button as a warning, and it can put
+work off. FieldQuo's OWN client-facing words now say "Project acknowledgement"
+in all eight client languages; the company's typed title and text are printed
+as written and were not touched (no data change — TrueFinish renames its own
+"Release of Liability" itself).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **`lib/i18n/clientDocCopy.js`** — the waiver chrome in en fr es uk pa tl de
+  it: kicker, sign button, consent line, signed title, "sign before approving",
+  signed-copy email intro, and the link email's button. One natural word per
+  language for *acknowledging*, never the word for a legal release: Prise de
+  connaissance du projet · Conformidad del proyecto · Підтвердження щодо
+  проєкту · ਪ੍ਰੋਜੈਕਟ ਸੰਬੰਧੀ ਸਵੀਕ੍ਰਿਤੀ · Pagkilala sa proyekto ·
+  Projektbestätigung · Presa d'atto del progetto. Every surface reads these
+  keys: `/w/[token]` (WaiverSign), the quote approval (`/q/[token]`), the
+  client portal's Documents, the signed-copy PDF (`lib/waivers/pdf.js`) and
+  both emails (`lib/waivers/service.js`).
+- **English fallbacks a client can still meet** — the approval refusal's error
+  (`/api/public/quotes/[token]`), the emailed PDF's filename when a title is
+  missing (`project-acknowledgement.pdf`), the job-filed copy's name, and
+  WaiverSign's `jsonBody` label.
+- **Staff side keeps "Waiver"**, with "Clients see it as a 'Project
+  acknowledgement'" on the library hint and the Waivers card (9 app locales),
+  the title placeholder now "Project acknowledgement — interior painting", and
+  one legal line on the library hint: a softer title is fine, but the sections
+  should still say plainly what the client is agreeing to — a release that
+  hides what it is is harder to enforce.
+- **Guard** — `check:client-proposal` fails if any locale's waiver chrome says
+  waiver / release / liability or the native release word (décharge, exención,
+  відмова, ਛੋਟ, Haftungsverzicht, liberatoria…); proven against the old copy
+  (all eight locales caught).
+
+### Left as is, deliberately
+
+- The portal's View link for the signed PDF is `/api/portal/<token>/files/waiver/<id>`
+  — a route slug, not text; renaming it is a route change for no reader.
+- Server logs, activity-log summaries and staff errors keep "waiver".
 
 ---
 
