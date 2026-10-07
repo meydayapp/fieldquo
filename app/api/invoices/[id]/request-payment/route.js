@@ -392,7 +392,7 @@ export async function POST(request, { params }) {
   // The asked-for figure becomes payable only now the email is out.
   if (paymentRequest) {
     await db.invoicePaymentRequest.update({
-      where: { id: paymentRequest.id },
+      where: { id: paymentRequest.id, companyId: member.companyId },
       data: { status: "open", sentToEmail: invoice.client.email },
     });
     // One open request per invoice: an older link stops asking for a figure

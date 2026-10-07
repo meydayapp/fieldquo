@@ -320,7 +320,9 @@ ok("records action invoice.chased", /action: "invoice\.chased"/.test(route));
 ok("...on entityType invoice", /entityType: "invoice"/.test(route));
 // sentEmailId (2026-10-05): the kept copy of the reminder this log row stands
 // for (lib/email/sentEmailHistory.js), so History lists the chase once.
-ok("...with the address and balance in the metadata, and marked manual", /metadata: \{ to: invoice\.client\.email, balance, manual: true(, \.\.\.\(sentEmailId \? \{ sentEmailId \} : \{\}\))? \}/.test(route));
+// 2026-10-07: the metadata also says WHAT was asked (mode, the figure, the
+// stage or the request row) — app/api/invoices/[id]/request-payment.
+ok("...with the address and balance in the metadata, and marked manual", /metadata: \{\s*to: invoice\.client\.email,\s*balance,\s*manual: true,[\s\S]{0,400}?\.\.\.\(sentEmailId \? \{ sentEmailId \} : \{\}\),\s*\}/.test(route));
 ok("stamps lastChasedAt on every send", /lastChasedAt: chasedAt/.test(route));
 ok("...and increments chaseCount", /chaseCount: \{ increment: 1 \}/.test(route));
 ok("...while sentAt keeps its stamp-only-if-empty rule", /\.\.\.\(invoice\.sentAt \? \{\} : \{ sentAt: chasedAt/.test(route));

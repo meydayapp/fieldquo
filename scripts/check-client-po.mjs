@@ -624,7 +624,11 @@ console.log("\n9. The held deposit — held, prompted, released once\n");
     company: [{ id: "c1", defaultLanguage: "en" }],
     member: [{ id: "m1", companyId: "c1", active: true, role: "owner", userId: "u-owner" }],
     client: [{ ...northline, ...(over.client || {}) }],
-    invoice: [{ id: "inv1", companyId: "c1", clientId: "cl1", invoiceNumber: "INV-2026-0042", status: "draft", sentAt: null, clientPoNumber: null, ...(over.invoice || {}) }],
+    // `total`: since 2026-10-07 a stage asks only for what the payments
+    // received have not covered (lib/invoices/paymentRequest.js), so the
+    // invoice it bills on needs the total its stages sum to — a total-less
+    // invoice owes nothing and would read every stage as covered.
+    invoice: [{ id: "inv1", companyId: "c1", clientId: "cl1", invoiceNumber: "INV-2026-0042", status: "draft", sentAt: null, clientPoNumber: null, total: 5000, ...(over.invoice || {}) }],
     job: [{ id: "j1", companyId: "c1" }],
     jobPaymentStage: [
       { id: "s1", companyId: "c1", jobId: "j1", invoiceId: "inv1", seq: 1, label: "Deposit", trigger: "on_invoice_created", status: "pending", amountCents: 150000, heldForPoAt: null, dueDate: null },

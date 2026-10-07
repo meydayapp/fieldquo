@@ -10,7 +10,7 @@
 // honest "not yet" and a schedule that quietly never bills anyone.
 "use client";
 
-import { Clock, Send, CircleSlash, AlertCircle } from "lucide-react";
+import { Clock, Send, CircleSlash, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { paymentScheduleShortfall } from "@/lib/jobs/changeOrderValue";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -38,6 +38,7 @@ const BLOCKED_FALLBACK = {
 };
 
 function StatusIcon({ stage }) {
+  if (stage.coverState === "paid") return <CheckCircle2 size={15} className="text-emerald-600" />;
   if (stage.status === "requested") return <Send size={15} className="text-emerald-600" />;
   if (stage.status === "waived") return <CircleSlash size={15} className="text-muted-foreground" />;
   if (stage.blockedReason || (stage.status === "pending" && stage.heldForPoAt)) return <AlertCircle size={15} className="text-amber-600" />;
@@ -94,22 +95,40 @@ export default function PaymentScheduleCard({ stages, changeOrders }) {
                     {stage.label} — {Number(stage.percentage)}%
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {stage.status === "requested" &&
+                    {/* What the money received covers — read first, because
+                        a stage the client has already paid needs no other
+                        word (lib/invoices/paymentRequest.js). A stage still
+                        waiting on a date can be paid ahead like this. */}
+                    {stage.coverState === "paid" && (
+                      <span className="text-emerald-700 dark:text-emerald-400 font-medium" data-stage-cover="paid">
+                        {t("app.job.paymentSchedule.paid")}
+                      </span>
+                    )}
+                    {stage.coverState === "part_paid" && (
+                      <span className="text-foreground" data-stage-cover="part_paid">
+                        {t("app.job.paymentSchedule.partPaid", {
+                          covered: money(Number(stage.coveredCents || 0) / 100),
+                          remaining: money(Number(stage.remainingCents || 0) / 100),
+                        })}
+                        {" · "}
+                      </span>
+                    )}
+                    {stage.coverState !== "paid" && stage.status === "requested" &&
                       t("app.job.paymentSchedule.requested", "Requested") +
                         (stage.dueDate ? ` · ${formatDateOnly(stage.dueDate)}` : "")}
-                    {stage.status === "waived" &&
+                    {stage.coverState !== "paid" && stage.status === "waived" &&
                       t("app.job.paymentSchedule.waived", "Waived (0%)")}
                     {/* Held for the client's PO — "no PO, no invoice"
                         (lib/paymentSchedule/poHold.js). Adding the PO on
                         this job sends it. */}
-                    {stage.status === "pending" && stage.heldForPoAt &&
+                    {stage.coverState !== "paid" && stage.status === "pending" && stage.heldForPoAt &&
                       t("app.job.paymentSchedule.heldForPo")}
-                    {stage.status === "pending" && !stage.heldForPoAt && stage.blockedReason &&
+                    {stage.coverState !== "paid" && stage.status === "pending" && !stage.heldForPoAt && stage.blockedReason &&
                       t(
                         BLOCKED_KEY[stage.blockedReason] || "app.job.paymentSchedule.pending",
                         BLOCKED_FALLBACK[stage.blockedReason] || "Waiting",
                       )}
-                    {stage.status === "pending" && !stage.heldForPoAt && !stage.blockedReason && stage.dueDate &&
+                    {stage.coverState !== "paid" && stage.status === "pending" && !stage.heldForPoAt && !stage.blockedReason && stage.dueDate &&
                       t("app.job.paymentSchedule.dueOn", "Due {date}", {
                         date: formatDateOnly(stage.dueDate),
                       })}

@@ -173,7 +173,7 @@ section("2. Every send path keeps exactly what it sent, after it was accepted");
   const PATHS = [
     ["app/api/quotes/[id]/send/route.js", /isFollowUp \? "quote_follow_up" : "quote"/, "mail: { to, from, replyTo, subject, html, text, attachments }", "result,", /if \(result\?\.error\) \{/],
     ["app/api/invoices/[id]/send/route.js", /ask\.stage \? "deposit" : "invoice"/, "mail: { to, from, replyTo, subject, html, text }", "result,", /if \(result\?\.error\) \{/],
-    ["app/api/invoices/[id]/request-payment/route.js", /kind: "reminder"/, "mail: { to: invoice.client.email, from, replyTo, subject, html, text }", "result,", /if \(result\?\.error\) \{/],
+    ["app/api/invoices/[id]/request-payment/route.js", /kind: mode === "balance" \? "reminder" : mode === "next_stage" \? "deposit" : "invoice"/, "mail: { to: invoice.client.email, from, replyTo, subject, html, text }", "result,", /if \(result\?\.error\) \{/],
     ["app/api/cron/follow-ups/route.js", /quote: "quote_follow_up", invoice: "reminder", job: "job_follow_up"/, "mail: { to, subject, html, text, from: sender?.from || null, replyTo: sender?.replyTo || null }", "result,", /if \(outcome\.ok\) \{/],
     ["lib/paymentSchedule/run.js", /kind: "deposit"/, "mail: { to: client.email, from, replyTo, subject, html, text }", "result: sent,", /if \(sent\?\.error \|\| sent\?\.skipped\) \{/],
     ["lib/servicePlans/run.js", /kind: kind === "paid" \? "receipt" : "invoice"/, "mail: { to: client.email, from, replyTo, subject, html, text }", "result: sent,", /if \(sent\?\.error \|\| sent\?\.skipped\) \{/],

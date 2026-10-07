@@ -210,6 +210,10 @@ export const rows = {
   // which is exactly how an un-recorded drift would pass.
   platformErrorLog: [],
   platformSetting: [],
+  // The office's "different amount" payment requests — the portal GET reads
+  // the open ones per invoice (lib/invoices/paymentRequest.js). Empty unless
+  // a check scripts one.
+  invoicePaymentRequest: [],
   // The agency tier (check-sales-agency.mjs): the weekly close gathers three
   // employees' entries into ONE batch under the agency, and an employee's
   // own entries keep their salesRepId. Both are claims about which rows a
@@ -327,6 +331,7 @@ export function resetDbStub() {
   rows.salesSignupProgress = [];
   rows.platformErrorLog = [];
   rows.platformSetting = [];
+  rows.invoicePaymentRequest = [];
   rows.salesRep = [];
   rows.salesCommissionPlan = [];
   rows.salesAttribution = [];
@@ -763,6 +768,7 @@ export const db = new Proxy(
     analyticsDaily: model("analyticsDaily"),
     platformErrorLog: model("platformErrorLog"),
     platformSetting: model("platformSetting"),
+    invoicePaymentRequest: model("invoicePaymentRequest"),
     salesRep: model("salesRep"),
     salesCommissionPlan: model("salesCommissionPlan"),
     // companyId @unique — the lock lib/sales/attribution.js's race retry

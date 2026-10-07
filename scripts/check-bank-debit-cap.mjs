@@ -53,7 +53,7 @@ process.env.STRIPE_INVOICE_PMC_FINANCING_ALLOWED = "pmc_testfinancingallowed";
 // Loud, never quiet: a model or method this file did not script throws by
 // name, so the check cannot pass because a query it failed to model answered
 // "nothing".
-const rows = { client: [], invoice: [], payment: [], company: [], jobPaymentStage: [], customField: [], customFieldValue: [], platformErrorLog: [], connectFeeRecovery: [] };
+const rows = { client: [], invoice: [], payment: [], company: [], jobPaymentStage: [], customField: [], customFieldValue: [], platformErrorLog: [], connectFeeRecovery: [], invoicePaymentRequest: [] };
 const writes = [];
 const matchIn = (v, cond) => {
   if (cond && typeof cond === "object" && !Array.isArray(cond)) {
@@ -198,7 +198,7 @@ reset();
 // $4,150 over the cap; $2,500 under it; $12,000 with a $3,000 deposit stage.
 const big = invoiceRow("inv_big", "INV-401", 4150);
 const small = invoiceRow("inv_small", "INV-402", 2500);
-const staged = invoiceRow("inv_staged", "INV-403", 12000, { jobPaymentStages: [{ id: "st1", label: "Deposit", amountCents: 300_000 }] });
+const staged = invoiceRow("inv_staged", "INV-403", 12000, { jobPaymentStages: [{ id: "st1", label: "Deposit", amountCents: 300_000, seq: 1, status: "requested" }] });
 rows.client[0].invoices = [big, small, staged];
 rows.invoice = [big, small, staged].map((i) => ({ ...i }));
 const req = { headers: { get: () => null } };
@@ -231,7 +231,9 @@ for (const f of ["app/portal/[token]/ClientPortal.js", "app/portal/[token]/invoi
   ok(`${f.split("/").pop()}: the bank button renders only when the offer is eligible, and the over-cap sentence otherwise`,
     /bankOffer\?\.eligible \? bankOffer\.method : null/.test(src) && /bankOffer && !bankOffer\.eligible/.test(src) && /copy\.bankOverCap\(money\(bankOffer\.maxCents \/ 100\), money\(due\)\)/.test(src) && !/data\.bankDebit/.test(src));
 }
-ok("PortalInvoice.js measures a stage's own share against the cap, not the balance", /stage \? stage\.bankDebit : invoice\.bankDebit/.test(read("app/portal/[token]/invoices/[id]/PortalInvoice.js")));
+// 2026-10-07: the share asked for is a stage's OR the office's "different
+// amount" request (`picked`), unless the client chose the whole balance.
+ok("PortalInvoice.js measures a stage's own share against the cap, not the balance", /asking != null \? picked\.bankDebit : invoice\.bankDebit/.test(read("app/portal/[token]/invoices/[id]/PortalInvoice.js")));
 const { CLIENT_DOC_COPY } = await import("@/lib/i18n/clientDocCopy.js");
 const { documentFormatters } = await import("@/lib/i18n/documentLabels.js");
 const LANGS = ["en", "fr", "es", "uk", "pa", "tl", "de", "it"];
@@ -273,7 +275,7 @@ const post = (bodyObj) => POST(
 {
   reset();
   rows.invoice = [{ ...invoiceRow("inv_staged", "INV-403", 12000), client: rows.client[0] }];
-  rows.jobPaymentStage = [{ id: "st1", companyId: "co1", invoiceId: "inv_staged", status: "requested", amountCents: 300_000 }];
+  rows.jobPaymentStage = [{ id: "st1", companyId: "co1", invoiceId: "inv_staged", status: "requested", amountCents: 300_000, seq: 1 }];
   const r = await post({ invoiceId: "inv_staged", stageId: "st1", method: "bank" });
   ok("the $3,000 deposit stage of a $12,000 invoice by bank: allowed — the cap is measured against the stage's share",
     r.status === 200 && captured[0].params.line_items[0].price_data.unit_amount === 300_000, { status: r.status, body: r.body });

@@ -37,6 +37,9 @@ import { syncJobRoom, jobRoomIdFor } from "@/lib/company/chat/store";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
 import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { familyPayments } from "@/lib/invoices/family";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { stageCoverage } from "@/lib/invoices/paymentRequest";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -186,6 +189,48 @@ export async function GET(request, { params }) {
 
   if (job.warrantyEquipment) {
     job.warrantyEquipment = withWarranty(job.warrantyEquipment, { asOf: new Date() });
+  }
+
+  // ── What the money received covers of each stage ────────────────────────
+  //
+  // Stages hold what was SCHEDULED; the invoice's Payment rows are what came
+  // in. A client who paid $6,500 against a 30/30/40 schedule has covered the
+  // deposit and the job-start stage and part of the last — the allocation
+  // lib/invoices/paymentRequest.js stageCoverage makes, the same one the pay
+  // routes and the cron use. Attached for display (the card reads "Paid" or
+  // "$1,143.80 paid · $2,427.00 still due"); redactJob withholds the whole
+  // schedule from a role that may not see money. Best-effort: a failed read
+  // shows the stages as they were before this existed.
+  if (Array.isArray(job.paymentStages) && job.paymentStages.length) {
+    try {
+      const byInvoice = new Map();
+      for (const st of job.paymentStages) {
+        if (!st.invoiceId) continue;
+        if (!byInvoice.has(st.invoiceId)) byInvoice.set(st.invoiceId, []);
+        byInvoice.get(st.invoiceId).push(st);
+      }
+      for (const [invoiceId, stages] of byInvoice) {
+        const inv = await db.invoice.findFirst({
+          where: { id: invoiceId, companyId: member.companyId },
+          select: { total: true, status: true },
+        });
+        if (!inv) continue;
+        const payments = await familyPayments(db, invoiceId);
+        const paid = computeInvoiceState({ total: inv.total, payments, priorStatus: inv.status }).amountPaid;
+        const cover = new Map(
+          stageCoverage({ stages, paidCents: Math.round(Number(paid || 0) * 100) }).map((c) => [c.id, c]),
+        );
+        for (const st of stages) {
+          const c = cover.get(st.id);
+          if (!c) continue;
+          st.coveredCents = c.coveredCents;
+          st.remainingCents = c.remainingCents;
+          st.coverState = c.state;
+        }
+      }
+    } catch (err) {
+      console.error("[jobs GET] stage cover:", err?.message);
+    }
   }
 
   // ── The job's crew-chat room, if this reader is in it ───────────────────
