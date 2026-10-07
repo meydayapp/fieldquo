@@ -7,8 +7,11 @@
 // 1:200), "Plan - as existing" (p11, 1:100) — the interior photos' heights
 // (p8), the section's heights (p9), and the synthesis's four interior
 // surfaces, which cite only the 1:200 scheme. Face names, boxes, scales,
-// paper and titles are the stored ones (notes and materials dropped).
-// Generated from a read-only dump; never edited by hand.
+// paper, titles and heights are the stored ones (faces' notes and
+// materials, surfaces' notes, each pass's `at`/`reason`, and the section's
+// six outside wall faces — p9 is here for its heights — dropped).
+// Generated from a read-only dump; never edited by hand. Re-compared with
+// production key by key on 2026-10-07: identical apart from those cuts.
 
 export const CHURCH_REQUEST = "Two separate quotes for the church. 1) Exterior: paint the exterior facade walls only — no trims, no doors, no windows. The building is tall, so allow for scaffolding or a lift. 2) Interior: paint the interior walls only (nave, transepts, crossing, chancel and the annexe rooms) — no ceilings, no trims, no doors, no windows. The nave has very high open-truss ceilings, so allow for interior scaffolding or a lift for the upper walls.";
 
