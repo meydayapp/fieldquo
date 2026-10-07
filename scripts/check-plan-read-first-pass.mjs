@@ -90,6 +90,9 @@ import { FALLBACKS } from "@/lib/planRead/fallbacks";
 import { stepsFor, accessRatesSet } from "@/lib/setupSteps";
 import { tradeMaterialsFor } from "@/lib/costing/tradeMaterials";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import { sameSurfacePlan, drawingState, planLevel, orientation, nameKeys, choosePlanState, newWorkMention, PLAN_STATES } from "@/lib/planRead/sameSurface";
+import { backfillFromTakeoff } from "@/lib/planRead/backfill";
+import { CHURCH_REQUEST, CHURCH_PLAN_SHEETS, CHURCH_INTERIOR_MODEL } from "./fixtures/churchThreePlans.mjs";
 
 let passed = 0;
 let failed = 0;
@@ -1126,6 +1129,113 @@ section("21. Read again never trades measurements for guesses (the church, 2026-
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("22. One room, one wall, one state of the building — however many sheets draw it (the church, run 5)");
+// ═══════════════════════════════════════════════════════════════════════════
+// Run 5 (2026-10-06, after 196fa397c): interior 22,754 sq ft against 11,392
+// on run 3. The set draws the same rooms on three plans — the part plan
+// "showing proposed extensions" (1:100), "Scheme C4 - Whole Church Plan"
+// (1:200) and "Plan - as existing" (1:100) — two of them the PROPOSED
+// building. The fixture is production's own stored measurement of those
+// sheets and the synthesis's four interior surfaces
+// (scripts/fixtures/churchThreePlans.mjs). lib/planRead/sameSurface.js.
+{
+  const sheets22 = JSON.parse(JSON.stringify(CHURCH_PLAN_SHEETS));
+  const take22 = buildTakeoff(sheets22, buildDimIndex(sheets22));
+  const F = (id) => take22.faces.get(id);
+  ok(`the stub is the stored read: the nave measured three times — ${F("p1.f9").floorSqft} / ${F("p3.f1").floorSqft} / ${F("p11.f1").floorSqft} sq ft of floor`, F("p1.f9").floorSqft === 1338 && F("p3.f1").floorSqft === 3036 && F("p11.f1").floorSqft === 2208 && F("p11.f1").view === "Plan - as existing" && F("p3.f1").scaleRatio === 200 && F("p11.f1").scaleRatio === 100);
+  ok("each drawing knows its state from its own title: “Plan - as existing” existing; “…showing proposed extensions” and “Scheme C4…” proposed", drawingState(F("p11.f1")) === "existing" && drawingState(F("p1.f9")) === "proposed" && drawingState(F("p3.f1")) === "proposed" && drawingState({ view: "Existing and proposed ground floor" }) === null && drawingState({ view: "Elevations" }) === null);
+  ok("names: “Chancel / sanctuary” answers to the chancel; “New glazed porch” is the glazed porch; case and punctuation ignored", nameKeys("Chancel / sanctuary").has("chancel") && nameKeys("New glazed west porch").has("glazed west porch") && nameKeys("North Transept").has("north transept"));
+
+  const plan22 = sameSurfacePlan(take22, { request: CHURCH_REQUEST });
+  const groupIds = (id) => (plan22.groupOf.get(id)?.members || []).map((m) => m.id).sort();
+  ok(`the nave is ONE room drawn three times, kept from “Plan - as existing” (1:100): ${groupIds("p3.f1").join(", ")}`, groupIds("p3.f1").join() === "p1.f9,p11.f1,p3.f1" && plan22.groupOf.get("p3.f1").keep === "p11.f1");
+  ok("…the north transept three times, the crossing, south transept, chancel / sanctuary, boiler and vestry twice — each kept from the existing plan", groupIds("p1.f7").join() === "p1.f7,p11.f2,p3.f3" && ["p3.f2", "p3.f4", "p3.f5", "p3.f11", "p3.f12"].every((id) => groupIds(id).length === 2 && plan22.groupOf.get(id).keep.startsWith("p11.")));
+  ok("…the cafe, kitchen and meeting room on the part plan (1:100) and the scheme (1:200): one each, kept at the larger scale", ["p3.f6", "p3.f7", "p3.f8"].every((id) => groupIds(id).length === 2 && plan22.groupOf.get(id).keep.startsWith("p1.")));
+  ok("…“Store beside kitchen” is not the “Store”, and the office (scheme only) stands alone", !groupIds("p3.f9").includes("p1.f3") && groupIds("p3.f13").length === 1);
+  ok("the church's request (a repaint: “…the annexe rooms”, no extension) prices the EXISTING layout", plan22.state.value === "existing" && plan22.state.source === "default");
+  ok(`…and leaves out the rooms drawn only on the proposed plans: ${[...new Set([...plan22.out.keys()].map((id) => F(id).name))].join(", ")}`, ["p3.f6", "p3.f7", "p3.f8", "p3.f9", "p3.f10", "p3.f13", "p1.f1"].every((id) => plan22.out.has(id)) && !["p3.f1", "p3.f11", "p3.f12", "p11.f1", "p1.f9", "p1.f7"].some((id) => plan22.out.has(id)));
+  ok("a request that names the new work brings it in; one that excludes it does not", newWorkMention("Repaint the hall and the new extension") === "extension" && choosePlanState({ request: "Interior walls including the proposed rooms" }).value === "with_new" && choosePlanState({ request: "Interior walls, not the extension" }).value === "existing" && choosePlanState({ request: "Interior walls excluding the new extension" }).value === "existing" && choosePlanState({ request: CHURCH_REQUEST }).value === "existing");
+  ok("…and the estimator's own choice beats both", choosePlanState({ request: "not the extension", stored: { value: "with_new", source: "person" } }).value === "with_new" && choosePlanState({ request: "the extension", stored: { value: "existing", source: "person" } }).value === "existing" && PLAN_STATES.join() === "existing,with_new");
+
+  // The pattern run 5 described: every drawing of a room cited, each in its own line.
+  const ctx22 = (request = CHURCH_REQUEST) => ({ dims: new Map(), book: books.interior_painting, takeoff: take22, metric: true, request });
+  const sqftOf = (c) => c.surfaces.filter((s) => s.active && s.quantity.unit === "sqft").reduce((n, s) => n + s.quantity.value, 0);
+  const area22 = [{ id: "a1", name: "Church interior walls", side: "interior", included: true }];
+  const surf = (id, faceRefs, heightRef = "p8.h3") => ({ id, areaId: "a1", label: `${id} walls`, itemKey: "walls", coats: 2, lengthRefs: [], widthRefs: [], faceRefs, faceMeasure: "walls", heightRef });
+  const allDrawings = ["p1.f9", "p3.f1", "p11.f1", "p1.f7", "p3.f3", "p11.f2", "p3.f2", "p11.f4", "p3.f4", "p11.f3", "p3.f5", "p11.f5", "p3.f11", "p11.f6", "p3.f12", "p11.f7"];
+  const everySheet = { version: 1, areas: area22, surfaces: allDrawings.map((id, i) => surf(`s${i + 1}`, [id])), access: [], questions: [], assumptions: [], exclusions: [] };
+  const keptOnly = { ...everySheet, surfaces: ["p11.f1", "p11.f2", "p11.f4", "p11.f3", "p11.f5", "p11.f6", "p11.f7"].map((id, i) => surf(`k${i + 1}`, [id])) };
+  const summed = allDrawings.reduce((n, id) => n + (faceQuantity(surf("x", [id]), "sqft", take22)?.value || 0), 0);
+  const cAll = computeProject(everySheet, ctx22());
+  const cKept = computeProject(keptOnly, ctx22());
+  ok(`every drawing of every room cited in its own line: ${Math.round(sqftOf(cAll)).toLocaleString("en-US")} sq ft = the de-duplicated set (${Math.round(sqftOf(cKept)).toLocaleString("en-US")}), not the sum of the drawings (${Math.round(summed).toLocaleString("en-US")})`, sqftOf(cAll) === sqftOf(cKept) && summed > sqftOf(cKept) * 1.8, { all: sqftOf(cAll), kept: sqftOf(cKept), summed });
+  ok("…the second and third drawings' lines say where they are counted, and are neither priced nor “unmeasured”", cAll.surfaces.filter((s) => s.quantity.source === "duplicate").length === allDrawings.length - 7 && cAll.surfaces.filter((s) => s.quantity.source === "duplicate").every((s) => s.quantity.value === 0 && /is counted in “s\d+ walls” — not twice/.test(s.quantity.sourceText)) && cAll.unmeasured.length === 0 && priceProject(cAll, books, {}).skipped.every((x) => x.reason === "no_quantity"));
+  ok("…the same faces cited all in ONE line: the same total (to the rounding of seven rooms)", near(sqftOf(computeProject({ ...everySheet, surfaces: [surf("one", allDrawings)] }, ctx22())), sqftOf(cKept), 7));
+  ok("…a room's walls and its ceiling are two surfaces, never “counted twice”", (() => { const m = { ...everySheet, surfaces: [surf("w", ["p3.f1"]), { ...surf("c", ["p11.f1"]), itemKey: "ceiling", faceMeasure: "ceiling" }] }; const c = computeProject(m, ctx22()); return c.surfaces.every((s) => s.quantity.source === "face" && s.quantity.value > 0) && c.surfaces[1].quantity.value === 2208; })());
+  ok("…a line left out claims nothing: the other drawing of the same room is then the one priced", (() => { const m = { ...everySheet, surfaces: [{ ...surf("off", ["p11.f1"]), included: false }, surf("on", ["p3.f1"])] }; const c = computeProject(m, ctx22()); return c.surfaces[1].quantity.source === "face" && c.surfaces[1].quantity.faceIds.join() === "p11.f1"; })());
+
+  // The stored church model, re-computed — no re-read, no re-measure.
+  const cStored = computeProject(CHURCH_INTERIOR_MODEL, ctx22());
+  const S = (id) => cStored.surfaces.find((s) => s.id === id);
+  const storedDedupe = { ...CHURCH_INTERIOR_MODEL, surfaces: [{ ...S("s3"), faceRefs: ["p11.f1"] }, { ...S("s4"), faceRefs: ["p11.f4", "p11.f2", "p11.f3", "p11.f5"] }, { ...S("s6"), faceRefs: ["p11.f6", "p11.f7"] }].map(({ quantity, ...s }) => ({ ...s, itemKey: CHURCH_INTERIOR_MODEL.surfaces.find((x) => x.id === s.id).itemKey })) };
+  ok(`the church's stored interior, re-computed: ${Math.round(sqftOf(cStored)).toLocaleString("en-US")} sq ft (production showed 22,754) = the same surfaces on the existing plan's rooms`, sqftOf(cStored) === sqftOf(computeProject(storedDedupe, ctx22())) && sqftOf(cStored) < 22754 * 0.6, { stored: sqftOf(cStored) });
+  ok("…the nave from “Plan - as existing” (1:100), naming the other two drawings", S("s3").quantity.faceIds.join() === "p11.f1" && /Nave: also drawn on “Part church floor plan showing proposed extensions” \(page 1, 1:100\) and “Scheme C4 - Whole Church Plan” \(page 3, 1:200\) — the same room, counted once, from “Plan - as existing” \(page 11, 1:100\)/.test(S("s3").quantity.sourceText));
+  ok("…the new annexe rooms (cafe, kitchen, meeting room, store, WC) are the proposed extension: not priced, said on the line — never the model's estimate in their place", S("s5").quantity.value === 0 && S("s5").quantity.source === "plan_state" && /only on the proposed drawings — not in the existing layout/.test(S("s5").quantity.sourceText) && !cStored.unmeasured.some((u) => u.id === "s5"));
+  ok("…the boiler and vestry from the existing plan; the office, drawn only on the scheme, said and left out", S("s6").quantity.faceIds.join() === "p11.f6,p11.f7" && /Office: only on the proposed drawings/.test(S("s6").quantity.sourceText));
+  ok(`…and the annexe rooms' walls stop at the extension's own wall plate (${S("s6").topFt} ft, the synthesis's own citation) — never the NAVE's 19 ft truss feet from the photos`, S("s6").topFt === Math.round(take22.heights.get("p9.h2").heightFt * 10) / 10 && S("s6").topFt < 12 && S("s6").wallCap?.source === "outside_eaves" && S("s3").topFt === 19 && /nave/i.test(take22.heights.get("p8.h3").label), { s6: S("s6").topFt, s3: S("s3").topFt });
+  const withNew = computeProject({ ...CHURCH_INTERIOR_MODEL, planState: { value: "with_new", source: "person" } }, ctx22());
+  ok(`“Include them”: ${Math.round(sqftOf(withNew)).toLocaleString("en-US")} sq ft — the existing rooms once, plus the new ones once`, withNew.surfaces.find((s) => s.id === "s5").quantity.value > 0 && withNew.surfaces.find((s) => s.id === "s5").quantity.faceIds.every((id) => id.startsWith("p1.") || id === "p3.f10") && sqftOf(withNew) > sqftOf(cStored) && withNew.surfaces.find((s) => s.id === "s3").quantity.value === S("s3").quantity.value);
+  ok("…the request saying so does the same", sqftOf(computeProject(CHURCH_INTERIOR_MODEL, ctx22(`${CHURCH_REQUEST} Include the new extension rooms.`))) === sqftOf(withNew));
+
+  // The review panel: one explicit check, never silent.
+  const rv22 = buildReview({ computed: cStored, priced: priceProject(cStored, books, {}), model: CHURCH_INTERIOR_MODEL });
+  const stateCheck = [...rv22.checks, ...rv22.more].find((c) => c.key === "plan_state:existing");
+  ok(`the review asks: “${stateCheck?.text}”`, stateCheck && stateCheck.text === "Priced the existing layout; the proposed extension rooms Cafe, Kitchen, Meeting room, Store, Annexe WC and service rooms and Office are not included — include them?" && rv22.checks.includes(stateCheck) && stateCheck.choices?.[0]?.op === "set_plan_state" && stateCheck.choices[0].value === "with_new" && /as it stands \(“Plan - as existing”\) and as proposed \(“Part church floor plan showing proposed extensions” and “Scheme C4 - Whole Church Plan”\) — one is priced, never both\. A repaint prices the rooms that exist now/.test(stateCheck.why), stateCheck);
+  ok("…“taken into account” says what was merged and which state", rv22.included.some((i) => i.key === "qty:same" && /Drawn on more than one sheet, counted once: Nave \(3 drawings\)/.test(i.text)) && rv22.included.some((i) => i.key === "qty:state" && /Priced on the existing layout \(“Plan - as existing”\), not the proposed one/.test(i.text)));
+  const rvNew = buildReview({ computed: withNew, priced: priceProject(withNew, books, {}), model: CHURCH_INTERIOR_MODEL });
+  ok("…with the new rooms in, the check turns round: “leave them out?”, one tap back", [...rvNew.checks, ...rvNew.more].some((c) => c.key === "plan_state:with_new" && /plus the proposed new rooms Cafe, Kitchen/.test(c.text) && c.choices[0].value === "existing" && /Your team chose it/.test(c.why)) && ![...rvNew.checks, ...rvNew.more].some((c) => c.key === "plan_state:existing"));
+  const opCtx = { itemKeys, productKeys, dimIds: new Set(), photoIds: new Set(), excel: null };
+  const setNew = applyOps(CHURCH_INTERIOR_MODEL, [{ op: "set_plan_state", value: "with_new", userId: "u1", at: "2026-10-06T10:00:00Z" }], opCtx, { actor: "person" });
+  ok("the tap is a person's op: stored with who and when, said in the history; the chat cannot make it; a third value is refused; null gives FieldQuo's choice back", setNew.model.planState.value === "with_new" && setNew.model.planState.by === "u1" && /with the proposed new rooms/.test(setNew.changes[0]) && !applyOps(CHURCH_INTERIOR_MODEL, [{ op: "set_plan_state", value: "with_new" }], opCtx, { actor: "model" }).model.planState && applyOps(CHURCH_INTERIOR_MODEL, [{ op: "set_plan_state", value: "proposed_only" }], opCtx, { actor: "person" }).dropped.length === 1 && !("planState" in applyOps(setNew.model, [{ op: "set_plan_state", value: null }], opCtx, { actor: "person" }).model));
+
+  // Guards: what is NOT the same surface.
+  const fx22 = (id, sheetKey, view, name, extra = {}) => ({ id, sheetKey, viewId: "v1", page: Number(sheetKey.slice(1)), sheet: "A-1", view, sheetTitle: null, name, side: extra.side || "interior", room: extra.room !== false, measured: true, confidence: "medium", printed: 0, scaleRatio: 100, perimeterFt: 50, floorSqft: 150, grossSqft: 400, netSqft: 380, ...extra });
+  const planOf = (list, o = {}) => sameSurfacePlan({ faces: new Map(list.map((f) => [f.id, f])), heights: new Map() }, o);
+  const levels = planOf([fx22("p1.f1", "p1", "Ground floor plan", "Bedroom"), fx22("p2.f1", "p2", "First floor plan", "Bedroom")]);
+  ok("a bedroom on the ground floor plan is not the bedroom on the first floor plan", planLevel({ view: "Ground floor plan" }) === "ground" && planLevel({ view: "First floor plan" }) === "1" && levels.groupOf.get("p1.f1") !== levels.groupOf.get("p2.f1"));
+  const twice = planOf([fx22("p1.f1", "p1", "Whole plan", "WC"), { ...fx22("p1.f2", "p1", "Whole plan", "WC"), id: "p1.f2" }, fx22("p2.f1", "p2", "Part plan", "WC")]);
+  ok("a name drawn twice on one view (two WCs) is ambiguous: never merged", twice.groups.every((g) => g.members.length === 1));
+  const sizes = planOf([fx22("p1.f1", "p1", "Whole plan", "Hall", { perimeterFt: 40 }), fx22("p2.f1", "p2", "Part plan", "Hall", { perimeterFt: 120 })]);
+  ok(`a room whose perimeter differs more than ${2}× between two drawings is two rooms`, sizes.groups.length === 2);
+  ok(`printed sizes beat a larger scale: the kitchen's printed 4.7 × 5.2 m on the part plan (${F("p1.f2").printed} printed) is kept over a 1:50 drawing of it`, (() => { const p = planOf([{ ...F("p3.f7"), scaleRatio: 50 }, F("p1.f2")]); return F("p1.f2").printed === 2 && F("p3.f7").printed === 0 && p.groupOf.get("p3.f7").keep === "p1.f2"; })());
+  // Item 3: exterior elevations drawn on more than one sheet.
+  const wall = (id, sheetKey, view, name, extra = {}) => fx22(id, sheetKey, view, name, { side: "exterior", room: false, ...extra });
+  const west = planOf([wall("p5.f2", "p5", "West Elevation facing Thorpe Road", "Main west wall", { scaleRatio: 100 }), wall("p12.f1", "p12", "Scheme C4 - West elevation", "Main west wall", { scaleRatio: 200 }), wall("p6.f1", "p6", "North Elevation facing St. Paul's Road", "Main west wall")]);
+  ok("an elevation drawn on two sheets: the west wall once (from 1:100), the same name on the NORTH elevation is another face", orientation({ view: "New glazed south porch (east elevation)" }) === "east" && orientation({ view: "Extension Rear /East Elevation" }) === "east" && orientation({ view: "Cross Section - looking south" }) === null && west.groupOf.get("p12.f1") === west.groupOf.get("p5.f2") && west.groupOf.get("p5.f2").keep === "p5.f2" && west.groupOf.get("p6.f1") !== west.groupOf.get("p5.f2"));
+  ok("…one outside line citing the west wall from both sheets counts it once", (() => {
+    const w1 = wall("p5.f2", "p5", "West Elevation facing Thorpe Road", "Main west wall", { bottomFt: 0, topFt: 20, shape: "rectangle", sentence: "west wall (p5)" });
+    const w2 = wall("p12.f1", "p12", "Scheme C4 - West elevation", "Main west wall", { scaleRatio: 200, bottomFt: 0, topFt: 20, shape: "rectangle", sentence: "west wall (p12)" });
+    const t = { faces: new Map([[w1.id, w1], [w2.id, w2]]), heights: new Map() };
+    const c = computeProject({ version: 1, areas: [{ id: "a1", name: "Outside", side: "exterior", included: true }], surfaces: [{ id: "s1", areaId: "a1", label: "Walls", itemKey: "siding_trim", coats: 2, lengthRefs: [], widthRefs: [], faceRefs: ["p12.f1", "p5.f2"], faceMeasure: "net_area" }], access: [], questions: [], assumptions: [], exclusions: [] }, { dims: new Map(), book: books.interior_painting, takeoff: t, metric: true });
+    return c.surfaces[0].quantity.value === 380 && c.surfaces[0].quantity.faceIds.join() === "p5.f2" && /also drawn on “Scheme C4 - West elevation” \(page 12, 1:200\)/.test(c.surfaces[0].quantity.sourceText);
+  })());
+  ok("…a wall with no stated orientation is never merged (“New glazed west porch” is drawn on the west, north and south elevations — three faces)", planOf([wall("a.f1", "p5", "Cross Section", "Porch"), wall("b.f1", "p9", "Cross Section", "Porch")]).groups.length === 2);
+  const extState = planOf([wall("p5.f1", "p5", "West elevation as existing", "West wall"), wall("p6.f1", "p6", "Proposed west elevation", "West wall"), wall("p6.f2", "p6", "Proposed west elevation", "New porch side wall")], { request: "Repaint the outside" });
+  ok("…existing and proposed elevations of the same side: one state — the existing wall once, the proposed porch left out", extState.state.value === "existing" && extState.groupOf.get("p6.f1").keep === "p5.f1" && extState.out.has("p6.f2") && !extState.out.has("p6.f1"));
+
+  // Backfill: one surface per room, not per drawing.
+  const bf = backfillFromTakeoff({ version: 1, areas: [], surfaces: [], access: [], questions: [], assumptions: [], exclusions: [] }, take22, { sides: ["interior"], itemKeys, request: CHURCH_REQUEST, computedOf: (m) => computeProject(m, ctx22()) });
+  const naves = bf.model.surfaces.filter((s) => /^Nave/.test(s.label) && s.itemKey === "walls");
+  ok(`a read whose synthesis listed no inside quantity is backfilled once per room: one nave (from ${naves[0]?.faceRefs?.[0]}), none for the proposed-only rooms`, naves.length === 1 && naves[0].faceRefs[0] === "p11.f1" && !bf.model.surfaces.some((s) => /^(Cafe|Kitchen|Office)/.test(s.label)));
+
+  // Re-pricing the stored read: computed on every view.
+  ok("the de-duplication is computed on every view (computeRead → computeProject with the read's request), so the stored read re-prices on its next open — no run, no charge", /request: read\.clientRequest \|\| null/.test(code("lib/planRead/computeRead.js")) && (code("lib/planRead/run.js").match(/request: read\.clientRequest \|\| null/g) || []).length === 3);
+  // Wiring.
+  ok("the review panel renders a check's one-tap choice as the op it names; the PATCH route stamps who and when on set_plan_state", /\(c\.choices \|\| \[\]\)\.map/.test(code("app/components/planRead/ReviewPanel.js")) && /onOp\(\{ op: ch\.op, value: ch\.value \}\)/.test(code("app/components/planRead/ReviewPanel.js")) && /o\.op === "set_plan_state" \? \{ \.\.\.o, userId: member\.userId \|\| null, at \}/.test(code("app/api/plan-reads/[id]/route.js")));
+  ok("“Measured on the drawings” says, per drawing, which one is counted and what is not in the state priced", /f\.sameAs &&/.test(code("app/components/planRead/FirstPassCards.js")) && /f\.alsoOn\?\.length > 0/.test(code("app/components/planRead/FirstPassCards.js")) && /f\.stateOut &&/.test(code("app/components/planRead/FirstPassCards.js")) && /computed\.sameSurface\?\.faces\?\.\[f\.id\]/.test(code("lib/planRead/view.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("19. Wiring");
 // ═══════════════════════════════════════════════════════════════════════════
 const pkg = JSON.parse(code("package.json"));
@@ -1135,7 +1245,7 @@ ok("Settings → Services edits the preset's height, prep, crew and access figur
 ok("Settings → Services → Equipment & access: its own section, the owned toggle, the defaults shown, in the sidebar and the settings search", /id="equipment-access"/.test(code("app/app/settings/services/PaintHeightPrepSettings.js")) && /We own this \(no rental\)/.test(code("app/app/settings/services/PaintHeightPrepSettings.js")) && /app\.settings\.equipmentAccess/.test(code("app/components/layout/SettingsSidebar.js")) && /#equipment-access/.test(code("app/components/layout/SettingsSidebar.js")));
 ok("the help article exists in en, fr and es, and in the help tree", ["en", "fr", "es"].every((l) => /"settings-equipment-access": \{/.test(code(`content/help/${l}/settings-2.js`))) && /"settings-equipment-access"/.test(code("lib/help/tree.js")) && ["en", "fr", "es"].every((l) => /first-pass/.test(code(`content/help/${l}/leads-and-quotes-3.js`))));
 const scanned = ["app/components/planRead/FirstPassCards.js", "app/components/planRead/ReviewPanel.js", "app/app/settings/services/PaintHeightPrepSettings.js", "app/components/quotes/builder/CostMarginPanel.js", "app/components/quotes/builder/PaintAreas.js", "app/components/layout/SettingsSidebar.js"];
-const dynamicKeys = [...ACCESS_REASONS.map((r) => `app.planRead.accessReason.${r}`), ...["qty", "coats", "height", "prep", "access", "crew", "overhead", "target", "past", "assumed", "materials"].map((k) => `app.planRead.review.label.${k}`), ...Object.keys(PREP_MATERIAL_PRICE_PRESET).map((k) => `app.paintPreset.material.${k}`), "app.setup.step.access_rates", "app.planRead.builderUnreviewed", "app.planRead.builderUnreviewedLink"];
+const dynamicKeys = [...ACCESS_REASONS.map((r) => `app.planRead.accessReason.${r}`), ...["qty", "coats", "height", "prep", "access", "crew", "overhead", "target", "past", "assumed", "materials"].map((k) => `app.planRead.review.label.${k}`), ...Object.keys(PREP_MATERIAL_PRICE_PRESET).map((k) => `app.paintPreset.material.${k}`), "app.setup.step.access_rates", "app.planRead.builderUnreviewed", "app.planRead.builderUnreviewedLink", ...PLAN_STATES.map((v) => `app.planRead.review.planState.${v}`)];
 const keysUsed = new Set(scanned.flatMap((p) => [...code(p).matchAll(/\bt\("(app\.(?:planRead|paintPreset|cost\.access|settings\.equipmentAccess)[a-zA-Z0-9_.]*)"/g)].map((m) => m[1])).concat(dynamicKeys));
 const langs = Object.keys(APP_MESSAGES);
 const missing = [...keysUsed].filter((k) => !langs.every((l) => typeof APP_MESSAGES[l][k] === "string"));

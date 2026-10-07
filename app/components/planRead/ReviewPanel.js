@@ -9,7 +9,9 @@
 //   included   what the price rests on, each with its basis
 //   checks     at most eight things worth a person's eye, ranked by price
 //              impact — each "Looks right" / "Change", recorded on the read
-//              with who and when (PATCH op review_check)
+//              with who and when (PATCH op review_check); a check with
+//              `choices` answers in one tap too (the building state priced,
+//              PATCH op set_plan_state)
 //   access     every access line's status, and a one-tap reason for a line
 //              left out or set to $0 (PATCH op set_access_reason)
 //   materials  item, quantity, unit, unit price and its source, total — the
@@ -97,7 +99,15 @@ export function ReviewPanel({ view, t, onOp, disabled }) {
                       </span>
                     ) : null}
                   </span>
-                  <span className="flex shrink-0 gap-1">
+                  <span className="flex flex-wrap shrink-0 gap-1">
+                    {(c.choices || []).map((ch) => (
+                      // A check that can be answered in one tap — "Include
+                      // them" re-prices the read in code (PATCH op
+                      // set_plan_state), no model call.
+                      <button key={`${ch.op}:${ch.value}`} type="button" disabled={disabled} onClick={() => onOp({ op: ch.op, value: ch.value })} className="min-h-[36px] px-2 rounded-md border border-border bg-background hover:bg-accent text-xs font-medium">
+                        {t(`app.planRead.review.planState.${ch.value}`, ch.label)}
+                      </button>
+                    ))}
                     <button type="button" disabled={disabled} onClick={() => onOp({ op: "review_check", key: c.key, verdict: "ok", text: c.text })} className={`min-h-[36px] px-2 rounded-md border text-xs ${c.tick?.verdict === "ok" ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30" : "border-border bg-background hover:bg-accent"}`}>
                       <CheckCircle2 className="inline w-3.5 h-3.5 mr-1" aria-hidden />
                       {t("app.planRead.review.ok", "Looks right")}
