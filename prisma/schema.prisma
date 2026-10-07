@@ -2007,6 +2007,7 @@ model Company {
   // other companies imported. AsTarget: other companies' quotes we imported.
   quoteImportsAsSource  QuoteImport[] @relation("QuoteImportSourceCompany")
   quoteImportsAsTarget  QuoteImport[] @relation("QuoteImportTargetCompany")
+  subQuoteUploads       SubQuoteUpload[]
   appointments          Appointment[]
   tasks                 Task[]
   workAreas             WorkArea[]
@@ -3378,6 +3379,16 @@ model Client {
   doNotContactAt     DateTime?
   doNotContactReason String?
 
+  /// "Is <name> a business (a contractor you work for)?" — asked ONCE, on
+  /// the send dialog, for a client saved as an individual whose name reads
+  /// like a company's (lib/clients/businessQuestion.js). Stamped by either
+  /// answer through POST /api/clients/[id]/business-answer: "yes" also sets
+  /// type = company (so the quote email carries the "Add this price to your
+  /// own quote" line); "no" leaves the type alone and stops the question.
+  /// Read by the quote page and the builder's send dialog to decide whether
+  /// to ask. Null = never asked.
+  businessAskedAt DateTime?
+
   /// A demo company's client that a PERSON created during the demo, through
   /// the app or the demo's public booking/request pages — the one thing that
   /// lets a demo send a real email or text (lib/demo/simulatedSpend.js
@@ -3525,6 +3536,7 @@ model Quote {
   // pulled other companies' quotes in as cost lines.
   importsAsSource QuoteImport[] @relation("QuoteImportSource")
   importsAsTarget QuoteImport[] @relation("QuoteImportTarget")
+  subQuoteUploads SubQuoteUpload[]
 
   calledAt DateTime?
 
@@ -3909,6 +3921,90 @@ model QuoteImport {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// A subcontractor's quote that did NOT come through FieldQuo — a PDF or a
+// photo the general contractor uploaded on their own quote's compare screen
+// (app/app/quotes/[id]/ImportedCostsPanel.js, owner 2026-10-06).
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// QuoteImport cannot hold it: its source is a FieldQuo Quote (sourceQuoteId
+// and sourceCompanyId are required relations), and that is the whole point of
+// that row — a live backlink the sub can see. Nothing here has a source on
+// FieldQuo, so it is its own row, and sits beside QuoteImport rows in the
+// same side-by-side compare (lib/quotes/subQuoteUpload.js).
+//
+// ══ What the AI read is, and is not ════════════════════════════════════════
+//
+// reading and readLines hold what the model TRANSCRIBED, as printed
+// strings — never a number anything uses. Nothing reaches costAmount, a
+// quote line or a job cost until the GC has looked at every figure and
+// pressed Confirm (confirmedAt). An unconfirmed row is on no quote and in
+// no compare total; lib/quotes/subQuoteUpload.js usableCost() is the one gate.
+model SubQuoteUpload {
+  id String @id @default(cuid())
+
+  // The GC's company and the GC's own quote this bid is for.
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quoteId   String
+  quote     Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  /// The files as uploaded (direct Cloudinary uploads, purpose "quotes"):
+  /// [{ url, kind, filename, mimeType }] — one PDF, or up to four photos.
+  files Json
+
+  /// reading | unreadable | needs_review | confirmed
+  status    String  @default("reading")
+  /// Why a read failed (lib/receipts/pdf.js reasons, "no_credit", "failed").
+  readError String?
+
+  /// The simple read: { subName, trade, total, tax, validUntil, currency,
+  /// summary, unreadable[] } — every figure a printed STRING. Display only.
+  reading   Json?
+  /// The paid deep read: [{ description, amount }] — printed strings, shown
+  /// for the GC to confirm. Null until asked for.
+  readLines Json?
+
+  // ── Confirmed by the GC — the only values anything uses ─────────────────
+  subName       String?
+  trade         String?
+  /// The sub's total, as the GC confirmed it — the GC's COST. Same meaning
+  /// as QuoteImport.snapshotAmount.
+  costAmount    Decimal?  @db.Decimal(12, 2)
+  /// Tax included in costAmount, as confirmed. Recorded, never re-added.
+  taxAmount     Decimal?  @db.Decimal(12, 2)
+  validUntil    DateTime?
+  /// Confirmed lines for an itemised line: [{ description, amount }]. The
+  /// amounts are proportions only — the group is always scaled to the
+  /// client price (lib/quotes/importQuote.js buildGroupLines).
+  lines         Json?
+  confirmedAt   DateTime?
+  confirmedById String?
+
+  /// The GC's own roster row for this sub — matched or created at confirm.
+  subcontractorId String?
+  subcontractor   Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+
+  /// Percent on top of costAmount. Client price = cost × (1 + pct/100),
+  /// derived on the server (lib/quotes/importedStatus.js clientPrice).
+  markupPercent Decimal @default(0) @db.Decimal(6, 2)
+  /// "blended" | "itemized" — QuoteImport.display's meaning exactly.
+  display       String  @default("blended")
+  /// "option" (held to compare) | "line" (a scope group on the quote).
+  placement     String  @default("option")
+  /// The scope group a "line" created; "" otherwise.
+  targetLineId  String  @default("")
+  /// The Expense this cost became when the quote turned into a job.
+  expenseId     String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@index([quoteId])
+  @@index([companyId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Subcontractors — the companies a contractor hires per job
 // ═══════════════════════════════════════════════════════════════════════════
 //
@@ -3973,6 +4069,7 @@ model Subcontractor {
   jobs      JobSubcontractor[]
   documents SubcontractorDocument[]
   payments  SubcontractorPayment[]
+  quoteUploads SubQuoteUpload[]
 
   @@index([companyId, active])
   @@index([linkedCompanyId])
