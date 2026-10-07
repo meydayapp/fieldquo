@@ -2006,6 +2006,7 @@ model Company {
   // Cross-company quote imports (GC ↔ subcontractor). AsSource: our quotes that
   // other companies imported. AsTarget: other companies' quotes we imported.
   quoteImportsAsSource  QuoteImport[] @relation("QuoteImportSourceCompany")
+  subPriceRequests      SubPriceRequest[] @relation("SubPriceRequestOwner")
   quoteImportsAsTarget  QuoteImport[] @relation("QuoteImportTargetCompany")
   appointments          Appointment[]
   tasks                 Task[]
@@ -2799,6 +2800,11 @@ model Company {
   // their Stripe Connect account resolve without retyping anything.
   subcontractors        Subcontractor[]        @relation("SubcontractorOwner")
   subcontractedBy       Subcontractor[]        @relation("SubcontractorLinkedCompany")
+  /// Days after which a sub who has not answered a price request gets ONE
+  /// gentle reminder (the owner, 2026-10-06: "default on, 3 days"). 0 = off.
+  /// Read by the daily follow-ups cron (lib/subRequests/server.js
+  /// runPriceRequestReminders); set on the Subcontractors page.
+  subRequestReminderDays Int @default(3)
   jobSubcontractors     JobSubcontractor[]
   subcontractorPayments SubcontractorPayment[]
   locationStamps        LocationStamp[]
@@ -3398,6 +3404,16 @@ model Client {
   /// stop because a wrong tax line is a wrong amount; a missing PO is a
   /// document the client may bounce, and the office may know better.
   requiresPo         Boolean   @default(false)
+
+  /// The FieldQuo company this client IS, when it is one — set when a
+  /// general contractor's price request was accepted by this company
+  /// (lib/subRequests/server.js acceptRequest): the GC becomes a business
+  /// client here, found again by this column rather than by name or email,
+  /// so a second request from the same GC never makes a second client.
+  /// Written only on this company's own action.
+  linkedCompanyId    String?
+
+  @@unique([companyId, linkedCompanyId])
 }
 
 /// See Company.taxMode.
@@ -3524,6 +3540,7 @@ model Quote {
   // pulled it into their own quote as a marked-up cost. As TARGET: this quote
   // pulled other companies' quotes in as cost lines.
   importsAsSource QuoteImport[] @relation("QuoteImportSource")
+  subPriceRequests SubPriceRequest[] @relation("SubPriceRequestQuote")
   importsAsTarget QuoteImport[] @relation("QuoteImportTarget")
 
   calledAt DateTime?
@@ -3836,12 +3853,32 @@ model QuoteImport {
   id String @id @default(cuid())
 
   // ── Source: the subcontractor's quote being imported ──────────────────────
-  sourceQuoteId   String
-  sourceQuote     Quote   @relation("QuoteImportSource", fields: [sourceQuoteId], references: [id], onDelete: Cascade)
+  //
+  // Both null for ONE kind of row only: a price a sub WITHOUT a FieldQuo
+  // account typed into the reply form of a GC's price request, which the GC
+  // then confirmed into the compare (lib/subRequests/server.js
+  // confirmReply). There is no source quote to point at — the figure is what
+  // the sub wrote, held as a snapshot exactly like any other. Such a row
+  // always has subcontractorId (below), and every reader that reaches into
+  // the sub's tenant through sourceQuoteId / sourceCompanyId
+  // (lib/subcontractors/sourceLink.js) returns early on null rather than
+  // matching "rows with no company".
+  sourceQuoteId   String?
+  sourceQuote     Quote?   @relation("QuoteImportSource", fields: [sourceQuoteId], references: [id], onDelete: Cascade)
   // Denormalised so a sub can list "who imported my quotes" without reaching
   // across into the GC's tenant.
-  sourceCompanyId String
-  sourceCompany   Company @relation("QuoteImportSourceCompany", fields: [sourceCompanyId], references: [id], onDelete: Cascade)
+  sourceCompanyId String?
+  sourceCompany   Company? @relation("QuoteImportSourceCompany", fields: [sourceCompanyId], references: [id], onDelete: Cascade)
+
+  /// The GC's OWN roster row (Subcontractor, in the target company) this
+  /// price came from, when it arrived through a price request
+  /// (SubPriceRequestRecipient). The compare reads insurance and clearance
+  /// from it, and adoption onto a job uses it instead of matching
+  /// linkedCompanyId — which a no-account reply does not have. Null for an
+  /// import made by pasting a link, where the roster row is found by the
+  /// sub's company as before. Not a relation: the roster row can be
+  /// deleted without taking a price the GC already used with it.
+  subcontractorId String?
 
   // ── Target: the GC's own quote it was added to ────────────────────────────
   targetQuoteId   String
@@ -3902,7 +3939,10 @@ model QuoteImport {
   /// commit status.
   placement String @default("line")
 
-  // A given source quote lands in a given target quote at most once.
+  // A given source quote lands in a given target quote at most once. Rows
+  // with no source quote (a confirmed no-account reply) are never equal under
+  // Postgres's NULL semantics; their own once-only guard is
+  // SubPriceRequestRecipient.quoteImportId.
   @@unique([targetQuoteId, sourceQuoteId])
   @@index([sourceCompanyId])
   @@index([targetCompanyId])
@@ -3973,9 +4013,132 @@ model Subcontractor {
   jobs      JobSubcontractor[]
   documents SubcontractorDocument[]
   payments  SubcontractorPayment[]
+  priceRequests SubPriceRequestRecipient[]
 
   @@index([companyId, active])
   @@index([linkedCompanyId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Price requests — a GC asking the subs they already have to price a job
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner, 2026-10-06: "the GC sending a request for quote to the subs they
+// have; the sub gets an email asking them to log into FieldQuo to ease the
+// linkage between the two." lib/subRequests/ is the whole behaviour; these
+// two models are what it stores.
+//
+// One request = one trade on one of the GC's quotes (the compare lives on a
+// quote — QuoteImport.targetQuoteId), sent to several subs at once. Each sub
+// is a Recipient with its own token: the credential in their email, the same
+// shape and strength as a quote's share token.
+//
+// What crosses to the sub is an allow-list built in lib/subRequests/model.js
+// (subFacingRequest): the trade, the GC's scope text, the job ADDRESS, the
+// photos the GC ticked, the wanted-by date and the GC's own name and brand.
+// Never the homeowner's name, phone or email — none of those is stored here
+// at all, so no reader can leak what was never copied.
+
+model SubPriceRequest {
+  id        String  @id @default(cuid())
+  /// The GC.
+  companyId String
+  company   Company @relation("SubPriceRequestOwner", fields: [companyId], references: [id], onDelete: Cascade)
+  /// The GC's quote the prices land on, in the side-by-side compare. A
+  /// request raised from the job page names the job's quote.
+  quoteId   String
+  quote     Quote   @relation("SubPriceRequestQuote", fields: [quoteId], references: [id], onDelete: Cascade)
+  /// The job page it was raised from, when it was. Provenance only — the
+  /// prices go to quoteId either way.
+  jobId     String?
+
+  /// The trade, as the GC typed it ("Painting") — also the compare's group
+  /// label for the prices that come back (lib/quotes/importOptions.js
+  /// comparisonKey), so every reply to one request sits side by side.
+  trade     String
+  /// What the GC wants priced, in their own words. Shown to the sub.
+  scope     String
+  /// The job address, copied at send: quote.siteAddress, else the client's
+  /// address line. The only piece of the homeowner's record that leaves the
+  /// GC's tenant, and the owner chose it (2026-10-06).
+  siteAddress String?
+  /// [{ url, kind }] — the subset of the quote's / job's own photos the GC
+  /// ticked. Checked against what is on file when sent; never a URL the
+  /// browser supplied.
+  photos    Json?
+  wantedBy  DateTime?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipients SubPriceRequestRecipient[]
+
+  @@index([companyId, quoteId])
+}
+
+/// One sub on one request, and where they stand. Status is DERIVED from the
+/// timestamps (lib/subRequests/model.js recipientStatus) — sent, opened,
+/// quoting, quoted, declined — never stored, so it cannot disagree with them.
+model SubPriceRequestRecipient {
+  id        String          @id @default(cuid())
+  requestId String
+  request   SubPriceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  /// The GC, again, so every GC-side read scopes by company without a join.
+  companyId String
+  subcontractorId String
+  subcontractor   Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+
+  /// The credential in the sub's email. 32 CSPRNG bytes, base64url.
+  token       String  @unique
+  sentToEmail String?
+  /// Set only after the mail provider accepted the message. Null = not
+  /// (yet) sent — the panel says so and offers to send again.
+  sentAt      DateTime?
+  openedAt    DateTime?
+  /// The one reminder (Company.subRequestReminderDays). Once, never twice.
+  remindedAt  DateTime?
+
+  // ── A sub on FieldQuo: the link, made by the SUB's own action ────────────
+  /// When a signed-in member of the sub's company pressed "Price it in
+  /// FieldQuo". Everything below in this group is written in that moment.
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  /// The sub's company. Also written onto the GC's Subcontractor row
+  /// (linkedCompanyId) when that was blank.
+  linkedCompanyId  String?
+  /// The lead created in the SUB's tenant (source "gc_request"). An id in
+  /// another tenant, followed one way only: their quote for that lead is
+  /// how the answer finds its way back here.
+  leadId           String?
+  /// The sub's quote that answered, once they sent it.
+  sourceQuoteId    String?
+
+  // ── A sub without an account: the reply form ────────────────────────────
+  /// What they typed. Their OWN pending option: it reaches the compare only
+  /// when the GC confirms it (quoteImportId set by confirmReply).
+  replyAmount Decimal?  @db.Decimal(12, 2)
+  replyNote   String?
+  /// { url, filename } — a file they uploaded into the GC's price-reply
+  /// folder (lib/media/directUpload.js uploadScope("price_reply")).
+  replyFile   Json?
+  repliedAt   DateTime?
+
+  declinedAt    DateTime?
+  declineReason String?
+
+  /// The GC's compare option this answer became — from the sub's sent quote
+  /// automatically, or from a reply once the GC confirmed it. Set once; the
+  /// conditional write on null is what makes both paths idempotent.
+  quoteImportId String?  @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([requestId, subcontractorId])
+  @@index([companyId])
+  @@index([linkedCompanyId])
+  @@index([leadId])
 }
 
 /// A file about a sub — the COI, the clearance certificate, a signed
