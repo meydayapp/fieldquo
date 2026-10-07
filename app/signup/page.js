@@ -583,9 +583,10 @@ export default function SignupPage() {
   // The add page leaves the hand-off cookie when its buttons are pressed; a
   // contractor who reached /signup?next=/q/<token>/add some other way gets
   // it here, so the welcome questions know to take the short way back
-  // (lib/signup/gcWelcome.js). The note names the sender — the one fact this
-  // reads, and one /q/<token> already shows. Nothing about the CLIENT (the
-  // reader) is fetched here: see lib/quotes/gcSignup.js for the rule.
+  // (lib/signup/gcWelcome.js). The note names the sender, and the email box
+  // starts with the client's email when the quote page shows it (a business
+  // client only) — nothing /q/<token> does not already show the token
+  // holder: see lib/quotes/gcSignup.js for the rule.
   const [gcSender, setGcSender] = useState(null);
   useEffect(() => {
     const token = addPathToken(nextPath);
@@ -603,7 +604,16 @@ export default function SignupPage() {
     setGcSender("");
     fetch(`/api/quotes/received/${encodeURIComponent(token)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => !cancelled && setGcSender(d?.sourceCompanyName || ""))
+      .then((d) => {
+        if (cancelled) return;
+        setGcSender(d?.sourceCompanyName || "");
+        // The email the quote page shows for a BUSINESS client (nothing for a
+        // homeowner — lib/quotes/gcSignup.js), into an empty box only; and
+        // if it already has a login, "Log in" rather than a second account.
+        const email = d?.signupPrefill?.email;
+        if (email) setForm((f) => (f.email ? f : { ...f, email }));
+        if (email && d.signupPrefill.accountExists) setExistingLogin(String(email).trim().toLowerCase());
+      })
       .catch(() => {});
     return () => {
       cancelled = true;

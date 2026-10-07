@@ -16,6 +16,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasLevel, hasToggle } from "@/lib/permissions/enforce";
 import { sourceCostAmount } from "@/lib/quotes/importQuote";
 import { isPubliclyReadable } from "@/lib/quotes/shareToken";
+import { gcSignupPrefill, quotePageClientFacts } from "@/lib/quotes/gcSignup";
 
 export async function GET(request, { params }) {
   const { token } = await params;
@@ -30,10 +31,11 @@ export async function GET(request, { params }) {
       total: true,
       acceptedTotal: true,
       company: { select: { name: true, currency: true } },
-      // No client relation. `sentToEmail`, `client.email` and `client.type` were
-      // read only by the three dead fields removed below, and this endpoint is
-      // callable by anyone holding the share token — narrowing what it loads is
-      // the cheapest form of not leaking it.
+      // Exactly the fields quotePageClientFacts may put on /q/<token> — the
+      // signup prefill below is built from that object and nothing else, so
+      // this endpoint (callable by anyone holding the share token) can tell
+      // the token holder no more than the quote page itself does.
+      client: { select: { name: true, type: true, contactName: true, email: true, phone: true, address: true } },
     },
   });
   // ── A draft is nobody's to import ─────────────────────────────────────────
@@ -134,8 +136,28 @@ export async function GET(request, { params }) {
     }));
   }
 
+  // ── The signup prefill, for a signed-out reader ─────────────────────────
+  //
+  // "Create your free account" from this quote opens with what the quote page
+  // shows about its client (lib/quotes/gcSignup.js): for a business client the
+  // name, contact, email, phone and office address; for a homeowner the name.
+  // `accountExists`: whether that email already has a login, so /signup says
+  // "Log in" instead of making a second account — the same answer /signup
+  // gives the moment that email is submitted.
+  let signupPrefill = null;
+  if (!authenticated) {
+    signupPrefill = gcSignupPrefill(quotePageClientFacts(source.client));
+    if (signupPrefill.email) {
+      const login = await db.user
+        .findFirst({ where: { email: { equals: signupPrefill.email, mode: "insensitive" } }, select: { id: true } })
+        .catch(() => null);
+      signupPrefill.accountExists = Boolean(login);
+    }
+  }
+
   return NextResponse.json({
     sourceCompanyName: source.company?.name || null,
+    signupPrefill,
     sourceQuoteNumber: source.quoteNumber,
     amount: sourceCostAmount(source), // the sub's price = the GC's cost
     currency: source.company?.currency || null,

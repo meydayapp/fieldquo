@@ -32,7 +32,7 @@ import { loadWelcomeState, welcomePrefill } from "@/lib/signup/welcomeState";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 import { INDUSTRY_MESSAGES } from "@/app/i18n/industries";
 import WelcomeFlow from "@/app/welcome/WelcomeFlow";
-import { gcWelcomeContext } from "@/lib/signup/gcWelcome";
+import { gcWelcomeContext, withGcPrefill } from "@/lib/signup/gcWelcome";
 import { PRICE_REQUEST_COOKIE, isRequestTokenShape, mergeWelcomePrefill } from "@/lib/subRequests/model";
 import { prefillForToken } from "@/lib/subRequests/server";
 
@@ -104,9 +104,7 @@ export default async function WelcomeStepPage({ params }) {
   }
   // A general contractor from a sub's quote: the business name the quote
   // page shows, only into a field still EMPTY (lib/signup/gcWelcome.js).
-  if (gc.gc && !prefill.company.name && gc.prefill.companyName) {
-    prefill = { ...prefill, company: { ...prefill.company, name: gc.prefill.companyName } };
-  }
+  if (gc.gc) prefill = withGcPrefill(prefill, gc.prefill);
 
   return (
     <WelcomeFlow

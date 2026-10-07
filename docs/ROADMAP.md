@@ -165,7 +165,7 @@ is already applied. Exact SQL in the hand-off report.
 
 ### Checks
 
-`check:gc-onramp` (new, in `check:all`): 192 assertions; 17/17 mutants of
+`check:gc-onramp` (new, in `check:all`): 208 assertions; 22/22 mutants of
 the key rules fail it. `check:sub-change-orders` executes the upload end to
 end on the import fake — option, itemised line, swap with a FieldQuo import,
 job booking (255, 18/18 mutants). `check:auth-pages` renders the
@@ -173,12 +173,12 @@ Sign-in-with-next link (189); `check:welcome-flow` 264.
 
 ### Owed / for the owner
 
-- **Prefill beyond the business name.** `/q/<token>` shows the client's name
-  only; email, phone, office address and contact person are on the PDF in the
-  sub's email, not on the page — so under the exposure rule they are not
-  prefilled. Recommendation: print the business client's contact block on the
-  page (business clients only, the PDF's own fields); the prefill follows
-  automatically through `quotePageClientFacts`.
+- **Prefill — decided 2026-10-06 (owner, via coordinator): done.** `/q/<token>`
+  now shows a BUSINESS client's contact block (contact, email, phone, office
+  address — the PDF's own "Prepared for" panel, so no new exposure); a
+  homeowner's page is unchanged. The signup (email, and "Log in" when it
+  already has a login) and the welcome screens (name, phone, business name,
+  address — blanks only) are prefilled from that same object.
 - **A read that is never confirmed is lost** (nothing unconfirmed is stored);
   reading the same file again is charged again.
 - **The deep read** is a best-model line transcription billed like the plan

@@ -714,6 +714,20 @@ export default function QuoteApproval({ token, sample = null }) {
           <p className="text-lg font-semibold text-[#2d2520]">
             {quote.client?.name}
           </p>
+          {/* A BUSINESS client's contact block — the same lines the PDF's
+              "Prepared for" panel prints in the email that brought them
+              here, plus their named contact. The server sends these fields
+              for a business client only (lib/quotes/gcSignup.js
+              quotePageClientFacts); a homeowner's object is the name alone,
+              so nothing renders for them. Values only, in the document's own
+              colours — the client's details, nothing of FieldQuo's. */}
+          {[quote.client?.contactName, quote.client?.address, [quote.client?.email, quote.client?.phone].filter(Boolean).join(" · ")]
+            .filter(Boolean)
+            .map((line, i) => (
+              <p key={i} className="text-sm text-[#2d2520]/70 break-words" data-client-contact-line>
+                {line}
+              </p>
+            ))}
           {/* Where the work is — the same line the PDF's "Prepared for"
               panel prints, when the quote names a site. */}
           {quote.siteAddress && (

@@ -28,7 +28,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { quotePageClientFacts, gcSignupPrefill, addPathToken } from "@/lib/quotes/gcSignup";
-import { addToQuoteTokenFromCookies, gcWelcomeContext } from "@/lib/signup/gcWelcome";
+import { addToQuoteTokenFromCookies, gcWelcomeContext, withGcPrefill } from "@/lib/signup/gcWelcome";
 import {
   GC_WELCOME_STEPS,
   WELCOME_STEPS,
@@ -88,34 +88,61 @@ const TOKEN = "A".repeat(43);
 
 /* ═══ 1. Prefill exposure ═══════════════════════════════════════════════════ */
 console.log("\n1. The prefill shows nothing the quote page does not");
+const privateRow = {
+  name: "Northline Builders Ltd",
+  type: "company",
+  contactName: "Jane Doe",
+  email: "jane@northline.example",
+  phone: "416-555-0100",
+  address: "1 Office Rd, Toronto",
+  notes: "pays late",
+  portalToken: "secret-portal",
+  doNotContactReason: "angry",
+  language: "en",
+};
+const homeownerRow = { ...privateRow, name: "Marie Tremblay", type: "individual", contactName: null };
+const SECRETS = ["pays late", "secret-portal", "angry"];
+/** Every value the prefill carries must be a value the page object carries. */
+const withinPage = (prefill, facts) => {
+  const page = new Set(Object.values(facts));
+  return Object.entries(prefill).every(([k, v]) => k === "accountExists" || page.has(v));
+};
 {
-  const privateRow = {
-    name: "Northline Builders Ltd",
-    type: "company",
-    contactName: "Jane Private",
-    email: "jane@northline.example",
-    phone: "416-555-0100",
-    address: "1 Office Rd, Toronto",
-    notes: "pays late",
-    portalToken: "secret-portal",
-    language: "en",
-  };
+  // ── A BUSINESS client: the contact block is on the page, and prefilled ──
   const facts = quotePageClientFacts(privateRow);
-  ok("the quote page's client object is the name and nothing else", JSON.stringify(Object.keys(facts)) === '["name"]', Object.keys(facts));
+  ok("a business client's page object carries the contact block", JSON.stringify(facts) === JSON.stringify({ name: "Northline Builders Ltd", contactName: "Jane Doe", email: "jane@northline.example", phone: "416-555-0100", address: "1 Office Rd, Toronto" }), facts);
+  ok("...and nothing private (notes, portal token, do-not-contact)", !SECRETS.some((s) => JSON.stringify(facts).includes(s)));
   const prefill = gcSignupPrefill(facts);
-  const pageValues = new Set(Object.values(facts));
-  ok("every prefilled value is one the page shows", Object.values(prefill).every((v) => pageValues.has(v)), prefill);
-  ok("...the business name is prefilled", prefill.companyName === "Northline Builders Ltd", prefill);
-  for (const secret of ["jane@northline.example", "416-555-0100", "1 Office Rd, Toronto", "Jane Private", "pays late", "secret-portal"]) {
-    ok(`...and "${secret}" is not`, !JSON.stringify(prefill).includes(secret));
+  ok("the GC's signup is prefilled with ALL of it", prefill.companyName === "Northline Builders Ltd" && prefill.contactName === "Jane Doe" && prefill.email === "jane@northline.example" && prefill.phone === "416-555-0100" && prefill.address === "1 Office Rd, Toronto", prefill);
+  ok("...and every prefilled value is one the page shows", withinPage(prefill, facts), prefill);
+
+  // ── A HOMEOWNER: the name, exactly as before, and nothing else ─────────
+  const home = quotePageClientFacts(homeownerRow);
+  ok("an individual client's page object is the name alone", JSON.stringify(home) === '{"name":"Marie Tremblay"}', home);
+  const homePrefill = gcSignupPrefill(home);
+  ok("...so their email, phone and address are never prefilled", !["jane@northline.example", "416-555-0100", "1 Office Rd, Toronto"].some((s) => JSON.stringify(homePrefill).includes(s)), homePrefill);
+  for (const type of [undefined, null, "individual", "Company", ["company"], "COMPANY"]) {
+    ok(`a client of type ${JSON.stringify(type)} gets no contact block`, Object.keys(quotePageClientFacts({ ...privateRow, type })).join() === "name");
   }
+  ok("blank contact fields are left off, not sent as empty", JSON.stringify(quotePageClientFacts({ name: "A Co", type: "company", email: "  ", phone: "" })) === '{"name":"A Co"}');
+
+  // ── Hostile values ──────────────────────────────────────────────────────
   ok("a name carrying markup is not prefilled", gcSignupPrefill(quotePageClientFacts({ name: "<img src=x onerror=alert(1)>" })).companyName === undefined);
+  ok("...nor a contact carrying markup", gcSignupPrefill(quotePageClientFacts({ ...privateRow, contactName: "<b>Jane</b>" })).contactName === undefined);
   ok("control characters are flattened, not carried", gcSignupPrefill({ name: "Acme\u0000\u0007 Ltd" }).companyName === "Acme Ltd");
   ok("a facts object with an inherited key leaks nothing", Object.keys(gcSignupPrefill(Object.create({ email: "x@y.z" }))).length === 0);
   ok("null facts prefill nothing", Object.keys(gcSignupPrefill(null)).length === 0);
+  ok("handing the prefill the raw ROW instead of the page object still leaks no private field", !SECRETS.some((s) => JSON.stringify(gcSignupPrefill(privateRow)).includes(s)));
 
-  // The server helper: what it ASKS the database for, and what it returns
-  // even when the database answers with more.
+  // ── The welcome screens: the blanks only ────────────────────────────────
+  const blank = { user: { email: "x@y.z", firstName: "", lastName: "", phone: "" }, company: { name: "", address: "" }, trade: null };
+  const filled = withGcPrefill(blank, prefill);
+  ok("welcome: contact → first/last name, phone, business name, address", filled.user.firstName === "Jane" && filled.user.lastName === "Doe" && filled.user.phone === "416-555-0100" && filled.company.name === "Northline Builders Ltd" && filled.company.address === "1 Office Rd, Toronto", filled);
+  const answered = { user: { firstName: "Bob", lastName: "Own", phone: "613-555-0199" }, company: { name: "Bob's GC", address: "9 Mine St" } };
+  ok("...never over an answer the owner already gave", JSON.stringify(withGcPrefill(answered, prefill)) === JSON.stringify(answered));
+  ok("...and a homeowner's quote fills only the name", JSON.stringify(withGcPrefill(blank, homePrefill).user) === JSON.stringify(blank.user));
+
+  // ── The server helper: what it asks for, and what it returns ───────────
   const asked = [];
   const fakePrisma = (row) => ({
     quote: {
@@ -128,9 +155,12 @@ console.log("\n1. The prefill shows nothing the quote page does not");
   const gc = await gcWelcomeContext(`a=1; fq_add_quote=${TOKEN}; b=2`, {
     prisma: fakePrisma({ status: "sent", client: privateRow, company: { name: "Sparky Electric" } }),
   });
-  ok("gcWelcomeContext selects only the client's NAME", JSON.stringify(asked[0]?.select?.client) === '{"select":{"name":true}}', asked[0]?.select);
-  ok("...and returns only the page fact even when handed the whole row", JSON.stringify(gc.prefill) === '{"companyName":"Northline Builders Ltd"}', gc.prefill);
+  const selected = Object.keys(asked[0]?.select?.client?.select || {}).sort().join();
+  ok("gcWelcomeContext selects only the fields the page object can carry (+ type)", selected === "address,contactName,email,name,phone,type", selected);
+  ok("...and returns the page object's prefill even when handed the whole row", JSON.stringify(gc.prefill) === JSON.stringify(prefill) && withinPage(gc.prefill, facts), gc.prefill);
   ok("...with the short welcome list", gc.gc === true && JSON.stringify(gc.steps) === JSON.stringify(GC_WELCOME_STEPS));
+  const gcHome = await gcWelcomeContext(`fq_add_quote=${TOKEN}`, { prisma: fakePrisma({ status: "sent", client: homeownerRow, company: { name: "S" } }) });
+  ok("...a homeowner's quote prefills the name only", JSON.stringify(gcHome.prefill) === '{"companyName":"Marie Tremblay"}', gcHome.prefill);
   const draft = await gcWelcomeContext(`fq_add_quote=${TOKEN}`, { prisma: fakePrisma({ status: "draft", client: privateRow }) });
   ok("a DRAFT quote's token is no hand-off (the page 404s it)", draft.gc === false && Object.keys(draft.prefill).length === 0);
   const unknown = await gcWelcomeContext(`fq_add_quote=${TOKEN}`, { prisma: fakePrisma(null) });
@@ -153,14 +183,36 @@ console.log("\n1. The prefill shows nothing the quote page does not");
     ok(`addPathToken refuses ${p.slice(0, 40)}`, addPathToken(p) === null);
   }
 
+  // ── The received-quote route, EXECUTED: the signup's source ────────────
+  const { rows, resetDbStub } = await import("@/lib/db").then(() => import("./fixtures/dbStub.mjs"));
+  resetDbStub?.();
+  rows.quote = [
+    { id: "qb", shareToken: "B".repeat(43), status: "sent", companyId: "sub", total: 100, acceptedTotal: null, quoteNumber: "Q-1", company: { name: "Sparky Electric", currency: "CAD" }, client: privateRow },
+    { id: "qh", shareToken: "H".repeat(43), status: "sent", companyId: "sub", total: 100, acceptedTotal: null, quoteNumber: "Q-2", company: { name: "Sparky Electric", currency: "CAD" }, client: homeownerRow },
+  ];
+  rows.user = [{ id: "u_jane", email: "JANE@northline.example" }];
+  const { GET } = await import("@/app/api/quotes/received/[token]/route");
+  const call = async (token) => (await GET(new Request(`https://x.test/api/quotes/received/${token}`), { params: Promise.resolve({ token }) })).json();
+  const biz = await call("B".repeat(43));
+  ok("received route (signed out, business client): the prefill is the page object's, nothing more", withinPage(biz.signupPrefill || {}, facts) && biz.signupPrefill?.email === "jane@northline.example" && biz.signupPrefill?.contactName === "Jane Doe", biz.signupPrefill);
+  ok("...and an email that already has a login says so (Log in, not a second account)", biz.signupPrefill?.accountExists === true);
+  ok("...with nothing private in the whole response", !SECRETS.some((s) => JSON.stringify(biz).includes(s)));
+  const hom = await call("H".repeat(43));
+  ok("received route, homeowner client: the name only — no email, no login probe", JSON.stringify(hom.signupPrefill) === '{"companyName":"Marie Tremblay"}', hom.signupPrefill);
+  rows.user = [];
+  const fresh = await call("B".repeat(43));
+  ok("...and a business email with no login says so", fresh.signupPrefill?.accountExists === false);
+
   const pub = code("app/api/public/quotes/[token]/route.js");
   ok("the public quote page builds its client object with quotePageClientFacts", /client: quotePageClientFacts\(quote\.client\),/.test(pub));
   ok("...and never forwards the client's type, only a boolean", !/type: quote\.client/.test(pub) && /addToQuote: isBusinessClient\(quote\.client\),/.test(pub));
+  const approval = code("app/q/[token]/QuoteApproval.js");
+  ok("the quote page draws the contact block from the page object's own fields", /\[quote\.client\?\.contactName, quote\.client\?\.address, \[quote\.client\?\.email, quote\.client\?\.phone\]/.test(approval) && /data-client-contact-line/.test(approval));
   const signup = code("app/signup/page.js");
-  ok("the signup page reads nothing about the CLIENT from the token (only the sender name)", /setGcSender\(d\?\.sourceCompanyName \|\| ""\)/.test(signup) && !/d\?\.(clientEmail|client\b|email)/.test(signup.slice(signup.indexOf("const [gcSender"), signup.indexOf("const [gcSender") + 1500)));
+  const effect = signup.slice(signup.indexOf("const [gcSender"), signup.indexOf("const [gcSender") + 2200);
+  ok("the signup page fills the email box from the page-derived prefill only, and only when empty", /d\?\.signupPrefill\?\.email/.test(effect) && /f\.email \? f :/.test(effect) && /signupPrefill\.accountExists\) setExistingLogin/.test(effect));
   const received = code("app/api/quotes/received/[token]/route.js");
-  const sourceQuery = received.slice(received.indexOf("const source = await"), received.indexOf("if (!source"));
-  ok("the received-quote route still loads no client relation on the SOURCE quote", sourceQuery.length > 50 && !/client:\s*\{/.test(sourceQuery.replace(/\/\/.*$/gm, "")));
+  ok("the received route builds the prefill only through quotePageClientFacts", /gcSignupPrefill\(quotePageClientFacts\(source\.client\)\)/.test(received));
 }
 
 /* ═══ The short welcome list ════════════════════════════════════════════════ */
@@ -189,7 +241,7 @@ console.log("\nThe welcome questions, cut to what a GC needs");
     ok(`${why}: still asks who they are, on the full list`, got === "profile" && nextWelcomeStep("business", { steps }) === "size", got);
   }
   const page = code("app/welcome/[step]/page.js");
-  ok("the welcome page prefills the business name only into an EMPTY field", /if \(gc\.gc && !prefill\.company\.name && gc\.prefill\.companyName\)/.test(page));
+  ok("the welcome page pours the GC prefill through withGcPrefill (blanks only — executed above)", /if \(gc\.gc\) prefill = withGcPrefill\(prefill, gc\.prefill\);/.test(page));
   const setup = code("app/api/signup/setup/route.js");
   const pers = code("app/api/signup/personalize/route.js");
   ok("page, personalize and setup all take the list from gcWelcomeContext", /gcWelcomeContext\(h\.get\("cookie"\)\)/.test(page) && /gcWelcomeContext\(request\.headers\.get\("cookie"\)\)/.test(pers) && /gcWelcomeContext\(request\.headers\.get\("cookie"\)\)/.test(setup));

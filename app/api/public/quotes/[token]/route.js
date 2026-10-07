@@ -78,10 +78,12 @@ async function loadQuote(token) {
     where: { shareToken: token },
     include: {
       client: {
-        // `type` is read for one boolean (addToQuote below) and never
-        // forwarded — the page is told whether to offer the line, not what
-        // kind of client this is.
-        select: { name: true, email: true, address: true, language: true, type: true },
+        // `type` decides two things and is never forwarded itself: the
+        // addToQuote boolean below, and whether quotePageClientFacts adds a
+        // BUSINESS client's contact block (contactName, email, phone,
+        // address — the PDF's own "Prepared for" panel; lib/quotes/gcSignup.js
+        // says why that is no new exposure). A homeowner's object is the name.
+        select: { name: true, email: true, address: true, language: true, type: true, contactName: true, phone: true },
       },
       company: {
         // No id. `present()` returns this object wholesale to an
