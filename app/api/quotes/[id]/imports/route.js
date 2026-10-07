@@ -106,18 +106,33 @@ export async function GET(request, { params }) {
   // Insurance and WSIB/WCB clearance come from the GC's OWN roster row
   // linked to the sub's company — never from the sub's tenant. A sub not on
   // the roster reads "not recorded", which is what it is.
-  const sourceCompanyIds = [...new Set(asImporterRows.map((r) => r.sourceCompanyId))];
-  const roster = sourceCompanyIds.length
-    ? await db.subcontractor.findMany({
-        where: { companyId: member.companyId, linkedCompanyId: { in: sourceCompanyIds } },
-        select: { id: true, linkedCompanyId: true, insuranceExpiresAt: true, clearanceExpiresAt: true },
-        orderBy: { createdAt: "asc" },
-      })
-    : [];
+  // A price that came through a price request names its roster row
+  // (QuoteImport.subcontractorId) — the only way to find a no-account
+  // reply's sub, which has no company to match on.
+  const sourceCompanyIds = [...new Set(asImporterRows.map((r) => r.sourceCompanyId).filter(Boolean))];
+  const namedSubIds = [...new Set(asImporterRows.map((r) => r.subcontractorId).filter(Boolean))];
+  const roster =
+    sourceCompanyIds.length || namedSubIds.length
+      ? await db.subcontractor.findMany({
+          where: {
+            companyId: member.companyId,
+            OR: [
+              ...(sourceCompanyIds.length ? [{ linkedCompanyId: { in: sourceCompanyIds } }] : []),
+              ...(namedSubIds.length ? [{ id: { in: namedSubIds } }] : []),
+            ],
+          },
+          select: { id: true, name: true, linkedCompanyId: true, insuranceExpiresAt: true, clearanceExpiresAt: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
   const subsByCompanyId = {};
-  for (const s of roster) if (!subsByCompanyId[s.linkedCompanyId]) subsByCompanyId[s.linkedCompanyId] = s;
+  const subsById = {};
+  for (const s of roster) {
+    subsById[s.id] = s;
+    if (s.linkedCompanyId && !subsByCompanyId[s.linkedCompanyId]) subsByCompanyId[s.linkedCompanyId] = s;
+  }
   const optionById = new Map();
-  for (const group of compareImportOptions({ imports: asImporterRows, changeOrders: carrying, subsByCompanyId })) {
+  for (const group of compareImportOptions({ imports: asImporterRows, changeOrders: carrying, subsByCompanyId, subsById })) {
     for (const o of group.options) optionById.set(o.id, { option: o, key: group.key });
   }
 

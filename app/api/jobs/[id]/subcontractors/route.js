@@ -146,6 +146,7 @@ async function loadPanel({ job, member, full }) {
             label: true,
             snapshotAmount: true,
             sourceCompanyId: true,
+            subcontractorId: true,
             sourceCompany: { select: { name: true } },
           },
           orderBy: { createdAt: "asc" },
@@ -155,6 +156,9 @@ async function loadPanel({ job, member, full }) {
 
   const adoptedImportIds = new Set(rows.map((r) => r.quoteImportId).filter(Boolean));
   const bySourceCompany = new Map(roster.filter((s) => s.linkedCompanyId).map((s) => [s.linkedCompanyId, s]));
+  // A price from a price request names its roster row (a no-account reply has
+  // no source company at all).
+  const rosterById = new Map(roster.map((s) => [s.id, s]));
 
   return {
     rows: rows.map((r) => decorate(r, { canSeeMoney, now })),
@@ -163,9 +167,10 @@ async function loadPanel({ job, member, full }) {
     imports: imports.map((imp) => ({
       id: imp.id,
       label: imp.label,
-      sourceCompanyName: imp.sourceCompany?.name || null,
+      sourceCompanyName: imp.sourceCompany?.name || rosterById.get(imp.subcontractorId)?.name || null,
       adopted: adoptedImportIds.has(imp.id),
-      matchedSubcontractorId: bySourceCompany.get(imp.sourceCompanyId)?.id || null,
+      matchedSubcontractorId:
+        rosterById.get(imp.subcontractorId)?.id || (imp.sourceCompanyId ? bySourceCompany.get(imp.sourceCompanyId)?.id : null) || null,
       // The snapshot is the GC's cost, so it is money — off for anyone
       // without the toggle, like every other figure on this payload.
       ...(canSeeMoney ? { amount: Number(imp.snapshotAmount) } : {}),
@@ -219,7 +224,7 @@ export async function POST(request, { params }) {
   if (typeof body?.quoteImportId === "string" && body.quoteImportId.trim()) {
     imp = await db.quoteImport.findFirst({
       where: { id: body.quoteImportId.trim(), targetCompanyId: member.companyId, targetQuoteId: job.quoteId || "__none__" },
-      select: { id: true, label: true, snapshotAmount: true, sourceCompanyId: true, sourceCompany: { select: PROFILE_COMPANY_SELECT } },
+      select: { id: true, label: true, snapshotAmount: true, sourceCompanyId: true, subcontractorId: true, sourceCompany: { select: PROFILE_COMPANY_SELECT } },
     });
     if (!imp) return NextResponse.json({ error: "That imported quote isn't on this job's quote." }, { status: 404 });
     const already = await db.jobSubcontractor.findFirst({
@@ -264,11 +269,21 @@ export async function POST(request, { params }) {
     // (lib/subcontractors/profileFill.js; owner, 2026-10-03). The same fill
     // the acceptance path uses (sourceLink.js adoptImportsOnJob).
     const profile = documentProfileOf(imp.sourceCompany);
-    const matched = await db.subcontractor.findFirst({
-      where: { companyId: member.companyId, linkedCompanyId: imp.sourceCompanyId },
-      select: ROSTER_FILL_SELECT,
-      orderBy: { createdAt: "asc" },
-    });
+    // A price that came through a price request names its roster row; one
+    // with no source company (a confirmed no-account reply) has nothing else
+    // to match on — "linkedCompanyId: null" would match any unlinked sub.
+    const matched = imp.subcontractorId
+      ? await db.subcontractor.findFirst({
+          where: { id: imp.subcontractorId, companyId: member.companyId },
+          select: ROSTER_FILL_SELECT,
+        })
+      : imp.sourceCompanyId
+        ? await db.subcontractor.findFirst({
+            where: { companyId: member.companyId, linkedCompanyId: imp.sourceCompanyId },
+            select: ROSTER_FILL_SELECT,
+            orderBy: { createdAt: "asc" },
+          })
+        : null;
     if (matched) {
       subcontractorId = matched.id;
       // Blanks only — a value the GC typed stays theirs.
