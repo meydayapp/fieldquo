@@ -17,13 +17,11 @@ import {
   publishedSurcharges,
   feeBreakdown,
   financingFeeExample,
-  FINANCING_SURCHARGES,
 } from "@/lib/stripe/processingFee";
-import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
 
 // The example every contractor sees: a mid-sized job, paid by card.
 const EXAMPLE_CENTS = 226_000;
-// The pay-over-time side-by-side: a round $1,000, card vs each provider.
+// The pay-over-time side-by-side: a round $1,000, card vs pay over time.
 const FINANCING_EXAMPLE_CENTS = 100_000;
 // Klarna's merchant rules on Stripe — "You can't impose fees or higher
 // prices for Klarna purchases".
@@ -44,9 +42,6 @@ export default function ProcessingFeesCard({ currency, offerFinancing, connected
     amountCents: FINANCING_EXAMPLE_CENTS,
     currency: String(currency || "cad").toLowerCase(),
   });
-  const financingNames = financingExample
-    ? financingExample.providers.map((p) => FINANCING_PROVIDERS[p.method].name).join(" / ")
-    : "";
 
   return (
     <div data-tour="payments-fees" className="bg-card border border-border rounded-xl p-6">
@@ -92,46 +87,30 @@ export default function ProcessingFeesCard({ currency, offerFinancing, connected
           net: money(example.netCents / 100),
         })}
       </p>
-      {/* Pay over time: WHO pays and HOW MUCH, plainly (owner, 2026-10-09).
-          Shown wherever the company could offer it — its currency has a
-          pay-over-time rate — not only once the switch is on: the fee is
-          part of deciding whether to switch it on. Every figure comes from
-          lib/stripe/processingFee.js (FINANCING_RATES, FINANCING_SURCHARGES,
-          financingFeeExample — the published fee settlement passes through,
-          side by side with the card fee on the same amount). This replaces
-          the one-line "Affirm fee is passed through" note, which named
-          neither the payer nor the amount. */}
+      {/* Pay over time: WHO pays and HOW MUCH, as ONE number like the card
+          (owner, 2026-10-09: a flat 6.5% + 30¢ to the company — never
+          "5.99% to Stripe + 0.51% to FieldQuo"). Shown wherever the company
+          could offer it — its currency has the rate — not only once the
+          switch is on: the fee is part of deciding whether to switch it on.
+          Every figure comes from lib/stripe/processingFee.js
+          (FINANCING_RATE, financingFeeExample — the same functions
+          settlement charges with), side by side with the card on one
+          amount. Replaces the one-line "Affirm fee is passed through" note,
+          which named neither the payer nor the amount. */}
       {financingExample && (
         <div data-financing-fees className="mt-4 rounded-lg border border-border px-3.5 py-3">
-          <p className="text-sm text-foreground">
-            {t("app.setPayments.feesFinancingWho", { providers: financingNames })}
-          </p>
-          <dl className="mt-2 divide-y divide-border">
-            {financingExample.providers.map((p) => (
-              <div key={p.method} className="flex items-center justify-between py-1.5 text-sm">
-                <dt className="text-foreground">{FINANCING_PROVIDERS[p.method].name}</dt>
-                <dd className="tabular-nums font-medium text-foreground">{p.formula}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {t("app.setPayments.feesFinancingSurcharges", {
-              international: FINANCING_SURCHARGES.international.formula,
-              conversion: FINANCING_SURCHARGES.conversion.formula,
-            })}
-          </p>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-foreground">
+              {t("app.setPayments.feesFinancingLabel", { providers: financingExample.providers.join(" / ") })}
+            </span>
+            <span className="tabular-nums font-medium text-foreground">{financingExample.overTime.formula}</span>
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">{t("app.setPayments.feesFinancingWho")}</p>
           <p className="mt-1.5 text-xs text-muted-foreground" data-financing-example>
             {t("app.setPayments.feesFinancingExample", {
               amount: money(financingExample.amountCents / 100),
               cardNet: money(financingExample.card.netCents / 100),
-              providers: financingExample.providers
-                .map((p) =>
-                  t("app.setPayments.feesFinancingExampleProvider", {
-                    provider: FINANCING_PROVIDERS[p.method].name,
-                    net: money(p.netCents / 100),
-                  }),
-                )
-                .join("; "),
+              overTimeNet: money(financingExample.overTime.netCents / 100),
             })}
           </p>
           <p className="mt-1.5 text-xs text-muted-foreground">
