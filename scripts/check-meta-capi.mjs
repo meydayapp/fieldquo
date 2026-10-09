@@ -573,6 +573,18 @@ section("Capture hooks");
   const bk = await capture.captureWebsiteBooking(p, { companyId: "co_a", bookingId: "BK1", request: req(), now: NOW });
   const bkr = p.T.metaConversionEvent.find((x) => x.eventId === "BK1");
   ok("website Schedule queued with event_id = booking id", bk.queued === 1 && bkr.payload.event_name === "Schedule" && bkr.payload.user_data.fbc === "fb.1.2.BK");
+  ok("…and no fbp when the visit kept none", !("fbp" in bkr.payload.user_data));
+
+  // An embed's host page forwarded Meta's _fbp beside the click
+  // (lib/tracking/attribution.js): it travels as user_data.fbp.
+  p.T.leadRequest.push({ id: "LWP", companyId: "co_a", email: "p@x.co", createdAt: NOW, attribution: { fbc: "fb.1.1791547200000.IwAR0abcdefgh", fbp: "fb.1.1791547100000.1234567890" } });
+  await capture.captureWebsiteLead(p, { companyId: "co_a", leadId: "LWP", pixelId: "1111111111111111", request: req(), now: NOW });
+  const wpb = p.T.metaConversionEvent.find((x) => x.eventId === "LWP");
+  ok("a forwarded fbp rides on the website Lead", wpb?.payload?.user_data?.fbp === "fb.1.1791547100000.1234567890", wpb?.payload?.user_data);
+  p.T.booking.push({ id: "BK2", eventType: { companyId: "co_a" }, clientEmail: "b2@k.co", clientPhone: null, status: "confirmed" });
+  p.T.funnelVisit.push({ companyId: "co_a", bookingId: "BK2", fbc: "fb.1.2.BK2", fbp: "fb.1.3.42" });
+  await capture.captureWebsiteBooking(p, { companyId: "co_a", bookingId: "BK2", request: req(), now: NOW });
+  ok("…and on the website Schedule from the booking's visit", p.T.metaConversionEvent.find((x) => x.eventId === "BK2")?.payload?.user_data?.fbp === "fb.1.3.42");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

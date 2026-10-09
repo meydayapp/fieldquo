@@ -243,7 +243,12 @@ console.log("\nWiring");
   // lib/embed/chatLoader.js) — layout of the frame, never the form's look. The
   // guard is that no appearance field is read off the URL, not that the page
   // has no query at all.
-  ok("embed page: the booking flow is mounted exactly as before", /<BookingFlow companySlug=\{companySlug\} embedded \/>/.test(embed));
+  // The booking flow takes no look. Since 9 October 2026 the embed also passes
+  // trackVisit (a forwarded ad click opens a booking visit — app/embed/
+  // [companySlug]/[widget]/page.js); that prop drives the step beacon only and
+  // renders nothing, so the guard is "no look prop", not the old exact string.
+  const bookingMount = embed.match(/<BookingFlow\b[^>]*\/>/)?.[0] || "";
+  ok("embed page: the booking flow is mounted with no look", /companySlug=\{companySlug\}/.test(bookingMount) && /\bembedded\b/.test(bookingMount) && !/\blook=/.test(bookingMount), bookingMount);
   ok("no public route reads an appearance off the request", ![request, embed, instantPage, quotePage, read("app/api/instant-quote/[companySlug]/route.js")].some((src) => /searchParams\.get\(["']a["']\)|body\??\.appearance|body\??\.look/.test(src)));
   ok("preview page: gated on a member of the owning company", /canPreviewCompanyDocument\(\{ headers: await headers\(\) \}, company\.id\)/.test(preview) && /notFound\(\)/.test(preview));
   ok("preview page: noindex", /robots: \{ index: false, follow: false \}/.test(preview));

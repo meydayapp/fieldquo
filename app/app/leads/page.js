@@ -875,6 +875,7 @@ function CameFrom({ attribution, t }) {
   if (a.adClick) parts.push(t("app.traffic.adClick"));
   if (a.campaign) parts.push(t("app.traffic.campaignNamed", { campaign: a.campaign }));
   if (a.content) parts.push(a.content);
+  if (a.page) parts.push(a.page);
   return (
     <div className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
       <Megaphone size={12} className="shrink-0 mt-0.5" />
