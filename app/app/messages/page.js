@@ -1430,7 +1430,10 @@ async function saveLocationAsAddress(clientId, address, t) {
   const res = await fetch("/api/clients/" + clientId, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address }),
+    // The button says "the client's address" — the record itself, on purpose,
+    // so it states the scope PATCH requires for an identity change
+    // (lib/clients/editScope.js).
+    body: JSON.stringify({ address, scope: "everywhere" }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

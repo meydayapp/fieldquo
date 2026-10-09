@@ -166,7 +166,11 @@ export default function ClientDetailPage() {
       const res = await fetch(`/api/clients/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(canEditNotes ? form : withoutNotes),
+        // `scope: "everywhere"` — this page IS the client, so an edit here is
+        // meant for every quote, job and invoice that carries them. PATCH
+        // refuses an identity change without it (lib/clients/editScope.js),
+        // which is what stops a quote's builder doing this by accident.
+        body: JSON.stringify({ ...(canEditNotes ? form : withoutNotes), scope: "everywhere" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.clientDetail.saveError"));
