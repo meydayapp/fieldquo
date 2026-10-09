@@ -28,6 +28,7 @@ import {
 import { sendPriceRequestEmail } from "@/lib/subRequests/send";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordActivity } from "@/lib/activity/log";
+import { staffFileLink } from "@/lib/media/fileOpen";
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -56,11 +57,33 @@ export async function GET(request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const ctx = await loadRequestContext(db, { companyId: member.companyId, quoteId, jobId });
-    const requests = await listRequestsForQuote(db, {
+    const listed = await listRequestsForQuote(db, {
       companyId: member.companyId,
       quoteId: ctx.quote.id,
       mayCost: hasToggle(full, "jobCosting"),
     });
+    // A reply's file is opened through /api/files/open, never by its stored
+    // URL: the Cloudinary account refuses to deliver a PDF from its plain
+    // URL (401 — scripts/check-cloudinary-pdf.mjs, lib/media/signedFile.js),
+    // so that link would look right and never open. The stored URL is not
+    // sent at all, so nothing on the screen can fall back to it.
+    const requests = listed.map((r) => ({
+      ...r,
+      recipients: r.recipients.map((x) =>
+        x.reply?.file
+          ? {
+              ...x,
+              reply: {
+                ...x.reply,
+                file: {
+                  filename: typeof x.reply.file.filename === "string" ? x.reply.file.filename : null,
+                  openUrl: staffFileLink(member, { kind: "price-reply-file", id: x.id }),
+                },
+              },
+            }
+          : x,
+      ),
+    }));
     const company = await db.company.findUnique({
       where: { id: member.companyId },
       select: { subRequestReminderDays: true },
