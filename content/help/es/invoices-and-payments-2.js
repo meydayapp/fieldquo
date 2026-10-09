@@ -60,7 +60,7 @@ export const ARTICLES = {
           { p: "Un cliente paga desde el botón Pagar del correo de la factura o desde el portal de cliente. Los métodos ofrecidos dependen de su moneda y de su cuenta de Stripe: tarjeta en todas partes, y — una vez que Stripe lo ha activado en su cuenta — **Pagar desde una cuenta bancaria** junto al botón de tarjeta en facturas, depósitos y cuotas de un calendario de pagos: débito bancario preautorizado para una empresa canadiense que factura en dólares canadienses. Un pago bancario tarda de 3 a 5 días hábiles en liquidarse, y la factura dice **Pago bancario pendiente** hasta entonces." },
           { p: "En cada pago, FieldQuo registra la comisión a la tarifa publicada, y la línea del pago en la factura dice, por ejemplo, **“comisión de tarjeta $68.10 · depositado $2,191.90”**. Un pago que registra a mano — efectivo, cheque, transferencia — no lleva comisión y no muestra ninguna." },
           { figure: "live:app-invoices", caption: "Facturas — Pendiente, Pagada y Total facturado, y luego cada factura con su estado y su saldo." },
-          { p: "La financiación a plazos (Affirm), si la activa, la cobra Affirm en lugar de la tarifa de tarjeta; esa comisión se traslada en esos pagos de la misma manera." },
+          { p: "El pago a plazos (Klarna, Affirm o Afterpay), cuando un cliente lo elige, cuesta el 6,5 % + 0,30 $ de ese pago —más solo si la comisión de Stripe en ese pago es mayor— y se descuenta del pago igual que la comisión de tarjeta." },
         ],
       },
       {

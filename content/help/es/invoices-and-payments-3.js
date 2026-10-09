@@ -197,7 +197,7 @@ export const ARTICLES = {
             "Enciéndalo. Las facturas de entre **$50 y $30,000** en USD o CAD muestran entonces Affirm junto a la tarjeta en la página de pago; lo que quede fuera de ese rango, o una empresa para la que Stripe aún no ha habilitado Affirm, recibe una página solo con tarjeta en lugar de una página rota. La línea bajo el interruptor dice cuál es el caso: **Affirm: activo**, **pendiente de la revisión de Stripe**, **Stripe no lo ha habilitado en su cuenta** (con lo que Stripe pide), o **no disponible para cuentas de su país**.",
           ] },
           { figure: "live:app-settings-payments", caption: "Configuración → Pagos: la tarjeta de comisiones de procesamiento, la cuenta de Stripe conectada y, debajo, el interruptor del pago a plazos." },
-          { p: "Usted sigue cobrando el total, por adelantado; Affirm cobra las cuotas al cliente. La comisión de un pago con Affirm es la tarifa de Affirm, más alta que la de tarjeta, y se traslada a ese pago del mismo modo que una comisión de tarjeta; vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]. Un cliente que paga con tarjeta en la misma página paga la comisión de tarjeta, nada más." },
+          { p: "Usted sigue cobrando el total, por adelantado; Affirm cobra las cuotas al cliente. La comisión de un pago a plazos es el 6,5 % + 0,30 $ (más solo si la comisión de Stripe en ese pago es mayor), y se descuenta de ese pago del mismo modo que una comisión de tarjeta; vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]. Un cliente que paga con tarjeta en la misma página paga la comisión de tarjeta, nada más." },
         ],
       },
       {
@@ -220,7 +220,7 @@ export const ARTICLES = {
           { table: {
             head: ["Control", "Qué hace"],
             rows: [
-              ["Ofrecer pago a plazos (Affirm) — encendido", "Las facturas elegibles ofrecen Affirm junto a la tarjeta al pagar. La comisión de Affirm se traslada solo a esos pagos."],
+              ["Ofrecer pago a plazos (Affirm) — encendido", "Las facturas elegibles ofrecen el pago a plazos junto a la tarjeta al pagar. Esos pagos cuestan el 6,5 % + 0,30 $; los pagos con tarjeta mantienen la tarifa de tarjeta."],
               ["Ofrecer pago a plazos (Affirm) — apagado", "Toda página de pago es solo con tarjeta, aunque Stripe ya haya habilitado Affirm en su cuenta."],
               ["Tarjeta Financiamiento — encendida, sin condiciones", "El presupuesto dice que hay financiamiento disponible, con sus palabras, y un botón hacia su proveedor si lo indicó. Ninguna cifra."],
               ["Tarjeta Financiamiento — tipo y plazo indicados", "El presupuesto añade una cuota mensual estimada, calculada con su TAE y su plazo y señalada como estimación suya."],

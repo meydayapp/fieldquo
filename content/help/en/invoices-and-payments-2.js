@@ -72,7 +72,7 @@ export const ARTICLES = {
           { p: "A client pays from the invoice email's Pay button or from the client portal. The methods on offer depend on your currency and on your Stripe account: cards everywhere, and — once Stripe has activated it on your account — **Pay from bank account** beside the card button on invoices, deposits and payment-schedule instalments: pre-authorized bank debit for a Canadian company billing in Canadian dollars. A bank payment takes 3–5 business days to clear, and the invoice reads **Bank payment pending** until it does." },
           { p: "On each payment, FieldQuo records the fee at the published rate, and the invoice's payment row reads, for example, **“card processing $68.10 · deposited $2,191.90”**. A payment you record by hand — cash, cheque, e-transfer — carries no fee and shows none." },
           { figure: "live:app-invoices", caption: "Invoices — Outstanding, Paid and Total Billed, then every invoice with its status and balance." },
-          { p: "Pay-over-time financing (Affirm), if you turn it on, is priced by Affirm rather than at the card rate; that fee is passed through on those payments the same way." },
+          { p: "Pay over time (Klarna, Affirm or Afterpay), when a client chooses it, costs 6.5% + $0.30 of that payment — more only if Stripe's own fee on it is higher — taken out of the payment the same way as the card fee." },
         ],
       },
       {

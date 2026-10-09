@@ -197,7 +197,7 @@ export const ARTICLES = {
             "Activez-le. Les factures de **50 $ à 30 000 $** en USD ou en CAD affichent alors Affirm à côté de la carte sur la page de paiement ; tout ce qui sort de cette plage, ou une entreprise pour laquelle Stripe n'a pas encore ouvert Affirm, obtient une page carte seulement plutôt qu'une page brisée. La ligne sous l'interrupteur dit lequel c'est : **Affirm : actif**, **en attente de l'examen de Stripe**, **non activé par Stripe sur votre compte** (avec ce que Stripe demande), ou **non offert pour les comptes de votre pays**.",
           ] },
           { figure: "live:app-settings-payments", caption: "Paramètres → Paiements — la carte des frais de traitement, le compte Stripe connecté, et l'interrupteur du paiement échelonné dessous." },
-          { p: "Vous êtes toujours payé en entier, d'avance ; Affirm perçoit les versements auprès du client. Les frais sur un paiement Affirm sont le taux d'Affirm, plus élevé que le taux carte, et ils sont refilés sur ce paiement de la même manière que des frais de carte — voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]. Un client qui paie par carte sur la même page paie les frais de carte, rien de plus." },
+          { p: "Vous êtes toujours payé en entier, d'avance ; Affirm perçoit les versements auprès du client. Les frais sur un paiement échelonné sont de 6,5 % + 0,30 $ (plus seulement si les frais de Stripe sur ce paiement sont plus élevés), retenus sur le paiement de la même manière que des frais de carte — voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]. Un client qui paie par carte sur la même page paie les frais de carte, rien de plus." },
         ],
       },
       {
@@ -220,7 +220,7 @@ export const ARTICLES = {
           { table: {
             head: ["Commande", "Ce qu'elle fait"],
             rows: [
-              ["Proposer le paiement échelonné (Affirm) — activé", "Les factures admissibles proposent Affirm à côté de la carte au paiement. Les frais d'Affirm sont refilés sur ces paiements seulement."],
+              ["Proposer le paiement échelonné (Affirm) — activé", "Les factures admissibles proposent le paiement échelonné à côté de la carte au paiement. Ces paiements coûtent 6,5 % + 0,30 $; les paiements par carte gardent le taux carte."],
               ["Proposer le paiement échelonné (Affirm) — désactivé", "Chaque page de paiement est carte seulement, même si Stripe a déjà ouvert Affirm sur votre compte."],
               ["Carte Financement — activée, sans conditions", "La soumission dit que du financement est offert, dans vos mots, avec un bouton vers votre fournisseur si vous en avez donné un. Aucun chiffre."],
               ["Carte Financement — taux et durée énoncés", "La soumission ajoute une mensualité estimative, calculée depuis votre TAEG et votre durée et présentée comme votre estimation."],

@@ -16,7 +16,7 @@
 //   4. capability status and the request on the poll;
 //   5. the hosted invoice session left exactly as it was (dynamic, no
 //      provider named) — Klarna is not added to a session that shows it;
-//   6. fee pass-through for a Klarna payment, at Stripe's cost, with its own
+//   6. the pay-over-time fee: the company pays max(6.5% + 30¢, Stripe's actual), with its own
 //      label on the transfer reversal and the payment row;
 //   7. the portal's card-fee path keeps a pay-over-time button for Klarna,
 //      for the server-stored figure;
@@ -196,78 +196,103 @@ console.log("\n── 5. The hosted invoice session is left exactly as it was �
   ok("no new Klarna-only session type exists: method 'klarna' is still refused as unknown", refused?.status === 400 && /Unsupported payment method/.test(refused.message));
 }
 
-console.log("\n── 6. A Klarna payment's fee: Stripe's cost, passed through at cost ──\n");
+console.log("\n── 6. Pay over time: the company pays max(6.5% + 30¢, Stripe's actual) ──\n");
 const { settledFeeFor, trueUpDescription } = await import("@/lib/stripe/paymentIntentFee.js");
 const { feeRateKey } = await import("@/lib/stripe/feeRateKey.js");
-async function settle({ amount, stripeFee, type = "klarna", currency = "cad" }) {
+// Stripe's fee at a rate, the way Stripe rounds a percentage (half-up) + 30¢.
+const stripeAt = (amount, bps) => Math.floor((amount * bps + 5000) / 10000) + 30;
+async function settle(feeMod, { amount, stripeFee, type = "klarna", currency = "cad" }) {
   const est = fees.processingFeeCents({ amountCents: amount, currency, method: "card" });
   const log = [];
   const intent = {
     id: `pi_${type}_${amount}_${stripeFee}`, currency, amount, amount_received: amount, application_fee_amount: est,
     metadata: { fq_fee_estimate_cents: String(est), fq_recovery_cents: "0", companyId: "co_tf" },
-    latest_charge: { id: "ch", payment_method_details: { type }, balance_transaction: { fee: stripeFee }, transfer: "tr_1" },
+    latest_charge: { id: "ch", payment_method_details: { type }, balance_transaction: stripeFee == null ? null : { fee: stripeFee }, transfer: "tr_1" },
   };
   const client = {
     paymentIntents: { retrieve: async () => intent },
     transfers: { createReversal: async (tr, params, opts) => { log.push({ tr, params, opts }); return { id: "trr" }; } },
   };
-  return { est, fee: await settledFeeFor(intent, { stripe: client }), log };
+  return { est, fee: await feeMod.settledFeeFor(intent, { stripe: client }), log };
 }
+
+// The owner's numbers (2026-10-09), as a suite so the mutants re-run it.
+async function feeRuleSuite(pf, t) {
+  const rule = (amount, actual, currency = "cad") => pf.financingSettlementFee({ amountCents: amount, currency, actualStripeFeeCents: actual });
+  t("the target is ONE named constant: 6.5% + 30¢ (FINANCING_RATE_BPS 650, FINANCING_FIXED_CENTS 30)", pf.FINANCING_RATE_BPS === 650 && pf.FINANCING_FIXED_CENTS === 30 && pf.FINANCING_RATE.formula === "6.5% + $0.30");
+  t("flat fee on $6,500 is $422.80", pf.financingFeeCents({ amountCents: 650_000, currency: "cad" }) === 42_280);
+  let r = rule(650_000, stripeAt(650_000, 599));
+  t(`$6,500 at Klarna's 5.99% + 30¢ ($389.65): company $422.80, FieldQuo $33.15 (got ${r.totalCents}/${r.platformShareCents})`, r.totalCents === 42_280 && r.platformShareCents === 3_315);
+  r = rule(650_000, stripeAt(650_000, 600));
+  t(`$6,500 at 6% + 30¢ (Affirm / Afterpay standard): company $422.80, FieldQuo $32.50 (got ${r.totalCents}/${r.platformShareCents})`, r.totalCents === 42_280 && r.platformShareCents === 3_250);
+  r = rule(650_000, stripeAt(650_000, 749));
+  t(`$6,500 international Klarna (Stripe 7.49% + 30¢ = $487.15): company pays Stripe's $487.15, FieldQuo $0 (got ${r.totalCents}/${r.platformShareCents})`, r.totalCents === 48_715 && r.platformShareCents === 0);
+  r = rule(650_000, stripeAt(650_000, 290));
+  t(`$6,500 at a Stripe promo 2.9% + 30¢ ($188.80): company $422.80, FieldQuo $234.00 (got ${r.totalCents}/${r.platformShareCents})`, r.totalCents === 42_280 && r.platformShareCents === 23_400);
+  r = rule(650_000, stripeAt(650_000, 799));
+  t(`$6,500 Affirm Enhanced (7.99% + 30¢ = $519.65): company pays Stripe's actual, FieldQuo $0 (got ${r.totalCents}/${r.platformShareCents})`, r.totalCents === 51_965 && r.platformShareCents === 0);
+  r = rule(200_000, stripeAt(200_000, 600));
+  t(`$2,000 Afterpay at 6% + 30¢: company $130.30, FieldQuo $10.00 (got ${r.totalCents}/${r.platformShareCents})`, r.totalCents === 13_030 && r.platformShareCents === 1_000);
+  r = rule(200_000, stripeAt(200_000, 599), "usd");
+  t("US$2,000 by Klarna: the same rule in USD — $130.30", r.totalCents === 13_030);
+  r = rule(650_000, null);
+  t("Stripe's fee not reported yet: settles at the flat $422.80, no share claimed", r.totalCents === 42_280 && r.platformShareCents === 0);
+  r = rule(20, 0);
+  t("never more than the payment itself (a 20¢ payment: fee 20¢, not 31¢)", r.totalCents === 20 && pf.financingFeeCents({ amountCents: 20, currency: "cad" }) === 20);
+  t("the share is never negative, whatever Stripe charges", [0, 1, 18_880, 42_280, 48_715, 99_999].every((a) => rule(650_000, a).platformShareCents >= 0));
+  t("a currency with no pay-over-time rate is refused, not priced at zero", (() => { try { pf.financingFeeCents({ amountCents: 1000, currency: "gbp" }); return false; } catch { return true; } })());
+  t("the BNPL methods priced: klarna, affirm, afterpay_clearpay — card and bank are not",
+    pf.isFinancingSettlementMethod("klarna") && pf.isFinancingSettlementMethod("affirm") && pf.isFinancingSettlementMethod("afterpay_clearpay") &&
+      !pf.isFinancingSettlementMethod("card") && !pf.isFinancingSettlementMethod("acss_debit"));
+  const ex = pf.financingFeeExample({ amountCents: 100_000, currency: "cad" });
+  t(`fees card, $1,000: card $969.70 reaches you; pay over time $934.70 (got ${ex?.card.netCents}/${ex?.overTime.netCents})`,
+    ex.card.netCents === 96_970 && ex.overTime.feeCents === 6_530 && ex.overTime.netCents === 93_470 && ex.overTime.formula === "6.5% + $0.30");
+  t("  ^ names the providers Klarna / Affirm / Afterpay, no per-provider rate", ex.providers.join(" / ") === "Klarna / Affirm / Afterpay" && !("formula" in ex.card));
+  t("  ^ a currency with no pay-over-time rate gives no block (null)", pf.financingFeeExample({ amountCents: 100_000, currency: "gbp" }) === null);
+}
+
+async function settlementSuite(feeMod, t) {
+  // A hosted-page Klarna payment: estimated at the card rate (the client
+  // chose Klarna on Stripe's page), trued up at settlement to the rule.
+  const s = await settle(feeMod, { amount: 650_000, stripeFee: stripeAt(650_000, 599) });
+  t("CA$6,500 Klarna: card estimate $195.30 at creation", s.est === 19_530);
+  t(`  ^ settles at $422.80 to the company (got ${s.fee.processingFeeCents})`, s.fee.processingFeeCents === 42_280);
+  t("  ^ $227.50 reversed out of the transfer, once (idempotent per intent)",
+    s.log.length === 1 && s.log[0].params.amount === 22_750 && s.log[0].opts.idempotencyKey === "fq-fee-trueup-pi_klarna_650000_38965");
+  t("  ^ net to the contractor $6,077.20; Stripe's $389.65 recorded beside it; label 'klarna'",
+    s.fee.netCents === 607_720 && s.fee.stripeFeeCents === 38_965 && s.fee.feeRateLabel === "klarna");
+  t("  ^ the reversal says 'Klarna processing fee', not 'Card processing surcharge'", /^Klarna processing fee/.test(s.log[0]?.params.description || ""));
+  const intl = await settle(feeMod, { amount: 650_000, stripeFee: stripeAt(650_000, 749) });
+  t(`international Klarna settles at Stripe's $487.15 (got ${intl.fee.processingFeeCents})`, intl.fee.processingFeeCents === 48_715);
+  const affirmS = await settle(feeMod, { amount: 650_000, stripeFee: stripeAt(650_000, 600), type: "affirm" });
+  t(`Affirm settles at $422.80 too — no longer the card's 0.1% (got ${affirmS.fee.processingFeeCents})`, affirmS.fee.processingFeeCents === 42_280);
+  const afterpay = await settle(feeMod, { amount: 200_000, stripeFee: stripeAt(200_000, 600), type: "afterpay_clearpay" });
+  t(`$2,000 Afterpay settles at $130.30 (got ${afterpay.fee.processingFeeCents})`, afterpay.fee.processingFeeCents === 13_030);
+  const unknown = await settle(feeMod, { amount: 650_000, stripeFee: null });
+  t(`Stripe's fee not on the charge yet: still trued up to the flat $422.80 (got ${unknown.fee.processingFeeCents})`, unknown.fee.processingFeeCents === 42_280);
+  const card = await settle(feeMod, { amount: 226_000, stripeFee: 8392, type: "card" });
+  t("a CARD payment is unchanged: 'Card processing surcharge', Stripe's $83.92 + FieldQuo's $2.26",
+    /^Card processing surcharge/.test(card.log[0]?.params.description || "") && card.fee.processingFeeCents === 8_392 + 226);
+}
+
+await feeRuleSuite(fees, ok);
+await settlementSuite({ settledFeeFor }, ok);
+ok("feeRateKey names Klarna and Afterpay on the payment row, an unknown method stays 'other'",
+  feeRateKey("klarna") === "klarna" && feeRateKey("afterpay_clearpay") === "afterpay_clearpay" && feeRateKey("sofort") === "other");
+ok("Affirm's reversal wording is unchanged; Afterpay's names Afterpay",
+  trueUpDescription("affirm") === "Affirm processing fee (pay-over-time, chosen at checkout)" && /^Afterpay processing fee/.test(trueUpDescription("afterpay_clearpay")));
 {
-  const published = fees.publishedFinancingFeeCents({ amountCents: 650_000, currency: "cad", method: "klarna" });
-  ok("Stripe's published Klarna fee on CA$6,500 is $389.65 (5.99% + $0.30)", published === 38_965, published);
-  ok("FINANCING_RATES: Klarna 5.99% + $0.30, Affirm 6% + $0.30, CAD and USD",
-    fees.FINANCING_RATES.klarna.basisPoints === 599 && fees.FINANCING_RATES.klarna.fixedCents === 30 && fees.FINANCING_RATES.affirm.basisPoints === 600 &&
-      fees.FINANCING_RATES.klarna.currencies.join() === "cad,usd");
-  ok("  ^ and they are NOT charge-creation rates — processingFeeCents still refuses 'klarna' (no session is priced at it)", (() => { try { fees.processingFeeCents({ amountCents: 1000, currency: "cad", method: "klarna" }); return false; } catch { return true; } })());
-  ok("publishedFinancingFeeCents: null for an unknown method or currency, 0 for nothing",
-    fees.publishedFinancingFeeCents({ amountCents: 1000, currency: "gbp", method: "klarna" }) === null &&
-      fees.publishedFinancingFeeCents({ amountCents: 1000, currency: "cad", method: "card" }) === null &&
-      fees.publishedFinancingFeeCents({ amountCents: 0, currency: "cad", method: "klarna" }) === 0);
-
-  const { est, fee, log } = await settle({ amount: 650_000, stripeFee: published });
-  ok("hosted-page Klarna payment, CA$6,500: card estimate $195.30 at creation", est === 19_530);
-  ok("  ^ settled fee = Stripe's actual Klarna fee exactly ($389.65): the contractor pays Stripe's cost", fee.processingFeeCents === 38_965 && fee.stripeFeeCents === 38_965, fee);
-  ok("  ^ FieldQuo keeps nothing on Klarna (no card margin): fee − Stripe's fee = 0", fee.processingFeeCents - fee.stripeFeeCents === 0);
-  ok("  ^ the difference ($194.35) is reversed out of the transfer, once (idempotent per intent)",
-    log.length === 1 && log[0].params.amount === 19_435 && log[0].opts.idempotencyKey === `fq-fee-trueup-${"pi_klarna_650000_38965"}`);
-  ok("  ^ the reversal says what it is — 'Klarna processing fee', not 'Card processing surcharge'",
-    /^Klarna processing fee/.test(log[0].params.description) && !/card/i.test(log[0].params.description), log[0].params.description);
-  ok("  ^ net to the contractor $6,110.35; the payment row's label is 'klarna'", fee.netCents === 611_035 && fee.feeRateLabel === "klarna");
-  ok("  ^ and the screens name it 'Klarna', not 'payment' (feeRateKey)", feeRateKey("klarna") === "klarna" && feeRateKey("sofort") === "other");
-
-  const intl = await settle({ amount: 650_000, stripeFee: 38_965 + 9_750 });
-  ok("an international Klarna payment (+1.5%) passes through too: the contractor bears Stripe's $487.15", intl.fee.processingFeeCents === 48_715);
-  const usd = await settle({ amount: 200_000, stripeFee: fees.publishedFinancingFeeCents({ amountCents: 200_000, currency: "usd", method: "klarna" }), currency: "usd" });
-  ok("US$2,000 by Klarna: $120.10 (5.99% + $0.30) at cost", usd.fee.processingFeeCents === 12_010 && usd.fee.processingFeeCents === usd.fee.stripeFeeCents);
-  const card = await settle({ amount: 226_000, stripeFee: 8392, type: "card" });
-  ok("a card payment's true-up is unchanged: still 'Card processing surcharge', margin kept ($2.26)",
-    /^Card processing surcharge/.test(card.log[0].params.description) && card.fee.processingFeeCents - 8392 === 226);
-  ok("Affirm's reversal wording is unchanged", trueUpDescription("affirm") === "Affirm processing fee (pay-over-time, chosen at checkout)");
-
-  // The settings card's side-by-side (ProcessingFeesCard), on the owner's
-  // $1,000 — computed by the real functions, and the Klarna figure held to
-  // what SETTLEMENT actually leaves the contractor for that payment.
-  const ex = fees.financingFeeExample({ amountCents: 100_000, currency: "cad" });
-  const k = ex.providers.find((p) => p.method === "klarna");
-  const a = ex.providers.find((p) => p.method === "affirm");
-  ok("fees card, $1,000: by card $30.30 fee → $969.70 reaches the contractor", ex.card.feeCents === 3_030 && ex.card.netCents === 96_970, ex.card);
-  ok("  ^ by Klarna $60.20 fee → $939.80", k.feeCents === 6_020 && k.netCents === 93_980, k);
-  ok("  ^ by Affirm $60.30 fee → $939.70", a.feeCents === 6_030 && a.netCents === 93_970, a);
-  ok("  ^ Klarna listed first, then Affirm (the card's order)", ex.providers.map((p) => p.method).join() === "klarna,affirm");
-  const settled1000 = await settle({ amount: 100_000, stripeFee: k.feeCents });
-  ok("  ^ and settlement of a domestic $1,000 Klarna payment leaves exactly that $939.80 (the card's example is the real outcome)",
-    settled1000.fee.netCents === k.netCents && settled1000.fee.processingFeeCents === k.feeCents, settled1000.fee);
-  ok("  ^ USD gives the same figures; a currency with no pay-over-time rate gives no block (null)",
-    fees.financingFeeExample({ amountCents: 100_000, currency: "usd" }).providers.find((p) => p.method === "klarna").netCents === 93_980 &&
-      fees.financingFeeExample({ amountCents: 100_000, currency: "gbp" }) === null);
-  ok("  ^ Stripe's local-payment-method surcharges: +1.5% international, +2% conversion",
-    fees.FINANCING_SURCHARGES.international.formula === "+1.5%" && fees.FINANCING_SURCHARGES.conversion.formula === "+2%");
   const feesCard = stripComments(read("app/app/settings/payments/ProcessingFeesCard.js"));
-  ok("  ^ the card renders financingFeeExample on $1,000 whenever the currency has a rate — not only with financing on",
+  ok("the fees card renders ONE pay-over-time rate (FINANCING_RATE via financingFeeExample), never a per-provider split",
     /financingFeeExample\(\{\s*amountCents: FINANCING_EXAMPLE_CENTS/.test(feesCard) && /const FINANCING_EXAMPLE_CENTS = 100_000;/.test(feesCard) &&
-      /\{financingExample && \(/.test(feesCard) && !/offerFinancing && \(\s*<p data-financing/.test(feesCard));
+      /financingExample\.overTime\.formula/.test(feesCard) && !/STRIPE|5\.99|0\.51|FINANCING_SETTLEMENT_METHODS|stripeFinancing/.test(feesCard));
+  ok("  ^ shown whenever the currency has the rate — not only with financing on", /\{financingExample && \(/.test(feesCard) && !/offerFinancing && \(\s*<div data-financing/.test(feesCard));
   ok("  ^ and cites Klarna's rules (docs.stripe.com/payments/klarna/compliance)", /https:\/\/docs\.stripe\.com\/payments\/klarna\/compliance/.test(feesCard) && /feesFinancingNoPassOn/.test(feesCard));
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  ok("  ^ English: who pays, and 'more only if Stripe's own fee on a payment is higher'",
+    /Paid by your company out of the payment/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) &&
+      /more only if Stripe's own fee on a payment is higher, e\.g\. an international card/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) &&
+      !/FieldQuo adds nothing/.test(JSON.stringify(APP_MESSAGES)));
 }
 
 console.log("\n── 7. The portal names pay-over-time, card fee or not ──────────────\n");
@@ -388,11 +413,12 @@ console.log("\n── 9. Copy, in every language ──────────�
   ok("  ^ none left in English", english.length === 0, english);
   const holds = (key, ...names) => langs.every((l) => names.every((n) => APP_MESSAGES[l][key]?.includes(`{${n}}`)));
   ok("  ^ the fee block's placeholders survive translation",
-    holds("app.setPayments.feesFinancingWho", "providers") && holds("app.setPayments.feesFinancingSurcharges", "international", "conversion") &&
-      holds("app.setPayments.feesFinancingExample", "amount", "cardNet", "providers") && holds("app.setPayments.feesFinancingExampleProvider", "provider", "net"));
-  ok("  ^ the old vague one-liner is gone from every language", langs.every((l) => !("app.setPayments.feesFinancingRates" in APP_MESSAGES[l])));
-  ok("  ^ the English says who pays and that FieldQuo adds nothing",
-    /your company pays Stripe's fee/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) && /FieldQuo adds nothing/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) &&
+    holds("app.setPayments.feesFinancingLabel", "providers") &&
+      holds("app.setPayments.feesFinancingExample", "amount", "cardNet", "overTimeNet"));
+  ok("  ^ the superseded keys are gone from every language (the vague one-liner, the per-provider split, the surcharge list)",
+    langs.every((l) => ["feesFinancingRates", "feesFinancingSurcharges", "feesFinancingExampleProvider"].every((k) => !(`app.setPayments.${k}` in APP_MESSAGES[l]))));
+  ok("  ^ the English says who pays, one rate, and that Klarna's fee can't go on the client",
+    /^Paid by your company out of the payment/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) &&
       /Klarna's rules don't allow passing this fee on to the client/.test(APP_MESSAGES.en["app.setPayments.feesFinancingNoPassOn"]));
   ok("  ^ placeholders survive translation ({min}/{max}, {country}, {provider}, {providers}, {items})",
     langs.every((l) => /\{min\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaActive"]) && /\{max\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaActive"]) &&
@@ -450,24 +476,45 @@ await noteSuite(fin, ok);
       const failures = await quiet(SUITES[kind], mod);
       ok(`mutant "${label}" is caught (${failures} assertion${failures === 1 ? "" : "s"} fail)`, failures > 0);
     }
-    // The fee rule: a Klarna payment priced as a card at settlement would
-    // hand FieldQuo a margin on a pass-through. Mutate the reader and settle.
+    // The pay-over-time fee rule (owner, 2026-10-09): break it, the owner's
+    // numbers must notice.
+    const PF = "lib/stripe/processingFee.js";
+    const pfSrc = read(PF);
+    const FEE_MUTANTS = [
+      ["target 6% instead of 6.5%", "export const FINANCING_RATE_BPS = 650;", "export const FINANCING_RATE_BPS = 600;"],
+      ["the 30¢ dropped", "export const FINANCING_FIXED_CENTS = 30;", "export const FINANCING_FIXED_CENTS = 0;"],
+      ["Stripe's actual ignored (international Klarna under-charged)", "const total = Math.min(amount, Math.max(flat, actual));", "const total = Math.min(amount, flat);"],
+      ["flat rate ignored (Stripe's cost only, no share)", "const total = Math.min(amount, Math.max(flat, actual));", "const total = Math.min(amount, actual);"],
+      ["the amount cap removed (a 20¢ payment charged 31¢)", "return Math.min(amount, Math.floor((amount * FINANCING_RATE_BPS + 5000) / 10000) + FINANCING_FIXED_CENTS);", "return Math.floor((amount * FINANCING_RATE_BPS + 5000) / 10000) + FINANCING_FIXED_CENTS;"],
+      ["share claimed when Stripe's fee is unknown", "return { totalCents: flat, platformShareCents: 0 };", "return { totalCents: flat, platformShareCents: flat };"],
+    ];
+    for (const [label, from, to] of FEE_MUTANTS) {
+      if (!pfSrc.includes(from)) {
+        ok(`fee mutant "${label}": the code it mutates is still there`, false, from);
+        continue;
+      }
+      const path = join(scratch, `pf${Math.random().toString(36).slice(2)}.mjs`);
+      writeFileSync(path, pfSrc.replace(from, to));
+      const failures = await quiet(feeRuleSuite, await import(pathToFileURL(path).href));
+      ok(`fee mutant "${label}" is caught (${failures} assertion${failures === 1 ? "" : "s"} fail)`, failures > 0);
+    }
+    // Settlement: the reader must route BNPL methods through the rule.
     const FEE = "lib/stripe/paymentIntentFee.js";
     const feeSrc = read(FEE);
-    const from = 'return method === "affirm" ? "card" : method;';
-    if (!feeSrc.includes(from)) ok("fee mutant: the code it mutates is still there", false);
-    else {
+    const SETTLE_MUTANTS = [
+      ["BNPL settled like a card again (rule bypassed)", "if (isFinancingSettlementMethod(method) && FINANCING_RATE.currencies.includes(currency)) {", "if (false) {"],
+      ["true-up allowed to go negative / measured from zero", "wanted = Math.max(0, totalCents - estimate);", "wanted = totalCents;"],
+      ["Klarna reversal labelled as a card surcharge again", "if (isFinancingSettlementMethod(method)) {\n    return", "if (false) {\n    return"],
+    ];
+    for (const [label, from, to] of SETTLE_MUTANTS) {
+      if (!feeSrc.includes(from)) {
+        ok(`settlement mutant "${label}": the code it mutates is still there`, false, from);
+        continue;
+      }
       const path = join(scratch, `fee${Math.random().toString(36).slice(2)}.mjs`);
-      writeFileSync(path, feeSrc.replace(from, 'return method === "affirm" || method === "klarna" ? "card" : method;'));
-      const mod = await import(pathToFileURL(path).href);
-      const est = 19_530;
-      const intent = { id: "pi_m", currency: "cad", amount: 650_000, amount_received: 650_000, application_fee_amount: est, metadata: { fq_fee_estimate_cents: String(est), fq_recovery_cents: "0" }, latest_charge: { id: "ch", payment_method_details: { type: "klarna" }, balance_transaction: { fee: 38_965 }, transfer: "tr" } };
-      const fee = await mod.settledFeeFor(intent, { stripe: { paymentIntents: { retrieve: async () => intent }, transfers: { createReversal: async () => ({}) } } });
-      ok(`mutant "Klarna priced with the card margin at settlement" is caught (contractor would pay ${fee.processingFeeCents} ≠ Stripe's 38965)`, fee.processingFeeCents !== 38_965);
-      const path2 = join(scratch, `fee${Math.random().toString(36).slice(2)}.mjs`);
-      writeFileSync(path2, feeSrc.replace("if (isFinancingMethod(method)) {", "if (false) {"));
-      const mod2 = await import(pathToFileURL(path2).href);
-      ok("mutant \"Klarna reversal labelled as a card surcharge again\" is caught", /^Card processing surcharge/.test(mod2.trueUpDescription("klarna")) && /^Klarna/.test(trueUpDescription("klarna")));
+      writeFileSync(path, feeSrc.replace(from, to));
+      const failures = await quiet(settlementSuite, await import(pathToFileURL(path).href));
+      ok(`settlement mutant "${label}" is caught (${failures} assertion${failures === 1 ? "" : "s"} fail)`, failures > 0);
     }
   } finally {
     rmSync(scratch, { recursive: true, force: true });

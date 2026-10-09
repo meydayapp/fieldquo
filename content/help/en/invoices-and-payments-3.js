@@ -207,7 +207,7 @@ export const ARTICLES = {
             "Turn it on. Invoices between **$50 and $30,000** in USD or CAD then show Affirm beside the card on the pay page; anything outside that range, or a company Stripe has not yet enabled Affirm for, gets a card-only page rather than a broken one. The line under the switch says which it is: **Affirm: active**, **pending Stripe's review**, **not enabled by Stripe on your account** (with what Stripe is asking for), or **not available for accounts in your country**.",
           ] },
           { figure: "live:app-settings-payments", caption: "Settings → Payments — the processing-fee card, the connected Stripe account, and the pay-over-time switch below it." },
-          { p: "You are still paid in full, up front; Affirm collects the instalments from the client. The fee on an Affirm payment is Affirm's rate, higher than the card rate, and it is passed through on that payment the same way a card fee is — see [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]. A client who pays by card on the same page pays the card fee, nothing more." },
+          { p: "You are still paid in full, up front; Affirm collects the instalments from the client. The fee on a pay-over-time payment is 6.5% + $0.30 (more only if Stripe's own fee on that payment is higher), taken out of the payment the same way a card fee is — see [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]. A client who pays by card on the same page pays the card fee, nothing more." },
         ],
       },
       {
@@ -230,7 +230,7 @@ export const ARTICLES = {
           { table: {
             head: ["Control", "What it does"],
             rows: [
-              ["Offer pay-over-time (Affirm) — on", "Eligible invoices offer Affirm beside the card at checkout. Affirm's fee is passed through on those payments only."],
+              ["Offer pay-over-time (Affirm) — on", "Eligible invoices offer pay over time beside the card at checkout. Those payments cost 6.5% + $0.30; card payments keep the card rate."],
               ["Offer pay-over-time (Affirm) — off", "Every pay page is card-only, even if Stripe has already enabled Affirm on your account."],
               ["Financing card — on, no terms", "The quote says financing is available, in your words, with a button to your provider if you gave one. No number."],
               ["Financing card — rate and term stated", "The quote adds an estimated monthly payment, computed from your APR and term and labelled as your estimate."],

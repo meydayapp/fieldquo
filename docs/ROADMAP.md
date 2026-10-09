@@ -157,9 +157,9 @@ what was built is only what execution showed missing.
   page asks for (balance, stage share or payment request, all server-side),
   same size as the card button, opening the same hosted Checkout; "No credit
   card fee when you pay over time." Eight client languages.
-- Fees: `FINANCING_RATES` in `lib/stripe/processingFee.js` (Klarna 5.99% +
-  $0.30, Affirm 6% + $0.30, sourced); reversal and payment-row labels name
-  Klarna; the card-fee settings list names Klarna as a no-fee flow.
+- Fees: reversal and payment-row labels name Klarna (and Afterpay); the
+  card-fee settings list names Klarna as a no-fee flow. The fee itself was
+  then set by the owner — see "Pay-over-time fee" below.
 
 Follow-ups the same day (owner):
 
@@ -175,14 +175,31 @@ Follow-ups the same day (owner):
   border and small print against the surface they sit on; check:klarna §11
   computes it for yellow / white / black / mid-grey / grey / lime on both
   surfaces, with five contrast mutants.
-- Settings › Payments › Processing fees says who pays and how much, whenever
-  the company's currency can offer pay over time: "your company pays Stripe's
-  fee… FieldQuo adds nothing", Klarna 5.99% + $0.30 and Affirm 6% + $0.30,
-  Stripe's +1.5% international / +2% conversion, a computed $1,000 example
-  (card $969.70; Klarna about $939.80; Affirm about $939.70 — the Klarna
-  figure is asserted equal to what settlement leaves), and "Klarna's rules
-  don't allow passing this fee on to the client" linked to Stripe's Klarna
-  rules. The old one-line Affirm note is no longer rendered.
+- **Pay-over-time fee (owner's money decision, 2026-10-09).** A Klarna,
+  Affirm or Afterpay payment costs the company `max(6.5% + 30¢, Stripe's
+  actual fee)`; FieldQuo's share is that total less Stripe's actual, never
+  negative. One constant (`FINANCING_RATE_BPS` 650 + `FINANCING_FIXED_CENTS`
+  30) and one share function (`financingSettlementFee`) in
+  `lib/stripe/processingFee.js`, applied by the settlement true-up
+  (`settledFeeFor`): the hosted session is still estimated at the card rate
+  (the client picks the method on Stripe's page) and settles up to the rule;
+  a Stripe fee not yet reported settles at the flat rate. Replaces Affirm on
+  the card's 0.1% and Klarna at cost. Payments settling after the deploy;
+  nothing historical rewritten. Executed: $6,500 at 5.99% → $422.80 /
+  FieldQuo $33.15; at 6% → $422.80 / $32.50; international Klarna (7.49%) →
+  $487.15 / $0; Stripe promo 2.9% → $422.80 / $234.00; Affirm Enhanced 7.99%
+  → $519.65 / $0; $2,000 Afterpay → $130.30 / $10.00.
+- Settings › Payments › Processing fees shows ONE number whenever the
+  currency can offer pay over time: "Pay over time (Klarna / Affirm /
+  Afterpay) 6.5% + $0.30 — paid by your company out of the payment, the same
+  way as the card fee (more only if Stripe's own fee on a payment is higher,
+  e.g. an international card)", a computed $1,000 example (card $969.70; pay
+  over time $934.70), and "Klarna's rules don't allow passing this fee on to
+  the client" linked to Stripe's Klarna rules. Never Stripe's split. The old
+  one-line Affirm note is no longer rendered; the help centre (en/fr/es)
+  sentences that said "Affirm's fee is passed through" now say 6.5% + $0.30.
+  The owner may later cap FieldQuo's share (e.g. on a Stripe promo it is
+  3.6%); that is a change to `financingSettlementFee` only.
 
 ### Schema (additive — APPLIED in production 2026-10-09)
 
@@ -192,10 +209,11 @@ ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "stripeKlarnaStatus" TEXT;
 
 ### Checks
 
-`check:klarna` (in `check:all`, 198 assertions incl. 17 mutants);
+`check:klarna` (in `check:all`, 214 assertions incl. 26 mutants);
 `check:processing-fee` (capability assertions now expect klarna_payments
-beside affirm_payments) and `check:feature-pages` (imports the Affirm bounds
-rather than reading them off the source) updated.
+beside affirm_payments; the Affirm settlement case now expects the 6.5%
+rule) and `check:feature-pages` (imports the Affirm bounds rather than
+reading them off the source) updated.
 
 ### Open
 

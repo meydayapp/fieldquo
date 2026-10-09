@@ -59,7 +59,7 @@ export const ARTICLES = {
           { p: "Un client paie depuis le bouton Payer du courriel de facture ou depuis son espace client. Les modes offerts dépendent de votre devise et de votre compte Stripe : la carte partout, et — une fois que Stripe l'a activé sur votre compte — **Payer depuis un compte bancaire** à côté du bouton carte sur les factures, les acomptes et les versements d'un calendrier de paiement : le débit préautorisé pour une entreprise canadienne qui facture en dollars canadiens. Un paiement bancaire met de 3 à 5 jours ouvrables à passer, et la facture lit **Paiement bancaire en attente** d'ici là." },
           { p: "Sur chaque paiement, FieldQuo enregistre les frais au taux publié, et la ligne du paiement sur la facture se lit, par exemple, **« frais carte 68,10 $ · déposé 2 191,90 $ »**. Un paiement que vous enregistrez à la main — comptant, chèque, virement Interac — ne porte aucuns frais et n'en affiche aucun." },
           { figure: "live:app-invoices", caption: "Factures — Impayé, Payée et Total facturé, puis chaque facture avec son état et son solde." },
-          { p: "Le financement en plusieurs versements (Affirm), si vous l'activez, est tarifé par Affirm plutôt qu'au taux carte; ces frais sont refacturés sur ces paiements de la même façon." },
+          { p: "Le paiement échelonné (Klarna, Affirm ou Afterpay), quand un client le choisit, coûte 6,5 % + 0,30 $ de ce paiement — plus seulement si les frais de Stripe sur ce paiement sont plus élevés — retenus sur le paiement comme les frais de carte." },
         ],
       },
       {

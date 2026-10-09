@@ -653,11 +653,14 @@ function fakeStripeForIntents(intents, log = []) {
   }, log);
   const fee = await settledFeeFor("pi_affirm", { stripe: client });
   const rev = log.find((l) => l.op === "reversal");
-  ok("an Affirm intent: the difference to Stripe's ACTUAL Affirm fee is reversed from the transfer (13590 − (6810 − 226) = 7006)",
-    rev && rev.tr === "tr_2" && rev.params.amount === 7006, rev?.params);
+  // Since 2026-10-09 (owner): pay over time costs the company
+  // max(6.5% + 30¢, Stripe's actual) — scripts/check-klarna.mjs holds the
+  // rule. $2,260: 6.5% + 30¢ = 14720 > Stripe's 13590, so 14720.
+  ok("an Affirm intent: trued up to max(6.5% + 30¢, Stripe's actual) — 14720 − 6810 = 7910 reversed from the transfer",
+    rev && rev.tr === "tr_2" && rev.params.amount === 7910, rev?.params);
   ok("  ^ idempotent per intent, the same key every true-up uses", rev?.opts?.idempotencyKey === "fq-fee-trueup-pi_affirm");
-  ok("  ^ and the row records Affirm's actual fee + the margin: 13816, net 212184, label 'affirm'",
-    fee.processingFeeCents === 13_816 && fee.netCents === 212_184 && fee.feeRateLabel === "affirm", fee);
+  ok("  ^ and the row records 14720, net 211280, label 'affirm', Stripe's 13590 beside it",
+    fee.processingFeeCents === 14_720 && fee.netCents === 211_280 && fee.feeRateLabel === "affirm" && fee.stripeFeeCents === 13_590, fee);
 }
 {
   const log = [];
