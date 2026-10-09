@@ -1016,6 +1016,19 @@ export function QuoteBuilderForm({
   // deposit held for it; app/api/quotes/[id]/route.js).
   const clientPoLocked = Boolean(isEdit) && !OPEN_STATUSES.includes(start.status) && Boolean(start.clientPoNumber);
 
+  // ── A different client for this quote ──────────────────────────────────
+  //
+  // On a DRAFT edit the picker can choose someone else, and the save repoints
+  // this one quote (PATCH { clientId }) — the client records stay as they
+  // are. That is what "change the client" means on a duplicated quote
+  // (2026-10-09: the only control there rewrote the shared client row, and an
+  // accepted quote started printing another person's name). Not once sent:
+  // PATCH refuses it there (the link is already in the first client's inbox),
+  // so offering it would be a control that appears to work.
+  const clientRepointable = Boolean(isEdit) && start.status === "draft";
+  const changedClientId =
+    isEdit && selectedClient?.id && selectedClient.id !== (start.client?.id || null) ? selectedClient.id : null;
+
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
   const [reasonsOpen, setReasonsOpen] = useState({});
@@ -2357,7 +2370,9 @@ export function QuoteBuilderForm({
       });
       setClients((prev) => [created, ...prev]);
       setSelectedClient(created);
-      if (created.language) setQuoteLanguage(created.language);
+      // Not on an edit: the document keeps the language it was created in
+      // (non-negotiable 6), and the edit's derived lines are written in it.
+      if (created.language && !isEdit) setQuoteLanguage(created.language);
       setShowNewClient(false);
       setNewClient({
         type: "individual",
@@ -2547,6 +2562,7 @@ export function QuoteBuilderForm({
       // other save, so their bodies are unchanged.
       sourcePlanReadId: !isEdit ? initial?.planReadId || null : null,
       clientPoNumber: (clientPoTouched || start.clientPoNumber) && !clientPoLocked ? clientPoNumber : undefined,
+      changedClientId: clientRepointable ? changedClientId : null,
     });
 
     let quote = null;
@@ -3603,6 +3619,7 @@ export function QuoteBuilderForm({
           companyCurrency, companyLanguage, quoteLanguage, setQuoteLanguage, languageMeta,
           clients: filteredClients, clientSearch, setClientSearch, selectedClient, setSelectedClient,
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
+          clientRepointable, changedClientId,
           siteAddress, setSiteAddress,
           clientPoNumber, setClientPoNumber,
           clientPoLocked, clientPoLockedNote: t("app.clientPo.locked"),
@@ -3767,19 +3784,22 @@ export function QuoteBuilderForm({
         />
       )}
 
-      {/* Locked on an edit rather than hidden: the client is information the
-          screen should keep showing, and PATCH takes no clientId, so an
-          enabled "Change" here would be a control that appears to work. */}
+      {/* Locked on a SENT/decided edit rather than hidden: the client is
+          information the screen should keep showing, and PATCH refuses a
+          clientId there, so an enabled "Change" would be a control that
+          appears to work. Open on a draft edit — the save repoints this one
+          quote (clientRepointable above); no client record is edited. */}
       <ClientPicker
-        locked={isEdit}
+        locked={isEdit && !clientRepointable}
         clients={filteredClients}
         selectedClient={selectedClient}
         onSelect={(c) => {
           setSelectedClient(c);
           setClientSearch("");
           // Adopt their saved preference automatically — the whole point of
-          // storing it. Still overridable in the language bar below.
-          if (c.language) setQuoteLanguage(c.language);
+          // storing it. Still overridable in the language bar below. Not on
+          // an edit: the document keeps the language it was created in.
+          if (c.language && !isEdit) setQuoteLanguage(c.language);
           // A homeowner's job is at their address; a company's is not.
           setSiteAddress(defaultSiteAddressFor(c));
         }}

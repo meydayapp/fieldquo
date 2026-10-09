@@ -39,10 +39,12 @@ export default function ClientPicker({
   companyLanguage = "en",
   creating,
   error,
-  // Once a quote exists its client is settled: PATCH /api/quotes/[id] takes no
-  // clientId, so a "Change" button here would be a control that appears to work
-  // and doesn't. The client is still SHOWN, because who the quote is for is
-  // information the screen should keep carrying.
+  // Once a quote has been SENT its client is settled: PATCH /api/quotes/[id]
+  // refuses a clientId past draft, so a "Change" button here would be a
+  // control that appears to work and doesn't. (On a draft edit the caller
+  // leaves it unlocked — the save repoints that one quote.) The client is
+  // still SHOWN, because who the quote is for is information the screen
+  // should keep carrying.
   locked = false,
 }) {
   const { t } = useTranslation();

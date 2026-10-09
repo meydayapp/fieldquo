@@ -252,7 +252,7 @@ export async function PATCH(request, { params }) {
     where: { id, companyId: member.companyId },
     include: {
       // The client's kind decides whether a blank job address is allowed.
-      client: { select: { type: true } },
+      client: { select: { type: true, name: true } },
       // Whether a cost row already exists decides what an EMPTY costing block
       // means, and the stored groups are what a costing re-price runs over
       // when the request is only changing a number on the totals bar.
@@ -319,6 +319,9 @@ export async function PATCH(request, { params }) {
     // after the write from this company's own rows (lib/quotes/
     // suggestedAddOns.js). Absent from every save that clicked none.
     offerAddOns,
+    // A DIFFERENT client for this quote — a repoint of this one row, never an
+    // edit of the client record (see "Who the quote is for" below).
+    clientId: requestedClientId,
   } = body;
 
   // The satellite still behind a measured group, captured to Cloudinary
@@ -363,11 +366,69 @@ export async function PATCH(request, { params }) {
     if (notOurs) return notOurs;
   }
 
+  // ── Who the quote is for ──────────────────────────────────────────────────
+  //
+  // 2026-10-09: the owner duplicated Maureen Faulkner's accepted quote and, on
+  // the copy, "changed the client" to himself. This route took no clientId,
+  // so the builder's only control was "Edit contact details", which rewrote
+  // the Client row the ACCEPTED quote, its job, its invoice and its
+  // appointment all share. A different person on one quote is this: the one
+  // row's clientId, pointed somewhere else. The client records are not
+  // touched — neither the old one nor the new one.
+  //
+  // A DRAFT only. Once sent, the share link is in the first client's inbox
+  // and repointing would show them the second client's name and address on
+  // it; once accepted, the clientId is part of the signed documentHash
+  // (lib/documents/signatureAudit.js). Duplicate is the way to quote someone
+  // else from a sent quote. And not while a job or invoice already hangs off
+  // the draft — each carries its own clientId, and a quote that disagreed
+  // with its own invoice about who the client is would be worse than either.
+  let newClient = null;
+  if (requestedClientId !== undefined && requestedClientId !== existing.clientId) {
+    if (typeof requestedClientId !== "string" || !requestedClientId) {
+      return NextResponse.json({ error: "A quote needs a client." }, { status: 400 });
+    }
+    if (existing.status !== "draft") {
+      return NextResponse.json(
+        {
+          error:
+            "This quote has already been sent, so it stays with the client it was sent to. " +
+            "Duplicate it to quote someone else.",
+          code: "client_locked",
+        },
+        { status: 409 },
+      );
+    }
+    newClient = await db.client.findFirst({
+      where: { id: requestedClientId, companyId: member.companyId },
+      select: { id: true, name: true, type: true },
+    });
+    if (!newClient) {
+      return NextResponse.json({ error: "That client isn't one of yours." }, { status: 400 });
+    }
+    const [jobsOnQuote, invoicesOnQuote] = await Promise.all([
+      db.job.count({ where: { quoteId: existing.id, companyId: member.companyId } }),
+      db.invoice.count({ where: { quoteId: existing.id, companyId: member.companyId } }),
+    ]);
+    if (jobsOnQuote || invoicesOnQuote) {
+      return NextResponse.json(
+        {
+          error:
+            "A job or invoice already comes from this quote, and each keeps its own client. " +
+            "Duplicate the quote to quote someone else.",
+          code: "client_locked",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // A company client's quote must name the site — see POST /api/quotes. Only
   // checked when the address is being written: a status-only PATCH on an
-  // old quote with no address must still go through.
+  // old quote with no address must still go through. Judged against the
+  // client the quote will HAVE after this save.
   const siteAddressValue = siteAddress === undefined ? undefined : normaliseSiteAddress(siteAddress);
-  if (siteAddressValue === null && existing.client?.type === "company") {
+  if (siteAddressValue === null && (newClient || existing.client)?.type === "company") {
     return NextResponse.json(
       { error: "A job address is required for a company client — their own address is an office, not the site." },
       { status: 400 },
@@ -508,6 +569,7 @@ export async function PATCH(request, { params }) {
     ...(reviewNotes !== undefined && { reviewNotes }),
     ...(processNotes !== undefined && { processNotes }),
     ...(siteAddressValue !== undefined && { siteAddress: siteAddressValue }),
+    ...(newClient && { clientId: newClient.id }),
     ...(poChanging && { clientPoNumber }),
     ...(offlineDiscountPct !== undefined && { offlineDiscountPct }),
     ...(validUntil !== undefined && {
@@ -646,6 +708,20 @@ export async function PATCH(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const updated = outcome.result;
+
+  // Said in the trail in words that make the incident impossible to misread:
+  // which quote moved, from whom, to whom, and that nobody's record changed.
+  if (newClient) {
+    await recordActivity(member, {
+      action: "quote.client_changed",
+      entityType: "quote",
+      entityId: id,
+      summary:
+        `Quote ${existing.quoteNumber} is now for ${newClient.name} (was ${existing.client?.name || "another client"}) — ` +
+        `only this quote changed; no client's details were edited`,
+      metadata: { fromClientId: existing.clientId, toClientId: newClient.id },
+    });
+  }
 
   // ── A PO added to an accepted quote travels on ─────────────────────────
   //

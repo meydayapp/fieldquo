@@ -22,6 +22,7 @@ import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import { cleanAddressPart } from "@/lib/format/address";
 import { emailRefusal, cleanEmail } from "@/lib/validation";
+import { identityChanges, loadClientUsage, editScopeRefusal } from "@/lib/clients/editScope";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -171,6 +172,25 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  // ── An edit that reaches every record carrying this client ──────────────
+  //
+  // 2026-10-09: "Edit contact details" on a DUPLICATED draft rewrote this row,
+  // and the accepted quote it was copied from — with its job, invoice and
+  // appointment — began printing someone else's name, email and phone. A
+  // client's identity (lib/clients/editScope.js IDENTITY_FIELDS) is shared by
+  // every record that carries it, so changing it while any record does needs
+  // the caller to say so: `scope: "everywhere"`. The client's own page sends
+  // it (that page IS the client); a document's builder sends it only after
+  // the person chose "Edit this client's details everywhere" with the count
+  // in front of them. Anything else — including a tab still running the old
+  // form — is refused with the records named, and nothing is written.
+  const changes = identityChanges(existing, body);
+  if (changes.length && body?.scope !== "everywhere") {
+    const usage = await loadClientUsage(db, { companyId: member.companyId, clientId: id });
+    const refusal = editScopeRefusal({ changes, usage, scope: body?.scope });
+    if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+  }
+
   const updated = await db.client.update({
     where: { id: id },
     data: {
@@ -238,7 +258,9 @@ export async function PATCH(request, { params }) {
       entityType: "client",
       entityId: id,
       summary: `Edited ${updated.name} — changed ${changedFields.join(", ")}`,
-      metadata: { fields: changedFields },
+      // Whether the identity change was confirmed as reaching every record
+      // that carries this client — the trail the 2026-10-09 edit lacked.
+      metadata: { fields: changedFields, ...(body?.scope === "everywhere" && { scope: "everywhere" }) },
     });
   }
 
