@@ -71,7 +71,7 @@ const { NextRequest } = await import("next/server.js");
 const perms = await import("@/lib/permissions");
 const { PERMISSION_PRESETS, PRESET_TO_ROLE, PERMISSION_CATEGORIES, PERMISSION_TOGGLES } = perms;
 const ma = await import("@/lib/permissions/marketingAgency");
-const { presetForValues, describeAccess, emptyPermissionValues } = await import("@/lib/permissions/accessPresets");
+const { presetForValues, describeAccess, emptyPermissionValues, customFrom } = await import("@/lib/permissions/accessPresets");
 const { clampPermissions } = await import("@/lib/permissions/roleManagement");
 const { validateInvite } = await import("@/lib/permissions/inviteGuard");
 const { isBillableSeat, countSeats } = await import("@/lib/pricing/ladder");
@@ -513,7 +513,14 @@ section("Strings: every new one in every app locale");
   const editor = decomment(read("app/components/team/AccessEditor.js"));
   ok("the invite/edit panel shows the agency as FIXED (no dials) and says it takes a seat",
     /activePreset === AGENCY_PRESET \? \([\s\S]{0,400}app\.setTeamNew\.agencyFixed[\s\S]{0,300}app\.setTeamNew\.agencySeat/.test(editor));
-  ok("Custom from the agency drops the marker (a raised dial under it would be a dead control)", /onValueChange\(MARKETING_AGENCY_KEY, false\)/.test(editor));
+  const custom = customFrom({ ...emptyPermissionValues(), ...AGENCY_GRID });
+  ok("Custom from the agency drops the marker and keeps the dials (a raised dial under it would be a dead control)",
+    !(ma.MARKETING_AGENCY_KEY in custom) && custom.requests === "none" && !ma.isMarketingAgency({ role: "employee", permissions: custom }));
+  const est = { ...PERMISSION_PRESETS.estimator.values };
+  ok("…and hands any other grid back untouched", customFrom(est) === est && customFrom(null) === null);
+  ok("…on both screens that offer Custom",
+    /setPermissionValues\(\(prev\) => customFrom\(prev\)\)/.test(decomment(read("app/app/settings/team/new/page.js"))) &&
+    /: customFrom\(e\.values\)/.test(decomment(read("app/app/settings/team/page.js"))));
 }
 
 // ═══ G. Mutation pass ═══════════════════════════════════════════════════════
@@ -533,6 +540,7 @@ if (!MUTANT && !fails.length) {
     ["lib/pricing/ladder.js", "the agency counted as free", "  if (isMarketingAgency(member)) return true;\n", ""],
     ["lib/permissions/roleManagement.js", "a supervisor's invite drops the marker", "  if (requested[MARKETING_AGENCY_KEY] === true) out[MARKETING_AGENCY_KEY] = true;\n", ""],
     ["lib/permissions/accessPresets.js", "a marked grid labelled as another preset", "    if (agency !== (preset.values?.[MARKETING_AGENCY_KEY] === true)) continue;\n", ""],
+    ["lib/permissions/accessPresets.js", "Custom keeps the confinement marker", "  if (!values || typeof values !== \"object\" || values[MARKETING_AGENCY_KEY] !== true) return values;", "  return values;"],
     ["lib/notifications/recipients.js", "the agency notified", "    if (isMarketingAgency(member)) return false;\n", ""],
     ["lib/nav/phoneBar.js", "the agency given the crew bar", '  if (isMarketingAgency(caller)) return "marketing";\n', ""],
     ["lib/permissions/settingsAccess.js", "the agency shown company settings", "  if (isMarketingAgency(member)) return AGENCY_SETTINGS_ROWS.includes(navKey);\n", ""],

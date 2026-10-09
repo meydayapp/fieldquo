@@ -22,6 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import AccessEditor from "@/app/components/team/AccessEditor";
+import { customFrom } from "@/lib/permissions/accessPresets";
 // The one list. A local copy here offered Russian, Chinese, Hindi and Arabic —
 // none of which have a single string behind them in lib/i18n/emailCopy.js — and
 // omitted Punjabi and Tagalog, which are fully translated and were picked for
@@ -539,7 +540,13 @@ function NewUserForm() {
             isAdministrator={isAdministrator}
             onAdministratorChange={setIsAdministrator}
             activePreset={activePreset}
-            onPresetChange={(key) => (key ? applyPreset(key) : setActivePreset(null))}
+            onPresetChange={(key) => {
+              if (key) return applyPreset(key);
+              // Custom keeps the dials and drops the marketing agency's
+              // marker (customFrom says why).
+              setActivePreset(null);
+              setPermissionValues((prev) => customFrom(prev));
+            }}
             values={permissionValues}
             onValueChange={setPermission}
           />

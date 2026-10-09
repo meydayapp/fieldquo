@@ -45,7 +45,6 @@ import {
   PRESET_OFF_SWITCHES,
   isPresetOffSwitch,
 } from "@/lib/permissions/accessPresets";
-import { MARKETING_AGENCY_KEY } from "@/lib/permissions/marketingAgency";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -207,14 +206,10 @@ export default function AccessEditor({
                     happened to you. */}
                 <button
                   type="button"
-                  onClick={() => {
-                    // Custom from the agency means "an ordinary member, with
-                    // these dials" — the confinement marker is not a dial, and
-                    // keeping it under a grid the owner then raises would be the
-                    // dead control AGENCY_PRESET above exists to avoid.
-                    if (values?.[MARKETING_AGENCY_KEY] === true) onValueChange(MARKETING_AGENCY_KEY, false);
-                    onPresetChange(null);
-                  }}
+                  // Both parents start Custom from customFrom(values), which
+                  // drops the marketing agency's confinement marker — see
+                  // lib/permissions/accessPresets.js.
+                  onClick={() => onPresetChange(null)}
                   className={`text-left p-3 rounded-lg border text-sm ${
                     activePreset === null
                       ? "border-inverted bg-muted"

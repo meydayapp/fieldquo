@@ -15,7 +15,7 @@ import AccessEditor, {
   emptyPermissionValues,
   presetForValues,
 } from "@/app/components/team/AccessEditor";
-import { describeAccess } from "@/lib/permissions/accessPresets";
+import { describeAccess, customFrom } from "@/lib/permissions/accessPresets";
 import { personTitle } from "@/lib/team/personLabel";
 import CommissionRates from "@/app/components/commissions/CommissionRates";
 import {
@@ -1266,7 +1266,7 @@ export default function TeamOverviewPage() {
                     // dials you already set rather than a set of its own.
                     values: key
                       ? { ...emptyPermissionValues(), ...PERMISSION_PRESETS[key].values }
-                      : e.values,
+                      : customFrom(e.values),
                   }))
                 }
                 values={editing.values}
