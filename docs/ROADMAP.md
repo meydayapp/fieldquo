@@ -155,11 +155,17 @@ goes through the one writer; 18 labels × 9 locales. 15/15 mutations killed.
 Fixtures: dbStub gains `mailboxConnection`, apiMemberStub gains
 `memberOrRefusalPlain`. No schema change.
 
-### Left as is, deliberately
+### Which domain the connect card recommends (decided 2026-10-09)
 
-- The connect card's existing hint still recommends a send. subdomain;
-  sending as info@<root> needs the root domain connected, which the prefill
-  now proposes. Which to recommend by default is a product call.
+- Company email on a custom domain: "Connect {domain}, the domain of your
+  company email, so clients see {address} in the From line. Connecting
+  doesn't change where your existing email is received." The send.-subdomain
+  advice shows only when there is no custom company-email domain. The inbox
+  sentence rests on Resend's docs (sending MX/SPF on send.<domain>, DKIM at
+  resend._domainkey; "MX records only impact the subdomain they are
+  associated to" — resend.com/docs/knowledge-base/how-do-i-avoid-conflicting-with-my-mx-records),
+  cited in the page; it would stop being true only if Inbound were switched
+  on for the domain, which createDomain never does.
 
 ---
 

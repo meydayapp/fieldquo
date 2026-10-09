@@ -484,13 +484,47 @@ export default function EmailDomainPage() {
       {!isConnected && (
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.connectDomain")}</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t("app.setEmailDomain.connectHint1")}{" "}
-            <span className="font-mono text-foreground">
-              send.yourcompany.com
-            </span>{" "}
-            {t("app.setEmailDomain.connectHint2")}
-          </p>
+          {/* Which domain to recommend. The owner's ask (2026-10-09) is that
+              client email comes from the company email, so when that address
+              is on a domain the company owns (suggestion.local set: not a free
+              mailbox, not a local part the From PATCH refuses) the card
+              recommends connecting THAT domain — the only way From can read
+              info@truefinishcabinets.com — and drops the send.-subdomain
+              advice. The send. hint stays for everyone else.
+
+              "Doesn't change where your existing email is received" is stated
+              because Resend's own docs confirm it, checked 2026-10-09:
+                - The sending records are DKIM, a TXT at resend._domainkey.<domain>,
+                  and SPF/Return-Path on the send. subdomain (a TXT + an MX, or
+                  CNAMEs for domains created after August 2026): "Verify that
+                  the records are added at the correct location (the send
+                  subdomain, not the root domain)", and the nslookup examples
+                  query resend._domainkey.example.com and send.example.com —
+                  https://resend.com/docs/knowledge-base/what-if-my-domain-is-not-verifying
+                  and https://resend.com/docs/add-a-domain ("Return-Path
+                  defaults to send.example.com").
+                - "This won't conflict because the MX record is for
+                  send.example.com, not example.com … MX records only impact
+                  the subdomain they are associated to" —
+                  https://resend.com/docs/knowledge-base/how-do-i-avoid-conflicting-with-my-mx-records
+              The root MX only changes if Inbound (receiving) is switched on
+              for the domain, which createDomain never does
+              (lib/email/resendDomains.js) — that is the one case the same
+              page warns about. If either fact stops being true, remove the
+              sentence rather than soften it. */}
+          {suggestion?.local ? (
+            <p className="text-sm text-muted-foreground mb-4 break-words">
+              {t("app.setEmailDomain.connectRootHint", { domain: suggestion.domain, address: suggestion.address })}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("app.setEmailDomain.connectHint1")}{" "}
+              <span className="font-mono text-foreground">
+                send.yourcompany.com
+              </span>{" "}
+              {t("app.setEmailDomain.connectHint2")}
+            </p>
+          )}
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               className={inputClass}
@@ -507,11 +541,6 @@ export default function EmailDomainPage() {
               {t("app.setEmailDomain.connect")}
             </button>
           </div>
-          {data?.domainPrefill?.source === "company_email" && typedDomain === data.domainPrefill.domain && (
-            <p className="text-xs text-muted-foreground mt-2 break-words">
-              {t("app.setEmailDomain.prefillFromEmail", { email: companyEmail.value })}
-            </p>
-          )}
           {suggestion?.freeMailbox && (
             <p className="text-sm text-amber-700 dark:text-amber-300 mt-3 break-words">
               {t("app.setEmailDomain.freeMailbox", { email: companyEmail.value, domain: suggestion.domain })}

@@ -294,6 +294,19 @@ section("3. The suggestion never writes emailFromLocal on its own");
   ok("page: acceptSuggestedLocal is defined once and only called from onUse taps", calls.length === 3 && (page.match(/onUse=\{\(\) => acceptSuggestedLocal\(suggestion\.local\)\}/g) || []).length === 2, calls.length);
   ok("page: no effect writes emailFromLocal", !/useEffect\([\s\S]{0,400}emailFromLocal:/.test(page));
   ok("page: the local field starts from the stored value, never the suggestion", /setLocalInput\(json\.emailFromLocal \|\| "quotes"\)/.test(page) && !/setLocalInput\([^)]*suggestion/.test(page));
+  // The hint follows the owner's ask: a custom company-email domain gets
+  // "connect that domain"; the send.-subdomain advice only without one.
+  ok("page: root-domain hint when the company email is on a custom domain, send. hint otherwise", /\{suggestion\?\.local \? \(\s*<p[^>]*>\s*\{t\("app\.setEmailDomain\.connectRootHint", \{ domain: suggestion\.domain, address: suggestion\.address \}\)\}\s*<\/p>\s*\) : \(\s*<p[^>]*>\s*\{t\("app\.setEmailDomain\.connectHint1"\)\}/.test(page));
+  ok("page: the send. hint appears exactly once (only in the else branch)", (page.match(/app\.setEmailDomain\.connectHint1/g) || []).length === 1);
+  ok("page: the inbox claim cites Resend's docs", page.includes("https://resend.com/docs/knowledge-base/how-do-i-avoid-conflicting-with-my-mx-records") && page.includes("https://resend.com/docs/knowledge-base/what-if-my-domain-is-not-verifying"));
+  ok("…and the claim's precondition holds: createDomain never switches on receiving", !/receiving|inbound/i.test((read("lib/email/resendDomains.js").match(/export async function createDomain[\s\S]*?\n\}/) || [""])[0]));
+  // Which branch shows is decided by suggestion.local — executed here.
+  {
+    const custom = senderSuggestionFor({ email: "info@truefinishcabinets.com" });
+    const free = senderSuggestionFor({ email: "bob@gmail.com" });
+    const odd = senderSuggestionFor({ email: "john+quotes@acme.com" });
+    ok("TrueFinish gets the root-domain hint; gmail, a refused local part and no email get the send. hint", Boolean(custom?.local) && !free?.local && !odd?.local && !senderSuggestionFor({ email: "" })?.local);
+  }
   ok("page: the status line prints the server's clientsSee, not its own From", /clientsSee\.from/.test(page) && !/`\$\{data\.emailFromLocal[^`]*clientsSee/.test(page));
 }
 
@@ -389,7 +402,7 @@ section("6. Every label in every app locale");
     repliesHint: [],
     replyPlaceholder: [],
     replyInvalid: [],
-    prefillFromEmail: ["{email}"],
+    connectRootHint: ["{domain}", "{address}"],
     freeMailbox: ["{email}", "{domain}"],
     onceVerified: ["{from}"],
     suggestTitle: ["{address}"],
@@ -406,6 +419,8 @@ section("6. Every label in every app locale");
   }
   for (const k of Object.keys(KEYS)) ok(`page uses app.setEmailDomain.${k}`, page.includes(`"app.setEmailDomain.${k}"`));
   ok("en: the exact status label", APP_MESSAGES.en["app.setEmailDomain.clientsSee"] === "Clients see: From {from} · Replies to {replyTo}");
+  ok("en: the root-domain hint says the inbox is untouched (Resend docs, cited in the page)", APP_MESSAGES.en["app.setEmailDomain.connectRootHint"] === "Connect {domain}, the domain of your company email, so clients see {address} in the From line. Connecting doesn't change where your existing email is received.");
+  ok("prefillFromEmail is gone from every locale (the hint says it)", Object.values(APP_MESSAGES).every((d) => !("app.setEmailDomain.prefillFromEmail" in d)));
   ok("en: the exact blank-email label", APP_MESSAGES.en["app.setEmailDomain.repliesOwnerFallback"] === "Replies currently go to {owner} because no company email is set.");
 }
 
