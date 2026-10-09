@@ -107,6 +107,86 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Klarna beside Affirm (9 October 2026)
+
+Production fact that set the scope: Klarna ALREADY shows on TrueFinish's
+hosted Stripe Checkout (INV-2026-0024, CA$6,500: Card / Klarna / Apple Pay).
+Invoice Checkout uses Stripe's dynamic payment methods through
+`STRIPE_INVOICE_PMC_FINANCING_ALLOWED` (no `payment_method_types`), and the
+account's `klarna_payments` capability is active while `affirm_payments` was
+refused (`rejected.unsupported_business`). So that session is untouched;
+what was built is only what execution showed missing.
+
+### What was confirmed before building (executed, not read)
+
+- **Hosted session:** `createInvoiceCheckoutSession` for CA$6,500 with
+  financing on sends `payment_method_configuration` and no method list —
+  Stripe decides, and shows Klarna. Not changed; `check:klarna` §5 pins it.
+- **Card-fee path:** with "Pass the card fee on to clients" on, the portal's
+  card button opens the card-only form, and the only door to the hosted page
+  was a "Pay over time" button gated on `onlineOptions().affirm` — false for
+  TrueFinish. Klarna was unreachable for any client charged the card fee.
+- **Klarna fees:** NOT a money bug. A hosted-page Klarna payment is created
+  at the card estimate ($195.30 on CA$6,500) and `settledFeeFor` trues it up
+  to Stripe's actual fee ($389.65), platform share 0 — the contractor pays
+  Stripe's cost exactly. `processingFeeCents("klarna")` throws, but nothing
+  calls it with the selected method. Two labelling faults: the transfer
+  reversal said "Card processing surcharge (international card / currency
+  conversion)", and `feeRateKey("klarna")` read as "payment". No Klarna
+  payment has been recorded in production yet (feeRateLabel counts: card
+  120, acss_debit 50).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- `lib/stripe/financingMethods.js` — one provider table (capability, status
+  column, countries, per-currency pay-over-time ranges) and the one offer
+  rule; `lib/stripe/affirm.js` now delegates to it, exports unchanged.
+- `Company.stripeKlarnaStatus` from `klarna_payments`, written by the status
+  poll and `account.updated`; the poll also requests `klarna_payments` with
+  the same opt-in as Affirm (only when the account doesn't already hold it).
+- Settings › Payments: title "Offer pay-over-time (Affirm, Klarna)"; Klarna's
+  status in words (`FinancingProviderStatus.js`), what to do when Stripe
+  declines or holds a provider, and a copyable support message naming the
+  account id, capability and Stripe's reason code (owner-only, like the id).
+  Warns when the quotes' financing note names a provider the pay link can't
+  offer (TrueFinish's note names Affirm and Klarna → Affirm flagged); the
+  note is never edited. The fees card lists Stripe's published pay-over-time
+  rates when financing is on.
+- Portal invoice page, card-fee path only: "Pay over time (Klarna)" /
+  "(Affirm or Klarna)" — the providers active AND in range for the figure the
+  page asks for (balance, stage share or payment request, all server-side),
+  same size as the card button, opening the same hosted Checkout; "No credit
+  card fee when you pay over time." Eight client languages.
+- Fees: `FINANCING_RATES` in `lib/stripe/processingFee.js` (Klarna 5.99% +
+  $0.30, Affirm 6% + $0.30, sourced); reversal and payment-row labels name
+  Klarna; the card-fee settings list names Klarna as a no-fee flow.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys — the webhook and poll write it)
+
+```sql
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "stripeKlarnaStatus" TEXT;
+```
+
+### Checks
+
+`check:klarna` (in `check:all`, 122 assertions incl. 12 mutants);
+`check:processing-fee` (capability assertions now expect klarna_payments
+beside affirm_payments) and `check:feature-pages` (imports the Affirm bounds
+rather than reading them off the source) updated.
+
+### Open
+
+- The hosted page reached from "Pay over time" also offers a card with no
+  card fee — the same as the Affirm button before it. A provider-only session
+  (`payment_method_types: ["klarna"]`) would close that, but it is not proven
+  live on a destination charge with `on_behalf_of`; owner's call.
+- With the card fee OFF, Klarna is reachable through the card button (the
+  hosted page) but not named on the portal; not changed.
+- A Stripe promotional rate below the card estimate is not refunded (the
+  true-up never goes down) — same rule as every card payment.
+
+---
+
 ## Request payment: next stage, full balance, or a different amount (7 October 2026)
 
 The owner, on TrueFinish INV-2026-0022 ($8,927, 30/30/40 schedule, client

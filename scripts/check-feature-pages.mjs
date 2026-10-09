@@ -48,6 +48,7 @@ import {
   INSTANT_PAYOUT_RATE,
   publishedSurcharges,
 } from "@/lib/stripe/processingFee";
+import { AFFIRM_MIN_CENTS, AFFIRM_MAX_CENTS } from "@/lib/stripe/affirm";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -530,9 +531,11 @@ console.log("\n── Financing says who lends, and where it stops ────�
   // into lib/stripe/affirm.js with the capability rework (5d356950), which is
   // now the one place every gate — the capability request, the session and
   // the settings card — reads them from.
+  // Imported, not read off the source: since Klarna (2026-10-09) affirm.js
+  // takes them from the one provider table in lib/stripe/financingMethods.js.
+  const min = Number(AFFIRM_MIN_CENTS);
+  const max = Number(AFFIRM_MAX_CENTS);
   const affirmSrc = readFileSync("lib/stripe/affirm.js", "utf8");
-  const min = Number((affirmSrc.match(/AFFIRM_MIN_CENTS\s*=\s*([\d_]+)/) || [])[1]?.replace(/_/g, ""));
-  const max = Number((affirmSrc.match(/AFFIRM_MAX_CENTS\s*=\s*([\d_]+)/) || [])[1]?.replace(/_/g, ""));
   ok("lib/stripe/affirm.js still bounds the Affirm offer", Number.isFinite(min) && Number.isFinite(max), `${min}..${max}`);
   ok(
     `...and the page prints those bounds ($${min / 100}–$${(max / 100).toLocaleString("en-US")})`,

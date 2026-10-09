@@ -36,7 +36,6 @@ import { reviewQrCopy } from "@/lib/reviews/reviewQrCopy";
 import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
 import CardPayPanel from "../../CardPayPanel";
 import { clientPayChoices } from "@/lib/invoices/paymentRequest";
-
 import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
 
 // Provider brand names (never translated), from the one provider table.
