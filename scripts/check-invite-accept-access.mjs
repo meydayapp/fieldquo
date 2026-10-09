@@ -217,6 +217,12 @@ section("2c. 'Most restrictive' is measured, not asserted: the chosen preset is 
     const mine = PERMISSION_PRESETS[key].values;
     for (const [other, preset] of Object.entries(PERMISSION_PRESETS)) {
       if (other === key || PRESET_TO_ROLE[other] !== role) continue;
+      // The Marketing agency preset is a sideways, special-purpose grid: narrower
+      // than Crew in some categories but with marketing access Crew lacks. It is
+      // never a fallback floor — a staff invitee whose grid failed to land must
+      // not inherit marketing access — so the floor is measured against the
+      // staff ladder only (2026-10-09, release/oct09).
+      if (preset.values?.marketingAgency === true) continue;
       const above = Object.keys(PERMISSION_CATEGORIES).filter((cat) => {
         const levels = PERMISSION_CATEGORIES[cat].levels.map((l) => l.value);
         const a = levels.indexOf(mine[cat] ?? levels[0]);
