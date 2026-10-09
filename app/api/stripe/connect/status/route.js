@@ -31,6 +31,13 @@ import {
   affirmStatusFor,
   summariseAffirmCapability,
 } from "@/lib/stripe/affirm";
+import {
+  FINANCING_PROVIDERS,
+  financingStatusFor,
+  summariseFinancingCapability,
+  financingSupportMessage,
+  financingNoteNamedProviders,
+} from "@/lib/stripe/financingMethods";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 // The requirement wording and the identity gate both live in lib/stripe/ now:
@@ -82,6 +89,10 @@ export async function GET(request) {
       // the status column is compared so an unchanged answer writes nothing.
       offerFinancing: true,
       stripeAffirmStatus: true,
+      // Klarna's own answer, compared the same way; and the quote's
+      // financing note, checked for providers the pay link cannot offer.
+      stripeKlarnaStatus: true,
+      financing: true,
     },
   });
 
@@ -156,14 +167,52 @@ export async function GET(request) {
       pendingVerification: false,
       disabledReason: null,
     };
+    let affirmReasonCode = null;
     if (affirmStatus === "pending" || affirmStatus === "inactive") {
       try {
         const capability = await stripe.accounts.retrieveCapability(synced.id, AFFIRM_CAPABILITY);
         affirm = { ...affirm, ...summariseAffirmCapability(capability) };
+        affirmReasonCode = capability?.requirements?.disabled_reason || null;
       } catch (err) {
         console.error("[stripe/connect/status] affirm capability read failed:", err?.message);
       }
     }
+
+    // ── Klarna: the same read, its own capability (klarna_payments). ─────
+    // Read from the account Stripe just returned, never assumed: TrueFinish
+    // had Klarna active (it shows on their hosted Checkout) while Affirm was
+    // refused, and the card said nothing about Klarna at all.
+    const klarnaStatus = financingStatusFor("klarna", synced);
+    let klarnaCapability = null;
+    if (klarnaStatus === "pending" || klarnaStatus === "inactive") {
+      try {
+        klarnaCapability = summariseFinancingCapability(
+          await stripe.accounts.retrieveCapability(synced.id, FINANCING_PROVIDERS.klarna.capability),
+        );
+      } catch (err) {
+        console.error("[stripe/connect/status] klarna capability read failed:", err?.message);
+      }
+    }
+    const klarna = {
+      status: klarnaStatus,
+      country: synced?.country || null,
+      requirements: klarnaCapability?.requirements || [],
+      pendingVerification: Boolean(klarnaCapability?.pendingVerification),
+      disabledReason: klarnaCapability?.disabledReason || null,
+    };
+    // The paste-to-Stripe message names the account id, so it follows the
+    // same gate as the id itself (accountIdentityFor) — null for anyone
+    // the settings page would not show the id to.
+    const identity = accountIdentityFor(member, summary);
+    const supportMessages = Object.fromEntries(
+      [
+        ["affirm", affirmStatus, affirmReasonCode],
+        ["klarna", klarnaStatus, klarnaCapability?.disabledReasonCode || null],
+      ].map(([provider, st, code]) => [
+        provider,
+        financingSupportMessage(provider, { accountId: identity?.accountId, status: st, disabledReasonCode: code }),
+      ]),
+    );
 
     // Write it back, so the rest of the app — invoice pay links, the platform
     // company view — sees the same truth without each having to call Stripe.
@@ -173,7 +222,8 @@ export async function GET(request) {
       (summary.chargesEnabled !== company.stripeChargesEnabled ||
         summary.detailsSubmitted !== company.stripeOnboarded ||
         bankDebitEnabled !== company.stripeBankDebitEnabled ||
-        affirmStatus !== company.stripeAffirmStatus)
+        affirmStatus !== company.stripeAffirmStatus ||
+        klarnaStatus !== company.stripeKlarnaStatus)
     ) {
       await db.company.update({
         where: { id: company.id },
@@ -186,6 +236,8 @@ export async function GET(request) {
           // Affirm on pay links — lib/stripe/affirm.js. The status itself,
           // because the card names it; only "active" puts Affirm on a link.
           stripeAffirmStatus: affirmStatus,
+          // Klarna, its own answer — lib/stripe/financingMethods.js.
+          stripeKlarnaStatus: klarnaStatus,
         },
       });
     }
@@ -235,6 +287,17 @@ export async function GET(request) {
       // Affirm: { status, country, requirements[], pendingVerification,
       // disabledReason } — the settings card's sentence under the toggle.
       affirm,
+      // Klarna: the same shape as `affirm`, from klarna_payments.
+      klarna,
+      // Per provider, the message the owner can paste to Stripe support when
+      // Stripe has declined or is holding it — null otherwise, and null for
+      // anyone the account id is not shown to.
+      financingSupport: supportMessages,
+      // Providers the company's own financing note (its quotes) names —
+      // names only, never the note. The card works out which of them the
+      // pay link cannot offer with the switch's current position
+      // (unofferedNamedProviders) and warns; we never edit their words.
+      financingNoteProviders: financingNoteNamedProviders(company.financing),
       accountDetails: accountIdentityFor(member, summary),
     });
   } catch (err) {

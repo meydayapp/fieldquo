@@ -1976,6 +1976,15 @@ model Company {
   // to wait for the one they cannot have is the dead control this codebase
   // hunts. Written by the status poll and account.updated, like the rest.
   stripeAffirmStatus String?
+  // Klarna on invoice pay links — lib/stripe/financingMethods.js. Stripe's
+  // answer for the `klarna_payments` capability, in the same five states as
+  // stripeAffirmStatus and written by the same two writers (status poll,
+  // account.updated). Its own column because Stripe answers each provider
+  // separately: TrueFinish has Affirm refused and Klarna active, and one
+  // shared status would have hidden the one that works or promised the one
+  // that doesn't. Read by the portal to decide whether the "Pay over time"
+  // button names Klarna, and by the settings card.
+  stripeKlarnaStatus String?
 
   createdAt DateTime @default(now())
   // Added because the platform churn metric queried it and the field didn't

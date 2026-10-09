@@ -14,6 +14,7 @@ import ProcessingFeesCard from "./ProcessingFeesCard";
 import InstantPayoutCard from "./InstantPayoutCard";
 import PaymentMethodsCard from "./PaymentMethodsCard";
 import ClientCardSurchargeCard from "./ClientCardSurchargeCard";
+import FinancingProviderStatus from "./FinancingProviderStatus";
 
 // The country Stripe reports for the connected account, in the reader's
 // language ("Canada", "Royaume-Uni"), falling back to the code Stripe gave
@@ -396,7 +397,7 @@ function PaymentsPageScreen() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <h2 className="font-semibold text-foreground">
-                {t("app.setPayments.financingTitle")}
+                {t("app.setPayments.financingTitleProviders")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("app.setPayments.financingDesc")}
@@ -448,6 +449,9 @@ function PaymentsPageScreen() {
                     )}
                   </>
                 )}
+              {/* Klarna's status, what to do when Stripe declines, the
+                  message for Stripe support, the quote-note warning. */}
+              <FinancingProviderStatus status={status} offerFinancing={Boolean(company?.offerFinancing)} currency={company?.currency} />
             </div>
             <button
               type="button"

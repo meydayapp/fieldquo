@@ -485,11 +485,13 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
   const READY_US = { card_payments: "active", transfers: "active", us_bank_account_ach_payments: "active" };
   calls.length = 0;
   await ensureChargeCapabilities({ id: "acct_ca_fin", country: "CA", capabilities: READY }, { stripe: fake, company: { offerFinancing: true } });
-  ok("a Canadian account with financing ON gets affirm_payments requested (and only it)",
-    calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "affirm_payments" && calls[0].p.capabilities.affirm_payments.requested === true);
+  // Since 2026-10-09 the same opt-in requests Klarna's capability too
+  // (lib/stripe/financingMethods.js; scripts/check-klarna.mjs holds the rest).
+  ok("a Canadian account with financing ON gets affirm_payments (and klarna_payments) requested — nothing else",
+    calls.length === 1 && Object.keys(calls[0].p.capabilities).sort().join() === "affirm_payments,klarna_payments" && calls[0].p.capabilities.affirm_payments.requested === true);
   calls.length = 0;
   await ensureChargeCapabilities({ id: "acct_us_fin", country: "US", capabilities: READY_US }, { stripe: fake, company: { offerFinancing: true } });
-  ok("  ^ a US account too", calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "affirm_payments");
+  ok("  ^ a US account too", calls.length === 1 && Object.keys(calls[0].p.capabilities).sort().join() === "affirm_payments,klarna_payments");
   calls.length = 0;
   await ensureChargeCapabilities({ id: "acct_ca_off", country: "CA", capabilities: READY }, { stripe: fake, company: { offerFinancing: false } });
   ok("  ^ financing OFF: nothing requested — the toggle is the contractor's opt-in", calls.length === 0);
@@ -497,7 +499,7 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
   await ensureChargeCapabilities({ id: "acct_gb", country: "GB", capabilities: { card_payments: "active", transfers: "active" } }, { stripe: fake, company: { offerFinancing: true } });
   ok("  ^ a UK account with financing ON: NOT requested — Affirm serves US and CA only, and Stripe rejects the request elsewhere", calls.length === 0);
   calls.length = 0;
-  await ensureChargeCapabilities({ id: "acct_ca_have", country: "CA", capabilities: { ...READY, affirm_payments: "pending" } }, { stripe: fake, company: { offerFinancing: true } });
+  await ensureChargeCapabilities({ id: "acct_ca_have", country: "CA", capabilities: { ...READY, affirm_payments: "pending", klarna_payments: "active" } }, { stripe: fake, company: { offerFinancing: true } });
   ok("  ^ once requested (pending) it is not requested again", calls.length === 0);
   calls.length = 0;
   await ensureChargeCapabilities({ id: "acct_ca_no_country", capabilities: READY }, { stripe: fake, company: { offerFinancing: true } });

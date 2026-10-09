@@ -9,6 +9,7 @@ import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
 import { affirmStatusFor } from "@/lib/stripe/affirm";
+import { financingStatusFor } from "@/lib/stripe/financingMethods";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { settleCardPayment, PORTAL_CARD_FLOW } from "@/lib/stripe/clientCardCharge";
 import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
@@ -96,6 +97,9 @@ export async function POST(request) {
           // "unavailable" for a country Affirm does not serve —
           // lib/stripe/affirm.js. Only "active" names Affirm on a session.
           stripeAffirmStatus: affirmStatusFor(account),
+          // Klarna, the same way — its own column, its own capability
+          // (klarna_payments); lib/stripe/financingMethods.js.
+          stripeKlarnaStatus: financingStatusFor("klarna", account),
         },
       });
 

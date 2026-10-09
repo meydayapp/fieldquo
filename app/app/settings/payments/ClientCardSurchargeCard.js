@@ -57,6 +57,8 @@ function flowLabel(t, key) {
       return t("app.setPayments.clientCardFee.flow.officeCheckoutLink");
     case "affirm":
       return t("app.setPayments.clientCardFee.flow.affirm");
+    case "klarna":
+      return t("app.setPayments.clientCardFee.flow.klarna");
     case "bankDebit":
       return t("app.setPayments.clientCardFee.flow.bankDebit");
     case "bookingFee":

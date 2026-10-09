@@ -37,6 +37,13 @@ import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
 import CardPayPanel from "../../CardPayPanel";
 import { clientPayChoices } from "@/lib/invoices/paymentRequest";
 
+import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
+
+// Provider brand names (never translated), from the one provider table.
+const FINANCING_NAMES = Object.freeze(
+  Object.fromEntries(Object.values(FINANCING_PROVIDERS).map((p) => [p.key, p.name])),
+);
+
 export default function PortalInvoice({ token, invoiceId, stageId = null, requestId = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -216,6 +223,11 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
   // which shows the fee before payment; Stripe's hosted page could not.
   const cardFee = onlinePayments && data.cardForm?.publishableKey ? invoice.cardFee || null : null;
   const cardFeesPaid = Array.isArray(invoice.cardFeesPaid) ? invoice.cardFeesPaid : [];
+  // The pay-over-time providers for the figure this page asks for — the
+  // stage's / request's when one applies, else the balance — as the server
+  // decided them (app/api/portal/[token]/route.js financingFor). Keys only.
+  const financingOffer = asking != null ? picked.financing : invoice.financing;
+  const financing = Array.isArray(financingOffer) ? financingOffer.filter((k) => FINANCING_NAMES[k]) : [];
 
   return (
     <Shell token={token} backLabel={copy.backToAccount}>
@@ -538,20 +550,32 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
                   {copy.cardFee.notice(surchargeRatePercent(cardFee.rateBps))}
                 </p>
               )}
-              {/* Pay-over-time lives on Stripe's hosted page; with the card
-                  fee on, the card button no longer goes there, so it gets
-                  its own button rather than silently disappearing. */}
-              {cardFee && data.cardForm?.affirm && (
-                <button
-                  data-pay-over-time
-                  onClick={() => pay("card")}
-                  disabled={Boolean(paying)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-semibold border disabled:opacity-60"
-                  style={{ borderColor: accent, color: accent }}
-                >
-                  {paying === "card" ? <Loader2 size={13} className="animate-spin" /> : null}
-                  {copy.cardFee.payOverTime}
-                </button>
+              {/* Pay-over-time lives on Stripe's hosted page (its dynamic
+                  payment methods show Klarna / Affirm to an eligible
+                  account); with the card fee on, the card button no longer
+                  goes there, so it gets its own button rather than silently
+                  disappearing. Named for the providers the SERVER says are
+                  active and cover this figure (`financing`), never one
+                  company-level flag — that flag was Affirm's, and hid
+                  Klarna whenever Affirm was refused. Same size as the card
+                  button: an equal choice, not a footnote. The figure is the
+                  one this page asks for, re-derived by the pay route from
+                  the stage / request row — the button sends no amount. No
+                  card fee is added on the hosted page. */}
+              {cardFee && financing.length > 0 && (
+                <>
+                  <button
+                    data-pay-over-time={financing.join(",")}
+                    onClick={() => pay("card")}
+                    disabled={Boolean(paying)}
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold border disabled:opacity-60"
+                    style={{ borderColor: accent, color: accent }}
+                  >
+                    {paying === "card" ? <Loader2 size={15} className="animate-spin" /> : <Clock size={15} />}
+                    {copy.cardFee.payOverTimeWith(financing.map((k) => FINANCING_NAMES[k] || k))}
+                  </button>
+                  <p className="text-center text-xs text-[#2d2520]/60">{copy.cardFee.payOverTimeNote}</p>
+                </>
               )}
               {bankDebit && (
                 <>

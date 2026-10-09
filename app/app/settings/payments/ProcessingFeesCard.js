@@ -12,7 +12,8 @@
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
-import { publishedRates, publishedSurcharges, feeBreakdown } from "@/lib/stripe/processingFee";
+import { publishedRates, publishedSurcharges, feeBreakdown, FINANCING_RATES } from "@/lib/stripe/processingFee";
+import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
 
 // The example every contractor sees: a mid-sized job, paid by card.
 const EXAMPLE_CENTS = 226_000;
@@ -74,6 +75,18 @@ export default function ProcessingFeesCard({ currency, offerFinancing, connected
       {offerFinancing && (
         <p className="mt-1.5 text-xs text-muted-foreground">
           {t("app.setPayments.feesAffirmNote")}
+        </p>
+      )}
+      {/* Stripe's published pay-over-time rates, from the same file as the
+          card rate (FINANCING_RATES) — what to expect; settlement passes
+          Stripe's actual fee through at cost (lib/stripe/paymentIntentFee.js). */}
+      {offerFinancing && (
+        <p data-financing-rates className="mt-1.5 text-xs text-muted-foreground">
+          {t("app.setPayments.feesFinancingRates", {
+            rates: Object.values(FINANCING_RATES)
+              .map((r) => `${FINANCING_PROVIDERS[r.method].name} ${r.formula}`)
+              .join(" · "),
+          })}
         </p>
       )}
       <p className="mt-1.5 text-xs text-muted-foreground">{t("app.setPayments.feesRefundNote")}</p>

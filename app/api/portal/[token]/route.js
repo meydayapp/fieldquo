@@ -15,6 +15,7 @@ import { bankDebitOffer } from "@/lib/stripe/bankDebit";
 import { invoiceBalanceCents } from "@/lib/stripe";
 import { stageCoverage, requestRemainingCents } from "@/lib/invoices/paymentRequest";
 import { invoicePaymentCurrency } from "@/lib/stripe/paymentCurrency";
+import { offeredFinancingMethods } from "@/lib/stripe/financingMethods";
 import {
   clientJurisdictionRow,
   invoiceSiteAddress,
@@ -114,6 +115,10 @@ export async function GET(request, { params }) {
           // receives the sentences, never the settings, and an ACH account
           // number reaches the browser only inside the rendered block.
           ...HOW_TO_PAY_COMPANY_SELECT,
+          // Klarna's capability status — decides whether the card-fee
+          // path's "Pay over time" button names Klarna (financingFor
+          // below). Stripped from `company` like the Affirm column.
+          stripeKlarnaStatus: true,
           // ── For the tax line, and stripped from the payload below ────────
           //
           // Every invoice in this portal carries a tax row, and a row reading
@@ -404,6 +409,7 @@ export async function GET(request, { params }) {
     paymentMethodDetails: _paymentMethodDetails,
     offerFinancing: _offerFinancing,
     stripeAffirmStatus: _stripeAffirmStatus,
+    stripeKlarnaStatus: _stripeKlarnaStatus,
     address: _address,
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
@@ -465,6 +471,30 @@ export async function GET(request, { params }) {
           onlinePayments,
         })
       : null;
+
+  // ── Pay over time, where the card fee would otherwise hide it ────────────
+  //
+  // Without a card fee the card button opens Stripe's hosted Checkout,
+  // whose dynamic payment methods already show Klarna (and Affirm) to an
+  // eligible account — TrueFinish's CA$6,500 invoice shows Card / Klarna /
+  // Apple Pay there — so nothing is added. WITH the fee, the card button
+  // opens the portal's own card-only form, and the only way to the hosted
+  // page was a "Pay over time" button gated on Affirm being active: with
+  // Affirm refused and Klarna active, Klarna simply vanished. So, for an
+  // invoice that carries the fee, the providers Stripe has activated whose
+  // ranges cover THIS figure (lib/stripe/financingMethods.js) — the invoice
+  // balance, a stage's share, a request's figure — each server-derived.
+  // Names only; never a price, a rate or a status.
+  let financingCurrency = null;
+  try {
+    financingCurrency = invoicePaymentCurrency(client.company?.currency);
+  } catch {
+    financingCurrency = null;
+  }
+  const financingFor = (invoiceId, amountCents) =>
+    financingCurrency && cardFeeFor(invoiceId)
+      ? offeredFinancingMethods({ company: client.company, amountCents, currency: financingCurrency })
+      : [];
 
   // Per invoice, because each was raised on its own day with its own decision
   // about tax. `asOf` is the invoice's creation date so a rate change last
@@ -595,7 +625,7 @@ export async function GET(request, { params }) {
           .map((stage) => {
             const left = Math.min(cover.get(stage.id)?.remainingCents ?? 0, balanceCents);
             return left > 0
-              ? { id: stage.id, label: trStage("paymentStage", stage.label), amountCents: left, bankDebit: offerFor(left) }
+              ? { id: stage.id, label: trStage("paymentStage", stage.label), amountCents: left, bankDebit: offerFor(left), financing: financingFor(invoice.id, left) }
               : null;
           })
           .filter(Boolean);
@@ -611,12 +641,15 @@ export async function GET(request, { params }) {
             paidCents: Math.round(Number(invoice.amountPaid || 0) * 100),
             balanceCents: invoiceBalanceCents(invoice),
           });
-          return left > 0 ? { id: r.id, amountCents: left, bankDebit: offerFor(left) } : null;
+          return left > 0 ? { id: r.id, amountCents: left, bankDebit: offerFor(left), financing: financingFor(invoice.id, left) } : null;
         })
         .filter(Boolean),
       // The bank-debit offer for the invoice's whole remaining balance —
       // null when the company cannot take bank debit at all.
       bankDebit: offerFor(invoiceBalanceCents(invoice)),
+      // Pay-over-time providers for the balance — only on an invoice that
+      // carries the card fee (financingFor above); [] everywhere else.
+      financing: financingFor(invoice.id, invoiceBalanceCents(invoice)),
       // The credit-card fee rate this client would pay on a CREDIT card, or
       // null — see cardFeeFor above. The same for a stage's share.
       cardFee: cardFeeFor(invoice.id),
@@ -923,14 +956,14 @@ export async function GET(request, { params }) {
     // What the portal's own card form needs to load Stripe.js — only when
     // some invoice here carries a credit-card fee (`cardFee`). The
     // publishable key is public by design; the currency is the one the
-    // charge is made in. `affirm` keeps "pay over time" reachable: that
-    // offer lives on Stripe's hosted page, so it stays a separate button
-    // there (no card fee is added on the hosted page — it cannot show one).
+    // charge is made in. "Pay over time" is no longer decided here: it was
+    // one company-level `affirm` flag, which hid Klarna whenever Affirm was
+    // refused. Each invoice (and stage, and request) carries its own
+    // `financing` list now — see financingFor above.
     cardForm: invoices.some((inv) => inv.cardFee)
       ? {
           publishableKey: stripePublishableKey(),
           currency: invoicePaymentCurrency(client.company?.currency),
-          affirm: onlineOptions(client.company).affirm === true,
         }
       : null,
     // No company-level `bankDebit` here any more: the answer depends on the
