@@ -19,6 +19,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
 import { attributionFromTouches } from "@/lib/tracking/visits";
+import { attributionFromLanding } from "@/lib/tracking/attribution";
 // Public — a website visitor requesting a quote through an embeddable widget,
 // identified by companySlug. This is functionally very close to /api/leads/public
 // (both create a LeadRequest); the distinction from TrueFinish is that self-quote
@@ -107,6 +108,10 @@ export async function POST(request) {
     // brought the visitor to the website. Resolved against this company's
     // rows only; never a source read from the body.
     visitTouches,
+    // The form's own URL (lib/tracking/landing.js readLanding) — what an
+    // embed's host page forwarded. Only a tag, a click id or Meta's
+    // parameters make it count; see attributionFromLanding.
+    landing,
   } = body;
 
   if (!companySlug || !name || (!email && !phone)) {
@@ -162,9 +167,14 @@ export async function POST(request) {
   // and losing the address entirely.
   const intake = buildLeadIntake({ address, city, province, country, details });
 
-  // First touch (lib/tracking/visits.js attributionFromTouches). Best-effort:
-  // no visit is a lead with no attribution, never a refused one.
-  const attribution = await attributionFromTouches({ companyId: company.id, touches: visitTouches }).catch(() => null);
+  // The form's own landing first — an embed's forwarded ad click is its own
+  // arrival and is never overwritten, the rule openVisit keeps for every
+  // other page — then the tab's first touch (lib/tracking/visits.js
+  // attributionFromTouches). Best-effort: no attribution is a lead with no
+  // attribution, never a refused one.
+  const attribution =
+    attributionFromLanding(landing) ||
+    (await attributionFromTouches({ companyId: company.id, touches: visitTouches }).catch(() => null));
 
   const lead = await createScoredLead({
     companyId: company.id,

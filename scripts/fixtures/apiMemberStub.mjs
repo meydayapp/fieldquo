@@ -14,3 +14,11 @@ export async function memberOrRefusal() {
   }
   return { member: session.member, response: null };
 }
+
+// The plain variant (lib/apiMember.js's memberOrRefusalPlain) for helpers that
+// build their own response from { error, status } — the email-domain route's
+// requireAdmin. Same scripted session, same 401 when there is none.
+export async function memberOrRefusalPlain() {
+  if (!session.member) return { refusal: { error: "Unauthorized", status: 401 } };
+  return { member: session.member };
+}

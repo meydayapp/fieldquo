@@ -4,7 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+// requireMarketingAccess: user:manage, or the marketing agency the company
+// invited to build these (lib/permissions/marketingAgency.js).
+import { requireMarketingAccess } from "@/lib/permissions/marketingAgency";
 
 // Per-step drop-off + conversion for one funnel. "60% quit at the budget
 // question" is the whole reason funnels beat a static form, so this counts
@@ -24,7 +26,7 @@ export async function GET(request, { params }) {
   // routes: non-negotiable #3, the console views everything and edits nothing.
   if (!member.impersonation) {
     try {
-      requirePermission(member.role, "user:manage");
+      requireMarketingAccess(member);
     } catch (err) {
       return NextResponse.json(
         { error: "Only owners, admins, or supervisors can see funnel analytics" },

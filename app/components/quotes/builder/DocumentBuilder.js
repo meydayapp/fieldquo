@@ -247,11 +247,23 @@ function CompanyBlockEditor({ company, onSaved, onClose, t }) {
 }
 
 /**
- * The contact, edited in place — writes the CLIENT (PATCH /api/clients/[id]),
- * which the classic builder locks on an edit. The quote's client stays who
- * it is; what changes is their details, everywhere they are printed.
+ * "Edit this client's details everywhere" — writes the CLIENT row (PATCH
+ * /api/clients/[id] with scope "everywhere"), which every quote, job,
+ * invoice and visit carrying this client prints.
+ *
+ * ── Why it says how far it reaches before it saves (2026-10-09) ──────────
+ *
+ * This used to be the ONLY client control on an edit, titled "Contact
+ * details" with nothing about reach. The owner duplicated Maureen Faulkner's
+ * accepted quote, opened it on the copy, typed his own name, email and
+ * phone — and her signed quote, job, invoice and appointment all began
+ * printing them. Now it is the second choice, never the default on a draft,
+ * and it names every other record it will change (GET /api/clients/[id]/
+ * usage, the same loader the server's refusal counts with) and asks for a
+ * tick before Save is live when there are any. If the count can't be
+ * loaded, Save stays off: changing a shared record blind is the incident.
  */
-function ContactEditor({ client, onSaved, onClose, t }) {
+function ContactEditor({ client, usageQuery = "", onSaved, onClose, t }) {
   const [form, setForm] = useState({
     name: client?.name || "",
     contactName: client?.contactName || "",
@@ -260,15 +272,42 @@ function ContactEditor({ client, onSaved, onClose, t }) {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // null while loading, { count, items } once known, "error" if it failed.
+  const [usage, setUsage] = useState(null);
+  const [confirmed, setConfirmed] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  useEffect(() => {
+    let live = true;
+    fetchJson(`/api/clients/${encodeURIComponent(client.id)}/usage${usageQuery ? `?${usageQuery}` : ""}`)
+      .then((u) => live && setUsage(u && typeof u === "object" ? u : "error"))
+      .catch(() => live && setUsage("error"));
+    return () => {
+      live = false;
+    };
+  }, [client.id, usageQuery]);
+  const known = usage && usage !== "error";
+  const others = known ? Number(usage.count) || 0 : 0;
+  const canSave = known && (others === 0 || confirmed);
+  const list = known
+    ? (usage.items || [])
+        .map((r) =>
+          r.kind === "job"
+            ? `${t("app.docBuilder.usageJob", "Job")}: ${r.text}`
+            : r.kind === "visit"
+              ? `${t("app.docBuilder.usageVisit", "Visit")} ${r.text}`
+              : r.text,
+        )
+        .join(", ")
+    : "";
   async function save() {
+    if (!canSave) return;
     setBusy(true);
     setError("");
     try {
       const saved = await fetchJson(`/api/clients/${client.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody(form, "contact details"),
+        body: jsonBody({ ...form, scope: "everywhere" }, "contact details"),
       });
       onSaved({ ...client, ...form, ...(saved && typeof saved === "object" ? saved : {}) });
       onClose();
@@ -279,10 +318,33 @@ function ContactEditor({ client, onSaved, onClose, t }) {
     }
   }
   return (
-    <InlinePanel title={t("app.docBuilder.contactBlock", "Contact details")} onClose={onClose} t={t} data-contact-editor>
+    <InlinePanel title={t("app.docBuilder.clientEditEverywhere", "Edit this client's details everywhere")} onClose={onClose} t={t} data-contact-editor>
       <p className="text-xs text-muted-foreground">
         {t("app.docBuilder.contactBlockHint", "Saved on the client's record — this quote and everything after it prints them.")}
       </p>
+      <div
+        className={`rounded-lg border px-3 py-2 text-sm ${others > 0 ? "border-amber-400 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" : "border-border"}`}
+        data-client-usage={known ? others : usage === "error" ? "error" : "loading"}
+      >
+        {usage === null
+          ? t("app.docBuilder.clientUsageLoading", "Checking where this client appears…")
+          : usage === "error"
+            ? t("app.docBuilder.clientUsageError", "Couldn't check where this client appears, so their details can't be changed from here. Edit them from the client's own page.")
+            : others === 0
+              ? t("app.docBuilder.clientUsageNone", "This client isn't on any other record, so only this document prints the change.")
+              : (others === 1
+                  ? t("app.docBuilder.clientUsageOne", "This client is on 1 other record: {list}. Saving changes their details there too.")
+                  : t("app.docBuilder.clientUsageMany", "This client is on {count} other records: {list}. Saving changes their details on every one of them.")
+                )
+                  .replace("{count}", String(others))
+                  .replace("{list}", list)}
+        {known && others > 0 && (
+          <label className="mt-2 flex items-start gap-2 text-sm font-medium">
+            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5" data-client-everywhere-confirm />
+            {t("app.docBuilder.clientEverywhereConfirm", "Yes — change these details on all of them")}
+          </label>
+        )}
+      </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <Field label={t("app.field.name", "Name")}><input value={form.name} onChange={set("name")} className={inputCls} /></Field>
         <Field label={t("app.clientNew.contactPerson", "Contact person")}><input value={form.contactName} onChange={set("contactName")} className={inputCls} /></Field>
@@ -290,11 +352,48 @@ function ContactEditor({ client, onSaved, onClose, t }) {
         <Field label={t("app.field.phone", "Phone")}><input value={form.phone} onChange={set("phone")} className={inputCls} /></Field>
       </div>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
-      <button type="button" onClick={save} disabled={busy} className="bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5">
+      <button type="button" onClick={save} disabled={busy || !canSave} className="bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5" data-client-everywhere-save>
         {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {t("app.docBuilder.saveContact", "Save contact")}
+        {others > 0 ? t("app.docBuilder.saveEverywhere", "Save everywhere") : t("app.docBuilder.saveContact", "Save contact")}
       </button>
     </InlinePanel>
+  );
+}
+
+/**
+ * The client region's editor on a document: which of the two things
+ * "change the client" can mean. "Use a different client for this quote" is
+ * the default wherever it is possible (a new document, or a DRAFT quote's
+ * edit) — it picks or creates someone and repoints THIS document only.
+ * "Edit this client's details everywhere" is the second, deliberate choice
+ * (ContactEditor). On a sent quote or an invoice the first isn't possible,
+ * and the panel says why instead of offering it.
+ */
+function ClientChoice({ mode, setMode, canSwitch, canEditClients, sentLocked, clientName, t }) {
+  if (!canSwitch) {
+    return sentLocked ? (
+      <p className="text-xs text-muted-foreground mb-2" data-client-sent-locked>
+        {t("app.docBuilder.clientSentLocked", "This quote has been sent, so it stays with {name}. To quote someone else, duplicate it.").replace("{name}", clientName || "")}
+      </p>
+    ) : null;
+  }
+  if (!canEditClients) return null;
+  const opt = (value, label) => (
+    <button
+      type="button"
+      onClick={() => setMode(value)}
+      aria-pressed={mode === value}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${mode === value ? "bg-inverted text-inverted-foreground border-transparent" : "border-border text-foreground"}`}
+      data-client-mode={value}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex flex-wrap gap-2 mb-2" role="group" data-client-choice>
+      {opt("switch", t("app.docBuilder.clientUseDifferent", "Use a different client for this quote"))}
+      {opt("everywhere", t("app.docBuilder.clientEditEverywhere", "Edit this client's details everywhere"))}
+    </div>
   );
 }
 
@@ -521,6 +620,15 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
   // Which region's editor is open. One at a time: the document is the thing
   // being read, and two forms open at once turns it back into the long form.
   const [editing, setEditing] = useState(null);
+  // What "change the client" means while the client region is open — see
+  // ClientChoice. A different client for THIS document is the default
+  // wherever the save can do it (a new document; a draft quote's edit,
+  // repointed by PATCH { clientId }); editing the shared record is the
+  // deliberate second choice.
+  const canSwitchClient = !isEdit || Boolean(b.clientRepointable);
+  const [clientMode, setClientMode] = useState("switch");
+  const effectiveClientMode = canSwitchClient ? clientMode : "everywhere";
+  const clientUsageQuery = isEdit && quoteId ? `${isInvoice ? "exceptInvoice" : "exceptQuote"}=${encodeURIComponent(quoteId)}` : "";
   // Which service card has its editor unfolded beneath its lines. An
   // invoice opens on its lines: they are the whole document, and a card
   // that had to be clicked open first was the old form with an extra step.
@@ -1119,16 +1227,41 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
               }
               facts={[]}
               clientSlot={
-                !b.selectedClient || (!isEdit && editing === "client") ? (
+                !b.selectedClient || (editing === "client" && canSwitchClient && effectiveClientMode === "switch") ? (
                   <div className="mt-2" data-tour="client-picker">
+                    {editing === "client" && b.selectedClient && (
+                      <ClientChoice
+                        mode={effectiveClientMode}
+                        setMode={setClientMode}
+                        canSwitch={canSwitchClient}
+                        canEditClients={canEditClients}
+                        sentLocked={false}
+                        clientName={b.selectedClient?.name}
+                        t={t}
+                      />
+                    )}
+                    {isEdit && !isInvoice && canSwitchClient && (
+                      <p className="text-xs text-muted-foreground mb-2" data-client-switch-hint>
+                        {t("app.docBuilder.clientSwitchHint", "Pick someone else or add a new client. Only this quote changes — {name}'s record, and their other quotes, jobs and invoices, stay exactly as they are.").replace("{name}", b.start.client?.name || "")}
+                      </p>
+                    )}
+                    {isEdit && b.changedClientId && b.selectedClient && (
+                      <p className="text-xs font-medium mb-2" data-client-will-change>
+                        {t("app.docBuilder.clientWillChange", "When you save, this quote will be for {to} instead of {from}. No client's details are edited.")
+                          .replace("{to}", b.selectedClient.name || "")
+                          .replace("{from}", b.start.client?.name || "")}
+                      </p>
+                    )}
                     <ClientPicker
-                      locked={isEdit}
+                      locked={isEdit && !canSwitchClient}
                       clients={b.clients}
                       selectedClient={b.selectedClient}
                       onSelect={(c) => {
                         b.setSelectedClient(c);
                         b.setClientSearch("");
-                        if (c.language) b.setQuoteLanguage(c.language);
+                        // Not on an edit: the document keeps the language it
+                        // was created in (non-negotiable 6).
+                        if (c.language && !isEdit) b.setQuoteLanguage(c.language);
                         // A homeowner's job is at their address; a company's is not.
                         b.setSiteAddress(defaultSiteAddressFor(c));
                         setEditing(null);
@@ -1151,6 +1284,19 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                       creating={b.creatingClient}
                       error={b.error}
                     />
+                    {isEdit && b.start.client && (!b.selectedClient || b.changedClientId) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          b.setSelectedClient(b.start.client);
+                          b.setSiteAddress(b.start.siteAddress ?? defaultSiteAddressFor(b.start.client));
+                        }}
+                        className="mt-2 mr-3 text-xs underline underline-offset-2"
+                        data-client-keep-original
+                      >
+                        {t("app.docBuilder.clientKeepOriginal", "Keep {name}").replace("{name}", b.start.client.name || "")}
+                      </button>
+                    )}
                     {b.selectedClient && (
                       <button type="button" onClick={() => setEditing(null)} className="mt-2 text-xs underline underline-offset-2">
                         {t("app.docBuilder.done", "Done")}
@@ -1160,26 +1306,44 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                 ) : null
               }
               edit={{
-                client: () => setEditing((e) => (e === "client" ? null : "client")),
-                clientLabel: isEdit ? t("app.docBuilder.editContact", "Edit contact details") : t("app.clientPicker.change"),
+                client: () => {
+                  // Every opening starts on the safe choice.
+                  setClientMode("switch");
+                  setEditing((e) => (e === "client" ? null : "client"));
+                },
+                clientLabel: canSwitchClient ? t("app.clientPicker.change") : t("app.docBuilder.editContact", "Edit contact details"),
                 jobAddress: () => setEditing((e) => (e === "jobAddress" ? null : "jobAddress")),
                 jobAddressLabel: t("app.quoteNew.jobAddress", "Job address"),
                 facts: () => setEditing((e) => (e === "validUntil" ? null : "validUntil")),
                 factsLabel: t("app.quoteEdit.validUntil"),
               }}
             />
-            {editing === "client" && isEdit && b.selectedClient && (
+            {/* The deliberate second choice: the shared record, with its reach
+                named first (ContactEditor). On a sent quote or an invoice it is
+                the only choice, and the panel says why the first isn't there. */}
+            {editing === "client" && b.selectedClient && effectiveClientMode === "everywhere" && (
               <div className="px-5 sm:px-7 pb-4">
+                <ClientChoice
+                  mode={effectiveClientMode}
+                  setMode={setClientMode}
+                  canSwitch={canSwitchClient}
+                  canEditClients={canEditClients}
+                  sentLocked={isEdit && !isInvoice && !canSwitchClient}
+                  clientName={b.selectedClient?.name}
+                  t={t}
+                />
                 {canEditClients ? (
-                  <ContactEditor client={b.selectedClient} t={t} onClose={() => setEditing(null)} onSaved={updateStoredClient} />
+                  <ContactEditor
+                    key={b.selectedClient.id}
+                    client={b.selectedClient}
+                    usageQuery={clientUsageQuery}
+                    t={t}
+                    onClose={() => setEditing(null)}
+                    onSaved={updateStoredClient}
+                  />
                 ) : (
                   <p className="text-xs text-muted-foreground">{t("app.docBuilder.contactLocked", "Your access level lets you view clients, not edit them.")}</p>
                 )}
-              </div>
-            )}
-            {editing === "client" && !isEdit && b.selectedClient && canEditClients && (
-              <div className="px-5 sm:px-7 pb-4">
-                <ContactEditor client={b.selectedClient} t={t} onClose={() => setEditing(null)} onSaved={updateStoredClient} />
               </div>
             )}
             {editing === "jobAddress" && b.selectedClient && (

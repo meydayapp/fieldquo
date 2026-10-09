@@ -637,9 +637,19 @@ section("10. The clock is a grid rung, switchable per person (Edit access)");
 {
   const levels = PERMISSION_CATEGORIES.timeTracking.levels.map((l) => l.value);
   ok("Time Tracking has a bottom rung `none` (No access) — the clock's off switch", levels[0] === "none" && PERMISSION_CATEGORIES.timeTracking.levels[0].label === "No access", levels);
-  for (const key of Object.keys(PERMISSION_PRESETS)) {
+  // Every preset for a person who WORKS for the company has the clock (the
+  // owner, 2026-10-03). The one exception is the marketing agency (2026-10-09):
+  // a login for the company's marketing, not a person on the books — no Worker
+  // row (app/api/invitations/[id]/accept, lib/team/ensureWorker.js), so
+  // /api/time-clock would answer "not set up as a worker", and every
+  // /api/time-clock call is refused to them anyway (lib/currentMember.js
+  // assertMarketingAgencyScope). Its grid states timeTracking "none", and that
+  // is asserted here rather than skipped, so it cannot drift either way.
+  for (const key of Object.keys(PERMISSION_PRESETS).filter((k) => k !== "marketingAgency")) {
     ok(`preset ${key} has the clock by default`, canUseTimeClock({ role: "employee", permissions: grid(key) }));
   }
+  ok("preset marketingAgency has NO clock (not on the books; its grid says none)",
+    !canUseTimeClock({ role: "employee", permissions: grid("marketingAgency") }) && grid("marketingAgency").timeTracking === "none");
   const crewOff = { role: "employee", permissions: { ...grid("worker"), timeTracking: "none" } };
   const estOff = { role: "employee", permissions: { ...grid("estimator"), timeTracking: "none" } };
   ok("switched off: no rail/More row (NAV_REQUIREMENTS)", navRowAllowed("app.nav.clock", crewOff) === false && navRowAllowed("app.nav.clock", { role: "employee", permissions: grid("worker") }) === true);

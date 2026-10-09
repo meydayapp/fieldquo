@@ -77,19 +77,19 @@ t("resolveQuickAddWorker writes title on reactivate AND create",
 t("ensureWorkerForMember accepts the pending title", /ensureWorkerForMember\(\{\s*companyId,\s*userId,\s*title/.test(ensure));
 t("…and never overwrites a title an admin already set", /!byEmail\.title\s*\?\s*\{\s*title:\s*pendingTitle\s*\}/.test(ensure));
 const accept = code("app/api/invitations/[id]/accept/route.js");
-// The select grew startOnboarding (the onboarding hand-off), so it is read
-// as "role and title are both in the pending profile's select" — and the
-// ordering the name promises is now asserted rather than assumed: that read
-// comes before the reconcile that deletes the row.
+// Since 2026-10-09 the pending profile is read, applied and deleted inside one
+// transaction in lib/invitations/acceptMember.js, which hands the title back
+// to the route. The ordering the name promises is asserted there: the read
+// comes before the delete, and the title rides out on the return value.
 {
-  const readAt = accept.search(/db\.pendingTeamProfile\.findUnique\(/);
-  const sel = readAt >= 0 ? accept.slice(readAt, accept.indexOf("});", readAt)) : "";
-  const reconcileAt = accept.search(/await reconcilePendingProfiles\(/);
+  const am = code("lib/invitations/acceptMember.js");
+  const readAt = am.search(/tx\.pendingTeamProfile\.findUnique\(/);
+  const deleteAt = am.search(/tx\.pendingTeamProfile\.delete\(/);
   t(
-    "the accept route reads the pending title before reconcile deletes the row",
-    /select:\s*\{[^}]*\brole:\s*true\b[^}]*\}/.test(sel) &&
-      /select:\s*\{[^}]*\btitle:\s*true\b[^}]*\}/.test(sel) &&
-      reconcileAt > readAt && readAt >= 0,
+    "the accept route reads the pending title before the transaction deletes the row",
+    /acceptInvitationMembership\(/.test(accept) &&
+      readAt >= 0 && deleteAt > readAt &&
+      /title:\s*pending\.title/.test(am),
   );
 }
 t("…and hands it to ensureWorkerForMember", /title:\s*pending\?\.title/.test(accept));

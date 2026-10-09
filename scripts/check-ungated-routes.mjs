@@ -53,6 +53,7 @@ import { register } from "node:module";
 
 import { can, PERMISSION_PRESETS } from "@/lib/permissions";
 import { NAV_REQUIREMENTS, navRowAllowed } from "@/lib/permissions/nav";
+import { canManageMarketing as sharedCanManageMarketing } from "@/lib/permissions/marketingAgency";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -883,16 +884,25 @@ for (const page of PAGE_GUARDS) {
   ok(`${page.file}: declares ${page.name}`, Boolean(match));
   if (match) {
     const expr = match[1];
+    // The funnels page asks canManageMarketing (2026-10-09) — user:manage, or
+    // the marketing agency the company invited — which is exactly what every
+    // funnel route now asks (requireMarketingAccess). Either spelling is the
+    // endpoint's own question; the evaluation below decides who gets in.
     ok(
       `${page.file}: asks the capability the endpoint asks`,
-      expr.includes('"user:manage"') && expr.includes("can("),
+      (expr.includes('"user:manage"') && expr.includes("can(")) || /\bcanManageMarketing\(caller\)/.test(expr),
     );
     // eslint-disable-next-line no-new-func
-    const evaluate = new Function("caller", "can", `return (${expr});`);
-    ok(`${page.file}: refuses an employee`, evaluate({ role: "employee" }, can) === false);
-    ok(`${page.file}: allows a supervisor`, evaluate({ role: "supervisor" }, can) === true);
-    ok(`${page.file}: allows an owner`, evaluate({ role: "owner" }, can) === true);
-    ok(`${page.file}: falls open with no provider`, evaluate(null, can) === true);
+    const evaluate = new Function("caller", "can", "canManageMarketing", `return (${expr});`);
+    const run = (caller) => evaluate(caller, can, sharedCanManageMarketing);
+    ok(`${page.file}: refuses an employee`, run({ role: "employee" }) === false);
+    ok(`${page.file}: allows a supervisor`, run({ role: "supervisor" }) === true);
+    ok(`${page.file}: allows an owner`, run({ role: "owner" }) === true);
+    ok(`${page.file}: falls open with no provider`, run(null) === true);
+    if (page.file === "app/app/funnels/page.js") {
+      ok(`${page.file}: allows the marketing agency, as the funnel routes do`,
+        run({ role: "employee", permissions: PERMISSION_PRESETS.marketingAgency.values }) === true);
+    }
   }
   for (const [anchor, control] of page.guards) {
     const at = src.indexOf(anchor);

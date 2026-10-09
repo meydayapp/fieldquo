@@ -22,6 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import AccessEditor from "@/app/components/team/AccessEditor";
+import { customFrom } from "@/lib/permissions/accessPresets";
 // The one list. A local copy here offered Russian, Chinese, Hindi and Arabic —
 // none of which have a single string behind them in lib/i18n/emailCopy.js — and
 // omitted Punjabi and Tagalog, which are fully translated and were picked for
@@ -251,7 +252,7 @@ function NewUserForm() {
             ? { isAdministrator: true }
             : permissionValues,
           invitationLanguage,
-          startOnboarding,
+          startOnboarding: activePreset === "marketingAgency" ? false : startOnboarding,
         }),
       });
 
@@ -539,7 +540,13 @@ function NewUserForm() {
             isAdministrator={isAdministrator}
             onAdministratorChange={setIsAdministrator}
             activePreset={activePreset}
-            onPresetChange={(key) => (key ? applyPreset(key) : setActivePreset(null))}
+            onPresetChange={(key) => {
+              if (key) return applyPreset(key);
+              // Custom keeps the dials and drops the marketing agency's
+              // marker (customFrom says why).
+              setActivePreset(null);
+              setPermissionValues((prev) => customFrom(prev));
+            }}
             values={permissionValues}
             onValueChange={setPermission}
           />
@@ -602,6 +609,11 @@ function NewUserForm() {
             </select>
           </div>
 
+          {/* Not offered for the marketing agency: the checklist runs on the
+              person's Worker row, and an agency gets none (the invite accept
+              skips it) — a ticked box that started nothing would be a dead
+              control. */}
+          {activePreset !== "marketingAgency" && (
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -618,6 +630,7 @@ function NewUserForm() {
               </span>
             </span>
           </label>
+          )}
         </div>
 
         <div className="flex gap-3">

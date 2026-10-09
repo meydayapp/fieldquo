@@ -348,6 +348,13 @@ export default function LeadFormPage() {
       <p className="text-xs text-muted-foreground">
         {t("app.setLeadForm.footer")}
       </p>
+      {/* What the embed code's <script> now does besides resizing
+          (lib/embed/snippet.js forwardScript) — said once, under every
+          snippet on this screen, so a contractor whose CMS strips scripts
+          knows what the plain iframe loses. */}
+      <p className="text-xs text-muted-foreground">
+        {t("app.setLeadForm.adClickNote")}
+      </p>
     </div>
   );
 }

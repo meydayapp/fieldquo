@@ -4,8 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
+import { acceptInvitationMembership } from "@/lib/invitations/acceptMember";
 import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import { startRun } from "@/lib/onboarding/service";
 // The admitted statuses, shared with the accept page so the screen it shows
 // and the gate below cannot drift — see lib/invitations/arrival.js.
@@ -16,8 +17,9 @@ import { ACCEPTABLE_INVITATION_STATUSES } from "@/lib/invitations/arrival";
 //  1. Accept the Better Auth org invitation (adds the OrgMember row).
 //  2. Create the app's OWN Member row (the RBAC join getCurrentMember reads) —
 //     Better Auth's OrgMember and the app Member are separate tables.
-//  3. Reconcile the PendingTeamProfile (phone/labour/permissions captured at
-//     invite time) onto that Member.
+//     In the same transaction, apply the PendingTeamProfile (role, grid,
+//     phone/labour captured at invite time) onto that Member — see
+//     lib/invitations/acceptMember.js for why it is one transaction.
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
@@ -95,37 +97,34 @@ export async function POST(request, { params }) {
     );
   }
 
-  // The granular FieldQuo role (admin/supervisor/employee) lives on the pending
-  // profile, because Better Auth's invitation can only carry admin/member — see
-  // the invite routes. Prefer it; fall back to a valid MemberRole (never the
-  // Better Auth "member", which isn't in the enum and grants no permissions).
-  const pending = await db.pendingTeamProfile.findUnique({
-    where: {
-      companyId_email: {
-        companyId: company.id,
-        email: invitation.email.toLowerCase(),
-      },
-    },
-    // `title` is read here, BEFORE reconcilePendingProfiles deletes the
-    // pending row in step 3, because the Worker row that holds it is only
-    // made in step 4.
-    select: { role: true, title: true, startOnboarding: true },
-  });
-  const fieldquoRole =
-    pending?.role || (invitation.role === "admin" ? "admin" : "employee");
-
-  await db.member.upsert({
-    where: {
-      userId_companyId: { userId: session.user.id, companyId: company.id },
-    },
-    update: { active: true },
-    create: {
-      userId: session.user.id,
+  // 2b. The Member, its role, its grid and the pending profile — ONE
+  //     transaction, see lib/invitations/acceptMember.js. The granular role
+  //     (admin/supervisor/employee) lives on the pending profile because
+  //     Better Auth's invitation can only carry admin/member; it and the grid
+  //     REPLACE whatever an existing row held, and a failure anywhere leaves
+  //     no half-admitted member behind. `status` is the invitation's status
+  //     BEFORE the Better Auth call above flipped it: only a fresh (pending)
+  //     invitation may re-activate a member someone switched off.
+  let admitted;
+  try {
+    admitted = await acceptInvitationMembership(db, {
       companyId: company.id,
-      role: fieldquoRole,
-      active: true,
-    },
-  });
+      userId: session.user.id,
+      email: invitation.email,
+      invitationRole: invitation.role,
+      wasPending: status === "pending",
+    });
+  } catch (err) {
+    console.error("[accept invitation] membership write failed", err?.message);
+    return NextResponse.json(
+      { error: "We couldn't finish adding you to the team. Nothing was saved — try the link again." },
+      { status: 500 },
+    );
+  }
+  if (!admitted.ok) {
+    return NextResponse.json({ error: admitted.error }, { status: admitted.status });
+  }
+  const pending = admitted.pending;
 
   // Make this the active org on the session so company-scoped routes resolve.
   try {
@@ -137,24 +136,33 @@ export async function POST(request, { params }) {
     console.warn("[accept invitation] setActiveOrganization:", err?.message);
   }
 
-  // 3. Pull the pre-captured profile onto the Member.
-  await reconcilePendingProfiles(company.id).catch((err) =>
-    console.error("[accept invitation] reconcile failed", err),
-  );
-
-  // 4. Give them a Worker row, linked to this user. Without it they have a login
+  // 3. Give them a Worker row, linked to this user. Without it they have a login
   //    but no presence on the books — no timesheets, no payslips, no leave. See
   //    the note in ensureWorker.js.
-  const linked = await ensureWorkerForMember({
-    companyId: company.id,
-    userId: session.user.id,
-    title: pending?.title || null,
-  }).catch((err) => {
-    console.error("[accept invitation] worker link failed", err?.message);
-    return null;
-  });
+  //
+  //    Not for a marketing agency (lib/permissions/marketingAgency.js): a login
+  //    for the company's marketing is not a person on the books, and a Worker
+  //    row would put the agency on the payroll list, the shift board and the
+  //    timesheets. Read from the Member the reconcile above just wrote, so the
+  //    answer is the grid the invitation carried.
+  const accepted = await db.member
+    .findUnique({
+      where: { userId_companyId: { userId: session.user.id, companyId: company.id } },
+      select: { role: true, permissions: true },
+    })
+    .catch(() => null);
+  const linked = isMarketingAgency(accepted)
+    ? null
+    : await ensureWorkerForMember({
+        companyId: company.id,
+        userId: session.user.id,
+        title: pending?.title || null,
+      }).catch((err) => {
+        console.error("[accept invitation] worker link failed", err?.message);
+        return null;
+      });
 
-  // 5. The checklist, if the New User form asked for one. Idempotent: a
+  // 4. The checklist, if the New User form asked for one. Idempotent: a
   //    worker already on an open run is not given a second. Never fails the
   //    accept — the person is in; the checklist can be started by hand from
   //    their file if this did not run.

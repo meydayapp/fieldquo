@@ -34,10 +34,9 @@ import {
 import {
   FINANCING_PROVIDERS,
   financingStatusFor,
-  summariseFinancingCapability,
-  financingSupportMessage,
   financingNoteNamedProviders,
 } from "@/lib/stripe/financingMethods";
+import { summariseProviderCapability } from "@/lib/stripe/financingReasons";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 // The requirement wording and the identity gate both live in lib/stripe/ now:
@@ -167,12 +166,10 @@ export async function GET(request) {
       pendingVerification: false,
       disabledReason: null,
     };
-    let affirmReasonCode = null;
     if (affirmStatus === "pending" || affirmStatus === "inactive") {
       try {
         const capability = await stripe.accounts.retrieveCapability(synced.id, AFFIRM_CAPABILITY);
         affirm = { ...affirm, ...summariseAffirmCapability(capability) };
-        affirmReasonCode = capability?.requirements?.disabled_reason || null;
       } catch (err) {
         console.error("[stripe/connect/status] affirm capability read failed:", err?.message);
       }
@@ -182,37 +179,26 @@ export async function GET(request) {
     // Read from the account Stripe just returned, never assumed: TrueFinish
     // had Klarna active (it shows on their hosted Checkout) while Affirm was
     // refused, and the card said nothing about Klarna at all.
+    // Same shape as `affirm`, including the reason code and whether Stripe
+    // support is the next step — Affirm's 22-code table with Klarna's name
+    // (lib/stripe/financingReasons.js). The paste-to-Stripe message is built
+    // on the page from accountDetails, which is owner-only like the id.
     const klarnaStatus = financingStatusFor("klarna", synced);
-    let klarnaCapability = null;
+    let klarna = {
+      status: klarnaStatus,
+      country: synced?.country || null,
+      requirements: [],
+      pendingVerification: false,
+      disabledReason: null,
+    };
     if (klarnaStatus === "pending" || klarnaStatus === "inactive") {
       try {
-        klarnaCapability = summariseFinancingCapability(
-          await stripe.accounts.retrieveCapability(synced.id, FINANCING_PROVIDERS.klarna.capability),
-        );
+        const capability = await stripe.accounts.retrieveCapability(synced.id, FINANCING_PROVIDERS.klarna.capability);
+        klarna = { ...klarna, ...summariseProviderCapability("klarna", capability) };
       } catch (err) {
         console.error("[stripe/connect/status] klarna capability read failed:", err?.message);
       }
     }
-    const klarna = {
-      status: klarnaStatus,
-      country: synced?.country || null,
-      requirements: klarnaCapability?.requirements || [],
-      pendingVerification: Boolean(klarnaCapability?.pendingVerification),
-      disabledReason: klarnaCapability?.disabledReason || null,
-    };
-    // The paste-to-Stripe message names the account id, so it follows the
-    // same gate as the id itself (accountIdentityFor) — null for anyone
-    // the settings page would not show the id to.
-    const identity = accountIdentityFor(member, summary);
-    const supportMessages = Object.fromEntries(
-      [
-        ["affirm", affirmStatus, affirmReasonCode],
-        ["klarna", klarnaStatus, klarnaCapability?.disabledReasonCode || null],
-      ].map(([provider, st, code]) => [
-        provider,
-        financingSupportMessage(provider, { accountId: identity?.accountId, status: st, disabledReasonCode: code }),
-      ]),
-    );
 
     // Write it back, so the rest of the app — invoice pay links, the platform
     // company view — sees the same truth without each having to call Stripe.
@@ -289,10 +275,6 @@ export async function GET(request) {
       affirm,
       // Klarna: the same shape as `affirm`, from klarna_payments.
       klarna,
-      // Per provider, the message the owner can paste to Stripe support when
-      // Stripe has declined or is holding it — null otherwise, and null for
-      // anyone the account id is not shown to.
-      financingSupport: supportMessages,
       // Providers the company's own financing note (its quotes) names —
       // names only, never the note. The card works out which of them the
       // pay link cannot offer with the switch's current position

@@ -16,10 +16,15 @@ import { Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { MoreGrid } from "@/app/components/layout/MoreMenu";
 import { useNavShell } from "@/app/components/layout/NavShell";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 
 export default function MorePage() {
   const { t } = useTranslation();
   const shell = useNavShell();
+  // No search for the marketing agency: search is not mounted for them
+  // (TopBar.js), so the box would open nothing.
+  const agency = isMarketingAgency(usePermissions());
   return (
     <div className="p-4 sm:p-6 max-w-6xl">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
@@ -29,6 +34,7 @@ export default function MorePage() {
           </p>
           <h1 className="text-2xl font-bold text-foreground">{t("app.nav.more")}</h1>
         </div>
+        {!agency && (
         <button
           type="button"
           onClick={() => shell.open("search")}
@@ -38,6 +44,7 @@ export default function MorePage() {
           {t("app.search.placeholderShort")}
           <kbd className="text-[11px] font-mono border border-border rounded px-1.5">/</kbd>
         </button>
+        )}
       </div>
       <MoreGrid />
     </div>

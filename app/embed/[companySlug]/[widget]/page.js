@@ -48,6 +48,7 @@ import EmbedFrame from "../../EmbedFrame";
 import Reviews from "../../Reviews";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
 import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
+import { landingCarriesSignal } from "@/lib/tracking/attribution";
 import {
   CLIENT_META_COMPANY_SELECT,
   clientPageMetadata,
@@ -166,10 +167,29 @@ export default async function EmbedPage({ params, searchParams }) {
   // URL parameter could set is a look anyone framing the page could change.
   // The booking flow does not take a look yet; it is mounted as before.
   const look = widget === "book" ? null : await loadPublicFormLook(companySlug);
+
+  // ── The booking embed counts a visit when its URL brought an ad ─────────
+  //
+  // BookingFlow inside an embed used to track nothing: its URL was the
+  // frame's own, which carried no landing, so a visit row could only ever say
+  // "direct". The snippet now forwards the host page's ad parameters and
+  // cookies onto the frame's src (lib/embed/snippet.js), so when they are
+  // there the booking is credited to that ad exactly as on /book. When they
+  // are not, nothing changes — no visit, as before — rather than every embed
+  // view of every contractor's site suddenly counting in the report as a
+  // booking-page visit from their own domain.
+  const query = (await searchParams) || {};
+  const bookingLanding = {};
+  for (const [k, v] of Object.entries(query)) {
+    const first = Array.isArray(v) ? v[0] : v;
+    if (typeof first === "string") bookingLanding[k] = first.slice(0, 600);
+  }
+  const trackBooking = widget === "book" && landingCarriesSignal(bookingLanding);
+
   return (
     <EmbedFrame>
       {widget === "book" ? (
-        <BookingFlow companySlug={companySlug} embedded />
+        <BookingFlow companySlug={companySlug} embedded trackVisit={trackBooking} />
       ) : widget === "instant-quote" ? (
         <InstantQuoteFlow companySlug={companySlug} embedded look={look} />
       ) : (

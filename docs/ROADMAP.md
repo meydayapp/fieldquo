@@ -1,6 +1,10 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 9 October 2026 (ad clicks through an embed: the lead-taking embed snippet copies the host page's utm_*, gclid/gbraid/wbraid, fbclid, ttclid, Meta's ad parameters and the _fbc/_fbp/_gcl_aw cookies onto the frame's src, plus `ref` (the host path) — only when there is something to forward; the frame credits ONE click (URL beats cookie, later cookie beats earlier), keeps the winning gclid, an fbp beside a Meta click, and the host page path; the self-quote form and the booking embed now attribute their own URL; Meta CAPI sends fbp; an agency-posted lead with a gclid is google_ads; docs/AGENCY-GOOGLE-ADS.md for the two Google Zaps. Schema additive — NOT applied: `ALTER TABLE "FunnelVisit" ADD COLUMN IF NOT EXISTS "gclid" TEXT, ADD COLUMN IF NOT EXISTS "fbp" TEXT, ADD COLUMN IF NOT EXISTS "hostPage" TEXT;` — until it runs, every visit query is tried once with the columns and once without, and the gclid and host path are not kept. check:embed-attribution.)
+
+Last updated: 9 October 2026 (a "Marketing agency" team role — Settings › Team › Invite › Marketing agency: funnels, Marketing results and a new Marketing › Leads at the agency API's privacy level, refused on every other API route and page, takes a seat; and on the Leads board an "Agency" badge naming the key and a source filter. No schema change. See "Marketing agency team role, and the Leads board's Agency badge and source filter" below.)
 Last updated: 7 October 2026 (drawing read: one room, one wall, one state of the building. A room or wall drawn on several sheets is counted once from its best drawing (the existing drawing when the set has one), a set drawn "as existing" and "proposed" is priced in ONE state chosen from the request with a one-tap "Include them" on the review panel — pinned there, interior quote only — and annexe rooms no longer take the nave's inside height. Computed on view — the church re-prices when opened (interior 22,754 → 10,005 sq ft; 14,523 with "Include them"; exterior 4,082), no re-read, no charge; its saved draft quote is NOT changed. No schema change. See "Drawing read — one room, one wall, one state" below.)
+Last updated: 9 October 2026 (Settings › Email domain: "Clients see: From … · Replies to …" computed by the send path, "Replies go to" edited in place through the one Company.email writer, the company email's domain prefilled and its local part offered as a one-tap sender — see the first section below).
 
 Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
 Last updated: 6 October 2026 (drawing read: the measurement schema was refused before every call since 5a300fc9f, and "Read again" wrote those failures over the church's measured faces. Schema fixed; a failed or empty re-measure now keeps the earlier measurement, says so on the read card and is not charged; a price mostly on guessed quantities says so. No schema change. See "Drawing read — Read again threw measurements away" below.)
@@ -145,13 +149,18 @@ what was built is only what execution showed missing.
   poll and `account.updated`; the poll also requests `klarna_payments` with
   the same opt-in as Affirm (only when the account doesn't already hold it).
 - Settings › Payments: title "Offer pay-over-time (Affirm, Klarna)"; Klarna's
-  status in words (`FinancingProviderStatus.js`), what to do when Stripe
-  declines or holds a provider, and a copyable support message naming the
-  account id, capability and Stripe's reason code (owner-only, like the id).
+  status in words (`FinancingProviderStatus.js`). Stripe's reason, the next
+  step and the copyable support message come from the SAME 22-code table and
+  `AffirmReason.js` the Affirm line uses (merged from the copy-client fix,
+  c0af97fb0): `lib/stripe/financingReasons.js` swaps Klarna's name and
+  `klarna_payments` into Affirm's sentences (brand names are never
+  translated, so this holds in all nine languages — asserted per locale per
+  code), with Klarna's own sentence for `rejected.unsupported_business`
+  (Affirm's says "Affirm restricts home-improvement contractors", false for
+  Klarna). The account id in the message is owner-only, like the id.
   Warns when the quotes' financing note names a provider the pay link can't
   offer (TrueFinish's note names Affirm and Klarna → Affirm flagged); the
-  note is never edited. The fees card lists Stripe's published pay-over-time
-  rates when financing is on.
+  note is never edited.
 - Portal invoice page, card-fee path only: "Pay over time (Klarna)" /
   "(Affirm or Klarna)" — the providers active AND in range for the figure the
   page asks for (balance, stage share or payment request, all server-side),
@@ -228,6 +237,172 @@ reading them off the source) updated.
   is") — fillPair would fix it.
 - A Stripe promotional rate below the card estimate is not refunded (the
   true-up never goes down) — same rule as every card payment.
+
+---
+
+## Changing a quote's client never rewrites a shared client; Affirm's reason in words (9 October 2026)
+
+Production incident: the owner duplicated accepted Q-2026-0022 (Maureen
+Faulkner) and, on the copy, "changed the client" to himself — the builder's
+only control on an edit PATCHed the shared Client row, so her signed quote,
+job, invoice and appointment printed his details (data restored by hand).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- PATCH /api/quotes/[id] takes `clientId` — repoints THAT draft only (not
+  once sent; not while a job/invoice hangs off it; same tenant). The builder
+  (both layouts) opens the client region on "Use a different client for this
+  quote".
+- PATCH /api/clients/[id] refuses an identity change (name, contactName,
+  email, phone, address) on a client other records carry unless
+  `scope: "everywhere"` — 409 `client_in_use` naming the records. "Edit this
+  client's details everywhere" shows the count (GET /api/clients/[id]/usage)
+  and needs a tick. `lib/clients/editScope.js`.
+- Settings → Payments: Stripe's Affirm `disabled_reason` (22 documented
+  codes) in plain words with the next step, nine languages, and a copyable
+  Stripe-support message with the account id (`AffirmReason.js`,
+  `lib/stripe/affirm.js` AFFIRM_REASON_TEXT). The card no longer says "card
+  only" — invoice checkout uses dynamic payment methods, so other methods
+  still show when Affirm is off.
+- No schema change.
+
+### Checks
+
+`check:client-edit-scope` (65, executes duplicate → repoint → the old path's
+409), `check:request-pay-checkout` (15, executes the pay route: a $6,500
+request becomes a $6,500 session on the financing-allowed configuration),
+`check:processing-fee` (+9 Affirm wording assertions).
+## Email domain: replies and sender follow the company email (9 October 2026)
+
+The owner: "in the domains page we should know what is the company's email
+address so that outgoing emails point to that and not to the owner's log in
+email." TrueFinish (read-only, production): Company.email
+info@truefinishcabinets.com, no domain, emailFromLocal "quotes"; Reply-To was
+the owner's Gmail until 7 Oct (blank Company.email → `ownerEmailFor`), From is
+always "TrueFinish Cabinets Inc. <quotes@fieldquo.com>".
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Top card on Settings › Email domain**: "Clients see: From {from} ·
+  Replies to {replyTo}", computed server-side by `lib/email/senderStatus.js`
+  through `resolveSender` → `senderFor`, `replyToHeader` (the Reply-To
+  default `sendEmail` applies, now exported from `lib/email/resend.js`) and
+  `sendingMailboxFor` (the connected-mailbox lookup, extracted from
+  `trySendThroughMailbox` so both use one query). Every handler of
+  `/api/settings/email-domain` answers with the same view.
+- **"Replies go to"** row: Company.email, editable in place; blank shows
+  "Replies currently go to {owner} because no company email is set." with the
+  field. Saves through `lib/email/companyReplyTo.js` → PATCH
+  `/api/settings/business-info` (the company profile's writer);
+  ReplyToPromptModal now uses the same function, and the modal no longer
+  opens on this page (the row replaces it).
+- **business-info PATCH** now trims Company.email and refuses what
+  `emailProblem()` refuses (`code: invalid_company_email`); blank still
+  clears; a legacy value resent unchanged is let through. **senderFor** keeps
+  such a value out of Reply-To (owner fallback applies). Production had 0 of
+  38 invalid rows, so no live Reply-To changed.
+- **Suggestions** (`lib/email/senderSuggestion.js`): the empty domain field
+  prefills from the company email's domain (else send.<website> as before);
+  a free mailbox (gmail, outlook, hotmail.*, yahoo.*, icloud, ISP mailboxes)
+  says a custom domain is needed. When the domain being set up or verified
+  equals the email's domain, the page shows the From it would give and offers
+  "Use info@…" — a one-tap PATCH of emailFromLocal; nothing writes it
+  otherwise (connecting keeps the stored local part).
+
+### Checks
+
+`check:email-sender-status` (in check:all) — the real GET/POST/PATCH of the
+email-domain route and the real business-info PATCH against the scripted db:
+status line == resolveSender for TrueFinish, blank, 11 hostile emails,
+pending/verified/platform domains, free mailboxes and a sending mailbox; the
+suggestion never writes emailFromLocal without the tap; the Reply-To edit
+goes through the one writer; 18 labels × 9 locales. 15/15 mutations killed.
+Fixtures: dbStub gains `mailboxConnection`, apiMemberStub gains
+`memberOrRefusalPlain`. No schema change.
+
+### Which domain the connect card recommends (decided 2026-10-09)
+
+- Company email on a custom domain: "Connect {domain}, the domain of your
+  company email, so clients see {address} in the From line. Connecting
+  doesn't change where your existing email is received." The send.-subdomain
+  advice shows only when there is no custom company-email domain. The inbox
+  sentence rests on Resend's docs (sending MX/SPF on send.<domain>, DKIM at
+  resend._domainkey; "MX records only impact the subdomain they are
+  associated to" — resend.com/docs/knowledge-base/how-do-i-avoid-conflicting-with-my-mx-records),
+  cited in the page; it would stop being true only if Inbound were switched
+  on for the domain, which createDomain never does.
+
+---
+## Marketing agency team role, and the Leads board's Agency badge and source filter (9 October 2026)
+
+Owner-approved, both halves. Not deployed — worktree branch, unpushed. **No
+schema change**: the role is a preset on the existing `employee` tier plus one
+key in the existing `Member.permissions` Json; the agency key is stamped on the
+existing `LeadRequest.intake` Json.
+
+### What shipped
+
+1. **Leads board: "Agency" badge** (`app/app/leads/page.js` AgencyBadge). A lead
+   the agency posted (`source: agency_funnel`) shows "Agency · Forward Media
+   Marketing" — the key's name, truncated on a narrow card, whole on hover.
+   `POST /api/v1/marketing/leads` now records `intake.agencyKey: { id, name }`
+   (`lib/agency/api.js` createAgencyLead; never the secret or hash). Older
+   leads say "Agency" with no name. Badge colours are the app's `accent` /
+   `accent-foreground` tokens: 14.13:1 light, 10.62:1 dark (measured by the
+   check). The lead drawer adds the name after "Your marketing agency's funnel".
+2. **Leads board: source filter** — a select beside Quoted: All, Agency funnel,
+   Meta ads (Facebook, Instagram), Google Ads, Website, Referral, Phone, Other,
+   with counts. `GET /api/leads` places every lead with `lib/agency/channels.js`
+   `channelOf` (the agency API's own rule, reading the conversation the lead
+   began on — `originThreadOf` / `threadViewOf`, now shared with
+   `lib/agency/leadFacts.js`) and returns `sourceFilter` and `agency`;
+   `sourceFilterOf` splits organic into Phone (`phone_agent`,
+   `phone_agent_recovered`) and Other. A WhatsApp ad counts as a Meta ad.
+3. **"Marketing agency" team role** (`lib/permissions/marketingAgency.js`,
+   preset `PERMISSION_PRESETS.marketingAgency`). Invite: Settings › Team ›
+   Invite › "Marketing agency" (fixed panel, no dials, "Takes a seat, like any
+   team member."). They can: build and edit funnels (`/app/funnels`, every
+   `/api/funnels` route via `requireMarketingAccess`), see Marketing results
+   (job values only while "Share job values" is on), and see Marketing ›
+   Leads (`/app/marketing/leads`, `GET /api/marketing/leads` →
+   `memberLeadRows`, built with `buildLeadRow` — first name, source, stage,
+   partial postal code; contacts only while "Share contact details" is on;
+   only paid, agency-funnel and website leads), plus their own interface
+   language. Everything else is refused, deny by default:
+   - API: `assertMarketingAgencyScope` in `lib/currentMember.js` (both
+     branches) refuses every `/api` path not in `AGENCY_API_RULES`.
+   - Pages: `app/components/team/AgencyPageGate.js` around every `/app` page
+     (decided on every navigation); `/app` sends them to their results; the two
+     server pages that read the database refuse them themselves.
+   - Shell: nav, phone bar ("marketing" set: Results · Leads · Funnels), settings
+     rows (Language only), no search, bell, Create, Jennifer or tours; not Crew.
+   - Never notified (`lib/notifications/recipients.js`), in no chat room
+     (`activeRoster`).
+   - Seat: `isBillableSeat` counts it (its grid sits below the Crew ceiling and
+     would otherwise read as free). No pricing change.
+   - A supervisor's invite keeps the marker (`clampPermissions`); Custom drops
+     it (`customFrom`); owners and admins are never confined.
+
+### Not included — owner decision
+
+- **The marketing designer** (`/app/marketing/designer`) sits on the same
+  `user:manage` axis, but it lists jobs and their photos (job-post), job videos
+  (video posts) and the company's campaigns. Left out rather than opened with
+  those inside it. See the agent's report for the recommendation.
+
+### Checks
+
+- `check:marketing-agency-role` (new, in check:all): the real
+  `getCurrentMember` over all 1,578 route × method pairs — the agency let
+  through on exactly 20 written out in the check, refused on every other;
+  owner and Crew never refused by it; real handlers 403 before a business row
+  is read; pages, nav, notifications, chat, seat, invite. 18 mutants caught.
+- `check:lead-source-filter` (new, in check:all): hostile inputs, the shipped
+  `GET /api/leads` executed against the shape stub, the page wiring, contrast.
+  9 mutants caught.
+- `check:agency-api`: the key stamp and `memberLeadRows` (3 more mutants).
+- `check:shell` counts the rail an owner sees; `check:company-chat` expects no
+  Chat tab on the agency's bar.
 
 ---
 

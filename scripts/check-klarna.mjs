@@ -156,8 +156,10 @@ ok("affirmAmountEligible: $50–$30,000 inclusive, USD/CAD only",
 ok("affirmOffered reads stripeAffirmStatus only — Klarna active does not offer Affirm",
   !affirm.affirmOffered({ company: KLARNA_ACTIVE, amountCents: 650_000, currency: "cad" }) &&
     affirm.affirmOffered({ company: { ...KLARNA_ACTIVE, stripeAffirmStatus: "active" }, amountCents: 650_000, currency: "cad" }));
-ok("summariseAffirmCapability keeps its three keys (no new key leaks into `affirm`)",
-  Object.keys(affirm.summariseAffirmCapability(null)).sort().join() === "disabledReason,pendingVerification,requirements");
+ok("summariseAffirmCapability and Klarna's summary have the SAME shape (requirements, verification, code, words, contact Stripe)",
+  Object.keys(affirm.summariseAffirmCapability(null)).sort().join() === "contactStripe,disabledReason,disabledReasonCode,pendingVerification,requirements" &&
+    Object.keys((await import("@/lib/stripe/financingReasons.js")).summariseProviderCapability("klarna", null)).sort().join() ===
+      Object.keys(affirm.summariseAffirmCapability(null)).sort().join());
 
 console.log("\n── 4. Capability status, and the request on the poll ────────────────\n");
 await statusSuite(fin, ok);
@@ -358,9 +360,13 @@ console.log("\n── 8. The settings poll, executed ─────────
   const capReads = [];
   stripeLib.stripe.accounts.retrieve = async () => ACCOUNT;
   stripeLib.stripe.accounts.update = async () => { throw new Error("must not request anything for this account"); };
+  // Stripe's reason per capability: Affirm refused for the business type
+  // (TrueFinish's real answer); Klarna's set per case below.
+  let klarnaReason = null;
   stripeLib.stripe.accounts.retrieveCapability = async (id, cap) => {
     capReads.push(cap);
-    return { id: cap, status: "inactive", requirements: { currently_due: [], past_due: [], pending_verification: [], disabled_reason: cap === "affirm_payments" ? "rejected.unsupported_business" : null } };
+    const reason = cap === "affirm_payments" ? "rejected.unsupported_business" : klarnaReason;
+    return { id: cap, status: "inactive", requirements: { currently_due: [], past_due: [], pending_verification: [], disabled_reason: reason } };
   };
   const run = async (member, row = TF) => {
     dbStub.rows.company = [{ ...row }];
@@ -369,6 +375,7 @@ console.log("\n── 8. The settings poll, executed ─────────
     const res = await GET(new Request("https://app.fieldquo.com/api/stripe/connect/status"));
     return { status: res.status, body: await res.json(), writes: dbStub.writes.filter((w) => w.model === "company") };
   };
+  const reasons = await import("@/lib/stripe/financingReasons.js");
   const OWNER = { id: "m1", userId: "u1", companyId: TF.id, role: "owner" };
   const r = await run(OWNER);
   ok("owner, TrueFinish-like account: 200", r.status === 200, r.body);
@@ -376,9 +383,10 @@ console.log("\n── 8. The settings poll, executed ─────────
   ok("  ^ Affirm's is Stripe's answer: inactive", r.body.affirm?.status === "inactive");
   ok("  ^ the capability object is read for Affirm (inactive) and NOT for an active Klarna", capReads.join() === "affirm_payments", capReads);
   ok("  ^ stripeKlarnaStatus is written from that answer", r.writes.some((w) => w.data.stripeKlarnaStatus === "active"), r.writes);
-  ok("  ^ the support message for Affirm names the account id, the capability and Stripe's reason code",
-    /acct_1TrueFinish/.test(r.body.financingSupport?.affirm || "") && /affirm_payments/.test(r.body.financingSupport.affirm) && /rejected\.unsupported_business/.test(r.body.financingSupport.affirm));
-  ok("  ^ no support message for Klarna (active — nothing to ask)", r.body.financingSupport?.klarna === null);
+  ok("  ^ Affirm's reason travels as a code + plain words + 'contact Stripe' (the merged AffirmReason table)",
+    r.body.affirm.disabledReasonCode === "rejected.unsupported_business" && /declined Affirm for your type of business/.test(r.body.affirm.disabledReason) && r.body.affirm.contactStripe === true);
+  ok("  ^ the account id reaches the page only through accountDetails (owner-only), for the copyable message", r.body.accountDetails?.accountId === "acct_1TrueFinish");
+  ok("  ^ an active Klarna carries no reason", !r.body.klarna.disabledReasonCode && !r.body.klarna.contactStripe);
   ok("  ^ the note's providers are named (Affirm, Klarna) and only Affirm is unofferable now",
     r.body.financingNoteProviders?.map((p) => p.key).join() === "affirm,klarna" &&
       fin.unofferedNamedProviders(r.body.financingNoteProviders, { offerFinancing: true, stripeAffirmStatus: r.body.affirm.status, stripeKlarnaStatus: r.body.klarna.status }).map((p) => p.key).join() === "affirm");
@@ -387,14 +395,58 @@ console.log("\n── 8. The settings poll, executed ─────────
   const pendingAcct = { ...ACCOUNT, capabilities: { ...ACCOUNT.capabilities, klarna_payments: "pending" } };
   stripeLib.stripe.accounts.retrieve = async () => pendingAcct;
   capReads.length = 0;
+  klarnaReason = "requirements.fields_needed";
   const p = await run(OWNER, { ...TF, stripeKlarnaStatus: "active" });
-  ok("Klarna pending at Stripe: the card says pending, the column follows, the capability is read, a support message exists",
-    p.body.klarna.status === "pending" && p.writes.some((w) => w.data.stripeKlarnaStatus === "pending") && capReads.includes("klarna_payments") && /klarna_payments/.test(p.body.financingSupport.klarna || ""));
+  ok("Klarna pending at Stripe: the column follows, the capability is read, its reason is Affirm's sentence with Klarna's name",
+    p.body.klarna.status === "pending" && p.writes.some((w) => w.data.stripeKlarnaStatus === "pending") && capReads.includes("klarna_payments") &&
+      p.body.klarna.disabledReasonCode === "requirements.fields_needed" && /before it can turn Klarna on/.test(p.body.klarna.disabledReason) &&
+      !/Affirm/.test(p.body.klarna.disabledReason) && p.body.klarna.contactStripe === false, p.body.klarna);
+
+  const refusedAcct = { ...ACCOUNT, capabilities: { ...ACCOUNT.capabilities, klarna_payments: "inactive" } };
+  stripeLib.stripe.accounts.retrieve = async () => refusedAcct;
+  klarnaReason = "rejected.unsupported_business";
+  const k = await run(OWNER, { ...TF, stripeKlarnaStatus: "active" });
+  ok("Klarna refused for the business type: Klarna's OWN sentence (not Affirm's contractor claim), and 'contact Stripe'",
+    k.body.klarna.status === "inactive" && /declined Klarna for your type of business/.test(k.body.klarna.disabledReason) &&
+      /business-to-business/.test(k.body.klarna.disabledReason) && !/home-improvement/.test(k.body.klarna.disabledReason) && k.body.klarna.contactStripe === true, k.body.klarna);
+  const kMsg = reasons.financingSupportMessageFor("klarna", { accountId: k.body.accountDetails.accountId, code: k.body.klarna.disabledReasonCode, businessName: "TrueFinish" });
+  ok("  ^ the copyable message names the account id, klarna_payments, Klarna and the code — never Affirm",
+    /acct_1TrueFinish/.test(kMsg) && /klarna_payments/.test(kMsg) && /Klarna/.test(kMsg) && /rejected\.unsupported_business/.test(kMsg) && !/affirm/i.test(kMsg), kMsg);
 
   stripeLib.stripe.accounts.retrieve = async () => ACCOUNT;
+  klarnaReason = null;
   const admin = await run({ ...OWNER, role: "admin" });
-  ok("an admin (not owner) gets the statuses but NO support message — it carries the account id, which is owner-only",
-    admin.body.klarna?.status === "active" && admin.body.financingSupport?.affirm === null && !JSON.stringify(admin.body).includes("acct_1TrueFinish"));
+  ok("an admin (not owner) gets the statuses but never the account id (so no id goes into a support message)",
+    admin.body.klarna?.status === "active" && !JSON.stringify(admin.body).includes("acct_1TrueFinish"));
+
+  // Every one of the 22 codes, for Klarna, in English and in every locale.
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  const codes = reasons.FINANCING_REASON_CODES;
+  ok(`every reason code (${codes.length}): the Klarna sentence names Klarna wherever Affirm's names Affirm, and never says Affirm`,
+    codes.length >= 22 &&
+      codes.every((c) => !/Affirm/.test(reasons.financingReasonText("klarna", c)) && (!/Affirm/.test(affirm.affirmReasonText(c)) || /Klarna/.test(reasons.financingReasonText("klarna", c)))),
+    codes.filter((c) => /Affirm/.test(reasons.financingReasonText("klarna", c))));
+  const locales = ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"];
+  const { affirmReasonSlug } = affirm;
+  const unswappable = [];
+  for (const l of locales) for (const c of codes) {
+    const own = reasons.financingReasonOwnKey("klarna", c);
+    const text = own ? APP_MESSAGES[l][own] : reasons.withProvider(APP_MESSAGES[l][`app.setPayments.affirmReason.${affirmReasonSlug(c)}`], "klarna");
+    if (typeof text !== "string" || /Affirm/.test(text)) unswappable.push(`${l}:${c}`);
+  }
+  ok("  ^ in all nine app languages, the Klarna sentence has no 'Affirm' left in it (brand names are never translated, so the swap holds)", unswappable.length === 0, unswappable.slice(0, 8));
+  ok("  ^ Klarna's own unsupported-business sentence exists in all nine languages, and names Klarna",
+    locales.every((l) => /Klarna/.test(APP_MESSAGES[l]["app.setPayments.klarnaReason.rejected_unsupported_business"] || "")));
+  ok("  ^ Affirm's sentences are untouched by the swap (provider 'affirm' is the identity)",
+    codes.every((c) => reasons.financingReasonText("affirm", c) === affirm.affirmReasonText(c)) &&
+      reasons.financingSupportMessageFor("affirm", { accountId: "acct_x", code: "rejected.other" }) === affirm.affirmSupportMessage({ accountId: "acct_x", code: "rejected.other" }));
+  const reasonCard = stripComments(read("app/app/settings/payments/AffirmReason.js"));
+  const statusCard = stripComments(read("app/app/settings/payments/FinancingProviderStatus.js"));
+  ok("the settings card shows Klarna's reason through the SAME AffirmReason component (provider=\"klarna\"), with the owner-only account id",
+    /<AffirmReason provider="klarna" affirm=\{klarna\} accountId=\{accountId\} businessName=\{businessName\} t=\{t\} \/>/.test(statusCard) &&
+      /financingReasonOwnKey\(provider, code\)/.test(reasonCard) && /withProvider\(t\(`app\.setPayments\.affirmReason\.\$\{affirmReasonSlug\(code\)\}`/.test(reasonCard) &&
+      /accountId=\{status\?\.accountDetails\?\.accountId \|\| null\}/.test(read("app/app/settings/payments/page.js")));
+  ok("  ^ no second, divergent support-message box for Affirm (the merged AffirmReason is the one)", !/financingSupport|SupportMessage|ProviderHelp/.test(statusCard));
   const imp = await run({ ...OWNER, impersonation: true, impersonationMode: "read_only" });
   ok("read-only impersonation: Stripe's answer is shown and NOTHING is written", imp.status === 200 && imp.body.klarna?.status === "active" && imp.writes.length === 0);
 }
@@ -422,7 +474,7 @@ console.log("\n── 9. Copy, in every language ──────────�
       /Klarna's rules don't allow passing this fee on to the client/.test(APP_MESSAGES.en["app.setPayments.feesFinancingNoPassOn"]));
   ok("  ^ placeholders survive translation ({min}/{max}, {country}, {provider}, {providers}, {items})",
     langs.every((l) => /\{min\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaActive"]) && /\{max\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaActive"]) &&
-      /\{country\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaUnavailable"]) && /\{provider\}/.test(APP_MESSAGES[l]["app.setPayments.financingSupportLabel"]) &&
+      /\{country\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaUnavailable"]) &&
       /\{providers\}/.test(APP_MESSAGES[l]["app.setPayments.financingNoteWarning"]) &&
       /\{items\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaAsking"])));
   ok("the card's title lists both providers", APP_MESSAGES.en["app.setPayments.financingTitleProviders"] === "Offer pay-over-time (Affirm, Klarna)");

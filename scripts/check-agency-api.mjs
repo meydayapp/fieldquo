@@ -43,7 +43,7 @@ const { deliverDue, cleanTargetUrl, nextAttemptAfter, MAX_ATTEMPTS } = await imp
 const { readPostal, postalForAgency } = await import("@/lib/agency/postal");
 const { buildLeadRow, LEAD_ROW_KEYS, CONTACT_KEYS, MONEY_KEYS, firstNameOf, scrubContactDetails } = await import("@/lib/agency/leadRow");
 const { newLeadRef, displayRef, resolveRefQuery, isLeadRef } = await import("@/lib/agency/leadRef");
-const { channelOf } = await import("@/lib/agency/channels");
+const { channelOf, agencyBadgeOf, MARKETING_CHANNELS } = await import("@/lib/agency/channels");
 const { fakeDb } = await import("./fixtures/memoryPrisma.mjs");
 
 let pass = 0;
@@ -381,6 +381,14 @@ ok("its attribution is kept: campaign id, fbclid", in1.body.lead.campaignId === 
 ok("its answer is privacy-safe too", hasNoPii(in1.body.lead) && in1.body.lead.firstName === "Gus" && in1.body.lead.postalCode === "K1S");
 const logged = await db.activityLog.findMany({ where: { companyId: A, action: "lead.created_by_agency" } });
 ok("the company's activity log names the agency", logged.length === 1 && /Pulse funnel/.test(logged[0].actorName));
+// 2026-10-09: the key is stamped on the lead itself, for the board's badge.
+const gusStored = (await db.leadRequest.findMany({ where: { companyId: A, source: "agency_funnel" } }))[0];
+ok("the lead records WHICH key sent it: intake.agencyKey { id, name }",
+  gusStored?.intake?.agencyKey?.id === keyW.id && gusStored.intake.agencyKey.name === "Pulse funnel", gusStored?.intake);
+ok("…and only those two — never the secret, never the hash",
+  JSON.stringify(Object.keys(gusStored?.intake?.agencyKey || {})) === '["id","name"]' && !JSON.stringify(gusStored).includes(SECRET_W));
+ok("…and the board's badge reads the name back", agencyBadgeOf(gusStored)?.name === "Pulse funnel");
+ok("…while the rest of the intake is what the agency sent", gusStored?.intake?.service === "Deck staining" && gusStored.intake.capturedBy === "agency_funnel");
 const dupEmail = await api.createAgencyLead({ db, companyId: A, key: keyW, now: clock, deps: { createLead }, body: { name: "Gus H", email: "gus@example.com" } });
 ok("same email → duplicate, no second lead", dupEmail.status === 200 && dupEmail.body.duplicate === true && dupEmail.body.lead.ref === in1.body.lead.ref);
 const dupPhone = await api.createAgencyLead({ db, companyId: A, key: keyW, now: clock, deps: { createLead }, body: { name: "G Hill", phone: "+1 613-555-0199" } });
@@ -427,6 +435,38 @@ ok("a revoked key → 401 key_revoked", afterRevoke.refusal?.status === 401 && a
 ok("its subscriptions ended (key_revoked)", (await db.agencyHookSubscription.findFirst({ where: { id: subLive.body.id } })).endedReason === "key_revoked");
 ok("the row stays — revoked, not deleted", (await db.agencyAccessKey.findMany({ where: { companyId: A } })).length === 2);
 ok("B's owner cannot revoke A's key", (await settings.revokeAgencyKey(db, ownerB, writer.body.key.id)).status === 404);
+
+// ── 10b. The agency as a TEAM MEMBER: Marketing › Leads ───────────────────
+//
+// GET /api/marketing/leads answers from memberLeadRows: the same buildLeadRow
+// rows, the same two switches, narrowed to the leads marketing brought in.
+section("10b. Marketing › Leads for the agency team member (memberLeadRows)");
+{
+  await db.leadRequest.create({ data: { companyId: A, name: "Hal Organic", email: "hal@example.com", phone: "+16135550101", source: "manual", createdAt: clock, updatedAt: clock } });
+  await db.leadRequest.create({ data: { companyId: A, name: "Ivy Referral", email: "ivy@example.com", source: "referral", createdAt: clock, updatedAt: clock } });
+  await db.leadRequest.create({ data: { companyId: A, name: "Jo Phone", phone: "+16135550102", source: "phone_agent", createdAt: clock, updatedAt: clock } });
+  const off = await api.memberLeadRows({ db, companyId: A, now: clock });
+  const names = off.body.leads.map((r) => r.firstName);
+  ok("200, with the sharing switches stated", off.status === 200 && off.body.sharing.contactDetails === false && off.body.sharing.jobValues === true, off.body.sharing);
+  ok("only the leads marketing brought in", off.body.leads.length > 0 && off.body.leads.every((r) => MARKETING_CHANNELS.includes(r.channel)), off.body.leads.map((r) => r.channel));
+  ok("…the Meta lead form and the agency's funnel among them", names.includes("Ana") && names.includes("Gus"), names);
+  ok("…never a phone call, a staff-typed lead or a referral", !names.some((n) => ["Hal", "Ivy", "Jo"].includes(n)), names);
+  ok("…and never another company's", !names.includes("Zed"));
+  ok("contact sharing off: first name only, no surname/phone/email/street on any row", off.body.leads.every(hasNoPii));
+  ok("the row is buildLeadRow's, key for key", off.body.leads.every((r) => JSON.stringify(Object.keys(r)) === JSON.stringify(LEAD_ROW_KEYS)));
+  await settings.setAgencySharing(db, owner, { contactDetails: true });
+  const on = await api.memberLeadRows({ db, companyId: A, now: clock });
+  const ana = on.body.leads.find((r) => r.firstName === "Ana");
+  ok("contact sharing on: the phone and email arrive", ana?.phone === "613-555-0142" && ana?.email === "ana@example.com" && on.body.sharing.contactDetails === true);
+  await settings.setAgencySharing(db, owner, { contactDetails: false, jobValues: false });
+  const noMoney = await api.memberLeadRows({ db, companyId: A, now: clock });
+  ok("job values off: every money field null", noMoney.body.leads.every((r) => MONEY_KEYS.every((k) => r[k] === null)));
+  await settings.setAgencySharing(db, owner, { jobValues: true });
+  const rowsB = await api.memberLeadRows({ db, companyId: B, now: clock });
+  const refsA = new Set(off.body.leads.map((r) => r.ref));
+  ok("company B's member sees B's marketing leads only (Zed, never one of A's refs)",
+    rowsB.body.leads.some((r) => r.firstName === "Zed") && rowsB.body.leads.every((r) => !refsA.has(r.ref)), rowsB.body.leads.map((r) => r.firstName));
+}
 
 // ── Pure helpers ───────────────────────────────────────────────────────────
 section("Pure helpers");
@@ -483,6 +523,10 @@ if (!MUTANT && !fails.length) {
     ["lib/agency/events.js", "history backfilled at subscribe", "if (!start || e.occurredAt < start) continue;", "if (!start) continue;"],
     ["lib/agency/settings.js", "support session may create keys", "  if (member?.impersonation) return SUPPORT_READ_ONLY;\n  if (!canManageAgencyAccess(member)) return NOT_ALLOWED;", "  if (!member) return NOT_ALLOWED;"],
     ["lib/agency/delivery.js", "private targets allowed", 'if (u.protocol !== "https:") return null;', ""],
+    // 2026-10-09: the key stamp, and the team member's lead list.
+    ["lib/agency/api.js", "agency key not stamped on the lead", "intake: stamp ? { ...lead.intake, agencyKey: stamp } : lead.intake", "intake: lead.intake"],
+    ["lib/agency/api.js", "member rows not narrowed to marketing", "facts.filter((f) => MARKETING_CHANNELS.includes(f.channel))", "facts.filter(() => true)"],
+    ["lib/agency/api.js", "member rows ignore the sharing switches", "leads: list.slice(0, MEMBER_ROWS).map((f) => rowOf(f, sharing, now)),", "leads: list.slice(0, MEMBER_ROWS).map((f) => rowOf(f, { ...sharing, shareContacts: true }, now)),"],
   ];
   const backupDir = join(ROOT, ".mutation-backup-agency-api");
   mkdirSync(backupDir, { recursive: true });

@@ -527,10 +527,39 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
       !affirm.affirmOffered({ company: { offerFinancing: false, stripeAffirmStatus: "active" }, amountCents: 226_000, currency: "cad" }) &&
       !affirm.affirmOffered({ company: { offerFinancing: true, stripeAffirmStatus: "active" }, amountCents: 100, currency: "cad" }));
   const cap = affirm.summariseAffirmCapability({ status: "inactive", requirements: { currently_due: ["business_profile.url"], past_due: ["business_profile.url", "company.tax_id"], pending_verification: [], disabled_reason: "requirements.past_due" } });
-  ok("summariseAffirmCapability names what Stripe is asking for in the same words as the account card, de-duplicated, and its reason as a sentence",
+  ok("summariseAffirmCapability names what Stripe is asking for in the same words as the account card, de-duplicated, and its reason as a sentence with the next step",
     cap.requirements.map((r) => r.label).join("; ") === "A business website or product description; Your business number (BN)" &&
-      cap.disabledReason === "Stripe is waiting on information that is now overdue." && cap.pendingVerification === false, cap);
-  ok("  ^ a null capability is empty, never a throw", affirm.summariseAffirmCapability(null).requirements.length === 0 && affirm.summariseAffirmCapability(null).disabledReason === null);
+      cap.disabledReason === affirm.AFFIRM_REASON_TEXT["requirements.past_due"] && /overdue/.test(cap.disabledReason) && /Manage in Stripe/.test(cap.disabledReason) &&
+      cap.disabledReasonCode === "requirements.past_due" && cap.contactStripe === false && cap.pendingVerification === false, cap);
+  ok("  ^ a null capability is empty, never a throw", affirm.summariseAffirmCapability(null).requirements.length === 0 && affirm.summariseAffirmCapability(null).disabledReason === null && affirm.summariseAffirmCapability(null).disabledReasonCode === null);
+
+  // ── 2026-10-09: TrueFinish's card printed "Rejected unsupported business" ──
+  // (humaniseDisabledReason's tidied fallback for a CAPABILITY reason the
+  // account table never had). Every documented code now has a sentence that
+  // says what the client loses (Affirm — never "financing": other dynamic
+  // methods still show) and what to do, in nine languages.
+  const ub = affirm.summariseAffirmCapability({ status: "inactive", requirements: { disabled_reason: "rejected.unsupported_business" } });
+  ok("rejected.unsupported_business: a sentence, not the tidied key, naming the business-type decline and the re-review step",
+    ub.disabledReason !== "Rejected unsupported business" && /declined Affirm for your type of business/.test(ub.disabledReason) &&
+      /home-improvement/.test(ub.disabledReason) && /re-review/.test(ub.disabledReason) && ub.contactStripe === true, ub);
+  const CAP_CODES = ["other", "paused.inactivity", "pending.onboarding", "pending.review", "platform_disabled", "platform_paused", "rejected.inactivity", "rejected.other", "rejected.unsupported_business", "requirements.fields_needed"];
+  const ACCT_CODES = ["action_required.requested_capabilities", "listed", "platform_paused", "rejected.fraud", "rejected.incomplete_verification", "rejected.listed", "rejected.other", "rejected.platform_fraud", "rejected.platform_other", "rejected.platform_terms_of_service", "rejected.terms_of_service", "requirements.past_due", "requirements.pending_verification", "under_review"];
+  const allCodes = [...new Set([...CAP_CODES, ...ACCT_CODES])];
+  ok(`every documented capability and account disabled_reason (${allCodes.length}) has its own Affirm sentence`,
+    allCodes.every((c) => typeof affirm.AFFIRM_REASON_TEXT[c] === "string" && affirm.affirmReasonText(c) === affirm.AFFIRM_REASON_TEXT[c]),
+    allCodes.filter((c) => !affirm.AFFIRM_REASON_TEXT[c]));
+  ok("  ^ none claims the client has no financing (dynamic methods still show other ways to pay)",
+    Object.values(affirm.AFFIRM_REASON_TEXT).every((v) => !/see financing|no financing|card only/i.test(v)));
+  ok("  ^ an unknown future code is still a sentence, never blank", affirm.affirmReasonText("brand_new.reason") === "Brand new reason");
+  const appMsgs = read("app/i18n/appMessages.js");
+  ok("  ^ each one in all nine app languages (app.setPayments.affirmReason.<slug>)",
+    allCodes.every((c) => (appMsgs.match(new RegExp(`"app\\.setPayments\\.affirmReason\\.${affirm.affirmReasonSlug(c)}"`, "g")) || []).length === 9),
+    allCodes.filter((c) => (appMsgs.match(new RegExp(`"app\\.setPayments\\.affirmReason\\.${affirm.affirmReasonSlug(c)}"`, "g")) || []).length !== 9));
+  const msg = affirm.affirmSupportMessage({ accountId: "acct_1TrueFinish", code: "rejected.unsupported_business", businessName: "TrueFinish" });
+  ok("the Stripe-support message carries the account id, the capability and the reason code",
+    /acct_1TrueFinish/.test(msg) && /affirm_payments/.test(msg) && /rejected\.unsupported_business/.test(msg) && /TrueFinish/.test(msg), msg);
+  ok("  ^ without an id it says where the id is, never a placeholder that gets sent",
+    !/acct_/.test(affirm.affirmSupportMessage({ code: "rejected.other" })) && !/<|\[|\{/.test(affirm.affirmSupportMessage({ code: "rejected.other" })));
 
   // The writers, and the card.
   const statusRoute = read("app/api/stripe/connect/status/route.js");
@@ -543,7 +572,15 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
   const page = read("app/app/settings/payments/page.js");
   ok("the settings card prints Stripe's status under the toggle (one sentence per state) and re-polls the moment financing is switched on",
     /affirmSentence\(/.test(page) && /if \(next\) await loadStatus\(\);/.test(page) && /affirmUnavailable/.test(page) && /affirmPending/.test(page) && /affirmInactive/.test(page) && /affirmActive/.test(page));
-  ok("  ^ and prints what Stripe is asking for, in words", /affirmAsking/.test(page) && /disabledReason/.test(page));
+  const reasonCard = read("app/app/settings/payments/AffirmReason.js");
+  ok("  ^ and prints what Stripe is asking for, in words, and its reason through AffirmReason (translated, English fallback, never the raw key)",
+    /affirmAsking/.test(page) && /<AffirmReason/.test(page) && /app\.setPayments\.affirmReason\.\$\{affirmReasonSlug\(code\)\}/.test(reasonCard) && /affirm\.disabledReason \|\| code/.test(reasonCard));
+  ok("  ^ with a copyable Stripe-support message, and the owner's account id when this member may see it",
+    /affirmSupportMessage\(\{ accountId, code, businessName \}\)/.test(reasonCard) && /accountId=\{status\.accountDetails\?\.accountId \|\| null\}/.test(page) && /navigator\.clipboard\.writeText\(message\)/.test(reasonCard));
+  const hook = read("app/app/settings/payments/useStripeConnect.js");
+  ok("opening Settings → Payments asks Stripe and refreshes stripeAffirmStatus (the status poll runs on mount and writes the column on change)",
+    /Promise\.all\(\[loadCompany\(\), loadStatus\(\)\]\)/.test(hook) && /fetchJson\("\/api\/stripe\/connect\/status"\)/.test(hook) &&
+      /affirmStatus !== company\.stripeAffirmStatus/.test(statusRoute));
   const msgs = read("app/i18n/appMessages.js");
   ok("nobody is sent to \"activate Affirm in your Stripe dashboard\" any more — the app copy, the help centre and the in-app articles",
     !/activate Affirm in your Stripe dashboard/i.test(msgs) && !/financingActivateNote/.test(msgs) &&

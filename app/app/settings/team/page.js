@@ -15,7 +15,7 @@ import AccessEditor, {
   emptyPermissionValues,
   presetForValues,
 } from "@/app/components/team/AccessEditor";
-import { describeAccess } from "@/lib/permissions/accessPresets";
+import { describeAccess, customFrom } from "@/lib/permissions/accessPresets";
 import { personTitle } from "@/lib/team/personLabel";
 import CommissionRates from "@/app/components/commissions/CommissionRates";
 import {
@@ -299,13 +299,20 @@ export default function TeamOverviewPage() {
   const CUSTOM = "__custom__";
   const ADMIN = "__admin__";
 
+  // The marketing agency's preset ships translated (AccessEditor.js
+  // PRESET_I18N); the four staff presets print their English label as they
+  // always have.
+  function presetLabel(key, fallback) {
+    return key === "marketingAgency" ? t("app.setTeamNew.agencyPreset.label") : fallback;
+  }
+
   function choicesFor(member) {
     const assignable = grants.assignableRoles || [];
     const out = [];
 
     for (const [key, preset] of Object.entries(PERMISSION_PRESETS)) {
       if (!assignable.includes(PRESET_TO_ROLE[key])) continue;
-      out.push({ value: key, label: preset.label });
+      out.push({ value: key, label: presetLabel(key, preset.label) });
     }
     if (assignable.includes("admin")) {
       out.push({ value: ADMIN, label: ROLE_LABELS.admin });
@@ -322,7 +329,7 @@ export default function TeamOverviewPage() {
         label:
           current === ADMIN
             ? ROLE_LABELS.admin
-            : PERMISSION_PRESETS[current]?.label || accessBadge(member).label,
+            : (PERMISSION_PRESETS[current] && presetLabel(current, PERMISSION_PRESETS[current].label)) || accessBadge(member).label,
         disabled: true,
       });
     }
@@ -346,7 +353,11 @@ export default function TeamOverviewPage() {
     const a = describeAccess(member);
     return {
       label:
-        a.kind === "custom" ? t("app.setTeam.customBadge", "Custom") : a.label,
+        a.kind === "custom"
+          ? t("app.setTeam.customBadge", "Custom")
+          : a.kind === "preset"
+            ? presetLabel(a.presetKey, a.label)
+            : a.label,
       tier: a.role ? tierNote(a.role) : null,
     };
   }
@@ -1255,7 +1266,7 @@ export default function TeamOverviewPage() {
                     // dials you already set rather than a set of its own.
                     values: key
                       ? { ...emptyPermissionValues(), ...PERMISSION_PRESETS[key].values }
-                      : e.values,
+                      : customFrom(e.values),
                   }))
                 }
                 values={editing.values}

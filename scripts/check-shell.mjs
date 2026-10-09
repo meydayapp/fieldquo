@@ -44,6 +44,7 @@ import {
   filterSettingsGroupsByTrade,
 } from "../lib/settings/tradeGateNav.js";
 import { navRowAllowed, NAV_REQUIREMENTS } from "../lib/permissions/nav.js";
+import { AGENCY_ONLY_NAV_ROWS } from "../lib/permissions/marketingAgency.js";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "../lib/permissions.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { PHONE_BARS, PHONE_MORE } from "../lib/nav/phoneBar.js";
@@ -123,6 +124,13 @@ const ALL_PHONE_TABS = [
 ];
 
 const railRows = [HOME, ...NAV.flatMap((g) => g.items)];
+// The marketing agency's own two rows (2026-10-09) sit in the Grow group but
+// are drawn for the agency ONLY — never on the owner's rail, nor anybody
+// else's (lib/permissions/nav.js reads AGENCY_ONLY_NAV_ROWS first). The
+// ceiling and the "nothing new" rule below are about the rail an owner sees,
+// so they count the rail without them; scripts/check-marketing-agency-role.mjs
+// holds the two rows to their own pages.
+const ownerRailRows = railRows.filter((r) => !AGENCY_ONLY_NAV_ROWS.includes(r.key));
 const moreRows = MORE.flatMap((g) => g.items);
 const settingsRows = SETTINGS.flatMap((g) => g.items);
 const en = APP_MESSAGES.en;
@@ -145,7 +153,9 @@ ok("Home, More, the rail groups, the More groups, the account rows, the tabs and
 
 section("1. The rail: at most eighteen top-level rows");
 const CEILING = 18;
-ok(`Home + the rail groups hold ≤ ${CEILING} rows`, railRows.length <= CEILING, `${railRows.length}`);
+ok(`Home + the rail groups hold ≤ ${CEILING} rows`, ownerRailRows.length <= CEILING, `${ownerRailRows.length}`);
+ok("…and the only rows beyond them are the marketing agency's, which no one else is shown",
+  railRows.filter((r) => !ownerRailRows.includes(r)).every((r) => !navRowAllowed(r.key, { role: "owner" }) && !navRowAllowed(r.key, null)));
 ok("every rail group is translated in English and French",
   NAV.every((g) => en[g.key] && APP_MESSAGES.fr[g.key]), NAV.map((g) => g.key).join(" "));
 ok("the rail's More row exists and points at /app/more", MORE_ROW?.href === "/app/more" && exists("app/app/more/page.js"));
@@ -291,7 +301,7 @@ ok("every old destination is ≤ 2 clicks on desktop", table.every((r) => r.desk
   table.filter((r) => !(r.desktop <= 2)).map((r) => `${r.href}:${r.desktop}`).join(", "));
 ok("every old destination is ≤ 2 taps on a phone", table.every((r) => r.phone <= 2),
   table.filter((r) => !(r.phone <= 2)).map((r) => `${r.href}:${r.phone}`).join(", "));
-const newRows = [...railRows, ...moreRows, ...BOTTOM].filter((r) => !OLD_RAIL.some(([h]) => h === r.href) && !OLD_SETTINGS.includes(r.href));
+const newRows = [...ownerRailRows, ...moreRows, ...BOTTOM].filter((r) => !OLD_RAIL.some(([h]) => h === r.href) && !OLD_SETTINGS.includes(r.href));
 // Pages that did not exist when the shell was reorganised, added since as
 // real destinations — each named here with the change that built it, so a
 // row for nothing new still fails.

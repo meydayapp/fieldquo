@@ -681,8 +681,13 @@ section("9. The row, the tab, the gate and the catalogue agree");
   ok("AdminSidebar has the Chat row at /app/chat", /"app\.nav\.chat"[^}]*href:\s*"\/app\/chat"/.test(sidebar));
   // The bar is per role since 2026-10-03 (lib/nav/phoneBar.js), so this is
   // executed against every set rather than read off one array's text.
+  // Every set but the marketing agency's (2026-10-09): the agency is refused
+  // every /api/chat route and is in no room (lib/company/chat/store.js
+  // activeRoster), so a Chat tab on their bar would be a door that refuses.
   ok("every phone bar set — the crew's included — has the Chat tab at /app/chat",
-    Object.values(PHONE_BARS).every((set) => set.some((row) => row.key === "app.nav.chat" && row.href === "/app/chat")));
+    Object.entries(PHONE_BARS).filter(([set]) => set !== "marketing").every(([, set]) => set.some((row) => row.key === "app.nav.chat" && row.href === "/app/chat")));
+  ok("…and the marketing agency's set does not",
+    Array.isArray(PHONE_BARS.marketing) && !PHONE_BARS.marketing.some((row) => row.href === "/app/chat"));
   ok("…and it survives the Crew preset's grid on the bar they actually get",
     phoneBarFor({ role: "employee", permissions: PERMISSION_PRESETS.worker.values }).tabs.some((row) => row.href === "/app/chat"));
   ok("the Chat row has NO NAV_REQUIREMENTS entry — a Crew member keeps it", !("app.nav.chat" in NAV_REQUIREMENTS));

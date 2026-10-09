@@ -8330,6 +8330,17 @@ model FunnelVisit {
   clickNetwork String?
   /// Meta's click id in its _fbc cookie shape: fb.1.<landing ms>.<fbclid>.
   fbc          String?
+  /// Google's click id when the visit is credited to a Google Ads click —
+  /// from the URL, or the host page's _gcl_aw cookie forwarded into an embed
+  /// (lib/tracking/attribution.js). The key an offline-conversion upload
+  /// matches on; copied to the lead's attribution and the agency feed.
+  gclid        String?
+  /// Meta's _fbp browser id forwarded by an embed's host page, kept only
+  /// beside an fbc (a Meta click) — for the Conversions API's matching.
+  fbp          String?
+  /// The host page's PATH an embed sat on ("/quote"), from the snippet's
+  /// `ref`. Printed on the lead's "Came from" line. Never a query string.
+  hostPage     String?
   referrerHost String?
   /// Meta's ad parameters from the landing, cleaned and compact
   /// (lib/tracking/adParams.js compactAd: campaign / ad set / ad names and

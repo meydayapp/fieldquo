@@ -15,6 +15,7 @@ import InstantPayoutCard from "./InstantPayoutCard";
 import PaymentMethodsCard from "./PaymentMethodsCard";
 import ClientCardSurchargeCard from "./ClientCardSurchargeCard";
 import FinancingProviderStatus from "./FinancingProviderStatus";
+import AffirmReason from "./AffirmReason";
 
 // The country Stripe reports for the connected account, in the reader's
 // language ("Canada", "Royaume-Uni"), falling back to the code Stripe gave
@@ -437,11 +438,15 @@ function PaymentsPageScreen() {
                         })}
                       </p>
                     )}
-                    {status.affirm.disabledReason && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {status.affirm.disabledReason}
-                      </p>
-                    )}
+                    {/* Stripe's reason in the owner's words, the next step,
+                        and — when that step is Stripe support — the message
+                        to send them (./AffirmReason.js). Never the raw key. */}
+                    <AffirmReason
+                      affirm={status.affirm}
+                      accountId={status.accountDetails?.accountId || null}
+                      businessName={company?.name || ""}
+                      t={t}
+                    />
                     {status.affirm.pendingVerification && !status.affirm.requirements?.length && (
                       <p className="text-xs text-muted-foreground mt-1">
                         {t("app.setPayments.affirmVerifying")}
@@ -449,9 +454,16 @@ function PaymentsPageScreen() {
                     )}
                   </>
                 )}
-              {/* Klarna's status, what to do when Stripe declines, the
-                  message for Stripe support, the quote-note warning. */}
-              <FinancingProviderStatus status={status} offerFinancing={Boolean(company?.offerFinancing)} currency={company?.currency} />
+              {/* Klarna's status, Stripe's reason in words with the message
+                  for Stripe support (AffirmReason, provider="klarna"), and
+                  the quote-note warning. */}
+              <FinancingProviderStatus
+                status={status}
+                offerFinancing={Boolean(company?.offerFinancing)}
+                currency={company?.currency}
+                accountId={status?.accountDetails?.accountId || null}
+                businessName={company?.name || ""}
+              />
             </div>
             <button
               type="button"

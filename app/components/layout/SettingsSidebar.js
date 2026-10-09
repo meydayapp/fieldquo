@@ -206,6 +206,15 @@ export const GROUPS = [
       // its own money/spend to, not a price charged to a client. See
       // lib/permissions/settingsAccess.js: gated "billing", same as Payments.
       { key: "app.settings.metaAds", href: "/app/settings/meta-ads", icon: Share2, helpArticle: "settings-meta-ads" },
+      // TikTok's own row, directly under Meta Ads — the owner's placement: the
+      // same kind of connection (an account the company's designs post to),
+      // but not a Meta account, so not a card on Meta's screen. Gated "billing"
+      // like Meta Ads, matching app/api/tiktok/status's isBillingAdmin.
+      // Google Ads (2026-10-04) and Agency access (2026-10-05) were inserted
+      // between the two; they follow it instead, still on this shelf and
+      // still side by side. The owner's call on TikTok predates them and
+      // nobody reopened it (check:tiktok holds the placement).
+      { key: "app.settings.tiktok", href: "/app/settings/tiktok", icon: Clapperboard, helpArticle: "settings-tiktok" },
       // Google Ads beside Meta Ads — the same kind of connection (the
       // company's own ad account, spend imported), the same "billing" gate.
       { key: "app.settings.googleAds", href: "/app/settings/google-ads", icon: Target, helpArticle: "settings-google-ads" },
@@ -213,11 +222,6 @@ export const GROUPS = [
       // results, and its keys (lib/agency/). Beside the two connections it
       // optimises; owner/admin, like the routes behind it.
       { key: "app.settings.agencyAccess", href: "/app/settings/agency-access", icon: KeyRound, helpArticle: "settings-agency-access" },
-      // TikTok's own row, directly under Meta Ads — the owner's placement: the
-      // same kind of connection (an account the company's designs post to),
-      // but not a Meta account, so not a card on Meta's screen. Gated "billing"
-      // like Meta Ads, matching app/api/tiktok/status's isBillingAdmin.
-      { key: "app.settings.tiktok", href: "/app/settings/tiktok", icon: Clapperboard, helpArticle: "settings-tiktok" },
       { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet, helpArticle: "settings-expense-tracking" },
       { key: "app.settings.aiCredit", href: "/app/settings/ai-credit", icon: Sparkles, helpArticle: "settings-ai-credit" },
       // Moved in from Services & pricing: a deduction rate isn't a price
