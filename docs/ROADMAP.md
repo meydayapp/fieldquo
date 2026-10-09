@@ -107,6 +107,39 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Changing a quote's client never rewrites a shared client; Affirm's reason in words (9 October 2026)
+
+Production incident: the owner duplicated accepted Q-2026-0022 (Maureen
+Faulkner) and, on the copy, "changed the client" to himself — the builder's
+only control on an edit PATCHed the shared Client row, so her signed quote,
+job, invoice and appointment printed his details (data restored by hand).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- PATCH /api/quotes/[id] takes `clientId` — repoints THAT draft only (not
+  once sent; not while a job/invoice hangs off it; same tenant). The builder
+  (both layouts) opens the client region on "Use a different client for this
+  quote".
+- PATCH /api/clients/[id] refuses an identity change (name, contactName,
+  email, phone, address) on a client other records carry unless
+  `scope: "everywhere"` — 409 `client_in_use` naming the records. "Edit this
+  client's details everywhere" shows the count (GET /api/clients/[id]/usage)
+  and needs a tick. `lib/clients/editScope.js`.
+- Settings → Payments: Stripe's Affirm `disabled_reason` (22 documented
+  codes) in plain words with the next step, nine languages, and a copyable
+  Stripe-support message with the account id (`AffirmReason.js`,
+  `lib/stripe/affirm.js` AFFIRM_REASON_TEXT). The card no longer says "card
+  only" — invoice checkout uses dynamic payment methods, so other methods
+  still show when Affirm is off.
+- No schema change.
+
+### Checks
+
+`check:client-edit-scope` (65, executes duplicate → repoint → the old path's
+409), `check:request-pay-checkout` (15, executes the pay route: a $6,500
+request becomes a $6,500 session on the financing-allowed configuration),
+`check:processing-fee` (+9 Affirm wording assertions).
+
 ## Request payment: next stage, full balance, or a different amount (7 October 2026)
 
 The owner, on TrueFinish INV-2026-0022 ($8,927, 30/30/40 schedule, client
