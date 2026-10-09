@@ -5,6 +5,13 @@
 //   GET    — current domain, status and the DNS records still to be added
 //   POST   — register a domain with Resend (or re-check an existing one)
 //   PATCH  — change the from-address local part (quotes@, hello@, ...)
+//
+// Every answer carries the same view (viewOf below): the row, plus "what
+// clients see" computed by the send path itself (lib/email/senderStatus.js)
+// and the proposals built from Company.email. Company.email is NOT written
+// here — the "Replies go to" row on the page saves it through
+// /api/settings/business-info, the one writer the company profile uses
+// (lib/email/companyReplyTo.js).
 //   DELETE — disconnect, falling back to FieldQuo's shared sending domain
 //
 // Owners/admins only, and every handler is scoped to the caller's own company
@@ -25,7 +32,8 @@ import {
   normalizeStatus,
   isPlausibleDomain,
 } from "@/lib/email/resendDomains";
-import { suggestSendingDomain } from "@/lib/email/suggestSendingDomain";
+import { senderStatusFor } from "@/lib/email/senderStatus";
+import { FROM_LOCAL_PATTERN } from "@/lib/email/senderSuggestion";
 
 const SELECT = {
   emailDomain: true,
@@ -36,7 +44,20 @@ const SELECT = {
   emailDomainCheckedAt: true,
   email: true,
   name: true,
+  // Read for the domain prefill only; viewOf keeps it out of the response.
+  website: true,
 };
+
+/**
+ * The one response shape, for every handler. It was the bare row, so the page
+ * replaced its state with whatever a POST/PATCH/DELETE returned — had the
+ * status line lived only on GET, a save would have wiped it until a reload.
+ */
+async function viewOf(company, companyId) {
+  if (!company) return {};
+  const { website, ...rest } = company;
+  return { ...rest, ...(await senderStatusFor(company, companyId)) };
+}
 
 /**
  * @param read  true only on GET. Non-negotiable #3: the platform console views
@@ -76,15 +97,14 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { ...SELECT, website: true },
+    select: SELECT,
   });
-  if (!company) return NextResponse.json({});
 
-  // The website from signup, turned into a proposed sending domain for the
-  // empty form (lib/email/suggestSendingDomain.js says when it declines). The
-  // raw website stays out of the response: the form needs the suggestion only.
-  const { website, ...rest } = company;
-  return NextResponse.json({ ...rest, suggestedDomain: suggestSendingDomain(website) });
+  // domainPrefill: the company email's own domain when it can be sent as,
+  // else the website from signup turned into a send. subdomain
+  // (lib/email/senderSuggestion.js says when each declines). The raw website
+  // stays out of the response: the form needs the proposal only.
+  return NextResponse.json(await viewOf(company, member.companyId));
 }
 
 // POST { domain } to register a new one, or POST {} to re-check the existing
@@ -120,7 +140,7 @@ export async function POST(request) {
         },
         select: SELECT,
       });
-      return NextResponse.json(updated);
+      return NextResponse.json(await viewOf(updated, member.companyId));
     }
 
     // ── Register a new domain ──────────────────────────────────────────
@@ -243,7 +263,7 @@ export async function POST(request) {
       await deleteDomain(previousDomainId).catch(() => {});
     }
 
-    return NextResponse.json(updated, { status: 201 });
+    return NextResponse.json(await viewOf(updated, member.companyId), { status: 201 });
   } catch (err) {
     // Surfacing Resend's message verbatim is genuinely useful here — it says
     // things like "domain already exists" that the company can act on.
@@ -264,7 +284,9 @@ export async function PATCH(request) {
     .trim()
     .toLowerCase();
 
-  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(local)) {
+  // The pattern the page's "Use info@…" suggestion is held to as well, so a
+  // suggestion is never one this refuses (lib/email/senderSuggestion.js).
+  if (!FROM_LOCAL_PATTERN.test(local)) {
     return NextResponse.json(
       {
         error:
@@ -280,7 +302,7 @@ export async function PATCH(request) {
     select: SELECT,
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(await viewOf(updated, member.companyId));
 }
 
 export async function DELETE(request) {
@@ -316,5 +338,5 @@ export async function DELETE(request) {
     select: SELECT,
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(await viewOf(updated, member.companyId));
 }

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { normaliseWebsiteUrl } from "@/lib/signup/website";
+import { emailProblem, emailProblemMessage } from "@/lib/validation";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
@@ -298,6 +299,43 @@ export async function PATCH(request) {
     );
   }
 
+  // ── Company.email is the Reply-To on every client email ────────────────
+  //
+  // senderFor() in lib/email/resend.js puts it on quotes, invoices and
+  // booking letters, and this route is its one writer: Settings › Company,
+  // the "Replies go to" row on Settings › Email domain and ReplyToPromptModal
+  // all PATCH here (lib/email/companyReplyTo.js). It was stored as typed, so a
+  // stray "a@b.com, c@d.com" became a two-inbox Reply-To. Now it is trimmed
+  // and held to lib/validation.js's emailProblem(). Blank still clears it
+  // (resolveSender then falls back to the owner's login, and the email domain
+  // page says so). A stored value the rule refuses, sent back unchanged with
+  // an unrelated save, is let through as it is — the profile form posts every
+  // field, and a legacy address must not start blocking a logo change (the
+  // same reasoning as `website` below).
+  let cleanEmail;
+  if (email !== undefined && email !== null) {
+    if (typeof email !== "string") {
+      return NextResponse.json({ error: "Company email must be text." }, { status: 400 });
+    }
+    const trimmed = email.trim();
+    const problem = trimmed ? emailProblem(trimmed) : null;
+    if (problem) {
+      const current = await db.company.findUnique({
+        where: { id: member.companyId },
+        select: { email: true },
+      });
+      if (current?.email !== email) {
+        return NextResponse.json(
+          { error: emailProblemMessage(problem, { subject: "That company email" }), code: "invalid_company_email", problem },
+          { status: 400 },
+        );
+      }
+      cleanEmail = email;
+    } else {
+      cleanEmail = trimmed;
+    }
+  }
+
   // Per-state US overrides, validated to the closed shape or refused whole —
   // a bad state code or a 400% rate must not half-save.
   let cleanUsOverrides;
@@ -509,7 +547,7 @@ export async function PATCH(request) {
     data: {
       ...(coords || {}),
       ...(name !== undefined && { name }),
-      ...(email !== undefined && { email }),
+      ...(email !== undefined && { email: email === null ? null : cleanEmail }),
       ...(phone !== undefined && { phone }),
       ...(address !== undefined && { address }),
       ...(city !== undefined && { city }),

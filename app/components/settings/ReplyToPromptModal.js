@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { Mail, X } from "lucide-react";
+import { saveCompanyEmail } from "@/lib/email/companyReplyTo";
 
 export default function ReplyToPromptModal({
   // Where the prompt is being shown, purely for the explanatory copy.
@@ -44,26 +45,22 @@ export default function ReplyToPromptModal({
     };
   }, []);
 
+  // Through saveCompanyEmail — the same route and rule the company profile
+  // and Settings › Email domain's "Replies go to" row use. This file used to
+  // carry its own regex and its own fetch, the copy that drifts.
   async function handleSave() {
-    const value = email.trim();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
-      setError("Enter a valid email address.");
-      return;
-    }
-
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/settings/business-info", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: value }),
-      });
-      if (!res.ok) throw new Error();
-      onSaved?.(value);
-      setOpen(false);
-    } catch {
-      setError("Couldn't save that. Try again.");
+      const r = await saveCompanyEmail(email);
+      if (r.ok) {
+        onSaved?.(r.email);
+        setOpen(false);
+      } else if (r.problem) {
+        setError("Enter a valid email address.");
+      } else {
+        setError(r.error || "Couldn't save that. Try again.");
+      }
     } finally {
       setSaving(false);
     }
