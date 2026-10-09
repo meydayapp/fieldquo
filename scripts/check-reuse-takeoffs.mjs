@@ -455,6 +455,28 @@ section("H — the panels render and are mounted");
   // main and diffed: those two lines, in each of the six renders, are the
   // ONLY difference, and none of it is a geometry control. Anything else that
   // moves this hash is a regression to explain, not a hash to re-pin.
+  //
+  // Re-pinned a second time (2026-10-09), 163d096b… → 0b1b72d8…, after
+  // rendering this exact block at each commit (git archive, same harness)
+  // and diffing the six HTMLs. Three painting feature commits moved it, in
+  // order, and nothing after them — the hash is identical from f6d97fc7 to
+  // c9ccebf7 (the Oct 5–7 sub-quote, GC on-ramp and drawing de-dup merges
+  // did not touch this card):
+  //   300e659b8 (Oct 3, "exterior → surfaces") 163d… → fca6ddc9…: an
+  //     exterior area is measured by surface only — the Room/Surface toggle
+  //     becomes a "Measured by surface" label, the fields become Measured
+  //     area + Linear feet, ceiling/floor read "—" on a single wall, and the
+  //     counted pieces (Exterior door, Window frame, Trim boards, Shutters)
+  //     appear beside each substrate pick.
+  //   e6639b5de (Oct 3, "trim counted once") fca6… → 5634d7e7…: a substrate
+  //     label gains a conditional `text-muted-foreground` when its pick is
+  //     off — on these fixtures only a trailing space in 130 class strings.
+  //   f6d97fc74 (Oct 5, "a dry-time wait") 5634… → 0b1b72d8…: purely added —
+  //     a "Dry time between coats" input and the "Crew waits on site" box.
+  // None of it changes a geometry control shared through AreaGeometry.js
+  // other than the exterior surface-only mode, which was the intent of
+  // 300e659b8. Same rule as above: anything else that moves it is a
+  // regression to explain.
   const areas = [
     { areaType: "den", label: "Den", surface: "interior", measurement: "area", lengthFt: 10, widthFt: 13, heightFt: 9, substrates: [{ key: "walls", label: "Walls", coats: 2, quantity: null, driver: "wallSqft", productKey: "wall_interior" }] },
     { areaType: "den", label: "Hall", surface: "interior", measurement: "area", lengthFt: 4, widthFt: 20, heightFt: 8, wallSqftOverride: 150, floorSqftOverride: 0, substrates: [] },
@@ -468,7 +490,7 @@ section("H — the panels render and are mounted");
       all += md5(wrap(<TradeTakeoff categoryKey={key} takeoff={{ model: "area_substrate", estimateType: type, areas }} book={getPriceBook(key)} onChange={() => {}} siteAddress="x" />, lang));
     }
   }
-  ok("the painting room card's HTML is unchanged by sharing its geometry controls (md5 163d096b…, cd845c5e… + the 2e2c0074 Add-option menu)", md5(all) === "163d096bb4f3c9e18d1a556bee3f56ca", md5(all));
+  ok("the painting room card's HTML is unchanged by sharing its geometry controls (md5 0b1b72d8…; cd845c5e… → 163d096b… → 0b1b72d8…, each explained above)", md5(all) === "0b1b72d833c6c321014eb9d9f18523ed", md5(all));
 }
 
 section("I — nine languages");
