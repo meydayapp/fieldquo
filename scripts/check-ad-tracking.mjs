@@ -230,8 +230,8 @@ if (visits) {
     },
     async create(args) {
       calls.push(["create", args]);
-      if (failNextWithMissingColumn && ("ad" in args.data || "firstVisitId" in args.data)) {
-        failNextWithMissingColumn = false;
+      if (failNextWithMissingColumn && ["ad", "firstVisitId", "bookingId", "gclid", "fbp", "hostPage"].some((k) => k in args.data)) {
+        // A database with none of the newer columns: every try that names one fails.
         const e = new Error('The column `FunnelVisit.ad` does not exist in the current database.');
         e.code = "P2022";
         throw e;
@@ -270,8 +270,9 @@ if (visits) {
   failNextWithMissingColumn = true;
   const t2 = await call(visits, "openVisit", { companyId: "co_1", surface: "website", landing: { utm_source: "facebook", campaign_id: "120254631999170581" } });
   const creates = calls.filter((c) => c[0] === "create");
-  ok("before the columns exist: the visit is still opened (retried without them)", call(visits, "isVisitToken", t2) && creates.length === 2, creates.length);
-  ok("… and the retry carries the legacy columns only", creates[1]?.[1]?.data && !("ad" in creates[1][1].data) && creates[1][1].data.utmSource === "facebook");
+  ok("before the columns exist: the visit is still opened (retried down to the legacy columns)", call(visits, "isVisitToken", t2) && creates.length === 3, creates.length);
+  ok("… and the last try carries the legacy columns only", creates[2]?.[1]?.data && !("ad" in creates[2][1].data) && creates[2][1].data.utmSource === "facebook");
+  failNextWithMissingColumn = false;
 
   ok("P2022 is a missing column", call(visits, "isMissingColumn", { code: "P2022" }) === true);
   ok("Postgres' own wording is a missing column", call(visits, "isMissingColumn", new Error('column "ad" of relation "FunnelVisit" does not exist')) === true);
