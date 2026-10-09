@@ -214,6 +214,11 @@ export const rows = {
   // the open ones per invoice (lib/invoices/paymentRequest.js). Empty unless
   // a check scripts one.
   invoicePaymentRequest: [],
+  // A company's connected mailboxes — lib/mailbox/send.js's sendingMailboxFor,
+  // which Settings › Email domain's "Clients see" line reads through
+  // (check-email-sender-status.mjs). Empty means "no mailbox sends", the state
+  // every other check was written against.
+  mailboxConnection: [],
   // The agency tier (check-sales-agency.mjs): the weekly close gathers three
   // employees' entries into ONE batch under the agency, and an employee's
   // own entries keep their salesRepId. Both are claims about which rows a
@@ -332,6 +337,7 @@ export function resetDbStub() {
   rows.platformErrorLog = [];
   rows.platformSetting = [];
   rows.invoicePaymentRequest = [];
+  rows.mailboxConnection = [];
   rows.salesRep = [];
   rows.salesCommissionPlan = [];
   rows.salesAttribution = [];
@@ -769,6 +775,7 @@ export const db = new Proxy(
     platformErrorLog: model("platformErrorLog"),
     platformSetting: model("platformSetting"),
     invoicePaymentRequest: model("invoicePaymentRequest"),
+    mailboxConnection: model("mailboxConnection"),
     salesRep: model("salesRep"),
     salesCommissionPlan: model("salesCommissionPlan"),
     // companyId @unique — the lock lib/sales/attribution.js's race retry

@@ -3,6 +3,7 @@
 Last updated: 9 October 2026 (ad clicks through an embed: the lead-taking embed snippet copies the host page's utm_*, gclid/gbraid/wbraid, fbclid, ttclid, Meta's ad parameters and the _fbc/_fbp/_gcl_aw cookies onto the frame's src, plus `ref` (the host path) — only when there is something to forward; the frame credits ONE click (URL beats cookie, later cookie beats earlier), keeps the winning gclid, an fbp beside a Meta click, and the host page path; the self-quote form and the booking embed now attribute their own URL; Meta CAPI sends fbp; an agency-posted lead with a gclid is google_ads; docs/AGENCY-GOOGLE-ADS.md for the two Google Zaps. Schema additive — NOT applied: `ALTER TABLE "FunnelVisit" ADD COLUMN IF NOT EXISTS "gclid" TEXT, ADD COLUMN IF NOT EXISTS "fbp" TEXT, ADD COLUMN IF NOT EXISTS "hostPage" TEXT;` — until it runs, every visit query is tried once with the columns and once without, and the gclid and host path are not kept. check:embed-attribution.)
 
 Last updated: 7 October 2026 (drawing read: one room, one wall, one state of the building. A room or wall drawn on several sheets is counted once from its best drawing (the existing drawing when the set has one), a set drawn "as existing" and "proposed" is priced in ONE state chosen from the request with a one-tap "Include them" on the review panel — pinned there, interior quote only — and annexe rooms no longer take the nave's inside height. Computed on view — the church re-prices when opened (interior 22,754 → 10,005 sq ft; 14,523 with "Include them"; exterior 4,082), no re-read, no charge; its saved draft quote is NOT changed. No schema change. See "Drawing read — one room, one wall, one state" below.)
+Last updated: 9 October 2026 (Settings › Email domain: "Clients see: From … · Replies to …" computed by the send path, "Replies go to" edited in place through the one Company.email writer, the company email's domain prefilled and its local part offered as a one-tap sender — see the first section below).
 
 Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
 Last updated: 6 October 2026 (drawing read: the measurement schema was refused before every call since 5a300fc9f, and "Read again" wrote those failures over the church's measured faces. Schema fixed; a failed or empty re-measure now keeps the earlier measurement, says so on the read card and is not charged; a price mostly on guessed quantities says so. No schema change. See "Drawing read — Read again threw measurements away" below.)
@@ -141,6 +142,67 @@ job, invoice and appointment printed his details (data restored by hand).
 409), `check:request-pay-checkout` (15, executes the pay route: a $6,500
 request becomes a $6,500 session on the financing-allowed configuration),
 `check:processing-fee` (+9 Affirm wording assertions).
+## Email domain: replies and sender follow the company email (9 October 2026)
+
+The owner: "in the domains page we should know what is the company's email
+address so that outgoing emails point to that and not to the owner's log in
+email." TrueFinish (read-only, production): Company.email
+info@truefinishcabinets.com, no domain, emailFromLocal "quotes"; Reply-To was
+the owner's Gmail until 7 Oct (blank Company.email → `ownerEmailFor`), From is
+always "TrueFinish Cabinets Inc. <quotes@fieldquo.com>".
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Top card on Settings › Email domain**: "Clients see: From {from} ·
+  Replies to {replyTo}", computed server-side by `lib/email/senderStatus.js`
+  through `resolveSender` → `senderFor`, `replyToHeader` (the Reply-To
+  default `sendEmail` applies, now exported from `lib/email/resend.js`) and
+  `sendingMailboxFor` (the connected-mailbox lookup, extracted from
+  `trySendThroughMailbox` so both use one query). Every handler of
+  `/api/settings/email-domain` answers with the same view.
+- **"Replies go to"** row: Company.email, editable in place; blank shows
+  "Replies currently go to {owner} because no company email is set." with the
+  field. Saves through `lib/email/companyReplyTo.js` → PATCH
+  `/api/settings/business-info` (the company profile's writer);
+  ReplyToPromptModal now uses the same function, and the modal no longer
+  opens on this page (the row replaces it).
+- **business-info PATCH** now trims Company.email and refuses what
+  `emailProblem()` refuses (`code: invalid_company_email`); blank still
+  clears; a legacy value resent unchanged is let through. **senderFor** keeps
+  such a value out of Reply-To (owner fallback applies). Production had 0 of
+  38 invalid rows, so no live Reply-To changed.
+- **Suggestions** (`lib/email/senderSuggestion.js`): the empty domain field
+  prefills from the company email's domain (else send.<website> as before);
+  a free mailbox (gmail, outlook, hotmail.*, yahoo.*, icloud, ISP mailboxes)
+  says a custom domain is needed. When the domain being set up or verified
+  equals the email's domain, the page shows the From it would give and offers
+  "Use info@…" — a one-tap PATCH of emailFromLocal; nothing writes it
+  otherwise (connecting keeps the stored local part).
+
+### Checks
+
+`check:email-sender-status` (in check:all) — the real GET/POST/PATCH of the
+email-domain route and the real business-info PATCH against the scripted db:
+status line == resolveSender for TrueFinish, blank, 11 hostile emails,
+pending/verified/platform domains, free mailboxes and a sending mailbox; the
+suggestion never writes emailFromLocal without the tap; the Reply-To edit
+goes through the one writer; 18 labels × 9 locales. 15/15 mutations killed.
+Fixtures: dbStub gains `mailboxConnection`, apiMemberStub gains
+`memberOrRefusalPlain`. No schema change.
+
+### Which domain the connect card recommends (decided 2026-10-09)
+
+- Company email on a custom domain: "Connect {domain}, the domain of your
+  company email, so clients see {address} in the From line. Connecting
+  doesn't change where your existing email is received." The send.-subdomain
+  advice shows only when there is no custom company-email domain. The inbox
+  sentence rests on Resend's docs (sending MX/SPF on send.<domain>, DKIM at
+  resend._domainkey; "MX records only impact the subdomain they are
+  associated to" — resend.com/docs/knowledge-base/how-do-i-avoid-conflicting-with-my-mx-records),
+  cited in the page; it would stop being true only if Inbound were switched
+  on for the domain, which createDomain never does.
+
+---
 
 ## Request payment: next stage, full balance, or a different amount (7 October 2026)
 

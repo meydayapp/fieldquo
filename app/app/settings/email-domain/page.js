@@ -7,7 +7,28 @@
 // The mental model to keep in mind while reading this: nothing here creates a
 // mailbox. quotes@send.theircompany.com never needs to exist as an inbox —
 // verifying the domain is what grants permission to send as it. Replies are a
-// separate concern, handled by Company.email (see ReplyToPromptModal).
+// separate concern, handled by Company.email.
+//
+// ── The top card: what clients actually see ─────────────────────────────────
+//
+// The owner, 2026-10-09: "in the domains page we should know what is the
+// company's email address so that outgoing emails point to that and not to
+// the owner's log in email." TrueFinish's replies had gone to the owner's
+// Gmail for weeks because Company.email was blank, and nothing on this page
+// said so in a way that could be fixed here. So the page opens on:
+//
+//   "Clients see: From … · Replies to …" — computed on the server by the
+//     send path's own resolveSender/senderFor (lib/email/senderStatus.js),
+//     never re-described in JSX, so it cannot disagree with a real send;
+//   "Replies go to" — Company.email, editable in place, saved through the
+//     company profile's own route (lib/email/companyReplyTo.js). It replaced
+//     the ReplyToPromptModal this page used to open: a modal and an inline
+//     field asking for the same value on one screen is one prompt too many.
+//
+// The company email also drives two PROPOSALS (lib/email/senderSuggestion.js):
+// its domain prefills the empty connect field, and when the connected domain
+// is that domain, "Use info@…" is offered as a one-tap change of the From
+// local part. Neither writes anything until it is pressed.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -20,8 +41,9 @@ import {
   Check,
   Trash2,
 } from "lucide-react";
-import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 import { reportResponseError } from "@/lib/clientErrors";
+import { saveCompanyEmail } from "@/lib/email/companyReplyTo";
+import { normaliseDomain, shouldOfferLocal } from "@/lib/email/senderSuggestion";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
@@ -69,6 +91,34 @@ function CopyButton({ value }) {
   );
 }
 
+/**
+ * "Send from info@yourcompany.com?" — the company email's local part, offered
+ * and never applied on its own. `suggestion.from` is the From line senderFor()
+ * builds for it on the server, printed as-is.
+ */
+function SenderSuggestion({ suggestion, onUse, busy }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-4 border border-border rounded-lg p-4 bg-muted/50">
+      <p className="text-sm font-semibold text-foreground break-all">
+        {t("app.setEmailDomain.suggestTitle", { address: suggestion.address })}
+      </p>
+      <p className="text-sm text-muted-foreground mt-1">{t("app.setEmailDomain.suggestBody")}</p>
+      <p className="text-sm text-foreground mt-2 break-all">
+        {t("app.setEmailDomain.suggestFromLine", { from: suggestion.from })}
+      </p>
+      <button
+        type="button"
+        onClick={onUse}
+        disabled={busy}
+        className="mt-3 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60 max-w-full truncate"
+      >
+        {t("app.setEmailDomain.suggestUse", { address: suggestion.address })}
+      </button>
+    </div>
+  );
+}
+
 export default function EmailDomainPage() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
@@ -77,6 +127,11 @@ export default function EmailDomainPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // "Replies go to" — Company.email, edited in place.
+  const [replyEditing, setReplyEditing] = useState(false);
+  const [replyInput, setReplyInput] = useState("");
+  const [replySaving, setReplySaving] = useState(false);
+  const [replyError, setReplyError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -85,9 +140,10 @@ export default function EmailDomainPage() {
       if (!res.ok) throw new Error(json.error || t("app.setEmailDomain.loadError"));
       setData(json);
       setLocalInput(json.emailFromLocal || "quotes");
-      // Prefilled from the website given at signup when nothing is connected
-      // yet — a proposal they can edit; Connect is still their press.
-      setDomainInput(json.emailDomain || json.suggestedDomain || "");
+      // Prefilled when nothing is connected yet — from the company email's
+      // domain, else the website given at signup (domainPrefill says which).
+      // A proposal they can edit; Connect is still their press.
+      setDomainInput(json.emailDomain || json.domainPrefill?.domain || "");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -169,6 +225,58 @@ export default function EmailDomainPage() {
     }
   }
 
+  // Company.email through the company profile's own route. The status line
+  // is recomputed by the server afterwards rather than patched here — "who
+  // replies reach" is resolveSender's answer, not this component's.
+  async function saveReplyTo() {
+    setReplySaving(true);
+    setReplyError("");
+    try {
+      const r = await saveCompanyEmail(replyInput);
+      if (!r.ok) {
+        setReplyError(r.problem ? t("app.setEmailDomain.replyInvalid") : r.error || t("app.setEmailDomain.saveError"));
+        return;
+      }
+      setReplyEditing(false);
+      const res = await fetch("/api/settings/email-domain");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.error || t("app.setEmailDomain.loadError"));
+        return;
+      }
+      // A prefill the owner hasn't touched follows the new email's domain;
+      // anything they typed stays.
+      setDomainInput((cur) =>
+        !cur || cur === data?.domainPrefill?.domain ? json.emailDomain || json.domainPrefill?.domain || "" : cur,
+      );
+      setData(json);
+    } finally {
+      setReplySaving(false);
+    }
+  }
+
+  // The one-tap "Use info@…": the existing PATCH, with the suggested local
+  // part. This is the only way the suggestion reaches emailFromLocal.
+  async function acceptSuggestedLocal(local) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/email-domain", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailFromLocal: local }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || t("app.setEmailDomain.saveError"));
+      setData(json);
+      setLocalInput(json.emailFromLocal || local);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function disconnect() {
     if (!confirm(t("app.setEmailDomain.disconnectConfirm"))) return;
     setBusy(true);
@@ -206,12 +314,18 @@ export default function EmailDomainPage() {
     : [];
   const isConnected = Boolean(data?.emailDomain);
 
+  const clientsSee = data?.clientsSee || null;
+  const companyEmail = data?.companyEmail || { value: "", state: "blank" };
+  const suggestion = data?.senderSuggestion || null;
+  // The address replies fall back to while Company.email is blank or
+  // refused: resolveSender's owner-login answer, as the server computed it.
+  const ownerFallback = clientsSee?.replyToSource === "owner" ? clientsSee.replyTo : null;
+  const replyFieldOpen = replyEditing || companyEmail.state !== "set";
+  const typedDomain = normaliseDomain(domainInput);
+  const typingSuggestedDomain = Boolean(suggestion && !suggestion.freeMailbox && typedDomain === suggestion.domain);
+
   return (
     <div className="max-w-3xl space-y-6">
-      <ReplyToPromptModal
-        context={t("app.setEmailDomain.replyContext")}
-        onSaved={(email) => setData((d) => ({ ...(d || {}), email }))}
-      />
 
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("app.settings.emailDomain")}</h1>
@@ -223,6 +337,99 @@ export default function EmailDomainPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
+        </div>
+      )}
+
+      {/* What clients see, and where their replies go */}
+      {clientsSee && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-sm text-foreground break-words">
+            {clientsSee.replyTo
+              ? t("app.setEmailDomain.clientsSee", { from: clientsSee.from, replyTo: clientsSee.replyTo })
+              : t("app.setEmailDomain.clientsSeeNoReplyTo", { from: clientsSee.from })}
+          </p>
+          {clientsSee.via === "mailbox" && (
+            <p className="text-xs text-muted-foreground mt-1 break-words">
+              {t("app.setEmailDomain.viaMailbox", { fallback: clientsSee.fallbackFrom })}
+            </p>
+          )}
+
+          <div className="border-t border-border mt-4 pt-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-semibold text-foreground">{t("app.setEmailDomain.repliesGoTo")}</h2>
+                {companyEmail.state === "set" && !replyEditing && (
+                  <p className="text-sm text-foreground mt-0.5 break-all">{companyEmail.value}</p>
+                )}
+                {companyEmail.state === "blank" && (
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5 break-words">
+                    {ownerFallback
+                      ? t("app.setEmailDomain.repliesOwnerFallback", { owner: ownerFallback })
+                      : t("app.setEmailDomain.repliesNoCompanyEmail")}
+                  </p>
+                )}
+                {companyEmail.state === "invalid" && (
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5 break-words">
+                    {ownerFallback
+                      ? t("app.setEmailDomain.repliesInvalid", { email: companyEmail.value, owner: ownerFallback })
+                      : t("app.setEmailDomain.repliesInvalidNoOwner", { email: companyEmail.value })}
+                  </p>
+                )}
+              </div>
+              {companyEmail.state === "set" && !replyEditing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplyInput(companyEmail.value);
+                    setReplyError("");
+                    setReplyEditing(true);
+                  }}
+                  className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-muted shrink-0"
+                >
+                  {t("app.action.edit")}
+                </button>
+              )}
+            </div>
+
+            {replyFieldOpen && (
+              <div className="mt-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    className={inputClass}
+                    placeholder={t("app.setEmailDomain.replyPlaceholder")}
+                    value={replyInput}
+                    onChange={(e) => setReplyInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && replyInput.trim() && saveReplyTo()}
+                    aria-label={t("app.setEmailDomain.repliesGoTo")}
+                  />
+                  <button
+                    type="button"
+                    onClick={saveReplyTo}
+                    disabled={replySaving || !replyInput.trim() || replyInput.trim() === companyEmail.value}
+                    className="bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
+                  >
+                    {replySaving && <Loader2 size={14} className="animate-spin" />}
+                    {t("app.action.save")}
+                  </button>
+                  {replyEditing && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyEditing(false);
+                        setReplyError("");
+                      }}
+                      className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-muted shrink-0"
+                    >
+                      {t("app.action.cancel")}
+                    </button>
+                  )}
+                </div>
+                {replyError && <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{replyError}</p>}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">{t("app.setEmailDomain.repliesHint")}</p>
+          </div>
         </div>
       )}
 
@@ -277,13 +484,47 @@ export default function EmailDomainPage() {
       {!isConnected && (
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.connectDomain")}</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t("app.setEmailDomain.connectHint1")}{" "}
-            <span className="font-mono text-foreground">
-              send.yourcompany.com
-            </span>{" "}
-            {t("app.setEmailDomain.connectHint2")}
-          </p>
+          {/* Which domain to recommend. The owner's ask (2026-10-09) is that
+              client email comes from the company email, so when that address
+              is on a domain the company owns (suggestion.local set: not a free
+              mailbox, not a local part the From PATCH refuses) the card
+              recommends connecting THAT domain — the only way From can read
+              info@truefinishcabinets.com — and drops the send.-subdomain
+              advice. The send. hint stays for everyone else.
+
+              "Doesn't change where your existing email is received" is stated
+              because Resend's own docs confirm it, checked 2026-10-09:
+                - The sending records are DKIM, a TXT at resend._domainkey.<domain>,
+                  and SPF/Return-Path on the send. subdomain (a TXT + an MX, or
+                  CNAMEs for domains created after August 2026): "Verify that
+                  the records are added at the correct location (the send
+                  subdomain, not the root domain)", and the nslookup examples
+                  query resend._domainkey.example.com and send.example.com —
+                  https://resend.com/docs/knowledge-base/what-if-my-domain-is-not-verifying
+                  and https://resend.com/docs/add-a-domain ("Return-Path
+                  defaults to send.example.com").
+                - "This won't conflict because the MX record is for
+                  send.example.com, not example.com … MX records only impact
+                  the subdomain they are associated to" —
+                  https://resend.com/docs/knowledge-base/how-do-i-avoid-conflicting-with-my-mx-records
+              The root MX only changes if Inbound (receiving) is switched on
+              for the domain, which createDomain never does
+              (lib/email/resendDomains.js) — that is the one case the same
+              page warns about. If either fact stops being true, remove the
+              sentence rather than soften it. */}
+          {suggestion?.local ? (
+            <p className="text-sm text-muted-foreground mb-4 break-words">
+              {t("app.setEmailDomain.connectRootHint", { domain: suggestion.domain, address: suggestion.address })}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("app.setEmailDomain.connectHint1")}{" "}
+              <span className="font-mono text-foreground">
+                send.yourcompany.com
+              </span>{" "}
+              {t("app.setEmailDomain.connectHint2")}
+            </p>
+          )}
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               className={inputClass}
@@ -300,6 +541,24 @@ export default function EmailDomainPage() {
               {t("app.setEmailDomain.connect")}
             </button>
           </div>
+          {suggestion?.freeMailbox && (
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-3 break-words">
+              {t("app.setEmailDomain.freeMailbox", { email: companyEmail.value, domain: suggestion.domain })}
+            </p>
+          )}
+          {typingSuggestedDomain && suggestion.fromAsStored && (
+            <p className="text-sm text-foreground mt-3 break-all">
+              {t("app.setEmailDomain.onceVerified", { from: suggestion.fromAsStored })}
+            </p>
+          )}
+          {typingSuggestedDomain &&
+            shouldOfferLocal({ suggestion, domain: domainInput, emailFromLocal: data?.emailFromLocal }) && (
+              <SenderSuggestion
+                suggestion={suggestion}
+                busy={busy}
+                onUse={() => acceptSuggestedLocal(suggestion.local)}
+              />
+            )}
         </div>
       )}
 
@@ -418,24 +677,15 @@ export default function EmailDomainPage() {
               {t("app.action.save")}
             </button>
           </div>
+          {shouldOfferLocal({ suggestion, domain: data.emailDomain, emailFromLocal: data.emailFromLocal }) && (
+            <SenderSuggestion
+              suggestion={suggestion}
+              busy={busy}
+              onUse={() => acceptSuggestedLocal(suggestion.local)}
+            />
+          )}
         </div>
       )}
-
-      {/* Replies */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.replies")}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t("app.setEmailDomain.repliesIntro")}{" "}
-          {data?.email ? (
-            <span className="font-medium text-foreground">{data.email}</span>
-          ) : (
-            <span className="text-amber-700 dark:text-amber-300">
-              {t("app.setEmailDomain.repliesFallback")}
-            </span>
-          )}
-          {t("app.setEmailDomain.repliesOutro")}
-        </p>
-      </div>
     </div>
   );
 }
