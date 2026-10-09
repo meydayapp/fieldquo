@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 9 October 2026 (a "Marketing agency" team role — Settings › Team › Invite › Marketing agency: funnels, Marketing results and a new Marketing › Leads at the agency API's privacy level, refused on every other API route and page, takes a seat; and on the Leads board an "Agency" badge naming the key and a source filter. No schema change. See "Marketing agency team role, and the Leads board's Agency badge and source filter" below.)
 Last updated: 7 October 2026 (drawing read: one room, one wall, one state of the building. A room or wall drawn on several sheets is counted once from its best drawing (the existing drawing when the set has one), a set drawn "as existing" and "proposed" is priced in ONE state chosen from the request with a one-tap "Include them" on the review panel — pinned there, interior quote only — and annexe rooms no longer take the nave's inside height. Computed on view — the church re-prices when opened (interior 22,754 → 10,005 sq ft; 14,523 with "Include them"; exterior 4,082), no re-read, no charge; its saved draft quote is NOT changed. No schema change. See "Drawing read — one room, one wall, one state" below.)
 
 Last updated: 5 October 2026, late night (client credit-card fee: Settings › Payments › "Pass the card fee on to clients" — Canada outside Quebec only, credit cards only, 2.4%, disclosed before payment on the portal's own card form, its own line on the receipt, payment record and export, never job revenue, refunded pro-rata; switching on requires the 30-day processor notice to be confirmed. Schema additive, NOT applied; needs `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel and `payment_intent.succeeded` on the billing destination. See "Client credit-card fee" below.)
@@ -106,6 +107,77 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Marketing agency team role, and the Leads board's Agency badge and source filter (9 October 2026)
+
+Owner-approved, both halves. Not deployed — worktree branch, unpushed. **No
+schema change**: the role is a preset on the existing `employee` tier plus one
+key in the existing `Member.permissions` Json; the agency key is stamped on the
+existing `LeadRequest.intake` Json.
+
+### What shipped
+
+1. **Leads board: "Agency" badge** (`app/app/leads/page.js` AgencyBadge). A lead
+   the agency posted (`source: agency_funnel`) shows "Agency · Forward Media
+   Marketing" — the key's name, truncated on a narrow card, whole on hover.
+   `POST /api/v1/marketing/leads` now records `intake.agencyKey: { id, name }`
+   (`lib/agency/api.js` createAgencyLead; never the secret or hash). Older
+   leads say "Agency" with no name. Badge colours are the app's `accent` /
+   `accent-foreground` tokens: 14.13:1 light, 10.62:1 dark (measured by the
+   check). The lead drawer adds the name after "Your marketing agency's funnel".
+2. **Leads board: source filter** — a select beside Quoted: All, Agency funnel,
+   Meta ads (Facebook, Instagram), Google Ads, Website, Referral, Phone, Other,
+   with counts. `GET /api/leads` places every lead with `lib/agency/channels.js`
+   `channelOf` (the agency API's own rule, reading the conversation the lead
+   began on — `originThreadOf` / `threadViewOf`, now shared with
+   `lib/agency/leadFacts.js`) and returns `sourceFilter` and `agency`;
+   `sourceFilterOf` splits organic into Phone (`phone_agent`,
+   `phone_agent_recovered`) and Other. A WhatsApp ad counts as a Meta ad.
+3. **"Marketing agency" team role** (`lib/permissions/marketingAgency.js`,
+   preset `PERMISSION_PRESETS.marketingAgency`). Invite: Settings › Team ›
+   Invite › "Marketing agency" (fixed panel, no dials, "Takes a seat, like any
+   team member."). They can: build and edit funnels (`/app/funnels`, every
+   `/api/funnels` route via `requireMarketingAccess`), see Marketing results
+   (job values only while "Share job values" is on), and see Marketing ›
+   Leads (`/app/marketing/leads`, `GET /api/marketing/leads` →
+   `memberLeadRows`, built with `buildLeadRow` — first name, source, stage,
+   partial postal code; contacts only while "Share contact details" is on;
+   only paid, agency-funnel and website leads), plus their own interface
+   language. Everything else is refused, deny by default:
+   - API: `assertMarketingAgencyScope` in `lib/currentMember.js` (both
+     branches) refuses every `/api` path not in `AGENCY_API_RULES`.
+   - Pages: `app/components/team/AgencyPageGate.js` around every `/app` page
+     (decided on every navigation); `/app` sends them to their results; the two
+     server pages that read the database refuse them themselves.
+   - Shell: nav, phone bar ("marketing" set: Results · Leads · Funnels), settings
+     rows (Language only), no search, bell, Create, Jennifer or tours; not Crew.
+   - Never notified (`lib/notifications/recipients.js`), in no chat room
+     (`activeRoster`).
+   - Seat: `isBillableSeat` counts it (its grid sits below the Crew ceiling and
+     would otherwise read as free). No pricing change.
+   - A supervisor's invite keeps the marker (`clampPermissions`); Custom drops
+     it (`customFrom`); owners and admins are never confined.
+
+### Not included — owner decision
+
+- **The marketing designer** (`/app/marketing/designer`) sits on the same
+  `user:manage` axis, but it lists jobs and their photos (job-post), job videos
+  (video posts) and the company's campaigns. Left out rather than opened with
+  those inside it. See the agent's report for the recommendation.
+
+### Checks
+
+- `check:marketing-agency-role` (new, in check:all): the real
+  `getCurrentMember` over all 1,578 route × method pairs — the agency let
+  through on exactly 20 written out in the check, refused on every other;
+  owner and Crew never refused by it; real handlers 403 before a business row
+  is read; pages, nav, notifications, chat, seat, invite. 18 mutants caught.
+- `check:lead-source-filter` (new, in check:all): hostile inputs, the shipped
+  `GET /api/leads` executed against the shape stub, the page wiring, contrast.
+  9 mutants caught.
+- `check:agency-api`: the key stamp and `memberLeadRows` (3 more mutants).
+- `check:shell` counts the rail an owner sees; `check:company-chat` expects no
+  Chat tab on the agency's bar.
 
 ## Request payment: next stage, full balance, or a different amount (7 October 2026)
 

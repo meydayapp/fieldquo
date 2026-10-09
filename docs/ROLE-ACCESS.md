@@ -99,6 +99,20 @@ pay runs, payroll settings, pay rates, commissions and the FieldQuo billing,
 which the page says are left out §8. What lets them in is the **Job costing**
 switch; a Dispatcher (same role, no job costing) does not.
 
+## Marketing agency (9 October 2026)
+
+Your marketing agency, invited as a team member (Settings › Team › Invite ›
+Marketing agency). A paid seat, like any member. Proven by
+`npm run check:marketing-agency-role`, which runs the real sign-in check over
+every API route in the product.
+
+| | Sees | Can do |
+|---|---|---|
+| **Funnels** | Every lead funnel and its analytics | Create, generate with AI, edit, publish, delete |
+| **Marketing results** | The same figures the agency API reports; job values only while "Share job values" is on | — |
+| **Marketing › Leads** | The leads ads, the agency's funnel and the web forms brought in: first name, source, stage, partial postal code. Phone, email and full name only while "Share contact details" is on (Settings › Marketing agency access) | — |
+| | **Never:** clients, jobs, quotes, invoices, payments, money, the lead board, messages, chat, calls, settings (except their own language), the team, billing, search, notifications | Every one of those routes and pages refuses them |
+
 ## Owner and Admin
 
 Everything, including the activity log §8.

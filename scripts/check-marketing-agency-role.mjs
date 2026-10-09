@@ -492,6 +492,25 @@ section("F. Never notified; in no chat room");
   ok("the chat roster leaves them out (so no #general, no job room, no directory entry)", roster.length === 3 && !roster.some((m) => m.id === P.agency.id), roster.map((m) => m.id));
 }
 
+section("F2. Not on the books: no Worker row, no onboarding checklist");
+{
+  const { ensureWorkersForCompany } = await import("@/lib/team/ensureWorker");
+  script("owner");
+  rows["member.findMany"] = () => [P.agency, P.crew].map((m) => ({ ...m, companyId: CO, active: true }));
+  rows["worker.findUnique"] = () => null;
+  rows["worker.findFirst"] = () => null;
+  rows["user.findUnique"] = (args) => ({ id: args?.where?.id, name: args?.where?.id, email: `${args?.where?.id}@x.test` });
+  const sweep = await ensureWorkersForCompany(CO);
+  const made = writes.filter((w) => w.model === "worker" && w.method === "create").map((w) => w.args?.data?.userId);
+  ok("the roster sweep gives Crew a Worker row and the agency none", sweep.created === 1 && JSON.stringify(made) === JSON.stringify([P.crew.userId]), { sweep, made });
+  const accept = decomment(read("app/api/invitations/[id]/accept/route.js"));
+  ok("accepting the invite skips the Worker row (and so the checklist) for the agency",
+    /const linked = isMarketingAgency\(accepted\)\s*\?\s*null/.test(accept) && /if \(pending\?\.startOnboarding && linked\?\.worker\?\.id\)/.test(accept));
+  const invite = decomment(read("app/app/settings/team/new/page.js"));
+  ok("the invite form does not offer the checklist for the agency, and never sends it",
+    /activePreset !== "marketingAgency" && \(/.test(invite) && /startOnboarding: activePreset === "marketingAgency" \? false : startOnboarding/.test(invite));
+}
+
 // ═══ Strings ═══════════════════════════════════════════════════════════════
 section("Strings: every new one in every app locale");
 {
@@ -544,6 +563,7 @@ if (!MUTANT && !fails.length) {
     ["lib/notifications/recipients.js", "the agency notified", "    if (isMarketingAgency(member)) return false;\n", ""],
     ["lib/nav/phoneBar.js", "the agency given the crew bar", '  if (isMarketingAgency(caller)) return "marketing";\n', ""],
     ["lib/permissions/settingsAccess.js", "the agency shown company settings", "  if (isMarketingAgency(member)) return AGENCY_SETTINGS_ROWS.includes(navKey);\n", ""],
+    ["lib/team/ensureWorker.js", "the agency put on the books", "    if (isMarketingAgency(m)) continue;\n", ""],
     ["lib/company/chat/store.js", "the agency put in the chat rooms", ".filter((m) => !isMarketingAgency(m));", ".filter(() => true);"],
     ["app/api/funnels/route.js", "funnels back on user:manage alone", "    requireMarketingAccess(member);", '    if (member.role !== "owner") throw Object.assign(new Error("no"), { status: 403 });'],
   ];

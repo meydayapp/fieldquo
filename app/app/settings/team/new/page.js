@@ -252,7 +252,7 @@ function NewUserForm() {
             ? { isAdministrator: true }
             : permissionValues,
           invitationLanguage,
-          startOnboarding,
+          startOnboarding: activePreset === "marketingAgency" ? false : startOnboarding,
         }),
       });
 
@@ -609,6 +609,11 @@ function NewUserForm() {
             </select>
           </div>
 
+          {/* Not offered for the marketing agency: the checklist runs on the
+              person's Worker row, and an agency gets none (the invite accept
+              skips it) — a ticked box that started nothing would be a dead
+              control. */}
+          {activePreset !== "marketingAgency" && (
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -625,6 +630,7 @@ function NewUserForm() {
               </span>
             </span>
           </label>
+          )}
         </div>
 
         <div className="flex gap-3">
