@@ -740,6 +740,11 @@ ok("  ^ and it is the only caller of clientCardSurchargeDecision (the one surcha
     /data-card-fee-notice/.test(panel) && /data-card-fee-line/.test(panel) && panel.indexOf("data-card-fee-notice") < panel.indexOf("ref={mountRef}"));
   ok("  ^ the browser posts ids only (no amount) to card-pay", !/amount:|total:|surcharge:/.test(panel.slice(panel.indexOf("async function post"), panel.indexOf("export default"))) && !/step: "(review|confirm|finalize)",[^}]*Cents/.test(panel));
   ok("  ^ wallets that show their own amount sheet are off on this form", /applePay: "never", googlePay: "never"/.test(panel));
+  // 2026-10-09: the versioned Stripe.js (endive) throws on elements({ paymentMethodTypes })
+  // — every card payment showed "The card form couldn't load". Verified in a browser
+  // against the live key: allowedPaymentMethodTypes mounts and fires "ready".
+  ok("  ^ elements() uses allowedPaymentMethodTypes, never the removed paymentMethodTypes",
+    /allowedPaymentMethodTypes:\s*\["card"\]/.test(panel) && !/[^d]paymentMethodTypes\s*:/.test(panel.replace(/allowedPaymentMethodTypes/g, "")));
 }
 
 // ════════════════════════════════════════════════════════════════════════════

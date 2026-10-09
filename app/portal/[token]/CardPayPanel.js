@@ -105,8 +105,12 @@ export default function CardPayPanel({
           currency: String(form.currency || "cad").toLowerCase(),
           paymentMethodCreation: "manual",
           // Card only: the fee is decided per card, and the PaymentIntent the
-          // server creates is card-only to match.
-          paymentMethodTypes: ["card"],
+          // server creates is card-only to match. `allowedPaymentMethodTypes`,
+          // not `paymentMethodTypes`: the versioned Stripe.js loaded above
+          // (endive) rejects the old name outright ("no longer supported in
+          // this version of Stripe.js"), elements() throws, and the client saw
+          // "The card form couldn't load" on every card payment (2026-10-09).
+          allowedPaymentMethodTypes: ["card"],
           appearance: { theme: "stripe", variables: { colorPrimary: accent || "#06356b" } },
         });
         const element = elements.create("payment", {
