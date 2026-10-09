@@ -221,7 +221,7 @@ const params = (href) => {
   const files = withIndexedOpenUrls(alice, "receipt-file", "rc1", [{ url: "u0" }, { url: "u1" }], { now: T, secret: SECRET });
   ok("withIndexedOpenUrls names each page by position", files.map((f) => verifyStaffFileLink(alice, params(f.openUrl), { now: T, secret: SECRET }).index).join() === "0,1");
   ok("messageOpenUrl is a per-index link maker", verifyStaffFileLink(alice, params(messageOpenUrl(alice, "msg9", { now: T, secret: SECRET })(4)), { now: T, secret: SECRET }).index === 4);
-  ok("every staff kind is one this check knows", STAFF_FILE_KINDS.join() === "quote-document,job-document,service-document,company-document,subcontractor-document,asset-document,receipt-file,message-attachment");
+  ok("every staff kind is one this check knows", STAFF_FILE_KINDS.join() === "quote-document,job-document,service-document,company-document,subcontractor-document,asset-document,price-reply-file,receipt-file,message-attachment");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -288,6 +288,12 @@ const db = fakeDb({
   ],
   migrationDocument: [{ id: "md1", url: url(`fieldquo/companies/${OTHER}/migrations/m1/abc`), filename: "old-quotes.pdf", migrationRequest: { companyId: OTHER } }],
   salesPayoutBatch: [{ id: "batch123456", proofUrl: url("fieldquo/platform/payouts/batch123456/r.pdf"), proofFilename: "wise.pdf" }],
+  subPriceRequestRecipient: [
+    { id: "pr1", companyId: CO, repliedAt: new Date(T), replyFile: { url: url(`fieldquo/companies/${CO}/price-replies/volt.pdf`), filename: "volt-quote.pdf" } },
+    { id: "pr2", companyId: OTHER, repliedAt: new Date(T), replyFile: { url: theirs, filename: "theirs.pdf" } },
+    { id: "pr3", companyId: CO, repliedAt: null, replyFile: { url: url(`fieldquo/companies/${CO}/price-replies/x.pdf`) } },
+    { id: "pr4", companyId: CO, repliedAt: new Date(T), replyFile: "junk" },
+  ],
 });
 {
   ok("a quote document of the reader's company resolves", (await resolveStaffFile(db, { companyId: CO, kind: "quote-document", id: "qd1" }))?.name === "Plan A");
@@ -302,7 +308,10 @@ const db = fakeDb({
   ok("…another company's thread does not", (await resolveStaffFile(db, { companyId: CO, kind: "message-attachment", id: "msg2", index: 0 })) === null);
   ok("…an attachment still pending (a Meta CDN link) is never opened", (await resolveStaffFile(db, { companyId: CO, kind: "message-attachment", id: "msg1", index: 2 })) === null);
   ok("…nor one past the end", (await resolveStaffFile(db, { companyId: CO, kind: "message-attachment", id: "msg1", index: 9 })) === null);
-  ok("an unknown kind reads nothing", (await resolveStaffFile(db, { companyId: CO, kind: "worker-document", id: "x" })) === null);
+  ok("a sub's price-reply file resolves on the GC's own recipient row, under the sub's filename", (await resolveStaffFile(db, { companyId: CO, kind: "price-reply-file", id: "pr1" }))?.name === "volt-quote.pdf");
+  ok("…another company's recipient row does not", (await resolveStaffFile(db, { companyId: CO, kind: "price-reply-file", id: "pr2" })) === null);
+  ok("…nor a file on a row that never replied, nor a junk replyFile", (await resolveStaffFile(db, { companyId: CO, kind: "price-reply-file", id: "pr3" })) === null && (await resolveStaffFile(db, { companyId: CO, kind: "price-reply-file", id: "pr4" })) === null);
+  ok("an unknown kind reads nothing",(await resolveStaffFile(db, { companyId: CO, kind: "worker-document", id: "x" })) === null);
   ok("no company reads nothing", (await resolveStaffFile(db, { companyId: "", kind: "quote-document", id: "qd1" })) === null);
 }
 
@@ -488,6 +497,9 @@ section("9. Wiring — every surface links the route, every route has a caller")
     ["app/components/jobs/PrepGuideCard.js", /href=\{data\.document\.url\}/, /href=\{data\.document\.openUrl\}/],
     ["app/components/platform/payouts/BatchCard.js", /href=\{batch\.proofUrl\}/, /platformFileHref\("payout-proof", batch\.id\)/],
     ["app/platform/migrations/[id]/MigrationDetail.js", /href=\{d\.url\}/, /platformFileHref\("migration-document", d\.id\)/],
+    // A sub's price reply (2026-10-07) shipped linking replyFile.url — the
+    // plain raw/upload PDF URL this account answers 401.
+    ["app/components/subRequests/PriceRequestsPanel.js", /href=\{r\.reply\.file\.url\}/, /href=\{r\.reply\.file\.openUrl\}/],
   ];
   for (const [file, stale, fresh] of surfaces) {
     const src = code(file);
@@ -513,7 +525,9 @@ section("9. Wiring — every surface links the route, every route has a caller")
     ["app/api/public/quotes/[token]/route.js", /fileHref: \(d\) => clientFileHref\(\{ scope: "quote", token, kind: "document"/],
     ["lib/estimate/report/presentation.js", /clientFileHref\(\{ scope: "quote", token, kind: "document"/],
     ["lib/prepGuide/send.js", /clientFileHref\(\{ scope: "portal", token, kind: "guide"/],
+    ["app/api/price-requests/route.js", /staffFileLink\(member, \{ kind: "price-reply-file", id: x\.id \}\)/],
   ];
+  ok("the price-request list never sends a reply's stored URL", !/file: x\.reply\.file\b|\.\.\.x\.reply\.file/.test(code("app/api/price-requests/route.js")));
   for (const [file, re] of minters) ok(`${file}: mints the open link`, re.test(code(file)));
   const proposal = code("lib/proposal/load.js");
   ok("the proposal no longer hands the stored fileUrl to a client", /url: \(typeof fileHref === "function" && fileHref\(d\)\) \|\| null/.test(proposal));

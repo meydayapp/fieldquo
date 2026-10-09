@@ -181,6 +181,10 @@ const ALLOW = new RegExp([
   "sales-tax",
   // date formats ("month first")
   "Спершу місяць", "спершу місяць",
+  // the hours a crew can BILL in a month (Settings → Overhead, a9fd9d90b,
+  // 2026-10-05) — an infinitive "to bill", which the "not charged for a
+  // month" pattern above caught; a trial line is never phrased that way
+  "factur(?:er|ar)(?: de verdad)? en un (?:mois|mes)",
 ].join("|"), "i");
 // Files that are about the referral or a promotion end to end.
 const ALLOW_FILES = /app\/refer\/|app\/platform\/promo-codes\/|app\/platform\/billing\/promotions\/|lib\/pricing\/planOffer\.js/;
@@ -274,6 +278,7 @@ function scanCopy(path, { banned, allow, allowFiles, hits }) {
   const isMd = /\.md$/.test(path);
   if (!/\.(m?js)$/.test(path) && !isMd) return;
   let inBlock = false;
+  let prev = "";
   readFileSync(path, "utf8").split("\n").forEach((line, i) => {
     const t = line.trim();
     if (!isMd) {
@@ -282,8 +287,16 @@ function scanCopy(path, { banned, allow, allowFiles, hits }) {
       if (t.startsWith("//") || t.startsWith("*")) return;
     }
     const code = isMd ? line : line.replace(/\s\/\/ .*$/, "");
+    // A catalogue value the formatter wrapped onto its own line
+    //   "home.sale.offPromoFirstMonth":
+    //     "{percent} % de rabais sur votre premier mois",
+    // is judged with its key, so a key the allowlist names (Promo, refer…)
+    // excuses it exactly as it would on one line. Only the key line is
+    // borrowed — a bare `"key":` — never an unrelated line above.
+    const keyAbove = !isMd && /^"[^"]+":$/.test(prev) ? `${prev} ` : "";
+    prev = t;
     if (!banned.some((re) => re.test(code))) return;
-    if (allow.test(code) || allowFiles.test(path)) return;
+    if (allow.test(keyAbove + code) || allowFiles.test(path)) return;
     hits.push(`${path.replace(/^.*?\/(app|lib|content|docs)\//, "$1/")}:${i + 1}: ${t.slice(0, 140)}`);
   });
 }

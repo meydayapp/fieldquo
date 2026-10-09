@@ -155,12 +155,22 @@ export default function PriceRequestsPanel({ quoteId = null, jobId = null, onCom
                         {r.reply.amountHidden
                           ? t("app.priceRequests.replyHidden")
                           : t("app.priceRequests.replyAmount", { amount: money(r.reply.amount) })}
-                        {r.reply.file?.url && (
-                          <a href={r.reply.file.url} target="_blank" rel="noreferrer" className="ml-2 inline-flex items-center gap-1 underline underline-offset-2 text-foreground">
-                            <FileText size={12} />
-                            {r.reply.file.filename || t("app.priceRequests.replyFile")}
-                          </a>
-                        )}
+                        {/* openUrl, minted by GET /api/price-requests: the
+                            stored Cloudinary URL of a PDF answers 401, so it
+                            is never linked. No link (no signing secret) is
+                            the file's name as text, never a dead anchor. */}
+                        {r.reply.file &&
+                          (r.reply.file.openUrl ? (
+                            <a href={r.reply.file.openUrl} target="_blank" rel="noreferrer" className="ml-2 inline-flex items-center gap-1 underline underline-offset-2 text-foreground">
+                              <FileText size={12} />
+                              {r.reply.file.filename || t("app.priceRequests.replyFile")}
+                            </a>
+                          ) : (
+                            <span className="ml-2 inline-flex items-center gap-1 text-foreground">
+                              <FileText size={12} />
+                              {r.reply.file.filename || t("app.priceRequests.replyFile")}
+                            </span>
+                          ))}
                       </p>
                       {r.reply.note && <p className="whitespace-pre-line">{r.reply.note}</p>}
                     </div>
