@@ -29,6 +29,8 @@ import { PermissionProvider } from "@/app/providers/PermissionProvider";
 import { SettingsAccessProvider } from "@/app/providers/SettingsAccessProvider";
 import { TradeGateProvider } from "@/app/providers/TradeGateProvider";
 import ViewOnlyProvider, { PersonalPageGate } from "@/app/providers/ViewOnlyProvider";
+import AgencyPageGate from "@/app/components/team/AgencyPageGate";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import { companyTradeGate } from "@/lib/settings/tradeGate";
 import { isInfluencer } from "@/lib/influencers";
 import { db } from "@/lib/db";
@@ -440,6 +442,10 @@ export default async function AppLayout({ children }) {
   // language — or a signed-in flag — behind in the superadmin's browser.
   const accountSession = Boolean(settingsShell.access && !settingsShell.access.impersonation);
 
+  // The marketing agency (lib/permissions/marketingAgency.js) — read off the
+  // grid this layout already resolved for the sidebars, so it costs nothing.
+  const agencyMember = isMarketingAgency(callerPermissions);
+
   // Before the lock check: a company that doesn't exist, or one that never
   // reached Stripe at all, can't be behind on its bill. In practice the two
   // can't both be true — "locked" needs a Subscription row and this needs the
@@ -627,7 +633,13 @@ export default async function AppLayout({ children }) {
                   notice in a support session instead of the owner's own data
                   — lib/impersonation/viewOnly.js PERSONAL_PAGES. Passes the
                   page through untouched for everyone else. */}
-              <PersonalPageGate>{children}</PersonalPageGate>
+              {/* The marketing agency's page boundary: any page outside
+                  funnels, marketing results and marketing leads renders a
+                  refusal instead (lib/permissions/marketingAgency.js). Passes
+                  the page through untouched for everyone else. */}
+              <AgencyPageGate>
+                <PersonalPageGate>{children}</PersonalPageGate>
+              </AgencyPageGate>
             </main>
           </div>
           <MobileTabBar />
@@ -661,13 +673,17 @@ export default async function AppLayout({ children }) {
       <PhoneVerifyPrompt />
       {/* First-visit walkthroughs. Mounted once here so a page never has to
           wire its own — it just needs a data-tour anchor. See tours.js. */}
-      <AppTours />
+      {/* Not for the marketing agency: the walkthroughs point at rail rows
+          they do not have, and Jennifer answers about the company's account,
+          which is not theirs to ask about (/api/jennifer is refused to them
+          — lib/permissions/marketingAgency.js). */}
+      {!agencyMember && <AppTours />}
       {/* Tier-1 support for THIS company only — a different assistant from the
           FieldQuo AI copilot at /app/copilot, which helps run the business
           rather than fix it. See lib/ai/jennifer/ for the whole boundary.
           Mounted at the shell level, not per-page, for the same reason
           ToastLayer is: one instance, reachable from anywhere in /app. */}
-      <JenniferPanel variant="app" role={callerPermissions?.role} />
+      {!agencyMember && <JenniferPanel variant="app" role={callerPermissions?.role} />}
       {/* Renders nothing. Vercel Speed Insights, sampled, for the back office
           ONLY — mounted here rather than in the root layout so no homeowner
           surface ever loads it. See the file for the sample rate and why the

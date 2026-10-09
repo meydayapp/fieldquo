@@ -26,6 +26,7 @@ import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, isNavRowActive, useNavGroups, useRa
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { phoneBarFor } from "@/lib/nav/phoneBar";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import { useSettingsGroups } from "@/app/components/layout/SettingsSidebar";
 import { useNavShell } from "@/app/components/layout/NavShell";
 import { useRovingRows } from "@/app/components/layout/rovingRows";
@@ -234,6 +235,9 @@ export function MoreSheet() {
   const { t } = useTranslation();
   const shell = useNavShell();
   const open = shell.isOpen("more");
+  // No search box for the marketing agency — search is not mounted for them
+  // (TopBar.js), so the box would open nothing.
+  const agency = isMarketingAgency(usePermissions());
 
   // Escape closes; the body stops scrolling under the sheet so it does not
   // appear to jump under a finger.
@@ -263,6 +267,9 @@ export function MoreSheet() {
       >
         <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-muted-foreground/25 shrink-0" />
         <div className="flex items-center gap-2 px-3 py-2 shrink-0">
+          {agency ? (
+            <span className="flex-1" />
+          ) : (
           <button
             type="button"
             onClick={() => shell.open("search")}
@@ -271,6 +278,7 @@ export function MoreSheet() {
             <Search size={14} className="shrink-0" />
             <span className="truncate">{t("app.search.placeholderShort")}</span>
           </button>
+          )}
           <button type="button" onClick={shell.close} aria-label={t("app.sidebar.closeMenu")} className="p-2 text-muted-foreground">
             <X size={20} />
           </button>

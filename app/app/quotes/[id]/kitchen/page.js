@@ -23,6 +23,10 @@ export default async function Page({ params }) {
   // No member, no company — the same "not found" a mistyped quote id gets
   // below, rather than a redirect that would need its own auth story.
   if (!member?.companyId) notFound();
+  // A server page reads the quote straight from the database, so the API
+  // boundary that confines a marketing agency (lib/currentMember.js) is not
+  // in its path. Refused here, as a quote is (lib/permissions/marketingAgency.js).
+  if (member.marketingAgency) notFound();
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },

@@ -43,6 +43,10 @@ export default async function CabinetRatesLayout({ children }) {
   // they always have.
   if (member.impersonation) return children;
 
+  // Company rate settings are not the marketing agency's
+  // (lib/permissions/marketingAgency.js) — refused before anything renders.
+  if (member.marketingAgency) notFound();
+
   const allowed = await canUseCabinetRatesSettings(member.companyId);
   if (!allowed) notFound();
 

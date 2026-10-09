@@ -40,6 +40,7 @@ import { useNavShell } from "@/app/components/layout/NavShell";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { usesCrewShell } from "@/lib/nav/crewShell";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import GlobalSearch, { useSlashToSearch } from "@/app/components/layout/GlobalSearch";
 import { CreateButton, CreateFab } from "@/app/components/layout/CreateMenu";
 import AccountMenu, { Avatar } from "@/app/components/layout/AccountMenu";
@@ -149,7 +150,13 @@ export default function TopBar() {
   // Crew: CrewShell.js is their top from `lg` up, and there is no drawer for
   // the hamburger to open (lib/nav/crewShell.js). The overlays at the end —
   // search on `/`, the floating + — stay theirs.
-  const crew = usesCrewShell(usePermissions(), useFeatureFlags());
+  const caller = usePermissions();
+  const crew = usesCrewShell(caller, useFeatureFlags());
+  // The marketing agency (lib/permissions/marketingAgency.js): no search and
+  // no bell. Search reaches clients and jobs through /api/search, and the
+  // notifications are the company's — both are refused to them, so a button
+  // that opens a refusal is not drawn.
+  const agency = isMarketingAgency(caller);
 
   return (
     <>
@@ -161,6 +168,8 @@ export default function TopBar() {
       >
         <Crumb />
         <div className="ml-auto flex items-center gap-2">
+          {!agency && (
+          <>
           <button
             type="button"
             onClick={() => shell.open("search")}
@@ -184,8 +193,10 @@ export default function TopBar() {
           >
             <Search size={20} />
           </button>
+          </>
+          )}
           <CreateButton />
-          <NotificationBell tone="bar" />
+          {!agency && <NotificationBell tone="bar" />}
           <AvatarMenu />
         </div>
       </header>
@@ -214,6 +225,8 @@ export default function TopBar() {
           )}
           <Logo variant="horizontal" href="/app" height={22} onDark priority />
           <div className="ml-auto flex items-center">
+            {!agency && (
+            <>
             <button
               type="button"
               onClick={() => shell.open("search")}
@@ -223,13 +236,15 @@ export default function TopBar() {
               <Search size={20} />
             </button>
             <NotificationBell />
+            </>
+            )}
           </div>
         </div>
       </div>
 
       {/* The overlays the bar (and the tab bar, and the rail) open. Mounted
           once, here, so there is one of each per shell. */}
-      <GlobalSearch />
+      {!agency && <GlobalSearch />}
       <MoreSheet />
       <CreateFab />
     </>

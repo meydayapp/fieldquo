@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import { startRun } from "@/lib/onboarding/service";
 // The admitted statuses, shared with the accept page so the screen it shows
 // and the gate below cannot drift — see lib/invitations/arrival.js.
@@ -145,14 +146,28 @@ export async function POST(request, { params }) {
   // 4. Give them a Worker row, linked to this user. Without it they have a login
   //    but no presence on the books — no timesheets, no payslips, no leave. See
   //    the note in ensureWorker.js.
-  const linked = await ensureWorkerForMember({
-    companyId: company.id,
-    userId: session.user.id,
-    title: pending?.title || null,
-  }).catch((err) => {
-    console.error("[accept invitation] worker link failed", err?.message);
-    return null;
-  });
+  //
+  //    Not for a marketing agency (lib/permissions/marketingAgency.js): a login
+  //    for the company's marketing is not a person on the books, and a Worker
+  //    row would put the agency on the payroll list, the shift board and the
+  //    timesheets. Read from the Member the reconcile above just wrote, so the
+  //    answer is the grid the invitation carried.
+  const accepted = await db.member
+    .findUnique({
+      where: { userId_companyId: { userId: session.user.id, companyId: company.id } },
+      select: { role: true, permissions: true },
+    })
+    .catch(() => null);
+  const linked = isMarketingAgency(accepted)
+    ? null
+    : await ensureWorkerForMember({
+        companyId: company.id,
+        userId: session.user.id,
+        title: pending?.title || null,
+      }).catch((err) => {
+        console.error("[accept invitation] worker link failed", err?.message);
+        return null;
+      });
 
   // 5. The checklist, if the New User form asked for one. Idempotent: a
   //    worker already on an open run is not given a second. Never fails the

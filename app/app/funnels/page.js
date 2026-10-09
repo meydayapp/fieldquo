@@ -33,7 +33,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { FUNNEL_TEMPLATES } from "@/lib/funnels/templates";
-import { can } from "@/lib/permissions";
+import { canManageMarketing } from "@/lib/permissions/marketingAgency";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { funnelStatusLabel } from "@/lib/funnels/status";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -65,7 +65,9 @@ export default function FunnelsPage() {
   //
   // Falls OPEN when the provider has not resolved — PermissionProvider's rule.
   const caller = usePermissions();
-  const canManageFunnels = !caller?.role || can(caller.role, "user:manage");
+  // user:manage, or the marketing agency the company invited to build these
+  // (lib/permissions/marketingAgency.js) — the rule every funnel route asks.
+  const canManageFunnels = !caller?.role || canManageMarketing(caller);
   // null until the server answers — see lib/loadState.js.
   const [funnels, setFunnels] = useState(null);
   const [loading, setLoading] = useState(true);

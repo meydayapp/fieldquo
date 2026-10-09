@@ -78,6 +78,23 @@ export { emptyPermissionValues, presetForValues };
 // invisible.
 const FIXED_PRESET = "worker";
 
+// ── Marketing agency: fixed for the opposite reason ─────────────────────────
+//
+// Crew is fixed because it is free. The marketing agency is fixed because it
+// is CONFINED: the marker in its grid (lib/permissions/marketingAgency.js)
+// refuses every page and route outside marketing whatever the dials say, so
+// a dial on screen would be a control that appears to work and doesn't —
+// raise Clients to "full edit" and the agency still could not open a client.
+// To give someone more, pick another level, which replaces the grid.
+const AGENCY_PRESET = "marketingAgency";
+
+// The one preset whose label and description are translated here. The four
+// staff presets print their English label as they always have (a catalogue
+// pass for them is its own change); this one is new, so it ships translated.
+const PRESET_I18N = {
+  [AGENCY_PRESET]: { label: "app.setTeamNew.agencyPreset.label", description: "app.setTeamNew.agencyPreset.description" },
+};
+
 export default function AccessEditor({
   grants,
   isAdministrator,
@@ -160,7 +177,7 @@ export default function AccessEditor({
                     }`}
                   >
                     <div className="font-medium text-foreground flex items-baseline justify-between gap-2">
-                      <span>{preset.label}</span>
+                      <span>{PRESET_I18N[key] ? t(PRESET_I18N[key].label) : preset.label}</span>
                       {/* The tier this preset produces. Two presets share one
                           tier, so this word alone never identifies a person —
                           it used to be printed bare here AND as Manage Team's
@@ -177,7 +194,7 @@ export default function AccessEditor({
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {preset.description}
+                      {PRESET_I18N[key] ? t(PRESET_I18N[key].description) : preset.description}
                     </div>
                   </button>
                 ))}
@@ -189,6 +206,9 @@ export default function AccessEditor({
                     happened to you. */}
                 <button
                   type="button"
+                  // Both parents start Custom from customFrom(values), which
+                  // drops the marketing agency's confinement marker — see
+                  // lib/permissions/accessPresets.js.
                   onClick={() => onPresetChange(null)}
                   className={`text-left p-3 rounded-lg border text-sm ${
                     activePreset === null
@@ -220,7 +240,14 @@ export default function AccessEditor({
           {/* Fixed preset: say what they get, and show no dials. A disabled
               grid would be worse than none — twenty greyed selects invite the
               reader to hunt for the one that will let them through. */}
-          {activePreset === FIXED_PRESET ? (
+          {activePreset === AGENCY_PRESET ? (
+            <div className="space-y-2 pt-2 border-t border-border" data-agency-preset-panel>
+              <p className="text-sm text-muted-foreground">{t("app.setTeamNew.agencyFixed")}</p>
+              {/* The owner's terms: a seat like any member — no free seat,
+                  no price of its own. Said where the choice is made. */}
+              <p className="text-sm font-medium text-foreground">{t("app.setTeamNew.agencySeat")}</p>
+            </div>
+          ) : activePreset === FIXED_PRESET ? (
             <>
             <p className="text-sm text-muted-foreground pt-2 border-t border-border">
               {t(

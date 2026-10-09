@@ -58,6 +58,8 @@ import {
   Calendar,
   CalendarClock,
   Users,
+  BarChart3,
+  Filter,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
@@ -82,6 +84,9 @@ const ICONS = {
   calendar: Calendar,
   schedule: CalendarClock,
   team: Users,
+  // The marketing agency's bar (lib/nav/phoneBar.js "marketing").
+  results: BarChart3,
+  funnels: Filter,
 };
 
 // The owner's bar, with its icons — what the More sheet used to subtract
