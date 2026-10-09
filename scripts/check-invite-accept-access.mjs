@@ -19,7 +19,7 @@
 // half-written" is something this file can actually observe.
 
 import { rows, resetStub, setSession, setCurrentMember, failures, renderedProps } from "./fixtures/teamAccessStub.mjs";
-import { PERMISSION_PRESETS, PERMISSION_CATEGORIES } from "@/lib/permissions";
+import { PERMISSION_PRESETS, PERMISSION_CATEGORIES, PERMISSION_TOGGLES } from "@/lib/permissions";
 import { hasLevel } from "@/lib/permissions/enforce";
 // Loaded dynamically so this file still RUNS — and reports — against a tree
 // that predates the module; a missing helper is then a failed assertion in
@@ -166,6 +166,27 @@ section("2a. Any one failed database call leaves the invitee either locked out o
   }
 }
 
+section("2a'. The same, onto an EXISTING (switched-off) Member row: a failed write leaves the old row switched off, and the retry lands");
+{
+  for (const [model, action] of [["member", "update"], ["pendingTeamProfile", "delete"], ["pendingTeamProfile", "findUnique"]]) {
+    world();
+    addFormerManager();
+    rows.invitation.push({ id: "inv_new", organizationId: "org1", email: "ex@co.test", role: "member", status: "pending", expiresAt: new Date(Date.now() + 864e5) });
+    rows.pendingTeamProfile.push({ id: "p1", companyId: "co1", email: "ex@co.test", role: "employee", permissions: { ...CREW } });
+    failures.push({ model, action, times: 1 });
+    const res = await accept("inv_new", { id: "u_ex", email: "ex@co.test" });
+    const m = memberOf("u_ex");
+    ok(`${model}.${action} fails → 500 and the ex-Manager is still switched off`, res.status === 500 && m?.active === false,
+      { status: res.status, active: m?.active, role: m?.role });
+    // Better Auth has flipped the invitation to accepted by now; the pending
+    // profile is what proves it was a fresh one.
+    const again = await accept("inv_new", { id: "u_ex", email: "ex@co.test" });
+    const m2 = memberOf("u_ex");
+    ok(`   …and the retry lands Crew, active`, again.status === 200 && m2?.active === true && m2?.role === "employee" && JSON.stringify(m2?.permissions) === JSON.stringify(CREW),
+      { status: again.status, member: m2 && { active: m2.active, role: m2.role, quotes: m2.permissions?.quotes } });
+  }
+}
+
 section("2b. An invitation that carries no grid lands the most restrictive preset for its role, never none");
 {
   for (const [role, stored] of [["employee", null], ["employee", {}], ["supervisor", null], ["supervisor", {}]]) {
@@ -203,7 +224,27 @@ section("2c. 'Most restrictive' is measured, not asserted: the chosen preset is 
         return a > b;
       });
       ok(`${key} grants no category above ${other}`, above.length === 0, above);
+      const toggles = Object.keys(PERMISSION_TOGGLES).filter((t) => mine[t] === true && preset.values[t] !== true);
+      ok(`${key} turns on no switch ${other} leaves off`, toggles.length === 0, toggles);
     }
+  }
+}
+
+section("2d. The self-heal on the Team page (reconcilePendingProfiles) never leaves a gridded role with no grid");
+{
+  const { reconcilePendingProfiles } = await import("@/lib/team/reconcilePendingProfile");
+  const cases = [
+    ["null grid + leftover Crew profile → Crew", null, { ...CREW }, CREW],
+    ["null grid + leftover gridless profile → Crew (most restrictive)", null, null, PERMISSION_PRESETS.worker.values],
+    ["{} grid + leftover gridless profile → Crew", {}, {}, PERMISSION_PRESETS.worker.values],
+    ["an Estimator grid set since stays (a later edit by the owner is not undone)", { ...ESTIMATOR }, { ...CREW }, ESTIMATOR],
+  ];
+  for (const [label, held, offered, want] of cases) {
+    world();
+    rows.member.push({ id: "m_new", userId: "u_new", companyId: "co1", role: "employee", active: true, permissions: held });
+    rows.pendingTeamProfile.push({ id: "p1", companyId: "co1", email: "new@co.test", role: "employee", permissions: offered });
+    await reconcilePendingProfiles("co1");
+    ok(label, JSON.stringify(memberOf("u_new")?.permissions) === JSON.stringify(want), memberOf("u_new")?.permissions);
   }
 }
 
