@@ -64,6 +64,7 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MediaUploader from "@/app/components/MediaUploader";
 import BookVisitPanel from "@/app/components/public/BookVisitPanel";
 import { readTouches } from "@/lib/tracking/touches";
+import { readLanding } from "@/lib/tracking/landing";
 import {
   buildConfirmation,
   budgetOptions,
@@ -188,6 +189,11 @@ export default function SelfQuoteFlow({ companySlug, embedded = false, look: loo
           // the ad that brought the visitor. Tokens only; the server looks
           // them up inside this company. [] when nothing was opened.
           visitTouches: readTouches(),
+          // This page's own URL: inside an embed, the ad parameters and
+          // cookies the host page forwarded onto the frame's src
+          // (lib/embed/snippet.js). Raw; the server keeps only what
+          // lib/tracking/attribution.js cleanLanding passes.
+          landing: readLanding(window.location.search, document.referrer),
         }),
       });
       const d = await res.json().catch(() => null);

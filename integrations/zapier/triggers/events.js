@@ -60,7 +60,10 @@ function makeTrigger([event, key, noun, label, description]) {
         event,
         occurredAt: "2026-10-05T15:00:00.000Z",
         data: {},
-        lead: { ref: "lr_0000000000007F3A", displayRef: "L-7F3A", firstName: "Ana", channel: "facebook_ad", stage: "qualified", postalCode: "K1A", postalCountry: "CA", contactsShared: false, fullName: null, phone: null, email: null },
+        // A Google Ads lead, so the gclid a "Google Ads: Send Offline
+        // Conversion" step maps is in the sample (docs/AGENCY-GOOGLE-ADS.md).
+        // Real samples come from performList and carry every row field.
+        lead: { ref: "lr_0000000000007F3A", displayRef: "L-7F3A", firstName: "Ana", firstContactAt: "2026-10-05T14:52:00.000Z", channel: "google_ads", fbclid: null, gclid: "EAIaIQobChMIexampleGclid0BwE", stage: "qualified", postalCode: "K1A", postalCountry: "CA", contactsShared: false, fullName: null, phone: null, email: null },
       },
       outputFields: [
         { key: "id", label: "Event ID" },

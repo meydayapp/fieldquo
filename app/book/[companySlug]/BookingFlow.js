@@ -144,7 +144,9 @@ export default function BookingFlow({
   // everywhere else on purpose — inside the instant estimate or the
   // self-quote confirmation this flow is a step of THAT page, whose visit
   // or lead already carries the landing, and inside an embed on another
-  // site the landing is not ours to read. No pixel, no contact capture:
+  // site the landing is not ours to read — unless the host page forwarded
+  // its ad parameters onto the frame's src, when the embed page turns this
+  // on (app/embed/[companySlug]/[widget]/page.js). No pixel, no contact capture:
   // step counts and the first-touch link only. "inherit" (the website's
   // booking block): the page URL is the website's, already counted as the
   // website visit's landing, so this visit takes that one's instead of
