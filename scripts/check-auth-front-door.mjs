@@ -266,7 +266,14 @@ console.log("\nThe role on screen is the role the route writes");
 // to print invitation.role, so somebody about to be made a Manager read "as
 // member".
 ok("the GET route resolves the pending profile's role", /pendingTeamProfile\.findUnique/.test(INVITE_ROUTE));
-ok("...the same way the accept route does", /pendingTeamProfile\.findUnique/.test(ACCEPT_ROUTE));
+// The accept route's read moved into lib/invitations/acceptMember.js on
+// 2026-10-09, inside the transaction that writes the Member — so it is
+// asserted there, and the route is held to calling it.
+ok(
+  "...the same way the accept route does",
+  /acceptInvitationMembership\(/.test(ACCEPT_ROUTE) &&
+    /pendingTeamProfile\.findUnique/.test(code("lib/invitations/acceptMember.js")),
+);
 ok("...and labels it rather than shipping the enum", /ROLE_LABELS\[/.test(INVITE_ROUTE));
 ok("the page renders the label, never the raw role", /invite\.roleLabel/.test(ACCEPT) && !/\{invite\.role\}/.test(ACCEPT));
 
