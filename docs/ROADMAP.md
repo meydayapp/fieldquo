@@ -161,7 +161,30 @@ what was built is only what execution showed missing.
   $0.30, Affirm 6% + $0.30, sourced); reversal and payment-row labels name
   Klarna; the card-fee settings list names Klarna as a no-fee flow.
 
-### Schema (additive — NOT applied; apply BEFORE this deploys — the webhook and poll write it)
+Follow-ups the same day (owner):
+
+- "Pay over time (Klarna)" is now shown on the portal's invoice page AND the
+  portal index whether or not the card fee is on (the owner's case: an
+  elderly client who can't find financing). Same rule, same hosted Checkout,
+  ids only; the main card button unchanged; "No credit card fee…" only where
+  there is a card fee.
+- Contrast: the outlined pay buttons (pay over time, bank debit) and the
+  small print under them were the raw brand hex / `#2d2520` at 60% — yellow
+  1.44:1, white 1.06:1, mid-grey 3.72:1, small print 4.05:1. Now
+  `outlinePair(theme, surface)` in `lib/documents/theme.js` measures text,
+  border and small print against the surface they sit on; check:klarna §11
+  computes it for yellow / white / black / mid-grey / grey / lime on both
+  surfaces, with five contrast mutants.
+- Settings › Payments › Processing fees says who pays and how much, whenever
+  the company's currency can offer pay over time: "your company pays Stripe's
+  fee… FieldQuo adds nothing", Klarna 5.99% + $0.30 and Affirm 6% + $0.30,
+  Stripe's +1.5% international / +2% conversion, a computed $1,000 example
+  (card $969.70; Klarna about $939.80; Affirm about $939.70 — the Klarna
+  figure is asserted equal to what settlement leaves), and "Klarna's rules
+  don't allow passing this fee on to the client" linked to Stripe's Klarna
+  rules. The old one-line Affirm note is no longer rendered.
+
+### Schema (additive — APPLIED in production 2026-10-09)
 
 ```sql
 ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "stripeKlarnaStatus" TEXT;
@@ -169,7 +192,7 @@ ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "stripeKlarnaStatus" TEXT;
 
 ### Checks
 
-`check:klarna` (in `check:all`, 122 assertions incl. 12 mutants);
+`check:klarna` (in `check:all`, 198 assertions incl. 17 mutants);
 `check:processing-fee` (capability assertions now expect klarna_payments
 beside affirm_payments) and `check:feature-pages` (imports the Affirm bounds
 rather than reading them off the source) updated.
@@ -179,9 +202,12 @@ rather than reading them off the source) updated.
 - The hosted page reached from "Pay over time" also offers a card with no
   card fee — the same as the Affirm button before it. A provider-only session
   (`payment_method_types: ["klarna"]`) would close that, but it is not proven
-  live on a destination charge with `on_behalf_of`; owner's call.
-- With the card fee OFF, Klarna is reachable through the card button (the
-  hosted page) but not named on the portal; not changed.
+  live on a destination charge with `on_behalf_of`. Owner decided
+  2026-10-09: leave as is.
+- The main card button is still the raw brand hex as a FILL with
+  readableForeground text (not outlinePair); a mid-grey brand is ~4.3:1
+  there. Left unchanged on instruction ("keep the main card button as it
+  is") — fillPair would fix it.
 - A Stripe promotional rate below the card estimate is not refunded (the
   true-up never goes down) — same rule as every card payment.
 

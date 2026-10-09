@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { readableForeground } from "@/lib/brand/colour";
+import { documentTheme, outlinePair } from "@/lib/documents/theme";
+import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
 import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
@@ -78,8 +80,10 @@ export default function ClientPortal({ token }) {
   // `method` is "card" or "bank" — HOW, never how much. The bank button only
   // renders when the server said the company can take it for THIS invoice's
   // amount (inv.bankDebit.eligible).
-  async function pay(invoiceId, method = "card") {
-    setPayingId(invoiceId);
+  // `busy` names which button is waiting: "Pay over time" opens the same
+  // hosted Checkout as the Pay button (method "card") with its own spinner.
+  async function pay(invoiceId, method = "card", busy = invoiceId) {
+    setPayingId(busy);
     setError("");
     try {
       const res = await fetch(`/api/portal/${token}/pay`, {
@@ -143,6 +147,10 @@ export default function ClientPortal({ token }) {
   // Measured foreground for elements ON the accent (the Pay button, the logo
   // bubble). Hardcoded dark text was unreadable on a dark brand or the default.
   const accentOn = readableForeground(accent);
+  // The outlined pay buttons (bank debit, pay over time) and the small print
+  // beside them sit on the white invoice card: measured against it
+  // (lib/documents/theme.js outlinePair), never the raw brand hex as text.
+  const payOutline = outlinePair(documentTheme(c), "#ffffff");
 
   // Whether the Pay buttons on this page can do anything. Derived server-side
   // (the raw Stripe account id never crosses to a public endpoint) — see
@@ -284,6 +292,11 @@ export default function ClientPortal({ token }) {
             // 500s under the contractor's own logo.
             const bankOffer = onlinePayments ? inv.bankDebit || null : null;
             const onlineBank = bankOffer?.eligible ? bankOffer.method : null;
+            // The pay-over-time providers for this balance, decided
+            // server-side; a key the table does not know is not printed.
+            const financing = onlinePayments && Array.isArray(inv.financing)
+              ? inv.financing.filter((k) => FINANCING_PROVIDERS[k])
+              : [];
             return (
               <div
                 key={inv.id}
@@ -347,27 +360,48 @@ export default function ClientPortal({ token }) {
                       )}
                       {onlineBank ? copy.payCard(money(due)) : copy.pay(money(due))}
                     </button>
+                    {/* Pay over time, named — the same rule and the same
+                        hosted Checkout as the invoice page (financing is
+                        the server's list for this balance; ids only go
+                        to /pay). As large as the Pay button. */}
+                    {financing.length > 0 && (
+                      <button
+                        data-pay-over-time={financing.join(",")}
+                        onClick={() => pay(inv.id, "card", `${inv.id}:overTime`)}
+                        disabled={Boolean(payingId)}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold border disabled:opacity-60"
+                        style={{ borderColor: payOutline.border, color: payOutline.fg }}
+                      >
+                        {payingId === `${inv.id}:overTime` ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Clock size={14} />
+                        )}
+                        {copy.cardFee.payOverTimeWith(financing.map((k) => FINANCING_PROVIDERS[k].name))}
+                      </button>
+                    )}
                     {onlineBank && (
                       <button
                         data-pay-bank={onlineBank}
                         onClick={() => pay(inv.id, "bank")}
                         disabled={Boolean(payingId)}
                         className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold border disabled:opacity-60"
-                        style={{ borderColor: accent, color: accent }}
+                        style={{ borderColor: payOutline.border, color: payOutline.fg }}
                       >
                         <Landmark size={13} />
                         {copy.payBank(money(due))}
                       </button>
                     )}
                     {inv.cardFee && data.cardForm?.publishableKey && (
-                      <span data-card-fee-notice className="text-xs text-[#2d2520]/60 text-right max-w-[15rem]">
+                      <span data-card-fee-notice className="text-xs text-right max-w-[15rem]" style={{ color: payOutline.muted }}>
                         {copy.cardFee.notice(surchargeRatePercent(inv.cardFee.rateBps))}
                       </span>
                     )}
                     {bankOffer && !bankOffer.eligible && (
                       <span
                         data-bank-over-cap
-                        className="text-xs text-[#2d2520]/60 text-right max-w-[15rem]"
+                        className="text-xs text-right max-w-[15rem]"
+                        style={{ color: payOutline.muted }}
                       >
                         {copy.bankOverCap(money(bankOffer.maxCents / 100), money(due))}
                       </span>

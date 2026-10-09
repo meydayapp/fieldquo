@@ -12,11 +12,22 @@
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
-import { publishedRates, publishedSurcharges, feeBreakdown, FINANCING_RATES } from "@/lib/stripe/processingFee";
+import {
+  publishedRates,
+  publishedSurcharges,
+  feeBreakdown,
+  financingFeeExample,
+  FINANCING_SURCHARGES,
+} from "@/lib/stripe/processingFee";
 import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
 
 // The example every contractor sees: a mid-sized job, paid by card.
 const EXAMPLE_CENTS = 226_000;
+// The pay-over-time side-by-side: a round $1,000, card vs each provider.
+const FINANCING_EXAMPLE_CENTS = 100_000;
+// Klarna's merchant rules on Stripe — "You can't impose fees or higher
+// prices for Klarna purchases".
+const KLARNA_RULES_URL = "https://docs.stripe.com/payments/klarna/compliance";
 
 export default function ProcessingFeesCard({ currency, offerFinancing, connected, bankDebit }) {
   const { t } = useTranslation();
@@ -27,6 +38,15 @@ export default function ProcessingFeesCard({ currency, offerFinancing, connected
     currency: String(currency || "cad").toLowerCase(),
     method: "card",
   });
+  // Pay over time, on a round $1,000 (the owner's example) — null when the
+  // company's currency has no pay-over-time rate, and then nothing renders.
+  const financingExample = financingFeeExample({
+    amountCents: FINANCING_EXAMPLE_CENTS,
+    currency: String(currency || "cad").toLowerCase(),
+  });
+  const financingNames = financingExample
+    ? financingExample.providers.map((p) => FINANCING_PROVIDERS[p.method].name).join(" / ")
+    : "";
 
   return (
     <div data-tour="payments-fees" className="bg-card border border-border rounded-xl p-6">
@@ -72,22 +92,63 @@ export default function ProcessingFeesCard({ currency, offerFinancing, connected
           net: money(example.netCents / 100),
         })}
       </p>
-      {offerFinancing && (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {t("app.setPayments.feesAffirmNote")}
-        </p>
-      )}
-      {/* Stripe's published pay-over-time rates, from the same file as the
-          card rate (FINANCING_RATES) — what to expect; settlement passes
-          Stripe's actual fee through at cost (lib/stripe/paymentIntentFee.js). */}
-      {offerFinancing && (
-        <p data-financing-rates className="mt-1.5 text-xs text-muted-foreground">
-          {t("app.setPayments.feesFinancingRates", {
-            rates: Object.values(FINANCING_RATES)
-              .map((r) => `${FINANCING_PROVIDERS[r.method].name} ${r.formula}`)
-              .join(" · "),
-          })}
-        </p>
+      {/* Pay over time: WHO pays and HOW MUCH, plainly (owner, 2026-10-09).
+          Shown wherever the company could offer it — its currency has a
+          pay-over-time rate — not only once the switch is on: the fee is
+          part of deciding whether to switch it on. Every figure comes from
+          lib/stripe/processingFee.js (FINANCING_RATES, FINANCING_SURCHARGES,
+          financingFeeExample — the published fee settlement passes through,
+          side by side with the card fee on the same amount). This replaces
+          the one-line "Affirm fee is passed through" note, which named
+          neither the payer nor the amount. */}
+      {financingExample && (
+        <div data-financing-fees className="mt-4 rounded-lg border border-border px-3.5 py-3">
+          <p className="text-sm text-foreground">
+            {t("app.setPayments.feesFinancingWho", { providers: financingNames })}
+          </p>
+          <dl className="mt-2 divide-y divide-border">
+            {financingExample.providers.map((p) => (
+              <div key={p.method} className="flex items-center justify-between py-1.5 text-sm">
+                <dt className="text-foreground">{FINANCING_PROVIDERS[p.method].name}</dt>
+                <dd className="tabular-nums font-medium text-foreground">{p.formula}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t("app.setPayments.feesFinancingSurcharges", {
+              international: FINANCING_SURCHARGES.international.formula,
+              conversion: FINANCING_SURCHARGES.conversion.formula,
+            })}
+          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground" data-financing-example>
+            {t("app.setPayments.feesFinancingExample", {
+              amount: money(financingExample.amountCents / 100),
+              cardNet: money(financingExample.card.netCents / 100),
+              providers: financingExample.providers
+                .map((p) =>
+                  t("app.setPayments.feesFinancingExampleProvider", {
+                    provider: FINANCING_PROVIDERS[p.method].name,
+                    net: money(p.netCents / 100),
+                  }),
+                )
+                .join("; "),
+            })}
+          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t("app.setPayments.feesFinancingNoPassOn")}{" "}
+            <a
+              href={KLARNA_RULES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              {t("app.setPayments.feesFinancingRulesLink")}
+            </a>
+          </p>
+          {!offerFinancing && (
+            <p className="mt-1.5 text-xs text-muted-foreground">{t("app.setPayments.feesFinancingOff")}</p>
+          )}
+        </div>
       )}
       <p className="mt-1.5 text-xs text-muted-foreground">{t("app.setPayments.feesRefundNote")}</p>
     </div>

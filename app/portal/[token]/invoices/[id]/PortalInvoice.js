@@ -24,7 +24,7 @@ import {
   Clock,
 } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
-import { documentTheme } from "@/lib/documents/theme";
+import { documentTheme, outlinePair, PORTAL_PAY_SURFACE } from "@/lib/documents/theme";
 import HowToPayBlock from "@/app/components/public/HowToPayBlock";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { documentFacts } from "@/lib/documentSections/customFacts";
@@ -42,7 +42,6 @@ import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
 const FINANCING_NAMES = Object.freeze(
   Object.fromEntries(Object.values(FINANCING_PROVIDERS).map((p) => [p.key, p.name])),
 );
-
 export default function PortalInvoice({ token, invoiceId, stageId = null, requestId = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -91,8 +90,10 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
   // exists when the server said the company can take it for the amount this
   // page asks for (invoice.bankDebit / stage.bankDebit), and the route
   // re-checks.
-  async function pay(method = "card") {
-    setPaying(method);
+  // `busy` names which BUTTON is waiting (its spinner): "Pay over time"
+  // opens the same hosted Checkout as the card button, with method "card".
+  async function pay(method = "card", busy = method) {
+    setPaying(busy);
     setError("");
     try {
       const res = await fetch(`/api/portal/${token}/pay`, {
@@ -160,6 +161,10 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
   const accentOn = readableForeground(accent);
   // For the "How to pay" block: the same measured palette the PDF uses.
   const theme = documentTheme(c);
+  // The pay panel's surface, and the outlined pay buttons and small print on
+  // it, measured against that surface (lib/documents/theme.js outlinePair) —
+  // never the raw brand hex as text.
+  const payPanel = outlinePair(theme, PORTAL_PAY_SURFACE);
   // The block as it was sent (or built by the route in the document's
   // language) — the e-transfer address, who to make the cheque out to.
   // Sentences only; the company's settings never reach this page.
@@ -440,7 +445,7 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
           </div>
         </div>
 
-        <div className="px-6 sm:px-8 py-5 bg-[#faf8f4] border-t border-black/5">
+        <div className="px-6 sm:px-8 py-5 border-t border-black/5" style={{ backgroundColor: payPanel.bg }}>
           {error && (
             <div className="mb-3 flex items-start gap-2 text-sm text-red-700">
               <AlertCircle size={15} className="shrink-0 mt-0.5" />
@@ -545,35 +550,44 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
                 </button>
               )}
               {cardFee && !cardOpen && (
-                <p data-card-fee-notice className="text-center text-xs text-[#2d2520]/60">
+                <p data-card-fee-notice className="text-center text-xs" style={{ color: payPanel.muted }}>
                   {copy.cardFee.notice(surchargeRatePercent(cardFee.rateBps))}
                 </p>
               )}
-              {/* Pay-over-time lives on Stripe's hosted page (its dynamic
-                  payment methods show Klarna / Affirm to an eligible
-                  account); with the card fee on, the card button no longer
-                  goes there, so it gets its own button rather than silently
-                  disappearing. Named for the providers the SERVER says are
-                  active and cover this figure (`financing`), never one
-                  company-level flag — that flag was Affirm's, and hid
-                  Klarna whenever Affirm was refused. Same size as the card
-                  button: an equal choice, not a footnote. The figure is the
-                  one this page asks for, re-derived by the pay route from
-                  the stage / request row — the button sends no amount. No
-                  card fee is added on the hosted page. */}
-              {cardFee && financing.length > 0 && (
+              {/* Pay over time, NAMED — Klarna / Affirm live on Stripe's
+                  hosted page (its dynamic payment methods), and a client
+                  who wants financing should not have to guess that the card
+                  button leads there (the owner's case: an elderly client who
+                  can't find it). Shown whether or not the card fee is on;
+                  with the fee on it is also the only way to the hosted page.
+                  Named for the providers the SERVER says are active and
+                  cover this figure (`financing`), never one company-level
+                  flag — that flag was Affirm's, and hid Klarna whenever
+                  Affirm was refused. Same size as the card button: an equal
+                  choice, not a footnote. It opens the same hosted Checkout
+                  as the card button (method "card"); the figure is the one
+                  this page asks for, re-derived by the pay route from the
+                  stage / request row — the button sends no amount. No card
+                  fee is added on the hosted page. */}
+              {financing.length > 0 && (
                 <>
                   <button
                     data-pay-over-time={financing.join(",")}
-                    onClick={() => pay("card")}
+                    onClick={() => pay("card", "overTime")}
                     disabled={Boolean(paying)}
                     className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold border disabled:opacity-60"
-                    style={{ borderColor: accent, color: accent }}
+                    style={{ borderColor: payPanel.border, color: payPanel.fg }}
                   >
-                    {paying === "card" ? <Loader2 size={15} className="animate-spin" /> : <Clock size={15} />}
+                    {paying === "overTime" ? <Loader2 size={15} className="animate-spin" /> : <Clock size={15} />}
                     {copy.cardFee.payOverTimeWith(financing.map((k) => FINANCING_NAMES[k] || k))}
                   </button>
-                  <p className="text-center text-xs text-[#2d2520]/60">{copy.cardFee.payOverTimeNote}</p>
+                  {/* "No credit card fee" only means something where there
+                      is one; without it the sentence would invent a fee. */}
+                  {cardFee && (
+                    <p className="text-center text-xs" style={{ color: payPanel.muted }}>
+                      {copy.cardFee.payOverTimeNote}
+                    </p>
+                  )}
                 </>
               )}
               {bankDebit && (
@@ -583,7 +597,7 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
                     onClick={() => pay("bank")}
                     disabled={Boolean(paying)}
                     className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold border disabled:opacity-60"
-                    style={{ borderColor: accent, color: accent }}
+                    style={{ borderColor: payPanel.border, color: payPanel.fg }}
                   >
                     {paying === "bank" ? (
                       <Loader2 size={15} className="animate-spin" />
@@ -592,11 +606,11 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
                     )}
                     {copy.payBank(money(due))}
                   </button>
-                  <p className="text-center text-xs text-[#2d2520]/60">{copy.bankNote}</p>
+                  <p className="text-center text-xs" style={{ color: payPanel.muted }}>{copy.bankNote}</p>
                 </>
               )}
               {bankOffer && !bankOffer.eligible && (
-                <p data-bank-over-cap className="text-center text-xs text-[#2d2520]/60">
+                <p data-bank-over-cap className="text-center text-xs" style={{ color: payPanel.muted }}>
                   {copy.bankOverCap(money(bankOffer.maxCents / 100), money(due))}
                 </p>
               )}

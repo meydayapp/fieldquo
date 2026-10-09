@@ -244,24 +244,57 @@ async function settle({ amount, stripeFee, type = "klarna", currency = "cad" }) 
   ok("a card payment's true-up is unchanged: still 'Card processing surcharge', margin kept ($2.26)",
     /^Card processing surcharge/.test(card.log[0].params.description) && card.fee.processingFeeCents - 8392 === 226);
   ok("Affirm's reversal wording is unchanged", trueUpDescription("affirm") === "Affirm processing fee (pay-over-time, chosen at checkout)");
+
+  // The settings card's side-by-side (ProcessingFeesCard), on the owner's
+  // $1,000 — computed by the real functions, and the Klarna figure held to
+  // what SETTLEMENT actually leaves the contractor for that payment.
+  const ex = fees.financingFeeExample({ amountCents: 100_000, currency: "cad" });
+  const k = ex.providers.find((p) => p.method === "klarna");
+  const a = ex.providers.find((p) => p.method === "affirm");
+  ok("fees card, $1,000: by card $30.30 fee → $969.70 reaches the contractor", ex.card.feeCents === 3_030 && ex.card.netCents === 96_970, ex.card);
+  ok("  ^ by Klarna $60.20 fee → $939.80", k.feeCents === 6_020 && k.netCents === 93_980, k);
+  ok("  ^ by Affirm $60.30 fee → $939.70", a.feeCents === 6_030 && a.netCents === 93_970, a);
+  ok("  ^ Klarna listed first, then Affirm (the card's order)", ex.providers.map((p) => p.method).join() === "klarna,affirm");
+  const settled1000 = await settle({ amount: 100_000, stripeFee: k.feeCents });
+  ok("  ^ and settlement of a domestic $1,000 Klarna payment leaves exactly that $939.80 (the card's example is the real outcome)",
+    settled1000.fee.netCents === k.netCents && settled1000.fee.processingFeeCents === k.feeCents, settled1000.fee);
+  ok("  ^ USD gives the same figures; a currency with no pay-over-time rate gives no block (null)",
+    fees.financingFeeExample({ amountCents: 100_000, currency: "usd" }).providers.find((p) => p.method === "klarna").netCents === 93_980 &&
+      fees.financingFeeExample({ amountCents: 100_000, currency: "gbp" }) === null);
+  ok("  ^ Stripe's local-payment-method surcharges: +1.5% international, +2% conversion",
+    fees.FINANCING_SURCHARGES.international.formula === "+1.5%" && fees.FINANCING_SURCHARGES.conversion.formula === "+2%");
+  const feesCard = stripComments(read("app/app/settings/payments/ProcessingFeesCard.js"));
+  ok("  ^ the card renders financingFeeExample on $1,000 whenever the currency has a rate — not only with financing on",
+    /financingFeeExample\(\{\s*amountCents: FINANCING_EXAMPLE_CENTS/.test(feesCard) && /const FINANCING_EXAMPLE_CENTS = 100_000;/.test(feesCard) &&
+      /\{financingExample && \(/.test(feesCard) && !/offerFinancing && \(\s*<p data-financing/.test(feesCard));
+  ok("  ^ and cites Klarna's rules (docs.stripe.com/payments/klarna/compliance)", /https:\/\/docs\.stripe\.com\/payments\/klarna\/compliance/.test(feesCard) && /feesFinancingNoPassOn/.test(feesCard));
 }
 
-console.log("\n── 7. The portal's card-fee path keeps a door to Klarna ─────────────\n");
+console.log("\n── 7. The portal names pay-over-time, card fee or not ──────────────\n");
 {
   const portal = stripComments(read("app/api/portal/[token]/route.js"));
   const inv = stripComments(read("app/portal/[token]/invoices/[id]/PortalInvoice.js"));
-  ok("portal GET: financing for an amount comes from offeredFinancingMethods (the ONE rule), only on an invoice with a card fee",
-    /const financingFor = \(invoiceId, amountCents\) =>\s*financingCurrency && cardFeeFor\(invoiceId\)\s*\?\s*offeredFinancingMethods\(\{ company: client\.company, amountCents, currency: financingCurrency \}\)\s*:\s*\[\]/.test(portal));
+  const index = stripComments(read("app/portal/[token]/ClientPortal.js"));
+  ok("portal GET: financing for an amount comes from offeredFinancingMethods (the ONE rule) — online payments, not a demo, card fee or not",
+    /const financingFor = \(amountCents\) =>\s*financingCurrency && onlinePayments && !demoPayments\s*\?\s*offeredFinancingMethods\(\{ company: client\.company, amountCents, currency: financingCurrency \}\)\s*:\s*\[\]/.test(portal));
   ok("  ^ for the balance, each stage's share and each request's figure — all server-derived",
-    /financing: financingFor\(invoice\.id, invoiceBalanceCents\(invoice\)\)/.test(portal) &&
-      /amountCents: left, bankDebit: offerFor\(left\), financing: financingFor\(invoice\.id, left\) \}/.test(portal) &&
-      /\{ id: r\.id, amountCents: left, bankDebit: offerFor\(left\), financing: financingFor\(invoice\.id, left\) \}/.test(portal));
+    /financing: financingFor\(invoiceBalanceCents\(invoice\)\)/.test(portal) &&
+      /amountCents: left, bankDebit: offerFor\(left\), financing: financingFor\(left\) \}/.test(portal) &&
+      /\{ id: r\.id, amountCents: left, bankDebit: offerFor\(left\), financing: financingFor\(left\) \}/.test(portal));
   ok("  ^ the Klarna column is stripped from `company` (never reaches the browser)", /stripeKlarnaStatus: _stripeKlarnaStatus,/.test(portal));
   ok("  ^ the old company-level `affirm` flag is gone (it hid Klarna whenever Affirm was refused)", !/affirm: onlineOptions\(client\.company\)\.affirm/.test(portal));
-  ok("invoice page: the button renders on cardFee && financing.length, for the figure the page asks for",
-    /\{cardFee && financing\.length > 0 && \(/.test(inv) && /const financingOffer = asking != null \? picked\.financing : invoice\.financing;/.test(inv));
-  ok("  ^ it opens the SAME hosted Checkout (pay(\"card\")) — no amount, no provider in the body",
-    /data-pay-over-time=\{financing\.join\(","\)\}\s*onClick=\{\(\) => pay\("card"\)\}/.test(inv));
+  ok("invoice page: the button renders on financing.length alone (NOT gated on the card fee), for the figure the page asks for",
+    /\{financing\.length > 0 && \(/.test(inv) && !/cardFee && financing\.length/.test(inv) && /const financingOffer = asking != null \? picked\.financing : invoice\.financing;/.test(inv));
+  ok("  ^ it opens the SAME hosted Checkout (method \"card\", its own spinner) — no amount, no provider in the body",
+    /data-pay-over-time=\{financing\.join\(","\)\}\s*onClick=\{\(\) => pay\("card", "overTime"\)\}/.test(inv) && /async function pay\(method = "card", busy = method\)/.test(inv));
+  ok("  ^ the 'no credit card fee' sentence only where there is a card fee (otherwise it would invent one)",
+    /\{cardFee && \(\s*<p[^>]*>\s*\{copy\.cardFee\.payOverTimeNote\}/.test(inv));
+  ok("  ^ the main card button is unchanged (fill accent, text accentOn, pay(\"card\") or the card form)",
+    /onClick=\{\(\) => \(cardFee \? setCardOpen\(true\) : pay\("card"\)\)\}/.test(inv) && /style=\{\{ backgroundColor: accent, color: accentOn \}\}/.test(inv));
+  ok("portal index: the same named button for each invoice's balance, same size as Pay, ids only",
+    /\{financing\.length > 0 && \(/.test(index) && /onClick=\{\(\) => pay\(inv\.id, "card", `\$\{inv\.id\}:overTime`\)\}/.test(index) &&
+      /data-pay-over-time[\s\S]{0,300}px-5 py-2\.5 rounded-full text-sm font-semibold border/.test(index) &&
+      /body: jsonBody\(\{ invoiceId, method \}, "payment"\)/.test(index));
   const body = inv.slice(inv.indexOf("body: jsonBody("), inv.indexOf("\"payment\"", inv.indexOf("body: jsonBody(")));
   ok("  ^ the pay request carries ids and the method only — never a money figure (non-negotiable #5)",
     /invoiceId,/.test(body) && /stageId:/.test(body) && /requestId:/.test(body) && /method,/.test(body) && !/amount|cents|total/i.test(body), body);
@@ -346,17 +379,25 @@ console.log("\n── 9. Copy, in every language ──────────�
   const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
   const langs = ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"];
   const src = read("app/app/settings/payments/FinancingProviderStatus.js") + read("app/app/settings/payments/page.js") + read("app/app/settings/payments/ProcessingFeesCard.js") + read("app/app/settings/payments/ClientCardSurchargeCard.js");
-  const used = [...new Set([...src.matchAll(/t\("(app\.setPayments\.(?:klarna|financing(?:Support|Note|Declined|Pending|TitleProviders)|feesFinancingRates|clientCardFee\.flow\.klarna)[^"]*)"/g)].map((m) => m[1]))];
+  const used = [...new Set([...src.matchAll(/t\("(app\.setPayments\.(?:klarna|financing(?:Support|Note|Declined|Pending|TitleProviders)|feesFinancing|clientCardFee\.flow\.klarna)[^"]*)"/g)].map((m) => m[1]))];
   const missing = [];
   for (const k of [...used, "app.feeRate.klarna"]) for (const l of langs) if (typeof APP_MESSAGES[l]?.[k] !== "string") missing.push(`${l}:${k}`);
   ok(`every new settings string (${used.length}) exists in all ${langs.length} app languages`, used.length >= 18 && missing.length === 0, missing.slice(0, 10));
   const english = [];
   for (const k of used) for (const l of langs.slice(1)) if (APP_MESSAGES[l][k] === APP_MESSAGES.en[k]) english.push(`${l}:${k}`);
   ok("  ^ none left in English", english.length === 0, english);
-  ok("  ^ placeholders survive translation ({min}/{max}, {country}, {provider}, {providers}, {rates}, {items})",
+  const holds = (key, ...names) => langs.every((l) => names.every((n) => APP_MESSAGES[l][key]?.includes(`{${n}}`)));
+  ok("  ^ the fee block's placeholders survive translation",
+    holds("app.setPayments.feesFinancingWho", "providers") && holds("app.setPayments.feesFinancingSurcharges", "international", "conversion") &&
+      holds("app.setPayments.feesFinancingExample", "amount", "cardNet", "providers") && holds("app.setPayments.feesFinancingExampleProvider", "provider", "net"));
+  ok("  ^ the old vague one-liner is gone from every language", langs.every((l) => !("app.setPayments.feesFinancingRates" in APP_MESSAGES[l])));
+  ok("  ^ the English says who pays and that FieldQuo adds nothing",
+    /your company pays Stripe's fee/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) && /FieldQuo adds nothing/.test(APP_MESSAGES.en["app.setPayments.feesFinancingWho"]) &&
+      /Klarna's rules don't allow passing this fee on to the client/.test(APP_MESSAGES.en["app.setPayments.feesFinancingNoPassOn"]));
+  ok("  ^ placeholders survive translation ({min}/{max}, {country}, {provider}, {providers}, {items})",
     langs.every((l) => /\{min\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaActive"]) && /\{max\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaActive"]) &&
       /\{country\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaUnavailable"]) && /\{provider\}/.test(APP_MESSAGES[l]["app.setPayments.financingSupportLabel"]) &&
-      /\{providers\}/.test(APP_MESSAGES[l]["app.setPayments.financingNoteWarning"]) && /\{rates\}/.test(APP_MESSAGES[l]["app.setPayments.feesFinancingRates"]) &&
+      /\{providers\}/.test(APP_MESSAGES[l]["app.setPayments.financingNoteWarning"]) &&
       /\{items\}/.test(APP_MESSAGES[l]["app.setPayments.klarnaAsking"])));
   ok("the card's title lists both providers", APP_MESSAGES.en["app.setPayments.financingTitleProviders"] === "Offer pay-over-time (Affirm, Klarna)");
 
@@ -427,6 +468,76 @@ await noteSuite(fin, ok);
       writeFileSync(path2, feeSrc.replace("if (isFinancingMethod(method)) {", "if (false) {"));
       const mod2 = await import(pathToFileURL(path2).href);
       ok("mutant \"Klarna reversal labelled as a card surcharge again\" is caught", /^Card processing surcharge/.test(mod2.trueUpDescription("klarna")) && /^Klarna/.test(trueUpDescription("klarna")));
+    }
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+console.log("\n── 11. Outlined pay buttons: contrast measured, hostile brands ──────\n");
+{
+  const { contrastRatio } = await import("@/lib/brand/colour.js");
+  const theme = await import("@/lib/documents/theme.js");
+  // The colours contractors actually pick that break naive text-on-light:
+  // yellow, white, black, mid-grey — plus a darker grey and lime.
+  const HOSTILE = ["#facc15", "#ffffff", "#000000", "#808080", "#777777", "#84cc16"];
+  const SURFACES = [theme.PORTAL_PAY_SURFACE, "#ffffff"];
+  async function contrastSuite(m, t) {
+    for (const brand of HOSTILE) {
+      const th = theme.documentTheme({ brandColor: brand });
+      for (const surface of SURFACES) {
+        const p = m.outlinePair(th, surface);
+        t(`${brand} on ${surface}: the pair is drawn on that surface`, p.bg === surface);
+        t(`${brand} on ${surface}: button text ≥ 4.5:1 (${contrastRatio(p.fg, surface).toFixed(2)})`, contrastRatio(p.fg, surface) >= 4.5);
+        t(`${brand} on ${surface}: border ≥ 3:1 (${contrastRatio(p.border, surface).toFixed(2)})`, contrastRatio(p.border, surface) >= 3);
+        t(`${brand} on ${surface}: small print ≥ 4.5:1 (${contrastRatio(p.muted, surface).toFixed(2)})`, contrastRatio(p.muted, surface) >= 4.5);
+      }
+    }
+  }
+  await contrastSuite(theme, ok);
+  ok("the problem was real: the raw brand hex as text on #faf8f4 — yellow 1.44, white 1.06, mid-grey 3.72 — all under 4.5",
+    contrastRatio("#facc15", theme.PORTAL_PAY_SURFACE) < 4.5 && contrastRatio("#ffffff", theme.PORTAL_PAY_SURFACE) < 4.5 && contrastRatio("#808080", theme.PORTAL_PAY_SURFACE) < 4.5);
+  ok("  ^ and accentText alone (measured vs paper) is not enough on #faf8f4: white 4.47, mid-grey 4.28",
+    contrastRatio(theme.documentTheme({ brandColor: "#ffffff" }).accentText, theme.PORTAL_PAY_SURFACE) < 4.5 &&
+      contrastRatio(theme.documentTheme({ brandColor: "#808080" }).accentText, theme.PORTAL_PAY_SURFACE) < 4.5);
+  ok("  ^ the old small print (#2d2520 at 60%) composites under 4.5 on both surfaces (4.05 / 4.12)",
+    contrastRatio("#7f7a76", theme.PORTAL_PAY_SURFACE) < 4.5 && contrastRatio("#817c79", "#ffffff") < 4.5);
+  ok("  ^ the familiar brand is untouched (FieldQuo navy keeps its own hex)",
+    theme.outlinePair(theme.documentTheme({ brandColor: "#06356b" }), theme.PORTAL_PAY_SURFACE).fg === "#06356b");
+
+  const inv = stripComments(read("app/portal/[token]/invoices/[id]/PortalInvoice.js"));
+  const index = stripComments(read("app/portal/[token]/ClientPortal.js"));
+  ok("no portal pay button draws the raw brand hex as text any more", !/borderColor: accent, color: accent/.test(inv + index));
+  ok("invoice page: the panel takes its surface from outlinePair(theme, PORTAL_PAY_SURFACE); bank + pay-over-time use it",
+    /const payPanel = outlinePair\(theme, PORTAL_PAY_SURFACE\);/.test(inv) && /style=\{\{ backgroundColor: payPanel\.bg \}\}/.test(inv) &&
+      (inv.match(/style=\{\{ borderColor: payPanel\.border, color: payPanel\.fg \}\}/g) || []).length === 2);
+  ok("  ^ and the small print under them is payPanel.muted (bank note, over-cap, card-fee notice, no-fee note)",
+    (inv.match(/style=\{\{ color: payPanel\.muted \}\}/g) || []).length >= 4 && !/text-xs text-\[#2d2520\]\/60">\{copy\.(bankNote|cardFee\.payOverTimeNote)\}/.test(inv));
+  ok("portal index: bank + pay-over-time buttons and their notes measured against the white card",
+    /const payOutline = outlinePair\(documentTheme\(c\), "#ffffff"\);/.test(index) &&
+      (index.match(/style=\{\{ borderColor: payOutline\.border, color: payOutline\.fg \}\}/g) || []).length === 2 &&
+      (index.match(/style=\{\{ color: payOutline\.muted \}\}/g) || []).length >= 2);
+
+  const THEME_FILE = "lib/documents/theme.js";
+  const themeSrc = read(THEME_FILE);
+  const CONTRAST_MUTANTS = [
+    ["raw brand hex as the button text", "const fg = ensureContrast(theme.accentText, bg, 4.5);", "const fg = theme.accent;"],
+    ["accentText trusted (measured vs paper, not the surface)", "const fg = ensureContrast(theme.accentText, bg, 4.5);", "const fg = theme.accentText;"],
+    ["surface ignored (always measured against paper)", "const bg = norm(surface, theme.paper);", "const bg = theme.paper;"],
+    ["border left as the raw brand hex", "return { bg, fg, border: fg, muted:", "return { bg, fg, border: theme.accent, muted:"],
+    ["small print back to #2d2520 at 60%", "muted: ensureContrast(theme.inkMuted, bg, 4.5) };", "muted: \"#817c79\" };"],
+  ];
+  const scratch = mkdtempSync(join(tmpdir(), "fq-klarna-contrast-"));
+  try {
+    for (const [label, from, to] of CONTRAST_MUTANTS) {
+      if (!themeSrc.includes(from)) {
+        ok(`contrast mutant "${label}": the code it mutates is still there`, false, from);
+        continue;
+      }
+      const path = join(scratch, `t${Math.random().toString(36).slice(2)}.mjs`);
+      writeFileSync(path, themeSrc.replace(from, to));
+      const failures = await quiet(contrastSuite, await import(pathToFileURL(path).href));
+      ok(`contrast mutant "${label}" is caught (${failures} assertion${failures === 1 ? "" : "s"} fail)`, failures > 0);
     }
   } finally {
     rmSync(scratch, { recursive: true, force: true });
