@@ -4,7 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+// requireMarketingAccess: user:manage, or the marketing agency the company
+// invited to build these (lib/permissions/marketingAgency.js).
+import { requireMarketingAccess } from "@/lib/permissions/marketingAgency";
 import { recordActivity } from "@/lib/activity/log";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { buildFunnelFromTemplate, blankFunnelSteps, untitledFunnelName } from "@/lib/funnels/templates";
@@ -29,7 +31,7 @@ async function requireAdmin(request, { read = false } = {}) {
   if (refusal) return refusal;
   if (read && member.impersonation) return { member };
   try {
-    requirePermission(member.role, "user:manage");
+    requireMarketingAccess(member);
   } catch {
     return { error: "Only owners and admins can manage funnels.", status: 403 };
   }

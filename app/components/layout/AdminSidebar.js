@@ -70,14 +70,13 @@ import {
   filterNavGroupsByPermission,
   filterNavItemsByPermission,
   labelNavItems,
-  NAV_REQUIREMENTS,
 } from "@/lib/permissions/nav";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useTradeGate } from "@/app/providers/TradeGateProvider";
 import { filterNavGroupsByTrade } from "@/lib/settings/tradeGateNav";
 import { railPinsClock } from "@/lib/nav/phoneBar";
 import { usesCrewShell } from "@/lib/nav/crewShell";
-import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
+import { isMarketingAgency, AGENCY_ONLY_NAV_ROWS } from "@/lib/permissions/marketingAgency";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 import { useChatUnread } from "@/app/hooks/useChatUnread";
 import NavUnreadBadge from "@/app/components/chat/NavUnreadBadge";
@@ -210,9 +209,9 @@ export const NAV_GROUPS = [
       // because a stranger meets it, beside the inbox that stranger writes to.
       { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset, tour: "nav-receptionist", helpArticle: "receptionist" },
       // The marketing agency's rail (2026-10-09). Shown to a marketing-agency
-      // member and to nobody else (lib/permissions/nav.js
-      // marketingAgencyOnly): everybody else reaches both screens from the
-      // Marketing hub, and the owner's rail stays as it was.
+      // member and to nobody else (AGENCY_ONLY_NAV_ROWS, read first by
+      // lib/permissions/nav.js navRowAllowed): everybody else reaches both
+      // screens from the Marketing hub, and the owner's rail stays as it was.
       { key: "app.nav.marketingResults", href: "/app/marketing/results", icon: BarChart3, helpArticle: "marketing" },
       { key: "app.nav.marketingLeads", href: "/app/marketing/leads", icon: Users, helpArticle: "marketing" },
     ],
@@ -364,7 +363,7 @@ export const MORE_ITEM = { key: "app.nav.more", href: "/app/more", icon: LayoutG
 // would stop the owner's Marketing row lighting on that page. For the agency,
 // whose rail holds them, an href outside the set still lights by prefix.
 const ROW_HREFS = [...NAV_GROUPS, ...MORE_GROUPS].flatMap((g) =>
-  g.items.filter((i) => !NAV_REQUIREMENTS[i.key]?.marketingAgencyOnly).map((i) => i.href),
+  g.items.filter((i) => !AGENCY_ONLY_NAV_ROWS.includes(i.key)).map((i) => i.href),
 );
 export function isNavRowActive(pathname, href) {
   return isRowActive(href, pathname, ROW_HREFS);
@@ -494,13 +493,12 @@ export default function AdminSidebar() {
   // said they don't need (lib/nav/crewShell.js). Decided here, drawn by
   // CrewShell.js from `lg` up and by the bottom bar below it; the early
   // return is after every hook below, so the hook order never changes.
-  const railCaller = usePermissions();
-  const crewShell = usesCrewShell(railCaller, featureFlags);
+  const crewShell = usesCrewShell(usePermissions(), featureFlags);
   // The marketing agency creates nothing from the Create menu (every entry is
   // refused to them, so it is empty) and may not search the company's
   // records — so the rail draws neither button rather than two that open
   // nothing. lib/permissions/marketingAgency.js.
-  const agencyRail = isMarketingAgency(railCaller);
+  const agencyRail = isMarketingAgency(usePermissions());
   const navGroups = useNavGroups(NAV_GROUPS);
   const moreGroups = useRailMoreGroups();
   const railPins = useRailPins();

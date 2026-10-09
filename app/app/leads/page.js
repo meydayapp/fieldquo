@@ -77,6 +77,7 @@ import {
 } from "@/lib/leads/intakeShape";
 import { wasAsked } from "@/lib/leads/qualifiers";
 import { leadSourceLabel } from "@/lib/leads/sourceLabel";
+import { LEAD_SOURCE_FILTERS, passesSourceFilter, agencyBadgeOf } from "@/lib/agency/channels";
 import { serviceAreaCopy } from "@/lib/company/serviceArea";
 import { tradeQuestionCopy, whenNeededLabel } from "@/lib/leads/tradeQuestions";
 import { summarisePotential } from "@/lib/leads/potentialValue";
@@ -88,6 +89,19 @@ import {
   WonBlockedNote,
   wonReasonText,
 } from "@/app/components/leads/LeadLinkedDocuments";
+
+// The source filter's words. Five are Marketing results' own source labels,
+// so the board and the results page call a channel the same thing; Phone and
+// Other exist only here, where "organic" is split (lib/agency/channels.js).
+const SOURCE_FILTER_LABEL_KEY = {
+  agency: "app.agencyMetrics.source.agency_funnel",
+  meta: "app.agencyMetrics.source.meta",
+  google: "app.agencyMetrics.source.google",
+  website: "app.agencyMetrics.source.website",
+  referral: "app.agencyMetrics.source.referral",
+  phone: "app.leads.sourceFilter.phone",
+  other: "app.leads.sourceFilter.other",
+};
 
 const COLUMNS = [
   { key: "new", labelKey: "app.status.new", tone: "border-blue-200 dark:border-blue-900" },
@@ -330,7 +344,24 @@ function LeadsPage() {
   // half is computed per load and is not a column a query could filter on.
   const [quotedOnly, setQuotedOnly] = useState(false);
   const quotedCount = (leads ?? []).filter((l) => l.quoted).length;
-  const shown = useMemo(() => (quotedOnly ? (leads ?? []).filter((l) => l.quoted) : leads ?? []), [leads, quotedOnly]);
+  // ── Source (2026-10-09) ──────────────────────────────────────────────────
+  //
+  // All, Agency funnel, Facebook/Instagram ads, Google Ads, Website,
+  // Referral, Phone, Other. In the browser, like Quoted above and for the
+  // same reason: the bucket is computed per load (GET /api/leads places each
+  // lead with lib/agency/channels.js channelOf — the agency API's own rule,
+  // reading the conversation it came from), not a column a query can filter.
+  const [sourceFilter, setSourceFilter] = useState("");
+  const sourceCounts = useMemo(() => {
+    const out = {};
+    for (const l of leads ?? []) if (l.sourceFilter) out[l.sourceFilter] = (out[l.sourceFilter] || 0) + 1;
+    return out;
+  }, [leads]);
+  const shown = useMemo(
+    () =>
+      (leads ?? []).filter((l) => (!quotedOnly || l.quoted) && passesSourceFilter(l.sourceFilter, sourceFilter)),
+    [leads, quotedOnly, sourceFilter],
+  );
 
   // "Review leads made from conversations" — owner and admin, and the delete
   // rung (the server asks both; lib/leads/conversationReview.js).
@@ -634,6 +665,30 @@ function LeadsPage() {
           {t("app.leads.filterQuoted")}
           {quotedCount ? ` ${quotedCount}` : ""}
         </button>
+        {/* Where the lead came from. A select rather than another row of
+            pills: eight options do not fit a phone's toolbar, and the
+            temperature pills beside it already hold the row. */}
+        <label className="inline-flex items-center gap-1.5">
+          <span className="sr-only">{t("app.leads.sourceFilter.label")}</span>
+          <Megaphone size={13} aria-hidden="true" className="text-muted-foreground" />
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            aria-label={t("app.leads.sourceFilter.label")}
+            data-lead-source-filter
+            className={`min-h-[36px] rounded-full border px-3 text-xs font-semibold bg-card ${
+              sourceFilter ? "border-inverted text-foreground" : "border-border text-foreground"
+            }`}
+          >
+            <option value="">{t("app.agencyMetrics.source.all")}</option>
+            {LEAD_SOURCE_FILTERS.map((k) => (
+              <option key={k} value={k}>
+                {t(SOURCE_FILTER_LABEL_KEY[k])}
+                {sourceCounts[k] ? ` (${sourceCounts[k]})` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
         {canDelete && (leads ?? []).length > 0 && (
           <button
             type="button"
@@ -1222,6 +1277,34 @@ function CardMenu({ onDelete, t, offsetRight }) {
   );
 }
 
+/**
+ * "Agency · Forward Media Marketing" on a lead the marketing agency posted
+ * (lib/agency/channels.js agencyBadgeOf, computed by GET /api/leads).
+ *
+ * accent / accent-foreground: the app's own tokens, measured in both themes
+ * by scripts/check-lead-source-filter.mjs — not a hue picked by eye. The name
+ * is truncated on a narrow card and given whole on hover; a lead from before
+ * the key was recorded says "Agency" and nothing it cannot know.
+ */
+function AgencyBadge({ agency, t }) {
+  const title = agency.name
+    ? t("app.leads.agencyBadge.from", { name: agency.name })
+    : t("app.leads.source.agency_funnel");
+  return (
+    <div className="mt-2 min-w-0">
+      <span
+        title={title}
+        data-agency-badge
+        className="inline-flex max-w-full items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-semibold"
+      >
+        <Megaphone size={11} aria-hidden="true" className="shrink-0" />
+        <span className="shrink-0">{t("app.leads.agencyBadge.label")}</span>
+        {agency.name && <span className="font-normal truncate">· {agency.name}</span>}
+      </span>
+    </div>
+  );
+}
+
 function LeadCard({ lead, tone, onOpen, t, dragHandle, selection = null, onDelete = null }) {
   const { language } = useTranslation();
   const budgetKey = BUDGET_LABEL_KEY[lead.budgetBand];
@@ -1282,6 +1365,9 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle, selection = null, onDelet
           </span>
           <TempBadge temperature={lead.temperature} score={lead.score} t={t} />
         </div>
+        {/* Sent by the marketing agency's own funnel — the badge, with the
+            agency's name where the lead recorded which key sent it. */}
+        {lead.agency && <AgencyBadge agency={lead.agency} t={t} />}
         {/* The homeowner pressed "this doesn't look right" under a measured
             estimate and asked to be rung. Not a temperature — an
             instruction: book the on-site visit. */}
@@ -1596,6 +1682,8 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
                 {/* The channel as a sentence, not the column's word: this
                     printed "· instant_quote". See lib/leads/sourceLabel.js. */}
                 {lead.source && ` · ${leadSourceLabel(t, lead.source)}`}
+                {/* Which agency, when the lead recorded its key (2026-10-09). */}
+                {agencyBadgeOf(lead)?.name && ` · ${agencyBadgeOf(lead).name}`}
               </div>
               <CameFrom attribution={lead.attribution} t={t} />
             </div>

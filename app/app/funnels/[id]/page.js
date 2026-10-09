@@ -32,6 +32,8 @@ import { funnelStatusLabel } from "@/lib/funnels/status";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import Link from "next/link";
 import TrackingLinkBuilder from "@/app/components/settings/TrackingLinkBuilder";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import FunnelStepListItem, { STEP_KINDS } from "./FunnelStepListItem";
 import StepPreview from "./StepPreview";
 
@@ -133,6 +135,10 @@ export default function FunnelBuilderPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
+  // The marketing agency builds funnels here but cannot open the company's
+  // visits report or its settings (lib/permissions/marketingAgency.js), so the
+  // two links into them are text for the agency instead of doors that refuse.
+  const agency = isMarketingAgency(usePermissions());
 
   const [funnel, setFunnel] = useState(null);
   const [company, setCompany] = useState(null);
@@ -496,9 +502,11 @@ export default function FunnelBuilderPage() {
       {funnel.status === "published" && publicUrl && (
         <>
           <TrackingLinkBuilder baseUrl={publicUrl} />
-          <Link href="/app/leads/traffic" className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground underline">
-            <BarChart3 size={13} /> {t("app.tracking.openReport")}
-          </Link>
+          {!agency && (
+            <Link href="/app/leads/traffic" className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground underline">
+              <BarChart3 size={13} /> {t("app.tracking.openReport")}
+            </Link>
+          )}
         </>
       )}
 
@@ -659,9 +667,13 @@ export default function FunnelBuilderPage() {
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
               {t("app.funnels.pixelsCompanyNote")}{" "}
-              <Link href="/app/settings/instant-quotes#ad-tracking" className="underline font-medium text-foreground">
-                {t("app.tracking.settingsTitle")}
-              </Link>
+              {agency ? (
+                <span className="font-medium text-foreground">{t("app.tracking.settingsTitle")}</span>
+              ) : (
+                <Link href="/app/settings/instant-quotes#ad-tracking" className="underline font-medium text-foreground">
+                  {t("app.tracking.settingsTitle")}
+                </Link>
+              )}
             </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
@@ -950,6 +962,9 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
  */
 function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
   const { t } = useTranslation();
+  // Instant quotes are the company's settings — named, not linked, for the
+  // marketing agency (see FunnelBuilderPage).
+  const agency = isMarketingAgency(usePermissions());
   const fields = bandFieldsFor(step.trade);
   const choices = choiceFieldsFor(step.trade);
   const bands = Array.isArray(step.bands) ? step.bands : [];
@@ -990,9 +1005,13 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
       {iqTrades && iqTrades.length === 0 && (
         <div className="text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-amber-800 dark:text-amber-200">
           {t("app.funnels.noPriceableService")}{" "}
-          <a href="/app/settings/instant-quotes" className="underline font-semibold">
-            {t("app.funnels.instantQuotesLink")}
-          </a>
+          {agency ? (
+            <span className="font-semibold">{t("app.funnels.instantQuotesLink")}</span>
+          ) : (
+            <a href="/app/settings/instant-quotes" className="underline font-semibold">
+              {t("app.funnels.instantQuotesLink")}
+            </a>
+          )}
           {t("app.funnels.noPriceableServiceTail")}
         </div>
       )}

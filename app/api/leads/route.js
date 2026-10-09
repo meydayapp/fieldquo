@@ -29,6 +29,7 @@ import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { emailRefusal } from "@/lib/validation";
 import { deleteLeads, cleanLeadIds, supportSessionRefusal, MAX_DELETE_BATCH } from "@/lib/leads/deleteLead";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { channelOf, originThreadOf, threadViewOf, sourceFilterOf, agencyBadgeOf } from "@/lib/agency/channels";
 import { captureDeletedNotALead } from "@/lib/meta/capi/capture";
 import { afterResponse } from "@/lib/meta/capi/afterResponse";
 
@@ -146,7 +147,9 @@ export async function GET(request) {
   const threads = await db.messageThread
     .findMany({
       where: { companyId: member.companyId, OR: [{ leadId: { in: leads.map((l) => l.id) } }, ...(evidenceThreadIds.length ? [{ id: { in: evidenceThreadIds } }] : [])] },
-      select: { id: true, leadId: true, leadCapture: true },
+      // channelId, the two times and adReferral are for channelOf below (the
+      // source filter) — the same facts lib/agency/leadFacts.js reads.
+      select: { id: true, leadId: true, leadCapture: true, channelId: true, createdAt: true, firstInboundAt: true, adReferral: true },
     })
     .catch(() => []);
   const threadForLead = new Map();
@@ -159,6 +162,32 @@ export async function GET(request) {
     }
   }
   const followUps = await followUpsForThreads(db, member.companyId, threads.map((t) => t.id)).catch(() => new Map());
+
+  // ── Where each lead came from, in the agency's channels (2026-10-09) ────
+  //
+  // The board's source filter and its "Agency" badge. channelOf is the rule
+  // the agency API and Marketing results already place leads by
+  // (lib/agency/channels.js) — not a second copy. Its thread is the one the
+  // lead's first message arrived on (originThreadOf, the rule leadFacts.js
+  // follows), and the platform comes from the thread's channel.
+  const channelIds = [...new Set(threads.map((t) => t.channelId).filter(Boolean))];
+  const platforms = channelIds.length
+    ? await db.messagingChannel
+        .findMany({ where: { companyId: member.companyId, id: { in: channelIds } }, select: { id: true, platform: true } })
+        .catch(() => [])
+    : [];
+  const platformOf = new Map(platforms.map((c) => [c.id, c.platform]));
+  const threadsByLead = new Map();
+  for (const t of threads) {
+    if (!t.leadId) continue;
+    if (!threadsByLead.has(t.leadId)) threadsByLead.set(t.leadId, []);
+    threadsByLead.get(t.leadId).push(t);
+  }
+  const placeLead = (l) => {
+    const origin = originThreadOf(threadsByLead.get(l.id)) || threadForLead.get(l.id) || null;
+    const channel = channelOf(l, origin ? threadViewOf(origin, platformOf.get(origin.channelId)) : null);
+    return { channel, sourceFilter: sourceFilterOf(channel, l.source), agency: agencyBadgeOf(l) };
+  };
 
   const quoteMoney = (q) => (showMoney && q ? Number(q.acceptedTotal ?? q.total) || null : undefined);
   const withPotential = leads.map((l) => {
@@ -193,6 +222,7 @@ export async function GET(request) {
       threadId: thread?.id || null,
       qualification: thread ? publicQualification(thread.leadCapture?.qualification || null) : null,
       followUp: followUp ? { taskId: followUp.id, dueDate: followUp.dueDate } : null,
+      ...placeLead(l),
       ...(showMoney && { potential: potentialValueForLead(l, { pricing }) }),
     };
   });

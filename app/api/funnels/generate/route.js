@@ -4,7 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+// requireMarketingAccess: user:manage, or the marketing agency the company
+// invited to build these (lib/permissions/marketingAgency.js).
+import { requireMarketingAccess } from "@/lib/permissions/marketingAgency";
 import { recordActivity } from "@/lib/activity/log";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { generateFunnel } from "@/lib/funnels/generate";
@@ -17,7 +19,7 @@ export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
   try {
-    requirePermission(member.role, "user:manage");
+    requireMarketingAccess(member);
   } catch {
     return NextResponse.json(
       { error: "Only owners and admins can manage funnels." },

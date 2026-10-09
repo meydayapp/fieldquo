@@ -23,7 +23,7 @@ import { BarChart3, Info, ArrowUp, ArrowDown, Minus, KeyRound } from "lucide-rea
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { can } from "@/lib/permissions";
+import { canManageMarketing, isMarketingAgency } from "@/lib/permissions/marketingAgency";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchJson, errorText } from "@/lib/fetchJson";
 
@@ -41,11 +41,12 @@ const FUNNEL_RATES = ["messagesFromAds", "realConversations", "adLeads", "adQual
 
 export default function MarketingResultsPage() {
   const caller = usePermissions();
-  // Same coarse gate as the Spend page and its routes; falls open while the
+  // Same coarse gate as the Spend page and its routes, plus the marketing
+  // agency the company invited (canManageMarketing); falls open while the
   // provider resolves (the route refuses regardless).
-  const allowed = !caller?.role || can(caller.role, "user:manage");
+  const allowed = !caller?.role || canManageMarketing(caller);
   if (!allowed) return <NoAccessPanel capability="user:manage" />;
-  return <Results />;
+  return <Results agency={isMarketingAgency(caller)} />;
 }
 
 function useFormat() {
@@ -131,7 +132,14 @@ function Figure({ id, m, big = true }) {
   );
 }
 
-function Results() {
+/**
+ * @param agency  the viewer is the marketing agency (lib/permissions/
+ *                marketingAgency.js): the owner's links — agency access, the
+ *                ad accounts — would only open a refusal, so they are not
+ *                drawn, and the sentences that speak TO the owner ABOUT the
+ *                agency are spoken to the agency instead.
+ */
+function Results({ agency = false }) {
   const { t } = useTranslation();
   const fmt = useFormat();
   const [period, setPeriod] = useState("thisMonth");
@@ -181,10 +189,14 @@ function Results() {
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <BarChart3 size={22} /> {t("app.agencyMetrics.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{t("app.agencyMetrics.subtitle")}</p>
-          <Link href="/app/settings/agency-access" className="inline-flex items-center gap-1 text-sm font-medium text-foreground underline mt-2">
-            <KeyRound size={13} /> {t("app.agencyMetrics.agencyLink")}
-          </Link>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            {t(agency ? "app.agencyMetrics.subtitleAgency" : "app.agencyMetrics.subtitle")}
+          </p>
+          {!agency && (
+            <Link href="/app/settings/agency-access" className="inline-flex items-center gap-1 text-sm font-medium text-foreground underline mt-2">
+              <KeyRound size={13} /> {t("app.agencyMetrics.agencyLink")}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -259,14 +271,20 @@ function Results() {
         <div className={`space-y-6 ${loading ? "opacity-60" : ""}`}>
           {!data.spend?.connected && m.adSpend?.value === null && !data.spend?.notApplicable && (
             <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
-              {t("app.agencyMetrics.spendNotConnected")}{" "}
-              <Link href="/app/settings/meta-ads" className="underline font-medium">
-                {t("app.settings.metaAds")}
-              </Link>
-              {" · "}
-              <Link href="/app/settings/google-ads" className="underline font-medium">
-                {t("app.settings.googleAds")}
-              </Link>
+              {agency ? (
+                t("app.agencyMetrics.spendNotConnectedAgency")
+              ) : (
+                <>
+                  {t("app.agencyMetrics.spendNotConnected")}{" "}
+                  <Link href="/app/settings/meta-ads" className="underline font-medium">
+                    {t("app.settings.metaAds")}
+                  </Link>
+                  {" · "}
+                  <Link href="/app/settings/google-ads" className="underline font-medium">
+                    {t("app.settings.googleAds")}
+                  </Link>
+                </>
+              )}
             </div>
           )}
 
@@ -387,7 +405,11 @@ function Results() {
           </section>
 
           <p className="text-xs text-muted-foreground">
-            {data.sharedWithAgency?.jobValues ? t("app.agencyMetrics.sharedMoneyOn") : t("app.agencyMetrics.sharedMoneyOff")}
+            {agency
+              ? t(data.sharedWithAgency?.jobValues ? "app.agencyMetrics.agencyMoneyOn" : "app.agencyMetrics.agencyMoneyOff")
+              : data.sharedWithAgency?.jobValues
+                ? t("app.agencyMetrics.sharedMoneyOn")
+                : t("app.agencyMetrics.sharedMoneyOff")}
             {data.truncated ? ` ${t("app.agencyMetrics.truncated")}` : ""}
           </p>
         </div>
