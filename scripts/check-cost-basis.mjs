@@ -291,6 +291,11 @@ const EXPECTED_READ = {
   estimator:             [X,      X,        X,          X,               X,           X],
   dispatcher:                 [X,      X,        X,          X,               X,           X],
   manager:                    [R,      R,        X,          R,               R,           R],
+  // The marketing agency (2026-10-09): employee tier, payroll "none",
+  // jobCosting off — the cost basis is the company's money and none of it is
+  // theirs. (Every route behind it is refused to them earlier still, by
+  // lib/currentMember.js; this row is the predicate's own answer.)
+  marketingAgency:            [X,      X,        X,          X,               X,           X],
   // No grid stored: hasLevel/hasToggle fall back to the coarse role, so a
   // supervisor who predates the editor keeps what the role gave them. Written
   // down because it is the one row where "false" would be a regression rather

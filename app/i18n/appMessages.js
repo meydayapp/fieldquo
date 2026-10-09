@@ -95731,7 +95731,7 @@ const tl = {
   "app.agencyMetrics.spendNotConnectedAgency": "Hindi pa ikinokonekta ng kumpanya ang mga ad account nito, kaya hindi pa nabibilang ang gastos.",
   "app.agencyMetrics.agencyMoneyOn": "Ibinabahagi sa iyo ng kumpanya ang halaga ng mga trabaho.",
   "app.agencyMetrics.agencyMoneyOff": "Bilang lang ang ibinabahagi ng kumpanya — hindi ibinabahagi sa iyo ang halaga ng mga trabaho.",
-  "app.setTeamNew.agencyPreset.label": "Marketing agency",
+  "app.setTeamNew.agencyPreset.label": "Ahensya ng marketing",
   "app.setTeamNew.agencyPreset.description": "Ang iyong marketing agency: gumagawa ng mga lead funnel, nakikita ang mga resulta ng marketing at ang mga lead na dinala ng marketing — unang pangalan, pinagmulan, yugto at lugar lang, maliban kung ibahagi mo ang mga contact detail. Walang kliyente, trabaho, quote, invoice, pera, mensahe o setting.",
   "app.setTeamNew.agencyFixed": "Nakapirmi ang access ng marketing agency: mga lead funnel, mga resulta ng marketing, at ang mga lead na dinala ng marketing — unang pangalan, pinagmulan, yugto at lugar, at ang mga contact detail at halaga ng mga trabaho kung ibabahagi mo lang sa Settings → Access ng marketing agency. Walang kliyente, trabaho, quote, invoice, bayad, mensahe, tawag, setting o team. Para magbigay ng higit pa, pumili ng ibang antas.",
   "app.setTeamNew.agencySeat": "Gumagamit ng isang seat, gaya ng sinumang miyembro ng team.",

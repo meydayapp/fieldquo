@@ -48,6 +48,7 @@ import {
   validateRoleChange,
 } from "@/lib/permissions/roleManagement";
 import { validateInvite } from "@/lib/permissions/inviteGuard";
+import { MARKETING_AGENCY_KEY } from "@/lib/permissions/marketingAgency";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, relative, sep } from "node:path";
@@ -451,8 +452,18 @@ t(
   "every preset value key is a real category or toggle",
   Object.values(PERMISSION_PRESETS).every((p) =>
     Object.keys(p.values).every(
-      (k) => PERMISSION_CATEGORIES[k] || PERMISSION_TOGGLES[k],
+      // …or the ONE declared non-dial key: the marketing agency's confinement
+      // marker (lib/permissions/marketingAgency.js MARKETING_AGENCY_KEY), named
+      // by its constant so a typo in any preset still fails here.
+      (k) => PERMISSION_CATEGORIES[k] || PERMISSION_TOGGLES[k] || k === MARKETING_AGENCY_KEY,
     ),
+  ),
+);
+t(
+  "...and only the marketing agency's preset carries the marker",
+  Object.entries(PERMISSION_PRESETS).every(([key, p]) =>
+    (MARKETING_AGENCY_KEY in p.values) === (key === "marketingAgency") &&
+    (key !== "marketingAgency" || p.values[MARKETING_AGENCY_KEY] === true),
   ),
 );
 
