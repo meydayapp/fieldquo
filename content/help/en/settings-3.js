@@ -518,7 +518,7 @@ export const ARTICLES = {
             "**Instant payout** — what is available now, the fee, what you will receive, and **Pay out … now**; or the one reason it cannot run yet.",
             "**Payment methods you accept** — **Cash**, **E-transfer**, **Cheque**, and **Save**.",
             "**Your Stripe account** — owner only: the account ID with **Copy**, the sign-in email, what Stripe has switched on, and what it is still waiting for.",
-            "**Offer pay-over-time (Affirm)** — a switch, shown once the connection is active — and the closing line that FieldQuo never sees your bank account details.",
+            "**Offer pay-over-time (Affirm, Klarna)** — a switch, shown once the connection is active — and the closing line that FieldQuo never sees your bank account details.",
           ] },
         ],
       },
@@ -559,7 +559,7 @@ export const ARTICLES = {
           { bullets: [
             "A bank debit takes **3 to 5 business days** to clear. The invoice shows **Bank payment pending** with the date it was submitted and is marked paid only when the money arrives; if the bank returns it, the balance is still owing and the client can pay again by card.",
             "**Payment methods you accept** is for money that never touches Stripe: tick **Cash**, **E-transfer** and **Cheque** as you take them, press **Save**, and they print as an “Accepted:” line on the invoice email, in the client portal and on the invoice PDF. Untick everything and the line is left out.",
-            "**Offer pay-over-time (Affirm)** lets a client split an invoice between $50 and $30,000, in USD or CAD, at checkout; you are still paid in full up front. There is nothing to activate in Stripe first: switching it on asks Stripe to enable Affirm on your account, and the line under the switch shows Stripe's answer — active, pending review, not enabled (with what Stripe is asking for), or not available in your country. The switch saves immediately, and rolls back if it cannot.",
+            "**Offer pay-over-time (Affirm, Klarna)** lets a client pay an invoice over time at checkout — with Klarna, or with Affirm only where Stripe approves your business for it — in USD or CAD, for amounts inside each provider's range; you are paid the full amount up front, minus fees, on your normal payout schedule (Affirm can take up to two business days to settle). There is nothing to activate in Stripe first: switching it on asks Stripe to enable both on your account, and the lines under the switch show Stripe's answer for each — active, pending review, not enabled (with what Stripe is asking for), or not available in your country. The switch saves immediately, and rolls back if it cannot.",
           ] },
           { note: "The card and bank-debit fees are not settings — nobody can change them, and they cannot be passed to the client as a surcharge line. Bank debit in Canada in full: [[bank-debit-in-canada|Bank debit in Canada]]." },
         ],

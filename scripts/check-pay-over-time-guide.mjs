@@ -403,6 +403,57 @@ async function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  section("6b. The rest of the surface — no Affirm-only, no range, no 'today'");
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // /features/financing, the site FAQ, the help centre (en/fr/es) and the
+  // in-app help said "Affirm", "$50 up to $30,000" and "today" / "right away"
+  // / "sofort" until 2026-10-09. Read as SOURCE TEXT, in every language file,
+  // so a language nobody renders here still cannot bring a claim back.
+  {
+    const strings = (src) => [...src.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]);
+    const keyed = (src, re) => [...src.matchAll(new RegExp(`"(${re})":\\s*"((?:[^"\\\\]|\\\\.)*)"`, "g"))].map((m) => ({ key: m[1], value: m[2] }));
+    const RANGE = /30,000|30 000|30\.000|thirty thousand|\$\s?50\b|50 \$/i;
+    const WHEN = /\btoday\b|right away|immediately|instantly|same[- ]day|aujourd'hui|imm[ée]diatement|\bhoy\b|de inmediato|inmediatamente|сьогодні|ਅੱਜ|ngayon din|\bheute\b|\bsofort\b|\boggi\b|\bsubito\b|今天|立即|오늘|즉시|\bhoje\b|imediatamente|сегодня/i;
+    const files = ["en", "fr", "es", "uk", "pa", "tl", "de", "it", "zh", "ko", "pt", "ru"].map((l) => `app/i18n/featurePages/${l}.js`);
+    const bad = [];
+    for (const f of files) {
+      for (const { key, value } of keyed(read(f), "featurePage\\.financing\\.[\\w.]+")) {
+        if (RANGE.test(value)) bad.push(`${f} ${key}: range`);
+        if (WHEN.test(value)) bad.push(`${f} ${key}: timing`);
+        if (/^featurePage\.financing\.(oneLine|description|how\.2\.)/.test(key) && /сразу|одразу/.test(value)) bad.push(`${f} ${key}: "right away"`);
+        if (/Affirm/.test(value) && !/Klarna/.test(value) && !/how\.2\.body/.test(key)) bad.push(`${f} ${key}: Affirm without Klarna`);
+      }
+    }
+    ok("/features/financing in all 12 language files: no range, no 'today', no Affirm-only sentence", bad.length === 0, bad.slice(0, 6).join("; "));
+    const faq = keyed(read("app/i18n/messages.js"), "faq\\.items\\.financing\\.a");
+    ok(`the site FAQ "Can my clients pay over time?" in all ${faq.length} languages: Klarna, Affirm's caveat, no range, no 'today'`,
+      faq.length >= 9 && faq.every(({ value }) => /Klarna/.test(value) && /Affirm/.test(value) && !RANGE.test(value) && !WHEN.test(value) && !/сразу|одразу/.test(value)),
+      faq.filter(({ value }) => !/Klarna/.test(value) || RANGE.test(value) || WHEN.test(value)).map((x) => x.value.slice(0, 50)));
+    const SETTLE = /two business days|deux jours ouvrables|dos días hábiles/;
+    const helpBad = [];
+    for (const lang of ["en", "fr", "es"]) {
+      for (const f of ["invoices-and-payments-1", "invoices-and-payments-3", "integrations", "settings-3", "what-your-clients-see-1"]) {
+        for (const str of strings(read(`content/help/${lang}/${f}.js`))) {
+          if (!/Affirm/.test(str)) continue;
+          if (RANGE.test(str)) helpBad.push(`${lang}/${f}: range — ${str.slice(0, 60)}`);
+          // "The switch saves immediately" is about the switch, not the money.
+          const aboutMoney = str.replace(/saves immediately|s'enregistre immédiatement|se guarda de inmediato/g, "");
+          if (WHEN.test(aboutMoney)) helpBad.push(`${lang}/${f}: timing — ${str.slice(0, 60)}`);
+          if (!/Klarna/.test(str) && !SETTLE.test(str)) helpBad.push(`${lang}/${f}: Affirm-only — ${str.slice(0, 60)}`);
+        }
+      }
+    }
+    const inApp = read("app/data/helpArticles.js");
+    const block = inApp.slice(inApp.indexOf('slug: "offer-financing"'), inApp.indexOf('slug: "import-subcontractor-quote"'));
+    for (const str of strings(block.replace(/^\s*\/\/.*$/gm, ""))) {
+      if (RANGE.test(str) || WHEN.test(str)) helpBad.push(`helpArticles offer-financing: ${str.slice(0, 60)}`);
+    }
+    ok("help centre (en/fr/es) and the in-app article: every Affirm sentence names Klarna too (or is the settle caveat), no range, no 'today'",
+      helpBad.length === 0 && /Klarna/.test(block), helpBad.slice(0, 6).join("; "));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   section("7. Mutants — each must be caught");
   // ═══════════════════════════════════════════════════════════════════════
 

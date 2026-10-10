@@ -156,9 +156,28 @@ and win more projects". Branch `feat/financing-guide`, not pushed.
 - `check:pay-over-time-guide` (148 checks, in check:all); check:klarna and
   check:white-label-meta updated for the moved rule and the new route.
 
-Open: `/features/financing` (app/data/featurePages.js, featurePage.financing.*)
-still presents Affirm as THE provider ("covers jobs from $50 up to $30,000")
-and doesn't mention Klarna — not touched here; it needs the same treatment.
+- **The rest of the surface, same facts (coordinator, same day).**
+  `/features/financing` (data + 12 language files): Klarna first, Affirm only
+  where Stripe approves the business, no "$50 up to $30,000" (Affirm's own
+  range, printed as FieldQuo's), "You get the whole job, today" replaced by
+  "the full amount, minus fees, is paid to you up front; you receive it on
+  your normal payout schedule (Affirm can take up to two business days to
+  settle)"; its three details rewritten to what the code does now (the old
+  "cannot be checked … retried as card-only" stopped being true when the
+  capability status began to be read). The site FAQ "Can my clients pay over
+  time?" (messages.js, 9 languages — de said "sofort", it "subito"); the help
+  centre in en/fr/es (pay-over-time-financing, the Payments and Integrations
+  pages, what clients see, settings) and the in-app article "offer-financing"
+  — every Affirm-only sentence, every $50–$30,000 and every "right away".
+  Russian "сразу" (reads as "immediately") became "заранее" on the new copy.
+  check:feature-pages pins Klarna-first, the caveat, no range, no
+  "today/instant/same day"; check:pay-over-time-guide §6b reads every
+  language file and the help modules as source (mutation-tested).
+- Not changed, flagged: the in-app Settings › Payments copy
+  (`app.setPayments.financingDesc` / `financingNote` / `affirmActive`, all
+  languages) still describes Affirm only with "$50 and $30,000"; and the
+  contractor fee help ("Pay over time (Klarna, Affirm or Afterpay) … costs
+  6.5% + $0.30") names Afterpay, which the pay link doesn't offer.
 
 ## Klarna beside Affirm (9 October 2026)
 

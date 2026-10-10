@@ -346,7 +346,7 @@ export const ARTICLES = {
             rows: [
               ["Tarjeta", "Siempre que su cuenta de Stripe pueda cobrar (Configuración → Pagos dice Stripe conectado · Activo)."],
               ["Cuenta bancaria — débito preautorizado en Canadá, ACH en Estados Unidos", "Una vez que Stripe activó la capacidad en su cuenta y su moneda de facturación coincide (CAD para Canadá, USD para Estados Unidos). Configuración → Pagos dice cuál es."],
-              ["Pago a plazos (Affirm)", "Solo en la página de Stripe, junto a la tarjeta, cuando usted activó Ofrecer pago a plazos (Affirm), la factura está entre $50 y $30,000, y la moneda es USD o CAD."],
+              ["Pago a plazos (Klarna o Affirm)", "Un botón **Pagar a plazos (Klarna)** en la página de la factura, y la elección en sí en la página de Stripe junto a la tarjeta — cuando usted activó Ofrecer pago a plazos, Stripe activó ese proveedor en su cuenta y el monto está dentro de su rango, en USD o CAD. Un enlace **¿Quiere pagar a plazos? Vea cómo** bajo el botón abre una guía breve con sus colores."],
             ],
           } },
           { p: "El cliente nunca ve una comisión de procesamiento. La comisión se descuenta de su lado del pago; el total de la factura es lo que él paga. Vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento y transferencias]]." },
@@ -371,7 +371,7 @@ export const ARTICLES = {
           { table: {
             head: ["Dónde", "Qué cambia para el cliente"],
             rows: [
-              ["Configuración → Pagos — Stripe", "Si el botón dice Pagar en línea o Ver su factura, y si la página ofrece tarjeta, cuenta bancaria y Affirm."],
+              ["Configuración → Pagos — Stripe", "Si el botón dice Pagar en línea o Ver su factura, y si la página ofrece tarjeta, cuenta bancaria y pago a plazos (Klarna o Affirm)."],
               ["Configuración → Pagos — Formas de pago que aceptas", "La línea «Formas de pago aceptadas:» — Efectivo, Transferencia electrónica, Cheque — en el correo, la página y el PDF."],
               ["Configuración → Marca", "El logotipo, la banda de marca, el color del botón y la banda del saldo."],
               ["Configuración → Configuración de la empresa — Calendario de pagos", "Los nombres de etapa que el cliente ve destacados en una solicitud de depósito o de cuota."],
@@ -444,7 +444,7 @@ export const ARTICLES = {
         id: "what-the-client-can-do",
         heading: "Qué puede hacer el cliente, y qué no",
         blocks: [
-          { p: "Desde el portal un cliente puede abrir una factura, pagarla (con tarjeta, desde una cuenta bancaria, o con Affirm en la página de Stripe), y abrir un presupuesto pendiente para aprobarlo o rechazarlo. Esa es toda la lista." },
+          { p: "Desde el portal un cliente puede abrir una factura, pagarla (con tarjeta, desde una cuenta bancaria, o a plazos con Klarna o Affirm en la página de Stripe), y abrir un presupuesto pendiente para aprobarlo o rechazarlo. Esa es toda la lista." },
           { bullets: [
             "No puede cambiar su nombre, dirección o correo — eso vive en su ficha de cliente, que usted edita.",
             "No puede descargar un PDF de una factura o un presupuesto desde el portal.",
