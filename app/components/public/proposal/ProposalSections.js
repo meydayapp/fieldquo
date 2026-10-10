@@ -20,7 +20,10 @@
 // and scripts/check-range-presentation.mjs fails if either grows its own.
 //
 // No "use client" and no hooks: the quote page is a client component and the
-// estimate page is a server component, and both render these as-is. The data
+// estimate page is a server component, and both render these as-is. The one
+// interactive piece, the before/after slider, is its own client component
+// (app/components/public/BeforeAfter.js) — an island on the estimate page,
+// an ordinary child on the quote page. The data
 // is the projection lib/proposal/load.js#projectProposal builds for both —
 // a section with nothing behind it never reaches here, and nothing here
 // selects or prints a price.
@@ -30,6 +33,8 @@
 // white, which scripts/check-client-proposal.mjs measures at 5.65:1.
 
 import { FileText, Play, Star } from "lucide-react";
+import BeforeAfter from "@/app/components/public/BeforeAfter";
+import { fillPair } from "@/lib/documents/theme";
 
 /** The anchors the contents jump to; keys match the server's `sections`. */
 export const PROPOSAL_SECTION_IDS = {
@@ -130,6 +135,86 @@ export function ProcessStepList({ steps, theme, fill, className = "space-y-0 mb-
 }
 
 /**
+ * The grid for N projects. 3 across on a desktop, 2 on a tablet, 1 on a
+ * phone (owner, 2026-10-10, from TrueFinish's quote page) — capped at the
+ * number of projects, so two projects are two wide sliders rather than two
+ * thirds and a hole, and one is the section's hero, as on the website block.
+ * Whole class strings, not built ones, so Tailwind's scanner sees them.
+ */
+export const PROPOSAL_GALLERY_GRID = {
+  1: "grid gap-5 items-start",
+  2: "grid gap-5 items-start sm:grid-cols-2",
+  3: "grid gap-5 items-start sm:grid-cols-2 lg:grid-cols-3",
+};
+
+/**
+ * Before & after on the WEB proposal: one slider per project — the website's
+ * own component (app/components/public/BeforeAfter.js), not a second one.
+ * Same pairs, same order, labels and alt text in the document's language,
+ * the grip in the measured brand fill. The PDF and the covering email cannot
+ * slide and keep their side-by-side pairs (lib/email/quoteSections.js
+ * beforeAfterHtml); nothing here is shared with them.
+ *
+ * A project with only one photo (the gallery refuses half pairs today —
+ * lib/company/gallery.js — so this is belt and braces) is a plain picture
+ * under the label of the side it is, never a slider with a broken half.
+ */
+export function ProposalGallery({ gallery, copy, theme }) {
+  const items = (Array.isArray(gallery) ? gallery : []).filter((p) => p && (p.before || p.after));
+  if (!items.length) return null;
+  const p = copy.proposal;
+  const handle = fillPair(theme);
+  const sliders = items.filter((x) => x.before && x.after).length;
+  return (
+    <>
+      <div className={PROPOSAL_GALLERY_GRID[Math.min(items.length, 3)]}>
+        {items.map((x, i) =>
+          x.before && x.after ? (
+            <BeforeAfter
+              key={i}
+              before={x.before}
+              after={x.after}
+              caption={x.caption || ""}
+              radius="rounded-xl"
+              theme={theme}
+              labels={{ before: p.before, after: p.after }}
+              compareLabel={p.compareHint}
+              handle={handle}
+              fitToPhoto
+            />
+          ) : (
+            <SinglePhoto key={i} src={x.before || x.after} label={x.before ? p.before : p.after} caption={x.caption} theme={theme} />
+          ),
+        )}
+      </div>
+      {sliders > 0 && <p className="mt-3 text-xs text-[#2d2520]/70">{p.compareHint}</p>}
+    </>
+  );
+}
+
+function SinglePhoto({ src, label, caption, theme }) {
+  return (
+    <figure className="m-0">
+      <div className="relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={`${label}${caption ? ` — ${caption}` : ""}`} className="block w-full h-auto rounded-xl" loading="lazy" />
+        <span
+          className="absolute top-3 left-3 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider pointer-events-none"
+          style={{ backgroundColor: theme.paper, color: theme.ink, borderRadius: 4 }}
+        >
+          {label}
+        </span>
+      </div>
+      {caption && (
+        <figcaption className="mt-2.5 text-sm" style={{ color: theme.inkMuted }}>
+          {caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/**
  * The five company sections, each only when the server listed it in
  * `sectionKeys` AND sent something behind it — the same two tests the quote
  * page always applied.
@@ -165,25 +250,7 @@ export function CompanySections({ proposal, sectionKeys, copy, theme, rule, wash
 
       {proposal.gallery?.length > 0 && on("beforeAfter") && (
         <ProposalSection id={ids.beforeAfter} kicker={copy.proposal.beforeAfter} title={copy.proposal.recentWork} theme={theme}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {proposal.gallery.map((p, i) => (
-              <figure key={i}>
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.before} alt={`${copy.proposal.before}${p.caption ? ` — ${p.caption}` : ""}`} className="w-full aspect-[4/3] object-cover rounded-l-md border border-black/10" />
-                    <span className="absolute left-1.5 top-1.5 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#20242b]/80 text-white">{copy.proposal.before.toUpperCase()}</span>
-                  </div>
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.after} alt={`${copy.proposal.after}${p.caption ? ` — ${p.caption}` : ""}`} className="w-full aspect-[4/3] object-cover rounded-r-md border border-black/10" />
-                    <span className="absolute left-1.5 top-1.5 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#20242b]/80 text-white">{copy.proposal.after.toUpperCase()}</span>
-                  </div>
-                </div>
-                {p.caption && <figcaption className="text-xs text-[#2d2520]/70 mt-1.5">{p.caption}</figcaption>}
-              </figure>
-            ))}
-          </div>
+          <ProposalGallery gallery={proposal.gallery} copy={copy} theme={theme} />
         </ProposalSection>
       )}
 

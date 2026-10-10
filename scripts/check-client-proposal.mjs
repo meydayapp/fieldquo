@@ -203,7 +203,9 @@ section("5. Contrast ≥ 4.5:1 across hostile brand colours");
   const alphas = ["app/q/[token]/QuoteApproval.js", "app/components/public/proposal/ProposalSections.js", "app/estimate-report/[token]/ReportView.js"]
     .flatMap((f) => [...strip(read(f)).matchAll(/text-\[#2d2520\]\/(\d+)/g)].map((m) => Number(m[1])));
   ok("the page uses no muted ink lighter than /70", alphas.length > 0 && alphas.every((a) => a >= 70), alphas.filter((a) => a < 70).join(","));
-  ok("the BEFORE/AFTER tags: white on #20242b at 80% over a mid photo", contrastRatio("#ffffff", composite("#20242b", 0.8, "#888888")) >= 4.5);
+  // The BEFORE/AFTER tags are the slider's own (app/components/public/BeforeAfter.js):
+  // ink on a solid paper chip, so the photo behind never enters the sum.
+  ok("the BEFORE/AFTER tags: ink #20242b on a paper #ffffff chip", contrastRatio("#20242b", PAPER) >= 4.5);
   ok("the star on paper (#b45309)", contrastRatio("#b45309", PAPER) >= 4.5);
 }
 
@@ -227,7 +229,7 @@ section("6. Nothing client-facing says FieldQuo");
   for (const [lang, block] of Object.entries(CLIENT_DOC_COPY)) {
     const text = JSON.stringify(Object.fromEntries(Object.entries(block).filter(([k]) => k.startsWith("waiver") || k === "proposal" || k === "portalDocumentsHeading")), (k, v) => (typeof v === "function" ? v("X", "Y") : v));
     ok(`${lang}: proposal + waiver copy never names FieldQuo`, !/fieldquo/i.test(text));
-    ok(`${lang}: the 25 proposal strings and 18 waiver strings exist`, Object.keys(block.proposal || {}).length === 25 && Object.keys(block).filter((k) => k.startsWith("waiver") || k === "signWaiver").length === 18);
+    ok(`${lang}: the 26 proposal strings and 18 waiver strings exist`, Object.keys(block.proposal || {}).length === 26 && Object.keys(block).filter((k) => k.startsWith("waiver") || k === "signWaiver").length === 18);
     // Owner, 2026-10-05: a homeowner shown "Waiver" / "Release of liability"
     // beside Approve reads it as a warning. Our chrome says "Project
     // acknowledgement" in every language; only the company's own typed title
