@@ -3,13 +3,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, Plus, Search, Upload } from "lucide-react";
+import { Users, Plus, Search, Upload, Mail } from "lucide-react";
 import ClientListRow from "./ClientListRow";
+import PortalLinksDialog from "./PortalLinksDialog";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchArray } from "@/lib/loadState";
 import ListState, { ListCount } from "@/app/components/ListState";
-import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useHasLevel, usePermissions } from "@/app/providers/PermissionProvider";
 
 export default function ClientsPage() {
   const { t } = useTranslation();
@@ -23,6 +24,13 @@ export default function ClientsPage() {
   const [errorKey, setErrorKey] = useState("");
   // The level both write routes behind the buttons below already take.
   const canWriteClients = useHasLevel("clientsProperties", "full_edit");
+  // "Email clients their portal link" — owners and admins only; the route
+  // (app/api/clients/portal-links) refuses everyone else whatever this says.
+  // An unresolved provider is null, and then the button is not offered: a
+  // bulk send is the one control here not worth showing on a guess.
+  const perms = usePermissions();
+  const canBulkPortal = perms?.role === "owner" || perms?.role === "admin";
+  const [portalLinksOpen, setPortalLinksOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,27 +82,42 @@ export default function ClientsPage() {
             offered to everyone, so a member at view_only followed them into a
             form or a CSV preview and was refused at the end of it. Both target
             pages now refuse on arrival as well; this only stops offering. */}
-        {canWriteClients && (
-          <div className="flex items-center gap-2">
+        {(canWriteClients || canBulkPortal) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {canBulkPortal && (
+              <button
+                type="button"
+                onClick={() => setPortalLinksOpen(true)}
+                className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+                data-portal-links-open
+              >
+                <Mail size={16} /> {t("app.portalLinks.button")}
+              </button>
+            )}
             {/* /app/clients/import worked and was linked from NOTHING — a
                 contractor switching from another system had a CSV importer they
                 could only reach by typing the URL. It belongs beside "New
                 client", which is where someone with a list to load looks. */}
+            {canWriteClients && (
             <Link
               href="/app/clients/import"
               className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
             >
               <Upload size={16} /> {t("app.clients.import")}
             </Link>
+            )}
+            {canWriteClients && (
             <Link
               href="/app/clients/new"
               className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
             >
               <Plus size={16} /> {t("app.clients.new")}
             </Link>
+            )}
           </div>
         )}
       </div>
+      {portalLinksOpen && <PortalLinksDialog onClose={() => setPortalLinksOpen(false)} />}
 
       {/* The search box stays mounted through every state — hiding it on error
           would move the page under the user the moment a retry succeeds. */}

@@ -37,6 +37,7 @@ import {
   Zap,
   Megaphone,
   Ruler,
+  KeyRound,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";
@@ -221,6 +222,12 @@ export default function LeadFormPage() {
   // Resolved the same way the three above are — bookingSlug first, then slug
   // — because the kitchen page now uses findBookingCompany like its siblings.
   const kitchenUrl = `${origin}/quote/${slug}/kitchen`;
+  // "Client login" for a website NOT built on FieldQuo (owner, 2026-10-10):
+  // app/portal/login/[companySlug] resolves this slug the same way —
+  // findBookingCompany, bookingSlug first — so the link copied here is the
+  // link that works. A FieldQuo-built site has its own /client page instead
+  // (Settings → Website → Client login).
+  const clientLoginUrl = `${origin}/portal/login/${slug}`;
 
   /**
    * The embed snippet.
@@ -297,6 +304,15 @@ export default function LeadFormPage() {
         description={t("app.setLeadForm.instantDesc")}
         url={instantUrl}
         embed={embed("instant-quote")}
+      />
+
+      {/* No embed: a login page is a link in a site's header, menu and
+          footer, not a widget framed inside one of its pages. */}
+      <ShareBlock
+        icon={KeyRound}
+        title={t("app.setLeadForm.clientLoginTitle")}
+        description={t("app.setLeadForm.clientLoginDesc")}
+        url={clientLoginUrl}
       />
 
       {/* No embed: there is no /embed/.../kitchen widget, and a snippet that
