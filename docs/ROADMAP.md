@@ -113,6 +113,58 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Quotes from my subs — every price a GC's subs sent, in one list (10 October 2026)
+
+The owner, 2026-10-10: a page for a GC listing every price their subs have
+sent them, with status and "Add to my quote".
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **`/app/subcontractors/quotes`**, sidebar row "Quotes from my subs" right
+  after Subcontractors (`app.nav.subQuotes`), in all nine app locales. One
+  card per received price: sub, trade, amount, when received, which of the
+  GC's quotes (and its job) it is for, status — Not yet used / Option / On
+  your quote / Extra work pending · approved · declined. Filters: trade,
+  status, sub. Empty state names the three ways a price arrives.
+- **Rows** (`lib/subcontractors/receivedPrices.js`, pure; reads in
+  `receivedPricesServer.js`, every query scoped to the GC): every
+  `QuoteImport` with targetCompanyId = GC (pasted link, request answered in
+  FieldQuo, confirmed no-account reply, confirmed upload), plus each
+  `SubPriceRequestRecipient` reply not yet in a compare. Status reuses
+  `importPlacement`; "declined" = an option whose change order was rejected.
+- **Not listed, deliberately:** a sub's quote the GC opened by its
+  `/q/<token>` link and never added. Nothing in the GC's tenant records the
+  opening, and finding it would mean querying the sub's quotes by
+  `Client.linkedCompanyId` — not authorised by any link. Once added it is a
+  QuoteImport and appears.
+- **Gates** = the compare's: quotes view_only + showPricing (route and nav
+  row; `navRowAllowed` now ANDs a row's conditions — this is the only row
+  with two). Cost only with jobCosting (else the client price, as the
+  compare shows). Waiting replies only with `user:manage` (the price-request
+  panel's gate). Crew never sees it.
+- **Actions reuse existing routes, no new money logic:** Open →
+  `/app/quotes/[id]#sub-compare` (or `#price-requests` for a waiting reply);
+  Add to my quote → POST `/api/quotes/[id]/imports/[importId]/select`
+  (use / use instead / add as extra work); a waiting reply → POST
+  `/api/price-requests/recipients/[id]/confirm` (into the compare first);
+  Request a price → the quote page with the existing dialog opened
+  (`?requestPrices=1`). Each drawn only when that route would accept the
+  member; none for a read-only support session.
+- Insurance/clearance lines moved to `app/components/subRequests/SubCredentials.js`,
+  shared by the compare panel and this page. Help: a section in
+  "Import a subcontractor's quote" (en/fr/es), now the page's article.
+
+### Schema
+
+None.
+
+### Checks
+
+`check:sub-quotes` (124, in `check:all`, 19 mutants): two GCs and a sub in
+an in-memory DB — own prices only, no foreign query, no cost without
+jobCosting, each status, each action's route, filters, nav = page gate on
+every preset.
+
 ## AI employee: what is on file, and new contacts to the closer (10 October 2026)
 
 TrueFinish's receptionist asked Tony three times for "the best phone number for
