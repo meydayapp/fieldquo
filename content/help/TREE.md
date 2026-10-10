@@ -160,7 +160,7 @@ _Generated 2026-10-10 — 362 articles in the tree; written: en 362, fr 362, es 
 | `aerial-roof-measurement` — Roof measurement from the air | ✓ | ✓ | ✓ |  | aerial_measure | ✓ |
 | `the-kitchen-designer` — The kitchen designer | ✓ | ✓ | ✓ | settings-cabinet-rates | kitchen_designer | ✓ |
 | `call-to-quote` — From a phone call to a draft quote | ✓ | ✓ | ✓ | receptionist | call_to_quote | ✓ |
-| `import-a-subcontractor-quote` — Import a subcontractor's quote | ✓ | ✓ | ✓ |  | subcontractor_bids |  |
+| `import-a-subcontractor-quote` — Import a subcontractor's quote | ✓ | ✓ | ✓ | sub-quotes | subcontractor_bids |  |
 | `references-and-photos-in-the-quote-email` — References and before-and-after photos in the quote email | ✓ | ✓ | ✓ | settings-quote-email | quote_email_wording |  |
 | `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
 | `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |

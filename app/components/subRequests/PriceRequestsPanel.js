@@ -66,6 +66,29 @@ export default function PriceRequestsPanel({ quoteId = null, jobId = null, onCom
     load();
   }, [load]);
 
+  // "Request a price" on /app/subcontractors/quotes lands here with
+  // ?requestPrices=1 (lib/subcontractors/receivedPrices.js requestPricePath):
+  // open THIS dialog — the existing flow, not a second one — once the
+  // server has said this member may send. Read once, never re-opened by a
+  // reload of the list.
+  const [autoOpened, setAutoOpened] = useState(false);
+  useEffect(() => {
+    if (autoOpened || !data) return;
+    setAutoOpened(true);
+    let wanted = false;
+    try {
+      wanted = new URLSearchParams(window.location.search).get("requestPrices") === "1";
+    } catch {
+      wanted = false;
+    }
+    if (wanted && data.canSend) setOpen(true);
+    // The panel renders after its fetch, so the browser's own jump to
+    // #price-requests found nothing to jump to. Do it now that it exists.
+    if (window.location.hash === "#price-requests") {
+      requestAnimationFrame(() => document.getElementById("price-requests")?.scrollIntoView({ block: "start" }));
+    }
+  }, [data, autoOpened]);
+
   if (hidden || (!data && !error)) return null;
   if (data && !data.canSend && data.requests.length === 0) return null;
 
@@ -102,7 +125,9 @@ export default function PriceRequestsPanel({ quoteId = null, jobId = null, onCom
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
+    // id: the anchor /app/subcontractors/quotes links to for a reply not yet
+    // in the compare, and for "Request a price".
+    <div id="price-requests" className="bg-card border border-border rounded-xl p-5 scroll-mt-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-muted-foreground" />

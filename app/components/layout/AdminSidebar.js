@@ -47,6 +47,7 @@ import {
   ShoppingCart,
   Truck,
   HardHat,
+  FileStack,
   ShieldCheck,
   CreditCard,
   Settings,
@@ -296,6 +297,10 @@ export const MORE_GROUPS = [
     items: [
       { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck, helpArticle: "client-equipment" },
       { key: "app.nav.subcontractors", href: "/app/subcontractors", icon: HardHat, helpArticle: "subcontractors" },
+      // Every price the subs sent, across all quotes (owner, 2026-10-10).
+      // Gated like the compare it lists — quotes view_only + showPricing —
+      // not like the roster above (lib/permissions/nav.js says why).
+      { key: "app.nav.subQuotes", href: "/app/subcontractors/quotes", icon: FileStack, helpArticle: "sub-quotes" },
       { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift, helpArticle: "refer" },
       // Only for a company enrolled in the influencer programme — filtered
       // out on the shell's own `isInfluencer` (resolved server-side by

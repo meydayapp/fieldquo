@@ -654,7 +654,7 @@ export const ARTICLES = {
     title: "Import a subcontractor's quote",
     summary:
       "When another FieldQuo company sends you a quote, pull it into one of your own quotes as a marked-up cost line — your client sees one price, the sub never sees your markup, and the cost lands in job costing when the job is won.",
-    updated: "2026-09-12",
+    updated: "2026-10-10",
     intro: [
       "A general contractor collects a subcontractor's quote and quotes the homeowner a marked-up price. When the sub also runs on FieldQuo, that is one step: open the quote they sent you, pick your quote and your markup, and the cost line is written for you — server-side, from the sub's stored figures. The browser never sends a money amount.",
     ],
@@ -690,6 +690,15 @@ export const ARTICLES = {
             "In the builder, the imported group is read-only — the cost is fixed and the markup is edited on the quote page — but it counts in the total and survives a save.",
             "Line items on a decided quote are locked, so an import cannot be edited or removed once your client has accepted or declined.",
           ] },
+        ],
+      },
+      {
+        id: "all-in-one-place",
+        heading: "Every price your subs sent, in one place",
+        blocks: [
+          { p: "**Quotes from my subs**, next to **Subcontractors** in the sidebar, lists every price a sub has sent you across all your quotes: a quote you imported from its link, a reply to one of your price requests, and a sub's PDF or photo you uploaded. Each row shows the sub, the trade, the amount, when it arrived, which of your quotes or jobs it is for, and where it stands — **Not yet used**, **Option**, **On your quote**, or extra work **pending**, **approved** or **declined**. Filter by trade, status or sub." },
+          { p: "**Open** takes you to the quote's subcontractor compare. **Add to my quote** does exactly what **Use this one** does there (on an approved quote, **Add as extra work** raises a change order for your client to sign); a reply you have not used yet is first **added to the compare**. **Request a price** opens the price-request dialog on that quote." },
+          { p: "The page needs Quotes at **View only** or above and **Show pricing**, the same as the compare. What the sub charges you is shown only with **Job costing**; without it you see your client price. Replies not yet in a compare are shown to owners, admins and supervisors. A sub's quote you opened but never added is not listed — add it from its link first." },
         ],
       },
       {

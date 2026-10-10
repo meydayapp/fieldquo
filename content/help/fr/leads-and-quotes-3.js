@@ -639,7 +639,7 @@ export const ARTICLES = {
     title: "Importer la soumission d'un sous-traitant",
     summary:
       "Quand une autre entreprise FieldQuo vous envoie une soumission, intégrez-la à l'une de vos propres soumissions comme ligne de coût majorée — votre client voit un seul prix, le sous-traitant ne voit jamais votre majoration, et le coût atterrit dans les coûts du chantier quand le chantier est gagné.",
-    updated: "2026-09-12",
+    updated: "2026-10-10",
     intro: [
       "Un entrepreneur général recueille la soumission d'un sous-traitant et soumissionne au propriétaire un prix majoré. Quand le sous-traitant utilise aussi FieldQuo, c'est une seule étape : ouvrez la soumission qu'il vous a envoyée, choisissez votre soumission et votre majoration, et la ligne de coût est écrite pour vous — côté serveur, à partir des chiffres enregistrés du sous-traitant. Le navigateur n'envoie jamais de montant d'argent.",
     ],
@@ -675,6 +675,15 @@ export const ARTICLES = {
             "Dans le générateur, le groupe importé est en lecture seule — le coût est fixe et la majoration se modifie sur la page de la soumission — mais il compte dans le total et survit à un enregistrement.",
             "Les lignes d'une soumission tranchée sont verrouillées, donc un import ne peut plus être modifié ni retiré une fois que votre client a accepté ou refusé.",
           ] },
+        ],
+      },
+      {
+        id: "all-in-one-place",
+        heading: "Tous les prix de vos sous-traitants, au même endroit",
+        blocks: [
+          { p: "**Prix de mes sous-traitants**, à côté de **Sous-traitants** dans la barre latérale, liste chaque prix qu'un sous-traitant vous a envoyé, toutes soumissions confondues : une soumission importée depuis son lien, une réponse à l'une de vos demandes de prix, et le PDF ou la photo d'un sous-traitant que vous avez téléversé. Chaque ligne montre le sous-traitant, le métier, le montant, la date d'arrivée, la soumission ou le chantier concerné, et où il en est — **Pas encore utilisé**, **Option**, **Sur votre soumission**, ou travaux supplémentaires **en attente**, **approuvés** ou **refusés**. Filtrez par métier, statut ou sous-traitant." },
+          { p: "**Ouvrir** vous mène à la comparaison des sous-traitants de la soumission. **Ajouter à ma soumission** fait exactement ce que fait **Utiliser celui-ci** là-bas (sur une soumission approuvée, **Ajouter comme travaux supplémentaires** crée un avenant que votre client signe) ; une réponse pas encore utilisée est d'abord **ajoutée à la comparaison**. **Demander un prix** ouvre la demande de prix sur cette soumission." },
+          { p: "La page demande l'accès aux soumissions en **Lecture seule** ou plus et **Afficher les prix**, comme la comparaison. Ce que le sous-traitant vous facture n'apparaît qu'avec **Coût des chantiers** ; sans lui, vous voyez votre prix client. Les réponses pas encore dans une comparaison sont visibles par les propriétaires, administrateurs et superviseurs. La soumission d'un sous-traitant que vous avez ouverte sans l'ajouter n'est pas listée — ajoutez-la d'abord depuis son lien." },
         ],
       },
       {

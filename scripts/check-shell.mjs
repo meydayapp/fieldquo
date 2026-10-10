@@ -306,7 +306,8 @@ const newRows = [...ownerRailRows, ...moreRows, ...BOTTOM].filter((r) => !OLD_RA
 // real destinations — each named here with the change that built it, so a
 // row for nothing new still fails.
 //   /app/tickets — client tickets from the portal (2026-09-24)
-const NEW_DESTINATIONS = ["/app/more", "/app/tickets"];
+//   /app/subcontractors/quotes — every price a GC's subs sent (2026-10-10)
+const NEW_DESTINATIONS = ["/app/more", "/app/tickets", "/app/subcontractors/quotes"];
 ok("no rail/More/account row points somewhere that was not a destination before (the change adds rows for nothing new)",
   newRows.every((r) => NEW_DESTINATIONS.includes(r.href)), newRows.map((r) => r.href).join(", "));
 
