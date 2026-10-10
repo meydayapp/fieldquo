@@ -2124,6 +2124,29 @@ const PAGES = [
     ],
     related: ["invoicing", "financing", "reporting"],
   },
+  // Rewritten 2026-10-09 (owner rule: confirm, don't infer). Klarna first,
+  // because it is the provider Stripe grants contractors; Affirm only "where
+  // Stripe approves your business for it", because Stripe lists "Home
+  // improvement services, including contractors and special trade
+  // contractors" as prohibited or restricted for Affirm
+  // (https://docs.stripe.com/payments/affirm) and refused it for TrueFinish.
+  // No dollar range: the ranges are each provider's, per country, and
+  // "determined by Klarna and might change at their discretion"
+  // (https://docs.stripe.com/payments/klarna) — the old "$50 up to $30,000"
+  // was Affirm's alone, printed as if it were FieldQuo's.
+  // Paid up front, minus fees: "Stripe makes the full amount of the funds
+  // (minus fees) available to you upfront" (both pages above); Klarna
+  // "Payout timing: Standard payout timing applies"; Affirm "Settlement
+  // timing: Up to 2 business days (T+2)" — so never "today".
+  // "If the customer can't repay Klarna, Klarna takes loss liability."
+  // (https://docs.stripe.com/payments/klarna); "Klarna decides if customers
+  // can use Klarna" (https://docs.stripe.com/payments/klarna/compliance).
+  // The three details are the code: the offer rule in
+  // lib/stripe/financingMethods.js (opt-in + Stripe's status + range, CAD/USD),
+  // the off configuration in lib/stripe/invoicePaymentConfiguration.js, and
+  // the status poll shown in Settings › Payments. The old third detail
+  // ("cannot be checked from here … retried as card-only") stopped being
+  // true when the capability status began to be read from Stripe.
   {
     slug: "financing",
     group: "getting_paid",
@@ -2131,19 +2154,19 @@ const PAGES = [
     feature: "financing",
     details: [
       {
-        label: "Between fifty dollars and thirty thousand",
+        label: "Only what Stripe has switched on",
         body:
-          "Pay-over-time is offered at checkout only inside those bounds, only in US or Canadian dollars, and only when you have switched it on.",
+          "Pay-over-time is offered only when you have switched it on, Stripe has activated Klarna — or Affirm, where Stripe approves your business for it — on your account, and the amount is inside that provider's range, in Canadian or US dollars.",
       },
       {
-        label: "Card only, unless you said otherwise",
+        label: "Off means off",
         body:
-          "The payment choices are pinned to card by default, so an account that switched a lender on in its own dashboard cannot surface it when you said no.",
+          "With pay-over-time switched off, your pay link uses a payment setup without it, so a provider enabled on your Stripe account does not appear when you said no.",
       },
       {
-        label: "It falls back rather than breaking",
+        label: "Stripe's answer, in your settings",
         body:
-          "Whether the lender is live on your account cannot be checked from here, so it is attempted and quietly retried as card-only when it is not — never a link that fails in front of a client.",
+          "Whether Stripe has activated each provider is read from your Stripe account and shown in Settings, with the reason when it has not — and your clients are only offered a provider that is active.",
       },
       {
         label: "No terms means no monthly figure",
@@ -2158,21 +2181,21 @@ const PAGES = [
     ],
     headline: "Let the homeowner spread the cost of the big job",
     oneLine:
-      "Your clients can pay monthly through Affirm. You are paid in full, up front, on the jobs they would otherwise put off another year.",
+      "Your clients can pay over time with Klarna — or Affirm, where Stripe approves your business for it. You are paid the full amount up front, minus fees, on the jobs they would otherwise put off another year.",
     description:
-      "Offer your clients pay-over-time through Affirm and get paid in full up front — included, with nothing extra to sign up for.",
+      "Offer your clients pay-over-time with Klarna through Stripe and be paid the full amount up front, minus fees — included, with nothing extra to sign up for.",
     pains: [
       {
         pain:
           "The full kitchen is the job you want, and the homeowner keeps deferring it to next year.",
         fix:
-          "They are offered a monthly option at the moment they are paying, instead of being asked for the lot in one go.",
+          "They are offered a way to pay over time at the moment they are paying, instead of being asked for the lot in one go.",
       },
       {
         pain:
           "Every finance company wants its own application, its own contract and its own portal.",
         fix:
-          "It rides on the Stripe account you already connected. One switch in Settings, and it is on your pay page.",
+          "It rides on the Stripe account you already connected. One switch in Settings, and once Stripe activates it, it is on your pay page.",
       },
       {
         pain:
@@ -2183,19 +2206,19 @@ const PAGES = [
     ],
     how: [
       {
-        step: "Affirm at checkout, through your own account",
+        step: "Klarna at checkout, through your own account",
         body:
-          "Switch financing on and your pay page offers Affirm beside card. It runs on the Stripe account your money already lands in, so there is no second application, no new contract, and no separate finance provider to onboard with.",
+          "Switch pay-over-time on and, once Stripe activates it for your business, your pay page offers Klarna beside card — and Affirm, only where Stripe approves your business for it. It runs on the Stripe account your money already lands in, so there is no second application, no new contract, and no separate finance provider to onboard with.",
       },
       {
-        step: "You get the whole job, today",
+        step: "The full amount, paid up front",
         body:
-          "Affirm pays you the full amount and carries the instalments themselves — you are not waiting on your client and you are not financing them out of your own float. It covers jobs from $50 up to $30,000, in Canadian or US dollars.",
+          "The full amount, minus fees, is paid to you up front; you receive it on your normal payout schedule (Affirm can take up to two business days to settle). The provider collects the instalments from your client, so you are not chasing them or financing the job out of your own float.",
       },
       {
-        step: "No rates for you to quote, and no risk you carry",
+        step: "No rates for you to quote, no instalments to chase",
         body:
-          "Affirm shows the client their own terms and makes their own decision. You never quote a rate, never chase an instalment, and never carry the credit risk. And FieldQuo will not print a monthly figure on your quote unless you typed the rate and term in yourself.",
+          "The provider shows the client their own plans and makes its own decision on approval. You never quote a rate and never chase an instalment — and if a client can't repay Klarna, Klarna takes the loss. FieldQuo will not print a monthly figure on your quote unless you typed the rate and term in yourself.",
       },
     ],
     features: ["financing"],

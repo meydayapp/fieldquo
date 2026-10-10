@@ -1347,44 +1347,44 @@ const pt = {
   "featurePage.financing.headline":
     "Deixe o proprietário distribuir o custo de um trabalho grande",
   "featurePage.financing.oneLine":
-    "Os seus clientes podem pagar mensalmente através da Affirm. Você recebe o valor total antecipadamente pelos trabalhos que, de outra forma, adiariam por mais um ano.",
+    "Os seus clientes podem pagar parcelado com o Klarna — ou com o Affirm, apenas onde a Stripe aprova a sua empresa para isso. Recebe o valor total adiantado, descontadas as taxas, nos trabalhos que eles adiariam mais um ano.",
   "featurePage.financing.description":
-    "Disponibilize pagamento faseado aos seus clientes através da Affirm e receba o valor total antecipadamente — incluído, sem qualquer adesão adicional.",
+    "Ofereça aos seus clientes pagamento parcelado com o Klarna através da Stripe e receba o valor total adiantado, descontadas as taxas — incluído, sem mais nada a subscrever.",
   "featurePage.financing.pain.1.pain":
     "A cozinha completa é o trabalho que quer, mas o proprietário continua a adiá-la para o próximo ano.",
   "featurePage.financing.pain.1.fix":
-    "É apresentada uma opção mensal no momento do pagamento, em vez de lhe ser pedido o valor total de uma só vez.",
+    "É apresentada uma forma de pagar parcelado no momento do pagamento, em vez de lhe ser pedido o valor total de uma só vez.",
   "featurePage.financing.pain.2.pain":
     "Cada empresa de financiamento quer a sua própria candidatura, contrato e portal.",
   "featurePage.financing.pain.2.fix":
-    "Funciona através da conta Stripe que já ligou. Um único interruptor nas Definições e aparece na sua página de pagamento.",
+    "Funciona na conta Stripe que já ligou. Um interruptor nas Definições e, assim que a Stripe o ativar, está na sua página de pagamento.",
   "featurePage.financing.pain.3.pain":
     "Indica um valor mensal ao telefone e depois fica preso a uma taxa que ninguém na sua empresa alguma vez aprovou.",
   "featurePage.financing.pain.3.fix":
     "O FieldQuo nunca inventa um valor mensal. Se aparecer um valor no orçamento, foi calculado a partir da taxa e do prazo que introduziu.",
   "featurePage.financing.how.1.step":
-    "Affirm no checkout, através da sua própria conta",
+    "Klarna no pagamento, através da sua própria conta",
   "featurePage.financing.how.1.body":
-    "Ative o financiamento e a sua página de pagamento apresenta Affirm juntamente com cartão. Funciona através da conta Stripe onde o seu dinheiro já entra, por isso não existe uma segunda candidatura, um novo contrato ou outro fornecedor financeiro com o qual tenha de aderir.",
-  "featurePage.financing.how.2.step": "Recebe o valor total do trabalho hoje",
+    "Ative o pagamento parcelado e, assim que a Stripe o ativar para a sua empresa, a sua página de pagamento apresenta o Klarna juntamente com o cartão — e o Affirm, apenas onde a Stripe aprova a sua empresa para isso. Funciona através da conta Stripe onde o seu dinheiro já entra, por isso não existe uma segunda candidatura, um novo contrato ou outro fornecedor financeiro com quem se registar.",
+  "featurePage.financing.how.2.step": "O valor total, pago adiantado",
   "featurePage.financing.how.2.body":
-    "A Affirm paga-lhe o valor total e assume as prestações — não fica à espera do cliente nem o financia com o seu próprio capital. Abrange trabalhos entre $50 e $30,000, em dólares canadianos ou norte-americanos.",
+    "O valor total, descontadas as taxas, é-lhe pago adiantado; recebe-o segundo o seu calendário habitual de pagamentos (o Affirm pode demorar até dois dias úteis a liquidar). O fornecedor cobra as prestações ao seu cliente, por isso não tem de andar atrás dele nem de financiar o trabalho do seu próprio bolso.",
   "featurePage.financing.how.3.step":
-    "Sem taxas para indicar e sem risco para si",
+    "Sem taxas de juro para indicar, sem prestações para cobrar",
   "featurePage.financing.how.3.body":
-    "A Affirm apresenta ao cliente as suas próprias condições e toma a sua própria decisão. Nunca indica uma taxa, nunca cobra uma prestação e nunca assume o risco de crédito. E o FieldQuo não imprime um valor mensal no seu orçamento a menos que tenha introduzido pessoalmente a taxa e o prazo.",
+    "O fornecedor mostra ao cliente os seus próprios planos e toma a sua própria decisão sobre a aprovação. Nunca indica uma taxa de juro nem anda atrás de uma prestação — e se um cliente não conseguir pagar ao Klarna, o prejuízo é do Klarna. A FieldQuo não imprime um valor mensal no seu orçamento a menos que tenha introduzido a taxa e o prazo.",
   "featurePage.financing.detail.1.label":
-    "Entre cinquenta e trinta mil dólares",
+    "Só o que a Stripe ativou",
   "featurePage.financing.detail.1.body":
-    "O pagamento faseado só é disponibilizado no checkout dentro destes limites, apenas em dólares norte-americanos ou canadianos e apenas quando o tiver ativado.",
+    "O pagamento parcelado só é oferecido quando o ativou, a Stripe ativou o Klarna — ou o Affirm, apenas onde a Stripe aprova a sua empresa para isso — na sua conta, e o valor está dentro do intervalo desse fornecedor, em dólares canadianos ou americanos.",
   "featurePage.financing.detail.2.label":
-    "Apenas cartão, salvo indicação em contrário",
+    "Desligado é desligado",
   "featurePage.financing.detail.2.body":
-    "As opções de pagamento ficam limitadas a cartão por predefinição, para que uma conta que tenha ativado um financiador no seu próprio painel não o possa apresentar quando você disse que não.",
+    "Com o pagamento parcelado desligado, o seu link de pagamento usa uma configuração sem ele, por isso um fornecedor ativado na sua conta Stripe não aparece quando disse que não.",
   "featurePage.financing.detail.3.label":
-    "Recorre à alternativa em vez de falhar",
+    "A resposta da Stripe, nas suas definições",
   "featurePage.financing.detail.3.body":
-    "Não é possível verificar daqui se o financiador está ativo na sua conta, por isso é feita uma tentativa e, quando não está, é repetida silenciosamente apenas com cartão — nunca é apresentada ao cliente uma ligação que falha.",
+    "O estado de cada fornecedor é lido da sua conta Stripe e mostrado nas Definições, com o motivo quando a Stripe não o ativou — e aos seus clientes só é oferecido um fornecedor ativo.",
   "featurePage.financing.detail.4.label":
     "Sem condições, não existe valor mensal",
   "featurePage.financing.detail.4.body":
