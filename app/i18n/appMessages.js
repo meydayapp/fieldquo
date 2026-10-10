@@ -110050,7 +110050,7 @@ const tl = {
   "app.portalRequest.preferredDates": "Gustong petsa: {dates}",
   "app.portalRequest.maintenanceTag": "Kahilingan para sa regular na maintenance (mula sa client portal)",
   "app.setWebsite.clientPortal.title": "Client login sa iyong website",
-  "app.setLeadForm.clientLoginTitle": "Client login",
+  "app.setLeadForm.clientLoginTitle": "Pag-login ng kliyente",
   "app.setLeadForm.clientLoginDesc": "Para sa website na hindi gawa sa FieldQuo: ilagay ang link na ito sa menu at footer ng inyong site bilang \"Client login\". Ita-type ng kliyente ang kanyang email at matatanggap niya ang sariling link sa kanyang mga quote, invoice, pagbisita at plano. Walang password, at hindi kailanman sinasabi ng page kung ang email ay sa isa sa inyong mga kliyente.",
   "app.portalLinks.button": "I-email sa mga kliyente ang link ng kanilang account",
   "app.portalLinks.title": "I-email sa mga kliyente ang link ng kanilang account",
