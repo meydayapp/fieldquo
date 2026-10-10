@@ -84,7 +84,7 @@ section("2. The pay-over-time guide's sentence, as TrueFinish saw it");
 // ═══════════════════════════════════════════════════════════════════════════
 section("3. Every client sentence that carries the company name");
 // The company name goes ONLY into the parameters that carry it — read from
-// each function's own parameter list — and a neutral "Q7" into every other
+// each function's own parameter list — and a neutral lowercase "q7" into every other
 // (a date, a phone, an amount). Filling every argument with the name would
 // flag "arrive on <date>." as a double stop, which it isn't.
 const NAME_PARAM = /^(company|companyName|payee)$/;
@@ -111,7 +111,7 @@ function* functions(node, path = []) {
 // The other arguments are tried three ways — a value, empty, and a function
 // (a link builder like marketingFooter's `a`) — because a sentence often
 // ends on the name only in one branch ("call Acme." vs "call Acme at 555.").
-const OTHERS = ["Q7", "", (x) => String(x)];
+const OTHERS = ["q7", "", (x) => String(x)];
 const call = (fn, names, name, other) => {
   try {
     const out = fn(...names.map((p) => (p === null ? other : name)));
@@ -141,10 +141,18 @@ for (const [label, table] of tables) {
       if (/Inc\.\s+\.|Inc\.\.(?!\.)/.test(withInc)) doubles.push(`${lang}.${path}: …${withInc.match(/.{0,40}Inc\.\s*\./)[0]}`);
       // The other direction: a sentence that ENDS on the name (it goes through
       // nameThenStop) must still end with a stop for a name that has none.
+      const withPlain = calls(fn, slots, PLAIN);
       if (/nameThenStop\w*\(/.test(fn.toString())) {
         ending++;
-        const withPlain = calls(fn, slots, PLAIN);
         if (!withPlain.includes("Acme Painting.")) lost.push(`${lang}.${path}: ${withPlain.slice(-60)}`);
+      }
+      // The naive "fix" — dropping the template's "." — leaves a sentence that
+      // just stops on the name. Caught here whether or not the function uses
+      // the helper: "Acme Painting" at the end of the text or before a new
+      // sentence, unless it is a title-like tail ("How did we do? — Acme") or a
+      // subject, heading, title or label, which end on the name by design.
+      if (!/subject|heading|title|label|eyebrow|alt$/i.test(key)) for (const line of withPlain.split("\n")) {
+        if (/(?<![—·:|]\s)Acme Painting(?=\s*$|\s+[A-ZÀ-ÝА-ЯЄІЇҐ¿¡])/.test(line)) lost.push(`${lang}.${path}: …${line.slice(-60)}`);
       }
     }
   }
@@ -159,6 +167,8 @@ ok(`the sweep reached the sentences that matter (${swept} with a company paramet
   const htp = JSON.stringify(buildHowToPay({ company, language: "en" }));
   ok("how to pay: “Make cheques payable to TrueFinish Cabinets Inc.” — one stop", htp.includes("Make cheques payable to TrueFinish Cabinets Inc.") && !/Inc\.\s*\./.test(htp), htp.slice(0, 300));
   const typed = JSON.stringify(buildHowToPay({ company: { ...company, name: "X", paymentMethodDetails: { cheque: { payee: "  Acme Painting  ", mailingAddress: "1 Main St" } } }, language: "fr" }));
+  const blank = JSON.stringify(buildHowToPay({ company: { ...company, paymentMethodDetails: { cheque: { payee: "   ", mailingAddress: "1 Main St" } } }, language: "en" }));
+  ok("how to pay: a blank typed payee falls back to the company, not to “payable to .”", blank.includes("Make cheques payable to TrueFinish Cabinets Inc.") && !/payable to\s*\.?"/.test(blank), blank.slice(0, 300));
   ok("how to pay: a typed payee is trimmed and gets its stop (fr)", typed.includes("à l'ordre de Acme Painting.") , typed.slice(0, 300));
 }
 
