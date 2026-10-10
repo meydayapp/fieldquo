@@ -40,8 +40,8 @@ function countryName(code, language) {
 // both mean card-only links and only one of them is the contractor's move.
 //
 // "Active" prints Affirm's OWN range in the company's money, from the one
-// provider table (lib/stripe/financingMethods.js, cited there to
-// https://docs.stripe.com/payments/affirm) — the same shape as Klarna's line
+// provider table (lib/stripe/financingMethods.js, which cites Stripe's Affirm
+// docs — no URL here: check:stripe-identity forbids any in this file) — the same shape as Klarna's line
 // beside it. It used to be a typed "$50 to $30,000", and the card's
 // description and note named Affirm alone with that range, as if it were
 // FieldQuo's; Stripe decides per provider, and each line says its own.
