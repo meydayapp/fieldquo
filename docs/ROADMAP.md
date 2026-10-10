@@ -168,7 +168,7 @@ tag pairing.
   name trimmed at the builder and in the page header), `emailCopy` (8),
   the review email (6), the prep guide (6), how-to-pay's cheque payee (14,
   trimmed at the builder) and the kitchen page's meta description. Stored
-  names are not changed. `check:company-name-stop` (59, in `check:all`)
+  names are not changed. `check:company-name-stop` (60, in `check:all`)
   sweeps every copy function with a company parameter in every language.
   Not touched: the staff sign-in emails (`lib/email/authEmails.js`, not
   client-facing) and the voice prompts (spoken, the stop is not read).
