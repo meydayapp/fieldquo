@@ -26,6 +26,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { payOverTimeGuideCopy } from "@/lib/i18n/payOverTimeGuideCopy";
+import { companyDisplayName } from "@/lib/i18n/companyName";
 import {
   PAY_OVER_TIME_COMPANY_SELECT,
   guideBackPath,
@@ -99,7 +100,7 @@ export default async function PayOverTimePage({ params, searchParams }) {
     <PayOverTimeGuide
       copy={copy}
       pal={guidePalette(company)}
-      company={{ name: company.name || "", logoUrl: company.logoUrl || null }}
+      company={{ name: companyDisplayName(company.name), logoUrl: company.logoUrl || null }}
       names={names}
       backHref={backHref}
       backLabel={backHref.includes("/invoices/") ? copy.backToInvoice : copy.backToAccount}

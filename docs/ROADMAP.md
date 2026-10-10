@@ -148,12 +148,30 @@ desktop, stacked on phones, cleaner and larger.
 `check:client-proposal` now counts 26 proposal strings and measures the new
 tag pairing.
 
-### Open
+### Follow-up, same day
 
-- The website's slider still prints English "Before"/"After" and an English
-  screen-reader label on a French/Spanish/… site. The proposal's props fix it
-  when the site passes them; left alone here because the brief required the
-  site's output byte-identical.
+- **The website's slider speaks the site's language.** `SiteBlocks`'
+  before/after block now passes `labels` and `compareLabel` from
+  `lib/site/siteCopy.js`, so a French site says Avant / Après. The website
+  hash was re-pinned on purpose; against the old markup exactly three things
+  differ (after alt "After: X" → "After — X", the before image gets alt text
+  instead of `aria-hidden`, the slider's screen-reader name is localised).
+  The grip, the tags' look and the 4:3 box are unchanged.
+- **No more "Inc. ."** The pay-over-time guide printed "contact TrueFinish
+  Cabinets Inc. ." — the stored name has a trailing space and ends in
+  "Inc.", and the sentence added its own stop. `lib/i18n/companyName.js`
+  (`companyDisplayName`, `nameThenStop`) trims the name and adds the stop
+  only when the name has none, with an optional tail for "call X at 555."
+  sentences. Every client sentence that ends on the company name, in all
+  eight languages, goes through it: `clientDocCopy` (53, incl. the
+  portal/change-order "contact X at phone" lines), the guide (7, plus the
+  name trimmed at the builder and in the page header), `emailCopy` (8),
+  the review email (6), the prep guide (6), how-to-pay's cheque payee (14,
+  trimmed at the builder) and the kitchen page's meta description. Stored
+  names are not changed. `check:company-name-stop` (59, in `check:all`)
+  sweeps every copy function with a company parameter in every language.
+  Not touched: the staff sign-in emails (`lib/email/authEmails.js`, not
+  client-facing) and the voice prompts (spoken, the stop is not read).
 
 ---
 

@@ -19,6 +19,7 @@ import {
   clientPageMetadata,
   neutralClientMetadata,
 } from "@/lib/whiteLabel/pageMetadata";
+import { nameThenStop } from "@/lib/i18n/companyName";
 
 // Title and description as before; the icon, share image and the rest of the
 // head are now the company's too (lib/whiteLabel/pageMetadata.js) instead of
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }) {
   if (!company) return neutralClientMetadata({ title: "Not found" });
   return clientPageMetadata(company, {
     title: `Design your kitchen — ${company.name}`,
-    description: `Lay out your kitchen and get a price from ${company.name}.`,
+    description: `Lay out your kitchen and get a price from ${nameThenStop(company.name)}`,
   });
 }
 

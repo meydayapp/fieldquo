@@ -1390,6 +1390,10 @@ function BeforeAfterBlock({ block, theme, accent2, S, t }) {
             caption={pair.caption}
             radius={S?.radius || "rounded-2xl"}
             theme={theme}
+            // The site's language, not English: a French site printed
+            // "Before"/"After" on every slider until 2026-10-10.
+            labels={{ before: t.before, after: t.after }}
+            compareLabel={t.dragToCompare}
           />
         ))}
       </div>

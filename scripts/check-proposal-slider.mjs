@@ -11,10 +11,11 @@
 //
 // This proves it by RENDERING, not by reading:
 //
-//   1. The website's slider is byte-identical. The component moved from
-//      app/site/[subdomain]/BeforeAfter.js to app/components/public/
-//      BeforeAfter.js (one component for both pages); its output with the
-//      site's props is pinned to the md5 taken from the pre-move file.
+//   1. One slider. The component moved from app/site/[subdomain]/
+//      BeforeAfter.js to app/components/public/BeforeAfter.js; with no
+//      document props its output is pinned to the pre-move md5. The
+//      website block now passes the site's language (re-pinned on purpose,
+//      see below), so a French site says Avant / Après.
 //   2. The email's before/after (HTML and plain text, three languages) is
 //      pinned the same way, and the quote PDF carries no gallery at all and
 //      imports no slider.
@@ -37,6 +38,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import SiteBeforeAfter from "../app/site/[subdomain]/BeforeAfter.js";
 import SharedBeforeAfter from "../app/components/public/BeforeAfter.js";
+import SiteBlocks from "../app/site/[subdomain]/SiteBlocks.js";
+import { siteCopy } from "../lib/site/siteCopy.js";
 import { CompanySections, ProposalGallery, PROPOSAL_GALLERY_GRID } from "../app/components/public/proposal/ProposalSections.js";
 import { beforeAfterHtml, quoteSectionsText } from "../lib/email/quoteSections.js";
 import { CLIENT_DOC_COPY, clientDocCopy } from "../lib/i18n/clientDocCopy.js";
@@ -62,11 +65,11 @@ const ok = (name, cond, got) => {
 const section = (t) => console.log(`\n${t}`);
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("1. The website's slider is byte-identical");
+section("1. The website's slider: one component, the site's own language");
 {
-  // md5s of renderToStaticMarkup taken from app/site/[subdomain]/BeforeAfter.js
-  // at 9cc84fb72, before the move. If the website's slider is changed ON
-  // PURPOSE, re-pin these and say so in the commit.
+  // (a) The component with NO document props is unchanged: md5s of
+  // renderToStaticMarkup taken from app/site/[subdomain]/BeforeAfter.js at
+  // 9cc84fb72, before the move.
   const theme = { ink: "#111111", paper: "#fefefe", accentWash: "#eeeeff", inkMuted: "#555555" };
   const CASES = [
     [{ before: "https://x/b.jpg", after: "https://x/a.jpg" }, "d66ce81b5c463218c16a03a21bf7a159"],
@@ -76,12 +79,48 @@ section("1. The website's slider is byte-identical");
   CASES.forEach(([props, pinned], i) => {
     const viaSite = md5(renderToStaticMarkup(h(SiteBeforeAfter, props)));
     const viaShared = md5(renderToStaticMarkup(h(SharedBeforeAfter, props)));
-    ok(`site case ${i + 1}: the site's import renders the pinned markup`, viaSite === pinned, viaSite);
-    ok(`site case ${i + 1}: …and it is the shared component, not a copy`, viaShared === viaSite);
+    ok(`bare slider case ${i + 1}: renders the pre-move markup`, viaSite === pinned, viaSite);
+    ok(`bare slider case ${i + 1}: …through the shared component, not a copy`, viaShared === viaSite);
   });
   const reexport = read("app/site/[subdomain]/BeforeAfter.js");
   ok("the old path is a re-export, not a second slider", /export \{ default \} from "@\/app\/components\/public\/BeforeAfter"/.test(reexport) && !/useState|<input/.test(reexport));
   ok("the site still imports it from the old path", /import BeforeAfter from "\.\/BeforeAfter"/.test(read("app/site/[subdomain]/SiteBlocks.js")));
+
+  // (b) The website as a visitor gets it — SiteBlocks' own before/after
+  // block. CHANGED ON PURPOSE on 2026-10-10 (coordinator's follow-up): the
+  // block now passes the site's language to the slider (`labels`,
+  // `compareLabel` from lib/site/siteCopy.js), so a French site stops saying
+  // "Before"/"After". Against the 9cc84fb72 markup the English render differs
+  // in exactly three places: the after image's alt "After: Maple St" →
+  // "After — Maple St"; the before image is no longer alt="" aria-hidden but
+  // "Before — Maple St"; the range input's label "Drag to compare before and
+  // after: Maple St" → "Maple St — Drag the handle to compare.". The grip,
+  // the tags' look, the 4:3 box and the layout are untouched. Re-pin only on
+  // another deliberate change, and say so in the commit.
+  const siteTheme = documentTheme({ brandColor: "#06356b" });
+  const site = (language) => {
+    const html = renderToStaticMarkup(
+      h(SiteBlocks, {
+        blocks: [{ id: "b1", type: "beforeafter", content: { heading: "Our work", intro: "", pairs: [{ before: "https://x/b.jpg", after: "https://x/a.jpg", caption: "Maple St" }] } }],
+        company: { name: "Acme", slug: "acme" }, theme: siteTheme, fill: fillPair(siteTheme), subdomain: "acme", language,
+      }),
+    );
+    return (html.match(/<figure[\s\S]*?<\/figure>/) || [""])[0];
+  };
+  const en = site("en");
+  // Was 35037d4052d0c89f564dc418012b18e5 (the same block without the props).
+  const SITE_EN_PINNED = "b676d44fb9db7936f49316c8355c73ab";
+  ok("website (en): the block's slider renders the re-pinned markup", md5(en) === SITE_EN_PINNED, md5(en));
+  ok("website (en): …with the three intended differences", /alt="After — Maple St"/.test(en) && /alt="Before — Maple St"/.test(en) && />Maple St — Drag the handle to compare\.<\/label>/.test(en) && !/aria-hidden="true" class="absolute/.test(en));
+  ok("website (en): …and the site's look kept (paper grip, inline grow, 4:3 box, no brand handle)", /shadow-lg/.test(en) && /transition:scale 120ms ease-out/.test(en) && /aspect-\[4\/3\]/.test(en) && !/motion-reduce/.test(en));
+  const fr = site("fr");
+  ok("website (fr): the tags say Avant / Après, not Before / After", />Avant<\/span>/.test(fr) && />Après<\/span>/.test(fr) && !/>Before</.test(fr) && !/>After</.test(fr));
+  ok("website (fr): alt text and the slider's name are French", /alt="Avant — Maple St"/.test(fr) && />Maple St — Faites glisser pour comparer\.<\/label>/.test(fr));
+  for (const lang of ["es", "uk", "pa", "tl", "de", "it"]) {
+    const out = site(lang);
+    const t = siteCopy(lang);
+    ok(`website (${lang}): the tags are the site's own words`, out.includes(`>${t.before}</span>`) && out.includes(`>${t.after}</span>`) && t.before !== "Before");
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

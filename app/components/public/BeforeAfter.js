@@ -33,11 +33,12 @@
 // ── The document props (2026-10-10) ────────────────────────────────────────
 //
 // The proposal needed four things the website block never asked for, and each
-// is OPT-IN so the website's markup stays byte-identical (proved by
-// scripts/check-proposal-slider.mjs against a pinned hash):
+// is OPT-IN: with none of them the markup is the pre-move markup, pinned in
+// scripts/check-proposal-slider.mjs.
 //
-//   labels       { before, after } in the DOCUMENT's language. The site still
-//                prints English "Before"/"After" — a separate fix, not this one.
+//   labels       { before, after } in the page's language. The website block
+//                passes these too (with compareLabel) since 2026-10-10 — it
+//                printed English "Before"/"After" on every non-English site.
 //                With labels, both images carry alt text ("Before — Maple St"),
 //                the format the email and the old side-by-side used.
 //   compareLabel the screen-reader name of the range input, localised.
