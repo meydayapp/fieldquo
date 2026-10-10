@@ -1,7 +1,13 @@
 // app/site/[subdomain]/ClientLoginForm.js
 //
-// The one interactive piece of /client on a company's website: an email box
-// that asks POST /api/portal-login to send this client their portal link.
+// The one interactive piece of /client on a company's website — and of the
+// standalone login page (app/portal/login/[companySlug]) for a company whose
+// website isn't built on FieldQuo: an email box that asks POST
+// /api/portal-login to send this client their portal link.
+//
+// Which company is named by the PAGE, never chosen here: the site page passes
+// its subdomain, the standalone page its company slug, and the route resolves
+// either to a company server-side. Exactly one is sent.
 //
 // Whatever the server did with the address, the page says the same sentence
 // afterwards — "if you're a client, a link is on its way" — because the
@@ -17,7 +23,7 @@
 import { useState } from "react";
 import { Loader2, Mail, Check } from "lucide-react";
 
-export default function ClientLoginForm({ subdomain, copy, colours }) {
+export default function ClientLoginForm({ subdomain, companySlug, copy, colours }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | busy | sent
   const [error, setError] = useState("");
@@ -30,7 +36,7 @@ export default function ClientLoginForm({ subdomain, copy, colours }) {
       const res = await fetch("/api/portal-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subdomain, email }),
+        body: JSON.stringify(companySlug ? { companySlug, email } : { subdomain, email }),
       });
       if (res.ok) {
         setState("sent");

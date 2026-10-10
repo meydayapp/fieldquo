@@ -310,7 +310,9 @@ const basePlan = {
   ok("login route answers with one neutral body", (route.match(/NextResponse\.json\(NEUTRAL\)/g) || []).length === 2);
   ok("login route sends after the response", /after\(async \(\) =>[\s\S]*sendPortalLinks/.test(route));
   ok("login route requires the switch AND a published site", /!site\.published \|\| !site\.clientPortalEnabled/.test(route));
-  ok("login route is rate-limited per connection and per address", /rateLimit\(request, "portal-login"/.test(route) && /hit\(`portal-login-email:\$\{site\.companyId\}/.test(route));
+  // One per-address bucket per company, whichever door (the site's /client or
+  // the standalone /portal/login/<slug>) the address was typed into.
+  ok("login route is rate-limited per connection and per address", /rateLimit\(request, "portal-login"/.test(route) && /hit\(`portal-login-email:\$\{target\.companyId\}/.test(route));
   ok("login route never takes a company id from the body", !/body\??\.companyId/.test(route));
   ok("login link host is compared, not trusted", /host === real/.test(route));
 

@@ -328,6 +328,9 @@ const ROUTES = {
   "app/portal/[token]/invoices/[id]/page.js": { params: { token: T.portal, id: "inv_sent" }, unknown: { token: "nope", id: "inv_sent" }, titleHas: ["INV-0042"], shareLacks: ["INV-0042"] },
   "app/portal/[token]/demo-pay/page.js": { params: { token: T.portal }, unknown: { token: "nope" } },
   "app/portal/[token]/pay-over-time/page.js": { params: { token: T.portal }, unknown: { token: "nope" } },
+  // The standalone Client login for a company whose website isn't FieldQuo's
+  // (owner, 2026-10-10) — resolved by bookingSlug then slug.
+  "app/portal/login/[companySlug]/page.js": { params: { companySlug: "northline" }, unknown: { companySlug: "nope" } },
   "app/quote/[companySlug]/page.js": { params: { companySlug: "northline" }, unknown: { companySlug: "nope" } },
   "app/quote/[companySlug]/kitchen/page.js": { params: { companySlug: "northline" }, unknown: { companySlug: "nope" } },
   "app/book/[companySlug]/page.js": { params: { companySlug: "northline" }, unknown: { companySlug: "nope" } },

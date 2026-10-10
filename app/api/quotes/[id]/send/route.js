@@ -40,6 +40,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { getAppOrigin } from "@/lib/appUrl";
+import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
 import { recordSentEmail, actorName } from "@/lib/email/sentEmailHistory";
@@ -262,6 +263,23 @@ export async function POST(request, { params }) {
   }
 
   const url = `${getAppOrigin(request)}/q/${shareToken}`;
+
+  // The client's own portal — the "Your account with {company}" line under
+  // the button (lib/email/quoteEmail.js). Minted here, past every refusal
+  // above, exactly where the invoice send mints it: a refused send leaves no
+  // token behind, and a sent one carries a link that works. Scoped to this
+  // company, so a quote can only ever mint its own client's token.
+  //
+  // Never a reason the quote fails to go: no client row (or a mint that
+  // throws) leaves the line out and the quote email exactly as it was.
+  let clientPortalUrl = null;
+  if (quote.clientId) {
+    const portalToken = await ensurePortalToken(db, quote.clientId, member.companyId).catch((err) => {
+      console.error("[quote send] portal link:", err?.message);
+      return null;
+    });
+    if (portalToken) clientPortalUrl = portalUrl(portalToken, request);
+  }
   const { from, replyTo } = await resolveSender(company || {}, member.companyId);
 
   // The scope groups, with any per-company wording attached. Loaded here
@@ -313,6 +331,7 @@ export async function POST(request, { params }) {
     // → Document emails). The scope, total and steps below it are the
     // quote's either way.
     wording: await loadDocumentWording(db, { companyId: member.companyId, kind: "quote", language }),
+    portalUrl: clientPortalUrl,
   });
 
   // Attach the quote PDF so the client keeps the document itself, not just a

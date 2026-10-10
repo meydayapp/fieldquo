@@ -29,6 +29,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { buildPortalLinkEmail } from "@/lib/portal/loginEmail";
 import { recordActivity } from "@/lib/activity/log";
+import { recordSentEmail, actorName } from "@/lib/email/sentEmailHistory";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -79,6 +80,20 @@ export async function POST(request, { params }) {
     const message = typeof result.error === "string" ? result.error : result.error?.message || "Send failed";
     return NextResponse.json({ error: `The email couldn't be sent. ${message}` }, { status: 502 });
   }
+
+  // The email as it went, for the client's History tab — and the row the
+  // Clients page's bulk "Email clients their portal link" reads to skip a
+  // client emailed a link recently (lib/portal/bulkLinks.js). Never throws.
+  await recordSentEmail(db, {
+    companyId: member.companyId,
+    kind: "portal_link",
+    clientId: client.id,
+    mail: { to: client.email, from, replyTo, subject, html, text },
+    result,
+    sentByUserId: member.userId || null,
+    sentByName: await actorName(db, member.userId),
+    language,
+  });
 
   // Who emailed a credential, and to whom — the activity trail is where
   // "how did they get into the portal?" gets answered. Never throws.
