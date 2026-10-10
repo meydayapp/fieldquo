@@ -113,6 +113,58 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The client's account: a line on every quote email, a login page for any website, and a bulk send (10 October 2026)
+
+Owner-approved 2026-10-10. Until now a homeowner reached their portal only
+from an invoice email or a FieldQuo-built website's /client page.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Quote email "Your account with {company}" line** (`lib/email/quoteEmail.js`,
+  `lib/i18n/emailCopy.js` `accountLine`, eight client languages). One inkMuted
+  line after the paste-this fallback (the business "add this price" line keeps
+  its place under the button); text part too. The send route mints the
+  client's portal token past every refusal, where the invoice send does; a
+  mint that fails, or no client row, leaves the line out and never fails the
+  send. No portal link → the email is byte-for-byte what it was.
+- **Standalone Client login** at `/portal/login/<companySlug>` for a company
+  whose website isn't FieldQuo's — company branding, noindex, neutral
+  not-found. `POST /api/portal-login` takes `{ companySlug }` as a second door
+  (findBookingCompany: bookingSlug first, readiness-gated); same limits, one
+  per-address bucket per company across both doors, same neutral answer, send
+  after the response. On a tenant subdomain only that tenant's login renders.
+  Copy-link card on Settings › Share your links.
+- **Bulk "Email clients their portal link"** (Clients page, owner/admin).
+  `lib/portal/bulkLinks.js`: eligible = usable email, no doNotContactAt, not
+  unsubscribed from this company, and an open job (not completed/cancelled) or
+  a sent/accepted quote with no completed/cancelled job; archived and
+  historically imported work don't count; anyone sent a portal link in the
+  last 30 days is skipped. GET is the dry run; POST needs `confirm: true` and
+  the count that was shown. 150 per press, spaced under Resend's 2/s. Each
+  send is a `SentEmail` row of the new kind `portal_link` (the client page's
+  single send now writes one too; read under clientsProperties full_view).
+- `scripts/portal-links-dry-run.mjs --company <id>` — read-only preview.
+- TrueFinish website (`~/truefinish-cabinets`, branch `client-login`):
+  "Client login" in the header/menu and footer → this page.
+
+### Schema
+
+None. `SentEmail.kind` is a string column; `portal_link` is a new value.
+
+### Checks
+
+`check:portal-account-links` (in `check:all`; executes both routes against a
+stub that records sends and can leak every list query; 31/31 mutations
+killed), plus `check:client-portal` and `check:white-label-meta` updated.
+
+### Open
+
+- The standalone page is live for every ready company, with no switch of its
+  own (the website's /client keeps its switch). Say if it should be opt-in.
+- Recent-link window (30 days) and archived work not counting are this
+  build's reading of "active"; both are one constant / one line in
+  `lib/portal/bulkLinks.js`.
+
 ## AI employee: what is on file, and new contacts to the closer (10 October 2026)
 
 TrueFinish's receptionist asked Tony three times for "the best phone number for
