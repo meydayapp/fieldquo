@@ -173,10 +173,10 @@ export const ARTICLES = {
   "pay-over-time-financing": {
     title: "Pago a plazos",
     summary:
-      "Dos cosas separadas: Affirm al momento de pagar, donde el prestamista decide y usted cobra el total, y una cuota mensual opcional en los presupuestos, según condiciones que usted mismo indica.",
-    updated: "2026-09-12",
+      "Dos cosas separadas: el pago a plazos al momento de pagar con Klarna (o Affirm, donde Stripe aprueba su negocio para ello), donde el proveedor decide y usted cobra por adelantado, y una cuota mensual opcional en los presupuestos, según condiciones que usted mismo indica.",
+    updated: "2026-10-09",
     intro: [
-      "FieldQuo no presta dinero ni aprueba a nadie. Lo que ofrece son dos cosas que usted activa por separado: **Affirm** como segunda opción junto a la tarjeta al momento de pagar, para que un cliente pueda dividir una factura en pagos mientras usted cobra el total por adelantado; y una cuota mensual en la página de aprobación del presupuesto, mostrada solo cuando usted ha introducido su propio tipo y plazo. Ninguna de las dos viene activada por defecto.",
+      "FieldQuo no presta dinero ni aprueba a nadie. Lo que ofrece son dos cosas que usted activa por separado: **el pago a plazos al momento de pagar** — Klarna, y Affirm solo donde Stripe aprueba su negocio para ello — junto a la tarjeta, para que un cliente pueda pagar una factura a plazos mientras usted recibe el monto completo por adelantado, menos comisiones; y una cuota mensual en la página de aprobación del presupuesto, mostrada solo cuando usted ha introducido su propio tipo y plazo. Ninguna de las dos viene activada por defecto.",
     ],
     sections: [
       {
@@ -184,20 +184,20 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "El pago a plazos se ofrece al momento de pagar a través de Stripe, donde decide el prestamista. FieldQuo no presta ni aprueba a nadie. La cuota mensual mostrada en un presupuesto aparece solo si usted introduce su propio tipo y plazo: FieldQuo nunca inventa uno." },
-          { p: "Los dos controles viven en dos pantallas: el interruptor **Ofrecer pago a plazos (Affirm)** en **Configuración → Pagos**, y la tarjeta **Financiamiento** en **Configuración → Cotizaciones instantáneas**." },
+          { p: "Los dos controles viven en dos pantallas: el interruptor **Ofrecer pago a plazos (Affirm, Klarna)** en **Configuración → Pagos**, y la tarjeta **Financiamiento** en **Configuración → Cotizaciones instantáneas**." },
         ],
       },
       {
         id: "affirm-at-checkout",
-        heading: "Affirm al momento de pagar",
+        heading: "Klarna y Affirm al momento de pagar",
         blocks: [
           { steps: [
-            "No hay nada que configurar primero en Stripe. Su cuenta de Stripe no tiene un interruptor de Affirm propio: FieldQuo le pide a Stripe que lo habilite en cuanto usted enciende la opción, y comprueba la respuesta cada vez que se carga esta página.",
-            "Abra **Configuración → Pagos**. Cuando Stripe está activo, aparece la tarjeta **Ofrecer pago a plazos (Affirm)** con un interruptor.",
-            "Enciéndalo. Las facturas de entre **$50 y $30,000** en USD o CAD muestran entonces Affirm junto a la tarjeta en la página de pago; lo que quede fuera de ese rango, o una empresa para la que Stripe aún no ha habilitado Affirm, recibe una página solo con tarjeta en lugar de una página rota. La línea bajo el interruptor dice cuál es el caso: **Affirm: activo**, **pendiente de la revisión de Stripe**, **Stripe no lo ha habilitado en su cuenta** (con lo que Stripe pide), o **no disponible para cuentas de su país**.",
+            "No hay nada que configurar primero en Stripe. FieldQuo le pide a Stripe que habilite Klarna y Affirm en su cuenta en cuanto usted enciende la opción, y comprueba la respuesta de Stripe cada vez que se carga esta página.",
+            "Abra **Configuración → Pagos**. Cuando Stripe está activo, aparece la tarjeta **Ofrecer pago a plazos (Affirm, Klarna)** con un interruptor.",
+            "Enciéndalo. En cuanto Stripe activa un proveedor, una factura cuyo monto está dentro del rango de ese proveedor, en USD o CAD, lo ofrece junto a la tarjeta: un botón **Pagar a plazos (Klarna)** en la página de la factura del portal, y la elección en la página de Stripe. Una línea bajo el interruptor, para cada proveedor, dice cómo está: **activo** (con el rango en que se ofrece), **pendiente de la revisión de Stripe**, **Stripe no lo ha habilitado en su cuenta** (con lo que Stripe pide), o **no disponible para cuentas de su país**. Stripe incluye a los contratistas de mejoras del hogar entre los negocios que Affirm restringe, así que Affirm aparece solo donde Stripe aprueba su negocio para ello.",
           ] },
           { figure: "live:app-settings-payments", caption: "Configuración → Pagos: la tarjeta de comisiones de procesamiento, la cuenta de Stripe conectada y, debajo, el interruptor del pago a plazos." },
-          { p: "Usted sigue cobrando el total, por adelantado; Affirm cobra las cuotas al cliente. La comisión de un pago a plazos es el 6,5 % + 0,30 $ (más solo si la comisión de Stripe en ese pago es mayor), y se descuenta de ese pago del mismo modo que una comisión de tarjeta; vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]. Un cliente que paga con tarjeta en la misma página paga la comisión de tarjeta, nada más." },
+          { p: "Usted recibe el monto completo por adelantado, menos comisiones, según su calendario de depósitos habitual (Affirm puede tardar hasta dos días hábiles en liquidarse); el proveedor decide si aprueba al cliente y le cobra las cuotas. Un enlace **¿Quiere pagar a plazos? Vea cómo** bajo el botón y en el correo de la factura abre una guía breve para el cliente, con sus colores. La comisión de un pago a plazos es el 6,5 % + 0,30 $ (más solo si la comisión de Stripe en ese pago es mayor), y se descuenta de ese pago del mismo modo que una comisión de tarjeta; vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]. Un cliente que paga con tarjeta en la misma página paga la comisión de tarjeta, nada más." },
         ],
       },
       {
@@ -220,8 +220,8 @@ export const ARTICLES = {
           { table: {
             head: ["Control", "Qué hace"],
             rows: [
-              ["Ofrecer pago a plazos (Affirm) — encendido", "Las facturas elegibles ofrecen el pago a plazos junto a la tarjeta al pagar. Esos pagos cuestan el 6,5 % + 0,30 $; los pagos con tarjeta mantienen la tarifa de tarjeta."],
-              ["Ofrecer pago a plazos (Affirm) — apagado", "Toda página de pago es solo con tarjeta, aunque Stripe ya haya habilitado Affirm en su cuenta."],
+              ["Ofrecer pago a plazos (Affirm, Klarna) — encendido", "Las facturas elegibles ofrecen el pago a plazos junto a la tarjeta al pagar, para cada proveedor que Stripe ha activado. Esos pagos cuestan el 6,5 % + 0,30 $; los pagos con tarjeta mantienen la tarifa de tarjeta."],
+              ["Ofrecer pago a plazos (Affirm, Klarna) — apagado", "Ninguna página de pago ofrece el pago a plazos, aunque Stripe ya haya habilitado un proveedor en su cuenta."],
               ["Tarjeta Financiamiento — encendida, sin condiciones", "El presupuesto dice que hay financiamiento disponible, con sus palabras, y un botón hacia su proveedor si lo indicó. Ninguna cifra."],
               ["Tarjeta Financiamiento — tipo y plazo indicados", "El presupuesto añade una cuota mensual estimada, calculada con su TAE y su plazo y señalada como estimación suya."],
               ["Tarjeta Financiamiento — apagada", "Nada sobre financiamiento aparece en presupuestos ni cotizaciones."],
@@ -233,9 +233,9 @@ export const ARTICLES = {
         id: "the-limits",
         heading: "Los límites",
         blocks: [
-          { warning: "No prometa un tipo ni una cuota mensual que no pueda cumplir. La cifra del presupuesto se calcula con las condiciones que usted escribió y se muestra al propietario como suya. Al pagar, Affirm indica sus propias condiciones y la decisión es del prestamista, no de FieldQuo ni suya." },
+          { warning: "No prometa un tipo ni una cuota mensual que no pueda cumplir. La cifra del presupuesto se calcula con las condiciones que usted escribió y se muestra al propietario como suya. Al pagar, el proveedor indica sus propias condiciones y la decisión es del proveedor, no de FieldQuo ni suya." },
           { bullets: [
-            "Affirm: facturas de $50 a $30,000, solo en USD o CAD, y solo una vez que Stripe informe que Affirm está activo en su cuenta — la línea bajo el interruptor en Configuración → Pagos.",
+            "Klarna y Affirm: solo en USD o CAD, para montos dentro del rango de cada proveedor, y solo una vez que Stripe informe que ese proveedor está activo en su cuenta — las líneas bajo el interruptor en Configuración → Pagos lo muestran, con el rango. Affirm solo donde Stripe aprueba su negocio para ello.",
             "La cuota mensual: meses enteros, una TAE entre 0 % y 100 %, los dos campos o ninguno.",
             "El débito bancario y los planes de servicio no son financiamiento: un plan son sus propias cuotas, en sus propias facturas. Vea [[service-plans|Planes de servicio]].",
           ] },
@@ -250,9 +250,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿FieldQuo revisa el crédito del cliente?", a: "No. Lo hace Affirm, al momento de pagar, y decide solo. FieldQuo nunca ve la solicitud." },
+      { q: "¿FieldQuo revisa el crédito del cliente?", a: "No. Decide el proveedor — Klarna o Affirm — al momento de pagar, solo. FieldQuo nunca ve la solicitud." },
       { q: "¿Puedo mostrar una cuota mensual sin indicar un tipo?", a: "No. Sin condiciones no hay cifra: un número inventado por FieldQuo sería una condición que podrían exigirle." },
-      { q: "¿Affirm está disponible en Canadá?", a: "Sí, para facturas en CAD igual que en USD, dentro del rango de $50 a $30,000, una vez que Stripe lo informe activo en su cuenta. Affirm solo atiende cuentas de Estados Unidos y Canadá; el interruptor lo dice para cualquier otro país." },
+      { q: "¿El pago a plazos está disponible en Canadá?", a: "Sí, para facturas en CAD igual que en USD, dentro del rango de cada proveedor, una vez que Stripe informe que el proveedor está activo en su cuenta. FieldQuo ofrece Klarna y Affirm solo a cuentas de Estados Unidos y Canadá; el interruptor lo dice para cualquier otro país." },
     ],
   },
 

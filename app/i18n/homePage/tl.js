@@ -153,6 +153,8 @@ export const HOME_PAGE_TL = {
   "home.outcomes.item.conversion": "Conversion data",
   "home.outcomes.item.profitability": "Kita bawat trabaho",
   "home.outcomes.allFeatures": "Tingnan ang lahat ng feature",
+  "home.outcomes.paidFinancing":
+    "Mag-alok ng financing sa mga kliyente mo at manalo ng mas maraming proyekto: puwede silang magbayad nang hulugan gamit ang Klarna kung saan ini-enable ito ng Stripe, at bayad ka nang maaga.",
 
   "home.ai.badge": "FieldQuo AI",
   "home.ai.title": "Tanungin ang negosyo mo ng kahit ano.",

@@ -57,8 +57,8 @@ const fr = {
   "productPage.quoting.section.approval.bullet.3": "Une soumission garde la langue dans laquelle elle a été rédigée ; un document signé ne change jamais de mots",
   "productPage.quoting.section.invoice.heading": "Un clic pour facturer, payé depuis le téléphone",
   "productPage.quoting.section.invoice.body":
-    "Une soumission approuvée devient une facture qui ressemble à la soumission, parce qu'elle est bâtie à partir d'elle. Demandez un acompte, divisez un gros chantier en étapes, et laissez le client payer par carte ou par prélèvement bancaire — l'argent se dépose dans votre propre compte, jamais le nôtre.",
-  "productPage.quoting.section.invoice.bullet.1": "Modifiez une facture émise : la version précédente est conservée",
+    "Une soumission approuvée devient une facture qui ressemble à la soumission, parce qu'elle est bâtie à partir d'elle. Demandez un acompte, divisez un gros chantier en étapes, et laissez le client payer par carte ou par prélèvement bancaire — l'argent se dépose dans votre propre compte, jamais le nôtre. Offrez du financement à vos clients et décrochez plus de contrats : là où Stripe active Klarna pour votre entreprise, le client peut payer en plusieurs versements, et vous êtes payé le montant complet d'avance, moins les frais.",
+  "productPage.quoting.section.invoice.bullet.1": "Paiement en plusieurs versements avec Klarna, là où Stripe l'active — vous êtes payé d'avance",
   "productPage.quoting.section.invoice.bullet.2": "Acomptes et paiements par étape, demandés selon l'échéancier que vous fixez",
   "productPage.quoting.section.invoice.bullet.3": "Carte, ou prélèvement bancaire au Canada et aux États-Unis, versé directement dans votre compte",
   "productPage.quoting.section.invoice.alt":
@@ -80,9 +80,9 @@ const fr = {
   "productPage.quoting.faq.after-approval.q": "Que se passe-t-il quand le client approuve ?",
   "productPage.quoting.faq.after-approval.a":
     "La soumission devient un chantier avec la portée, l'adresse et la paperasse déjà dessus, et un clic la transforme en facture qui reflète la soumission. Si vous aviez demandé un acompte, il est réclamé à l'approbation.",
-  "productPage.quoting.faq.instalments.q": "Les clients peuvent-ils payer en versements ?",
-  "productPage.quoting.faq.instalments.a":
-    "Vous pouvez diviser une facture en étapes et chacune est demandée selon votre échéancier. Le paiement échelonné à la caisse est offert par Stripe, où c'est le prêteur qui décide — FieldQuo ne prête pas et n'approuve personne.",
+  "productPage.quoting.faq.pay-over-time.q": "Mes clients peuvent-ils payer en plusieurs versements ?",
+  "productPage.quoting.faq.pay-over-time.a":
+    "Oui, au Canada et aux États-Unis, une fois que vous activez le paiement en plusieurs versements et que Stripe l'active pour votre entreprise. Votre client peut choisir Klarna sur la page de paiement — ou Affirm, seulement là où Stripe approuve votre entreprise pour ce service. C'est le fournisseur qui décide d'approuver votre client, pas vous, ni FieldQuo. Vous êtes payé le montant complet d'avance, moins les frais, et votre client rembourse directement le fournisseur : les paiements Klarna vous parviennent selon votre calendrier de versements habituel, et les paiements Affirm peuvent prendre jusqu'à deux jours ouvrables à être réglés. Vous pouvez aussi diviser une facture en étapes, chacune demandée selon votre échéancier.",
 
   // /product/scheduling
   "productPage.scheduling.headline": "Chaque personne, chaque heure, sur un seul tableau",

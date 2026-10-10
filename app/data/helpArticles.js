@@ -125,17 +125,24 @@ export const HELP_ARTICLES = [
     slug: "offer-financing",
     category: "getting-paid",
     audience: "company",
-    title: "Let clients pay over time (Affirm)",
-    summary: "Offer monthly payments on invoices while you're still paid in full, up front.",
+    // Rewritten 2026-10-09: Klarna first, Affirm only where Stripe approves
+    // the business (Stripe lists contractors as prohibited or restricted for
+    // Affirm — https://docs.stripe.com/payments/affirm); no $50–$30,000
+    // (Affirm's own range, printed as FieldQuo's); paid up front minus fees on
+    // the normal payout schedule, never "right away"
+    // (https://docs.stripe.com/payments/klarna — "Standard payout timing
+    // applies"; Affirm "Settlement timing: Up to 2 business days").
+    title: "Let clients pay over time (Klarna, Affirm)",
+    summary: "Offer pay-over-time on invoices while you're paid the full amount up front, minus fees.",
     body: [
-      { p: "Affirm lets your client split an invoice into monthly payments at checkout. You're paid the full amount right away — Affirm covers the rest and collects from the client. It appears next to the card option on the pay page." },
+      { p: "Klarna — or Affirm, only where Stripe approves your business for it — lets your client pay an invoice over time at checkout. You're paid the full amount up front, minus fees, on your normal payout schedule (Affirm can take up to two business days to settle); the provider decides whether to approve the client and collects from them. It appears next to the card option on the pay page." },
       { h: "Turn it on" },
       { steps: [
-        "Go to Settings → Payments and switch on 'Offer pay-over-time (Affirm)'. There is nothing to set up in Stripe first — your Stripe account has no Affirm switch of its own; FieldQuo asks Stripe to enable it the moment you turn this on.",
-        "Read the line under the switch: it is Stripe's answer — active, pending Stripe's review, not enabled on your account (with what Stripe is asking for), or not available for accounts in your country.",
-        "Send an invoice as usual — Affirm shows at checkout for eligible amounts.",
+        "Go to Settings → Payments and switch on 'Offer pay-over-time (Affirm, Klarna)'. There is nothing to set up in Stripe first — FieldQuo asks Stripe to enable Klarna and Affirm the moment you turn this on.",
+        "Read the lines under the switch: they are Stripe's answer for each provider — active, pending Stripe's review, not enabled on your account (with what Stripe is asking for), or not available for accounts in your country.",
+        "Send an invoice as usual — each active provider shows at checkout for amounts inside its range.",
       ] },
-      { note: "Available on invoices between $50 and $30,000 in USD or CAD, for US and Canadian Stripe accounts. Until Stripe reports Affirm active, the pay link is card only — it never breaks, and the switch says why." },
+      { note: "USD or CAD only, for US and Canadian Stripe accounts, for amounts inside each provider's range (the line under the switch shows it). A provider Stripe has not activated is never offered, and the switch says why." },
     ],
   },
   {

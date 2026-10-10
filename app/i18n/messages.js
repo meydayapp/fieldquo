@@ -290,9 +290,16 @@ const en = {
   "faq.items.onlinePayment.q": "Can my clients pay their invoices online?",
   "faq.items.onlinePayment.a":
     "Yes. Connect your own Stripe account and clients can pay directly from the invoice email — the money goes straight to you.",
+  // Rewritten 2026-10-09 to Stripe's confirmed facts: Klarna first, Affirm
+  // only where Stripe approves the business (contractors are prohibited or
+  // restricted — https://docs.stripe.com/payments/affirm); the provider
+  // decides ("Klarna decides if customers can use Klarna" —
+  // https://docs.stripe.com/payments/klarna/compliance); paid up front, minus
+  // fees, on the normal payout schedule ("Standard payout timing applies" —
+  // https://docs.stripe.com/payments/klarna) — never "immediately".
   "faq.items.financing.q": "Can my clients pay over time?",
   "faq.items.financing.a":
-    "Yes. Turn on Affirm in Settings → Payments and clients can split an invoice into monthly payments at checkout — while you're still paid in full, up front.",
+    "Yes, where Stripe enables it for your business. Turn on pay-over-time in Settings → Payments and clients can pay an invoice over time with Klarna at checkout — or Affirm, only where Stripe approves your business for it. The provider decides whether to approve your client, and you're paid the full amount up front, minus fees, on your normal payout schedule (Affirm can take up to two business days to settle).",
   "faq.items.permissions.q":
     "Can I control what my employees can see and do?",
   "faq.items.permissions.a":
@@ -890,7 +897,7 @@ const fr = {
     "Oui. Connectez votre propre compte Stripe et vos clients paient directement depuis le courriel de facture — l'argent vous revient directement.",
   "faq.items.financing.q": "Mes clients peuvent-ils payer en plusieurs fois?",
   "faq.items.financing.a":
-    "Oui. Activez Affirm dans Paramètres → Paiements et vos clients peuvent régler une facture en versements mensuels au moment du paiement, pendant que vous êtes payé intégralement et d'avance.",
+    "Oui, là où Stripe l'active pour votre entreprise. Activez le paiement échelonné dans Paramètres → Paiements et vos clients peuvent payer une facture en plusieurs versements avec Klarna au moment du paiement — ou avec Affirm, seulement là où Stripe approuve votre entreprise pour ce service. Le fournisseur décide d'approuver ou non votre client, et vous êtes payé le montant complet d'avance, moins les frais, selon votre calendrier de versements habituel (Affirm peut prendre jusqu'à deux jours ouvrables à régler le paiement).",
   "faq.items.permissions.q":
     "Puis-je contrôler ce que mes employés voient et font?",
   "faq.items.permissions.a":
@@ -1449,7 +1456,7 @@ const es = {
     "Sí. Conecta tu propia cuenta de Stripe y tus clientes pagan directamente desde el correo de la factura — el dinero llega directo a ti.",
   "faq.items.financing.q": "¿Mis clientes pueden pagar a plazos?",
   "faq.items.financing.a":
-    "Sí. Activa Affirm en Configuración → Pagos y tus clientes pueden dividir una factura en pagos mensuales al finalizar la compra, mientras tú cobras el total por adelantado.",
+    "Sí, donde Stripe lo habilita para tu negocio. Activa el pago a plazos en Configuración → Pagos y tus clientes pueden pagar una factura a plazos con Klarna al pagar — o con Affirm, solo donde Stripe aprueba tu negocio para ello. El proveedor decide si aprueba a tu cliente, y tú recibes el monto completo por adelantado, menos comisiones, según tu calendario de depósitos habitual (Affirm puede tardar hasta dos días hábiles en liquidarse).",
   "faq.items.permissions.q":
     "¿Puedo controlar lo que ven y hacen mis empleados?",
   "faq.items.permissions.a":
@@ -1957,7 +1964,7 @@ const uk = {
     "Так. Підключіть власний обліковий запис Stripe, і клієнти зможуть платити прямо з листа з рахунком — гроші надходять безпосередньо вам.",
   "faq.items.financing.q": "Чи можуть мої клієнти платити частинами?",
   "faq.items.financing.a":
-    "Так. Увімкніть Affirm у Налаштування → Платежі, і клієнти зможуть розділити оплату рахунку на щомісячні платежі під час оформлення, а ви отримуєте повну суму одразу.",
+    "Так, там, де Stripe вмикає це для вашого бізнесу. Увімкніть оплату частинами в Налаштування → Платежі, і клієнти зможуть оплатити рахунок частинами через Klarna під час оплати — або через Affirm, лише там, де Stripe схвалює для цього ваш бізнес. Рішення про схвалення клієнта ухвалює провайдер, а ви отримуєте всю суму наперед, за вирахуванням комісій, за звичайним графіком виплат (розрахунок за Affirm може тривати до двох робочих днів).",
   "faq.items.permissions.q":
     "Чи можу я контролювати, що бачать і роблять мої працівники?",
   "faq.items.permissions.a":
@@ -2517,7 +2524,7 @@ const pa = {
     "ਹਾਂ। ਆਪਣਾ Stripe ਖਾਤਾ ਜੋੜੋ ਅਤੇ ਗਾਹਕ ਸਿੱਧਾ ਇਨਵੌਇਸ ਈਮੇਲ ਤੋਂ ਭੁਗਤਾਨ ਕਰ ਸਕਦੇ ਹਨ — ਪੈਸੇ ਸਿੱਧੇ ਤੁਹਾਨੂੰ ਜਾਂਦੇ ਹਨ।",
   "faq.items.financing.q": "ਕੀ ਮੇਰੇ ਗਾਹਕ ਸਮੇਂ ਨਾਲ ਭੁਗਤਾਨ ਕਰ ਸਕਦੇ ਹਨ?",
   "faq.items.financing.a":
-    "ਹਾਂ। ਸੈਟਿੰਗਜ਼ → ਭੁਗਤਾਨ ਵਿੱਚ Affirm ਚਾਲੂ ਕਰੋ ਅਤੇ ਗਾਹਕ ਚੈੱਕਆਊਟ 'ਤੇ ਇਨਵੌਇਸ ਨੂੰ ਮਹੀਨਾਵਾਰ ਕਿਸ਼ਤਾਂ ਵਿੱਚ ਵੰਡ ਸਕਦੇ ਹਨ, ਜਦਕਿ ਤੁਹਾਨੂੰ ਪੂਰੀ ਰਕਮ ਪਹਿਲਾਂ ਹੀ ਮਿਲ ਜਾਂਦੀ ਹੈ।",
+    "ਹਾਂ, ਜਿੱਥੇ Stripe ਇਸਨੂੰ ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਲਈ ਚਾਲੂ ਕਰਦਾ ਹੈ। ਸੈਟਿੰਗਜ਼ → ਭੁਗਤਾਨ ਵਿੱਚ ਕਿਸ਼ਤਾਂ ਵਾਲਾ ਭੁਗਤਾਨ ਚਾਲੂ ਕਰੋ ਅਤੇ ਗਾਹਕ ਚੈੱਕਆਊਟ 'ਤੇ Klarna ਨਾਲ ਇਨਵੌਇਸ ਦਾ ਕਿਸ਼ਤਾਂ ਵਿੱਚ ਭੁਗਤਾਨ ਕਰ ਸਕਦੇ ਹਨ — ਜਾਂ Affirm ਨਾਲ, ਸਿਰਫ਼ ਉੱਥੇ ਜਿੱਥੇ Stripe ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਨੂੰ ਇਸ ਲਈ ਮਨਜ਼ੂਰ ਕਰਦਾ ਹੈ। ਤੁਹਾਡੇ ਗਾਹਕ ਨੂੰ ਮਨਜ਼ੂਰੀ ਦੇਣ ਦਾ ਫ਼ੈਸਲਾ ਪ੍ਰੋਵਾਈਡਰ ਕਰਦਾ ਹੈ, ਅਤੇ ਤੁਹਾਨੂੰ ਪੂਰੀ ਰਕਮ ਪਹਿਲਾਂ ਹੀ ਮਿਲਦੀ ਹੈ, ਫ਼ੀਸਾਂ ਕੱਟ ਕੇ, ਤੁਹਾਡੇ ਆਮ ਪੇਆਊਟ ਸ਼ਡਿਊਲ ਮੁਤਾਬਕ (Affirm ਨੂੰ ਸੈਟਲ ਹੋਣ ਵਿੱਚ ਦੋ ਕੰਮਕਾਜੀ ਦਿਨਾਂ ਤੱਕ ਲੱਗ ਸਕਦੇ ਹਨ)।",
   "faq.items.permissions.q":
     "ਕੀ ਮੈਂ ਕੰਟਰੋਲ ਕਰ ਸਕਦਾ ਹਾਂ ਕਿ ਮੇਰੇ ਕਰਮਚਾਰੀ ਕੀ ਵੇਖਣ ਤੇ ਕਰਨ?",
   "faq.items.permissions.a":
@@ -3080,7 +3087,7 @@ const tl = {
     "Oo. Ikonekta ang sarili mong Stripe account at makakabayad ang kliyente diretso mula sa invoice email — diretso sa iyo ang pera.",
   "faq.items.financing.q": "Puwede bang magbayad nang hulugan ang mga kliyente ko?",
   "faq.items.financing.a":
-    "Oo. I-on ang Affirm sa Settings → Payments at puwedeng hatiin ng mga kliyente ang invoice sa buwanang hulog sa checkout, habang buo pa rin ang bayad sa iyo nang maaga.",
+    "Oo, kung saan ini-enable ito ng Stripe para sa negosyo mo. I-on ang pay-over-time sa Settings → Payments at puwedeng bayaran ng mga kliyente ang invoice nang hulugan gamit ang Klarna sa checkout — o ang Affirm, kung saan lang ina-approve ng Stripe ang negosyo mo para dito. Ang provider ang nagpapasya kung maaaprubahan ang kliyente mo, at natatanggap mo nang buo ang halaga nang maaga, bawas ang fees, ayon sa karaniwan mong payout schedule (puwedeng umabot nang hanggang dalawang business day bago ma-settle ang Affirm).",
   "faq.items.permissions.q":
     "Makokontrol ko ba kung ano ang nakikita at ginagawa ng mga empleyado ko?",
   "faq.items.permissions.a":
@@ -3664,7 +3671,7 @@ const de = {
   "faq.items.onlinePayment.q": "Können meine Kunden ihre Rechnungen online bezahlen?",
   "faq.items.onlinePayment.a": "Ja. Verbinden Sie Ihr eigenes Stripe-Konto, dann zahlen Kunden direkt aus der Rechnungs-E-Mail — das Geld geht direkt an Sie.",
   "faq.items.financing.q": "Können meine Kunden in Raten zahlen?",
-  "faq.items.financing.a": "Ja. Aktivieren Sie Affirm unter Einstellungen → Zahlungen, dann können Kunden eine Rechnung beim Bezahlen in Monatsraten aufteilen — während Sie weiterhin sofort den vollen Betrag erhalten.",
+  "faq.items.financing.a": "Ja, wo Stripe es für Ihr Unternehmen freischaltet. Schalten Sie die Ratenzahlung unter Einstellungen → Zahlungen ein, dann können Kunden eine Rechnung beim Bezahlen mit Klarna in Raten zahlen — oder mit Affirm, nur wo Stripe Ihr Unternehmen dafür zulässt. Ob Ihr Kunde genehmigt wird, entscheidet der Anbieter, und Sie erhalten den vollen Betrag vorab, abzüglich Gebühren, nach Ihrem üblichen Auszahlungsplan (bei Affirm kann die Abwicklung bis zu zwei Werktage dauern).",
   "faq.items.permissions.q": "Kann ich steuern, was meine Mitarbeiter sehen und tun können?",
   "faq.items.permissions.a": "Ja. Jedes Teammitglied hat eine Rolle — Mitarbeiter, Vorgesetzter oder Administrator —, die bestimmt, was es anlegen, zuweisen und öffnen kann.",
   "faq.items.trade.q": "Was, wenn mein Gewerk nicht dabei ist?",
@@ -4086,7 +4093,7 @@ const zh = {
   "faq.items.onlinePayment.q": "客户可以在线付账单吗？",
   "faq.items.onlinePayment.a": "可以。连接你自己的 Stripe 账户，客户就能直接从账单邮件里付款——钱直接进你的账户。",
   "faq.items.financing.q": "客户可以分期付吗？",
-  "faq.items.financing.a": "可以。在「设置 → 收款」里打开 Affirm，客户在结账时就能把一份账单拆成按月付款——而你仍然是提前一次性收到全款。",
+  "faq.items.financing.a": "可以，只要 Stripe 为你的商家开通了它。在「设置 → 收款」里打开分期付款，客户在结账时就能用 Klarna 分期付一份账单——或者用 Affirm，但只限 Stripe 批准你的商家使用的情况。是否批准你的客户由服务商决定，你提前收到全款，扣除手续费，按你平常的打款周期到账（Affirm 最多可能需要两个工作日结算）。",
   "faq.items.permissions.q": "我能控制员工看到什么、能做什么吗？",
   "faq.items.permissions.a": "能。每位团队成员都有一个角色——员工、主管或管理员——决定他能创建、指派和查看什么。",
   "faq.items.trade.q": "如果没有我的工种怎么办？",
@@ -4555,7 +4562,7 @@ const it = {
     "Sì. Colleghi il suo account Stripe e i clienti potranno pagare direttamente dall'email della fattura — il denaro arriva a Lei.",
   "faq.items.financing.q": "I miei clienti possono pagare a rate?",
   "faq.items.financing.a":
-    "Sì. Attivi Affirm in Impostazioni → Pagamenti e i clienti potranno dividere una fattura in rate mensili al momento del pagamento — mentre Lei viene comunque pagato per intero e subito.",
+    "Sì, dove Stripe lo attiva per la sua attività. Attivi il pagamento a rate in Impostazioni → Pagamenti e i clienti potranno pagare una fattura a rate con Klarna al momento del pagamento — o con Affirm, solo dove Stripe approva la sua attività per questo. È il fornitore a decidere se approvare il cliente, e lei riceve l'intero importo in anticipo, al netto delle commissioni, secondo il suo normale calendario di accrediti (Affirm può richiedere fino a due giorni lavorativi per il regolamento).",
   "faq.items.permissions.q":
     "Posso decidere che cosa i miei dipendenti vedono e possono fare?",
   "faq.items.permissions.a":

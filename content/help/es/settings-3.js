@@ -518,7 +518,7 @@ export const ARTICLES = {
             "**Transferencia instantánea** — lo que está disponible ahora, la comisión, lo que recibirá, y **Transferir … ahora**; o la única razón por la que aún no puede ejecutarse.",
             "**Formas de pago que aceptas** — **Efectivo**, **Transferencia electrónica**, **Cheque**, y **Guardar**.",
             "**Su cuenta de Stripe** — solo propietario: el ID de la cuenta con **Copiar**, el correo de inicio de sesión, lo que Stripe tiene activado y lo que sigue esperando.",
-            "**Ofrecer pago a plazos (Affirm)** — un interruptor, mostrado una vez que la conexión está activa — y la línea final que dice que FieldQuo nunca ve los datos de su cuenta bancaria.",
+            "**Ofrecer pago a plazos (Affirm, Klarna)** — un interruptor, mostrado una vez que la conexión está activa — y la línea final que dice que FieldQuo nunca ve los datos de su cuenta bancaria.",
           ] },
         ],
       },
@@ -559,7 +559,7 @@ export const ARTICLES = {
           { bullets: [
             "Un débito bancario tarda **de 3 a 5 días hábiles** en compensarse. La factura muestra **Pago bancario pendiente** con la fecha en que se envió y se marca pagada solo cuando llega el dinero; si el banco lo devuelve, el saldo sigue adeudado y el cliente puede volver a pagar con tarjeta.",
             "**Formas de pago que aceptas** es para dinero que nunca pasa por Stripe: marque **Efectivo**, **Transferencia electrónica** y **Cheque** según los reciba, pulse **Guardar**, y se imprimen en una línea «Formas de pago aceptadas» en el correo de la factura, en el portal del cliente y en el PDF de la factura. Si no marca ninguna, la línea se omite.",
-            "**Ofrecer pago a plazos (Affirm)** permite que un cliente divida una factura de entre $50 y $30,000, en USD o CAD, al pagar; usted cobra igualmente el total por adelantado. No hay nada que activar primero en Stripe: encenderlo le pide a Stripe que habilite Affirm en su cuenta, y la línea bajo el interruptor muestra la respuesta de Stripe — activo, pendiente de revisión, no habilitado (con lo que Stripe pide), o no disponible en su país. El interruptor se guarda de inmediato, y se revierte si no puede.",
+            "**Ofrecer pago a plazos (Affirm, Klarna)** permite que un cliente pague una factura a plazos al pagar — con Klarna, o con Affirm solo donde Stripe aprueba su negocio para ello — en USD o CAD, para montos dentro del rango de cada proveedor; usted recibe el monto completo por adelantado, menos comisiones, según su calendario de depósitos habitual (Affirm puede tardar hasta dos días hábiles en liquidarse). No hay nada que activar primero en Stripe: encenderlo le pide a Stripe que habilite ambos en su cuenta, y las líneas bajo el interruptor muestran la respuesta de Stripe para cada uno — activo, pendiente de revisión, no habilitado (con lo que Stripe pide), o no disponible en su país. El interruptor se guarda de inmediato, y se revierte si no puede.",
           ] },
           { note: "Las comisiones de tarjeta y de débito bancario no son ajustes — nadie puede cambiarlas, y no se pueden trasladar al cliente como una línea de recargo. El débito bancario en Canadá, en detalle: [[bank-debit-in-canada|Débito bancario en Canadá]]." },
         ],

@@ -1285,41 +1285,41 @@ const ko = {
   "featurePage.financing.headline":
     "큰 작업 비용을 고객이 나눠 낼 수 있게 하세요",
   "featurePage.financing.oneLine":
-    "고객은 Affirm을 통해 월별로 결제할 수 있습니다. 사용자는 전액을 선지급받아 고객이 내년으로 미뤘을 작업도 진행할 수 있습니다.",
+    "고객은 Klarna로 할부 결제할 수 있으며, Stripe가 귀하의 사업체를 승인한 경우에 한해 Affirm도 이용할 수 있습니다. 고객이 1년 더 미뤘을 작업에 대해 귀하는 수수료를 제외한 전체 금액을 미리 받습니다.",
   "featurePage.financing.description":
-    "Affirm을 통해 고객에게 분할 결제를 제공하고 사용자는 전액을 선지급받습니다. 별도 가입 없이 포함됩니다.",
+    "Stripe를 통해 고객에게 Klarna 할부 결제를 제공하고 수수료를 제외한 전체 금액을 미리 받으세요. 기본 포함이며 별도 가입이 필요 없습니다.",
   "featurePage.financing.pain.1.pain":
     "전체 주방 공사가 원하는 작업이지만 고객은 계속 내년으로 미룹니다.",
   "featurePage.financing.pain.1.fix":
-    "전체 금액을 한 번에 요구하는 대신 결제 순간 월별 결제 옵션을 제공합니다.",
+    "전체 금액을 한 번에 요구하는 대신 결제 순간 할부로 결제할 수 있는 방법을 제공합니다.",
   "featurePage.financing.pain.2.pain":
     "금융회사마다 자체 신청서, 계약서, 포털을 요구합니다.",
   "featurePage.financing.pain.2.fix":
-    "이미 연결한 Stripe 계정을 통해 작동합니다. 설정에서 스위치 하나만 켜면 결제 페이지에 나타납니다.",
+    "이미 연결한 Stripe 계정에서 작동합니다. 설정에서 스위치 하나만 켜면 Stripe가 활성화한 뒤 결제 페이지에 표시됩니다.",
   "featurePage.financing.pain.3.pain":
     "전화로 월 납부액을 말했는데 회사 누구도 동의하지 않은 이율을 기준으로 책임져야 하는 상황이 생깁니다.",
   "featurePage.financing.pain.3.fix":
     "FieldQuo는 월 납부액을 임의로 만들지 않습니다. 견적에 금액이 표시된다면 사용자가 직접 입력한 이율과 기간으로 계산된 것입니다.",
-  "featurePage.financing.how.1.step": "자체 계정을 통한 결제 화면의 Affirm",
+  "featurePage.financing.how.1.step": "결제 시 Klarna, 귀하의 계정을 통해",
   "featurePage.financing.how.1.body":
-    "금융 옵션을 켜면 결제 페이지에서 카드 옆에 Affirm이 표시됩니다. 이미 대금이 들어오는 Stripe 계정에서 작동하므로 두 번째 신청서, 새 계약, 별도 금융 제공업체 등록이 필요하지 않습니다.",
-  "featurePage.financing.how.2.step": "오늘 작업 금액 전액을 받습니다",
+    "할부 결제를 켜고 Stripe가 귀하의 사업체에 활성화하면, 결제 페이지에서 카드 옆에 Klarna가 표시됩니다. Affirm은 Stripe가 귀하의 사업체를 승인한 경우에만 표시됩니다. 이미 대금이 들어오는 Stripe 계정에서 작동하므로 두 번째 신청서, 새 계약, 별도 금융 제공업체 등록이 필요하지 않습니다.",
+  "featurePage.financing.how.2.step": "전체 금액을 미리",
   "featurePage.financing.how.2.body":
-    "Affirm이 사용자에게 전액을 지급하고 할부금은 직접 관리합니다. 고객의 할부금을 기다릴 필요도 없고 자체 자금으로 고객에게 금융을 제공하는 것도 아닙니다. 캐나다 달러 또는 미국 달러 기준 $50부터 $30,000까지의 작업을 지원합니다.",
+    "수수료를 제외한 전체 금액이 미리 지급되며, 평소 지급 일정에 따라 받습니다(Affirm은 정산까지 최대 영업일 2일이 걸릴 수 있습니다). 할부금은 제공업체가 고객에게서 받으므로 고객을 쫓아다니거나 작업 비용을 직접 부담할 필요가 없습니다.",
   "featurePage.financing.how.3.step":
-    "사용자가 이율을 제시하지 않고 신용 위험도 부담하지 않습니다",
+    "금리 안내도, 할부금 독촉도 필요 없습니다",
   "featurePage.financing.how.3.body":
-    "Affirm이 고객에게 자체 조건을 보여주고 승인 여부를 직접 결정합니다. 사용자는 이율을 제시하거나 할부금을 독촉하거나 신용 위험을 부담하지 않습니다. 또한 사용자가 직접 이율과 기간을 입력하지 않으면 FieldQuo는 견적에 월 납부액을 표시하지 않습니다.",
-  "featurePage.financing.detail.1.label": "50달러부터 3만 달러까지",
+    "제공업체가 고객에게 자체 플랜을 보여 주고 승인 여부를 스스로 결정합니다. 귀하는 금리를 안내하거나 할부금을 독촉할 필요가 없으며, 고객이 Klarna에 상환하지 못하면 손실은 Klarna가 부담합니다. 금리와 기간을 직접 입력하지 않는 한 FieldQuo는 견적서에 월 납부액을 표시하지 않습니다.",
+  "featurePage.financing.detail.1.label": "Stripe가 활성화한 것만",
   "featurePage.financing.detail.1.body":
-    "분할 결제는 해당 금액 범위 안에서, 미국 달러 또는 캐나다 달러로, 사용자가 기능을 켠 경우에만 결제 화면에서 제공됩니다.",
-  "featurePage.financing.detail.2.label": "별도 설정이 없으면 카드만",
+    "할부 결제는 귀하가 켜 두었고, Stripe가 귀하의 계정에서 Klarna(또는 Stripe가 귀하의 사업체를 승인한 경우에 한해 Affirm)를 활성화했으며, 금액이 해당 제공업체의 범위 안에 있을 때만 캐나다 달러 또는 미국 달러로 제공됩니다.",
+  "featurePage.financing.detail.2.label": "끄면 꺼집니다",
   "featurePage.financing.detail.2.body":
-    "결제 수단은 기본적으로 카드로 고정됩니다. 따라서 자체 대시보드에서 금융사를 활성화한 계정이라도 FieldQuo에서 사용하지 않도록 설정했다면 고객에게 표시되지 않습니다.",
+    "할부 결제를 끄면 결제 링크는 할부가 없는 결제 설정을 사용하므로, Stripe 계정에서 활성화된 제공업체라도 거부하셨다면 표시되지 않습니다.",
   "featurePage.financing.detail.3.label":
-    "실패하는 대신 카드 결제로 돌아갑니다",
+    "Stripe의 답변을 설정에서 확인",
   "featurePage.financing.detail.3.body":
-    "해당 금융사가 사용자의 계정에서 실제 활성 상태인지 여기에서 확인할 수 없으므로 먼저 시도하고 사용할 수 없으면 카드 전용으로 조용히 다시 처리합니다. 고객 앞에서 실패하는 링크를 만들지 않습니다.",
+    "각 제공업체의 상태는 귀하의 Stripe 계정에서 읽어 설정에 표시되며, Stripe가 활성화하지 않은 경우 그 이유도 함께 표시됩니다. 고객에게는 활성화된 제공업체만 제공됩니다.",
   "featurePage.financing.detail.4.label": "조건이 없으면 월 납부액도 없습니다",
   "featurePage.financing.detail.4.body":
     "기본 이율이나 일반적인 기간을 가정하지 않습니다. 사용자가 직접 이율과 기간을 입력하지 않으면 견적 어디에도 월 납부액이 표시되지 않습니다.",

@@ -518,7 +518,7 @@ export const ARTICLES = {
             "**Virement instantané** — ce qui est disponible maintenant, les frais, ce que vous recevrez, et **Virer … maintenant**; ou la seule raison pour laquelle il ne peut pas encore s'exécuter.",
             "**Modes de paiement que vous acceptez** — **Comptant**, **Virement électronique**, **Chèque**, et **Enregistrer**.",
             "**Votre compte Stripe** — propriétaire seulement : l'identifiant du compte avec **Copier**, le courriel de connexion, ce que Stripe a activé, et ce qu'il attend encore.",
-            "**Proposer le paiement échelonné (Affirm)** — un interrupteur, affiché une fois la connexion active — et la ligne de clôture disant que FieldQuo ne voit jamais vos coordonnées bancaires.",
+            "**Proposer le paiement échelonné (Affirm, Klarna)** — un interrupteur, affiché une fois la connexion active — et la ligne de clôture disant que FieldQuo ne voit jamais vos coordonnées bancaires.",
           ] },
         ],
       },
@@ -559,7 +559,7 @@ export const ARTICLES = {
           { bullets: [
             "Un débit bancaire prend **3 à 5 jours ouvrables** à être compensé. La facture affiche **Paiement bancaire en attente** avec la date de soumission et n'est marquée payée que lorsque l'argent arrive; si la banque le retourne, le solde reste dû et le client peut payer de nouveau par carte.",
             "**Modes de paiement que vous acceptez** concerne l'argent qui ne passe jamais par Stripe : cochez **Comptant**, **Virement électronique** et **Chèque** selon ce que vous prenez, appuyez sur **Enregistrer**, et ils s'impriment sur une ligne « Modes de paiement acceptés » dans le courriel de facture, dans le portail client et sur le PDF de la facture. Ne cochez rien et la ligne est omise.",
-            "**Proposer le paiement échelonné (Affirm)** permet à un client de fractionner une facture de 50 $ à 30 000 $, en USD ou en CAD, au moment de payer; vous êtes quand même payé intégralement et d'avance. Rien à activer dans Stripe d'abord : l'activer demande à Stripe d'ouvrir Affirm sur votre compte, et la ligne sous l'interrupteur affiche la réponse de Stripe — actif, en attente d'examen, non activé (avec ce que Stripe demande), ou non offert dans votre pays. L'interrupteur s'enregistre immédiatement, et revient en arrière s'il ne le peut pas.",
+            "**Proposer le paiement échelonné (Affirm, Klarna)** permet à un client de payer une facture en plusieurs versements au moment de payer — avec Klarna, ou avec Affirm seulement là où Stripe approuve votre entreprise pour ce service — en USD ou en CAD, pour les montants dans la fourchette de chaque fournisseur; vous êtes payé le montant complet d'avance, moins les frais, selon votre calendrier de versements habituel (Affirm peut prendre jusqu'à deux jours ouvrables à régler le paiement). Rien à activer dans Stripe d'abord : l'activer demande à Stripe d'ouvrir les deux sur votre compte, et les lignes sous l'interrupteur affichent la réponse de Stripe pour chacun — actif, en attente d'examen, non activé (avec ce que Stripe demande), ou non offert dans votre pays. L'interrupteur s'enregistre immédiatement, et revient en arrière s'il ne le peut pas.",
           ] },
           { note: "Les frais de carte et de débit bancaire ne sont pas des paramètres — personne ne peut les changer, et ils ne peuvent pas être refilés au client sous forme de ligne de supplément. Le débit bancaire au Canada en détail : [[bank-debit-in-canada|Débit bancaire au Canada]]." },
         ],

@@ -145,6 +145,8 @@ export const HOME_PAGE_KO = {
   "home.outcomes.item.conversion": "전환 데이터",
   "home.outcomes.item.profitability": "수익성",
   "home.outcomes.allFeatures": "모든 기능 보기",
+  "home.outcomes.paidFinancing":
+    "고객에게 할부 결제를 제공하고 더 많은 프로젝트를 따내세요. Stripe가 허용하는 경우 고객은 Klarna로 나누어 결제할 수 있고, 대금은 미리 받습니다.",
 
   "home.ai.badge": "FieldQuo AI",
   "home.ai.title": "비즈니스에 대해 무엇이든 물어보세요.",

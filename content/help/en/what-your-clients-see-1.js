@@ -350,7 +350,7 @@ export const ARTICLES = {
             rows: [
               ["Card", "Whenever your Stripe account can take payments (Settings → Payments reads Stripe connected · Active)."],
               ["Bank account — pre-authorized debit in Canada, ACH in the US", "Once Stripe has activated the capability on your account and your billing currency matches (CAD for Canada, USD for the US). Settings → Payments says which it is."],
-              ["Pay over time (Affirm)", "On Stripe's page only, beside the card, when you have switched on Offer pay-over-time (Affirm), the invoice is between $50 and $30,000, and the currency is USD or CAD."],
+              ["Pay over time (Klarna or Affirm)", "A **Pay over time (Klarna)** button on the invoice page, and the choice itself on Stripe's page beside the card — when you have switched on Offer pay-over-time, Stripe has activated that provider on your account, and the amount is inside its range, in USD or CAD. A **Want to pay over time? See how** link under the button opens a short guide in your colours."],
             ],
           } },
           { p: "The client never sees a processing fee. The fee comes off your side of the payment; the invoice total is what they pay. See [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
@@ -375,7 +375,7 @@ export const ARTICLES = {
           { table: {
             head: ["Where", "What it changes for the client"],
             rows: [
-              ["Settings → Payments — Stripe", "Whether the button reads Pay online or View your invoice, and whether the page offers card, bank account and Affirm."],
+              ["Settings → Payments — Stripe", "Whether the button reads Pay online or View your invoice, and whether the page offers card, bank account and pay over time (Klarna or Affirm)."],
               ["Settings → Payments — Payment methods you accept", "The “Accepted:” line — Cash, E-transfer, Cheque — on the email, the page and the PDF."],
               ["Settings → Branding", "The logo, the brand band, the button colour and the balance band."],
               ["Settings → Company Settings — Payment schedule", "The stage names the client sees as the headline on a deposit or instalment request."],
@@ -448,7 +448,7 @@ export const ARTICLES = {
         id: "what-the-client-can-do",
         heading: "What the client can do, and cannot",
         blocks: [
-          { p: "From the portal a client can open an invoice, pay it (by card, from a bank account, or with Affirm on Stripe's page), and open a waiting quote to approve or decline it. That is the whole list." },
+          { p: "From the portal a client can open an invoice, pay it (by card, from a bank account, or over time with Klarna or Affirm on Stripe's page), and open a waiting quote to approve or decline it. That is the whole list." },
           { bullets: [
             "They cannot change their name, address or email — those live on their client record, which you edit.",
             "They cannot download a PDF of an invoice or a quote from the portal.",

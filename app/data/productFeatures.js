@@ -153,10 +153,25 @@ export const PRODUCT_FEATURES = {
       {
         id: "invoice",
         heading: "One click to invoice, paid from the phone",
+        // Pay over time (owner, 2026-10-09: "offer your clients financing and
+        // win more projects"). Every clause is Stripe's, for the provider the
+        // pay link actually offers (lib/stripe/financingMethods.js — Klarna,
+        // and Affirm only where Stripe approves the business; never Afterpay):
+        //   "you receive the entire order amount (minus fees)" and Stripe
+        //   "makes the full amount of the funds (minus fees) available to you
+        //   upfront" — https://docs.stripe.com/payments/klarna
+        // Klarna is named on its own because Stripe lists "Home improvement
+        // services, including contractors and special trade contractors"
+        // among the categories prohibited from Affirm or subject to extra
+        // requirements (https://docs.stripe.com/payments/affirm), and
+        // refused it for TrueFinish. The bullet replaced "Amend an issued
+        // invoice and the earlier version is kept", which this page's own
+        // fourth hero bullet already says — the check holds every section to
+        // three bullets.
         body:
-          "An approved quote becomes an invoice that looks like the quote, because it is built from it. Ask for a deposit, split a big job into stages, and let the client pay by card or bank debit — the money settles into your own account, never ours.",
+          "An approved quote becomes an invoice that looks like the quote, because it is built from it. Ask for a deposit, split a big job into stages, and let the client pay by card or bank debit — the money settles into your own account, never ours. Offer your clients financing and win more projects: where Stripe enables Klarna for your business, the client can pay over time while you're paid the full amount up front, minus fees.",
         bullets: [
-          "Amend an issued invoice and the earlier version is kept",
+          "Pay over time with Klarna where Stripe enables it — you're paid up front",
           "Deposits and stage payments, requested on the schedule you set",
           "Card, or bank debit in Canada and the US, paid straight to your account",
         ],
@@ -204,10 +219,28 @@ export const PRODUCT_FEATURES = {
         q: "What happens when the client approves?",
         a: "The quote becomes a job with the scope, the address and the paperwork already on it, and one click turns it into an invoice that mirrors the quote. If you asked for a deposit, that is requested at approval.",
       },
+      // Replaces "Can clients pay in instalments?" (the page allows four
+      // questions); its stages sentence is kept as the last line here.
+      // Confirmed, sentence by sentence, on 2026-10-09:
+      //   Klarna up front, minus fees; client repays Klarna directly;
+      //   "Payout timing: Standard payout timing applies"
+      //     — https://docs.stripe.com/payments/klarna
+      //   "Klarna decides if customers can use Klarna for purchases"
+      //     — https://docs.stripe.com/payments/klarna/compliance
+      //   Affirm: "full amount of the funds (minus fees) available to you
+      //   upfront", customer "repays Affirm directly", "Affirm confirms or
+      //   denies a loan", "Settlement timing: Up to 2 business days (T+2)",
+      //   contractors listed as prohibited or subject to additional
+      //   requirements — https://docs.stripe.com/payments/affirm
+      //   Canada and the US: the only countries financingMethods.js requests
+      //   either capability for (byCountry).
+      // No rates, no "0%", no approval odds — Stripe says Klarna financing
+      // "might include interest" and approval "is subject to
+      // creditworthiness".
       {
-        id: "instalments",
-        q: "Can clients pay in instalments?",
-        a: "You can split an invoice into stages and each one is requested on your schedule. Pay-over-time at checkout is offered through Stripe, where the lender decides — FieldQuo does not lend and does not approve anyone.",
+        id: "pay-over-time",
+        q: "Can my clients pay over time?",
+        a: "Yes, in Canada and the US, once you switch on pay-over-time and Stripe enables it for your business. Your client can choose Klarna on the payment page — or Affirm, only where Stripe approves your business for it. The provider decides whether to approve your client; you don't, and neither does FieldQuo. You're paid the full amount up front, minus fees, and your client repays the provider directly: Klarna payments reach you on your normal payout schedule, and Affirm payments can take up to two business days to settle. You can also split an invoice into stages, each requested on your schedule.",
       },
     ],
   },

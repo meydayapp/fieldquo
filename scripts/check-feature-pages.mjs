@@ -503,18 +503,25 @@ ok("the index routes to the trial too", indexHtml.includes('href="/signup"'));
    they get their own assertions rather than being covered only by the generic
    ones above.
 
-   Financing: Affirm, offered at Stripe Checkout on top of card, only when the
-   company opted in and only for a bounded amount in USD or CAD — and the
-   bounds printed on the page are compared against the constants in
-   lib/stripe.js that decide them, because a marketing page quoting a range the
-   code does not honour is a support ticket with a number on it. FieldQuo does
-   not lend, and the page has to say who does. */
+   Financing: Klarna (and Affirm only where Stripe approves the business),
+   offered at Stripe Checkout beside card, only when the company opted in,
+   Stripe activated the provider and the amount is in that provider's range,
+   in USD or CAD. Until 2026-10-09 the page printed Affirm's $50–$30,000 as
+   FieldQuo's range and said the money came "today"; the ranges are each
+   provider's and change at their discretion, and payouts follow the normal
+   schedule — so the page now prints no range and no "today", and this
+   section fails if either comes back. FieldQuo does not lend, and the page
+   has to say who does. */
 
 console.log("\n── Financing says who lends, and where it stops ────────────────\n");
 
 {
   const { text } = rendered.get("financing");
-  ok("the financing page names Affirm", text.includes("Affirm"));
+  // Klarna first; Affirm only with Stripe's approval — Stripe lists
+  // contractors as prohibited or restricted for Affirm
+  // (https://docs.stripe.com/payments/affirm).
+  ok("the financing page names Klarna, before Affirm", text.includes("Klarna") && text.indexOf("Klarna") < text.indexOf("Affirm"));
+  ok("...and Affirm only where Stripe approves the business", /Affirm, (only )?where Stripe approves your business for it/.test(text));
   ok("...and names Stripe as the account it rides on", /Stripe/.test(text));
   ok("...and says FieldQuo does not lend", /FieldQuo does not lend/i.test(text));
   ok(
@@ -526,23 +533,20 @@ console.log("\n── Financing says who lends, and where it stops ────�
     /never invents a monthly figure/i.test(text),
   );
 
-  // The bounds, against the constants that enforce them. $50 and $30,000 are
-  // AFFIRM_MIN_CENTS and AFFIRM_MAX_CENTS. They moved out of lib/stripe.js
-  // into lib/stripe/affirm.js with the capability rework (5d356950), which is
-  // now the one place every gate — the capability request, the session and
-  // the settings card — reads them from.
-  // Imported, not read off the source: since Klarna (2026-10-09) affirm.js
-  // takes them from the one provider table in lib/stripe/financingMethods.js.
+  // The page used to print Affirm's $50–$30,000 as if it were FieldQuo's
+  // range. The ranges are each provider's, per country, and "might change at
+  // their discretion" (https://docs.stripe.com/payments/klarna), so the page
+  // names none — and never says the money arrives "today": Klarna pays out on
+  // the normal schedule, Affirm settles in up to two business days.
+  ok("...and prints no dollar range of its own", !/\$\s?\d/.test(text) && !/30,000|thirty thousand|fifty dollars/i.test(text));
+  ok("...and says paid up front, minus fees, on the normal payout schedule", /paid to you up front/.test(text) && /minus fees/.test(text) && /normal payout schedule/.test(text) && /two business days to settle/.test(text));
+  ok("...and never 'today', 'instant' or 'same day'", !/\btoday\b|\binstant|same day/i.test(text));
   const min = Number(AFFIRM_MIN_CENTS);
   const max = Number(AFFIRM_MAX_CENTS);
   const affirmSrc = readFileSync("lib/stripe/affirm.js", "utf8");
   ok("lib/stripe/affirm.js still bounds the Affirm offer", Number.isFinite(min) && Number.isFinite(max), `${min}..${max}`);
   ok(
-    `...and the page prints those bounds ($${min / 100}–$${(max / 100).toLocaleString("en-US")})`,
-    text.includes(`$${min / 100}`) && text.includes(`$${(max / 100).toLocaleString("en-US")}`),
-  );
-  ok(
-    "...and names the currencies Affirm settles in",
+    "...and names the currencies pay-over-time is offered in",
     /Canadian or US dollars/i.test(text),
   );
   ok(
@@ -1486,7 +1490,9 @@ for (const [language, script] of Object.entries(SCRIPTS)) {
     // Companies and products, ours and other people's. "Meta" arrived with
     // the marketing_spend limits sentence, which has to name whose lead form
     // the per-campaign figure covers — a brand does not transliterate.
-    "FieldQuo", "Stripe", "Affirm", "Instagram", "Meta",
+    // "Klarna" arrived with the financing page's rewrite (2026-10-09) — the
+    // pay-over-time provider Stripe grants contractors, a brand like Affirm.
+    "FieldQuo", "Stripe", "Affirm", "Klarna", "Instagram", "Meta",
     // The hostname a contractor's site actually lives at. It reaches the copy
     // because there are no custom domains — docs/ROADMAP.md:1770, "subdomains
     // only" — so the honest sentence has to name where the site really is. The

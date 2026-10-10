@@ -345,7 +345,7 @@ export const ARTICLES = {
             rows: [
               ["Carte", "Dès que votre compte Stripe peut encaisser (Paramètres → Paiements indique Stripe connecté · Actif)."],
               ["Compte bancaire — débit préautorisé au Canada, ACH aux États-Unis", "Une fois que Stripe a activé la capacité sur votre compte et que votre devise de facturation correspond (CAD pour le Canada, USD pour les États-Unis). Paramètres → Paiements dit lequel c'est."],
-              ["Paiement échelonné (Affirm)", "Sur la page de Stripe seulement, à côté de la carte, quand vous avez activé Proposer le paiement échelonné (Affirm), que la facture est entre 50 $ et 30 000 $, et que la devise est USD ou CAD."],
+              ["Paiement échelonné (Klarna ou Affirm)", "Un bouton **Payer en plusieurs versements (Klarna)** sur la page de la facture, et le choix lui-même sur la page de Stripe à côté de la carte — quand vous avez activé Proposer le paiement échelonné, que Stripe a activé ce fournisseur sur votre compte et que le montant est dans sa fourchette, en USD ou en CAD. Un lien **Vous voulez payer en plusieurs versements ? Voyez comment** sous le bouton ouvre un court guide à vos couleurs."],
             ],
           } },
           { p: "Le client ne voit jamais de frais de traitement. Les frais sont retenus de votre côté du paiement ; le total de la facture est ce qu'il paie. Voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]." },
@@ -370,7 +370,7 @@ export const ARTICLES = {
           { table: {
             head: ["Où", "Ce que cela change pour le client"],
             rows: [
-              ["Paramètres → Paiements — Stripe", "Si le bouton dit Payer en ligne ou Consulter votre facture, et si la page offre la carte, le compte bancaire et Affirm."],
+              ["Paramètres → Paiements — Stripe", "Si le bouton dit Payer en ligne ou Consulter votre facture, et si la page offre la carte, le compte bancaire et le paiement échelonné (Klarna ou Affirm)."],
               ["Paramètres → Paiements — Modes de paiement que vous acceptez", "La ligne « Modes de paiement acceptés : » — Comptant, Virement électronique, Chèque — sur le courriel, la page et le PDF."],
               ["Paramètres → Image de marque", "Le logo, la bande de marque, la couleur du bouton et la bande du solde."],
               ["Paramètres → Profil de l'entreprise — Calendrier de paiement", "Les noms d'étapes que le client voit en vedette sur une demande de dépôt ou de versement."],
@@ -443,7 +443,7 @@ export const ARTICLES = {
         id: "what-the-client-can-do",
         heading: "Ce que le client peut faire, et ne peut pas",
         blocks: [
-          { p: "Depuis le portail, un client peut ouvrir une facture, la payer (par carte, depuis un compte bancaire, ou avec Affirm sur la page de Stripe), et ouvrir une soumission en attente pour l'approuver ou la refuser. C'est toute la liste." },
+          { p: "Depuis le portail, un client peut ouvrir une facture, la payer (par carte, depuis un compte bancaire, ou en plusieurs versements avec Klarna ou Affirm sur la page de Stripe), et ouvrir une soumission en attente pour l'approuver ou la refuser. C'est toute la liste." },
           { bullets: [
             "Il ne peut pas changer son nom, son adresse ou son courriel — cela vit sur sa fiche client, que vous modifiez.",
             "Il ne peut pas télécharger un PDF de facture ou de soumission depuis le portail.",

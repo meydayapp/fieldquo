@@ -173,10 +173,10 @@ export const ARTICLES = {
   "pay-over-time-financing": {
     title: "Le paiement échelonné",
     summary:
-      "Deux choses distinctes : Affirm au moment du paiement, où le prêteur décide et où vous êtes payé en entier, et une mensualité facultative sur les soumissions, selon des conditions que vous énoncez vous-même.",
-    updated: "2026-09-12",
+      "Deux choses distinctes : le paiement échelonné au moment du paiement avec Klarna (ou Affirm, là où Stripe approuve votre entreprise pour ce service), où le fournisseur décide et où vous êtes payé d'avance, et une mensualité facultative sur les soumissions, selon des conditions que vous énoncez vous-même.",
+    updated: "2026-10-09",
     intro: [
-      "FieldQuo ne prête pas d'argent et n'approuve personne. Ce qu'il offre, ce sont deux choses que vous activez séparément : **Affirm** comme deuxième option à côté de la carte au moment du paiement, pour qu'un client puisse fractionner une facture en versements pendant que vous êtes payé en entier et d'avance ; et une mensualité sur la page d'approbation de la soumission, affichée seulement si vous avez saisi votre propre taux et votre propre durée. Ni l'un ni l'autre n'est activé par défaut.",
+      "FieldQuo ne prête pas d'argent et n'approuve personne. Ce qu'il offre, ce sont deux choses que vous activez séparément : **le paiement échelonné au moment du paiement** — Klarna, et Affirm seulement là où Stripe approuve votre entreprise pour ce service — à côté de la carte, pour qu'un client puisse payer une facture en plusieurs versements pendant que vous êtes payé le montant complet d'avance, moins les frais ; et une mensualité sur la page d'approbation de la soumission, affichée seulement si vous avez saisi votre propre taux et votre propre durée. Ni l'un ni l'autre n'est activé par défaut.",
     ],
     sections: [
       {
@@ -184,20 +184,20 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Le paiement échelonné est offert au moment du paiement par l'intermédiaire de Stripe, où le prêteur décide. FieldQuo ne prête pas et n'approuve personne. La mensualité affichée sur une soumission n'apparaît que si vous saisissez votre propre taux et votre propre durée — FieldQuo n'en invente jamais." },
-          { p: "Les deux commandes vivent sur deux écrans : l'interrupteur **Proposer le paiement échelonné (Affirm)** dans **Paramètres → Paiements**, et la carte **Financement** dans **Paramètres → Soumissions instantanées**." },
+          { p: "Les deux commandes vivent sur deux écrans : l'interrupteur **Proposer le paiement échelonné (Affirm, Klarna)** dans **Paramètres → Paiements**, et la carte **Financement** dans **Paramètres → Soumissions instantanées**." },
         ],
       },
       {
         id: "affirm-at-checkout",
-        heading: "Affirm au moment du paiement",
+        heading: "Klarna et Affirm au moment du paiement",
         blocks: [
           { steps: [
-            "Rien à configurer dans Stripe d'abord. Votre compte Stripe n'a pas d'interrupteur Affirm à lui — FieldQuo demande à Stripe de l'ouvrir dès que vous activez l'option, et vérifie la réponse à chaque chargement de cette page.",
-            "Ouvrez **Paramètres → Paiements**. Une fois Stripe actif, la carte **Proposer le paiement échelonné (Affirm)** apparaît avec un interrupteur.",
-            "Activez-le. Les factures de **50 $ à 30 000 $** en USD ou en CAD affichent alors Affirm à côté de la carte sur la page de paiement ; tout ce qui sort de cette plage, ou une entreprise pour laquelle Stripe n'a pas encore ouvert Affirm, obtient une page carte seulement plutôt qu'une page brisée. La ligne sous l'interrupteur dit lequel c'est : **Affirm : actif**, **en attente de l'examen de Stripe**, **non activé par Stripe sur votre compte** (avec ce que Stripe demande), ou **non offert pour les comptes de votre pays**.",
+            "Rien à configurer dans Stripe d'abord. FieldQuo demande à Stripe d'ouvrir Klarna et Affirm sur votre compte dès que vous activez l'option, et vérifie la réponse de Stripe à chaque chargement de cette page.",
+            "Ouvrez **Paramètres → Paiements**. Une fois Stripe actif, la carte **Proposer le paiement échelonné (Affirm, Klarna)** apparaît avec un interrupteur.",
+            "Activez-le. Dès que Stripe active un fournisseur, une facture dont le montant est dans la fourchette de ce fournisseur, en USD ou en CAD, le propose à côté de la carte : un bouton **Payer en plusieurs versements (Klarna)** sur la page de la facture du portail, et le choix sur la page de Stripe. Une ligne sous l'interrupteur, pour chaque fournisseur, dit où il en est : **actif** (avec la fourchette offerte), **en attente de l'examen de Stripe**, **non activé par Stripe sur votre compte** (avec ce que Stripe demande), ou **non offert pour les comptes de votre pays**. Stripe range les entrepreneurs en rénovation parmi les entreprises qu'Affirm restreint, donc Affirm n'apparaît que là où Stripe approuve votre entreprise pour ce service.",
           ] },
           { figure: "live:app-settings-payments", caption: "Paramètres → Paiements — la carte des frais de traitement, le compte Stripe connecté, et l'interrupteur du paiement échelonné dessous." },
-          { p: "Vous êtes toujours payé en entier, d'avance ; Affirm perçoit les versements auprès du client. Les frais sur un paiement échelonné sont de 6,5 % + 0,30 $ (plus seulement si les frais de Stripe sur ce paiement sont plus élevés), retenus sur le paiement de la même manière que des frais de carte — voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]. Un client qui paie par carte sur la même page paie les frais de carte, rien de plus." },
+          { p: "Vous êtes payé le montant complet d'avance, moins les frais, selon votre calendrier de versements habituel (Affirm peut prendre jusqu'à deux jours ouvrables à régler le paiement) ; le fournisseur décide d'approuver ou non le client et perçoit les versements auprès de lui. Un lien **Vous voulez payer en plusieurs versements ? Voyez comment** sous le bouton et dans le courriel de facture ouvre un court guide pour le client, à vos couleurs. Les frais sur un paiement échelonné sont de 6,5 % + 0,30 $ (plus seulement si les frais de Stripe sur ce paiement sont plus élevés), retenus sur le paiement de la même manière que des frais de carte — voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]. Un client qui paie par carte sur la même page paie les frais de carte, rien de plus." },
         ],
       },
       {
@@ -220,8 +220,8 @@ export const ARTICLES = {
           { table: {
             head: ["Commande", "Ce qu'elle fait"],
             rows: [
-              ["Proposer le paiement échelonné (Affirm) — activé", "Les factures admissibles proposent le paiement échelonné à côté de la carte au paiement. Ces paiements coûtent 6,5 % + 0,30 $; les paiements par carte gardent le taux carte."],
-              ["Proposer le paiement échelonné (Affirm) — désactivé", "Chaque page de paiement est carte seulement, même si Stripe a déjà ouvert Affirm sur votre compte."],
+              ["Proposer le paiement échelonné (Affirm, Klarna) — activé", "Les factures admissibles proposent le paiement échelonné à côté de la carte au paiement, pour chaque fournisseur que Stripe a activé. Ces paiements coûtent 6,5 % + 0,30 $; les paiements par carte gardent le taux carte."],
+              ["Proposer le paiement échelonné (Affirm, Klarna) — désactivé", "Aucune page de paiement ne propose le paiement échelonné, même si Stripe a déjà ouvert un fournisseur sur votre compte."],
               ["Carte Financement — activée, sans conditions", "La soumission dit que du financement est offert, dans vos mots, avec un bouton vers votre fournisseur si vous en avez donné un. Aucun chiffre."],
               ["Carte Financement — taux et durée énoncés", "La soumission ajoute une mensualité estimative, calculée depuis votre TAEG et votre durée et présentée comme votre estimation."],
               ["Carte Financement — désactivée", "Rien au sujet du financement n'apparaît sur les soumissions ni les estimations."],
@@ -233,9 +233,9 @@ export const ARTICLES = {
         id: "the-limits",
         heading: "Les limites",
         blocks: [
-          { warning: "Ne promettez pas un taux ni une mensualité que vous ne pouvez pas honorer. Le chiffre sur la soumission est calculé à partir des conditions que vous avez tapées et présenté au propriétaire comme le vôtre. Au paiement, Affirm annonce ses propres conditions et la décision est celle du prêteur, pas celle de FieldQuo ni la vôtre." },
+          { warning: "Ne promettez pas un taux ni une mensualité que vous ne pouvez pas honorer. Le chiffre sur la soumission est calculé à partir des conditions que vous avez tapées et présenté au propriétaire comme le vôtre. Au paiement, le fournisseur annonce ses propres conditions et la décision est la sienne, pas celle de FieldQuo ni la vôtre." },
           { bullets: [
-            "Affirm : factures de 50 $ à 30 000 $, en USD ou en CAD seulement, et seulement une fois que Stripe signale Affirm actif sur votre compte — la ligne sous l'interrupteur dans Paramètres → Paiements.",
+            "Klarna et Affirm : en USD ou en CAD seulement, pour les montants dans la fourchette de chaque fournisseur, et seulement une fois que Stripe signale ce fournisseur actif sur votre compte — les lignes sous l'interrupteur dans Paramètres → Paiements l'indiquent, avec la fourchette. Affirm seulement là où Stripe approuve votre entreprise pour ce service.",
             "La mensualité : des mois entiers, un TAEG entre 0 % et 100 %, les deux champs ou aucun.",
             "Le prélèvement bancaire et les forfaits de service ne sont pas du financement — un forfait, ce sont vos propres versements, sur vos propres factures. Voir [[service-plans|Forfaits de service]].",
           ] },
@@ -250,9 +250,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "FieldQuo vérifie-t-il le crédit du client ?", a: "Non. C'est Affirm qui le fait, au moment du paiement, et qui décide seul. FieldQuo ne voit jamais la demande." },
+      { q: "FieldQuo vérifie-t-il le crédit du client ?", a: "Non. C'est le fournisseur — Klarna ou Affirm — qui décide, au moment du paiement, seul. FieldQuo ne voit jamais la demande." },
       { q: "Puis-je afficher une mensualité sans énoncer de taux ?", a: "Non. Pas de conditions, pas de chiffre — un nombre inventé par FieldQuo serait une condition qu'on pourrait vous opposer." },
-      { q: "Affirm est-il offert au Canada ?", a: "Oui, pour les factures en CAD comme en USD, dans la plage de 50 $ à 30 000 $, une fois que Stripe le signale actif sur votre compte. Affirm ne sert que les comptes américains et canadiens ; l'interrupteur le dit pour tout autre pays." },
+      { q: "Le paiement échelonné est-il offert au Canada ?", a: "Oui, pour les factures en CAD comme en USD, dans la fourchette de chaque fournisseur, une fois que Stripe signale le fournisseur actif sur votre compte. FieldQuo offre Klarna et Affirm aux comptes américains et canadiens seulement ; l'interrupteur le dit pour tout autre pays." },
     ],
   },
 

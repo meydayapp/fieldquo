@@ -183,10 +183,10 @@ export const ARTICLES = {
   "pay-over-time-financing": {
     title: "Pay-over-time financing",
     summary:
-      "Two separate things: Affirm at checkout, where the lender decides and you are paid in full, and an optional monthly figure on quotes on terms you state yourself.",
-    updated: "2026-09-12",
+      "Two separate things: pay-over-time at checkout with Klarna (or Affirm, where Stripe approves your business for it), where the provider decides and you are paid up front, and an optional monthly figure on quotes on terms you state yourself.",
+    updated: "2026-10-09",
     intro: [
-      "FieldQuo does not lend money and does not approve anyone. What it offers is two things you can switch on separately: **Affirm** as a second option beside the card at checkout, so a client can split an invoice into payments while you are paid in full up front; and a monthly figure on the quote approval page, shown only when you have entered your own rate and term. Neither is on by default.",
+      "FieldQuo does not lend money and does not approve anyone. What it offers is two things you can switch on separately: **pay-over-time at checkout** — Klarna, and Affirm only where Stripe approves your business for it — beside the card, so a client can pay an invoice over time while you are paid the full amount up front, minus fees; and a monthly figure on the quote approval page, shown only when you have entered your own rate and term. Neither is on by default.",
     ],
     sections: [
       {
@@ -194,20 +194,20 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Pay-over-time is offered at checkout through Stripe, where the lender decides. FieldQuo does not lend and does not approve anyone. The monthly figure shown on a quote appears only if you enter your own rate and term — FieldQuo never invents one." },
-          { p: "The two controls live on two screens: the **Offer pay-over-time (Affirm)** switch on **Settings → Payments**, and the **Financing** card on **Settings → Instant Quotes**." },
+          { p: "The two controls live on two screens: the **Offer pay-over-time (Affirm, Klarna)** switch on **Settings → Payments**, and the **Financing** card on **Settings → Instant Quotes**." },
         ],
       },
       {
         id: "affirm-at-checkout",
-        heading: "Affirm at checkout",
+        heading: "Klarna and Affirm at checkout",
         blocks: [
           { steps: [
-            "There is nothing to set up in Stripe first. Your Stripe account has no Affirm switch of its own — FieldQuo asks Stripe to enable it the moment you turn the option on, and checks the answer every time this page loads.",
-            "Open **Settings → Payments**. Once Stripe is active, the card **Offer pay-over-time (Affirm)** appears with a switch.",
-            "Turn it on. Invoices between **$50 and $30,000** in USD or CAD then show Affirm beside the card on the pay page; anything outside that range, or a company Stripe has not yet enabled Affirm for, gets a card-only page rather than a broken one. The line under the switch says which it is: **Affirm: active**, **pending Stripe's review**, **not enabled by Stripe on your account** (with what Stripe is asking for), or **not available for accounts in your country**.",
+            "There is nothing to set up in Stripe first. FieldQuo asks Stripe to enable Klarna and Affirm on your account the moment you turn the option on, and checks Stripe's answer every time this page loads.",
+            "Open **Settings → Payments**. Once Stripe is active, the card **Offer pay-over-time (Affirm, Klarna)** appears with a switch.",
+            "Turn it on. Once Stripe activates a provider, an invoice whose amount is inside that provider's range, in USD or CAD, offers it beside the card: a **Pay over time (Klarna)** button on the portal's invoice page, and the choice on Stripe's page. A line under the switch for each provider says where it stands: **active** (with the range it is offered for), **pending Stripe's review**, **not enabled by Stripe on your account** (with what Stripe is asking for), or **not available for accounts in your country**. Stripe lists home-improvement contractors among the businesses Affirm restricts, so Affirm appears only where Stripe approves your business for it.",
           ] },
           { figure: "live:app-settings-payments", caption: "Settings → Payments — the processing-fee card, the connected Stripe account, and the pay-over-time switch below it." },
-          { p: "You are still paid in full, up front; Affirm collects the instalments from the client. The fee on a pay-over-time payment is 6.5% + $0.30 (more only if Stripe's own fee on that payment is higher), taken out of the payment the same way a card fee is — see [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]. A client who pays by card on the same page pays the card fee, nothing more." },
+          { p: "You are paid the full amount up front, minus fees, on your normal payout schedule (Affirm can take up to two business days to settle); the provider decides whether to approve the client and collects the instalments from them. A **Want to pay over time? See how** link under the button and in the invoice email opens a short guide for the client, in your colours. The fee on a pay-over-time payment is 6.5% + $0.30 (more only if Stripe's own fee on that payment is higher), taken out of the payment the same way a card fee is — see [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]. A client who pays by card on the same page pays the card fee, nothing more." },
         ],
       },
       {
@@ -230,8 +230,8 @@ export const ARTICLES = {
           { table: {
             head: ["Control", "What it does"],
             rows: [
-              ["Offer pay-over-time (Affirm) — on", "Eligible invoices offer pay over time beside the card at checkout. Those payments cost 6.5% + $0.30; card payments keep the card rate."],
-              ["Offer pay-over-time (Affirm) — off", "Every pay page is card-only, even if Stripe has already enabled Affirm on your account."],
+              ["Offer pay-over-time (Affirm, Klarna) — on", "Eligible invoices offer pay over time beside the card at checkout, for each provider Stripe has activated. Those payments cost 6.5% + $0.30; card payments keep the card rate."],
+              ["Offer pay-over-time (Affirm, Klarna) — off", "No pay page offers pay over time, even if Stripe has already enabled a provider on your account."],
               ["Financing card — on, no terms", "The quote says financing is available, in your words, with a button to your provider if you gave one. No number."],
               ["Financing card — rate and term stated", "The quote adds an estimated monthly payment, computed from your APR and term and labelled as your estimate."],
               ["Financing card — off", "Nothing about financing appears on quotes or estimates."],
@@ -243,9 +243,9 @@ export const ARTICLES = {
         id: "the-limits",
         heading: "The limits",
         blocks: [
-          { warning: "Do not promise a rate or a monthly amount you cannot honour. The figure on the quote is computed from the terms you typed and shown to the homeowner as yours. At checkout, Affirm quotes its own terms and its decision is the lender's, not FieldQuo's and not yours." },
+          { warning: "Do not promise a rate or a monthly amount you cannot honour. The figure on the quote is computed from the terms you typed and shown to the homeowner as yours. At checkout, the provider quotes its own terms and its decision is the provider's, not FieldQuo's and not yours." },
           { bullets: [
-            "Affirm: invoices from $50 to $30,000, USD or CAD only, and only once Stripe reports Affirm active on your account — the line under the switch in Settings → Payments.",
+            "Klarna and Affirm: USD or CAD only, for amounts inside each provider's range, and only once Stripe reports that provider active on your account — the lines under the switch in Settings → Payments show it, with the range. Affirm only where Stripe approves your business for it.",
             "The monthly figure: whole months, an APR between 0% and 100%, both fields or neither.",
             "Bank debit and service plans are not financing — a plan is your own instalments, on your own invoices. See [[service-plans|Service plans]].",
           ] },
@@ -260,9 +260,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Does FieldQuo check the client's credit?", a: "No. Affirm does, at checkout, and decides alone. FieldQuo never sees the application." },
+      { q: "Does FieldQuo check the client's credit?", a: "No. The provider — Klarna or Affirm — decides at checkout, alone. FieldQuo never sees the application." },
       { q: "Can I show a monthly figure without stating a rate?", a: "No. No terms, no figure — a number FieldQuo invented would be a term you could be held to." },
-      { q: "Is Affirm available in Canada?", a: "Yes, for invoices in CAD as well as USD, within the $50–$30,000 range, once Stripe reports it active on your account. Affirm serves US and Canadian accounts only; the switch says so for any other country." },
+      { q: "Is pay-over-time available in Canada?", a: "Yes, for invoices in CAD as well as USD, within each provider's range, once Stripe reports the provider active on your account. FieldQuo offers Klarna and Affirm to US and Canadian accounts only; the switch says so for any other country." },
     ],
   },
 
