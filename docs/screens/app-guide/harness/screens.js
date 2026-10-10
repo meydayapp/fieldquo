@@ -251,6 +251,7 @@ export const SCREENS = [
   // Clients & partners
   { slug: "client-equipment", nav: "app.nav.clientEquipment", href: "/app/equipment", page: "app/app/equipment/page.js" },
   { slug: "subcontractors", nav: "app.nav.subcontractors", href: "/app/subcontractors", page: "app/app/subcontractors/page.js" },
+  { slug: "sub-quotes", nav: "app.nav.subQuotes", href: "/app/subcontractors/quotes", page: "app/app/subcontractors/quotes/page.js" },
   { slug: "refer", nav: "app.nav.refer", href: "/app/settings/refer", page: "app/app/settings/refer/page.js", settings: true },
   // Present only for a company enrolled in the influencer programme.
   { slug: "influencer", nav: "app.nav.influencer", href: "/app/influencer", page: "app/app/influencer/page.js" },

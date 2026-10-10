@@ -27,7 +27,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Layers, Trash2, Loader2, Clock, CheckCircle2, MinusCircle, Pencil, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
+import { Layers, Trash2, Loader2, Clock, CheckCircle2, MinusCircle, Pencil } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -36,6 +36,9 @@ import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
 // A sub who is NOT on FieldQuo: their PDF or photo, read and confirmed, in the
 // same compare (owner 2026-10-06). Its own file — see SubQuoteUploads.js.
 import { SubQuoteUploadArea } from "./SubQuoteUploads";
+// Insurance / clearance and the change-order words, shared with "Quotes from
+// my subs" (/app/subcontractors/quotes) so both screens say the same thing.
+import SubCredentials, { CHANGE_ORDER_STATUS_KEY } from "@/app/components/subRequests/SubCredentials";
 
 const STATUS = {
   pending: { key: "app.quoteImports.pending", Icon: Clock, cls: "text-amber-600 dark:text-amber-400" },
@@ -45,11 +48,7 @@ const STATUS = {
 
 const MARKUP_PRESETS = [0, 10, 20, 30];
 
-const CO_STATUS_KEY = {
-  pending: "app.importedCosts.coNotSent",
-  waiting_client: "app.importedCosts.coWaiting",
-  approved: "app.importedCosts.coApproved",
-};
+const CO_STATUS_KEY = CHANGE_ORDER_STATUS_KEY;
 
 export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, onChanged, refreshKey = 0 }) {
   const { t } = useTranslation();
@@ -98,6 +97,18 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  // "Open" on /app/subcontractors/quotes links to #sub-compare. This panel
+  // renders after its fetch, so the browser's own jump found nothing; jump
+  // once the rows are here.
+  const [jumped, setJumped] = useState(false);
+  useEffect(() => {
+    if (jumped || !rows) return;
+    setJumped(true);
+    if (window.location.hash === "#sub-compare") {
+      requestAnimationFrame(() => document.getElementById("sub-compare")?.scrollIntoView({ block: "start" }));
+    }
+  }, [rows, jumped]);
 
   // Drawn when there is something to compare, OR when this reader may upload
   // a sub's quote — the button is how the first price gets here.
@@ -218,7 +229,9 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
+    // id: the anchor "Open" on /app/subcontractors/quotes links to
+    // (lib/subcontractors/receivedPrices.js comparePath).
+    <div id="sub-compare" className="bg-card border border-border rounded-xl p-5 scroll-mt-4">
       <div className="flex items-center gap-2 mb-1">
         <Layers size={16} className="text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">{t("app.importedCosts.title")}</h2>
@@ -336,7 +349,7 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
                       )}
                     </p>
 
-                    <Credentials r={r} t={t} formatDate={formatDate} />
+                    <SubCredentials c={r.credentials} t={t} formatDate={formatDate} />
 
                     {(can.use || can.offer) && !isEditing && (
                       <div className="mt-2">
@@ -416,45 +429,6 @@ export default function ImportedCostsPanel({ quoteId, currency, onTotalChange, o
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-// Insurance and WSIB/WCB clearance, from the GC's own roster row for this
-// sub. "Not recorded" is said as such — never as expired, never as fine.
-function Credentials({ r, t, formatDate }) {
-  const c = r.credentials;
-  if (!c) return null;
-  if (!c.onRoster) {
-    return (
-      <p className="text-[11px] text-muted-foreground mt-1 inline-flex items-center gap-1">
-        <ShieldQuestion size={12} />
-        {t("app.importedCosts.notOnRoster")}
-      </p>
-    );
-  }
-  const line = (what, cred) => {
-    const date = cred?.endsAt ? formatDate(cred.endsAt) : "";
-    switch (cred?.state) {
-      case "ok":
-        return { cls: "text-muted-foreground", Icon: ShieldCheck, text: t("app.importedCosts.credOk", { what, date }) };
-      case "due_soon":
-        return { cls: "text-amber-700 dark:text-amber-400", Icon: ShieldAlert, text: t("app.importedCosts.credSoon", { what, date }) };
-      case "expired":
-        return { cls: "text-red-700 dark:text-red-400", Icon: ShieldAlert, text: t("app.importedCosts.credExpired", { what, date }) };
-      default:
-        return { cls: "text-muted-foreground", Icon: ShieldQuestion, text: t("app.importedCosts.credUnknown", { what }) };
-    }
-  };
-  const items = [line(t("app.subcontractors.insurance"), c.insurance), line(t("app.importedCosts.clearance"), c.clearance)];
-  return (
-    <div className="mt-1 space-y-0.5">
-      {items.map((it, i) => (
-        <p key={i} className={`text-[11px] inline-flex items-center gap-1 mr-3 ${it.cls}`}>
-          <it.Icon size={12} />
-          {it.text}
-        </p>
-      ))}
     </div>
   );
 }
