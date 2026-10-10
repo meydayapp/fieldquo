@@ -113,6 +113,50 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Quote page before & after: one slider per project (10 October 2026)
+
+Owner, with a screenshot of TrueFinish's live quote page: "Before & after ·
+Recent work" showed each project as two pictures side by side, two projects
+to a row. He asked for one before/after SLIDER per project, three across on
+desktop, stacked on phones, cleaner and larger.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **One slider component.** `app/site/[subdomain]/BeforeAfter.js` moved to
+  `app/components/public/BeforeAfter.js`; the old path is a one-line
+  re-export, so the website's import is unchanged and its markup is
+  byte-identical (pinned md5 from the pre-move file). Four OPT-IN props for
+  documents: `labels` (Before/After in the document's language, and alt text
+  on both images), `compareLabel` (the range input's localised name),
+  `handle` (the measured `fillPair` brand fill inside a white ring inside an
+  ink ring — ≥ 3:1 against any photo colour, swept), `fitToPhoto` (the box
+  takes the after photo's shape, clamped 3:4…16:9, 4:3 until it loads). With
+  `handle`, the label fade and grip grow obey `prefers-reduced-motion`.
+- **The proposal** (`ProposalSections.js` `ProposalGallery`, shared by
+  `/q/<token>` and `/estimate-report/<token>`): one slider per pair, same
+  pairs and order; grid `PROPOSAL_GALLERY_GRID` — 1 column on a phone, 2 from
+  `sm`, 3 from `lg`, capped at the number of projects (two projects = two
+  wide sliders, one = full width, as on the website block). A half pair is a
+  plain labelled picture. New copy `proposal.compareHint` in all eight
+  document languages (the website's `dragToCompare` wording).
+- **Not changed:** the PDF (the quote PDF never drew the gallery) and the
+  covering email's side-by-side table — both pinned in the check.
+
+### Checks
+
+`check:proposal-slider` (74, in `check:all`, 20/20 mutations killed);
+`check:client-proposal` now counts 26 proposal strings and measures the new
+tag pairing.
+
+### Open
+
+- The website's slider still prints English "Before"/"After" and an English
+  screen-reader label on a French/Spanish/… site. The proposal's props fix it
+  when the site passes them; left alone here because the brief required the
+  site's output byte-identical.
+
+---
+
 ## AI employee: what is on file, and new contacts to the closer (10 October 2026)
 
 TrueFinish's receptionist asked Tony three times for "the best phone number for
