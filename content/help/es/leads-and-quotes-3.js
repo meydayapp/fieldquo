@@ -639,7 +639,7 @@ export const ARTICLES = {
     title: "Importar el presupuesto de un subcontratista",
     summary:
       "Cuando otra empresa de FieldQuo le envía un presupuesto, incorpórelo a uno de sus propios presupuestos como una línea de costo con margen — su cliente ve un solo precio, el subcontratista nunca ve su margen, y el costo llega al costeo del trabajo cuando el trabajo se gana.",
-    updated: "2026-09-12",
+    updated: "2026-10-10",
     intro: [
       "Un contratista general recoge el presupuesto de un subcontratista y le cotiza al propietario un precio con margen. Cuando el subcontratista también usa FieldQuo, eso es un solo paso: abra el presupuesto que le envió, elija su presupuesto y su margen, y la línea de costo se escribe por usted — del lado del servidor, a partir de las cifras guardadas del subcontratista. El navegador nunca envía un monto de dinero.",
     ],
@@ -675,6 +675,15 @@ export const ARTICLES = {
             "En el generador, el grupo importado está en solo lectura — el costo es fijo y el margen se edita en la página del presupuesto — pero cuenta en el total y sobrevive a un guardado.",
             "Las líneas de un presupuesto decidido están bloqueadas, así que una importación ya no puede editarse ni quitarse una vez que su cliente aceptó o rechazó.",
           ] },
+        ],
+      },
+      {
+        id: "all-in-one-place",
+        heading: "Todos los precios de sus subcontratistas, en un solo lugar",
+        blocks: [
+          { p: "**Cotizaciones de mis subcontratistas**, junto a **Subcontratistas** en la barra lateral, lista cada precio que un subcontratista le ha enviado en todos sus presupuestos: un presupuesto importado desde su enlace, una respuesta a una de sus solicitudes de precio, y el PDF o la foto de un subcontratista que usted subió. Cada fila muestra el subcontratista, el oficio, el monto, cuándo llegó, para cuál de sus presupuestos o trabajos es, y en qué estado está — **Aún sin usar**, **Opción**, **En su presupuesto**, o trabajo adicional **pendiente**, **aprobado** o **rechazado**. Filtre por oficio, estado o subcontratista." },
+          { p: "**Abrir** lo lleva a la comparación de subcontratistas del presupuesto. **Agregar a mi cotización** hace exactamente lo que hace **Usar este** allí (en un presupuesto aprobado, **Agregar como trabajo adicional** crea una orden de cambio que su cliente firma); una respuesta que aún no usó primero se **añade a la comparación**. **Pedir un precio** abre la solicitud de precio en ese presupuesto." },
+          { p: "La página requiere Cotizaciones en **Solo ver** o más y **Mostrar precios**, igual que la comparación. Lo que el subcontratista le cobra solo se muestra con **Costeo de trabajos**; sin él, ve su precio al cliente. Las respuestas que aún no están en una comparación se muestran a propietarios, administradores y supervisores. El presupuesto de un subcontratista que abrió pero nunca agregó no aparece — agréguelo primero desde su enlace." },
         ],
       },
       {
