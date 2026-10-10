@@ -461,6 +461,12 @@ for (const dir of API_DIRS) {
         // name_address_only is refused on both doors. The assertion below
         // reads that file, so this exemption cannot outlive the gate.
         /requireEquipment(Read|Write)\(/.test(body) ||
+        // jobs/[id]/selections (colours & materials, 2026-10-10): its three
+        // routes share lib/jobs/selectionsAccess.js — jobs:view_only to read
+        // (scoped by assignedJobWhere), jobs:view_create_edit to change.
+        // The assertion below reads that file, so this exemption cannot
+        // outlive the gate; scripts/check-job-selections.mjs executes it.
+        /selectionsAccess\(/.test(body) ||
         gridHelpers.some((h) => new RegExp(`\\b${h}\\(`).test(body));
       ok(`${label} asks the grid`, asks);
     }
@@ -481,6 +487,15 @@ for (const dir of API_DIRS) {
   }
   ok("...and for the pricing toggle", /requireToggle\(full, "showPricing"/.test(gate));
   ok("...and refuses with the shared shape rather than a 500", /permissionErrorResponse\(err\)/.test(gate));
+}
+
+// The colours-and-materials gate the exemption above points at: reads at
+// jobs:view_only on a job the member may see, changes at view_create_edit.
+{
+  const gate = readFileSync(join(ROOT, "lib/jobs/selectionsAccess.js"), "utf8");
+  ok("the selections gate asks the grid for jobs:view_only to read", /requireLevel\(full, "jobs", "view_only"/.test(gate));
+  ok("...scopes the job to the ones the member may see", /\.\.\.assignedJobWhere\(full\)/.test(gate) && /companyId, \.\.\.assignedJobWhere/.test(gate));
+  ok("...and asks for jobs:view_create_edit before any change", /hasLevel\(full, "jobs", "view_create_edit"\)/.test(gate) && /if \(write && !canEdit\)/.test(gate));
 }
 
 // The equipment gate the exemption above points at: both wrappers must ask

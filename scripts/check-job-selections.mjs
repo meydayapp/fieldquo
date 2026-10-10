@@ -329,6 +329,23 @@ section("6. 'Pull from quote' is idempotent, and never overwrites an edit");
   eq("two concurrent pulls write each row once", state.rows.jobSelection.filter((r) => r.sourceKey).length, 4);
   ok("…and say so honestly (added counts sum to 4)", a.added + b.added === 4, JSON.stringify([a, b]));
 
+  // Near the per-job cap, the room left goes to rows the job LACKS — never
+  // spent re-offering rows it already has.
+  const typed = Array.from({ length: S.MAX_SELECTIONS_PER_JOB - 4 }, (_, i) => ({ id: `t${i}`, companyId: CO_A, jobId: "j9", sourceKey: null, area: `Typed ${i}`, sortOrder: i + 1 }));
+  resetDb({
+    quote: [quoteRow({ groups: [MAUREEN_GROUP, MULTI_GROUP] })],
+    company: [{ id: CO_A, defaultLanguage: "en" }],
+    jobSelection: [
+      ...typed,
+      { id: "p1", companyId: CO_A, jobId: "j9", sourceKey: "qsg:g_cab:finish", area: "x", sortOrder: 200 },
+      { id: "p2", companyId: CO_A, jobId: "j9", sourceKey: "qsg:g_kit:finish", area: "y", sortOrder: 201 },
+    ],
+  });
+  const capped = await pullSelectionsFromQuote(db, { jobId: "j9", companyId: CO_A, quoteId: "q1" });
+  eq("at the cap's edge the 2 missing rows are added (not the 2 already there)", [capped.added, state.rows.jobSelection.length], [2, S.MAX_SELECTIONS_PER_JOB]);
+  const full = await pullSelectionsFromQuote(db, { jobId: "j9", companyId: CO_A, quoteId: "q1" });
+  eq("…and a full job takes no more", [full.added, state.rows.jobSelection.length], [0, S.MAX_SELECTIONS_PER_JOB]);
+
   const foreign = await pullSelectionsFromQuote(db, { jobId: "j1", companyId: CO_B, quoteId: "q1" });
   ok("another company's quote id pulls nothing", foreign.noQuote === true && foreign.added === 0);
 }
@@ -548,17 +565,20 @@ console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
 
 // ── Mutation record (2026-10-10) — each was applied, run, seen to FAIL, and
-// reverted from a cp backup:
-//   · assignedJobWhere removed from lib/jobs/selectionsAccess.js
-//       → "CREW on a job they are not booked on: 404" fails
-//   · companyId removed from the job lookup in selectionsAccess
-//       → the six "ANOTHER COMPANY's owner …: 404" assertions fail
-//   · the `write && !canEdit` refusal removed → the five "CREW …: 403" fail
-//   · the `have.has(c.sourceKey)` filter removed from pullSelectionsFromQuote
-//       → "second pull adds nothing" fails
-//   · groupSelectionsForPayload made to always return the rows ([] included)
-//       → every "unchanged" md5 in section 3 fails
-//   · carrySelectionsIntoJob removed from createJobFromQuote
-//       → every section-5 prefill assertion fails
-//   · the meta read removed from legacyFinishOf → Q-2026-0022's 'slab' row fails
-//   · jobId dropped from the DELETE's WHERE → "the delete's WHERE names …" fails
+// reverted from a cp backup (never git checkout):
+//   · assignedJobWhere removed from lib/jobs/selectionsAccess.js       → 1 fails
+//       ("CREW on a job they are not booked on: 404")
+//   · companyId removed from the job lookup in selectionsAccess        → 5 fail
+//       (the "ANOTHER COMPANY's owner …: 404" assertions)
+//   · the `write && !canEdit` refusal removed                          → 7 fail
+//   · pull: the have-filter removed (skipDuplicates kept)              → 2 fail
+//       (the per-job cap assertions — idempotence alone is also held by
+//       the unique index, so the cap is what proves the filter)
+//   · pull: the have-filter AND skipDuplicates removed  → the check dies on P2002
+//   · groupSelectionsForPayload made to always send []                → 34 fail
+//   · carrySelectionsIntoJob removed from createJobFromQuote → section 5 fails
+//   · the meta read removed from legacyFinishOf → Q-2026-0022's 'slab' fails
+//   · jobId dropped from the DELETE's WHERE                            → 2 fail
+//   · the print sheet emitting "\n" when there are no rows             → 1 fails
+//   · reorder accepting a partial order                                → 2 fail
+//   · the swatch URL check removed                                     → 7 fail

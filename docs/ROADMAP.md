@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 9 October 2026 (pay over time, client-side and on fieldquo.com: a "How to pay over time" guide for the client at /portal/<token>/pay-over-time — four large steps and a mock of the choices, company colours measured, eight client languages — linked under the portal's "Pay over time" button and from the invoice / payment-request / stage emails only when that payment offers it (payOverTimeOffer, the button's own rule); "Offer your clients financing and win more projects" on /product/quoting and the homepage's Get paid card; FAQ "Can my clients pay over time?" with Stripe-confirmed facts only. No schema change. See "Pay over time — the client's guide, and financing on fieldquo.com" below.)
+Last updated: 10 October 2026 (colours & materials: a "Colours & materials" card on every job — rows of area, product, colour name + code, finish, coats, notes and a swatch photo, with trade suggestions — copied from the quote when the job is created and by an idempotent "Pull from quote", printed on the work order (screen, print, PDF), read-only for Crew; the quote builder takes several colour rows per service beside the untouched cabinet Colour / Sheen / Door style. Schema additive — NOT applied (JobSelection + QuoteScopeGroup.selections). Client view waits on the owner. See "Colours & materials on the job" below.)
 
 Last updated: 9 October 2026 (ad clicks through an embed: the lead-taking embed snippet copies the host page's utm_*, gclid/gbraid/wbraid, fbclid, ttclid, Meta's ad parameters and the _fbc/_fbp/_gcl_aw cookies onto the frame's src, plus `ref` (the host path) — only when there is something to forward; the frame credits ONE click (URL beats cookie, later cookie beats earlier), keeps the winning gclid, an fbp beside a Meta click, and the host page path; the self-quote form and the booking embed now attribute their own URL; Meta CAPI sends fbp; an agency-posted lead with a gclid is google_ads; docs/AGENCY-GOOGLE-ADS.md for the two Google Zaps. Schema additive — NOT applied: `ALTER TABLE "FunnelVisit" ADD COLUMN IF NOT EXISTS "gclid" TEXT, ADD COLUMN IF NOT EXISTS "fbp" TEXT, ADD COLUMN IF NOT EXISTS "hostPage" TEXT;` — until it runs, every visit query is tried once with the columns and once without, and the gclid and host path are not kept. check:embed-attribution.)
 
@@ -110,6 +110,92 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Colours & materials on the job, several colour rows per quote service (10 October 2026)
+
+Owner: "for painting jobs shouldn't the job have the color needed? roofing →
+color and type of shingle; painting → top coat color; epoxy → color and
+finish. In the job they should have a place where that can be recorded. If
+they use multiple colors it should allow for that. I'm looking at Q-2026-0022
+and I don't see where I could put that." Confirmed first: the only colour
+anywhere was ONE Colour / Sheen / Door style on a cabinet group, in the base
+line's meta; Q-2026-0022 (TrueFinish) carries door style "slab" only.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **`JobSelection`** rows on every job — area, product, colour name + code,
+  finish, coats (optional int, never 0), notes, swatch photo (uploadFile(),
+  our Cloudinary only), template key, sortOrder, optional link to the quote
+  group it came from, `sourceKey` unique per job. Rules and words in
+  `lib/jobs/selections.js`; reads/writes in `lib/jobs/selectionsServer.js`.
+- **Job page "Colours & materials" card** (`app/components/jobs/JobSelections.js`,
+  under the job's facts): add, edit, reorder, remove (the row only), swatch
+  upload, "Pull from quote". Trade templates (painting, cabinets incl. gel /
+  liquid stain, roofing, epoxy, flooring, generic — from the service key)
+  only SUGGEST, as datalists; nothing is filled in for the person.
+- **Routes** `app/api/jobs/[id]/selections` (GET / POST / PATCH reorder),
+  `…/[selectionId]` (PATCH / DELETE), `…/pull` (POST), one gate
+  `lib/jobs/selectionsAccess.js`: read at jobs:view_only on a job the member
+  may see (Crew: their own jobs), change at jobs:view_create_edit; another
+  company's job or one Crew is not on is 404.
+- **Copied from the quote when the job is created** (createJobFromQuote and
+  a job made by hand with a quoteId): each service's Colour / Sheen / Door
+  style (+ top coats) as its first row, then its added rows. "Pull from
+  quote" for older jobs (Maureen's): idempotent by sourceKey, never
+  overwrites an edited row; a removed row comes back on the next pull.
+- **Quote builder**: several colour rows per service, any trade, new or saved
+  group (`app/components/quotes/builder/GroupSelections.js`), saved on
+  `QuoteScopeGroup.selections`. The cabinet Colour / Sheen / Door style boxes
+  are untouched and show as the read-only first row. A group with no rows
+  sends byte-for-byte the payload it sent before (md5s from db116dcc5).
+- **Work order** — on screen (the crew's view), the print sheet and the PDF:
+  "Uppers: BM Chantilly Lace OC-65, satin, 2 coats", above the areas. A job
+  with none prints byte-identically to before. The cabinet finish facts on
+  the area print exactly as before.
+- Every string in all nine app languages.
+
+### Not built — waits on the owner
+
+- The client-facing "Your selections" (read-only, on the quote / portal) —
+  the decision is pending. It will read the same `JobSelection` rows /
+  `QuoteScopeGroup.selections`; nothing client-facing reads them today.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+```sql
+ALTER TABLE "QuoteScopeGroup" ADD COLUMN IF NOT EXISTS "selections" JSONB;
+CREATE TABLE IF NOT EXISTS "JobSelection" (
+    "id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "jobId" TEXT NOT NULL,
+    "quoteScopeGroupId" TEXT, "sourceKey" TEXT,
+    "templateKey" TEXT NOT NULL DEFAULT 'generic',
+    "area" TEXT, "product" TEXT, "colourName" TEXT, "colourCode" TEXT,
+    "finish" TEXT, "coats" INTEGER, "notes" TEXT, "swatchUrl" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0, "createdById" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "JobSelection_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "JobSelection_companyId_idx" ON "JobSelection"("companyId");
+CREATE UNIQUE INDEX IF NOT EXISTS "JobSelection_jobId_sourceKey_key" ON "JobSelection"("jobId", "sourceKey");
+ALTER TABLE "JobSelection" ADD CONSTRAINT "JobSelection_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "JobSelection" ADD CONSTRAINT "JobSelection_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "JobSelection" ADD CONSTRAINT "JobSelection_quoteScopeGroupId_fkey" FOREIGN KEY ("quoteScopeGroupId") REFERENCES "QuoteScopeGroup"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+```
+
+Until it runs, the job page, the work order and every quote save that
+selects the new column fail — apply it first.
+
+### Checks
+
+- `check:job-selections` (in `check:all`): 184 assertions, executed — the
+  rules against hostile input, prefill through createJobFromQuote itself,
+  multiple rows, pull idempotence (incl. concurrent pulls and the per-job
+  cap), the routes as Manager / Crew / Estimator / another company, the
+  builder payload and the work order (model + print sheet) md5'd against
+  db116dcc5, translations in nine languages. 12 mutants, all killed.
+- `check:crew-access` gained the selections gate to its "asks the grid" scan.
 
 ---
 
