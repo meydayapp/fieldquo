@@ -301,10 +301,10 @@ export async function POST(request, { params }) {
           company: companyText || {},
           url,
           canTakeCard,
-          payOverTimeUrl,
           note,
           kind: "reminder",
           language: reminderLanguage,
+          payOverTimeUrl,
           wording: await loadDocumentWording(db, {
             companyId: member.companyId,
             kind: "reminder",

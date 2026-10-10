@@ -1,5 +1,7 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 9 October 2026 (pay over time, client-side and on fieldquo.com: a "How to pay over time" guide for the client at /portal/<token>/pay-over-time — four large steps and a mock of the choices, company colours measured, eight client languages — linked under the portal's "Pay over time" button and from the invoice / payment-request / stage emails only when that payment offers it (payOverTimeOffer, the button's own rule); "Offer your clients financing and win more projects" on /product/quoting and the homepage's Get paid card; FAQ "Can my clients pay over time?" with Stripe-confirmed facts only. No schema change. See "Pay over time — the client's guide, and financing on fieldquo.com" below.)
+
 Last updated: 9 October 2026 (ad clicks through an embed: the lead-taking embed snippet copies the host page's utm_*, gclid/gbraid/wbraid, fbclid, ttclid, Meta's ad parameters and the _fbc/_fbp/_gcl_aw cookies onto the frame's src, plus `ref` (the host path) — only when there is something to forward; the frame credits ONE click (URL beats cookie, later cookie beats earlier), keeps the winning gclid, an fbp beside a Meta click, and the host page path; the self-quote form and the booking embed now attribute their own URL; Meta CAPI sends fbp; an agency-posted lead with a gclid is google_ads; docs/AGENCY-GOOGLE-ADS.md for the two Google Zaps. Schema additive — NOT applied: `ALTER TABLE "FunnelVisit" ADD COLUMN IF NOT EXISTS "gclid" TEXT, ADD COLUMN IF NOT EXISTS "fbp" TEXT, ADD COLUMN IF NOT EXISTS "hostPage" TEXT;` — until it runs, every visit query is tried once with the columns and once without, and the gclid and host path are not kept. check:embed-attribution.)
 
 Last updated: 9 October 2026 (a "Marketing agency" team role — Settings › Team › Invite › Marketing agency: funnels, Marketing results and a new Marketing › Leads at the agency API's privacy level, refused on every other API route and page, takes a seat; and on the Leads board an "Agency" badge naming the key and a source filter. No schema change. See "Marketing agency team role, and the Leads board's Agency badge and source filter" below.)
@@ -110,6 +112,53 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Pay over time — the client's guide, and financing on fieldquo.com (9 October 2026)
+
+Owner-approved: the guide, and the headline "Offer your clients financing
+and win more projects". Branch `feat/financing-guide`, not pushed.
+
+- **The guide** — `/portal/<token>/pay-over-time` (server-rendered,
+  noindex, the company's name and icon in the tab). Four steps in large type:
+  tap "Pay over time (Klarna)" (the portal's own button label, from
+  clientDocCopy), choose the provider on the payment page, the provider shows
+  the plans and decides approval — the client sees the plan before agreeing —
+  then the company is paid and the client repays the provider directly. A
+  mock of the invoice buttons and the payment-page choices: no amount, no
+  invoice data, the provider as a NAME in the company's ink (Klarna's rules
+  forbid look-alike trademark designs). Colours from `guidePalette` in
+  `lib/payments/payOverTimeGuide.js`, every pair measured for yellow / white /
+  black / mid-grey / lime / pale grey / red. Copy in
+  `lib/i18n/payOverTimeGuideCopy.js`, eight client languages. The page names
+  only providers switched on AND active on Stripe now; the query string is a
+  hint, never a grant; nothing on → an honest "not offered right now".
+- **One rule** — `payOverTimeOffer` (charge currency, a real Stripe account
+  that takes charges, not a demo, then `offeredFinancingMethods`) replaces the
+  portal route's inline expression (proved equal on 8,640 combinations) and
+  decides the guide link under the portal button and the "Want to pay over
+  time? See how" line in the invoice send, the payment-request chase (balance,
+  next stage, different amount) and the payment-schedule stage email — for the
+  figure each one asks for. Never on a receipt or without a working Pay
+  button. The email senders spread `PAY_OVER_TIME_COMPANY_SELECT`; the shared
+  `HOW_TO_PAY_COMPANY_SELECT` is untouched because the public quote route
+  forwards what it doesn't strip.
+- **fieldquo.com** — /product/quoting invoice section: the headline in the
+  body and a Klarna bullet (it replaced "Amend an issued invoice…", which the
+  page's hero already says — sections are held to three bullets). FAQ
+  "Can my clients pay over time?" replaced "Can clients pay in instalments?"
+  (four-question cap; its stages sentence is kept). The homepage's Get paid
+  card carries the line in all twelve homepage language files. Every claim
+  is cited to Stripe's docs in a comment: docs.stripe.com/payments/klarna,
+  /payments/klarna/compliance, /payments/affirm. Affirm only "where Stripe
+  approves your business for it" (Stripe lists contractors as prohibited or
+  restricted); Afterpay nowhere (the pay link doesn't offer it); no rates,
+  0%, interest-free or approval odds.
+- `check:pay-over-time-guide` (148 checks, in check:all); check:klarna and
+  check:white-label-meta updated for the moved rule and the new route.
+
+Open: `/features/financing` (app/data/featurePages.js, featurePage.financing.*)
+still presents Affirm as THE provider ("covers jobs from $50 up to $30,000")
+and doesn't mention Klarna — not touched here; it needs the same treatment.
 
 ## Klarna beside Affirm (9 October 2026)
 
