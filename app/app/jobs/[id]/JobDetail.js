@@ -21,6 +21,7 @@ import {
 import JobCosting from "@/app/components/jobs/JobCosting";
 import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import JobMaterials from "@/app/components/jobs/JobMaterials";
+import JobSelections from "@/app/components/jobs/JobSelections";
 import JobTasks from "@/app/components/jobs/JobTasks";
 import JobPlan from "@/app/components/jobs/JobPlan";
 import Link from "next/link";
@@ -759,6 +760,14 @@ export default function JobDetail({ jobId }) {
             invoices on save. See JobClientPo. */}
         <JobClientPo job={job} canEdit={canEditJob} onSaved={load} />
       </div>
+
+      {/* What the work is done in — "Uppers: BM Chantilly Lace OC-65, satin,
+          2 coats" — directly under the job's own facts, because the crew
+          reading this page on site needs it before anything below. Copied
+          from the quote when the job was created; "Pull from quote" for
+          older jobs. Read-only for anyone who cannot edit the job (the card
+          asks the route, lib/jobs/selectionsAccess.js). */}
+      <JobSelections jobId={job.id} />
 
       {/* Visits */}
       {/* What the job has actually cost. Renders itself away when nothing has
