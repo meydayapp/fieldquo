@@ -20420,6 +20420,13 @@ model AiEmployee {
   /// contractor their month's AI credit. 0 means never reply, and is a
   /// legitimate way to pause without losing the configuration.
   maxRepliesPerThread Int @default(3)
+  /// The closer's goal (lib/aiEmployee/closerTechnique.js CLOSER_GOALS):
+  /// "next_step" — move the homeowner one step forward, the behaviour every
+  /// company had before this column — or "in_person_visit", which makes
+  /// booking the free in-person estimate visit the closer's objective (owner,
+  /// 2026-10-10). Read only for role "closer"; any other value reads as the
+  /// default.
+  closerGoal String @default("next_step")
 
   /// SHA-256 of the contractor's own words (instructions + escalation rules +
   /// greeting + tone + role), recomputed on save.

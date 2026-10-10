@@ -997,7 +997,11 @@ for (const role of AI_EMPLOYEE_ROLES) {
 
   // ── Hand-off moves the assignee and introduces once ──────────────────────
   {
-    const db = makeDb({ aiEmployee: employees(), messageThread: [thread()], message: [inbound("m1", "Hi, can someone come out to look at my kitchen?", 0)], company: [company] });
+    // A RETURNING contact (a message from last month): since 2026-10-10 a
+    // brand-new contact goes straight to the closer (routing.js
+    // NEW_CONTACT_REASON, check:ai-employee-new-contact), and this case is
+    // about the receptionist handing a booking over, not about new contacts.
+    const db = makeDb({ aiEmployee: employees(), messageThread: [thread()], message: [inbound("m0", "Thanks for last time", -30 * 86400), inbound("m1", "Hi, can someone come out to look at my kitchen?", 0)], company: [company] });
     // Rosa (book) hands to the closer; the closer's turn then runs with no
     // hand-off tool and does not hand back.
     const h = harness(db, { toolCalls: [{ name: HAND_OFF_TOOL, args: { role: "closer", reason: "they want a price first" } }] });

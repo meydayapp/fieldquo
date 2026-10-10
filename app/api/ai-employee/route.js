@@ -51,6 +51,7 @@ import {
   cleanDisabledTools,
 } from "@/lib/aiEmployee/roles";
 import { planEmployeeSave, targetEmployee } from "@/lib/aiEmployee/settings";
+import { CLOSER_GOALS, closerGoalOf } from "@/lib/aiEmployee/closerTechnique";
 import { defaultNameFor, UNNAMED } from "@/lib/aiEmployee/names";
 import { disclosureFor, DISCLOSURE_COMPANY_SELECT } from "@/lib/aiEmployee/disclosure";
 import { INTENTS, ROLE_FOR_INTENT, isIntent, routingCounts } from "@/lib/aiEmployee/routing";
@@ -176,6 +177,9 @@ function publicEmployee(row) {
     handoffPhrase: row.handoffPhrase,
     businessHoursOnly: row.businessHoursOnly,
     maxRepliesPerThread: row.maxRepliesPerThread,
+    // The closer's goal, read failing closed (closerTechnique.js): a row
+    // from before the column, or a corrupt value, is the default.
+    closerGoal: closerGoalOf(row.closerGoal),
     // The flow view's two editable facts. Cleaned on the way out as well as
     // in, so a tool the role no longer allows (a role change) never shows
     // as "off" for a tool that is not there.
@@ -250,6 +254,7 @@ export async function GET(request) {
     channels: CHANNELS,
     faces: FACES,
     tones: AI_EMPLOYEE_TONES,
+    closerGoals: CLOSER_GOALS,
     voices: AI_EMPLOYEE_VOICES,
     sourceKinds: SOURCE_KINDS,
     readableExtensions: READABLE_EXTENSIONS,

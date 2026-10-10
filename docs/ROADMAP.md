@@ -111,6 +111,56 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## AI employee: what is on file, and new contacts to the closer (10 October 2026)
+
+TrueFinish's receptionist asked Tony three times for "the best phone number for
+you and the job address" although he had typed both into the same Messenger
+thread in July and the linked lead carried both (reproduced against the
+production rows, read-only). The owner then asked that new contacts go to the
+closer, whose goal is the in-person visit for a free quote.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **On file before asking** (`lib/aiEmployee/threadMemory.js`). Every role is
+  given the contact details on file for THIS thread — linked client, linked
+  lead, lead capture — read under companyId by the thread's own ids. A value
+  the customer typed in the thread may be read back ("I have 613-… and 29
+  Rialto Way — still right?"); a record-only value is never printed. Older
+  conversation (imported history included) rides in a fenced EARLIER block,
+  ≤ 4,000 chars. `book_appointment` / `book_callback` fill omitted details
+  from the record before the mode gate; only `slot_id` is required now.
+  Partial answers: keep what they gave, ask once more for the missing item,
+  never a third time.
+- **New contacts → the closer** (`lib/aiEmployee/routing.js`
+  `isNewContact` / `newContactAssignee`). No earlier messages before this
+  burst (imported count), no linked lead older than the thread, no client of
+  the company holding the number/email → the enabled closer, reason "new
+  contact → closer". Problems still go to an enabled troubleshooter; urgent /
+  emergency text never goes to the closer; no closer enabled → unchanged.
+- **Closer's goal** (`AiEmployee.closerGoal`: `next_step` default |
+  `in_person_visit`), on the closer's settings screen in all nine app
+  locales. `in_person_visit` adds one block below every absolute rule; every
+  other prompt and every saved fingerprint is byte-identical.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+```sql
+ALTER TABLE "AiEmployee" ADD COLUMN IF NOT EXISTS "closerGoal" TEXT NOT NULL DEFAULT 'next_step';
+```
+
+### Checks
+
+`check:ai-employee-memory` (Tony replay, 52) and
+`check:ai-employee-new-contact` (57), both in `check:all`, both mutation-tested.
+
+### Open
+
+- Prompt cost: the on-file card + EARLIER block add ~3.7k chars (~950
+  tokens) to a long thread's reply prompt — about +9%.
+- TrueFinish: John (closer) shares Messenger and website chat with Jessica,
+  so switching him on is refused as a channel conflict until those two
+  switches are off on John.
+
 ## Klarna beside Affirm (9 October 2026)
 
 Production fact that set the scope: Klarna ALREADY shows on TrueFinish's

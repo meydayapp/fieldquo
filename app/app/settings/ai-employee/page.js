@@ -1025,6 +1025,25 @@ export default function AiEmployeePage() {
                   </p>
                 </div>
               )}
+
+              {/* The closer's goal (AiEmployee.closerGoal) — read by the
+                  closer's prompt only (lib/aiEmployee/closerTechnique.js
+                  closerGoalBlock), so it is shown for the closer only. */}
+              {form.role === "closer" && (
+                <label className="block mt-4">
+                  <FieldHead label={t("app.aiEmployee.closerGoalLabel", "Closer's goal")} note={savedNote("closerGoal")} />
+                  <select className={FIELD} value={form.closerGoal || "next_step"} onChange={(e) => edit({ closerGoal: e.target.value })}>
+                    {(data.closerGoals || ["next_step", "in_person_visit"]).map((goal) => (
+                      <option key={goal} value={goal}>
+                        {t(`app.aiEmployee.closerGoal.${goal}`, goal)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-muted-foreground">
+                    {t("app.aiEmployee.closerGoalHint", "With a free in-person quote, every new enquiry is steered to a visit: it offers two real times from your calendar and doesn't bring up prices unless asked. New contacts are handed to the closer when it's switched on.")}
+                  </span>
+                </label>
+              )}
             </Part>
 
             {/* ── How it writes ────────────────────────────────────────── */}
