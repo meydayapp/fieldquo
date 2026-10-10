@@ -33,7 +33,7 @@ import { FileStack, Loader2, Send } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
-import { fetchJson } from "@/lib/fetchJson";
+import { fetchJson, errorText } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
 // The compare panel's own insurance / clearance lines and change-order words.
 import SubCredentials, { CHANGE_ORDER_STATUS_KEY as CO_STATUS_KEY } from "@/app/components/subRequests/SubCredentials";
@@ -113,7 +113,9 @@ export default function SubQuotesPage() {
       else setNotice(t("app.subQuotes.addDone", { quote }));
       await load();
     } catch (e) {
-      setError(e?.message || t("app.subQuotes.addFailed"));
+      // The route's own refusal ("That quote is already decided…"), else
+      // fetchJson's sentence in the reader's language.
+      setError(errorText(t, e) || t("app.subQuotes.addFailed"));
     } finally {
       setBusy("");
     }
