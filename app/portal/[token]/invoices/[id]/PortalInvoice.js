@@ -37,6 +37,8 @@ import { surchargeRatePercent } from "@/lib/stripe/clientCardSurchargeMath";
 import CardPayPanel from "../../CardPayPanel";
 import { clientPayChoices } from "@/lib/invoices/paymentRequest";
 import { FINANCING_PROVIDERS } from "@/lib/stripe/financingMethods";
+import { payOverTimeGuidePath } from "@/lib/payments/payOverTimeGuide";
+import { payOverTimeGuideLink } from "@/lib/i18n/payOverTimeGuideCopy";
 
 // Provider brand names (never translated), from the one provider table.
 const FINANCING_NAMES = Object.freeze(
@@ -140,6 +142,7 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
   const language = data?.language || "en";
   const labels = documentLabels(language);
   const copy = clientDocCopy(language);
+  const guideLink = payOverTimeGuideLink(language);
   const fmt = documentFormatters(language, data?.company?.currency);
   const money = fmt.money;
   const date = fmt.date;
@@ -588,6 +591,22 @@ export default function PortalInvoice({ token, invoiceId, stageId = null, reques
                       {copy.cardFee.payOverTimeNote}
                     </p>
                   )}
+                  {/* The step-by-step guide, in the company's colours and the
+                      client's language — inside this block, so it shows
+                      exactly when the button does (the server's
+                      `financing` for this figure, payOverTimeOffer). The
+                      link names the providers offered here and the record
+                      to come back to; never an amount. */}
+                  <p data-pay-over-time-guide-link className="text-center text-sm" style={{ color: payPanel.muted }}>
+                    {guideLink.prompt}{" "}
+                    <Link
+                      href={payOverTimeGuidePath(token, { providers: financing, invoiceId, stageId, requestId })}
+                      className="font-semibold underline underline-offset-2"
+                      style={{ color: payPanel.fg }}
+                    >
+                      {guideLink.action}
+                    </Link>
+                  </p>
                 </>
               )}
               {bankDebit && (

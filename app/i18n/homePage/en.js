@@ -168,6 +168,14 @@ export const HOME_PAGE_EN = {
   "home.outcomes.item.conversion": "Conversion data",
   "home.outcomes.item.profitability": "Profitability",
   "home.outcomes.allFeatures": "See every feature",
+  // Under the "Get paid" chips (OutcomeGroups.js). Owner's headline,
+  // 2026-10-09. Klarna only — the provider FieldQuo's pay link offers that
+  // Stripe has granted contractors (Affirm lists contractors as prohibited
+  // or restricted: https://docs.stripe.com/payments/affirm). "Paid up
+  // front": "Stripe makes the full amount of the funds (minus fees)
+  // available to you upfront" — https://docs.stripe.com/payments/klarna
+  "home.outcomes.paidFinancing":
+    "Offer your clients financing and win more projects: they can pay over time with Klarna where Stripe enables it, and you're paid up front.",
 
   // ── FieldQuo AI ──────────────────────────────────────────────────────────
   "home.ai.badge": "FieldQuo AI",

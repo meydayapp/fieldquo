@@ -57,8 +57,8 @@ const de = {
   "productPage.quoting.section.approval.bullet.3": "Ein Angebot behält die Sprache, in der es geschrieben wurde; ein unterschriebenes Dokument ändert seine Worte nie",
   "productPage.quoting.section.invoice.heading": "Ein Klick zur Rechnung, bezahlt vom Handy",
   "productPage.quoting.section.invoice.body":
-    "Ein angenommenes Angebot wird zu einer Rechnung, die aussieht wie das Angebot, weil sie daraus gebaut ist. Verlangen Sie eine Anzahlung, teilen Sie einen großen Auftrag in Etappen, und lassen Sie den Kunden per Karte oder Bankeinzug zahlen — das Geld landet auf Ihrem eigenen Konto, nie auf unserem.",
-  "productPage.quoting.section.invoice.bullet.1": "Eine gestellte Rechnung ändern — die frühere Fassung bleibt erhalten",
+    "Ein angenommenes Angebot wird zu einer Rechnung, die aussieht wie das Angebot, weil sie daraus gebaut ist. Verlangen Sie eine Anzahlung, teilen Sie einen großen Auftrag in Etappen, und lassen Sie den Kunden per Karte oder Bankeinzug zahlen — das Geld landet auf Ihrem eigenen Konto, nie auf unserem. Bieten Sie Ihren Kunden Finanzierung an und gewinnen Sie mehr Aufträge: Wo Stripe Klarna für Ihr Unternehmen freischaltet, kann der Kunde in Raten zahlen, während Sie den vollen Betrag vorab erhalten, abzüglich Gebühren.",
+  "productPage.quoting.section.invoice.bullet.1": "Ratenzahlung mit Klarna, wo Stripe sie freischaltet — Sie werden vorab bezahlt",
   "productPage.quoting.section.invoice.bullet.2": "Anzahlungen und Etappenzahlungen, angefordert nach dem Plan, den Sie festlegen",
   "productPage.quoting.section.invoice.bullet.3": "Karte, oder Bankeinzug in Kanada und den USA, direkt auf Ihr Konto",
   "productPage.quoting.section.invoice.alt":
@@ -80,9 +80,9 @@ const de = {
   "productPage.quoting.faq.after-approval.q": "Was passiert, wenn der Kunde annimmt?",
   "productPage.quoting.faq.after-approval.a":
     "Das Angebot wird zu einem Auftrag mit Umfang, Adresse und Unterlagen schon dran, und ein Klick macht daraus eine Rechnung, die das Angebot spiegelt. Wenn Sie eine Anzahlung verlangt haben, wird sie bei der Annahme angefordert.",
-  "productPage.quoting.faq.instalments.q": "Können Kunden in Raten zahlen?",
-  "productPage.quoting.faq.instalments.a":
-    "Sie können eine Rechnung in Etappen teilen, und jede wird nach Ihrem Plan angefordert. Ratenzahlung an der Kasse wird über Stripe angeboten, wo der Kreditgeber entscheidet — FieldQuo verleiht nichts und genehmigt niemanden.",
+  "productPage.quoting.faq.pay-over-time.q": "Können meine Kunden in Raten zahlen?",
+  "productPage.quoting.faq.pay-over-time.a":
+    "Ja, in Kanada und den USA, sobald Sie Ratenzahlung einschalten und Stripe sie für Ihr Unternehmen freischaltet. Ihr Kunde kann auf der Zahlungsseite Klarna wählen — oder Affirm, nur wo Stripe Ihr Unternehmen dafür zulässt. Ob Ihr Kunde genehmigt wird, entscheidet der Anbieter; nicht Sie und nicht FieldQuo. Sie erhalten den vollen Betrag vorab, abzüglich Gebühren, und Ihr Kunde zahlt direkt an den Anbieter zurück: Klarna-Zahlungen erreichen Sie nach Ihrem üblichen Auszahlungsplan, und Affirm-Zahlungen können bis zu zwei Werktage bis zur Abwicklung brauchen. Sie können eine Rechnung auch in Etappen teilen, jede nach Ihrem Plan angefordert.",
 
   // /product/scheduling
   "productPage.scheduling.headline": "Jede Person, jede Stunde, auf einem Plan",

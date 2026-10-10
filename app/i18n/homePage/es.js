@@ -154,6 +154,8 @@ export const HOME_PAGE_ES = {
   "home.outcomes.item.conversion": "Datos de conversión",
   "home.outcomes.item.profitability": "Rentabilidad",
   "home.outcomes.allFeatures": "Ver todas las funciones",
+  "home.outcomes.paidFinancing":
+    "Ofrezca financiamiento a sus clientes y gane más proyectos: pueden pagar a plazos con Klarna donde Stripe lo active, y usted cobra por adelantado.",
 
   "home.ai.badge": "FieldQuo IA",
   "home.ai.title": "Pregúntele cualquier cosa a su negocio.",

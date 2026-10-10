@@ -44,6 +44,10 @@ export const OUTCOME_GROUPS = [
   {
     key: "paid",
     icon: Wallet,
+    // One line under the chips: pay-over-time (Klarna through Stripe) next
+    // to Payments, where a contractor reading "Get paid" is looking. The
+    // sentence and its sources live in app/i18n/homePage/en.js.
+    note: "paidFinancing",
     items: [
       { key: "invoices", href: "/features/invoicing" },
       { key: "payments", href: "/features/payments" },
@@ -96,6 +100,11 @@ export default function OutcomeGroups() {
                   </li>
                 ))}
               </ul>
+              {group.note && (
+                <p data-outcome-note={group.note} className="mt-4 text-sm leading-relaxed text-foreground">
+                  {t(`home.outcomes.${group.note}`)}
+                </p>
+              )}
             </div>
           ))}
         </div>

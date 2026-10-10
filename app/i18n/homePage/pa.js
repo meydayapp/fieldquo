@@ -146,6 +146,8 @@ export const HOME_PAGE_PA = {
   "home.outcomes.item.conversion": "ਕਨਵਰਜ਼ਨ ਡਾਟਾ",
   "home.outcomes.item.profitability": "ਮੁਨਾਫ਼ਾ",
   "home.outcomes.allFeatures": "ਸਾਰੇ ਫ਼ੀਚਰ ਵੇਖੋ",
+  "home.outcomes.paidFinancing":
+    "ਆਪਣੇ ਗਾਹਕਾਂ ਨੂੰ ਫ਼ਾਇਨੈਂਸਿੰਗ ਦਿਓ ਅਤੇ ਹੋਰ ਪ੍ਰੋਜੈਕਟ ਜਿੱਤੋ: ਜਿੱਥੇ Stripe ਇਸ ਨੂੰ ਚਾਲੂ ਕਰਦਾ ਹੈ, ਉਹ Klarna ਨਾਲ ਕਿਸ਼ਤਾਂ ਵਿੱਚ ਪੇਮੈਂਟ ਕਰ ਸਕਦੇ ਹਨ, ਤੇ ਤੁਹਾਨੂੰ ਪੈਸੇ ਪਹਿਲਾਂ ਮਿਲਦੇ ਹਨ।",
 
   "home.ai.badge": "FieldQuo AI",
   "home.ai.title": "ਆਪਣੇ ਕਾਰੋਬਾਰ ਤੋਂ ਕੁਝ ਵੀ ਪੁੱਛੋ।",

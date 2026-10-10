@@ -302,8 +302,13 @@ console.log("\n── 7. The portal names pay-over-time, card fee or not ──�
   const portal = stripComments(read("app/api/portal/[token]/route.js"));
   const inv = stripComments(read("app/portal/[token]/invoices/[id]/PortalInvoice.js"));
   const index = stripComments(read("app/portal/[token]/ClientPortal.js"));
-  ok("portal GET: financing for an amount comes from offeredFinancingMethods (the ONE rule) — online payments, not a demo, card fee or not",
-    /const financingFor = \(amountCents\) =>\s*financingCurrency && onlinePayments && !demoPayments\s*\?\s*offeredFinancingMethods\(\{ company: client\.company, amountCents, currency: financingCurrency \}\)\s*:\s*\[\]/.test(portal));
+  // The gate moved into payOverTimeOffer (lib/payments/payOverTimeGuide.js)
+  // so the invoice emails' guide link reads the same rule; that function is
+  // EXECUTED against online / demo / currency / status / amount in
+  // scripts/check-pay-over-time-guide.mjs.
+  ok("portal GET: financing for an amount comes from payOverTimeOffer → offeredFinancingMethods (the ONE rule) — online payments, not a demo, card fee or not",
+    /const financingFor = \(amountCents\) => payOverTimeOffer\(\{ company: client\.company, amountCents \}\);/.test(portal) &&
+      /return offeredFinancingMethods\(\{ company, amountCents, currency \}\);/.test(read("lib/payments/payOverTimeGuide.js")));
   ok("  ^ for the balance, each stage's share and each request's figure — all server-derived",
     /financing: financingFor\(invoiceBalanceCents\(invoice\)\)/.test(portal) &&
       /amountCents: left, bankDebit: offerFor\(left\), financing: financingFor\(left\) \}/.test(portal) &&

@@ -49,8 +49,8 @@ const tl = {
   "productPage.quoting.section.approval.bullet.3": "Nananatili ang quote sa wikang pinagsulatan nito; hindi kailanman nagbabago ang salita ng pinirmahang dokumento",
   "productPage.quoting.section.invoice.heading": "Isang click para mag-invoice, bayad mula sa telepono",
   "productPage.quoting.section.invoice.body":
-    "Ang na-approve na quote ay nagiging invoice na kamukha ng quote, dahil doon ito ginawa. Humingi ng deposito, hatiin ang malaking trabaho sa mga yugto, at hayaang magbayad ang kliyente sa card o bank debit — dumidiretso ang pera sa sarili mong account, hindi kailanman sa amin.",
-  "productPage.quoting.section.invoice.bullet.1": "Baguhin ang nailabas na invoice at naka-save ang naunang bersyon",
+    "Ang na-approve na quote ay nagiging invoice na kamukha ng quote, dahil doon ito ginawa. Humingi ng deposito, hatiin ang malaking trabaho sa mga yugto, at hayaang magbayad ang kliyente sa card o bank debit — dumidiretso ang pera sa sarili mong account, hindi kailanman sa amin. Mag-alok ng financing sa mga kliyente mo at manalo ng mas maraming proyekto: kung saan ini-enable ng Stripe ang Klarna para sa negosyo mo, puwedeng magbayad nang hulugan ang kliyente habang natatanggap mo nang buo ang bayad nang maaga, bawas ang fees.",
+  "productPage.quoting.section.invoice.bullet.1": "Hulugan gamit ang Klarna kung saan ini-enable ito ng Stripe — bayad ka nang maaga",
   "productPage.quoting.section.invoice.bullet.2": "Deposito at bayad bawat yugto, hinihingi ayon sa schedule na itinakda mo",
   "productPage.quoting.section.invoice.bullet.3": "Card, o bank debit sa Canada at US, diretso sa account mo",
   "productPage.quoting.section.invoice.alt":
@@ -72,9 +72,9 @@ const tl = {
   "productPage.quoting.faq.after-approval.q": "Ano ang nangyayari kapag nag-approve ang kliyente?",
   "productPage.quoting.faq.after-approval.a":
     "Nagiging job ang quote na may saklaw, address at papeles na nakalagay na, at isang click ang gagawa nitong invoice na kapareho ng quote. Kung humingi ka ng deposito, hihingin iyon sa pag-approve.",
-  "productPage.quoting.faq.instalments.q": "Pwede bang hulugan ng mga kliyente?",
-  "productPage.quoting.faq.instalments.a":
-    "Pwede mong hatiin ang invoice sa mga yugto at bawat isa ay hinihingi ayon sa schedule mo. Ang pay-over-time sa checkout ay inaalok sa pamamagitan ng Stripe, kung saan ang lender ang nagpapasya — hindi nagpapautang ang FieldQuo at walang ina-approve na sinuman.",
+  "productPage.quoting.faq.pay-over-time.q": "Puwede bang magbayad nang hulugan ang mga kliyente ko?",
+  "productPage.quoting.faq.pay-over-time.a":
+    "Oo, sa Canada at US, kapag in-on mo ang pay-over-time at in-enable ito ng Stripe para sa negosyo mo. Puwedeng piliin ng kliyente mo ang Klarna sa pahina ng pagbabayad — o ang Affirm, kung saan lang ina-approve ng Stripe ang negosyo mo para dito. Ang provider ang nagpapasya kung maaaprubahan ang kliyente mo; hindi ikaw, at hindi rin ang FieldQuo. Natatanggap mo nang buo ang halaga nang maaga, bawas ang fees, at direktang nagbabayad ang kliyente mo sa provider: dumarating ang mga bayad sa Klarna ayon sa karaniwan mong payout schedule, at ang mga bayad sa Affirm ay puwedeng umabot nang hanggang dalawang business day bago ma-settle. Puwede mo ring hatiin ang invoice sa mga yugto, bawat isa ay hinihingi ayon sa schedule mo.",
 
   // /product/scheduling
   "productPage.scheduling.headline": "Bawat tao, bawat oras, sa iisang board",

@@ -153,6 +153,8 @@ export const HOME_PAGE_UK = {
   "home.outcomes.item.conversion": "Дані конверсії",
   "home.outcomes.item.profitability": "Прибутковість",
   "home.outcomes.allFeatures": "Усі функції",
+  "home.outcomes.paidFinancing":
+    "Запропонуйте клієнтам фінансування й вигравайте більше проєктів: вони можуть платити частинами через Klarna там, де Stripe її вмикає, а ви отримуєте гроші наперед.",
 
   "home.ai.badge": "FieldQuo ШІ",
   "home.ai.title": "Запитайте свій бізнес про будь-що.",

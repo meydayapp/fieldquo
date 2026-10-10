@@ -133,6 +133,8 @@ export const HOME_PAGE_ZH = {
   "home.outcomes.item.conversion": "转化数据",
   "home.outcomes.item.profitability": "盈利情况",
   "home.outcomes.allFeatures": "查看全部功能",
+  "home.outcomes.paidFinancing":
+    "为客户提供分期付款，赢下更多项目：在 Stripe 开通的地方，客户可以用 Klarna 分期付款，你提前收款。",
 
   "home.ai.badge": "FieldQuo AI",
   "home.ai.title": "关于你的生意，想问什么都行。",

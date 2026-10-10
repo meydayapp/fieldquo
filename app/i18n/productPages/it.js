@@ -56,8 +56,8 @@ const it = {
   "productPage.quoting.section.approval.bullet.3": "Un preventivo mantiene la lingua in cui è stato scritto; un documento firmato non cambia mai le sue parole",
   "productPage.quoting.section.invoice.heading": "Un clic per fatturare, pagato dal telefono",
   "productPage.quoting.section.invoice.body":
-    "Un preventivo approvato diventa una fattura che somiglia al preventivo, perché è costruita da esso. Chieda un acconto, divida un lavoro grande in fasi, e lasci che il cliente paghi con carta o addebito bancario — i soldi arrivano sul Suo conto, mai sul nostro.",
-  "productPage.quoting.section.invoice.bullet.1": "Modifichi una fattura emessa e la versione precedente viene conservata",
+    "Un preventivo approvato diventa una fattura che somiglia al preventivo, perché è costruita da esso. Chieda un acconto, divida un lavoro grande in fasi, e lasci che il cliente paghi con carta o addebito bancario — i soldi arrivano sul Suo conto, mai sul nostro. Offra finanziamenti ai Suoi clienti e conquisti più lavori: dove Stripe attiva Klarna per la Sua attività, il cliente può pagare a rate mentre Lei riceve l'intero importo in anticipo, al netto delle commissioni.",
+  "productPage.quoting.section.invoice.bullet.1": "Pagamento a rate con Klarna dove Stripe lo attiva — Lei viene pagato in anticipo",
   "productPage.quoting.section.invoice.bullet.2": "Acconti e pagamenti per fase, richiesti secondo il calendario che stabilisce Lei",
   "productPage.quoting.section.invoice.bullet.3": "Carta, o addebito bancario in Canada e Stati Uniti, versato direttamente sul Suo conto",
   "productPage.quoting.section.invoice.alt":
@@ -79,9 +79,9 @@ const it = {
   "productPage.quoting.faq.after-approval.q": "Cosa succede quando il cliente approva?",
   "productPage.quoting.faq.after-approval.a":
     "Il preventivo diventa un lavoro con ambito, indirizzo e documenti già a bordo, e un clic lo trasforma in una fattura che rispecchia il preventivo. Se ha chiesto un acconto, viene richiesto all'approvazione.",
-  "productPage.quoting.faq.instalments.q": "I clienti possono pagare a rate?",
-  "productPage.quoting.faq.instalments.a":
-    "Può dividere una fattura in fasi, e ciascuna viene richiesta secondo il Suo calendario. Il pagamento dilazionato al momento del pagamento è offerto tramite Stripe, dove decide il finanziatore — FieldQuo non presta e non approva nessuno.",
+  "productPage.quoting.faq.pay-over-time.q": "I miei clienti possono pagare a rate?",
+  "productPage.quoting.faq.pay-over-time.a":
+    "Sì, in Canada e negli Stati Uniti, una volta che attiva il pagamento a rate e Stripe lo abilita per la Sua attività. Il cliente può scegliere Klarna nella pagina di pagamento — oppure Affirm, solo dove Stripe approva la Sua attività per questo. È il fornitore a decidere se approvare il cliente; non Lei, né FieldQuo. Lei riceve l'intero importo in anticipo, al netto delle commissioni, e il cliente rimborsa direttamente il fornitore: i pagamenti Klarna Le arrivano secondo il Suo normale calendario di accrediti, e i pagamenti Affirm possono richiedere fino a due giorni lavorativi per essere regolati. Può anche dividere una fattura in fasi, ciascuna richiesta secondo il Suo calendario.",
 
   // /product/scheduling
   "productPage.scheduling.headline": "Ogni persona, ogni ora, su un unico tabellone",

@@ -58,8 +58,8 @@ const es = {
   "productPage.quoting.section.approval.bullet.3": "Un presupuesto conserva el idioma en que se escribió; un documento firmado nunca cambia sus palabras",
   "productPage.quoting.section.invoice.heading": "Un clic para facturar, pagado desde el teléfono",
   "productPage.quoting.section.invoice.body":
-    "Un presupuesto aprobado se convierte en una factura que se parece al presupuesto, porque se construye a partir de él. Pide un depósito, divide un trabajo grande en etapas y deja que el cliente pague con tarjeta o débito bancario — el dinero se deposita en tu propia cuenta, nunca en la nuestra.",
-  "productPage.quoting.section.invoice.bullet.1": "Modifica una factura emitida y la versión anterior se conserva",
+    "Un presupuesto aprobado se convierte en una factura que se parece al presupuesto, porque se construye a partir de él. Pide un depósito, divide un trabajo grande en etapas y deja que el cliente pague con tarjeta o débito bancario — el dinero se deposita en tu propia cuenta, nunca en la nuestra. Ofrece financiamiento a tus clientes y gana más proyectos: donde Stripe activa Klarna para tu negocio, el cliente puede pagar a plazos y tú recibes el monto completo por adelantado, menos comisiones.",
+  "productPage.quoting.section.invoice.bullet.1": "Pago a plazos con Klarna donde Stripe lo activa — tú cobras por adelantado",
   "productPage.quoting.section.invoice.bullet.2": "Depósitos y pagos por etapa, solicitados según el calendario que tú fijas",
   "productPage.quoting.section.invoice.bullet.3": "Tarjeta, o débito bancario en Canadá y Estados Unidos, pagado directo a tu cuenta",
   "productPage.quoting.section.invoice.alt":
@@ -81,9 +81,9 @@ const es = {
   "productPage.quoting.faq.after-approval.q": "¿Qué pasa cuando el cliente aprueba?",
   "productPage.quoting.faq.after-approval.a":
     "El presupuesto se convierte en un trabajo con el alcance, la dirección y el papeleo ya puestos, y un clic lo convierte en una factura que refleja el presupuesto. Si pediste un depósito, se solicita en la aprobación.",
-  "productPage.quoting.faq.instalments.q": "¿Los clientes pueden pagar en cuotas?",
-  "productPage.quoting.faq.instalments.a":
-    "Puedes dividir una factura en etapas y cada una se solicita según tu calendario. El pago a plazos al momento de pagar se ofrece a través de Stripe, donde decide el prestamista — FieldQuo no presta ni aprueba a nadie.",
+  "productPage.quoting.faq.pay-over-time.q": "¿Mis clientes pueden pagar a plazos?",
+  "productPage.quoting.faq.pay-over-time.a":
+    "Sí, en Canadá y Estados Unidos, una vez que activas el pago a plazos y Stripe lo habilita para tu negocio. Tu cliente puede elegir Klarna en la página de pago — o Affirm, solo donde Stripe aprueba tu negocio para ello. El proveedor decide si aprueba a tu cliente; no lo decides tú, ni FieldQuo. Recibes el monto completo por adelantado, menos comisiones, y tu cliente le paga directamente al proveedor: los pagos de Klarna te llegan según tu calendario de depósitos habitual, y los de Affirm pueden tardar hasta dos días hábiles en liquidarse. También puedes dividir una factura en etapas, cada una solicitada según tu calendario.",
 
   // /product/scheduling
   "productPage.scheduling.headline": "Cada persona, cada hora, en un solo tablero",

@@ -62,8 +62,8 @@ const en = {
   "productPage.quoting.section.approval.bullet.2": "Signature recorded with the exact document the client saw",
   "productPage.quoting.section.approval.bullet.3": "A quote keeps the language it was written in; a signed document never changes its words",
   "productPage.quoting.section.invoice.heading": "One click to invoice, paid from the phone",
-  "productPage.quoting.section.invoice.body": "An approved quote becomes an invoice that looks like the quote, because it is built from it. Ask for a deposit, split a big job into stages, and let the client pay by card or bank debit — the money settles into your own account, never ours.",
-  "productPage.quoting.section.invoice.bullet.1": "Amend an issued invoice and the earlier version is kept",
+  "productPage.quoting.section.invoice.body": "An approved quote becomes an invoice that looks like the quote, because it is built from it. Ask for a deposit, split a big job into stages, and let the client pay by card or bank debit — the money settles into your own account, never ours. Offer your clients financing and win more projects: where Stripe enables Klarna for your business, the client can pay over time while you're paid the full amount up front, minus fees.",
+  "productPage.quoting.section.invoice.bullet.1": "Pay over time with Klarna where Stripe enables it — you're paid up front",
   "productPage.quoting.section.invoice.bullet.2": "Deposits and stage payments, requested on the schedule you set",
   "productPage.quoting.section.invoice.bullet.3": "Card, or bank debit in Canada and the US, paid straight to your account",
   "productPage.quoting.section.invoice.alt": "The new invoice screen with line items and the internal cost and margin panel",
@@ -79,8 +79,8 @@ const en = {
   "productPage.quoting.faq.own-prices.a": "That is the only way it works. Each service starts from typical rates for your trade, marked as starting points, and you edit them to your market; the quote builder fills in from your numbers, never ours. A price list also imports from a spreadsheet, so you can start from the one you already keep.",
   "productPage.quoting.faq.after-approval.q": "What happens when the client approves?",
   "productPage.quoting.faq.after-approval.a": "The quote becomes a job with the scope, the address and the paperwork already on it, and one click turns it into an invoice that mirrors the quote. If you asked for a deposit, that is requested at approval.",
-  "productPage.quoting.faq.instalments.q": "Can clients pay in instalments?",
-  "productPage.quoting.faq.instalments.a": "You can split an invoice into stages and each one is requested on your schedule. Pay-over-time at checkout is offered through Stripe, where the lender decides — FieldQuo does not lend and does not approve anyone.",
+  "productPage.quoting.faq.pay-over-time.q": "Can my clients pay over time?",
+  "productPage.quoting.faq.pay-over-time.a": "Yes, in Canada and the US, once you switch on pay-over-time and Stripe enables it for your business. Your client can choose Klarna on the payment page — or Affirm, only where Stripe approves your business for it. The provider decides whether to approve your client; you don't, and neither does FieldQuo. You're paid the full amount up front, minus fees, and your client repays the provider directly: Klarna payments reach you on your normal payout schedule, and Affirm payments can take up to two business days to settle. You can also split an invoice into stages, each requested on your schedule.",
 
   // /product/scheduling
   "productPage.scheduling.headline": "Every person, every hour, on one board",

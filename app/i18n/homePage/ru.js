@@ -150,6 +150,8 @@ export const HOME_PAGE_RU = {
   "home.outcomes.item.conversion": "Данные о конверсии",
   "home.outcomes.item.profitability": "Рентабельность",
   "home.outcomes.allFeatures": "Посмотреть все функции",
+  "home.outcomes.paidFinancing":
+    "Предложите клиентам финансирование и выигрывайте больше проектов: они могут платить частями через Klarna там, где Stripe это включает, а вы получаете деньги сразу.",
 
   "home.ai.badge": "FieldQuo AI",
   "home.ai.title": "Спросите о своём бизнесе что угодно.",

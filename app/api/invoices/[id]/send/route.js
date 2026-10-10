@@ -50,6 +50,8 @@ import {
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 import { localisedCompany } from "@/lib/i18n/companyText";
 import { buildHowToPay, onlineOptions } from "@/lib/payments/offlineMethods";
+import { PAY_OVER_TIME_COMPANY_SELECT, payOverTimeGuideUrl } from "@/lib/payments/payOverTimeGuide";
+import { getAppOrigin } from "@/lib/appUrl";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -135,6 +137,9 @@ export async function POST(request, { params }) {
       province: true,
       vatRegistered: true,
       usTaxOverrides: true,
+      // The email's "Want to pay over time? See how" line — the portal
+      // button's rule, for the figure this email asks for.
+      ...PAY_OVER_TIME_COMPANY_SELECT,
     },
   });
 
@@ -292,6 +297,15 @@ export async function POST(request, { params }) {
     canTakeCard,
     howToPay,
     requestAmount: ask.requestCents / 100,
+    // Only when the portal would show "Pay over time" for THIS figure.
+    payOverTimeUrl: payOverTimeGuideUrl({
+      origin: getAppOrigin(request),
+      token,
+      company,
+      amountCents: ask.requestCents,
+      invoiceId: invoice.id,
+      stageId: ask.stage?.id || null,
+    }),
     note: ask.stage ? trStage("paymentStage", ask.stage.label) : null,
     language: invoiceLanguage,
     // A stage ask is the "deposit" wording; a whole-balance send the

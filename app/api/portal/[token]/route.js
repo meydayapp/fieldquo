@@ -15,7 +15,7 @@ import { bankDebitOffer } from "@/lib/stripe/bankDebit";
 import { invoiceBalanceCents } from "@/lib/stripe";
 import { stageCoverage, requestRemainingCents } from "@/lib/invoices/paymentRequest";
 import { invoicePaymentCurrency } from "@/lib/stripe/paymentCurrency";
-import { offeredFinancingMethods } from "@/lib/stripe/financingMethods";
+import { payOverTimeOffer } from "@/lib/payments/payOverTimeGuide";
 import {
   clientJurisdictionRow,
   invoiceSiteAddress,
@@ -487,16 +487,13 @@ export async function GET(request, { params }) {
   // share, a request's figure — each server-derived, card fee or not. Names
   // only; never a price, a rate or a status. A demo never offers it: its
   // pay step is the demo screen, and its columns are not Stripe's answer.
-  let financingCurrency = null;
-  try {
-    financingCurrency = invoicePaymentCurrency(client.company?.currency);
-  } catch {
-    financingCurrency = null;
-  }
-  const financingFor = (amountCents) =>
-    financingCurrency && onlinePayments && !demoPayments
-      ? offeredFinancingMethods({ company: client.company, amountCents, currency: financingCurrency })
-      : [];
+  //
+  // The rule itself is payOverTimeOffer (lib/payments/payOverTimeGuide.js):
+  // a charge currency, a real Stripe account that takes charges, not a demo,
+  // then offeredFinancingMethods. The invoice emails' "Want to pay over
+  // time? See how" line reads the SAME function, so the email never invites
+  // a client to a plan this page will not show.
+  const financingFor = (amountCents) => payOverTimeOffer({ company: client.company, amountCents });
 
   // Per invoice, because each was raised on its own day with its own decision
   // about tax. `asOf` is the invoice's creation date so a rate change last

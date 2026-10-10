@@ -50,8 +50,8 @@ const zh = {
   "productPage.quoting.section.approval.bullet.3": "报价单保持写它时用的语言；签过字的文件一个字都不会变",
   "productPage.quoting.section.invoice.heading": "一键出账单，客户用手机付款",
   "productPage.quoting.section.invoice.body":
-    "批准的报价单变成一张长得跟报价单一样的账单，因为它就是从报价单生成的。可以收定金，可以把大活儿分成几期，客户用银行卡或银行扣款付——钱进你自己的账户，绝不进我们的。",
-  "productPage.quoting.section.invoice.bullet.1": "改一张已开出的账单，之前的版本保留",
+    "批准的报价单变成一张长得跟报价单一样的账单，因为它就是从报价单生成的。可以收定金，可以把大活儿分成几期，客户用银行卡或银行扣款付——钱进你自己的账户，绝不进我们的。为客户提供分期付款，赢下更多项目：在 Stripe 为你的商家开通 Klarna 的地方，客户可以分期付款，而你提前收到全款，扣除手续费。",
+  "productPage.quoting.section.invoice.bullet.1": "在 Stripe 开通的地方用 Klarna 分期付款——你提前收款",
   "productPage.quoting.section.invoice.bullet.2": "定金和分期付款，按你定的时间表去要",
   "productPage.quoting.section.invoice.bullet.3": "银行卡，或加拿大和美国的银行扣款，直接打到你的账户",
   "productPage.quoting.section.invoice.alt":
@@ -73,9 +73,9 @@ const zh = {
   "productPage.quoting.faq.after-approval.q": "客户批准之后会怎样？",
   "productPage.quoting.faq.after-approval.a":
     "报价单变成一个活儿，范围、地址和文件都已经在上面，再一键就变成一张跟报价单一致的账单。如果你要了定金，批准时就会去收。",
-  "productPage.quoting.faq.instalments.q": "客户可以分期付吗？",
-  "productPage.quoting.faq.instalments.a":
-    "你可以把账单分成几期，每一期按你的时间表去要。结账时的分期付款通过 Stripe 提供，由放贷方决定——FieldQuo 不放贷，也不审批任何人。",
+  "productPage.quoting.faq.pay-over-time.q": "我的客户可以分期付款吗？",
+  "productPage.quoting.faq.pay-over-time.a":
+    "可以，在加拿大和美国，只要你打开分期付款，并且 Stripe 为你的商家开通了它。客户可以在付款页面选择 Klarna——或者 Affirm，但只限 Stripe 批准你的商家使用的情况。是否批准你的客户，由服务商决定；不是你，也不是 FieldQuo。你提前收到全款，扣除手续费，客户直接向服务商还款：Klarna 的款项按你平常的打款周期到账，Affirm 的款项最多可能需要两个工作日结算。你也可以把账单分成几期，每一期按你的时间表去要。",
 
   // /product/scheduling
   "productPage.scheduling.headline": "每个人、每个小时，都在一块板上",

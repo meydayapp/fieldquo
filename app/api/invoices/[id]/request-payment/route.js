@@ -40,6 +40,8 @@ import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { HOW_TO_PAY_COMPANY_SELECT } from "@/lib/payments/offlineMethods";
+import { PAY_OVER_TIME_COMPANY_SELECT, payOverTimeGuideUrl } from "@/lib/payments/payOverTimeGuide";
+import { getAppOrigin } from "@/lib/appUrl";
 import { refreshFamilyLedger } from "@/lib/invoices/family";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import {
@@ -201,6 +203,8 @@ export async function POST(request, { params }) {
       defaultLanguage: true,
       // The "How to pay" block, when the invoice has none stored yet.
       ...HOW_TO_PAY_COMPANY_SELECT,
+      // The "Want to pay over time? See how" line (payOverTimeGuideUrl below).
+      ...PAY_OVER_TIME_COMPANY_SELECT,
     },
   });
 
@@ -276,6 +280,18 @@ export async function POST(request, { params }) {
       : null;
   const requestCents =
     mode === "next_stage" ? options.nextStage.requestCents : mode === "custom" ? customCents : null;
+  // The guide link, only when the portal page this email links to would
+  // show "Pay over time" for the figure it asks for — the balance, the
+  // stage's share or the different amount (payOverTimeOffer, one rule).
+  const payOverTimeUrl = payOverTimeGuideUrl({
+    origin: getAppOrigin(request),
+    token,
+    company,
+    amountCents: requestCents ?? Math.round(balance * 100),
+    invoiceId: invoice.id,
+    stageId: mode === "next_stage" ? options.nextStage.id : null,
+    requestId: mode === "custom" ? paymentRequest.id : null,
+  });
 
   const { subject, html, text } =
     mode === "balance"
@@ -285,6 +301,7 @@ export async function POST(request, { params }) {
           company: companyText || {},
           url,
           canTakeCard,
+          payOverTimeUrl,
           note,
           kind: "reminder",
           language: reminderLanguage,
@@ -300,6 +317,7 @@ export async function POST(request, { params }) {
           company: companyText || {},
           url: payUrl,
           canTakeCard,
+          payOverTimeUrl,
           // A stage request reads exactly as the Send button's does — the
           // stage's name, then whatever the office added.
           note:
