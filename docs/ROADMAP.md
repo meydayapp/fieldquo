@@ -113,6 +113,32 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Services & pricing shows every enabled service (10 October 2026)
+
+TrueFinish (a cabinet company) had Roofing and Siding switched on, and the
+owner only found them after pressing "Show other trades": "all of the ones I
+have selected should already be displayed in Services & pricing".
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- The trade preset now narrows only the DISABLED catalogue. An enabled system
+  category always passes it, as custom categories already did; search still
+  narrows everything. Rule in `lib/services/tradeFilter.js`, called by
+  `app/app/settings/services/ServicesEditor.js`.
+- "Show other trades" appears only when the preset is actually hiding a
+  disabled category (or while it is on, so it can be switched back).
+- Audited every other preset use: `lib/signup/sampleServices.js` (signup
+  samples) and `lib/signup/welcome.js` (the trade picker) choose new trades
+  and list no enabled services; instant quotes, the website and self-quote do
+  not filter by industry at all. Nothing else changed.
+
+### Checks
+
+- `check:services-trade-filter` (in `check:all`): 24 assertions executing the
+  filter; 10/10 mutants killed.
+
+---
+
 ## AI employee: what is on file, and new contacts to the closer (10 October 2026)
 
 TrueFinish's receptionist asked Tony three times for "the best phone number for

@@ -49,6 +49,7 @@ import { hasLevel } from "@/lib/permissions/enforce";
 import BackToHome from "@/app/components/BackToHome";
 import { allPriceBookUnits } from "@/app/data/tradePriceBooks";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
+import { filterServiceCategories, countHiddenByTradePreset } from "@/lib/services/tradeFilter";
 // One call for what a trade IS — its price book, what it charges by, whether it
 // ships standard add-on products, whether a homeowner can be quoted for it
 // instantly. This screen used to import four lists and ask each one separately,
@@ -450,16 +451,16 @@ export default function ServicesEditor({ compact = false, focus = "services", on
   );
 
   // What to render: search filters the label across everything; the trade
-  // filter hides only OTHER trades' system categories. A company's own custom
-  // categories (companyId set, isSystem false) always pass the trade filter —
-  // they were created deliberately and belong to no preset.
+  // filter hides only OTHER trades' system categories that are switched OFF.
+  // Custom categories and every ENABLED category always pass it — the
+  // preset narrows the catalogue, never what the company sells (TrueFinish's
+  // Roofing and Siding were hidden behind "Show other trades"). The rule
+  // lives in lib/services/tradeFilter.js, executed by its check.
   const visibleCategories = useMemo(() => {
-    const q = categorySearch.trim().toLowerCase();
-    const list = categories.filter((c) => {
-      if (q && !c.label.toLowerCase().includes(q)) return false;
-      if (!c.isSystem) return true;
-      if (showAllTrades || presetKeys.length === 0) return true;
-      return presetKeys.includes(c.key);
+    const list = filterServiceCategories(categories, {
+      search: categorySearch,
+      showAllTrades,
+      presetKeys,
     });
     // The pricing and wording dialogs are about the trades the company
     // sells, so they show those — unless none is switched on yet, in which
@@ -471,9 +472,14 @@ export default function ServicesEditor({ compact = false, focus = "services", on
     return list;
   }, [categories, categorySearch, showAllTrades, presetKeys, compact, focus]);
 
-  // Only offer the "other trades" escape hatch when a preset is actually
-  // narrowing the list — with no preset, everything is already shown.
-  const hasPreset = presetKeys.length > 0;
+  // Only offer the "other trades" escape hatch when the preset is actually
+  // hiding something — disabled categories of other trades. With no preset,
+  // or every out-of-trade category already switched on (and so shown), the
+  // button would promise rows that are already on screen. Still offered while
+  // the toggle is on, so "Show just my trade" can switch it back.
+  const hasPreset =
+    presetKeys.length > 0 &&
+    (showAllTrades || countHiddenByTradePreset(categories, { presetKeys }) > 0);
   // Where `#quote-wording` lands: the first enabled category on screen.
   const firstEnabledId = visibleCategories.find((c) => c.enabled)?.id ?? null;
   // The one painting card that carries the takeoff's rate sets. Both
