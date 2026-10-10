@@ -449,6 +449,19 @@ async function main() {
     for (const str of strings(block.replace(/^\s*\/\/.*$/gm, ""))) {
       if (RANGE.test(str) || WHEN.test(str)) helpBad.push(`helpArticles offer-financing: ${str.slice(0, 60)}`);
     }
+    // Settings › Payments, the contractor's own card (app/i18n/appMessages.js,
+    // nine locales): it described Affirm alone with "$50 and $30,000". Now
+    // both providers, Stripe deciding each, and Affirm's range only as {min}
+    // / {max} from the provider table — never a typed figure.
+    const app = read("app/i18n/appMessages.js");
+    const desc = keyed(app, "app\\.setPayments\\.financing(?:Desc|Note)");
+    ok(`Settings › Payments description and note in all ${desc.length / 2} locales name Klarna and Affirm, no range, no 'today'`,
+      desc.length === 18 && desc.every(({ value }) => /Klarna/.test(value) && /Affirm/.test(value) && !RANGE.test(value) && !/\b50\b|30[ ,.]?000/.test(value) && !WHEN.test(value)),
+      desc.filter(({ value }) => !/Klarna/.test(value) || /\b50\b|30[ ,.]?000/.test(value)).map((x) => x.value.slice(0, 50)));
+    const active = keyed(app, "app\\.setPayments\\.affirm(?:Active|WrongCurrency)");
+    ok("  ^ 'Affirm: active' prints {min}–{max} from the provider table (9 locales), with a wrong-currency line beside it",
+      active.length === 18 && active.filter((x) => x.key.endsWith("Active")).every(({ value }) => /\{min\}/.test(value) && /\{max\}/.test(value) && !/\$|30[ ,.]?000/.test(value)) &&
+        /financingBounds\("affirm"/.test(read("app/app/settings/payments/page.js")) && /affirmWrongCurrency/.test(read("app/app/settings/payments/page.js")));
     ok("help centre (en/fr/es) and the in-app article: every Affirm sentence names Klarna too (or is the settle caveat), no range, no 'today'",
       helpBad.length === 0 && /Klarna/.test(block), helpBad.slice(0, 6).join("; "));
   }

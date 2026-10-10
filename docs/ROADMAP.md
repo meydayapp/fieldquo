@@ -173,11 +173,18 @@ and win more projects". Branch `feat/financing-guide`, not pushed.
   check:feature-pages pins Klarna-first, the caveat, no range, no
   "today/instant/same day"; check:pay-over-time-guide §6b reads every
   language file and the help modules as source (mutation-tested).
-- Not changed, flagged: the in-app Settings › Payments copy
-  (`app.setPayments.financingDesc` / `financingNote` / `affirmActive`, all
-  languages) still describes Affirm only with "$50 and $30,000"; and the
-  contractor fee help ("Pay over time (Klarna, Affirm or Afterpay) … costs
-  6.5% + $0.30") names Afterpay, which the pay link doesn't offer.
+- **Settings › Payments copy (coordinator, same day), 9 app locales.**
+  `financingDesc` and `financingNote` name Klarna and Affirm (Affirm only
+  where Stripe approves the business), say Stripe decides each provider and
+  the lines below show its answer, and carry no range. `affirmActive` takes
+  `{min}`/`{max}` from the provider table in the company's money, like
+  `klarnaActive`, with a new `affirmWrongCurrency` for a billing currency
+  Affirm doesn't serve; check:app-currency's two exemptions for the typed
+  "$50–$30,000" are gone. Status/reason lines untouched. The contractor fee
+  sentence ("Klarna, Affirm or Afterpay … 6.5% + $0.30") stays: it is the
+  fee rule, and would apply if Stripe's dynamic checkout settled Afterpay.
+  `app.setPayments.financingTitle` ("(Affirm)") is unused — the card prints
+  `financingTitleProviders`.
 
 ## Klarna beside Affirm (9 October 2026)
 

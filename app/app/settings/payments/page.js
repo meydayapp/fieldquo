@@ -7,7 +7,8 @@ import { fetchJson } from "@/lib/fetchJson";
 import useStripeConnect from "./useStripeConnect";
 import StripeConnectCard, { connectState } from "./StripeConnectCard";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useCompanyPreferences, useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { financingBounds } from "@/lib/stripe/financingMethods";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ProcessingFeesCard from "./ProcessingFeesCard";
@@ -37,7 +38,14 @@ function countryName(code, language) {
 // "activate Affirm" page that an Express account does not have. On: which
 // of the four states Stripe's answer is, because "pending" and "inactive"
 // both mean card-only links and only one of them is the contractor's move.
-function affirmSentence({ affirm, offerFinancing, t, language }) {
+//
+// "Active" prints Affirm's OWN range in the company's money, from the one
+// provider table (lib/stripe/financingMethods.js, cited there to
+// https://docs.stripe.com/payments/affirm) — the same shape as Klarna's line
+// beside it. It used to be a typed "$50 to $30,000", and the card's
+// description and note named Affirm alone with that range, as if it were
+// FieldQuo's; Stripe decides per provider, and each line says its own.
+function affirmSentence({ affirm, offerFinancing, t, language, currency, money }) {
   const status = affirm?.status || null;
   if (status === "unavailable") {
     return t("app.setPayments.affirmUnavailable", {
@@ -45,7 +53,16 @@ function affirmSentence({ affirm, offerFinancing, t, language }) {
     });
   }
   if (!offerFinancing) return t("app.setPayments.financingNote");
-  if (status === "active") return t("app.setPayments.affirmActive");
+  if (status === "active") {
+    const bounds = financingBounds("affirm", String(currency || "").toLowerCase());
+    // A billing currency Affirm does not serve — Stripe granted the
+    // capability, but no invoice in that currency can use it.
+    if (!bounds) return t("app.setPayments.affirmWrongCurrency");
+    return t("app.setPayments.affirmActive", {
+      min: money(bounds.minCents / 100),
+      max: money(bounds.maxCents / 100),
+    });
+  }
   if (status === "pending") return t("app.setPayments.affirmPending");
   if (status === "inactive") return t("app.setPayments.affirmInactive");
   return t("app.setPayments.affirmNotRequested");
@@ -54,6 +71,7 @@ function affirmSentence({ affirm, offerFinancing, t, language }) {
 function PaymentsPageScreen() {
   const { t, language } = useTranslation();
   const { formatDate } = useCompanyPreferences();
+  const money = useCompanyMoney();
   // The Stripe half of the page — status, connect, re-check, dashboard — is
   // the hook the home page's set-up dialog also runs (./useStripeConnect.js).
   const {
@@ -421,6 +439,8 @@ function PaymentsPageScreen() {
                   offerFinancing: Boolean(company?.offerFinancing),
                   t,
                   language,
+                  currency: company?.currency,
+                  money,
                 })}
               </p>
               {/* What Stripe is waiting on for the capability itself, in the
