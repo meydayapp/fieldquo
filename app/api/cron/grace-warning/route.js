@@ -40,11 +40,12 @@ import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
 import { getPlatformFrom } from "@/lib/email/platformSender";
-import { buildBillingEmail } from "@/lib/email/billingEmail";
+import { buildBillingEmail, billingLetterWords, formatBillingDate } from "@/lib/email/billingEmail";
+import { hasBillingEmailLanguage } from "@/lib/i18n/billingEmailCopy";
+import { ownerLetterLanguage } from "@/lib/billing/billingLanguage";
 import { ownerEmailFor } from "@/lib/email/companySender";
 import { recordError } from "@/lib/platform/errorLog";
 import { getAppOrigin } from "@/lib/appUrl";
-import { formatDateOnly } from "@/lib/format/companyDate";
 import { graceWarningDecision } from "@/lib/billing/graceWarning";
 
 // Same shape and same reasoning as renewal-reminders' BATCH: the work per row
@@ -126,17 +127,21 @@ export async function GET(request) {
       continue;
     }
 
+    // The reader's language — the owner's, else the company's, else English
+    // (lib/billing/billingLanguage.js); the date is formatted in it too.
+    const language = await ownerLetterLanguage(sub.companyId, hasBillingEmailLanguage);
     const { subject, html } = buildBillingEmail({
       kind: "grace",
-      companyName: sub.company?.name || "Your company",
+      companyName: sub.company?.name || billingLetterWords(language).yourCompany,
       daysLeft: decision.daysLeft,
       // Pre-formatted here, same convention as "renewal"'s periodEnd — the
       // email module knows nothing about date formatting and shouldn't have
       // to. Only the reminder's copy actually states this as a firm date
       // ("locks on the 14th"); grace_start's copy uses daysLeft alone.
-      lockDate: formatDateOnly(decision.lockAt),
+      lockDate: formatBillingDate(decision.lockAt, language),
       reminder: isReminder,
       billingUrl: `${origin}/app/settings/account-billing`,
+      language,
     });
 
     const from = await getPlatformFrom();

@@ -46,13 +46,14 @@ import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
 import { getPlatformFrom } from "@/lib/email/platformSender";
-import { buildBillingEmail } from "@/lib/email/billingEmail";
+import { buildBillingEmail, billingLetterWords, formatBillingDate } from "@/lib/email/billingEmail";
+import { hasBillingEmailLanguage } from "@/lib/i18n/billingEmailCopy";
+import { ownerLetterLanguage } from "@/lib/billing/billingLanguage";
 import { ownerEmailFor } from "@/lib/email/companySender";
 import { recordError } from "@/lib/platform/errorLog";
 import { cardLastFourForSubscription } from "@/lib/platform/stripeBilling";
 import { chargeFor } from "@/lib/billing/interval";
 import { formatMoney } from "@/lib/currency";
-import { formatDateOnly } from "@/lib/format/companyDate";
 import { getAppOrigin } from "@/lib/appUrl";
 import { decideRenewalReminder, RENEWAL_WINDOW_DAYS } from "@/lib/billing/renewalReminder";
 
@@ -153,11 +154,16 @@ export async function GET(request) {
     }
 
     const last4 = await cardLastFourForSubscription(sub.stripeSubscriptionId);
+    // The reader's language — the owner's, else the company's, else English
+    // (lib/billing/billingLanguage.js); the date is formatted in it too.
+    // The amount is not: formatMoney fixes the symbol from the currency.
+    const language = await ownerLetterLanguage(sub.companyId, hasBillingEmailLanguage);
     const { subject, html } = buildBillingEmail({
       kind: "renewal",
-      companyName: sub.company?.name || "Your company",
+      language,
+      companyName: sub.company?.name || billingLetterWords(language).yourCompany,
       planName: sub.plan.name,
-      periodEnd: formatDateOnly(decision.periodEnd),
+      periodEnd: formatBillingDate(decision.periodEnd, language),
       renewalAmount: formatMoney(charge.amount, sub.company?.currency),
       last4,
       billingUrl: `${origin}/app/settings/account-billing`,

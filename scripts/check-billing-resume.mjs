@@ -438,8 +438,19 @@ console.log("\n── 9. The routes and screens, pinned ────────
   const detail = read("app/platform/companies/[id]/CompanyDetail.js");
   ok("platform company page: Ends — customer cancelled, and Trial used on", /customer cancelled/.test(detail) && /Trial used on/.test(detail) && /sub\.cancelAtPeriodEnd/.test(detail));
 
+  // Executed, not read: the sentences live in lib/i18n/billingEmailCopy.js
+  // since the letters became multilingual, so the source of billingEmail.js
+  // no longer carries them.
+  const { buildBillingEmail } = await import("@/lib/email/billingEmail");
+  const booked = buildBillingEmail({ kind: "cancelled", companyName: "Co", planName: "Solo", periodEnd: "Oct 13, 2026", atPeriodEnd: true });
+  const endedNow = buildBillingEmail({ kind: "cancelled", companyName: "Co", planName: "Solo", periodEnd: "Oct 13, 2026", atPeriodEnd: false });
   const email = stripComments(read("lib/email/billingEmail.js"));
-  ok("cancellation email: 'ends on {date}; nothing more will be charged' only for a booked end", /atPeriodEnd && periodEnd/.test(email) && /nothing more will be charged/.test(email));
+  ok(
+    "cancellation email: 'ends on {date}; nothing more will be charged' only for a booked end",
+    /atPeriodEnd && periodEnd/.test(email) &&
+      /ends on <strong>Oct 13, 2026<\/strong>; nothing more will be charged/.test(booked.html) &&
+      !/nothing more will be charged/.test(endedNow.html),
+  );
   const notify = stripComments(read("lib/billing/notify.js"));
   ok("notifyCancellation only states a date for a booked end", /atPeriodEnd \? periodEnd/.test(notify));
 

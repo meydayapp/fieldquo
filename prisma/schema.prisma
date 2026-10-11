@@ -1132,6 +1132,19 @@ model Subscription {
   // switch sends a "your plan changed" note, and a webhook replaying the same
   // plan sends nothing.
   notifiedPlanId     String?
+  /// The Stripe subscription id whose END the "your plan has been cancelled"
+  /// letter last confirmed (lib/billing/notify.js notifyCancellation).
+  ///
+  /// Two callers fire that letter for one immediate cancellation — the
+  /// self-serve cancel route, the moment the person is waiting, and the
+  /// customer.subscription.deleted webhook that follows it seconds later —
+  /// and before this column both sent (scripts/check-lifecycle-emails.mjs
+  /// replays the pair). Keyed on the Stripe id, not a timestamp: a cancelled
+  /// Stripe subscription never comes back, and every way back in (Checkout,
+  /// Resume's credited or charge-now path) makes a NEW one, so cancel →
+  /// resubscribe → cancel confirms twice and one cancellation once.
+  /// Claimed before the send, restored when the send fails.
+  cancellationNotifiedFor String?
   /// When the account first went unpaid — trial ended with no working card, or
   /// a renewal failed.
   ///

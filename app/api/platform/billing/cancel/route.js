@@ -182,8 +182,11 @@ export async function POST(request) {
 
     // The customer.subscription.deleted webhook also sends this when it
     // arrives, but a company whose webhook isn't reaching us would otherwise
-    // cancel and hear nothing at all. notifyCancellation is idempotent and
-    // this is the moment the person is actually waiting for confirmation.
+    // cancel and hear nothing at all. This is the moment the person is
+    // actually waiting for confirmation, so it goes from here — and
+    // notifyCancellation keys the "ended" letter on the Stripe subscription
+    // (Subscription.cancellationNotifiedFor), so the webhook's arrival a few
+    // seconds later sends nothing. Until that column, it sent a second copy.
     await notifyCancellation(member.companyId, request, {
       periodEnd: cancelled?.current_period_end
         ? new Date(cancelled.current_period_end * 1000)

@@ -319,8 +319,10 @@ ok("the no-recipient branch reverts the claim too",
 // The reminder's copy needs a real date, not just a day count — check the
 // route actually computes and passes one, rather than the email module's
 // `lockDate` parameter being wired to nothing.
+// formatBillingDate since the letters became multilingual: formatDateOnly
+// for English (byte-for-byte what it was), the reader's month name otherwise.
 ok("the cron formats decision.lockAt for the email (not left for the email module to invent)",
-  /formatDateOnly\(decision\.lockAt\)/.test(cron));
+  /formatBillingDate\(decision\.lockAt, language\)/.test(cron));
 
 // Through the shared Prisma-aware reader, not the JS stripper above: Prisma
 // has no block comments, and that stripper paired a literal `/*` in a doc
