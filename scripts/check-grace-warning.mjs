@@ -238,7 +238,9 @@ console.log("\nThe email itself, EXECUTED — content, and the empathetic regist
   // punctuation and capitals that have nothing to do with the copy a person
   // reads, and checking the tag soup instead of the text would make these
   // assertions fail on boilerplate no editor ever touches.
-  const textOnly = (html) => html.replace(/<[^>]+>/g, " ");
+  // The <head> (its <style> block's `!important`, since the letters moved
+  // onto the shared layout, lib/email/platformLayout.js) is not copy either.
+  const textOnly = (html) => html.replace(/<head>[\s\S]*?<\/head>/i, " ").replace(/<[^>]+>/g, " ");
   for (const [label, email] of [["grace_start", first], ["grace_remind", reminderEmail]]) {
     const text = textOnly(email.html);
     ok(`${label}: no threatening language (terminate/forfeit/lose access/collections)`,
