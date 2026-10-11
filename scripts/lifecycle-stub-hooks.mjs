@@ -32,6 +32,13 @@ const REDIRECTED = new Set([
 
 export async function resolve(specifier, context, nextResolve) {
   if (REDIRECTED.has(specifier)) return { url: STUBS, shortCircuit: true };
+  // The monthly-digest CRON's audience is what the check executes there; the
+  // letter itself (loadMonthlySummary's dozen loaders) is check:monthly-
+  // summary's. So for that one importer only, generateMonthlyDigest is the
+  // recorder in lifecycleStubs.mjs — every other importer gets the real file.
+  if (specifier === "@/lib/ai/monthlyDigest" && /\/app\/api\/cron\/monthly-digest\/route\.js$/.test(context.parentURL || "")) {
+    return { url: STUBS, shortCircuit: true };
+  }
   // companySender.js imports its siblings relatively ("./resend",
   // "./platformSender"). Those must land on the same recorder, or a send
   // made through resolveSender would reach the real Resend client.

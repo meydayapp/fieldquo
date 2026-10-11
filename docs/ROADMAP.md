@@ -113,6 +113,101 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Lifecycle emails, part B: digest for trials, billing letters in every language, one cancellation letter, referral and AI-credit letters, the client's approval email (11 October 2026)
+
+Owner: "look at the different email the crms send to people that sign up...
+we have some but can you double check what else is missing" — then, to the
+list of gaps: "can you do all of them?" Part B of two (the other agent builds
+the shared layout, preferences + List-Unsubscribe, the trial nudges and the
+trial-ended letter).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Monthly summary reaches card-free trials** (`lib/ai/digestAudience.js`,
+  `app/api/cron/monthly-digest`). The cron selected `onboardingStatus
+  "active"`, written only by Stripe Checkout, so no card-free trial (every
+  signup since 2026-09-29) ever got it. Now: a live plan (active/trialing),
+  past_due inside its 7-day grace, a card-free trial still running, or a
+  hand-made company with onboardingStatus active (the old rule, kept). Never a
+  demo, anything FieldQuo ended or locked, a cancelled / expired company, or a
+  company created after the month closed. **A trial month with nothing in it
+  gets no email** (no row, no model call, no charge) — decided over a "nothing
+  yet" letter because the email is figures, and a page of "no invoices yet"
+  is the page of zeros; nudging belongs to the onboarding sequence. A paying
+  company's quiet month still gets its "A quiet October" letter. Reserved
+  test addresses are skipped.
+- **Billing letters in all nine app languages** (`lib/i18n/billingEmailCopy.js`):
+  subscribed, plan changed, renewal, grace (both), cancelled (both), the facts
+  table, the footer, dates in the reader's month names. Language: the owner's
+  `User.language`, else `Company.defaultLanguage`, else English
+  (`lib/billing/billingLanguage.js`). English is byte-identical — md5 of all
+  12 kind/variant payloads and the platform notice taken at 3c5cab740 and
+  pinned in the check. (The trial reminder reads the company language only and
+  is the other agent's file; for an owner who never chose a language both
+  rules agree.)
+- **One cancellation letter per cancellation.** Proved by executing the real
+  cancel route and the real `customer.subscription.deleted` webhook: an
+  immediate (trial) cancel sent "Your plan has been cancelled" TWICE. Now
+  `Subscription.cancellationNotifiedFor` holds the ended Stripe subscription
+  id (claimed before the send, restored on failure), so the second caller is a
+  no-op; cancel → resubscribe → cancel (a new Stripe id) still sends twice. A
+  company FieldQuo ended or locked gets no "press Resume" letter.
+- **"You earned a free month"** to the referrer, and **"Your free month is
+  applied"** to the newcomer (`lib/referrals/rewardEmail.js`), sent from
+  `claimAndExtend` only when the month actually landed, once per reward
+  (`ReferralCredit.notifiedAt`). Checked first: nothing told either side once
+  the month was granted.
+- **AI credit running low** (`lib/ai/creditLow.js`): owner + active admins,
+  each in their own language, once when an AI usage charge leaves the AI
+  wallet under **$5** (`AI_CREDIT_LOW_CENTS` in `lib/voice/credits.js` — the
+  smallest top-up, and the figure the assistant already called "low"; its
+  private copy now reads the shared rule), again only after a top-up back to
+  $5+ and a new crossing (`Company.aiCreditLowNotifiedAt`). Hooked into the
+  ledger's two writers, so no charge path can bypass it; a plan's month-end
+  expiry is not a crossing. Transactional.
+- **The client's approval email** (`lib/email/quoteApprovedEmail.js`): the
+  contractor's logo and brand band, the approved total, "{company} will be in
+  touch about scheduling the work.", a button back to the quote, the client's
+  portal line, the signed PDF still attached, in the quote's language (8 client
+  languages), no FieldQuo. Contrast measured ≥ 4.5:1 on 9 hostile brands.
+
+### Waits on the email-preferences system (TODO — do not wire before it lands)
+
+- **Win-back** (`lib/lifecycle/winBack.js`) and the **monthly product-updates
+  letter** (`lib/lifecycle/productNewsletter.js`) are content builders and
+  selection rules only — pure, executed by the check, imported by nothing.
+  Both are marketing mail and need the preferences / List-Unsubscribe system
+  first; no cron, route or control exists for them. When wiring: a
+  `Subscription.winBackSentFor` (the Stripe id, like the cancellation guard)
+  and a `Company.productUpdatesIssueSent` (the "2026-09" key), the
+  do-not-contact read at send time, the new shared layout, one cron each
+  (check the Vercel cron count — 56 today).
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+```sql
+ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "cancellationNotifiedFor" TEXT;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "aiCreditLowNotifiedAt" TIMESTAMP(3);
+ALTER TABLE "ReferralCredit" ADD COLUMN IF NOT EXISTS "notifiedAt" TIMESTAMP(3);
+```
+
+Until it runs, notifyCancellation, the referral grant and every AI charge's
+low-credit check fail their read (all three never throw; the letters just do
+not go) — apply it first.
+
+### Checks
+
+- `check:lifecycle-emails` (in `check:all`): executed against a FakePrisma +
+  recording Stripe + recording sendEmail (`scripts/lifecycle-stub-hooks.mjs`):
+  the digest audience and the real cron, the English md5 pins, every language
+  complete with matching placeholders, the real cancel route + webhook pair,
+  the real referral grant, the real ledger writers, the approval email's
+  contrast and white-label, win-back / newsletter rules.
+- `check:grace-warning` and `check:billing-resume` re-pointed at the new
+  date formatter / executed letter.
+
+---
+
 ## Colours & materials on the job, several colour rows per quote service (10 October 2026)
 
 Owner: "for painting jobs shouldn't the job have the color needed? roofing →

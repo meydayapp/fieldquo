@@ -96,7 +96,10 @@ export class FakePrisma {
           if (v.none) { if (related.some((r) => this.match(rel[1], r, v.none))) return false; continue; }
           throw new Error("fakePrisma: to-many filter needs some/none");
         }
-        if (v === null) {
+        // `null` and `{ is: null }` both mean "has no related row" — Prisma
+        // accepts either for an optional to-one; the trial-reminder and
+        // monthly-digest crons write the second.
+        if (v === null || (typeof v === "object" && "is" in v && v.is === null)) {
           if (related != null) return false;
           continue;
         }

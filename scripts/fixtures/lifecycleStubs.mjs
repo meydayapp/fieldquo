@@ -30,6 +30,8 @@ export const harness = {
   errors: [],
   member: null,
   activity: [],
+  digestCalls: [],
+  digestAnswer: null,
 };
 
 /** A FakePrisma with the few extra delegate methods these paths call. */
@@ -62,6 +64,8 @@ export function resetHarness({ tables = {}, relations = {}, stripe = null, membe
   harness.errors.length = 0;
   harness.member = member;
   harness.activity.length = 0;
+  harness.digestCalls.length = 0;
+  harness.digestAnswer = null;
   return harness.db;
 }
 
@@ -121,6 +125,15 @@ export async function memberOrRefusal() {
 export async function memberOrRefusalPlain() {
   if (!harness.member) return { refusal: { error: "Unauthorized", status: 401 } };
   return { member: harness.member };
+}
+
+// ── @/lib/ai/monthlyDigest (for app/api/cron/monthly-digest only) ───────────
+// Records which companies the cron asked for, and with what skipWhenEmpty;
+// answers what harness.digestAnswer(companyId) says (default: a digest row).
+export async function generateMonthlyDigest(args) {
+  harness.digestCalls.push(args);
+  const answer = typeof harness.digestAnswer === "function" ? harness.digestAnswer(args) : null;
+  return answer || { id: `digest_${args.companyId}` };
 }
 
 // ── @/lib/activity/log ──────────────────────────────────────────────────────
