@@ -39,6 +39,8 @@ import { fetchJson } from "@/lib/fetchJson";
 import { formatShortDate, formatTimeOfDay, formatWeekdayDayMonth } from "@/lib/format/localeDate";
 import MediaUploader from "@/app/components/MediaUploader";
 import { workOrderPath, workOrderPdfPath, workOrderPrintPath } from "@/lib/workOrder/url";
+import { formatSelectionLine } from "@/lib/jobs/selections";
+import { coatsTextFor } from "@/app/components/selections/SelectionFields";
 
 export default function WorkOrderView({ jobId }) {
   const { t, language } = useTranslation();
@@ -241,6 +243,8 @@ export default function WorkOrderView({ jobId }) {
           <Stat value={String(wo.stats.photos)} label={t("app.workOrder.statPhotos", "photos filed")} />
         </div>
 
+        <WorkOrderSelections wo={wo} t={t} />
+
         {wo.areas.length === 0 && (
           <p className="mt-4 text-sm text-muted-foreground">
             {t("app.workOrder.noAreas", "The quote behind this job has no areas or lines to put on a work order yet.")}
@@ -426,6 +430,43 @@ function AreaScope({ area: a, t }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Above the areas: the job's colours and materials (JobSelection), each row as
+ * the crew reads it — "Uppers: BM Chantilly Lace OC-65, satin, 2 coats" —
+ * with its swatch photo when one was taken. Read-only here; the job page's
+ * "Colours & materials" card is where they are changed. Nothing at all for a
+ * job with none.
+ */
+function WorkOrderSelections({ wo, t }) {
+  const rows = (wo.selections || [])
+    .map((r) => ({ r, ...formatSelectionLine(r, { coatsText: coatsTextFor(t) }) }))
+    .filter((x) => x.line || x.notes);
+  if (!rows.length) return null;
+  return (
+    <section className="mt-4 rounded-xl border border-border bg-card p-4 text-sm text-foreground" data-work-order-selections>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t("app.selections.title", "Colours & materials")}
+      </h2>
+      <ul className="space-y-1.5">
+        {rows.map(({ r, line, notes }, i) => (
+          <li key={i} className="flex items-start gap-2.5">
+            {r.swatchUrl ? (
+              <a href={r.swatchUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={r.swatchUrl} alt={t("app.selections.swatch", "Swatch photo")} className="h-8 w-8 rounded object-cover border border-border" />
+              </a>
+            ) : null}
+            <span className="min-w-0">
+              <span className="font-medium break-words">{line}</span>
+              {notes ? <span className="block text-xs text-muted-foreground break-words">{notes}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

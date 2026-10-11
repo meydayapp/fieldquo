@@ -176,7 +176,10 @@ async function turn(db, log, body, at) {
   return respondToMessage({
     companyId: "C1", threadId: "th1", messageId: m.id, channel: "meta", send,
     deps: {
-      db, now: new Date("2026-10-15T12:00:00Z"),
+      // A minute after the message: the 24-hour reply window is read against
+      // this clock, so a fixed date here would fail once the real calendar
+      // passed it (it did, on 2026-10-11).
+      db, now: new Date(at.getTime() + 60_000),
       checkAiQuota: async () => ({ allowed: true }), recordAiUsage: async () => {}, isAiConfigured: () => true,
       notify: async () => {}, sleep: async () => {}, recordError: async () => {},
       runToolLoop: scriptedModel(log),

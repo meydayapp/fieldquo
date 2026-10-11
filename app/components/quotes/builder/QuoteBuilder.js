@@ -70,6 +70,7 @@ import { templatePreview, quoteTypeSummary } from "@/lib/quotes/servicePicker";
 import ScopeGroupCard from "./ScopeGroupCard";
 import TradeTakeoff, { hasTakeoff } from "./TradeTakeoff";
 import UnitPricingFields from "./UnitPricingFields";
+import GroupSelections from "./GroupSelections";
 import IntakeFields from "./IntakeFields";
 import DrywallRepairPicker from "./DrywallRepairPicker";
 import { isDrywallRepairTrade } from "@/lib/quotes/drywallRepairs";
@@ -250,6 +251,13 @@ function groupFromStored(g, importedIds, fallbackLabel) {
     takeoff: g.takeoff ?? null,
     lineItems: lines,
     ...(factors.length ? { customFactors: factors } : {}),
+    // The service's added colour rows (QuoteScopeGroup.selections), and the
+    // fact that it HAD some — so removing the last one saves as a clear
+    // rather than as "said nothing". A group with none keeps exactly the
+    // shape it always had (lib/jobs/selections.js groupSelectionsForPayload).
+    ...(Array.isArray(g.selections) && g.selections.length
+      ? { selections: g.selections, selectionsStored: true }
+      : {}),
   };
 }
 
@@ -2153,6 +2161,23 @@ export function QuoteBuilderForm({
     });
   }
 
+  // The service's added colour rows. Empty goes back to ABSENT, the same rule
+  // as the factors below: a group whose rows were all removed must save as
+  // one that never had any — unless rows were STORED, which
+  // groupSelectionsForPayload turns into a clear.
+  function updateSelections(groupTempId, next) {
+    setScopeGroups((prev) =>
+      prev.map((g) => {
+        if (g.tempId !== groupTempId) return g;
+        if (!Array.isArray(next) || next.length === 0) {
+          const { selections, ...rest } = g;
+          return rest;
+        }
+        return { ...g, selections: next };
+      }),
+    );
+  }
+
   function updateCustomFactors(groupTempId, next) {
     setScopeGroups((prev) =>
       prev.map((g) => {
@@ -3083,6 +3108,20 @@ export function QuoteBuilderForm({
             t={t}
           />
         )}
+
+        {/* ── Colours & materials for this service ──────────────────────
+            Several rows per service, any trade, new group or saved one —
+            they are not money, so a saved group's flattened lines are not
+            touched by them. A cabinet group's own Colour / Sheen / Door
+            style stay where they are (the unit pricing card above) and are
+            shown here as the first row. Copied onto the job when the quote
+            is accepted (lib/jobs/selectionsServer.js). Read-only on a
+            locked group; absent there when it has none. */}
+        <GroupSelections
+          group={group}
+          readOnly={locked}
+          onChange={(next) => updateSelections(group.tempId, next)}
+        />
 
         {locked ? (
           <div className="space-y-1.5">

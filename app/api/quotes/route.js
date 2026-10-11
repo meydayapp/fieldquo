@@ -28,6 +28,7 @@ import {
   requireCost,
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { quoteGroupSelectionsData } from "@/lib/quotes/groupSelectionsData";
 import { seedCatalogueAddOns } from "@/lib/quotes/offeredAddOns";
 import { createOfferedAddOns } from "@/lib/quotes/suggestedAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
@@ -488,6 +489,10 @@ export async function POST(request) {
             // What the recipe-based cost estimate is derived from. See the
             // QuoteScopeGroup model.
             intakeValues: g.intakeValues ?? null,
+            // The service's added colour rows, cleaned server-side. Absent
+            // from the data entirely when the builder sent none, so a quote
+            // without them is created exactly as before.
+            ...quoteGroupSelectionsData(g),
             subtotal: g.subtotal || 0,
             sortOrder: i,
           })),

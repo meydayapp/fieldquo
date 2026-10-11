@@ -2119,6 +2119,8 @@ model Company {
   ga4Id                String?
   pixelConsentRequired Boolean @default(false)
   jobs                  Job[]
+  /// Colours & materials recorded on the company's jobs — see JobSelection.
+  jobSelections         JobSelection[]
   satisfactionResponses SatisfactionResponse[]
   jobChecklistTemplates JobChecklistTemplate[]
   leadRequests          LeadRequest[]
@@ -5314,8 +5316,28 @@ model QuoteScopeGroup {
   // Not client-facing and not the source of truth for what is BILLED — the
   // flattened lineItems are.
   intakeValues Json?
+
+  /// The colour rows the estimator added to this service beyond the single
+  /// Colour / Sheen / Door style a cabinet group has always carried in its
+  /// base line's meta — "Uppers: Chantilly Lace OC-65, satin, 2 coats",
+  /// "Island: Hale Navy HC-154". An array of
+  /// { id, area, product, colourName, colourCode, finish, coats, notes },
+  /// sanitised by lib/jobs/selections.js normaliseQuoteGroupSelections.
+  ///
+  /// ADDITIVE, on purpose: the meta fields stay where they are and keep
+  /// printing on the work order exactly as before; the builder shows them
+  /// as the first row and these after. Null (never []) on every group that
+  /// has none, so a group nobody added a row to saves byte-for-byte as it
+  /// did before this column existed. Not money, not billed, and not read by
+  /// any client-facing renderer yet (owner decision pending, 2026-10-10):
+  /// the job copies them into JobSelection when it is created.
+  selections Json?
+
   subtotal   Decimal         @default(0) @db.Decimal(12, 2)
   sortOrder  Int             @default(0)
+
+  /// The job rows pulled from this group — see JobSelection.quoteScopeGroupId.
+  jobSelections JobSelection[]
 }
 
 /// A named block of prose a company reuses across quotes — the prep
@@ -6471,6 +6493,10 @@ model Job {
   /// What has to be bought before the crew leaves the yard.
   materials JobMaterial[]
 
+  /// The colours and materials the work is done in — "Uppers: BM Chantilly
+  /// Lace OC-65, satin, 2 coats". See JobSelection.
+  selections JobSelection[]
+
   /// ── The crew work order (lib/workOrder/build.js) ────────────────────────
   ///
   /// Keys of the quote's items the office has hidden from the crew's copy —
@@ -6804,6 +6830,79 @@ model JobMaterial {
   updatedAt DateTime @updatedAt
 
   @@index([jobId, purchasedAt])
+}
+
+/// One colour or material the job is done in: the area or surface, the
+/// product, the colour by name and by code, the finish, how many coats.
+/// "Uppers: BM Chantilly Lace OC-65, satin, 2 coats"; "Shingles: GAF
+/// Timberline HDZ, Charcoal"; "Topcoat: polyaspartic, gloss".
+///
+/// ── Why a table and not a Json column on Job ────────────────────────────────
+///
+/// Rows are added, edited, reordered and removed one at a time, from the job
+/// page, by the office, on different days — the JobMaterial reasoning. A Json
+/// blob read-modify-written by two people loses one edit, and nobody knows.
+///
+/// ── Where a row comes from ──────────────────────────────────────────────────
+///
+/// Typed on the job, or copied from the accepted quote when the job is created
+/// (lib/jobs/createJobFromQuote.js, lib/jobs/createJob.js) and again on "Pull
+/// from quote" (lib/jobs/selectionsServer.js). `sourceKey` names the quote row
+/// it was copied from — "qsg:<groupId>:finish" for the cabinet group's own
+/// Colour / Sheen / Door style, "qsg:<groupId>:<rowId>" for one of the group's
+/// added rows (QuoteScopeGroup.selections) — and is UNIQUE per job, so a
+/// second pull adds only what is missing and never overwrites a row somebody
+/// has since edited. Null on a row typed on the job.
+///
+/// ── Who reads it ────────────────────────────────────────────────────────────
+///
+/// The job page's "Colours & materials" card (editable at jobs:view_create_edit,
+/// read-only for anyone who may see the job — Crew on their own jobs), the
+/// work order on screen, on paper and as a PDF (lib/workOrder/build.js).
+/// NOT the client: a "Your selections" view on the quote or portal waits on
+/// an owner decision (2026-10-10), and will read these same rows.
+///
+/// Every field is optional text the person typed (or the quote carried);
+/// absence stays absence — a row with no coats says nothing about coats.
+model JobSelection {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  /// The quote service this row was copied from. SetNull: the row is the
+  /// job's record of what the work is done in, and outlives the group.
+  quoteScopeGroupId String?
+  quoteScopeGroup   QuoteScopeGroup? @relation(fields: [quoteScopeGroupId], references: [id], onDelete: SetNull)
+  /// Which quote row — see the header. Null when typed on the job.
+  sourceKey String?
+
+  /// Which trade's suggestions the row is edited with — painting | cabinets |
+  /// roofing | epoxy | flooring | generic (lib/jobs/selections.js
+  /// SELECTION_TEMPLATES). Suggestions only: it never limits what is typed.
+  templateKey String @default("generic")
+
+  area       String?
+  product    String?
+  colourName String?
+  colourCode String?
+  finish     String?
+  /// How many coats, when somebody said. Null is "not stated", never 0.
+  coats      Int?
+  notes      String?
+  /// A photo of the swatch or the chip, uploaded through uploadFile()
+  /// (lib/media/uploadClient.js, purpose "jobs"). Our own Cloudinary only —
+  /// the route refuses any other URL (lib/jobs/documents.js isUploadedUrl).
+  swatchUrl  String?
+
+  sortOrder   Int      @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([jobId, sourceKey])
+  @@index([companyId])
 }
 
 /// A trip to the job's address — an assessment, a repair callout, one day of a

@@ -206,7 +206,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 348 models.
+it cannot drift from the code. 349 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -221,8 +221,8 @@ tenancy, so it carries no information.
 | Entity | Pointed at by | From |
 |---|---:|---|
 | **SalesRep** | 31 | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry +21 |
+| **Job** | 23 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobCommission, JobDailyLog, JobDocument, JobMaterial +13 |
 | **Worker** | 23 | AvailabilityRequest, DailyObjectiveSheet, LeaveAccrualOverride, LeaveBalance, LeaveOpeningBalance, LeaveRequest, LocationStamp, OnboardingRun, PayRunLine, Payout +13 |
-| **Job** | 22 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobCommission, JobDailyLog, JobDocument, JobMaterial +12 |
 | **Prospect** | 18 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +8 |
 | **PlatformAdmin** | 16 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesCallAttempt, SalesCallEvent, SalesJurisdictionOverride, SalesTelemarketerRegistration +6 |
 | **Client** | 13 | Appointment, CallbackEntry, ClientEquipment, ClientTicket, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink +3 |
@@ -241,7 +241,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>348 models — expand</summary>
+<details><summary>349 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -272,7 +272,7 @@ tenancy, so it carries no information.
 | `ClientEquipmentService` | ClientEquipment | — |
 | `ClientTicket` | Client | ClientTicketMessage |
 | `ClientTicketMessage` | ClientTicket | — |
-| `Company` | AiCreditBundle, BroughtNumber, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, GoogleAdsConnection, LinkPage, MetaAdConnection, MetaConversionSettings, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AgencyAccessKey, AgencyEvent, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, BroughtNumber, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DesignTemplate, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleAdsConnection, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobCommission, JobCommissionEntry, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadIdentityLink, LeadRequest, LeaveAccrualOverride, LeaveOpeningBalance, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaConversionEvent, MetaConversionSettings, MetaHistoryBackfill, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, PhoneUsageCharge, PlanRead, PlanReadMessage, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteDocument, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, SubPriceRequest, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, TemplateTranslation, TikTokConnection, TikTokPublish, TimeEntryCorrection, VehicleDetail, VideoPack, VideoPost, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
+| `Company` | AiCreditBundle, BroughtNumber, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, GoogleAdsConnection, LinkPage, MetaAdConnection, MetaConversionSettings, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AgencyAccessKey, AgencyEvent, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, BroughtNumber, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DesignTemplate, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleAdsConnection, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobCommission, JobCommissionEntry, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSelection, JobSubcontractor, LeadIdentityLink, LeadRequest, LeaveAccrualOverride, LeaveOpeningBalance, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaConversionEvent, MetaConversionSettings, MetaHistoryBackfill, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, PhoneUsageCharge, PlanRead, PlanReadMessage, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteDocument, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, SubPriceRequest, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, TemplateTranslation, TikTokConnection, TikTokPublish, TimeEntryCorrection, VehicleDetail, VideoPack, VideoPost, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
 | `CompanyChatMember` | CompanyChatRoom, Member | — |
 | `CompanyChatMessage` | CompanyChatRoom, Member | — |
 | `CompanyChatRoom` | Job, Member | CompanyChatMember, CompanyChatMessage, Job |
@@ -308,7 +308,7 @@ tenancy, so it carries no information.
 | `InvoiceCosting` | Invoice | Invoice |
 | `JenniferConversation` | — | JenniferMessage |
 | `JenniferMessage` | JenniferConversation | — |
-| `Job` | Client, ClientEquipment, CompanyChatRoom, JobCommission, Quote, SatisfactionResponse | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobCommission, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, SupplyRequest, Task, TimeEntry |
+| `Job` | Client, ClientEquipment, CompanyChatRoom, JobCommission, Quote, SatisfactionResponse | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobCommission, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSelection, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, SupplyRequest, Task, TimeEntry |
 | `JobChecklistTemplate` | ServiceCategory | — |
 | `JobCommission` | Job | Job |
 | `JobDailyLog` | Job | — |
@@ -320,6 +320,7 @@ tenancy, so it carries no information.
 | `JobPhotoMention` | JobPhotoComment, Member | — |
 | `JobPhotoTag` | — | JobPhotoTagOnPhoto |
 | `JobPhotoTagOnPhoto` | JobPhoto, JobPhotoTag | — |
+| `JobSelection` | Job, QuoteScopeGroup | — |
 | `JobSubcontractor` | Job, JobVisit, Subcontractor | SubcontractorBill, SubcontractorPayment |
 | `JobVisit` | Job | JobSubcontractor, LocationStamp |
 | `LeadIdentityLink` | LeadRequest | — |
@@ -395,7 +396,7 @@ tenancy, so it carries no information.
 | `QuoteDocument` | PlanRead | — |
 | `QuoteImport` | Quote | — |
 | `QuotePlanOffer` | Quote, ServicePlanTemplate | — |
-| `QuoteScopeGroup` | Quote, ServiceCategory | — |
+| `QuoteScopeGroup` | Quote, ServiceCategory | JobSelection |
 | `Receipt` | — | Expense |
 | `ReferenceCode` | AiEmployeeSource | — |
 | `ReferralLink` | Client | — |
