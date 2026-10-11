@@ -135,7 +135,9 @@ const frontDesk = async (args) => {
   return { ok: true, data: { intent, reason: `scripted ${intent}` } };
 };
 const deps = (db, log = []) => ({
-  db, now: new Date("2026-10-15T12:00:00Z"),
+  // A minute after the conversation: the 24-hour reply window is read
+  // against this clock, so it must sit inside it.
+  db, now: at(60),
   checkAiQuota: async () => ({ allowed: true }), recordAiUsage: async () => {}, isAiConfigured: () => true,
   notify: async () => {}, sleep: async () => {}, recordError: async () => {}, raiseUrgentAlert: async () => ({ alerted: "bell" }),
   complete: frontDesk,
