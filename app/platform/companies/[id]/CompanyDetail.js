@@ -35,6 +35,7 @@ import { count, money } from "@/app/components/platform/MetricCard";
 import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import { fetchJson } from "@/lib/fetchJson";
 import CompanyHistory from "./CompanyHistory";
+import CompanyLifecycleEmails from "./CompanyLifecycleEmails";
 import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
@@ -753,6 +754,9 @@ export default function CompanyDetail({ companyId }) {
 
       {/* Financial history — subscription and their own client billing */}
       <CompanyHistory companyId={companyId} />
+
+      {/* What FieldQuo has emailed them about their account — read-only. */}
+      <CompanyLifecycleEmails companyId={companyId} />
 
       {/* Support actions — billing only, each audited with a reason */}
       <CompanyActions

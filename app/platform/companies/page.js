@@ -13,6 +13,7 @@ import { Search, Loader2, Building2, AlertCircle } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
 import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import NextStepsEmailCard from "./NextStepsEmailCard";
+import LifecycleEmailsCard from "./LifecycleEmailsCard";
 import PresenceBadge, { usePresencePoll } from "@/app/components/platform/PresenceBadge";
 import { countOnline, presenceBadge, presenceSortKey } from "@/lib/platform/companyPresence";
 import {
@@ -259,6 +260,10 @@ export default function PlatformCompaniesPage() {
           confirmation, with its switch — here rather than on /platform/signups,
           which is about people who never became a company. */}
       <NextStepsEmailCard />
+
+      {/* The trial sequence that follows it (lib/lifecycle/): who the
+          personal day-3 note is from, and the customer stories. */}
+      <LifecycleEmailsCard />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

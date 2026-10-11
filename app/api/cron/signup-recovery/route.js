@@ -341,6 +341,10 @@ async function runEarlyTouch({ now, origin, address, from }) {
           ? `${origin}/signup?resume=${encodeURIComponent(person.resumeToken)}`
           : `${origin}/app/settings/account-billing`,
         optOutUrl: `${origin}/no-contact/${token}`,
+        // RFC 8058: a mailbox provider's one-click unsubscribe POSTs here,
+        // the same suppression the page's button makes.
+        oneClickUrl: `${origin}/api/no-contact/${token}`,
+        accountLink: person.kind !== "lead",
         mailingAddress: address,
       });
     } catch (err) {
@@ -351,7 +355,7 @@ async function runEarlyTouch({ now, origin, address, from }) {
 
     // sendEmail never throws — { id } | { error } | { skipped } — all three
     // outcomes handled, as the recovery loop below does.
-    const result = await sendEmail({ companyId: person.companyId || undefined, from, to, subject: email.subject, html: email.html, text: email.text });
+    const result = await sendEmail({ companyId: person.companyId || undefined, from, to, subject: email.subject, html: email.html, text: email.text, headers: email.headers });
     if (result?.skipped || result?.error) {
       await failed(result.error ? "resend_rejected" : "no_api_key", result.error);
       continue;
@@ -539,6 +543,8 @@ export async function GET(request) {
         finishUrl: `${origin}/app/settings/account-billing`,
         helpUrl: `${origin}/contact`,
         optOutUrl: `${origin}/no-contact/${token}`,
+        // RFC 8058 one-click target — see the early touch above.
+        oneClickUrl: `${origin}/api/no-contact/${token}`,
         mailingAddress: address,
       });
     } catch (err) {
@@ -563,6 +569,7 @@ export async function GET(request) {
       subject: email.subject,
       html: email.html,
       text: email.text,
+      headers: email.headers,
     });
 
     if (result?.error || result?.skipped) {

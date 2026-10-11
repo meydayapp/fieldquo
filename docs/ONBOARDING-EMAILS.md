@@ -6,24 +6,68 @@ where the "sent once" record lives. Every row is a letter FieldQuo writes
 about the company's OWN account; none of it is white-labelled, on purpose
 (lib/email/billingEmail.js says why).
 
-Two halves, because there are two kinds of person:
+Nothing below is machine-translated at send time. Each letter is built from
+sentences already in a catalogue, in the reader's language where the
+catalogue has it, English otherwise — the "Language" column says which.
+"Owner → company → English" means the owner's own `User.language`, else
+`Company.defaultLanguage`, else English (`lib/billing/billingLanguage.js`),
+in all nine app catalogue languages (en fr es uk pa tl de zh it). The trial
+reminders still read the company's language alone — aligning them is the
+next follow-up.
 
-- **Before the card** — a `SignupLead` row, or a `Company` with no
-  `Subscription`. These letters are *commercial* under CASL (they ask
-  somebody to come back and buy) and carry FieldQuo's mailing address and a
-  one-click do-not-contact link.
-- **After the card** — a `Company` with a `Subscription`. These are
-  *transactional* (account admin to a paying customer) and carry no
-  unsubscribe: lib/marketing/unsubscribe.js's split.
+---
 
-Nothing below is machine-translated at send time. A letter is built in the
-company's `defaultLanguage` (or the lead's `language`) where the builder has
-that language, and English otherwise — each builder says which. The
-subscription letters, the referral-month letters and the AI-credit letter
-(since 2026-10-11) follow the OWNER's own interface language first, then the
-company's, then English (`lib/billing/billingLanguage.js`), in all nine app
-catalogue languages (en fr es uk pa tl de zh it — `lib/i18n/billingEmailCopy.js`,
-`lib/i18n/accountNoticeCopy.js`).
+## The envelope: one layout for all of them
+
+Since 2026-10-11 the letters FieldQuo writes to a contractor about FieldQuo
+share one envelope, `lib/email/platformLayout.js`:
+
+- FieldQuo logo (`public/email/fieldquo-logo.jpg`, white ground baked in so
+  a dark-mode inbox cannot turn it navy-on-black) and a small **Help · Your
+  account** header (Help only for somebody with no account yet);
+- a hidden **preheader** line (the inbox preview);
+- an optional **hero image** in a 600px slot from a 1200px source — only
+  from FieldQuo's own host (www.fieldquo.com `public/`, or FieldQuo's own
+  Cloudinary cloud); anything else is dropped, never hotlinked;
+- short copy and **one pill button**, plus a **plain-text part**;
+- a footer enforced by `kind`:
+  - **transactional** — a label saying it is account mail, FieldQuo's
+    mailing address when `SALES_MAILING_ADDRESS` is set, and *no*
+    unsubscribe or preferences link (the layout throws if given one);
+  - **commercial** (tips / updates / offers, and the signup nudges) — the
+    mailing address and an unsubscribe link are REQUIRED (the layout throws
+    without them), "Manage email preferences" for anyone with an account,
+    and the RFC 8058 `List-Unsubscribe` / `List-Unsubscribe-Post` headers.
+- The content card stays white in dark mode; only the page, header links and
+  footer darken (measured: every pair ≥ 4.5:1 in both schemes).
+
+The four letters that existed before moved onto it with their wording
+untouched: `npm run check:platform-email-layout` compares the md5 of every
+one's text part (the trial reminder had none, so its subject, heading,
+paragraphs and button) with the record taken before the move — 144
+comparisons, 0 differ.
+
+## Email preferences (contractor users)
+
+Per USER, `EmailPreference` (lib/email/preferences.js, preferencesStore.js):
+
+| Category | Default when never chosen | Sent by |
+|---|---|---|
+| Product tips & setup help (`tips`) | on (they started the trial the tips are about) | the trial sequence below |
+| Product updates & newsletter (`updates`) | on only if they ticked "Send me product news and offers" at signup (`User.marketingConsentAt`) | nothing yet |
+| Offers (`offers`) | same as updates | nothing yet |
+| Billing, security, trial notices | always sent — not a switch anywhere | billing, auth, trial reminders, trial ended |
+
+- No-login page: `/email-preferences/<token>` (the footer link; `?c=tips`
+  puts a one-button "Unsubscribe from product tips" on top). GET never
+  changes anything (mail scanners pre-fetch links).
+- One-click: `POST /api/email-preferences/<token>/unsubscribe?c=tips` — the
+  `List-Unsubscribe` target; without `?c` it switches every optional
+  category off. A GET there redirects to the page.
+- In the app: **Settings › Notifications → Emails from FieldQuo**, the same
+  panel, for the signed-in person only (support sessions are refused).
+- FieldQuo's own do-not-contact list (`SalesSuppression`) still wins over
+  any "on"; the page says so when the address is on it.
 
 ---
 
@@ -31,34 +75,131 @@ catalogue languages (en fr es uk pa tl de zh it — `lib/i18n/billingEmailCopy.j
 
 | When | Letter | Decides | Once-per record | Language | Cron |
 |---|---|---|---|---|---|
-| **+5 min** after the person's last activity on /signup | "Your free month is waiting" — the way back in and the trade's three selling points (`lib/email/signupEarlyNudgeEmail.js`) | `lib/signup/earlyNudge.js` (`EARLY_NUDGE_DELAY_MINUTES`) | `SignupNudge` row, touch `early`, unique on (address, touch) | en / fr / es, else English | `/api/cron/signup-recovery`, every 5 min |
-| **+24 h** after a Company was created with no card | The recovery note (`lib/email/signupRecoveryEmail.js`) | `lib/signup/abandoned.js` (`NUDGE_DELAY_HOURS`, `NUDGE_WINDOW_DAYS` = 30) | `Company.signupNudgeSentAt`, mirrored to `SignupNudge` touch `recovery` | en / fr / es, else English | same cron |
-| +30 min of quiet (not an email) | The lead becomes a HOT prospect on the sales floor; a rep may call or text | `lib/signup/salesFloor.js` | `Prospect` unique on the lead | — | `/api/cron/signup-leads`, every 15 min |
+| **+5 min** after the person's last activity on /signup | "Your 14 free days are waiting" — the way back in and the trade's three selling points (`lib/email/signupEarlyNudgeEmail.js`). Commercial: address, `/no-contact` opt-out, List-Unsubscribe → `POST /api/no-contact/<token>` | `lib/signup/earlyNudge.js` | `SignupNudge` row, touch `early` | en / fr / es, else English (the trade table's languages) | `/api/cron/signup-recovery`, every 5 min |
+| **+24 h** after a Company was created with no card and no trial | The recovery note (`lib/email/signupRecoveryEmail.js`). Commercial, as above | `lib/signup/abandoned.js` | `Company.signupNudgeSentAt`, mirrored to `SignupNudge` touch `recovery` | the nine app catalogues, per-key English fallback | same cron |
+| +30 min of quiet (not an email) | The lead becomes a HOT prospect on the sales floor | `lib/signup/salesFloor.js` | `Prospect` | — | `/api/cron/signup-leads` |
 
-A lead a rep holds is skipped by both letters (two senders in five minutes
-is the thing to avoid). A demo company never gets either.
+## The trial: the combined day-by-day calendar
 
-## At the card, and after
+Day 0 is the local date the company signed up (`Company.timezone`, Toronto
+when unset). This is the calendar for a company that **does nothing** —
+executed hour by hour by `npm run check:lifecycle-emails` for a 14:20
+Toronto signup, which fails if the plan ever produces anything else:
+
+| Day | Local time | Email | Kind | Skipped when |
+|---|---|---|---|---|
+| 0 | +2 h after signup | **Next-steps letter** ("finish setting up") | transactional | every checklist step is already done |
+| 1 | ~09:40 | **Nudge: take card payments** (Stripe Connect) | tips | Stripe already connected → the next open feature goes instead |
+| 3 | ~09:40 | **Personal note** from a named FieldQuo person (plain text, Reply-To them) | tips | no sender name + reply-to set on /platform/companies — then it is never sent |
+| 4 | ~09:40 | **Nudge: turn on online booking** | tips | bookable hours already set (booking page live) |
+| 5 | ~09:40 | **Help articles** — 2–3 real articles for the trade and the open features, plus customer stories if the platform lists any | tips | — |
+| 6 | ~09:40 | **Nudge: send your first quote** | tips | a quote has been sent |
+| 7–8 | 09:00 UTC | **Trial reminder: 7 days left** | transactional | a plan was chosen |
+| 9 | ~09:40 | **Nudge: import your clients** | tips | clients were imported (bulk-insert fingerprint) |
+| 11–12 | 09:00 UTC | **Trial reminder: 3 days left** | transactional | a plan was chosen |
+| 13–14 | 09:00 UTC | **Trial reminder: 1 day left** | transactional | a plan was chosen |
+| 14–15 | first free slot after the trial ends | **Your free trial has ended** — read-only until {lock date}, nothing deleted, choose a plan | transactional | a plan was chosen |
+
+The reminder days are "the first 09:00 UTC run with ≤ 7 / 3 / 1 days left",
+so they fall on day 7 or 8, 11 or 12, 13 or 14 depending on the signup hour.
+
+**Milestones** slot into the same calendar, the day AFTER they happen, once
+each, ahead of the day's planned email (which then moves to the next free
+day):
+
+| Milestone | Letter | Skipped when |
+|---|---|---|
+| Booking page goes live | "Your booking page is live — here's where to share it": the company's real booking link, website embed, Google Business Profile "Book" link, Facebook/Instagram bio, email signature | — |
+| Stripe connected | "Card payments are on — let clients pay over time next": turn on financing (Klarna / Affirm where Stripe activated them), the pay-over-time help article | financing already on (`offerFinancing`) |
+| First quote sent | "Your first quote is out": follow-ups and the client portal | — |
+
+### The rules that make the calendar
+
+- **Never two lifecycle emails on one local day.** A day that already carried
+  the next-steps letter, a trial reminder or a sequence email gets nothing
+  more; a day on which the trial-reminder cron WILL send at 09:00 UTC
+  (predicted with the reminder's own pure decision) gets nothing from the
+  sequence first. The reminders are transactional; the sequence yields. This
+  is why the trial-ended letter lands the day after the end when the 1-day
+  reminder went out that morning.
+- **09:00–18:00 local** for the sequence (hourly cron at :40).
+- **Feature nudges**: days 1–10, at least 2 days apart, in the order
+  payments → booking → quote → import, each skipped (recorded
+  `already_done`) when done — checked when planned AND again after the claim.
+- **Personal note**: days 3–6; **help articles**: days 5–9; **milestones**:
+  within 7 days of the milestone; **trial ended**: within 48 h of the end.
+  Past its window a letter is recorded `too_late` (or
+  `sender_not_configured`), never sent late.
+- **Who**: the company's first active owner, in their own language
+  (`User.language`, else `Company.defaultLanguage`; nine languages, English
+  fallback). Never a demo, a company FieldQuo ended, a reserved test domain,
+  an address on the do-not-contact list (a failed read fails closed), or —
+  for tips letters — someone who switched tips off.
+- **Backlog guard**: only companies created on/after
+  `LIFECYCLE_SEQUENCE_STARTS_AT` (2026-10-12) get the sequence; the
+  trial-ended letter only within 48 h of an end.
+- **Once**: `LifecycleEmail` — one row per (company, kind), unique; claimed
+  before the send, released on a refusal (retried after 6 h), stamped with
+  the address, language and subject that went.
+
+### Where each letter lives
+
+| Letter | Builder | Decides | Record | Cron |
+|---|---|---|---|---|
+| Next-steps letter | `lib/email/onboardingNextStepsEmail.js` | `lib/signup/nextSteps.js` | `Company.nextStepsEmailSentAt` / `nextStepsEmailSkipped` | `/api/cron/onboarding-next-steps`, every 15 min |
+| Trial reminders 7/3/1 | `lib/email/trialReminderEmail.js` | `lib/billing/trialReminder.js` | `Company.trialReminder7At` / `3At` / `1At` | `/api/cron/trial-reminders`, daily 09:00 UTC |
+| Nudges, milestones, personal note, help articles, trial ended | `lib/lifecycle/emails.js` (copy: `lib/i18n/lifecycleEmailCopy.js`) | `lib/lifecycle/plan.js`, carried out by `lib/lifecycle/run.js` | `LifecycleEmail` rows | `/api/cron/lifecycle-emails`, hourly at :40 |
+
+Languages: next-steps letter — the eight document languages (zh → English);
+trial reminders — the nine app catalogues; the sequence — all nine.
+
+### What the "done" signals are
+
+| Feature | Done when | Source |
+|---|---|---|
+| Card payments | `Company.stripeChargesEnabled` | the onboarding checklist's own "payments" step |
+| Online booking | bookable hours (`AvailabilitySchedule`) for an active member, a business profile the public page serves, and a slug | the "availability" set-up step's measurement + `findBookingCompany` |
+| First quote | the earliest `Quote.sentAt` | derived from data (not a checklist step) |
+| Import clients | two or more of the company's clients created in the same second | derived from data: the CSV import is the only bulk insert on `Client` |
+
+### Platform console
+
+- `/platform/companies` — **Trial sequence emails**: who the personal note is
+  from (name, title, reply-to, phone, booking link; superadmin-only, audit
+  log `lifecycle_email_settings_updated`) — and, until a name and reply-to
+  are set, the words "Not being sent"; the customer stories (title, trade,
+  link, optional FieldQuo-hosted image; none → no block); sent counts per
+  letter.
+- `/platform/companies/<id>` — **Lifecycle emails**, read-only: every letter
+  above with when it went, to whom, in which language, or why it did not
+  (from `LifecycleEmail` and the older Company stamps), and the owner's
+  email preferences.
+
+---
+
+## After the card
 
 | When | Letter | Decides | Once-per record | Language | Cron |
 |---|---|---|---|---|---|
-| **+0** — account created | "Confirm your email address" (`lib/email/authEmails.js`, Better Auth `sendOnSignUp`) | Better Auth | one link per request; verification is not required to use the app | en / fr / es | none (on the request) |
-| **+0** — Checkout completed (`Subscription` row appears) | "You're subscribed" — plan, seats, trial end, link to Account & Billing (`lib/billing/notify.js` → `buildBillingEmail({ kind: "started" })`) | `notifySubscriptionState`, from the Stripe webhook AND the on-return reconcile, whichever lands first | `Subscription.welcomeEmailSentAt` (written after a confirmed send) | owner → company → English, nine languages | none (webhook / reconcile) |
-| **+2 h** (default; a superadmin can set 1–72 h or switch it off on /platform/companies) — *only if the onboarding checklist is still open* | **The next-steps ("finish setting up") letter** — to a card-free trial (no Subscription, a trial date) or a live card-backed company; the trade in the subject, "Your free month runs until {date}" for a trial, a numbered block of ONLY the open steps in the checklist's order (at most 5), one line per step on what it unlocks for the trade, each a button that opens that step's window on the home page (`/app?step=<key>`; the Stripe row keeps the payments page and says it opens Stripe), a tick list of what is done, then the additional set-up steps still on the card (at most 5 by name, each a link) (`lib/email/onboardingNextStepsEmail.js`) | `lib/signup/nextSteps.js` — due from `Company.createdAt + delay`, no longer due `NEXT_STEPS_WINDOW_HOURS` (72 h) after that; the checklist, set-up steps and do-not-contact list are re-read after the claim | `Company.nextStepsEmailSentAt` (claimed before the send, reverted if it did not go out) and `nextStepsEmailSkipped` (`onboarding_complete` / `no_recipient` / `suppressed` / `test_address` — decided once, never revisited); `Subscription.nextStepsEmailSentAt/Skipped` still read as the record of letters before 2026-09-24 | the eight document languages, else English | `/api/cron/onboarding-next-steps`, every 15 min |
-| Day 1 and day 7 (not an email) | Sales check-in DRAFTS for the rep who holds the company — a text goes only when a rep presses send | `lib/sales/checkin/signals.js` (`SCHEDULED_CHECKIN_DAYS`) | `SalesCheckIn` row per company per touchpoint | — | `/api/cron/sales-checkins`, daily 07:00 UTC |
-| **7 days before the trial ends** (30 days before a yearly renewal) | The renewal notice — amount, card, the way to cancel (`buildBillingEmail({ kind: "renewal" })`) | `lib/billing/renewalReminder.js` (`TRIAL_NOTICE_DAYS`, `RENEWAL_WINDOW_DAYS`) | `Subscription.renewalRemindedPeriodEnd` + `renewalReminderSentAt`, keyed to the period | owner → company → English, nine languages | `/api/cron/renewal-reminders`, daily 09:00 UTC |
-| When a payment fails, and again at ≤ 2 days left of the 7-day grace | The grace notice and the last-chance reminder (`buildBillingEmail({ kind: "grace" })`) | `lib/billing/graceWarning.js` (`GRACE_DAYS` = 7, `REMIND_AT_OR_BELOW_DAYS` = 2) | `Subscription.graceWarnedAt`, `graceFinalWarnedAt` | owner → company → English, nine languages | `/api/cron/grace-warning`, daily 09:00 UTC |
-| On a plan switch | "Your plan changed" (`buildBillingEmail({ kind: "changed" })`) | `notifySubscriptionState` | `Subscription.notifiedPlanId` | owner → company → English, nine languages | none (webhook / reconcile) |
-| On a cancellation: at the press for a paid plan booked to end; when it ENDS (a trial cancelled on the spot, the booked date, a portal cancel, dunning) | "Your plan ends on {date}" / "Your plan has been cancelled" (`buildBillingEmail({ kind: "cancelled" })`) — not sent to a company FieldQuo ended or locked (its Resume is refused) | `lib/billing/notify.js` `notifyCancellation`, from the cancel route and the `customer.subscription.deleted` webhook | the "ended" letter: `Subscription.cancellationNotifiedFor` = the ended Stripe subscription id (claimed before the send, restored on failure) — one per cancellation, so the route and the webhook no longer both send it; cancel → resubscribe → cancel still gets two | owner → company → English, nine languages | none |
-| When a referral month LANDS (the referrer: the referred business's first paid invoice; the newcomer: choosing a plan) | "You earned a free month" / "Your free month is applied" — the new charge date (`lib/referrals/rewardEmail.js`) | `claimAndExtend` in `lib/referrals/index.js`, only when the extension worked | `ReferralCredit.notifiedAt` (claimed, restored on failure) | owner → company → English, nine languages | none (webhook / plan selection) |
-| When an AI charge leaves the AI credit under $5 (`AI_CREDIT_LOW_CENTS`) | "Your AI credit is running low" to every active owner and admin, with the balance and the top-up link (`lib/ai/creditLow.js`) | the ledger writers themselves (`lib/voice/credits.js` debit/add) | `Company.aiCreditLowNotifiedAt` — set on the crossing, cleared by a top-up back to $5+; a plan's month-end expiry is not a crossing | each recipient's own language → company → English | none (on the charge) |
-| The 1st of each month | The monthly summary (`lib/ai/monthlyDigest.js`) to active owners and admins — audience by the access rules (`lib/ai/digestAudience.js`): a live plan, past_due inside grace, or a card-free trial still running (these were missed until 2026-10-11: the old filter was `onboardingStatus "active"`, which only Checkout writes); never a demo, an ended/locked/cancelled company. A TRIAL whose month recorded nothing at all gets no letter | `/api/cron/monthly-digest` | `AiDigest` row per company per month | reader → company | monthly 08:00 UTC |
-| *Not sent yet* — waits on the email-preferences system | Win-back, 14 days after a cancellation took effect (`lib/lifecycle/winBack.js`), and the monthly product-updates letter (`lib/lifecycle/productNewsletter.js`) — content and selection only, executed by `check:billing-lifecycle-emails` | — | (to add when wired) | nine languages | none |
+| **+0** — account created | "Confirm your email address" (`lib/email/authEmails.js`) | Better Auth | one link per request | en / fr / es | none |
+| **+0** — Checkout completed | "You're subscribed" — plan, seats, trial end (`lib/billing/notify.js` → `buildBillingEmail({ kind: "started" })`) | `notifySubscriptionState`, from the webhook AND the on-return reconcile, whichever lands first | `Subscription.welcomeEmailSentAt` | owner → company → English | none (webhook / reconcile) |
+| On a plan switch | "Your plan changed" (`kind: "changed"`) | `notifySubscriptionState` | `Subscription.notifiedPlanId` | owner → company → English | none |
+| 7 days before a card-backed trial ends (30 before a yearly renewal) | Renewal notice — amount, card, the way to cancel (`kind: "renewal"`) | `lib/billing/renewalReminder.js` | `Subscription.renewalRemindedPeriodEnd` + `renewalReminderSentAt` | owner → company → English | `/api/cron/renewal-reminders`, daily 09:00 UTC |
+| Payment failed, and at ≤ 2 days of grace left | Grace notice and reminder (`kind: "grace"`) | `lib/billing/graceWarning.js` | `Subscription.graceWarnedAt`, `graceFinalWarnedAt` | owner → company → English | `/api/cron/grace-warning`, daily 09:00 UTC |
+| A cancellation: at the press for a paid plan booked to end; when it ENDS (a trial cancelled on the spot, the booked date, a portal cancel, dunning) | "Your plan ends on {date}" / "Your plan has been cancelled" (`kind: "cancelled"`). Not sent to a company FieldQuo ended or locked — its Resume is refused | `notifyCancellation`, from the cancel route AND the `customer.subscription.deleted` webhook | the "ended" letter: `Subscription.cancellationNotifiedFor` = the ended Stripe subscription id, claimed before the send and restored on failure — one per cancellation (until 2026-10-11 the route and the webhook both sent it); cancel → resubscribe → cancel still gets two | owner → company → English | none |
+| When a referral month LANDS — the referrer at the referred business's first paid invoice, the newcomer when it chooses a plan | "You earned a free month" / "Your free month is applied", with the new charge date (`lib/referrals/rewardEmail.js`) | `claimAndExtend` in `lib/referrals/index.js`, only when the extension worked | `ReferralCredit.notifiedAt` (claimed, restored on failure) | owner → company → English | none (webhook / plan selection) |
+| When an AI charge leaves the AI credit under $5 (`AI_CREDIT_LOW_CENTS`) | "Your AI credit is running low" to every active owner and admin, with the balance and a top-up link (`lib/ai/creditLow.js`) | the ledger's two writers (`lib/voice/credits.js` debit / add) | `Company.aiCreditLowNotifiedAt` — set on the crossing, cleared by a top-up back to $5+; a plan's month-end expiry is not a crossing | each recipient's own language → company → English | none (on the charge) |
+| The 1st of each month | The monthly summary (`lib/ai/monthlyDigest.js`) to active owners and admins. Audience by the access rules (`lib/ai/digestAudience.js`): a live plan, past_due inside its grace, a card-free trial still running, or a hand-made company with onboardingStatus active — never a demo or an ended / locked / cancelled company (card-free trials were all missed until 2026-10-11: the filter was `onboardingStatus "active"`, written only by Checkout). A TRIAL whose month recorded nothing gets no summary | `/api/cron/monthly-digest` | `AiDigest` row per company per month | reader → company | monthly 08:00 UTC |
+| *Not sent yet* | Win-back, 14 days after a cancellation took effect (`lib/lifecycle/winBack.js`), and the monthly product-updates letter (`lib/lifecycle/productNewsletter.js`) — content and selection rules only, executed by `check:billing-lifecycle-emails`; wiring them through the `updates` preference above is the next follow-up | — | (to add when wired) | nine languages | none |
 
-Also on request rather than on a timer: team invitations
-(`lib/email/teamInvite.js`) to people an owner invites against their seats,
-and the referral invitation (`lib/referrals`), each with their own once-per
-record.
+These billing, referral and AI-credit letters keep `lib/email/billingEmail.js`'s
+FieldQuo envelope for now; moving them onto `platformLayout.js` is the next
+follow-up. They are transactional — no preference or do-not-contact list
+silences them, the same as "we couldn't charge your card".
+
+Day 1 and day 7 also carry sales check-in DRAFTS for the rep who holds the
+company (`lib/sales/checkin/signals.js`) — a text only when a rep presses
+send, not an email.
 
 ---
 
@@ -66,62 +207,19 @@ record.
 
 **Who.** A non-demo company whose `getOnboardingStatus()` says
 `complete: false` at the moment of sending, AND either no `Subscription` row
-with a `trialEndsAt` (the card-free trial — every signup since 2026-09-24) or
-a `Subscription` in `active` or `trialing`. Companies the platform console
-creates by hand have neither and are outside it. There is no "invited
-company" path — invitations add *people* to an existing company. One letter
-per COMPANY: the claim lives on `Company`, so a trial that then chooses a
-plan is not written to again through its new Subscription row.
+with a `trialEndsAt` (the card-free trial) or a `Subscription` in `active`
+or `trialing`. One letter per COMPANY: the claim lives on `Company`.
 
-**Why not the welcome email's slot.** The confirmation goes at +0 and says
-"you're subscribed". Two hours later the person has either finished setting
-up (nothing is sent, and the decision is recorded so a tick that drops off
-later does not resurrect it) or has not, and then the useful letter is the
-one that says exactly which steps are open and opens each one.
+**What each row says.** The step's own catalogue label, then one line:
+logo, address, services — a catalogue sentence; pricing and Stripe — the
+trade's own sentence from `lib/sales/tradeSellingPoints.js` (en / fr / es;
+the catalogue's plain sentence in the other five); tax registration — the
+country's own `whyKey`. Then the additional set-up steps still on the card
+(at most five by name).
 
-**What each row says.** The step's own catalogue label (the same key the
-checklist card renders), then one line:
+**Social proof** prints only from ≥ 10 real companies of the trade.
 
-- logo, address, services — a product sentence from the catalogue
-  (`app.nextSteps.unlock.*`), in the eight languages;
-- pricing — the trade's own quote sentence from `lib/sales/tradeSellingPoints.js`
-  (`quotes` / `price_book` / `instant_quotes`, whichever the trade lists first;
-  the generic `quotes` line when the trade is unknown);
-- Stripe — the trade's `card_payments` sentence where its list carries one,
-  the generic one otherwise, plus "this one opens Stripe";
-- tax registration — the country's own `whyKey`, the sentence the card prints.
+**What it does not carry.** No unsubscribe (transactional). No "rather one
+email a week?" — no weekly digest exists to switch to.
 
-Never a second copy of any of those sentences. In de / it / uk / pa / tl the
-trade table does not exist, so pricing and Stripe use the catalogue's
-`app.nextSteps.unlock.pricing` / `.payments`, the subject carries no trade and
-no social-proof sentence is printed — never an English trade sentence inside
-another language.
-
-**The additional set-up steps.** After the checklist, the rows the dashboard's
-"Additional set-up steps" card still shows (`remainingSteps(stepsFor(snapshot))`
-— not done, not hidden, applicable), at most five by name and "…and N more on
-your home page", each a link to its own page with `?from=setup`. A row whose
-feature has a selling point in the one table prints it (en / fr / es only).
-
-**Social proof.** "The N painting businesses on FieldQuo sent their first
-quote a median of X after signing up" prints ONLY when
-`firstQuoteMinutesForTrade()` finds at least `NEXT_STEPS_PROOF_MIN_COMPANIES`
-(10) real, subscribed, non-demo companies of that trade with a quote. On
-2026-09-21 there are three real subscribed companies in total, so nothing
-prints; the letter carries no number rather than an anecdote.
-
-**What it does not carry.** No unsubscribe (transactional, see above). No
-"rather one email a week?" — there is no weekly digest to switch to, and a
-link that promised one would be a dead control.
-
-**Where to see it.** `/platform/companies/<id>` prints "Next-steps email:
-Sent {when}" or the recorded reason it was not; `/platform/companies` holds
-the switch and the delay, superadmin-only on write, audit-logged as
-`onboarding_next_steps_email_updated`.
-
-**Check.** `npm run check:onboarding-next-steps` executes the rule, the
-settings normaliser, the link mapping, the proof gate and the builder (en /
-fr / es and the other five, all-done, no trade, hostile name, junk proof, the
-trial line, the set-up rows) and the card-free-trial fixtures (due, already
-sent, then subscribed, demo, suppressed, `subscription` undefined throws), and
-reads the wiring.
+**Check.** `npm run check:onboarding-next-steps`.

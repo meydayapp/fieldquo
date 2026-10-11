@@ -113,6 +113,65 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## FieldQuo→contractor emails: one layout, email preferences, the trial sequence (11 October 2026)
+
+Owner: "look at the different email the crms send to people that sign up…
+look at the frequency" … "format images etc. articles" … "can you do all of
+them?" Part A of two (part B — billing, digest, referral, AI-credit and the
+client "approved" email — is a separate branch). Full calendar:
+docs/ONBOARDING-EMAILS.md.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **One layout** (`lib/email/platformLayout.js`): logo, Help · Your account,
+  hidden preheader, own-host hero (600/1200px), one pill button, text part,
+  footer enforced by kind (transactional: label + address, never an
+  unsubscribe; commercial: address and unsubscribe REQUIRED, preferences
+  link, RFC 8058 headers). The next-steps letter, the 7/3/1 trial reminders
+  (now with a text part), the five-minute signup nudge and the recovery note
+  (now with List-Unsubscribe → `POST /api/no-contact/<token>`) moved onto it;
+  144 md5 comparisons of their text parts against the pre-move record, 0
+  differ.
+- **Email preferences** per user (`EmailPreference`): tips / updates / offers;
+  no-login page `/email-preferences/<token>`, one-click
+  `POST /api/email-preferences/<token>/unsubscribe`, and Settings ›
+  Notifications → Emails from FieldQuo. Billing, security and trial notices
+  are not switches.
+- **The trial sequence** (`lib/lifecycle/`, cron `/api/cron/lifecycle-emails`
+  hourly at :40): feature nudges (payments, booking, first quote, import)
+  days 1–10 skipped when done; milestone letters the day after booking goes
+  live / Stripe connects / the first quote goes out; a personal day-3 note
+  only when a named sender is set; day-5 help articles (real ones) and
+  platform-listed customer stories; the trial-ended letter with the real
+  read-only and lock dates. Never two lifecycle emails on one local day,
+  09:00–18:00 company time.
+- **Console**: /platform/companies → Trial sequence emails (personal sender,
+  customer stories, sent counts); /platform/companies/<id> → Lifecycle
+  emails, read-only.
+- Hero images: `public/email/hero-{payments,booking,quote}.{en,fr,es}.jpg`
+  (converted from the product screenshots) and `public/email/fieldquo-logo.jpg`.
+
+### Not built — waits on the owner
+
+- WHOSE name goes on the personal day-3 note (name, title, reply-to, phone,
+  booking link). Until set on /platform/companies the note is not sent.
+- Customer stories: none exist, so the day-5 letter has no stories block.
+- `updates` and `offers` have no sender yet; the switches are stored and
+  honoured by `userAllowsCategory()` for whatever sends them first.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+`EmailPreference`, `LifecycleEmail` — the combined SQL for parts A and B is under part B's "Schema" below (one block, run once).
+
+### Checks
+
+`check:platform-email-layout` (285), `check:lifecycle-emails` (2940), both in
+`check:all`; the related email / trial / onboarding / billing / consent /
+translation / route-callers / tenant-scope / platform-truth checks green;
+`npm run build` exit 0.
+
+---
+
 ## Lifecycle emails, part B: digest for trials, billing letters in every language, one cancellation letter, referral and AI-credit letters, the client's approval email (11 October 2026)
 
 Owner: "look at the different email the crms send to people that sign up...
@@ -183,12 +242,36 @@ trial-ended letter).
   do-not-contact read at send time, the new shared layout, one cron each
   (check the Vercel cron count — 56 today).
 
-### Schema (additive — NOT applied; apply BEFORE this deploys)
+### Schema (additive — NOT applied; apply BEFORE this deploys) — parts A and B together
+
+Generated with `prisma migrate diff` from origin/main's schema (3c5cab740) to
+the merged one, with IF NOT EXISTS added:
 
 ```sql
 ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "cancellationNotifiedFor" TEXT;
 ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "aiCreditLowNotifiedAt" TIMESTAMP(3);
 ALTER TABLE "ReferralCredit" ADD COLUMN IF NOT EXISTS "notifiedAt" TIMESTAMP(3);
+CREATE TABLE IF NOT EXISTS "EmailPreference" (
+    "id" TEXT NOT NULL, "userId" TEXT NOT NULL, "token" TEXT NOT NULL,
+    "tips" BOOLEAN, "updates" BOOLEAN, "offers" BOOLEAN,
+    "changedVia" TEXT, "changedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "EmailPreference_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE IF NOT EXISTS "LifecycleEmail" (
+    "id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "kind" TEXT NOT NULL,
+    "observedAt" TIMESTAMP(3), "claimedAt" TIMESTAMP(3), "sentAt" TIMESTAMP(3),
+    "failedAt" TIMESTAMP(3), "skipped" TEXT, "error" TEXT, "toAddress" TEXT,
+    "userId" TEXT, "language" TEXT, "subject" TEXT, "providerId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "LifecycleEmail_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "EmailPreference_userId_key" ON "EmailPreference"("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmailPreference_token_key" ON "EmailPreference"("token");
+CREATE INDEX IF NOT EXISTS "LifecycleEmail_sentAt_idx" ON "LifecycleEmail"("sentAt");
+CREATE UNIQUE INDEX IF NOT EXISTS "LifecycleEmail_companyId_kind_key" ON "LifecycleEmail"("companyId", "kind");
 ```
 
 Until it runs, notifyCancellation, the referral grant and every AI charge's

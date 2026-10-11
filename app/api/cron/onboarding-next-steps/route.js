@@ -48,6 +48,7 @@ import { ownerEmailFor } from "@/lib/email/companySender";
 import { buildOnboardingNextStepsEmail } from "@/lib/email/onboardingNextStepsEmail";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
+import { mailingAddress } from "@/lib/legal/mailingAddress";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { loadSetupSnapshot } from "@/lib/setupStepsSnapshot";
 import { remainingSteps, stepsFor } from "@/lib/setupSteps";
@@ -239,6 +240,9 @@ export async function GET(request) {
         origin,
         proof,
         welcomeStep: company.onboardingStep && !company.personalizedAt ? company.onboardingStep : null,
+        // The shared layout's footer (lib/email/platformLayout.js) — printed
+        // when set; this letter is transactional either way.
+        mailingAddress: mailingAddress(),
       });
     } catch (err) {
       await revert();

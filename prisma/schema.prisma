@@ -21106,6 +21106,76 @@ model SentEmail {
   @@index([companyId, invoiceId])
 }
 
+/// What a contractor USER wants to hear from FieldQuo by email (owner,
+/// 2026-10-11: "Unsubscribe AND Manage preferences"). One row per person,
+/// created the first time FieldQuo sends them something that carries the
+/// preferences link (lib/email/preferencesStore.js ensurePreferenceRow).
+///
+/// Three optional categories; everything else FieldQuo sends a contractor —
+/// billing, security, the trial ending — is transactional and not here, so
+/// nobody can switch off the email that says their account is about to lock.
+/// A null column is "never chose": lib/email/preferences.js resolves it
+/// (tips on; product news and offers on only if User.marketingConsentAt says
+/// they ticked "Send me product news and offers" at signup). A stored false
+/// is a choice and wins over everything.
+///
+/// `token` is the no-login link in every email's footer and the RFC 8058
+/// List-Unsubscribe target — 32 CSPRNG bytes, stored and unique per row, the
+/// same shape as MarketingSubscriber.unsubscribeToken and for the reason
+/// lib/marketing/unsubscribe.js gives: a leaked token changes one person's
+/// preferences, never everybody's.
+///
+/// No relation to User, the SentEmail way: every read names userId itself.
+/// FieldQuo's own do-not-contact list (SalesSuppression) still wins over a
+/// row that says "on".
+model EmailPreference {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  token      String    @unique
+  tips       Boolean?
+  updates    Boolean?
+  offers     Boolean?
+  /// "email_link" | "one_click" | "app" — how the last change was made.
+  changedVia String?
+  changedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+/// One row per (company, lifecycle email) — the claim, the record, and what
+/// /platform/companies/[id] shows (lib/lifecycle/, cron/lifecycle-emails).
+///
+/// `kind` is one of lib/lifecycle/plan.js LIFECYCLE_KINDS. The unique pair IS
+/// the once-only lock: a second run's create fails on it. A row is in one of
+/// four states — sent (sentAt), decided against (skipped, never revisited),
+/// claimed (claimedAt, no sentAt — in flight, or failed and retried after
+/// RECLAIM_AFTER_MS) or merely observed (observedAt only: a milestone the
+/// cron has SEEN reached, whose letter is due the next day).
+///
+/// No relation to Company, the SentEmail way: the record of what FieldQuo
+/// wrote to a company must not disappear with a cascade.
+model LifecycleEmail {
+  id         String    @id @default(cuid())
+  companyId  String
+  kind       String
+  observedAt DateTime?
+  claimedAt  DateTime?
+  sentAt     DateTime?
+  failedAt   DateTime?
+  skipped    String?
+  error      String?
+  toAddress  String?
+  userId     String?
+  language   String?
+  subject    String?
+  providerId String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([companyId, kind])
+  @@index([sentAt])
+}
+
 /// FieldQuo's consolidated manual library — manufacturer manuals every
 /// company's AI team may read as READ-ONLY defaults, after the company's own
 /// uploads (owner, 2026-10-04). Two origins:
