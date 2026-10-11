@@ -24,6 +24,16 @@
 //     trial-ended letter's whole window).
 // Demos and companies FieldQuo ended are excluded in the query AND refused
 // again by the plan and after the claim.
+//
+// ══ Then the two marketing letters (since 2026-10-11) ═════════════════════
+//
+// Win-back (14 days after a cancellation took effect) and last month's product
+// updates (first 7 local days of the month, only when the month has entries)
+// — lib/lifecycle/marketing.js. AFTER the trial sequence, through the same
+// day gate (lib/lifecycle/plan.js sendDayGate), so a company the sequence
+// wrote to this run is not written to again today. One cron, not two: the
+// rules are the same rules, and a second cron would be a second clock to
+// keep them on.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -41,6 +51,8 @@ import { loadLifecycleSettings } from "@/lib/lifecycle/settingsStore";
 import { runLifecycleForCompany } from "@/lib/lifecycle/run";
 import { LIFECYCLE_SEQUENCE_STARTS_AT, SCHEDULE } from "@/lib/lifecycle/plan";
 import { loadArticle } from "@/lib/help/content";
+import { runMarketingForCompany, marketingCandidatesWhere } from "@/lib/lifecycle/marketing";
+import { currentNewsletterIssue } from "@/lib/lifecycle/productNewsletter";
 
 const BATCH = 300;
 const DAY = 24 * 60 * 60 * 1000;
@@ -111,14 +123,38 @@ export async function GET(request) {
       await recordError({ area: "lifecycle-email", code: "lifecycle_run_failed", message: `Lifecycle email run failed: ${err?.message}`, companyId: id }).catch(() => {});
     }
   }
+  // ── The marketing letters ─────────────────────────────────────────────────
+  const issue = currentNewsletterIssue(now);
+  const marketing = await db.company.findMany({
+    where: marketingCandidatesWhere(now, issue),
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+    take: BATCH,
+  });
+  const marketingDeps = { ...deps, issue };
+  for (const { id } of marketing) {
+    try {
+      const r = await runMarketingForCompany(id, marketingDeps);
+      note(r.outcome === "nothing" ? `wait:${r.reason}` : r.kind ? `${r.outcome}:${r.kind.split(":")[0]}` : r.outcome);
+      if (r.outcome === "sent") sent++;
+      if (r.outcome === "build_failed" && /mailing address/i.test(r.reason || "")) addressMissing++;
+      else if (r.outcome === "build_failed") {
+        await recordError({ area: "lifecycle-email", code: "lifecycle_build_failed", message: `Couldn't build ${r.kind}: ${r.reason}`, companyId: id }).catch(() => {});
+      }
+    } catch (err) {
+      note("error");
+      await recordError({ area: "lifecycle-email", code: "lifecycle_marketing_failed", message: `Win-back / product-updates run failed: ${err?.message}`, companyId: id }).catch(() => {});
+    }
+  }
+
   // One logged refusal per run, not one per company.
   if (addressMissing) {
     await recordError({
       area: "lifecycle-email",
       code: "lifecycle_no_mailing_address",
-      message: `SALES_MAILING_ADDRESS is unset, so ${addressMissing} trial-sequence email(s) were not sent — CASL requires a mailing address in every commercial message.`,
+      message: `SALES_MAILING_ADDRESS is unset, so ${addressMissing} trial-sequence / win-back / product-updates email(s) were not sent — CASL requires a mailing address in every commercial message.`,
     }).catch(() => {});
   }
 
-  return NextResponse.json({ success: true, considered: companies.length, sent, counts });
+  return NextResponse.json({ success: true, considered: companies.length, consideredMarketing: marketing.length, newsletterIssue: issue?.key || null, sent, counts });
 }

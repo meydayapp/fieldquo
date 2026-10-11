@@ -113,6 +113,67 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Lifecycle emails, part C: win-back and product updates sent, billing letters on the shared layout, one language rule (11 October 2026)
+
+On top of parts A and B (release/lifecycle-ab pinned at b7a907881).
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Win-back and the monthly product-updates letter are SENT**, by the
+  hourly lifecycle cron (`app/api/cron/lifecycle-emails`, after the trial
+  sequence) through `lib/lifecycle/marketing.js`:
+  - win-back: from 14 days after a cancellation took effect until the
+    account locks (day 30); preference category **offers**; once per
+    cancellation (`LifecycleEmail` kind `win_back:<Stripe subscription id>`);
+  - product updates: during the first 7 local days of a month, ONLY when
+    last month has entries in `lib/data/productUpdates.js`; category
+    **updates**; once per issue (`newsletter:<YYYY-MM>`); a week the gate
+    blocks throughout is not sent late;
+  - both in the shared layout as commercial mail (address, Unsubscribe,
+    Manage preferences, RFC 8058 List-Unsubscribe), only to an owner whose
+    preference is on (offers / updates default OFF unless they ticked the
+    signup consent box), never on the do-not-contact list (a failed read
+    fails CLOSED: claim released, retried later), never a demo, a company
+    FieldQuo ended or locked, or a test address;
+  - **one lifecycle email a local day, 09:00–18:00 local**: the trial
+    sequence's gate is now `sendDayGate` in `lib/lifecycle/plan.js`, asked by
+    both (part A's mutation anchors follow it; `check:lifecycle-emails`
+    still 2940/2940);
+  - no new column: the per-period kind on part A's unique `(companyId, kind)`
+    is the lock; the platform company page lists those rows, the console card
+    counts them by family.
+- **Billing letters on the shared layout as TRANSACTIONAL**: subscribed, plan
+  changed, renewal, grace (both), cancelled (both), referral (both), AI credit
+  low, and every `buildPlatformNotice` user (phone rent, auto top-up, crew
+  line, client tickets). Words unchanged — md5 of (subject, heading, company,
+  body HTML, button) for 108 letter/language pairs and both notice shapes
+  equal the old shell's (`scripts/fixtures/billingLetterPartsBaseline.json`).
+  They had no text part; they have one now and every caller sends it. The
+  old private footer sentence (a dead key now) is removed.
+- **One language rule** — `lib/i18n/letterLanguage.js` (was
+  `lib/billing/billingLanguage.js`): reader's `User.language` (region
+  stripped) → `Company.defaultLanguage` → English. The 7/3/1 trial reminders
+  (were company-only; their date is now in that language too), the trial
+  sequence (was `user.language || defaultLanguage`, which sent an unknown
+  code to English), the billing letters, referral, AI credit, win-back and
+  product updates all use it. The trial reminder's footer was already in its
+  language through part A's layout; the check now asserts it.
+
+### Schema
+
+None — no new column or table.
+
+### Checks
+
+`check:billing-lifecycle-emails` 338 (section 8 executes the marketing run
+end to end: timing, preferences, do-not-contact incl. a failing read, the
+day gate, the 7/3/1 collision, mailing-address refusal, once per period,
+languages; and the shared language helper); 12 part-C mutants, all killed.
+`check:lifecycle-emails`, `check:platform-email-layout` and the related
+checks green; `npm run build` exit 0.
+
+---
+
 ## FieldQuo→contractor emails: one layout, email preferences, the trial sequence (11 October 2026)
 
 Owner: "look at the different email the crms send to people that sign up…
@@ -156,8 +217,8 @@ docs/ONBOARDING-EMAILS.md.
 - WHOSE name goes on the personal day-3 note (name, title, reply-to, phone,
   booking link). Until set on /platform/companies the note is not sent.
 - Customer stories: none exist, so the day-5 letter has no stories block.
-- `updates` and `offers` have no sender yet; the switches are stored and
-  honoured by `userAllowsCategory()` for whatever sends them first.
+- `updates` and `offers` had no sender at part A; since part C the monthly
+  product-updates letter and the win-back letter send them (see part C).
 
 ### Schema (additive — NOT applied; apply BEFORE this deploys)
 
@@ -230,17 +291,10 @@ trial-ended letter).
   portal line, the signed PDF still attached, in the quote's language (8 client
   languages), no FieldQuo. Contrast measured ≥ 4.5:1 on 9 hostile brands.
 
-### Waits on the email-preferences system (TODO — do not wire before it lands)
+### Win-back and product updates — wired in part C (below)
 
-- **Win-back** (`lib/lifecycle/winBack.js`) and the **monthly product-updates
-  letter** (`lib/lifecycle/productNewsletter.js`) are content builders and
-  selection rules only — pure, executed by the check, imported by nothing.
-  Both are marketing mail and need the preferences / List-Unsubscribe system
-  first; no cron, route or control exists for them. When wiring: a
-  `Subscription.winBackSentFor` (the Stripe id, like the cancellation guard)
-  and a `Company.productUpdatesIssueSent` (the "2026-09" key), the
-  do-not-contact read at send time, the new shared layout, one cron each
-  (check the Vercel cron count — 56 today).
+Built here as content and selection only; sent since part C through part A's
+preferences and the hourly lifecycle cron — see the part C section.
 
 ### Schema (additive — NOT applied; apply BEFORE this deploys) — parts A and B together
 

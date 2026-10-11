@@ -25,6 +25,14 @@ const LABELS = {
   trial_ended: "Trial ended",
 };
 
+/** Per-period kinds (lib/lifecycle/marketing.js) carry their period in the kind. */
+function kindLabel(k) {
+  if (LABELS[k]) return LABELS[k];
+  if (k.startsWith("win_back:")) return `Win-back — subscription ${k.slice("win_back:".length)}`;
+  if (k.startsWith("newsletter:")) return `Product updates — ${k.slice("newsletter:".length)}`;
+  return k;
+}
+
 function when(value, timeZone) {
   if (!value) return null;
   try {
@@ -110,7 +118,7 @@ export default function CompanyLifecycleEmails({ companyId }) {
                 const st = r ? rowStatus(r, tz) : { tone: "muted", text: "—" };
                 return (
                   <tr key={k} className="border-t border-border">
-                    <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">{LABELS[k] || k}</td>
+                    <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">{kindLabel(k)}</td>
                     <td className={`py-2 ${st.tone === "ok" ? "text-foreground" : st.tone === "bad" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}`}>{st.text}</td>
                   </tr>
                 );

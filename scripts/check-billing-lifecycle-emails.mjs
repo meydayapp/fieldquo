@@ -17,7 +17,9 @@
 //   5. AI credit running low, once per crossing (the real ledger writers)
 //   6. the client's approval email: the contractor's stationery, no FieldQuo,
 //      contrast measured on hostile brand colours, every client language
-//   7. win-back and product-updates: content and selection only (pure)
+//   7. win-back and product-updates: content and selection (pure)
+//   8. …and SENT: the hourly lifecycle cron's marketing run, preferences,
+//      do-not-contact, one email a local day; one language helper for all
 //
 // Run: node --import ./scripts/alias-loader.mjs \
 //           --import ./scripts/billing-lifecycle-stub-loader.mjs scripts/check-billing-lifecycle-emails.mjs
@@ -203,7 +205,8 @@ console.log("\n── 2. Subscription letters in every app language ────
   ok("platform notices are on the layout too, with a text part and the button's origin in the header links", noticeOnLayout.html.includes("/email/fieldquo-logo.jpg") && noticeOnLayout.html.includes('href="https://app.example.test/app"') && noticeOnLayout.text.includes("Pay now") && noticeOnLayout.text.includes("Top up: https://app.example.test/app/settings/voice"));
   for (const f of ["lib/billing/notify.js", "app/api/cron/grace-warning/route.js", "app/api/cron/renewal-reminders/route.js", "lib/referrals/rewardEmail.js", "lib/ai/creditLow.js", "lib/voice/spendGate.js", "lib/voice/autoTopup.js", "lib/crew/lineRent.js", "lib/clientTickets/service.js"]) {
     const src = stripComments(read(f));
-    ok(`${f}: sends the text part with the HTML`, /const \{ subject, html, text \} = /.test(src) && /subject, html, text \}\)/.test(src));
+    // Every send in the file, not just one: notify.js has two.
+    ok(`${f}: every send carries the text part with the HTML`, /const \{ subject, html, text \} = /.test(src) && /subject, html, text \}\)/.test(src) && !/subject, html \}\)/.test(src) && !/const \{ subject, html \} = /.test(src));
   }
 
   // Every app language, every key, the same placeholders.
@@ -657,7 +660,7 @@ console.log("\n── 6. The client's approval email ─────────
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("\n── 7. Win-back and product updates (content + selection only) ──");
+console.log("\n── 7. Win-back and product updates: content and selection ──────");
 {
   const { winBackDecision, winBackContent, updatesSince, WIN_BACK_AFTER_DAYS } = await import("@/lib/lifecycle/winBack");
   const { newsletterIssue, newsletterDecision, newsletterContent } = await import("@/lib/lifecycle/productNewsletter");
@@ -701,17 +704,190 @@ console.log("\n── 7. Win-back and product updates (content + selection only)
   const july = newsletterIssue(new Date("2026-07-02"));
   ok("newsletter (fr, an entry with no translation): the English entry whole, never half", newsletterContent({ issue: july, language: "fr" }).items.every((i, n) => i.title === july.entries[n].title && i.body === july.entries[n].body));
 
-  // Not wired: nothing sends either letter, and no control renders for them.
-  const { execSync } = await import("node:child_process");
-  // git grep exits 1 on "no match", which is the answer wanted here.
-  let users = "";
-  try {
-    users = execSync("git grep -l -e '@/lib/lifecycle/winBack' -e '@/lib/lifecycle/productNewsletter' -- app lib", { encoding: "utf8" }).trim();
-  } catch (err) {
-    users = err.status === 1 ? "" : `git grep failed: ${err.message}`;
+  // Wired (Part C): the hourly lifecycle cron sends both, through
+  // lib/lifecycle/marketing.js — section 8 executes it.
+  const cron = stripComments(read("app/api/cron/lifecycle-emails/route.js"));
+  ok("the hourly lifecycle cron runs the marketing letters after the trial sequence", /runMarketingForCompany\(id, marketingDeps\)/.test(cron) && cron.indexOf("runLifecycleForCompany(id, deps)") < cron.indexOf("runMarketingForCompany(id, marketingDeps)") && /currentNewsletterIssue\(now\)/.test(cron));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n── 8. Win-back and product updates, sent ───────────────────────");
+{
+  const { runMarketingForCompany, planMarketing, marketingCandidatesWhere, winBackKind, newsletterKind } = await import("@/lib/lifecycle/marketing");
+  const { currentNewsletterIssue, newsletterWindowOpen, NEWSLETTER_SEND_DAYS } = await import("@/lib/lifecycle/productNewsletter");
+  const { sendDayGate } = await import("@/lib/lifecycle/plan");
+  const { lifecycleT } = await import("@/lib/i18n/lifecycleEmailCopy");
+
+  // 10:40 in Toronto on Saturday 3 October 2026.
+  const NOW = new Date("2026-10-03T14:40:00Z");
+  const issue = currentNewsletterIssue(NOW);
+  ok("the issue on Oct 3 is September's — the one changelog entry dated 2026-09-24", issue?.key === "2026-09" && issue.entries.length === 1);
+  ok(`the newsletter window is the first ${NEWSLETTER_SEND_DAYS} local days of the next month`, newsletterWindowOpen("2026-09", "2026-10-01") && newsletterWindowOpen("2026-09", "2026-10-07") && !newsletterWindowOpen("2026-09", "2026-10-08") && !newsletterWindowOpen("2026-09", "2026-09-30") && newsletterWindowOpen("2026-12", "2027-01-03"));
+  ok("a month with no entries has no issue, so no newsletter (Sept 2026 → August had none)", currentNewsletterIssue(new Date("2026-09-03T14:00:00Z")) === null);
+
+  const STAMPS = { nextStepsEmailSentAt: null, nextStepsEmailSkipped: null, trialReminder7At: null, trialReminder3At: null, trialReminder1At: null };
+  const baseCo = { isDemo: false, createdAt: new Date("2026-05-01"), timezone: "America/Toronto", defaultLanguage: "en", platformEndsAt: null, trialEndsAt: null, ...STAMPS, offerFinancing: false, stripeChargesEnabled: false, industries: [], email: "office@roy.ca" };
+  const seed = ({ sub, company = {}, user = {}, pref = null, rows = [] } = {}) => {
+    const db = resetHarness({
+      tables: {
+        company: [{ id: "C", name: "Roy Painting", ...baseCo, ...company }, { id: "OTHER", name: "Other", ...baseCo }],
+        subscription: sub ? [{ id: "sC", companyId: "C", ...sub }] : [],
+        member: [{ id: "m1", companyId: "C", userId: "u1", role: "owner", active: true, createdAt: new Date("2026-05-01") }, { id: "m9", companyId: "OTHER", userId: "u9", role: "owner", active: true, createdAt: new Date("2026-05-01") }],
+        user: [{ id: "u1", email: "owner@roy.ca", name: "Roy", language: null, marketingConsentAt: new Date("2026-05-01"), ...user }, { id: "u9", email: "o@other.ca", name: "O", language: null, marketingConsentAt: new Date() }],
+        emailPreference: pref ? [{ id: "p1", userId: "u1", token: "t".repeat(43), ...pref }] : [],
+        lifecycleEmail: rows.map((r, i) => ({ id: `le${i}`, companyId: "C", ...r })),
+      },
+      relations: RELATIONS,
+    });
+    // (companyId, kind) is unique in Postgres; FakePrisma does not model it.
+    const create = db.lifecycleEmail.create;
+    db.lifecycleEmail.create = async (args) => {
+      if (db.t.lifecycleEmail.some((r) => r.companyId === args.data.companyId && r.kind === args.data.kind)) throw Object.assign(new Error("unique"), { code: "P2002" });
+      return create(args);
+    };
+    return db;
+  };
+  const suppression = { list: new Set(), fail: false, calls: [] };
+  const deps = (o = {}) => ({
+    client: harness.db,
+    sendEmail: async (m) => { if (harness.failFor.has(m.to)) return { error: "stubbed" }; harness.sent.push(m); return { id: `e${harness.sent.length}` }; },
+    checkSuppression: async (_c, { email }) => { suppression.calls.push(email); if (suppression.fail) throw new Error("read failed"); return { suppressed: suppression.list.has(email) }; },
+    mailingAddress: "FieldQuo, 1 Main St, Ottawa ON",
+    platformFrom: "FieldQuo <hello@fieldquo.test>",
+    origin: "https://www.fieldquo.com",
+    now: NOW,
+    nextStepsSettings: { enabled: false },
+    issue,
+    ...o,
+  });
+  const cancelled = (days) => ({ status: "canceled", canceledAt: new Date(NOW.getTime() - days * DAY), stripeSubscriptionId: "sub_gone", accessLockedAt: null });
+
+  // ── Win-back ──
+  seed({ sub: cancelled(15) });
+  let r = await runMarketingForCompany("C", deps());
+  ok("win-back: 15 days after the cancellation, 10:40 local → sent", r.outcome === "sent" && r.kind === winBackKind("sub_gone"), r);
+  const wb = harness.sent[0];
+  ok("…to the owner, as an OFFERS letter: offers label, address, Unsubscribe (?c=offers) and Manage preferences", wb?.to === "owner@roy.ca" && wb.html.includes(lifecycleT("en")("layout.label.offers")) && wb.html.includes("1 Main St, Ottawa ON") && /email-preferences\/[^"?]+\?c=offers/.test(wb.html) && wb.html.includes("Manage email preferences"));
+  ok("…with RFC 8058 one-click headers pointing at the POST endpoint", /api\/email-preferences\/[^>]+\/unsubscribe\?c=offers>$/.test(wb.headers?.["List-Unsubscribe"] || "") && wb.headers?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click");
+  ok("…the read-only-until date (cancellation + 30 days), the changelog since, and a plan button", wb.html.includes("Oct 18, 2026") && wb.html.includes("/app/settings/account-billing") && wb.text.includes("Oct 18, 2026") && wb.text.includes("Unsubscribe:"));
+  ok("…recorded once as win_back:<sub id> with what went", harness.db.t.lifecycleEmail.some((x) => x.kind === "win_back:sub_gone" && x.sentAt && x.toAddress === "owner@roy.ca" && x.language === "en"));
+  r = await runMarketingForCompany("C", deps({ now: new Date(NOW.getTime() + 2 * 3600000) }));
+  ok("the next run the same day sends nothing", harness.sent.length === 1 && r.outcome === "nothing", r);
+  r = await runMarketingForCompany("C", deps({ now: new Date(NOW.getTime() + 2 * DAY) }));
+  ok("…nor two days later: once per cancellation", harness.sent.length === 1 && r.outcome === "nothing", r);
+
+  for (const [days, label] of [[13, "13 days: not yet"], [30.5, "past the 30-day read-only month: never late"]]) {
+    seed({ sub: cancelled(days) });
+    const x = await runMarketingForCompany("C", deps());
+    ok(`win-back ${label}`, x.outcome === "nothing" && harness.sent.length === 0, x);
   }
-  ok("nothing in app/ or lib/ imports the win-back or newsletter yet (they wait on preferences)", users === "", users);
-  ok("ROADMAP says they wait on the preferences system", /win-back[\s\S]{0,400}preferences/i.test(read("docs/ROADMAP.md")));
+  seed({ sub: cancelled(15), user: { marketingConsentAt: null } });
+  r = await runMarketingForCompany("C", deps());
+  ok("win-back: no consent to offers (never ticked, never switched on) → recorded opted_out, not sent", r.outcome === "skipped" && r.reason === "opted_out" && harness.sent.length === 0, r);
+  seed({ sub: cancelled(15), pref: { offers: false } });
+  ok("win-back: offers switched OFF on the preferences page → not sent", (await runMarketingForCompany("C", deps())).reason === "opted_out" && harness.sent.length === 0);
+  seed({ sub: cancelled(15), user: { marketingConsentAt: null }, pref: { offers: true } });
+  ok("win-back: offers switched ON by the person → sent", (await runMarketingForCompany("C", deps())).outcome === "sent");
+  seed({ sub: cancelled(15) });
+  suppression.list.add("owner@roy.ca");
+  r = await runMarketingForCompany("C", deps());
+  ok("win-back: on the do-not-contact list → recorded do_not_contact, not sent", r.reason === "do_not_contact" && harness.sent.length === 0, r);
+  suppression.list.clear();
+  seed({ sub: cancelled(15) });
+  suppression.fail = true;
+  r = await runMarketingForCompany("C", deps());
+  ok("win-back: the do-not-contact read FAILS → fails closed: nothing sent, claim released (not recorded as a decision)", r.outcome === "suppression_read_failed" && harness.sent.length === 0 && harness.db.t.lifecycleEmail.every((x) => !x.skipped && !x.claimedAt && x.failedAt), r);
+  suppression.fail = false;
+  seed({ sub: cancelled(15) });
+  r = await runMarketingForCompany("C", deps({ now: new Date("2026-10-03T11:40:00Z") }));
+  ok("win-back: 07:40 local → outside 09:00–18:00, waits", r.reason === "outside_send_hours" && harness.sent.length === 0, r);
+  seed({ sub: cancelled(15), rows: [{ kind: "trial_ended", sentAt: new Date("2026-10-03T13:10:00Z") }] });
+  r = await runMarketingForCompany("C", deps());
+  ok("win-back: another lifecycle email went today → waits for tomorrow (one a local day)", r.reason === "already_emailed_today" && harness.sent.length === 0, r);
+  seed({ sub: cancelled(15) });
+  r = await runMarketingForCompany("C", deps({ mailingAddress: "" }));
+  ok("win-back: no mailing address set → the layout refuses to build (CASL); claim released, retried once it is set", r.outcome === "build_failed" && /mailing address/i.test(r.reason || "") && harness.sent.length === 0 && harness.db.t.lifecycleEmail.every((x) => !x.sentAt && !x.skipped));
+  seed({ sub: { ...cancelled(15), accessLockedAt: new Date() } });
+  ok("win-back: never to a company FieldQuo locked", (await runMarketingForCompany("C", deps())).outcome === "nothing" && harness.sent.length === 0);
+  seed({ sub: cancelled(15), company: { isDemo: true } });
+  ok("win-back: never to a demo", (await runMarketingForCompany("C", deps())).outcome === "nothing");
+  seed({ sub: cancelled(15), user: { email: "owner@example.com" } });
+  ok("win-back: never to a reserved test address", (await runMarketingForCompany("C", deps())).outcome === "nothing" && harness.sent.length === 0);
+  seed({ sub: cancelled(15), user: { language: "fr" } });
+  await runMarketingForCompany("C", deps());
+  ok("win-back: in the owner's own language (French), chrome and all", harness.sent[0]?.subject === "Votre compte FieldQuo est toujours là" && harness.sent[0].html.includes("Se désabonner") && harness.sent[0].html.includes('lang="fr"'), harness.sent[0]?.subject);
+
+  // ── Product updates ──
+  seed({ sub: { status: "active", stripeSubscriptionId: "sub_live" } });
+  r = await runMarketingForCompany("C", deps());
+  ok("newsletter: an active customer on Oct 3, 10:40 local, with September's issue → sent", r.outcome === "sent" && r.kind === newsletterKind("2026-09"), r);
+  const nl = harness.sent[0];
+  ok("…as an UPDATES letter: updates label, Unsubscribe (?c=updates), one-click headers, the entry with its full-post link", nl?.html.includes(lifecycleT("en")("layout.label.updates")) && /\?c=updates/.test(nl.html) && /unsubscribe\?c=updates>$/.test(nl.headers?.["List-Unsubscribe"] || "") && nl.html.includes("/app/settings/product-updates/services-checklists-client-portal") && nl.subject.startsWith("What's new in FieldQuo"));
+  r = await runMarketingForCompany("C", deps({ now: new Date(NOW.getTime() + DAY) }));
+  ok("newsletter: once per issue", r.outcome === "nothing" && harness.sent.length === 1, r);
+  seed({ sub: { status: "active", stripeSubscriptionId: "sub_live" } });
+  ok("newsletter: the 8th local day of the month → outside the window, never late", (await runMarketingForCompany("C", deps({ now: new Date("2026-10-08T14:40:00Z") }))).reason === "outside_newsletter_window" && harness.sent.length === 0);
+  seed({ sub: { status: "active", stripeSubscriptionId: "sub_live" } });
+  ok("newsletter: a month whose issue has no entries sends nothing", (await runMarketingForCompany("C", deps({ issue: null }))).outcome === "nothing" && harness.sent.length === 0);
+  seed({ sub: { status: "active", stripeSubscriptionId: "sub_live" }, user: { marketingConsentAt: null } });
+  ok("newsletter: updates default OFF without signup consent → opted_out", (await runMarketingForCompany("C", deps())).reason === "opted_out" && harness.sent.length === 0);
+  // Berlin, 09:40 local = 07:40 UTC: the trial-reminder cron runs at 09:00
+  // UTC, i.e. later THIS local day, and its 3-day letter is due — the
+  // newsletter yields to it (and goes on a later day of its week).
+  const berlinMorning = new Date("2026-10-03T07:40:00Z");
+  seed({ company: { timezone: "Europe/Berlin", trialEndsAt: new Date(berlinMorning.getTime() + 2.5 * DAY) } });
+  r = await runMarketingForCompany("C", deps({ now: berlinMorning }));
+  ok("newsletter: a trial whose 3-day reminder will go at 09:00 UTC later today yields to it", r.reason === "trial_reminder_due_today" && harness.sent.length === 0, r);
+  seed({ company: { trialEndsAt: new Date(NOW.getTime() + 2 * DAY), trialReminder3At: new Date("2026-10-03T09:00:00Z") } });
+  r = await runMarketingForCompany("C", deps());
+  ok("newsletter: in Toronto that reminder went at 05:00 local today → already emailed today, waits", r.reason === "already_emailed_today" && harness.sent.length === 0, r);
+  seed({ company: { trialEndsAt: new Date(NOW.getTime() + 12 * DAY) } });
+  ok("newsletter: a card-free trial with no reminder due gets it", (await runMarketingForCompany("C", deps())).outcome === "sent");
+  seed({ sub: { ...cancelled(15) } });
+  r = await runMarketingForCompany("C", deps());
+  ok("both due? the win-back goes first (it has a hard end); the newsletter is not for a cancelled company anyway", r.kind === "win_back:sub_gone" && harness.sent.length === 1);
+  ok("every read of the marketing run is fenced to the company", harness.db.calls.filter((c) => ["lifecycleEmail", "member", "subscription"].includes(c.model) && c.op !== "updateMany").every((c) => !c.where.companyId || c.where.companyId === "C"));
+
+  // The cron's candidate query, evaluated by FakePrisma.
+  const where = marketingCandidatesWhere(NOW, issue);
+  const db = resetHarness({
+    tables: {
+      company: [
+        { id: "wb", isDemo: false, platformEndsAt: null, trialEndsAt: null },
+        { id: "wb_old", isDemo: false, platformEndsAt: null, trialEndsAt: null },
+        { id: "live", isDemo: false, platformEndsAt: null, trialEndsAt: null },
+        { id: "trial", isDemo: false, platformEndsAt: null, trialEndsAt: new Date(NOW.getTime() + 5 * DAY) },
+        { id: "demo", isDemo: true, platformEndsAt: null, trialEndsAt: null },
+        { id: "ended", isDemo: false, platformEndsAt: new Date(), trialEndsAt: null },
+      ],
+      subscription: [
+        { id: "1", companyId: "wb", status: "canceled", canceledAt: new Date(NOW.getTime() - 15 * DAY), accessLockedAt: null },
+        { id: "2", companyId: "wb_old", status: "canceled", canceledAt: new Date(NOW.getTime() - 40 * DAY), accessLockedAt: null },
+        { id: "3", companyId: "live", status: "active", accessLockedAt: null },
+        { id: "4", companyId: "demo", status: "active", accessLockedAt: null },
+        { id: "5", companyId: "ended", status: "active", accessLockedAt: null },
+      ],
+    },
+    relations: RELATIONS,
+  });
+  const ids = (await db.company.findMany({ where })).map((c) => c.id).sort().join();
+  ok("cron candidates on Oct 3: the 15-day cancellation, the live customer, the running trial — no demo, no ended, no 40-day cancellation", ids === "live,trial,wb", ids);
+  const idsLate = (await db.company.findMany({ where: marketingCandidatesWhere(new Date("2026-10-12T14:40:00Z"), issue) })).map((c) => c.id).sort().join();
+  ok("after the 8th: only win-back candidates are looked at", idsLate === "wb", idsLate);
+  ok("the shared gate is exported and the same object the trial sequence uses", typeof sendDayGate === "function" && /sendDayGate\(\{ now, company, rows: \[\.\.\.byKind\.values\(\)\], nextStepsPendingUntil \}\)/.test(stripComments(read("lib/lifecycle/plan.js"))));
+
+  // ── Language: one helper for every FieldQuo letter ──
+  const { letterLanguage } = await import("@/lib/i18n/letterLanguage");
+  ok("letterLanguage: the reader's own → the company's → English, region stripped", letterLanguage({ language: "fr-CA" }, { defaultLanguage: "es" }) === "fr" && letterLanguage({ language: "klingon" }, { defaultLanguage: "es" }) === "es" && letterLanguage(null, { defaultLanguage: "zh" }) === "zh" && letterLanguage(null, null) === "en" && letterLanguage({ language: "  " }, { defaultLanguage: "it_IT" }) === "it");
+  const trialCron = stripComments(read("app/api/cron/trial-reminders/route.js"));
+  ok("the 7/3/1 trial reminders use it (owner → company → English), with the date in that language", /const language = await ownerLetterLanguage\(company\.id\)/.test(trialCron) && /language,\s*daysLeft/.test(trialCron) && /formatBillingDate\(decision\.trialEndsAt, language\)/.test(trialCron) && !/company\.defaultLanguage/.test(trialCron));
+  ok("the trial sequence uses it too", /letterLanguage\(user, fresh, /.test(stripComments(read("lib/lifecycle/run.js"))) && !/user\.language \|\| fresh\.defaultLanguage/.test(read("lib/lifecycle/run.js")));
+  for (const f of ["lib/billing/notify.js", "app/api/cron/grace-warning/route.js", "app/api/cron/renewal-reminders/route.js", "lib/referrals/rewardEmail.js", "lib/ai/creditLow.js", "lib/lifecycle/marketing.js"]) {
+    ok(`${f} goes through lib/i18n/letterLanguage.js`, /from "@\/lib\/i18n\/letterLanguage"/.test(read(f)));
+  }
+  const { buildTrialReminderEmail } = await import("@/lib/email/trialReminderEmail");
+  const tr = buildTrialReminderEmail({ companyName: "Roy", language: "de", daysLeft: 3, trialEndsOn: "14. Okt. 2026", graceDays: 7, billingUrl: "https://www.fieldquo.com/app/settings/account-billing", mailingAddress: "" });
+  ok("the trial reminder's footer and chrome are in the reader's language (German)", tr.html.includes(lifecycleT("de")("layout.label.transactional")) && tr.text.includes(lifecycleT("de")("layout.label.transactional")) && !tr.html.includes("A service email about"));
 }
 
 console.log(

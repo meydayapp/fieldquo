@@ -30,6 +30,8 @@ const KIND_LABELS = {
   personal_checkin: "Personal day-3 note",
   help_articles: "Day-5 help articles",
   trial_ended: "Trial ended",
+  win_back: "Win-back (14 days after a cancellation)",
+  newsletter: "Product updates (monthly)",
 };
 
 export default function LifecycleEmailsCard() {

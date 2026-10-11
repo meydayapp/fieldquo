@@ -535,8 +535,10 @@ ok(IMPORT_SAME_SECOND_MIN === 2 && /HAVING count\(\*\) >= 2 LIMIT 1/.test(readFi
 
 // ═══ 11. Mutations ═════════════════════════════════════════════════════════
 const MUTATIONS = [
-  { file: "lib/lifecycle/plan.js", label: "two lifecycle emails may share a day", from: "  if (sentToday) return { ...out, reason: \"already_emailed_today\" };", to: "  if (false) return { ...out, reason: \"already_emailed_today\" };" },
-  { file: "lib/lifecycle/plan.js", label: "the sequence stops yielding to the trial reminder", from: "    if (reminder.send) return { ...out, reason: \"trial_reminder_due_today\" };", to: "    if (false) return { ...out, reason: \"trial_reminder_due_today\" };" },
+  // The day gate moved into sendDayGate (shared with win-back / product
+  // updates, lib/lifecycle/marketing.js); the anchors follow it.
+  { file: "lib/lifecycle/plan.js", label: "two lifecycle emails may share a day", from: "  if (sentToday) return \"already_emailed_today\";", to: "  if (false) return \"already_emailed_today\";" },
+  { file: "lib/lifecycle/plan.js", label: "the sequence stops yielding to the trial reminder", from: "    if (reminder.send) return \"trial_reminder_due_today\";", to: "    if (false) return \"trial_reminder_due_today\";" },
   // Two guards in the plan keep a done feature from being chosen (recorded
   // as already_done, and refused by the pick); both are broken together.
   {

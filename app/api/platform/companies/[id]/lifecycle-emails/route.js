@@ -60,11 +60,15 @@ export async function GET(request, { params }) {
   const prefs = owner?.userId ? await preferencesForUser(owner.userId).catch(() => null) : null;
   const order = new Map(LIFECYCLE_KINDS.map((k, i) => [k, i]));
   rows.sort((a, b) => (order.get(a.kind) ?? 99) - (order.get(b.kind) ?? 99));
+  // The per-period kinds (win-back per cancellation, product updates per
+  // month — lib/lifecycle/marketing.js) exist only once written, so they are
+  // listed from the rows: every one this company has, after the fixed ones.
+  const periodKinds = rows.map((r) => r.kind).filter((k) => !order.has(k));
 
   return NextResponse.json({
     company,
     rows,
-    kinds: LIFECYCLE_KINDS,
+    kinds: [...LIFECYCLE_KINDS, ...periodKinds],
     ownerPreferences: prefs ? { ...prefs.prefs, changedVia: prefs.row?.changedVia || null, changedAt: prefs.row?.changedAt || null } : null,
   });
 }

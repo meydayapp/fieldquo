@@ -9,11 +9,16 @@ about the company's OWN account; none of it is white-labelled, on purpose
 Nothing below is machine-translated at send time. Each letter is built from
 sentences already in a catalogue, in the reader's language where the
 catalogue has it, English otherwise — the "Language" column says which.
-"Owner → company → English" means the owner's own `User.language`, else
-`Company.defaultLanguage`, else English (`lib/i18n/letterLanguage.js`),
-in all nine app catalogue languages (en fr es uk pa tl de zh it). The trial
-reminders still read the company's language alone — aligning them is the
-next follow-up.
+"Reader → company → English" is ONE rule for every letter FieldQuo writes
+to a contractor (`lib/i18n/letterLanguage.js`): the recipient's own
+`User.language` (region stripped, "fr-CA" → "fr"), else
+`Company.defaultLanguage`, else English, in all nine app catalogue languages
+(en fr es uk pa tl de zh it). For a letter to the company's contact address
+(billing, trial reminders) the reader is the earliest owner. The trial
+reminders read the company's language alone until 2026-10-11, and the trial
+sequence sent an unknown code to English rather than to the company's
+language; both use the helper now. (The next-steps letter and the two signup
+nudges still choose their own way, described in their rows.)
 
 ---
 
@@ -47,6 +52,17 @@ one's text part (the trial reminder had none, so its subject, heading,
 paragraphs and button) with the record taken before the move — 144
 comparisons, 0 differ.
 
+Since 2026-10-11 the billing family is on it too, as **transactional**
+letters: subscribed, plan changed, renewal, grace (both), cancelled (both),
+the referral-month letters, AI credit low, and every `buildPlatformNotice`
+user (phone-number rent, auto top-up, crew-line rent, client tickets).
+They had no text part; their words — subject, heading, company line, the
+body's own HTML, the button — are md5-identical to the old navy-band shell's
+for all 108 letter/language combinations and both notice shapes
+(`check:billing-lifecycle-emails`, record in
+`scripts/fixtures/billingLetterPartsBaseline.json`), and each now has a
+plain-text part, sent by every caller.
+
 ## Email preferences (contractor users)
 
 Per USER, `EmailPreference` (lib/email/preferences.js, preferencesStore.js):
@@ -54,8 +70,8 @@ Per USER, `EmailPreference` (lib/email/preferences.js, preferencesStore.js):
 | Category | Default when never chosen | Sent by |
 |---|---|---|
 | Product tips & setup help (`tips`) | on (they started the trial the tips are about) | the trial sequence below |
-| Product updates & newsletter (`updates`) | on only if they ticked "Send me product news and offers" at signup (`User.marketingConsentAt`) | nothing yet |
-| Offers (`offers`) | same as updates | nothing yet |
+| Product updates & newsletter (`updates`) | on only if they ticked "Send me product news and offers" at signup (`User.marketingConsentAt`) | the monthly product-updates letter |
+| Offers (`offers`) | same as updates | the win-back letter |
 | Billing, security, trial notices | always sent — not a switch anywhere | billing, auth, trial reminders, trial ended |
 
 - No-login page: `/email-preferences/<token>` (the footer link; `?c=tips`
@@ -131,8 +147,8 @@ day):
   Past its window a letter is recorded `too_late` (or
   `sender_not_configured`), never sent late.
 - **Who**: the company's first active owner, in their own language
-  (`User.language`, else `Company.defaultLanguage`; nine languages, English
-  fallback). Never a demo, a company FieldQuo ended, a reserved test domain,
+  (`lib/i18n/letterLanguage.js`: `User.language`, else
+  `Company.defaultLanguage`, else English; nine languages). Never a demo, a company FieldQuo ended, a reserved test domain,
   an address on the do-not-contact list (a failed read fails closed), or —
   for tips letters — someone who switched tips off.
 - **Backlog guard**: only companies created on/after
@@ -149,6 +165,7 @@ day):
 | Next-steps letter | `lib/email/onboardingNextStepsEmail.js` | `lib/signup/nextSteps.js` | `Company.nextStepsEmailSentAt` / `nextStepsEmailSkipped` | `/api/cron/onboarding-next-steps`, every 15 min |
 | Trial reminders 7/3/1 | `lib/email/trialReminderEmail.js` | `lib/billing/trialReminder.js` | `Company.trialReminder7At` / `3At` / `1At` | `/api/cron/trial-reminders`, daily 09:00 UTC |
 | Nudges, milestones, personal note, help articles, trial ended | `lib/lifecycle/emails.js` (copy: `lib/i18n/lifecycleEmailCopy.js`) | `lib/lifecycle/plan.js`, carried out by `lib/lifecycle/run.js` | `LifecycleEmail` rows | `/api/cron/lifecycle-emails`, hourly at :40 |
+| Win-back, product updates | `lib/lifecycle/winBack.js`, `lib/lifecycle/productNewsletter.js` (copy: `lib/i18n/accountNoticeCopy.js`) | `planMarketing` in `lib/lifecycle/marketing.js`, through the same day gate (`sendDayGate`) | `LifecycleEmail` rows `win_back:<Stripe sub id>`, `newsletter:<YYYY-MM>` | the same cron, after the trial sequence |
 
 Languages: next-steps letter — the eight document languages (zh → English);
 trial reminders — the nine app catalogues; the sequence — all nine.
@@ -190,12 +207,20 @@ trial reminders — the nine app catalogues; the sequence — all nine.
 | When a referral month LANDS — the referrer at the referred business's first paid invoice, the newcomer when it chooses a plan | "You earned a free month" / "Your free month is applied", with the new charge date (`lib/referrals/rewardEmail.js`) | `claimAndExtend` in `lib/referrals/index.js`, only when the extension worked | `ReferralCredit.notifiedAt` (claimed, restored on failure) | owner → company → English | none (webhook / plan selection) |
 | When an AI charge leaves the AI credit under $5 (`AI_CREDIT_LOW_CENTS`) | "Your AI credit is running low" to every active owner and admin, with the balance and a top-up link (`lib/ai/creditLow.js`) | the ledger's two writers (`lib/voice/credits.js` debit / add) | `Company.aiCreditLowNotifiedAt` — set on the crossing, cleared by a top-up back to $5+; a plan's month-end expiry is not a crossing | each recipient's own language → company → English | none (on the charge) |
 | The 1st of each month | The monthly summary (`lib/ai/monthlyDigest.js`) to active owners and admins. Audience by the access rules (`lib/ai/digestAudience.js`): a live plan, past_due inside its grace, a card-free trial still running, or a hand-made company with onboardingStatus active — never a demo or an ended / locked / cancelled company (card-free trials were all missed until 2026-10-11: the filter was `onboardingStatus "active"`, written only by Checkout). A TRIAL whose month recorded nothing gets no summary | `/api/cron/monthly-digest` | `AiDigest` row per company per month | reader → company | monthly 08:00 UTC |
-| *Not sent yet* | Win-back, 14 days after a cancellation took effect (`lib/lifecycle/winBack.js`), and the monthly product-updates letter (`lib/lifecycle/productNewsletter.js`) — content and selection rules only, executed by `check:billing-lifecycle-emails`; wiring them through the `updates` preference above is the next follow-up | — | (to add when wired) | nine languages | none |
+| **Win-back** — from 14 days after a cancellation TOOK EFFECT (`Subscription.canceledAt`: the end date for a plan booked to end) until the account locks on day 30; the first hour with a free local day, 09:00–18:00 local | "Your FieldQuo account is still here" — nothing deleted, read-only until {date}, the changelog entries shipped since, Choose a plan (`lib/lifecycle/winBack.js`). **Offers** letter: address, Unsubscribe, Manage preferences, List-Unsubscribe | `planMarketing` (`lib/lifecycle/marketing.js`) — never a demo, anything FieldQuo ended/locked, a company that came back, the do-not-contact list (a failed read fails closed), a test address, or an owner whose `offers` is off | `LifecycleEmail` `win_back:<Stripe sub id>` — once per cancellation | reader → company → English | `/api/cron/lifecycle-emails`, hourly at :40 |
+| **Product updates** — the first 7 local days of each month, the first hour with a free local day, 09:00–18:00 local, ONLY when last month has entries in `lib/data/productUpdates.js` | "What's new in FieldQuo — {month}": each entry's title, summary and full-post link (`lib/lifecycle/productNewsletter.js`). **Updates** letter: same footer and headers | the same — to a customer now (a live plan, past_due in grace, or a card-free trial running), the owner's `updates` on | `LifecycleEmail` `newsletter:<YYYY-MM>` — once per issue; a week the gate blocks throughout is not sent late | each entry in the reader's language when wholly translated, else English whole | the same cron |
 
-These billing, referral and AI-credit letters keep `lib/email/billingEmail.js`'s
-FieldQuo envelope for now; moving them onto `platformLayout.js` is the next
-follow-up. They are transactional — no preference or do-not-contact list
-silences them, the same as "we couldn't charge your card".
+These billing, referral and AI-credit letters are on `platformLayout.js` as
+transactional mail (see "The envelope" above). No preference or
+do-not-contact list silences them, the same as "we couldn't charge your
+card".
+
+**The one-a-day rule includes the marketing letters.** A win-back or a
+newsletter is a `LifecycleEmail` row like the trial sequence's, so it counts
+for the trial sequence's gate the same day, and both ask the same
+`sendDayGate` (`lib/lifecycle/plan.js`): never a second lifecycle email on a
+local day, never outside 09:00–18:00 local, and never on a day the 7/3/1
+trial reminder will still go out.
 
 Day 1 and day 7 also carry sales check-in DRAFTS for the rep who holds the
 company (`lib/sales/checkin/signals.js`) — a text only when a rep presses

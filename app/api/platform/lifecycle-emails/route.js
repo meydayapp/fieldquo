@@ -27,6 +27,11 @@ async function payload() {
   try {
     const grouped = await db.lifecycleEmail.groupBy({ by: ["kind"], where: { sentAt: { not: null } }, _count: { _all: true } });
     sentByKind = Object.fromEntries(LIFECYCLE_KINDS.map((k) => [k, grouped.find((g) => g.kind === k)?._count?._all || 0]));
+    // Win-back and product updates are one kind per period
+    // (lib/lifecycle/marketing.js); the console counts them by family.
+    for (const [family, prefix] of [["win_back", "win_back:"], ["newsletter", "newsletter:"]]) {
+      sentByKind[family] = grouped.filter((g) => g.kind.startsWith(prefix)).reduce((n, g) => n + (g._count?._all || 0), 0);
+    }
   } catch {
     // Unknown, not zero.
     sentByKind = null;
