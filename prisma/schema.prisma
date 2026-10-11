@@ -2427,6 +2427,12 @@ model Company {
   voiceCredits  VoiceCreditEntry[]
   voiceAutoTopup VoiceAutoTopup?
   aiCreditBundle AiCreditBundle?
+  /// When "your AI credit is running low" last went to the owner and admins
+  /// (lib/ai/creditLow.js). Null = armed. Set (claimed before the send) when
+  /// an AI charge leaves the AI wallet below AI_CREDIT_LOW_CENTS; cleared by a
+  /// top-up or plan grant that brings it back to that figure or more — so the
+  /// letter goes once per crossing, never on every charge below it.
+  aiCreditLowNotifiedAt DateTime?
   videoPacks     VideoPack[]
   callConsents  CallConsent[]
   /// Field work (2026-09-21): the offline queue's idempotency ledger, the
@@ -11919,6 +11925,12 @@ model ReferralCredit {
   creditCents        Int?
   currency           String?
   stripeBalanceTxnId String?
+
+  /// When the "you earned a free month" / "your free month is applied" letter
+  /// went to this row's company (lib/referrals/rewardEmail.js). Written only
+  /// for a month that landed (appliedTrialEndsAt set); claimed before the
+  /// send and put back to null when the send fails, so a row is told once.
+  notifiedAt DateTime?
 
   createdAt DateTime @default(now())
 
