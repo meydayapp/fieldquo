@@ -27,6 +27,7 @@ import { formatDateOnly } from "@/lib/format/companyDate";
 import { GRACE_DAYS } from "@/lib/billing/access";
 import { recommendedTierFor } from "@/lib/billing/recommendedTier";
 import { trialReminderDecision, TRIAL_REMINDER_DAYS } from "@/lib/billing/trialReminder";
+import { mailingAddress } from "@/lib/legal/mailingAddress";
 
 const BATCH = 500;
 const DAY = 24 * 60 * 60 * 1000;
@@ -106,7 +107,7 @@ export async function GET(request) {
       continue;
     }
 
-    const { subject, html } = buildTrialReminderEmail({
+    const { subject, html, text } = buildTrialReminderEmail({
       companyName: company.name,
       language: company.defaultLanguage,
       daysLeft: decision.daysLeft,
@@ -114,12 +115,15 @@ export async function GET(request) {
       graceDays: GRACE_DAYS,
       recommended: recommendedTierFor(company.members),
       billingUrl: `${origin}/app/settings/account-billing${company.signupTierKey ? `?tier=${encodeURIComponent(company.signupTierKey)}` : ""}`,
+      // The shared layout's header links and footer (lib/email/platformLayout.js).
+      origin,
+      mailingAddress: mailingAddress(),
     });
 
     const from = await getPlatformFrom();
     // sendEmail never throws — { id } | { error } | { skipped } — so the
     // three outcomes are checked, not caught (AGENTS.md failure class #2).
-    const result = await sendEmail({ companyId: company.id, from, to, subject, html });
+    const result = await sendEmail({ companyId: company.id, from, to, subject, html, text });
     if (result?.error || result?.skipped) {
       await revert();
       note(result.error ? "resend_rejected" : "no_api_key");

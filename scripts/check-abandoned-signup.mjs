@@ -992,13 +992,15 @@ const MUTATIONS = [
     to: 'const STAMPABLE = new Set(["too_early", "too_late", "same_address_this_run", "completed_checkout", "demo"]);',
   },
   {
-    file: "lib/email/signupRecoveryEmail.js",
+    // Since 2026-10-11 the shared layout is the one gate every commercial
+    // FieldQuo letter passes (lib/email/platformLayout.js).
+    file: "lib/email/platformLayout.js",
     label: "the email builds without an unsubscribe link",
-    from: "  if (!optOutUrl) {",
-    to: "  if (false) {",
+    from: "  if (!unsubscribeUrl) throw",
+    to: "  if (false) throw",
   },
   {
-    file: "lib/email/signupRecoveryEmail.js",
+    file: "lib/email/platformLayout.js",
     label: "the CASL footer's mailing address becomes optional",
     from: "  if (!address) {",
     to: "  if (false) {",
