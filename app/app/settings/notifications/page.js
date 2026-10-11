@@ -13,9 +13,10 @@ import Link from "next/link";
 import { Loader2, AlertCircle, Bell, Check } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BrowserNotifications from "@/app/components/notifications/BrowserNotifications";
+import EmailPreferencesPanel from "@/app/components/email/EmailPreferencesPanel";
 
 export default function NotificationsPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [rules, setRules] = useState([]);
   const [threshold, setThreshold] = useState("");
   const [active, setActive] = useState(true);
@@ -342,6 +343,11 @@ export default function NotificationsPage() {
           is announced; this decides whether this person's browser rings for
           it. See the component's header. */}
       <BrowserNotifications endpoint="/api/notifications/push-subscription" />
+
+      {/* What FieldQuo ITSELF emails this person — per person, like the
+          browser switch above. The same panel as the no-login page behind
+          every commercial email's "Manage email preferences" link. */}
+      <EmailPreferencesPanel endpoint="/api/settings/email-preferences" language={language} inApp />
 
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground">{t("app.setNotifications.clientEmailsTitle")}</h2>
