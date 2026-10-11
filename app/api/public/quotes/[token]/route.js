@@ -1026,8 +1026,20 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
       where: { id: updated.companyId },
       // currency on top of the sender fields: the totals below are formatted
       // with it. It used to be hardcoded CAD, so a US or UK contractor read
-      // their own approvals with the wrong symbol attached.
-      select: { ...SENDER_SELECT, currency: true },
+      // their own approvals with the wrong symbol attached. The stationery
+      // fields after it are for the client's approval email
+      // (lib/email/quoteApprovedEmail.js): logo, brand colour and the
+      // contact line the company's quote email already prints.
+      select: {
+        ...SENDER_SELECT,
+        currency: true,
+        logoUrl: true,
+        brandColor: true,
+        phone: true,
+        website: true,
+        taxIdName: true,
+        taxIdNumber: true,
+      },
     }),
     db.member.findMany({
       where: {
@@ -1145,34 +1157,41 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
   // ── The client's copy of the signed quote ───────────────────────────────────
   // Only on acceptance, only if we have somewhere to send it and a rendered PDF.
   // Nothing FieldQuo-branded here: the From line, the covering note and the
-  // attachment all read as the contractor's own.
+  // attachment all read as the contractor's own. The note is the company's
+  // stationery since 2026-10-11 — logo, brand colour, a button back to the
+  // quote, the client's portal and what happens next
+  // (lib/email/quoteApprovedEmail.js); it used to be four bare paragraphs.
   const clientTo = (quote.client?.email || quote.sentToEmail || "").trim();
   if (accepted && clientTo && pdfBuffer?.length) {
-    const { emailCopy } = await import("@/lib/i18n/emailCopy");
-    const { clientDocCopy } = await import("@/lib/i18n/clientDocCopy");
-    const ec = emailCopy(language);
-    const dc = clientDocCopy(language);
-    const companyName = quote.company?.name || "";
-    const clientFirst = String(quote.client?.name || "").split(" ")[0] || "";
+    const { buildQuoteApprovedEmail } = await import("@/lib/email/quoteApprovedEmail");
 
-    const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#2d2520">
-      <p>${escapeHtml(ec.greeting(clientFirst))}</p>
-      <p>${escapeHtml(dc.approvedCopyIntro(companyName))}</p>
-      <p style="color:#6b675f;font-size:13px">${escapeHtml(ec.questions(quote.company?.phone))}</p>
-      <p><strong>${escapeHtml(companyName)}</strong></p>
-    </div>`;
-    const text = [
-      ec.greeting(clientFirst),
-      "",
-      dc.approvedCopyIntro(companyName),
-      "",
-      ec.questions(quote.company?.phone),
-      companyName,
-    ]
-      .filter((l) => l !== "")
-      .join("\n");
+    // The client's own portal, minted the way the quote send mints it
+    // (app/api/quotes/[id]/send): scoped to this quote's company, so a share
+    // token can only ever reach its own client's portal, and never a reason
+    // the confirmation fails — no client row or a mint that throws leaves
+    // the line out.
+    let clientPortalUrl = null;
+    if (quote.clientId) {
+      const { ensurePortalToken } = await import("@/lib/clientPortal");
+      const portalToken = await ensurePortalToken(db, quote.clientId, updated.companyId).catch((err) => {
+        console.error("[public quote] portal link:", err?.message);
+        return null;
+      });
+      if (portalToken) clientPortalUrl = `${base}/portal/${portalToken}`;
+    }
 
-    const signedSubject = `${dc.approvedTitle} — ${updated.quoteNumber}`;
+    const { subject: signedSubject, html, text } = buildQuoteApprovedEmail({
+      quote: { quoteNumber: updated.quoteNumber },
+      // The SENDING company's row for the stationery (logo, brand colour,
+      // contact line, tax number) — the same fields the quote email's
+      // footer prints — falling back to the share-token load's company.
+      company: { ...(quote.company || {}), ...(company || {}) },
+      client: quote.client || {},
+      language,
+      quoteUrl: quote.shareToken ? `${base}/q/${quote.shareToken}` : null,
+      portalUrl: clientPortalUrl,
+      total: priced?.total ?? null,
+    });
     const signedResult = await sendEmail({
       companyId: updated.companyId,
       from,
