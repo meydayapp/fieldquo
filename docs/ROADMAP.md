@@ -199,7 +199,7 @@ trial-ended letter).
   subscribed, plan changed, renewal, grace (both), cancelled (both), the facts
   table, the footer, dates in the reader's month names. Language: the owner's
   `User.language`, else `Company.defaultLanguage`, else English
-  (`lib/billing/billingLanguage.js`). English is byte-identical — md5 of all
+  (`lib/i18n/letterLanguage.js`). English is byte-identical — md5 of all
   12 kind/variant payloads and the platform notice taken at 3c5cab740 and
   pinned in the check. (The trial reminder reads the company language only and
   is the other agent's file; for an owner who never chose a language both

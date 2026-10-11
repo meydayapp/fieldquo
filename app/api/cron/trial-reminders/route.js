@@ -23,11 +23,12 @@ import { buildTrialReminderEmail } from "@/lib/email/trialReminderEmail";
 import { ownerEmailFor } from "@/lib/email/companySender";
 import { recordError } from "@/lib/platform/errorLog";
 import { getAppOrigin } from "@/lib/appUrl";
-import { formatDateOnly } from "@/lib/format/companyDate";
 import { GRACE_DAYS } from "@/lib/billing/access";
 import { recommendedTierFor } from "@/lib/billing/recommendedTier";
 import { trialReminderDecision, TRIAL_REMINDER_DAYS } from "@/lib/billing/trialReminder";
 import { mailingAddress } from "@/lib/legal/mailingAddress";
+import { ownerLetterLanguage } from "@/lib/i18n/letterLanguage";
+import { formatBillingDate } from "@/lib/email/billingEmail";
 
 const BATCH = 500;
 const DAY = 24 * 60 * 60 * 1000;
@@ -107,11 +108,18 @@ export async function GET(request) {
       continue;
     }
 
+    // The reader's language — the owner's own, else the company's, else
+    // English: the one rule every FieldQuo letter uses (lib/i18n/
+    // letterLanguage.js). This read Company.defaultLanguage alone until
+    // 2026-10-11. The date is in that language too (formatBillingDate:
+    // formatDateOnly's "Oct 21, 2026" in English, the reader's month names
+    // otherwise).
+    const language = await ownerLetterLanguage(company.id);
     const { subject, html, text } = buildTrialReminderEmail({
       companyName: company.name,
-      language: company.defaultLanguage,
+      language,
       daysLeft: decision.daysLeft,
-      trialEndsOn: formatDateOnly(decision.trialEndsAt),
+      trialEndsOn: formatBillingDate(decision.trialEndsAt, language),
       graceDays: GRACE_DAYS,
       recommended: recommendedTierFor(company.members),
       billingUrl: `${origin}/app/settings/account-billing${company.signupTierKey ? `?tier=${encodeURIComponent(company.signupTierKey)}` : ""}`,

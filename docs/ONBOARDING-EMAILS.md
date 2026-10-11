@@ -10,7 +10,7 @@ Nothing below is machine-translated at send time. Each letter is built from
 sentences already in a catalogue, in the reader's language where the
 catalogue has it, English otherwise — the "Language" column says which.
 "Owner → company → English" means the owner's own `User.language`, else
-`Company.defaultLanguage`, else English (`lib/billing/billingLanguage.js`),
+`Company.defaultLanguage`, else English (`lib/i18n/letterLanguage.js`),
 in all nine app catalogue languages (en fr es uk pa tl de zh it). The trial
 reminders still read the company's language alone — aligning them is the
 next follow-up.

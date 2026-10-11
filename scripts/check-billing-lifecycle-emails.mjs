@@ -9,8 +9,8 @@
 //
 //   1. the monthly summary's audience — card-free trials now in, ended and
 //      locked companies out, an empty trial month skipped (the real cron)
-//   2. the subscription letters in every app language; English byte-for-byte
-//      what it was (an md5 per kind, taken before the change)
+//   2. the subscription letters in every app language, on the shared layout;
+//      their words byte-for-byte what the old shell carried (md5 per letter)
 //   3. one "cancelled" letter per cancellation — the real cancel route AND the
 //      real customer.subscription.deleted webhook, together
 //   4. the referral month letters, once per reward (the real grant path)
@@ -149,29 +149,62 @@ console.log("\n── 2. Subscription letters in every app language ────
   const { buildBillingEmail, buildPlatformNotice, formatBillingDate } = await import("@/lib/email/billingEmail");
   const { BILLING_EMAIL_COPY, BILLING_EMAIL_KEYS } = await import("@/lib/i18n/billingEmailCopy");
 
-  // English, byte-for-byte: the md5s taken from the shipped builder BEFORE
-  // the letters were translated (3c5cab740), over the same inputs.
+  // The words did not move when the envelope did. `parts` (subject, heading,
+  // company line, the body's own HTML, the button) for every kind in every
+  // language, md5'd against the record taken from the OLD shell at b7a907881
+  // (scripts/fixtures/billingLetterPartsBaseline.json — 108 letters + 2
+  // platform notices). The English letters were pinned byte-for-byte to
+  // 3c5cab740 before that, so English is unchanged since before the
+  // translation too.
+  const PARTS_BEFORE = JSON.parse(read("scripts/fixtures/billingLetterPartsBaseline.json"));
   const url = "https://www.fieldquo.com/app/settings/account-billing";
   const facts = [["Plan", "Solo"], ["Users included", "3"], ["Status", "Free trial"], ["Trial ends", "Oct 21, 2026"]];
   const cases = {
-    started: [{ kind: "started", companyName: "Alpha & <Sons>", planName: "Solo", facts, billingUrl: url }, "1bab38d41640c3c9cd65c6f446c9832e"],
-    startedNoUrl: [{ kind: "started", companyName: "Alpha", planName: "Solo", facts: [] }, "d66765f33114d7300cbb939e838590dd"],
-    changed: [{ kind: "changed", companyName: "Alpha", planName: "Team", previousPlanName: "Solo", facts, billingUrl: url }, "20d6ce676ff15e039c5091f6ec42e6d5"],
-    changedNoPrev: [{ kind: "changed", companyName: "Alpha", planName: "Team", previousPlanName: null, facts, billingUrl: url }, "94673ca996aa67b141771d7d0ac9f2a4"],
-    renewal: [{ kind: "renewal", companyName: "Alpha", planName: "Solo", periodEnd: "Nov 1, 2026", renewalAmount: "$49.00", last4: "4242", billingUrl: url }, "44d059ae26cf46c03ac5eb845cb7644d"],
-    renewalNoCard: [{ kind: "renewal", companyName: "Alpha", planName: "Solo", periodEnd: "Nov 1, 2026", renewalAmount: "$49.00", last4: null, billingUrl: url }, "2ee9752833805fc63ebb6b6150953408"],
-    graceStart: [{ kind: "grace", companyName: "Alpha", daysLeft: 7, lockDate: "Oct 18, 2026", reminder: false, billingUrl: url }, "07a5019ca5f6870a085d3a5dde745ef2"],
-    graceOne: [{ kind: "grace", companyName: "Alpha", daysLeft: 1, lockDate: "Oct 18, 2026", reminder: true, billingUrl: url }, "510f23536e8660611c3d487c6f5b49ab"],
-    graceRemind: [{ kind: "grace", companyName: "Alpha", daysLeft: 2, lockDate: "Oct 18, 2026", reminder: true, billingUrl: url }, "33712f7bb42babdc350224aad8858895"],
-    cancelledNow: [{ kind: "cancelled", companyName: "Alpha", planName: "Solo", billingUrl: url }, "26282484a8aaaacf1c29fe8dfaf69c7d"],
-    cancelledNoPlan: [{ kind: "cancelled", companyName: "Alpha", planName: null, billingUrl: url }, "089b7bf2b3033979708ea6aa28edf79f"],
-    cancelledEnding: [{ kind: "cancelled", companyName: "Alpha", planName: "Solo", periodEnd: "Nov 1, 2026", atPeriodEnd: true, billingUrl: url }, "72a3804648fe2d7500325feac25dd4b0"],
+    started: [{ kind: "started", companyName: "Alpha & <Sons>", planName: "Solo", facts, billingUrl: url }],
+    startedNoUrl: [{ kind: "started", companyName: "Alpha", planName: "Solo", facts: [] }],
+    changed: [{ kind: "changed", companyName: "Alpha", planName: "Team", previousPlanName: "Solo", facts, billingUrl: url }],
+    changedNoPrev: [{ kind: "changed", companyName: "Alpha", planName: "Team", previousPlanName: null, facts, billingUrl: url }],
+    renewal: [{ kind: "renewal", companyName: "Alpha", planName: "Solo", periodEnd: "Nov 1, 2026", renewalAmount: "$49.00", last4: "4242", billingUrl: url }],
+    renewalNoCard: [{ kind: "renewal", companyName: "Alpha", planName: "Solo", periodEnd: "Nov 1, 2026", renewalAmount: "$49.00", last4: null, billingUrl: url }],
+    graceStart: [{ kind: "grace", companyName: "Alpha", daysLeft: 7, lockDate: "Oct 18, 2026", reminder: false, billingUrl: url }],
+    graceOne: [{ kind: "grace", companyName: "Alpha", daysLeft: 1, lockDate: "Oct 18, 2026", reminder: true, billingUrl: url }],
+    graceRemind: [{ kind: "grace", companyName: "Alpha", daysLeft: 2, lockDate: "Oct 18, 2026", reminder: true, billingUrl: url }],
+    cancelledNow: [{ kind: "cancelled", companyName: "Alpha", planName: "Solo", billingUrl: url }],
+    cancelledNoPlan: [{ kind: "cancelled", companyName: "Alpha", planName: null, billingUrl: url }],
+    cancelledEnding: [{ kind: "cancelled", companyName: "Alpha", planName: "Solo", periodEnd: "Nov 1, 2026", atPeriodEnd: true, billingUrl: url }],
   };
-  for (const [name, [input, hash]] of Object.entries(cases)) {
-    ok(`English ${name}: byte-identical to before (md5 ${hash.slice(0, 8)}…)`, md5(buildBillingEmail(input)) === hash);
-    ok(`English ${name}: language "en" passed explicitly is the same letter`, md5(buildBillingEmail({ ...input, language: "en" })) === hash);
+  const partsMd5 = (m) => md5({ subject: m.subject, ...m.parts });
+  const moved = [];
+  for (const lang of APP_LANGS) {
+    for (const [name, [input]] of Object.entries(cases)) {
+      if (partsMd5(buildBillingEmail({ ...input, language: lang, mailingAddress: "" })) !== PARTS_BEFORE[`${lang}:${name}`]) moved.push(`${lang}:${name}`);
+    }
   }
-  ok("the platform notice (voice rent, tickets, trial reminder) is byte-identical in English", md5(buildPlatformNotice({ subject: "S", heading: "H", sub: "Alpha", paragraphs: ["<strong>x</strong>"], facts: [["a", "b"]], cta: { url, label: "Go" } })) === "4ef249f34aa4b75b5e5cffb0a2af45ba");
+  ok(`every letter's words are what the old shell carried — ${APP_LANGS.length * 12} md5s of (subject, heading, company, body HTML, button)`, moved.length === 0 && Object.keys(PARTS_BEFORE).length === 110, moved);
+  const notice = buildPlatformNotice({ subject: "S", heading: "H", sub: "Alpha", paragraphs: ["<strong>x</strong>"], facts: [["a", "b"]], cta: { url, label: "Go" }, mailingAddress: "" });
+  const bare = buildPlatformNotice({ heading: "Only heading", paragraphs: [], cta: null, mailingAddress: "" });
+  ok("the platform notice (phone rent, auto top-up, crew line, client tickets) carries the same words", partsMd5(notice) === PARTS_BEFORE.notice && partsMd5(bare) === PARTS_BEFORE.noticeBare);
+
+  // The envelope is the shared layout, as TRANSACTIONAL mail.
+  const { renderPlatformEmail } = await import("@/lib/email/platformLayout");
+  const en = buildBillingEmail({ ...cases.renewal[0], mailingAddress: "1 Main St, Ottawa ON" });
+  const layoutOnly = renderPlatformEmail({ language: "en", kind: "transactional", origin: "https://www.fieldquo.com", mailingAddress: "1 Main St, Ottawa ON", heading: "x" }).html;
+  ok("billing letters are on the shared layout: its logo and Help · Your account header", en.html.includes("/email/fieldquo-logo.jpg") && en.html.includes(">Help<") && en.html.includes(">Your account<"));
+  ok("…its transactional label, FieldQuo's address, and NO unsubscribe or preferences link", en.html.includes("A service email about your FieldQuo account.") && en.html.includes("1 Main St, Ottawa ON") && !/unsubscribe|email-preferences/i.test(en.html) && layoutOnly.includes("A service email"));
+  ok("…the old navy band and its private footer are gone", !en.html.includes("you manage this company's billing") && !en.html.includes("background:#111827;color:#ffffff;padding:32px 30px;text-align:center"));
+  ok("…the body HTML sits in the card unchanged", en.html.includes(en.parts.body));
+  ok("…the letter's own first sentence is the inbox preheader", en.html.includes("Your <strong>Solo</strong>") && /display:none[^>]*>Your Solo plan renews on Nov 1, 2026\./.test(en.html));
+  ok("billing letters now have a plain-text part: heading, company, every sentence, the button, the footer", en.text.startsWith("Your subscription renews soon\nAlpha\n\nYour Solo plan renews on Nov 1, 2026. The card on file ending in 4242 will be charged $49.00.") && en.text.includes("Manage billing: https://www.fieldquo.com/app/settings/account-billing") && en.text.includes("A service email about your FieldQuo account.") && en.text.includes("1 Main St, Ottawa ON") && !/<[a-z]|&amp;|&lt;/.test(en.text), en.text);
+  const factsText = buildBillingEmail({ ...cases.started[0], mailingAddress: "" }).text;
+  ok("the facts table reads as 'Label: value' lines in the text part, entities decoded", factsText.includes("Users included: 3") && factsText.includes("Alpha & <Sons>") && factsText.includes("Account & Billing"), factsText);
+  const noAddress = buildBillingEmail({ ...cases.cancelledNow[0], mailingAddress: "" });
+  ok("no mailing address set: a transactional letter still builds, with no address line (not invented)", !noAddress.html.includes("Ottawa") && noAddress.html.includes("A service email"));
+  const noticeOnLayout = buildPlatformNotice({ subject: "Your number", heading: "Rent due", paragraphs: ["Pay <strong>now</strong>"], cta: { url: "https://app.example.test/app/settings/voice", label: "Top up" }, mailingAddress: "" });
+  ok("platform notices are on the layout too, with a text part and the button's origin in the header links", noticeOnLayout.html.includes("/email/fieldquo-logo.jpg") && noticeOnLayout.html.includes('href="https://app.example.test/app"') && noticeOnLayout.text.includes("Pay now") && noticeOnLayout.text.includes("Top up: https://app.example.test/app/settings/voice"));
+  for (const f of ["lib/billing/notify.js", "app/api/cron/grace-warning/route.js", "app/api/cron/renewal-reminders/route.js", "lib/referrals/rewardEmail.js", "lib/ai/creditLow.js", "lib/voice/spendGate.js", "lib/voice/autoTopup.js", "lib/crew/lineRent.js", "lib/clientTickets/service.js"]) {
+    const src = stripComments(read(f));
+    ok(`${f}: sends the text part with the HTML`, /const \{ subject, html, text \} = /.test(src) && /subject, html, text \}\)/.test(src));
+  }
 
   // Every app language, every key, the same placeholders.
   ok(`the letters exist in every app catalogue language (${APP_LANGS.join(" ")})`, APP_LANGS.every((l) => BILLING_EMAIL_COPY[l]), APP_LANGS.filter((l) => !BILLING_EMAIL_COPY[l]));
@@ -188,17 +221,19 @@ console.log("\n── 2. Subscription letters in every app language ────
       ok(`${lang}: nothing is English left untranslated`, same.length === 0, same);
     }
   }
+  ok("no dead key: the old private footer sentence is gone from every language", APP_LANGS.every((l) => !("footer" in (BILLING_EMAIL_COPY[l] || {}))));
 
   // Render every kind in every language: nothing unfilled, the right words.
+  const { lifecycleT } = await import("@/lib/i18n/lifecycleEmailCopy");
   for (const lang of APP_LANGS) {
-    const all = Object.values(cases).map(([input]) => buildBillingEmail({ ...input, language: lang }));
+    const all = Object.values(cases).map(([input]) => buildBillingEmail({ ...input, language: lang, mailingAddress: "" }));
     // \bnull\b: Italian "annullato" contains the letters.
-    const leftovers = all.filter((m) => /\{\w+\}|undefined|\bnull\b/.test(m.subject + m.html));
-    ok(`${lang}: all 12 letters render with no {placeholder}, "undefined" or "null"`, leftovers.length === 0, leftovers.map((m) => m.subject));
-    const footer = BILLING_EMAIL_COPY[lang].footer;
-    ok(`${lang}: the footer is in the letter's language`, all.every((m) => m.html.includes(footer.replace(/&/g, "&amp;").replace(/</g, "&lt;"))));
+    const leftovers = all.filter((m) => /\{\w+\}|undefined|\bnull\b/.test(m.subject + m.html + m.text));
+    ok(`${lang}: all 12 letters render with no {placeholder}, "undefined" or "null" (HTML and text)`, leftovers.length === 0, leftovers.map((m) => m.subject));
+    const label = lifecycleT(lang)("layout.label.transactional");
+    ok(`${lang}: the layout's footer and chrome are in the letter's language`, all.every((m) => m.html.includes(label.replace(/&/g, "&amp;")) && m.text.includes(label) && m.html.includes(`lang="${lang}"`)));
     if (lang !== "en") {
-      ok(`${lang}: no English sentence leaks into the letters`, all.every((m) => !/We weren't able|Thanks for subscribing|nothing is charged until|you manage this company's billing/.test(m.html)));
+      ok(`${lang}: no English sentence leaks into the letters`, all.every((m) => !/We weren't able|Thanks for subscribing|nothing is charged until|A service email about/.test(m.html + m.text)));
     }
   }
   const fr = buildBillingEmail({ kind: "grace", companyName: "Peinture Roy", daysLeft: 7, lockDate: formatBillingDate(new Date("2026-10-18T12:00:00Z"), "fr"), reminder: true, billingUrl: url, language: "fr" });

@@ -42,7 +42,7 @@ import { sendEmail } from "@/lib/email/resend";
 import { getPlatformFrom } from "@/lib/email/platformSender";
 import { buildBillingEmail, billingLetterWords, formatBillingDate } from "@/lib/email/billingEmail";
 import { hasBillingEmailLanguage } from "@/lib/i18n/billingEmailCopy";
-import { ownerLetterLanguage } from "@/lib/billing/billingLanguage";
+import { ownerLetterLanguage } from "@/lib/i18n/letterLanguage";
 import { ownerEmailFor } from "@/lib/email/companySender";
 import { recordError } from "@/lib/platform/errorLog";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -128,9 +128,9 @@ export async function GET(request) {
     }
 
     // The reader's language — the owner's, else the company's, else English
-    // (lib/billing/billingLanguage.js); the date is formatted in it too.
+    // (lib/i18n/letterLanguage.js); the date is formatted in it too.
     const language = await ownerLetterLanguage(sub.companyId, hasBillingEmailLanguage);
-    const { subject, html } = buildBillingEmail({
+    const { subject, html, text } = buildBillingEmail({
       kind: "grace",
       companyName: sub.company?.name || billingLetterWords(language).yourCompany,
       daysLeft: decision.daysLeft,
@@ -152,7 +152,7 @@ export async function GET(request) {
     // seeded demo has no card and no real subscription, and mailing a live
     // address about the billing of a company that does not exist is the same
     // leak in a duller wrapper.
-    const result = await sendEmail({ companyId: sub.companyId, from, to, subject, html });
+    const result = await sendEmail({ companyId: sub.companyId, from, to, subject, html, text });
 
     if (result?.error || result?.skipped) {
       // ── Revert the claim ──────────────────────────────────────────────
