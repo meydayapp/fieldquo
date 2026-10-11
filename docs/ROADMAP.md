@@ -197,8 +197,8 @@ not go) — apply it first.
 
 ### Checks
 
-- `check:lifecycle-emails` (in `check:all`): executed against a FakePrisma +
-  recording Stripe + recording sendEmail (`scripts/lifecycle-stub-hooks.mjs`):
+- `check:billing-lifecycle-emails` (in `check:all`): executed against a FakePrisma +
+  recording Stripe + recording sendEmail (`scripts/billing-lifecycle-stub-hooks.mjs`):
   the digest audience and the real cron, the English md5 pins, every language
   complete with matching placeholders, the real cancel route + webhook pair,
   the real referral grant, the real ledger writers, the approval email's

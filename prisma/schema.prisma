@@ -1138,7 +1138,7 @@ model Subscription {
   /// Two callers fire that letter for one immediate cancellation — the
   /// self-serve cancel route, the moment the person is waiting, and the
   /// customer.subscription.deleted webhook that follows it seconds later —
-  /// and before this column both sent (scripts/check-lifecycle-emails.mjs
+  /// and before this column both sent (scripts/check-billing-lifecycle-emails.mjs
   /// replays the pair). Keyed on the Stripe id, not a timestamp: a cancelled
   /// Stripe subscription never comes back, and every way back in (Checkout,
   /// Resume's credited or charge-now path) makes a NEW one, so cancel →

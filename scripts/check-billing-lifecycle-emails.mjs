@@ -1,11 +1,11 @@
-// scripts/check-lifecycle-emails.mjs
+// scripts/check-billing-lifecycle-emails.mjs
 //
-//   npm run check:lifecycle-emails
+//   npm run check:billing-lifecycle-emails
 //
 // FieldQuo → contractor lifecycle letters, part B (2026-10-11): what each one
 // does is EXECUTED here against a FakePrisma that evaluates `where`, a Stripe
 // that records and a sendEmail that records — nothing is mailed, nothing
-// reaches Stripe or Postgres (scripts/lifecycle-stub-hooks.mjs).
+// reaches Stripe or Postgres (scripts/billing-lifecycle-stub-hooks.mjs).
 //
 //   1. the monthly summary's audience — card-free trials now in, ended and
 //      locked companies out, an empty trial month skipped (the real cron)
@@ -20,11 +20,11 @@
 //   7. win-back and product-updates: content and selection only (pure)
 //
 // Run: node --import ./scripts/alias-loader.mjs \
-//           --import ./scripts/lifecycle-stub-loader.mjs scripts/check-lifecycle-emails.mjs
+//           --import ./scripts/billing-lifecycle-stub-loader.mjs scripts/check-billing-lifecycle-emails.mjs
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { harness, resetHarness } from "./fixtures/lifecycleStubs.mjs";
+import { harness, resetHarness } from "./fixtures/billingLifecycleStubs.mjs";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 let pass = 0;
@@ -99,7 +99,7 @@ console.log("\n── 1. Monthly summary audience ──────────
 
   // The real cron, its audience executed against a FakePrisma that evaluates
   // digestAudienceWhere. generateMonthlyDigest is the recorder for this
-  // importer only (lifecycle-stub-hooks.mjs).
+  // importer only (billing-lifecycle-stub-hooks.mjs).
   process.env.CRON_SECRET = "cron-test";
   const { GET } = await import("../app/api/cron/monthly-digest/route.js");
   const realNow = Date.now;

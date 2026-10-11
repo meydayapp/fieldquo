@@ -1,6 +1,6 @@
-// scripts/fixtures/lifecycleStubs.mjs
+// scripts/fixtures/billingLifecycleStubs.mjs
 //
-// One module standing in for every specifier scripts/lifecycle-stub-hooks.mjs
+// One module standing in for every specifier scripts/billing-lifecycle-stub-hooks.mjs
 // redirects. Each importer takes only the names it asked for, so a single
 // file can be `@/lib/db`, `@/lib/stripe`, `@/lib/email/resend` and the rest
 // at once — the shape scripts/fixtures/platformCancelStubs.mjs already uses.
@@ -77,7 +77,7 @@ const forward = (get) =>
       get: (_t, key) => {
         if (key === "then") return undefined;
         const target = get();
-        if (!target) throw new Error(`lifecycleStubs: ${String(key)} used before resetHarness()`);
+        if (!target) throw new Error(`billingLifecycleStubs: ${String(key)} used before resetHarness()`);
         const v = target[key];
         return typeof v === "function" ? v.bind(target) : v;
       },
