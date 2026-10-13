@@ -52,6 +52,10 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Only a won tender becomes a job. Mark it won first." }, { status: 409 });
   }
 
+  // The transaction answers with an OUTCOME, never a refusal-shaped
+  // { error, status } — that shape is the one an exported handler must not
+  // hand Next (scripts/check-refusal-shape.mjs), and the one place it becomes
+  // an HTTP answer is directly below the transaction.
   const outcome = await db.$transaction(
     async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Tender" WHERE id = ${found.tender.id} FOR UPDATE`;
@@ -59,7 +63,7 @@ export async function POST(request, { params }) {
         where: { id: found.tender.id, companyId: member.companyId },
         select: { id: true, jobId: true, quoteId: true, clientId: true, title: true, contractNumber: true },
       });
-      if (!tender) return { error: "Not found", status: 404 };
+      if (!tender) return { notFound: true };
 
       if (tender.jobId) {
         const existing = await tx.job.findFirst({ where: { id: tender.jobId, companyId: member.companyId }, select: { id: true } });
@@ -88,7 +92,7 @@ export async function POST(request, { params }) {
         // Job.siteAddress null means "not asked", never "same as client".
         siteAddress: null,
       });
-      if (made.error) return { error: made.error, status: made.status };
+      if (made.error) return { jobFailed: { message: made.error, status: made.status } };
       await tx.tender.update({ where: { id: tender.id, companyId: member.companyId }, data: { jobId: made.job.id } });
       return { jobId: made.job.id, created: true };
     },
@@ -96,7 +100,10 @@ export async function POST(request, { params }) {
     // attaches waivers and checklists; the default 5 s is tight for that.
     { timeout: 20000 },
   );
-  if (outcome.error) return NextResponse.json({ error: outcome.error }, { status: outcome.status || 400 });
+  if (outcome.notFound) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (outcome.jobFailed) {
+    return NextResponse.json({ error: outcome.jobFailed.message }, { status: outcome.jobFailed.status || 400 });
+  }
 
   if (outcome.created) {
     await recordActivity(member, {

@@ -310,6 +310,8 @@ const DRILL_INS = {
   "/app/me/supplies": "request a supply from the van — a row on the employee home's More tab, a link on the job's Materials card, and the target of the ordered/restocked notifications",
   "/app/subcontractors/[id]": "one subcontractor — opened from the Subcontractors list and from a job's own \"Subs on this job\" panel",
   "/app/subcontractors/new": "opened from the Subcontractors list page's own Add button",
+  "/app/tenders/[id]": "one tender's bid record — opened from the Tenders list, from a tender notification (lib/notifications/render.js) and straight after New tender saves",
+  "/app/tenders/new": "opened from the Tenders list page's own Add button and its Add your first tender link",
 };
 
 console.log("\nEvery app/app page is reachable from the nav, or excused with a reason\n");

@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 353 models.
+it cannot drift from the code. 356 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -38,7 +38,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>353 models — expand</summary>
+<details><summary>356 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -273,6 +273,9 @@ tenancy, so it carries no information.
 | `TaskDependency` | Task | — |
 | `TaxFormSubmission` | Worker | — |
 | `TemplateTranslation` | DocumentTemplate | — |
+| `Tender` | — | TenderDocument, TenderReminder |
+| `TenderDocument` | Tender | — |
+| `TenderReminder` | Tender | — |
 | `TikTokPublish` | MarketingDesign, VideoPost | — |
 | `TimeEntry` | Invoice, Job, Task, Worker | LocationStamp, TimeEntryBreak, TimeEntryCorrection |
 | `TimeEntryBreak` | TimeEntry | — |

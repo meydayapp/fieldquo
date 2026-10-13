@@ -1,10 +1,10 @@
 // app/api/tenders/[id]/documents/route.js
 //
 // POST { url, name, kind, mimeType?, sizeBytes? } — file a document on a
-// tender. The bytes went browser → Cloudinary through uploadFile()
-// (lib/media/uploadClient.js, purpose "plans"); this stores the record, and
-// only after lib/tenders/documents.js has proved the URL is an upload in
-// THIS company's folder.
+// tender. The bytes went browser → Cloudinary through the shared uploader
+// (uploadFile in lib/media/uploadClient.js, purpose "plans"); this stores the
+// record, and only after lib/tenders/documents.js has proved the URL is an
+// upload in THIS company's folder.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
