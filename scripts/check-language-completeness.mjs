@@ -45,6 +45,7 @@ import { DOCUMENT_LABELS } from "@/lib/i18n/documentLabels";
 import { CLIENT_DOC_COPY } from "@/lib/i18n/clientDocCopy";
 import { EMAIL_COPY } from "@/lib/i18n/emailCopy";
 import { RECEIPT_EMAIL_COPY } from "@/lib/i18n/receiptEmailCopy";
+import { TEAM_NOTICE_COPY } from "@/lib/i18n/teamNoticeCopy";
 import { SITE_COPY } from "@/lib/site/siteCopy";
 
 let pass = 0;
@@ -166,6 +167,8 @@ const TABLES = [
   ["lib/i18n/clientDocCopy.js", "the sentences on a client's copy of a document", CLIENT_DOC_COPY],
   ["lib/i18n/emailCopy.js", "the covering email that carries the document", EMAIL_COPY],
   ["lib/i18n/receiptEmailCopy.js", "the receipt a client gets for each payment", RECEIPT_EMAIL_COPY],
+  // Staff read it, so it carries all nine app languages, zh included.
+  ["lib/i18n/teamNoticeCopy.js", "the notices a company's own team is emailed", TEAM_NOTICE_COPY],
   ["lib/site/siteCopy.js", "the chrome around a contractor's public website", SITE_COPY],
 ];
 
