@@ -15,6 +15,7 @@ import ProcessingFeesCard from "./ProcessingFeesCard";
 import InstantPayoutCard from "./InstantPayoutCard";
 import PaymentMethodsCard from "./PaymentMethodsCard";
 import ClientCardSurchargeCard from "./ClientCardSurchargeCard";
+import ReceiptEmailsCard from "./ReceiptEmailsCard";
 import FinancingProviderStatus from "./FinancingProviderStatus";
 import AffirmReason from "./AffirmReason";
 
@@ -237,6 +238,8 @@ function PaymentsPageScreen() {
           card, Canada only (it renders nothing for any other company), and
           separate from the e-transfer/cheque discount above. */}
       <ClientCardSurchargeCard currency={company?.currency} />
+      {/* The client's receipt for each payment — on by default; see the card. */}
+      <ReceiptEmailsCard company={company} setCompany={setCompany} />
 
       {/* ── Your Stripe account ────────────────────────────────────────────
           The contractor holds the Stripe relationship; FieldQuo holds the

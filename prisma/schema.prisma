@@ -1629,6 +1629,15 @@ model Company {
   /// offering a discount for a method the client cannot use, so the offer
   /// also needs one of them in `paymentMethods`.
   offlinePaymentDiscount Boolean          @default(false)
+  /// "Email clients a receipt automatically" — Settings → Payments, default
+  /// ON. Sets the default of the "Email a receipt" box on Record payment, and
+  /// gates the receipt sent when a Stripe payment (card, Klarna, Affirm, bank
+  /// debit) settles with nobody from the company in the loop. Read by
+  /// app/app/invoices/[id]/page.js, app/api/payments/route.js and
+  /// lib/invoices/recordStripePayment.js; written by PATCH
+  /// /api/settings/business-info. Off never stops a person pressing "Send
+  /// receipt" on a payment row. See lib/payments/sendReceipt.js.
+  emailPaymentReceipts   Boolean          @default(true)
   /// "Pass the card fee on to clients who pay by credit card" — CANADA
   /// ONLY, outside Quebec, default OFF (the company absorbs the fee, as
   /// every company did before this). When on, a client paying by CREDIT
@@ -4849,6 +4858,44 @@ model Payment {
   disputeHeldCents     Int?
   disputeFeeCents      Int?
   disputeReturnedCents Int?
+
+  // ── The client's receipt for THIS payment ─────────────────────────────────
+  //
+  // One email per payment, never combined (owner, 2026-10-12: two e-transfers
+  // on INV-2026-0022 had to be two receipts). Sent by lib/payments/
+  // sendReceipt.js — automatically when the payment is recorded (the Record
+  // payment box, or a Stripe settlement when Company.emailPaymentReceipts is
+  // on), by hand from the payment row's "Send receipt", and retried by
+  // app/api/cron/payment-receipts when an attempt failed.
+  //
+  //   receiptSentAt         when the last receipt was accepted for delivery;
+  //                         null = never sent. The invoice page reads it.
+  //   receiptSentTo         the address it went to, as sent
+  //   receiptSentEmailId    the SentEmail row holding its exact text
+  //   receiptAttempts       every claim counts, success or not. 0 means
+  //                         nobody ever tried — the mark of a payment recorded
+  //                         before receipts existed, which the cron NEVER
+  //                         picks up: those go only when somebody presses Send.
+  //   receiptFirstAttemptAt the start of the 48-hour retry window
+  //   receiptLastAttemptAt  the backoff is measured from here
+  //   receiptLastError      a short code (no_client_email, send_failed: …);
+  //                         cleared by a success
+  //   receiptClaimedAt      set while a send is in flight. Claimed with a
+  //                         conditional update before the email is built, so
+  //                         two cron runs or a double press can never send
+  //                         twice; a claim older than ten minutes is a crashed
+  //                         sender and may be taken over.
+  receiptSentAt         DateTime?
+  receiptSentTo         String?
+  receiptSentEmailId    String?
+  receiptAttempts       Int       @default(0)
+  receiptFirstAttemptAt DateTime?
+  receiptLastAttemptAt  DateTime?
+  receiptLastError      String?
+  receiptClaimedAt      DateTime?
+
+  // The retry cron's scan: unsent receipts whose window opened recently.
+  @@index([receiptFirstAttemptAt])
 }
 
 // ============================================================

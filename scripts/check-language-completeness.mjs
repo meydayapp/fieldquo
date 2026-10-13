@@ -44,6 +44,7 @@ import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { DOCUMENT_LABELS } from "@/lib/i18n/documentLabels";
 import { CLIENT_DOC_COPY } from "@/lib/i18n/clientDocCopy";
 import { EMAIL_COPY } from "@/lib/i18n/emailCopy";
+import { RECEIPT_EMAIL_COPY } from "@/lib/i18n/receiptEmailCopy";
 import { SITE_COPY } from "@/lib/site/siteCopy";
 
 let pass = 0;
@@ -164,6 +165,7 @@ const TABLES = [
   ["lib/i18n/documentLabels.js", "quote and invoice furniture — subtotal, total, balance due", DOCUMENT_LABELS],
   ["lib/i18n/clientDocCopy.js", "the sentences on a client's copy of a document", CLIENT_DOC_COPY],
   ["lib/i18n/emailCopy.js", "the covering email that carries the document", EMAIL_COPY],
+  ["lib/i18n/receiptEmailCopy.js", "the receipt a client gets for each payment", RECEIPT_EMAIL_COPY],
   ["lib/site/siteCopy.js", "the chrome around a contractor's public website", SITE_COPY],
 ];
 

@@ -57,6 +57,10 @@
       "schedule": "25 * * * *"
     },
     {
+      "path": "/api/cron/payment-receipts",
+      "schedule": "40 * * * *"
+    },
+    {
       "path": "/api/cron/voice-reconcile",
       "schedule": "35 * * * *"
     },
