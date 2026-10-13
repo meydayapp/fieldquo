@@ -142,6 +142,10 @@ export async function GET(request) {
       // (lib/stripe/affirm.js); the pay link names Affirm only once Stripe
       // reports it active.
       offerFinancing: true,
+      // "Email clients a receipt automatically" — Settings → Payments writes
+      // it (PATCH below); the invoice page reads it to tick the Record
+      // payment box by default. See lib/payments/sendReceipt.js.
+      emailPaymentReceipts: true,
     },
   });
 
@@ -283,6 +287,7 @@ export async function PATCH(request) {
     refundCutoffHours,
     sitePublished,
     offerFinancing,
+    emailPaymentReceipts,
     serviceRadiusKm,
     servicePostalPrefixes,
   } = body;
@@ -698,6 +703,8 @@ export async function PATCH(request) {
       ...(offerFinancing !== undefined && {
         offerFinancing: Boolean(offerFinancing),
       }),
+      // Only a real boolean is a statement; anything else leaves it as it was.
+      ...(typeof emailPaymentReceipts === "boolean" && { emailPaymentReceipts }),
       ...(cleanRadius !== undefined && { serviceRadiusKm: cleanRadius.value }),
       ...(cleanPrefixes !== undefined && { servicePostalPrefixes: cleanPrefixes }),
     },

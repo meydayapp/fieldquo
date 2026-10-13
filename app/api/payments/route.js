@@ -18,6 +18,8 @@ import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestInFamily, familyPayments } from "@/lib/invoices/family";
 import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { autoSendReceipt } from "@/lib/payments/sendReceipt";
+import { actorName } from "@/lib/email/sentEmailHistory";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -74,7 +76,7 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { invoiceId, amount, method, notes, date } = body;
+  const { invoiceId, amount, method, notes, date, sendReceipt } = body;
 
   if (!invoiceId || !amount || !method) {
     return NextResponse.json(
@@ -112,7 +114,7 @@ export async function POST(request) {
     // Invoice has no currency column of its own — reading invoice.currency
     // would be undefined and silently format an American contractor's
     // outstanding balance as Canadian dollars.
-    include: { company: { select: { currency: true } } },
+    include: { company: { select: { currency: true, emailPaymentReceipts: true } } },
   });
   if (!invoice)
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -250,5 +252,40 @@ export async function POST(request) {
   // payment.received / invoice.paid for the marketing agency.
   nudgeAgencyEvents(member.companyId);
 
-  return NextResponse.json(payment, { status: 201 });
+  // ── The client's receipt ───────────────────────────────────────────────
+  //
+  // The "Email a receipt" box on Record payment. An explicit true/false from
+  // the box wins; a body without it (an older tab) follows the company's
+  // "Email clients a receipt automatically" setting, which is also what
+  // ticks the box by default. After the transaction has committed, awaited
+  // so a serverless function cannot be frozen mid-send, and never thrown:
+  // the money is recorded whatever the mail provider says, and the outcome
+  // is written on the payment (lib/payments/sendReceipt.js) and returned so
+  // the dialog can say it.
+  const wantsReceipt =
+    typeof sendReceipt === "boolean" ? sendReceipt : invoice.company?.emailPaymentReceipts === true;
+  const receipt = wantsReceipt
+    ? await autoSendReceipt(db, {
+        companyId: member.companyId,
+        paymentId: payment.id,
+        trigger: "record",
+        actor: { id: member.id, userId: member.userId, role: member.role, name: await actorName(db, member.userId) },
+      })
+    : null;
+
+  return NextResponse.json(
+    {
+      ...payment,
+      receipt: receipt
+        ? {
+            sent: receipt.sent === true,
+            reason: receipt.reason || null,
+            to: receipt.to || null,
+            simulated: receipt.simulated === true,
+            demoLive: receipt.demoLive === true,
+          }
+        : null,
+    },
+    { status: 201 },
+  );
 }

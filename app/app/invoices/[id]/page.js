@@ -90,6 +90,7 @@ import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import CostPanel from "./CostPanel";
 import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
+import { receiptStatus } from "@/lib/payments/receiptState";
 
 
 
@@ -192,6 +193,15 @@ export default function InvoiceDetailPage() {
     method: "",
     notes: "",
   });
+  // The "Email a receipt" box on Record payment. Null until the person
+  // touches it, so the default follows the company's setting when the
+  // business-info row arrives rather than freezing at whatever it was first.
+  const [receiptBox, setReceiptBox] = useState(null);
+  // A payment row's Send / Resend receipt: which row is in flight, which row
+  // is asking "send again?", and what the last press said.
+  const [receiptBusy, setReceiptBusy] = useState("");
+  const [receiptConfirm, setReceiptConfirm] = useState("");
+  const [receiptNotice, setReceiptNotice] = useState(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(null);
@@ -384,9 +394,37 @@ export default function InvoiceDetailPage() {
   const defaultMethod = enabledMethods(company || {})[0] || offlineMethods[0] || "cash";
   const paymentMethod = payment.method || defaultMethod;
 
+  // Where a receipt would go. No address → the box is off and disabled, with
+  // the reason beside it, rather than ticked and quietly sending nothing.
+  const clientEmail = String(invoice?.client?.email || "").trim();
+  // The address may be hidden from this member (contact redaction) while it
+  // exists; clientHasEmail is the route's yes/no for exactly that case.
+  const clientHasEmail = Boolean(clientEmail) || invoice?.clientHasEmail === true;
+  // Who may email a receipt from a payment row: whoever may send the invoice
+  // (app/api/payments/[id]/receipt asks the same level). Never on a past job
+  // entered after the fact — nothing is sent to the client for those.
+  const canSendReceipt =
+    hasLevel(caller, "invoices", "view_create_edit") && !invoice?.historicalImportedAt;
+  const receiptChecked =
+    clientHasEmail && !invoice?.historicalImportedAt && (receiptBox ?? company?.emailPaymentReceipts === true);
+
+  // What a receipt outcome says, for the banner under the page header.
+  function receiptOutcomeText(r) {
+    if (!r) return null;
+    if (r.sent) {
+      const demo = demoSendNoteKey(r);
+      const said = r.to ? t("app.invoiceDetail.receiptEmailedTo", { email: r.to }) : t("app.invoiceDetail.receiptEmailed");
+      return { ok: true, text: `${said}${demo ? ` ${t(demo)}` : ""}` };
+    }
+    if (r.alreadySent || r.reason === "already_sent") return { ok: true, text: t("app.invoiceDetail.receiptAlreadySent") };
+    if (r.reason === "no_client_email") return { ok: false, text: t("app.invoiceDetail.receiptNoEmail") };
+    return { ok: false, text: t("app.invoiceDetail.receiptFailedWillRetry") };
+  }
+
   async function handleAddPayment(e) {
     e.preventDefault();
     setError("");
+    setReceiptNotice(null);
     const res = await fetch("/api/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -395,6 +433,8 @@ export default function InvoiceDetailPage() {
         ...payment,
         method: paymentMethod,
         amount: Number(payment.amount),
+        // Always stated, so the route never has to guess what the box said.
+        sendReceipt: receiptChecked,
       }),
     });
     if (!res.ok) {
@@ -405,9 +445,42 @@ export default function InvoiceDetailPage() {
       );
       return;
     }
+    const recorded = await res.json().catch(() => null);
+    setReceiptNotice(receiptOutcomeText(recorded?.receipt));
     await refresh();
     setShowPayment(false);
     setPayment({ amount: "", method: "", notes: "" });
+    setReceiptBox(null);
+  }
+
+  /**
+   * Send (or, confirmed, resend) one payment's receipt.
+   * POST /api/payments/[id]/receipt — lib/payments/sendReceipt.js.
+   */
+  async function sendReceipt(p, resend = false) {
+    if (receiptBusy) return;
+    setReceiptBusy(p.id);
+    setReceiptConfirm("");
+    setError("");
+    setReceiptNotice(null);
+    try {
+      const res = await fetch(`/api/payments/${encodeURIComponent(p.id)}/receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resend }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, setError, t("app.invoiceDetail.receiptSendError"));
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      setReceiptNotice(receiptOutcomeText(data));
+    } catch {
+      setError(t("app.invoiceDetail.receiptSendError"));
+    } finally {
+      setReceiptBusy("");
+      await refresh();
+    }
   }
 
   /**
@@ -603,6 +676,21 @@ export default function InvoiceDetailPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
+        </div>
+      )}
+
+      {/* What the last receipt did — sent, already sent, no address, or
+          failed and queued for the hourly retry. */}
+      {receiptNotice && (
+        <div
+          data-receipt-notice
+          className={
+            receiptNotice.ok
+              ? "bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 text-sm text-green-800 dark:text-green-300"
+              : "bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
+          }
+        >
+          {receiptNotice.text}
         </div>
       )}
 
@@ -1466,6 +1554,82 @@ export default function InvoiceDetailPage() {
                         {t("app.invoiceDetail.voidAction")}
                       </button>
                     )}
+                  {/* The client's receipt for THIS payment — one email per
+                      payment (lib/payments/sendReceipt.js). The state is read
+                      off the row's own receipt columns, so a send, a failure
+                      and a retry all show here, and every payment recorded
+                      before receipts existed reads "No receipt sent" with a
+                      Send button rather than nothing. */}
+                  {p.kind !== "refund" && !invoice.historicalImportedAt && (() => {
+                    const r = receiptStatus(p);
+                    const line =
+                      r.state === "sent"
+                        ? r.to
+                          ? t("app.invoiceDetail.receiptSent", { date: formatDate(r.at), email: r.to })
+                          : t("app.invoiceDetail.receiptSentNoAddress", { date: formatDate(r.at) })
+                        : r.state === "sending"
+                          ? t("app.invoiceDetail.receiptSending")
+                          : r.state === "retrying"
+                            ? t("app.invoiceDetail.receiptRetrying", { reason: r.error || "" })
+                            : r.state === "failed"
+                              ? t("app.invoiceDetail.receiptFailed", { reason: r.error || "" })
+                              : r.state === "no_email"
+                                ? t("app.invoiceDetail.receiptNoEmailState")
+                                : t("app.invoiceDetail.receiptNotSent");
+                    const sent = r.state === "sent";
+                    return (
+                      <span
+                        data-receipt-state={r.state}
+                        data-receipt-payment={p.id}
+                        className={`block text-xs mt-0.5 ${
+                          sent
+                            ? "text-green-700 dark:text-green-400"
+                            : r.state === "failed" || r.state === "no_email" || r.state === "retrying"
+                              ? "text-amber-800 dark:text-amber-300"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {sent ? "✓ " : ""}
+                        {line}
+                        {canSendReceipt && r.state !== "sending" && receiptConfirm !== p.id && (
+                          <button
+                            type="button"
+                            data-send-receipt={p.id}
+                            disabled={Boolean(receiptBusy) || !clientHasEmail}
+                            title={!clientHasEmail ? t("app.invoiceDetail.receiptNoEmail") : undefined}
+                            onClick={() => (sent ? setReceiptConfirm(p.id) : sendReceipt(p, false))}
+                            className="ml-2 min-h-[36px] text-xs font-semibold underline text-foreground disabled:opacity-50 inline-flex items-center gap-1"
+                          >
+                            {receiptBusy === p.id && <Loader2 size={12} className="animate-spin" />}
+                            {sent ? t("app.invoiceDetail.resendReceipt") : t("app.invoiceDetail.sendReceipt")}
+                          </button>
+                        )}
+                        {/* A resend asks first: the client already has one. */}
+                        {receiptConfirm === p.id && (
+                          <span data-resend-confirm={p.id} className="ml-2 text-foreground">
+                            {clientEmail
+                              ? t("app.invoiceDetail.resendReceiptConfirm", { email: clientEmail })
+                              : t("app.invoiceDetail.resendReceiptConfirmHidden")}
+                            <button
+                              type="button"
+                              onClick={() => sendReceipt(p, true)}
+                              disabled={Boolean(receiptBusy)}
+                              className="ml-2 min-h-[36px] text-xs font-semibold underline"
+                            >
+                              {t("app.invoiceDetail.resendReceiptYes")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReceiptConfirm("")}
+                              className="ml-2 min-h-[36px] text-xs underline text-muted-foreground"
+                            >
+                              {t("app.action.cancel")}
+                            </button>
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
                 </span>
                 {/* The payment ROWS survive a redaction — that somebody
                     paid, when, and how is not the amount — but their `amount`
@@ -1700,6 +1864,29 @@ export default function InvoiceDetailPage() {
                 }
                 className="w-full border rounded px-3 py-2 text-sm"
               />
+              {/* The client's receipt for this payment, on the company's
+                  stationery and in the client's language. Ticked by default
+                  when Settings → Payments says so; off and disabled, with the
+                  reason, when there is nowhere to send it. Past jobs entered
+                  after the fact send nothing, so the box is not offered. */}
+              {!invoice.historicalImportedAt && (
+                <label className="flex items-start gap-2 text-sm text-foreground" data-receipt-box>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={receiptChecked}
+                    disabled={!clientHasEmail}
+                    onChange={(e) => setReceiptBox(e.target.checked)}
+                  />
+                  <span>
+                    {clientEmail
+                      ? t("app.invoiceDetail.emailReceiptTo", { email: clientEmail })
+                      : clientHasEmail
+                        ? t("app.invoiceDetail.emailReceiptToClient")
+                        : t("app.invoiceDetail.emailReceiptNoEmail")}
+                  </span>
+                </label>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"

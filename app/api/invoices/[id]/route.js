@@ -222,6 +222,17 @@ export async function GET(request, { params }) {
     { quotes: hasLevelFor(full, "quotes", "view_only"), jobs: hasLevelFor(full, "jobs", "view_only") },
   );
 
+  // Whether a receipt has anywhere to go, as a yes/no that survives the
+  // contact redaction below: a member who may record a payment but not read
+  // the client's address must still see the "Email a receipt" box enabled,
+  // not told the client has no email (app/app/invoices/[id]/page.js).
+  invoice.clientHasEmail = Boolean(String(invoice.client?.email || "").trim());
+  // The address a receipt went to is the client's email by another name —
+  // withheld where redactClient withholds the email itself.
+  if (!hasLevelFor(full, "clientsProperties", "full_view")) {
+    invoice.payments = (invoice.payments || []).map(({ receiptSentTo: _hidden, ...p }) => p);
+  }
+
   return NextResponse.json(redactInvoice(full, invoice));
 }
 

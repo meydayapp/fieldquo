@@ -1,5 +1,7 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 12 October 2026 (payment receipts to clients: one email per payment on the company's stationery in the client's language — amount, method, date, invoice, total paid so far and balance as of that payment, portal link — sent from Record payment's "Email a receipt" box (default from Settings → Payments → "Email clients a receipt automatically", on), from every Stripe payment when that is on, and from a Send / Resend receipt button on each payment row; failures retried hourly with backoff, five attempts in 48 h; payments recorded before this are never sent automatically. Kept in the job and client History. Schema additive — NOT applied. See "Payment receipts to clients" below.)
+
 Last updated: 10 October 2026 (colours & materials: a "Colours & materials" card on every job — rows of area, product, colour name + code, finish, coats, notes and a swatch photo, with trade suggestions — copied from the quote when the job is created and by an idempotent "Pull from quote", printed on the work order (screen, print, PDF), read-only for Crew; the quote builder takes several colour rows per service beside the untouched cabinet Colour / Sheen / Door style. Schema additive — NOT applied (JobSelection + QuoteScopeGroup.selections). Client view waits on the owner. See "Colours & materials on the job" below.)
 
 Last updated: 9 October 2026 (ad clicks through an embed: the lead-taking embed snippet copies the host page's utm_*, gclid/gbraid/wbraid, fbclid, ttclid, Meta's ad parameters and the _fbc/_fbp/_gcl_aw cookies onto the frame's src, plus `ref` (the host path) — only when there is something to forward; the frame credits ONE click (URL beats cookie, later cookie beats earlier), keeps the winning gclid, an fbp beside a Meta click, and the host page path; the self-quote form and the booking embed now attribute their own URL; Meta CAPI sends fbp; an agency-posted lead with a gclid is google_ads; docs/AGENCY-GOOGLE-ADS.md for the two Google Zaps. Schema additive — NOT applied: `ALTER TABLE "FunnelVisit" ADD COLUMN IF NOT EXISTS "gclid" TEXT, ADD COLUMN IF NOT EXISTS "fbp" TEXT, ADD COLUMN IF NOT EXISTS "hostPage" TEXT;` — until it runs, every visit query is tried once with the columns and once without, and the gclid and host path are not kept. check:embed-attribution.)
@@ -342,6 +344,129 @@ not go) — apply it first.
   contrast and white-label, win-back / newsletter rules.
 - `check:grace-warning` and `check:billing-resume` re-pointed at the new
   date formatter / executed letter.
+## Payment receipts to clients — one email per payment (12 October 2026)
+
+Owner, about TrueFinish INV-2026-0022 (Maureen Faulkner, two e-transfers:
+$2,500 on 11 Oct, $3,000 on 12 Oct): "we have sent two receipts … in the
+jobs in the communication history under emails we don't see the receipt
+emails." Confirmed in production (read-only) before building: no SentEmail
+and no ActivityLog row for any receipt — FieldQuo had never sent one. POST
+/api/payments emailed nobody; a Stripe payment notified the company's own
+team only (lib/notifications/invoicePaymentNotice.js) and set no
+`receipt_email`. His rule: send automatically when a payment is recorded,
+one email per payment, in the client's language, every one in the job and
+client email history.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **One sender**, `lib/payments/sendReceipt.js` (`sendPaymentReceipt`,
+  `autoSendReceipt`, `retryFailedReceipts`), building `lib/payments/
+  receiptEmail.js` on the company's stationery (documentEmailHtml +
+  documentTheme — logo/name band, contact footer, no FieldQuo). Shows the
+  amount, the method (translated: offlineMethods' labels; Stripe's Card /
+  Klarna / Affirm / Afterpay / bank debit from `feeRateLabel`), the date,
+  the invoice number and total, **total paid so far and balance as of that
+  payment** (computeInvoiceState over the family's payments recorded up to
+  it — a resend of the first receipt still says 2,500 / 6,427), "Paid in
+  full" when it is, and a button to the client's portal invoice page.
+- **Language rule** (`resolveReceiptLanguage`, lib/i18n/clientLanguage.js):
+  client's language → invoice's → company default → English. A receipt
+  carries no document, so this is the "everything else the client receives"
+  half of non-negotiable 6; the portal page it links to keeps the invoice's
+  language. Copy hand-written in all eight client languages
+  (`lib/i18n/receiptEmailCopy.js`, en fr es uk pa tl de it; zh is not a
+  client language) and held key-for-key by check:language-completeness.
+- **Per-payment state** on Payment: receiptSentAt / SentTo / SentEmailId /
+  Attempts / FirstAttemptAt / LastAttemptAt / LastError / ClaimedAt.
+  `lib/payments/receiptState.js` turns it into Sent ✓ date / Sending /
+  Retrying (reason) / Failed (reason) / No email on file / No receipt sent.
+- **Automatic**: Record payment has "Email a receipt to {email}", ticked by
+  default from the company setting, off and disabled with the reason when
+  the client has no email; the POST honours it (an older tab without the
+  field follows the setting) and returns the outcome, shown in a banner.
+  Stripe (recordStripePayment — card, Klarna, Affirm, bank debit) sends when
+  the setting is on, only for the row that call inserted. Service plans opt
+  out (`clientReceipt: false`) because they already email their own "paid"
+  invoice; the demo seed opts out. Awaited after the payment commits, never
+  thrown — a send failure never fails or rolls back a payment.
+- **Setting**: Settings → Payments → "Email clients a receipt automatically"
+  (`Company.emailPaymentReceipts`, default ON) — PATCH business-info writes
+  it; the invoice page, POST /api/payments and recordStripePayment read it.
+- **Send / Resend receipt** on every non-refund payment row
+  (`POST /api/payments/[id]/receipt`, invoices ≥ view_create_edit + plan
+  gate, support sessions refused). Resend asks "Send this receipt to … again?"
+  first; a resend inside a minute is refused. Past jobs entered after the
+  fact: no box, no button, the sender refuses.
+- **Retry**: `GET /api/cron/payment-receipts`, hourly at :40 (vercel.json).
+  Failed attempts only, backoff 30 min / 2 h / 6 h / 12 h, five attempts at
+  most within 48 h of the first, then "Failed". A payment nobody tried
+  (receiptAttempts 0 — every payment recorded before this ships, Maureen's
+  two included) is NEVER sent automatically; only the button sends it.
+  `no_client_email` is final. Every send is claimed first (a conditional
+  update on receiptAttempts + no live claim), so a double press, two cron
+  runs or a cron racing a press send once.
+- **History**: recordSentEmail kind "receipt" with invoiceId, clientId,
+  quoteId and the job (resolveInvoiceJob — through the quote for Maureen's
+  invoice, which has no jobId), so it lists in the job and client History
+  tabs and the conversation timeline ("Receipt for invoice … emailed").
+  ActivityLog `payment.receipt_sent` (with sentEmailId) / `payment.receipt_failed`.
+- Demo companies: sendEmail's own demo gate simulates the send; the row is
+  recorded like a real one and the banner says it was not emailed.
+- Contact redaction: `receiptSentTo` is stripped from the invoice payload
+  below clientsProperties full_view; `clientHasEmail` keeps the box usable.
+
+### Not done / for the owner
+
+- Maureen's two receipts were NOT sent. After release (and the SQL below),
+  press "Send receipt" on each payment row of INV-2026-0022: two emails, in
+  English (her client language is empty; the invoice is en), $2,500 → paid
+  $2,500 / balance $6,427, then $3,000 → paid $5,500 / balance $3,427.
+- The "Receipt" wording in Settings → Document emails still applies only to
+  a service plan's automatic-charge email; payment receipts use fixed copy.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+Prisma reads every column of Payment and Company by default, so every
+payment and company read fails until this runs.
+
+```sql
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "emailPaymentReceipts" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "receiptAttempts" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS "receiptClaimedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "receiptFirstAttemptAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "receiptLastAttemptAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "receiptLastError" TEXT,
+  ADD COLUMN IF NOT EXISTS "receiptSentAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "receiptSentEmailId" TEXT,
+  ADD COLUMN IF NOT EXISTS "receiptSentTo" TEXT;
+CREATE INDEX IF NOT EXISTS "Payment_receiptFirstAttemptAt_idx" ON "Payment"("receiptFirstAttemptAt");
+```
+
+### Checks
+
+- `check:payment-receipts` (in `check:all`): executes POST /api/payments,
+  recordStripePayment, the receipt route and the retry pass against a
+  scripted database with the mail provider replaced by a recorder — box on
+  sends one / off none / setting fallback; Maureen's two payments as two
+  emails with 2,500/6,427 then 5,500/3,427 (checked against
+  computeInvoiceState and the invoice cache); Stripe one, replay none,
+  setting off none, service-plan opt-out none; fail → retried after the
+  backoff → sent once; five failures then Failed; untried payments never
+  picked up; concurrent double press → one email (the loser loses the
+  claim); resend refused inside a minute; refund none; no email honest and
+  not retried; past job none; French and Punjabi; another company 404 with
+  no write; support refused; job and client History list both; no FieldQuo
+  in the visible text in eight languages × eleven brand colours (hostile
+  ones and TrueFinish's #bd9d60); contrast ≥ 4.5:1 on every pair. 580
+  assertions. 16 mutants: 14 killed; the 2 survivors are deliberate second
+  locks (the claim's receiptAttempts condition behind its live-claim
+  condition; isRefundRow's kind test behind refundOfPaymentId / amount ≤ 0).
+- Also run green: money-flow, processing-fee, client-card-surcharge,
+  demo-content, service-plans, notifications, commissions, invoice-*,
+  sent-email-history, document-emails, email-*, translations,
+  language-completeness, tenant-scope, tenant-surfaces, route-callers,
+  white-label-meta, public-payload, client-portal, plan-gate, crew-access,
+  imports, exports, undef, hooks. `npm run build` exit 0.
 
 ---
 
