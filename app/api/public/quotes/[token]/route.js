@@ -12,7 +12,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
-import { formatMoney } from "@/lib/currency";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
@@ -1006,7 +1005,10 @@ export async function POST(request, { params }) {
 }
 
 // Everything the outcome sets in motion by email. On a decline this is what it
-// always was: a plain internal note to the owners/admins. On an ACCEPTANCE it
+// always was: an internal note to the owners/admins — since 2026-10-13 on
+// FieldQuo's team-notice layout (lib/notifications/teamEmails.js
+// quoteDecisionNotice: a facts card, one button to the quote, a text part, in
+// each reader's language). On an ACCEPTANCE it
 // also renders the approved quote as a PDF and sends that same signed document
 // to both sides — the client keeps a copy of what they agreed to, and the
 // company's copy carries the attachment rather than just a link. Returns that
@@ -1018,6 +1020,9 @@ export async function POST(request, { params }) {
 async function dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord, plansTaken = []) {
   const { sendEmail, SENDER_SELECT } = await import("@/lib/email/resend");
   const { resolveSender } = await import("@/lib/email/companySender");
+  const { memberReaders, READER_MEMBER_SELECT } = await import("@/lib/notifications/teamReaders");
+  const { groupReaders } = await import("@/lib/email/teamNotice");
+  const { quoteDecisionNotice } = await import("@/lib/notifications/teamEmails");
 
   const accepted = decision === "accepted";
 
@@ -1039,6 +1044,9 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
         website: true,
         taxIdName: true,
         taxIdNumber: true,
+        // The team note's time and fallback language.
+        timezone: true,
+        defaultLanguage: true,
       },
     }),
     db.member.findMany({
@@ -1047,7 +1055,7 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
         active: true,
         role: { in: ["owner", "admin"] },
       },
-      include: { user: { select: { email: true } } },
+      select: READER_MEMBER_SELECT,
       distinct: ["userId"],
     }),
   ]);
@@ -1090,67 +1098,49 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
       : undefined;
 
   const base = getAppOrigin();
-  const verb = accepted ? "approved" : "declined";
-  // The company's own billing currency. No locale argument: this note goes to
-  // the owner/admin, and formatMoney fixes the SYMBOL from the currency while
-  // letting the reader's environment decide grouping — which is the right way
-  // round. currencyMeta() falls back to the default for a blank column, so an
-  // older company row that never set one still formats.
-  const fmt = (n) => formatMoney(n, company?.currency);
 
   // ── The internal note (owners/admins) ──────────────────────────────────────
-  const to = members.map((m) => m.user?.email).filter(Boolean);
-  if (to.length) {
-    // Extras go in the subject line, not buried in the body. Someone skimming
-    // notifications on a phone should see that this approval is worth more than
-    // the quote they sent — that's the whole return on offering them.
-    const tookExtras = accepted && priced?.chosen?.length > 0;
-    const subject = tookExtras
-      ? `${quote.client?.name || "A client"} approved ${updated.quoteNumber} — plus ${fmt(priced.extras)} in extras`
-      : `${quote.client?.name || "A client"} ${verb} ${updated.quoteNumber}`;
-
-    const extrasBlock = tookExtras
-      ? `<p style="margin-top:16px"><strong>They also added:</strong></p>
-         <ul style="padding-left:18px">
-           ${priced.chosen
-             .map(
-               (a) =>
-                 `<li>${escapeHtml(a.description)} — ${fmt(Number(a.amount))}</li>`,
-             )
-             .join("")}
-         </ul>
-         <p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
-      : accepted && priced
-        ? `<p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
-        : "";
-
-    // The maintenance plans that came with it — the recurring half of the
-    // win, which the one-time total above does not include.
-    const plansBlock = accepted && plansTaken.length
-      ? `<p style="margin-top:16px"><strong>Maintenance plan${plansTaken.length === 1 ? "" : "s"} they signed up for (billed per visit, not in the total):</strong></p>
-         <ul style="padding-left:18px">
-           ${plansTaken
-             .map((o) => `<li>${escapeHtml(o.name)} — ${fmt(Number(o.pricePerVisit))} per visit${Number(o.discountPct) > 0 ? `, ${Number(o.discountPct)}% off every visit` : ""}</li>`)
-             .join("")}
-         </ul>`
-      : "";
-
+  //
+  // Same words as ever, on FieldQuo's team-notice layout: the sentence, a
+  // facts card (client, quote, approved total, who signed, when, then the
+  // extras and the maintenance plans as rows), ONE button to the quote, a
+  // text part. In each reader's language, amounts in the company's currency,
+  // and an amount only for a reader who may see money — every reader is an
+  // owner or admin today, so every reader does.
+  //
+  // Extras stay in the subject line, not buried in the body. Someone skimming
+  // notifications on a phone should see that this approval is worth more than
+  // the quote they sent — that's the whole return on offering them.
+  //
+  // One send per (language, money) group, so three owners who read English
+  // still get one email between them, as before; the signed PDF rides with
+  // each send.
+  const readers = memberReaders(members, company || {});
+  for (const group of groupReaders(readers)) {
+    const mail = quoteDecisionNotice({
+      language: group.language,
+      company: company || {},
+      quote: { id: updated.id, quoteNumber: updated.quoteNumber },
+      clientName: quote.client?.name || null,
+      decision,
+      priced: accepted ? priced : null,
+      plansTaken,
+      signedBy: signatureRecord?.name || null,
+      decidedAt: new Date(),
+      reader: group.reader,
+      origin: base,
+    });
     await sendEmail({
       // updated.companyId, not a value carried in from the request: this route
       // is reached by a stranger holding a share token, and the tenant is
       // whatever the quote row says it is.
       companyId: updated.companyId,
       from,
-      to,
-      subject,
+      to: group.to,
+      subject: mail.subject,
       attachments,
-      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
-        <p><strong>${escapeHtml(quote.client?.name || "A client")}</strong> ${verb} quote
-        <strong>${updated.quoteNumber}</strong>.</p>
-        ${extrasBlock}
-        ${plansBlock}
-        <p><a href="${base}/app/quotes/${updated.id}">Open the quote →</a></p>
-      </div>`,
+      html: mail.html,
+      text: mail.text,
     });
   }
 
@@ -1272,14 +1262,4 @@ async function renderApprovedQuotePdf(quote, companyId, priced, language, signat
     company: fullCompany,
   });
   return buffer?.length ? buffer : null;
-}
-
-// Client names and add-on text are typed by people and land in an HTML email.
-// An apostrophe is the common case; a stray tag is the reason this exists.
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

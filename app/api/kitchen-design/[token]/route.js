@@ -33,7 +33,9 @@ import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { mergeClientDesign } from "@/lib/kitchen/pricing";
 import { resolveSender } from "@/lib/email/companySender";
-import { formatCompanyDateTime } from "@/lib/format/companyDate";
+import { groupReaders } from "@/lib/email/teamNotice";
+import { kitchenDesignSavedNotice } from "@/lib/notifications/teamEmails";
+import { memberReaders, READER_MEMBER_SELECT } from "@/lib/notifications/teamReaders";
 
 
 /**
@@ -169,54 +171,57 @@ export async function PATCH(request, { params }) {
   // ── Tell the people who can act on it ───────────────────────────────────
   //
   // This quote's own creator plus owners and admins — not a hardcoded address.
+  //
+  // On FieldQuo's team-notice layout since 2026-10-13: the same two
+  // sentences, a facts card (client, quote, when), ONE button to the
+  // designer, a text part — in each reader's own language, the time in the
+  // company's own zone (it was the lambda's clock, which on Vercel is UTC).
   const notify = await db.member.findMany({
     where: {
       companyId: quote.companyId,
       active: true,
       OR: [{ userId: quote.createdById }, { role: { in: ["owner", "admin"] } }],
     },
-    include: { user: { select: { email: true } } },
+    select: READER_MEMBER_SELECT,
     distinct: ["userId"],
   });
-  const to = notify.map((m) => m.user?.email).filter(Boolean);
+  const groups = groupReaders(memberReaders(notify, quote.company || {}));
 
-  if (to.length) {
+  if (groups.length) {
     try {
-      const link = `${getAppOrigin(request)}/app/quotes/${quote.id}/kitchen`;
-      // The COMPANY's date format, via the shared formatter. The original
-      // hardcoded America/Toronto and en-CA, which gave a contractor in
-      // Vancouver the wrong time and one in Montréal the wrong format.
-      const when = formatCompanyDateTime(new Date(), quote.company?.dateFormat);
+      const origin = getAppOrigin(request);
+      const savedAt = new Date();
       // Through the shared sender, which discovers a verified From for this
       // company. A hardcoded notifications@fieldquo.com breaks as soon as a
       // company has its own sending domain — and this lands in their staff's
       // inbox, so it should look like their own system talking to them.
       const { from, replyTo } = await resolveSender(quote.company || {}, quote.companyId);
 
-      await sendEmail({
-        // A demo company's own staff notice is simulated too. Nothing here is
-        // client-facing, but the seam is the company, not the audience — see
-        // lib/email/demoMail.js.
-        companyId: quote.companyId,
-        from,
-        replyTo,
-        to,
-        subject: `Client design saved — ${quote.quoteNumber}`,
-        html: `
-          <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;line-height:1.5;">
-            <p><strong>${escapeHtml(quote.client?.name || "A client")}</strong>
-               saved their own version of the kitchen layout on
-               <strong>${escapeHtml(quote.quoteNumber)}</strong>${when ? `, ${escapeHtml(when)}` : ""}.</p>
-            <p>Their changes are kept separate from your drawing — open the
-               designer to compare and decide whether to take them.</p>
-            <p><a href="${link}">Open the kitchen designer →</a></p>
-          </div>
-        `,
-        text:
-          `${quote.client?.name || "A client"} saved their own version of the kitchen ` +
-          `layout on ${quote.quoteNumber}${when ? `, ${when}` : ""}.\n\n` +
-          `Their changes are kept separate from your drawing.\n\n${link}`,
-      });
+      for (const group of groups) {
+        // No amount anywhere in this notice, so a quote's creator without
+        // money sight reads the same letter an owner does.
+        const mail = kitchenDesignSavedNotice({
+          language: group.language,
+          company: quote.company || {},
+          quote,
+          clientName: quote.client?.name || null,
+          savedAt,
+          reader: group.reader,
+          origin,
+        });
+        await sendEmail({
+          // A demo company's own staff notice is simulated too. Nothing here is
+          // client-facing, but the seam is the company, not the audience — see
+          // lib/email/demoMail.js.
+          companyId: quote.companyId,
+          from,
+          replyTo,
+          to: group.to,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+        });
+      }
     } catch (err) {
       // A failed notification must not fail the client's save. They did their
       // part; losing their layout because an email call timed out is the worse
@@ -226,11 +231,4 @@ export async function PATCH(request, { params }) {
   }
 
   return NextResponse.json({ success: true });
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-  );
 }

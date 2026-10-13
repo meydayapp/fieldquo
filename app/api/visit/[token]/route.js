@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
+import { noticeOrigin } from "@/lib/email/teamNotice";
 import { stripe } from "@/lib/stripe";
 import {
   loadVisitByToken,
@@ -239,6 +240,9 @@ export async function POST(request, { params }) {
     // visitView: the quote's language, else the company default.
     language: cancelLanguage,
     initiatedBy: "client",
+    // The office copy's button opens this appointment on the calendar.
+    appointmentId: booking.appointmentId || null,
+    origin: noticeOrigin(request),
     ...(invite && { attachments: [invite] }),
     refund: {
       refunded: Boolean(refundedAt),
