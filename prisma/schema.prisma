@@ -3425,8 +3425,13 @@ model Client {
   /// "Don't call me." Set by a callback outcome (lib/callbacks/outcomes.js),
   /// which also opts the phone out of the voice agent's consent ledger
   /// (lib/voice/outbound.js optOut) so the two never disagree. Read by the
-  /// rotation builder — a client with this set is never listed again — and
-  /// shown on the client page. Never cleared by code; a person clears it.
+  /// rotation builder — a client with this set is never listed again — by
+  /// the bridged call and the bulk portal-link send, and (owner, 2026-10-14)
+  /// by the automatic-message gate lib/clients/autoMessages.js, which holds
+  /// back every automatic email, text and phone-agent call for it, recorded
+  /// as cause "do_not_contact". A person pressing Send still sends, with a
+  /// warning. Shown on the client page. Never cleared by code, and there is
+  /// no screen that clears it yet.
   doNotContactAt     DateTime?
   doNotContactReason String?
 
@@ -3473,7 +3478,9 @@ model Client {
   /// for — "Science and Parliamentary Infrastructure Branch" under PSPC.
   /// Drawn and edited in the Organization card (company-type clients only);
   /// kept when the client is switched to an individual, never shown for one.
-  /// Not printed on documents — nothing reads it but the card.
+  /// Printed under the client's name on the quote and the invoice — screen,
+  /// client page, PDF and email — through lib/documents/clientUnit.js, for a
+  /// company-type client only, as the client's own words (never translated).
   organizationUnit   String?
   /// How this organisation wants to be dealt with — "Questions only through
   /// SAP Ariba Event Messages, not by email". Staff-facing, in the
@@ -3489,8 +3496,10 @@ model Client {
   /// automatic receipts, deposit requests, plan invoices, on-my-way texts,
   /// the AI employee's replies, the phone agent's automatic calls — and
   /// records each one it held back (AutoMessageSkip). A person pressing Send
-  /// is not refused. Different from doNotContactAt, which takes the client
-  /// off call-back lists and calls. Null = automatic messages go as normal.
+  /// is not refused. doNotContactAt holds the same messages back too (and
+  /// also takes the client off call-back lists and calls), so turning this
+  /// off resumes nothing while Do not contact stands. Null = automatic
+  /// messages go as normal.
   autoMessagesOffAt     DateTime?
   /// Why, in the office's words — "Government tender: questions only through
   /// SAP Ariba". Shown beside the switch and on every held-back row.
@@ -3532,7 +3541,8 @@ model ClientContact {
 }
 
 /// An automatic message the shared gate (lib/clients/autoMessages.js) held
-/// back because the client has "No automatic emails or texts" on. One row per
+/// back because the client has "No automatic emails or texts" on, or is marked
+/// Do not contact (`cause` says which). One row per
 /// (client, sender, record): a cron that re-evaluates the same reminder every
 /// hour moves lastSkippedAt rather than adding rows. Listed on the client
 /// page under the switch. Written only by recordAutoMessageSkip.
@@ -3545,13 +3555,20 @@ model AutoMessageSkip {
 
   /// A key of AUTO_MESSAGE_SENDERS — "follow_up", "appointment_reminder" …
   sender    String
-  /// "email" | "sms" | "call"
+  /// "email" | "sms" | "call" | "message"
   channel   String
+  /// Which of the two held it back: "auto_messages_off" (the switch) or
+  /// "do_not_contact" (Client.doNotContactAt). Rows written before the column
+  /// existed were all the switch's — Do not contact did not reach the gate —
+  /// so the default is the truth for them, not a guess.
+  cause     String  @default("auto_messages_off")
   /// The record it was about ("invoice:<id>", "visit:<id>"), or "" for none.
   refKey    String  @default("")
   /// What the record is called on screen (an invoice number, a job title).
   refLabel  String?
-  /// Client.autoMessagesOffReason at the moment it was held back.
+  /// The office's reason at the moment it was held back —
+  /// Client.doNotContactReason for cause do_not_contact, else
+  /// Client.autoMessagesOffReason.
   reason    String?
 
   firstSkippedAt DateTime @default(now())
@@ -13364,6 +13381,16 @@ model VoiceCallTask {
 
   /// queued → calling → done | failed | skipped | cancelled
   status String @default("queued")
+
+  /// Who started it: "automatic" (lib/voice/triggers.js — a quote callback,
+  /// an appointment reminder, a lead follow-up) or "manual" (a person pressed
+  /// Call on the quote, app/api/quotes/[id]/call). Written by enqueueOutbound
+  /// only. Read at dial time by placeQueuedCall, which asks the client's
+  /// automatic-message gate (lib/clients/autoMessages.js) again for every
+  /// task that is not "manual" — the switch or Do not contact turned on
+  /// between queueing and dialling holds the call back. Null = queued before
+  /// this column existed, and is treated as automatic: the gate fails closed.
+  origin String?
 
   /// What it's about. The number to dial is derived from these, not stored.
   leadId    String?

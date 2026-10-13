@@ -714,6 +714,14 @@ export default function QuoteApproval({ token, sample = null }) {
           <p className="text-lg font-semibold text-[#2d2520]">
             {quote.client?.name}
           </p>
+          {/* A business client's department or branch — sent only when there
+              is one (quotePageClientFacts → lib/documents/clientUnit.js), in
+              the client's own words. Wraps; a homeowner's page is unchanged. */}
+          {quote.client?.organizationUnit && (
+            <p className="text-sm text-[#2d2520]/70 break-words" data-client-unit>
+              {quote.client.organizationUnit}
+            </p>
+          )}
           {/* A BUSINESS client's contact block — the same lines the PDF's
               "Prepared for" panel prints in the email that brought them
               here, plus their named contact. The server sends these fields

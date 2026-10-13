@@ -1,7 +1,8 @@
 // app/api/clients/[id]/auto-messages/route.js
 //
 // GET — the automatic messages held back for this client because "No
-// automatic emails or texts" is on (model AutoMessageSkip, written only by
+// automatic emails or texts" is on, or because the client is marked Do not
+// contact (model AutoMessageSkip, `cause` says which; written only by
 // lib/clients/autoMessages.js recordAutoMessageSkip). Listed on the client
 // page under the switch so the office can see what did not go and send it by
 // hand if it should.
@@ -21,7 +22,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, assignedClientWhere } from "@/lib/permissions/enforce";
-import { loadAutoMessageSkips, autoMessagesOff } from "@/lib/clients/autoMessages";
+import { loadAutoMessageSkips, autoMessagesOff, autoMessageHold } from "@/lib/clients/autoMessages";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -32,7 +33,7 @@ export async function GET(request, { params }) {
   const full = await loadEnforceableMember(db, member.id);
   const client = await db.client.findFirst({
     where: { id, companyId: member.companyId, ...assignedClientWhere(full) },
-    select: { id: true, autoMessagesOffAt: true, autoMessagesOffReason: true },
+    select: { id: true, autoMessagesOffAt: true, autoMessagesOffReason: true, doNotContactAt: true },
   });
   if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -41,6 +42,10 @@ export async function GET(request, { params }) {
     off: autoMessagesOff(client),
     since: client.autoMessagesOffAt,
     reason: client.autoMessagesOffReason || null,
+    // Which of the two the gate answers with right now — "do_not_contact"
+    // wins over the switch (lib/clients/autoMessages.js autoMessageHold) — or
+    // null when automatic messages go. Each skip row carries its own `cause`.
+    heldBy: autoMessageHold(client)?.reason || null,
     skips,
   });
 }

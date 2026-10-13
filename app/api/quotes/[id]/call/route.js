@@ -27,7 +27,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { planOrRefusal } from "@/lib/signup/planGate";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
-import { enqueueOutbound } from "@/lib/voice/outboundCall";
+import { enqueueOutbound, CALL_ORIGIN } from "@/lib/voice/outboundCall";
 import { manualQuoteCallGate } from "@/lib/voice/quoteCallScope";
 import {
   QUOTE_CALLBACK_PURPOSE,
@@ -98,6 +98,11 @@ export async function POST(request, { params }) {
     // two calls at once.
     // The same brief the automatic path builds. See quoteCallContext.
     context: quoteCallContext(quote),
+    // A person pressed Call: the dialler does not ask the client's
+    // "No automatic emails or texts" switch for this one (it does for the
+    // trigger's), and a queued automatic call for this quote is taken over
+    // as manual rather than duplicated. Consent is still checked at dial time.
+    origin: CALL_ORIGIN.MANUAL,
   });
 
   if (!task) {

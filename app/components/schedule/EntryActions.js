@@ -41,6 +41,7 @@ import { appointmentActions } from "@/lib/appointments/statusLabels";
 import { captureStamp } from "@/lib/location/capture";
 import { languageMeta } from "@/app/i18n/languages";
 import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
+import { autoMessageHold } from "@/lib/clients/autoMessages";
 
 /** The PATCH target for a row of this kind. */
 function endpointFor({ kind, id, jobId }) {
@@ -223,12 +224,13 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
  * have silently dropped the text too.
  */
 function notifyByDefault(client) {
-  // "No automatic emails or texts — send by hand only" (Client.autoMessagesOffAt,
-  // lib/clients/autoMessages.js): the tick is a person's per-change choice and
-  // still sends when ticked, but for this client it starts unticked, so
-  // nothing goes unless someone decides it should. Only where this screen
-  // loaded the column; elsewhere the tick behaves as it always has.
-  if (client?.autoMessagesOffAt) return false;
+  // "No automatic emails or texts — send by hand only" (Client.autoMessagesOffAt)
+  // or Do not contact (Client.doNotContactAt) — lib/clients/autoMessages.js
+  // autoMessageHold: the tick is a person's per-change choice and still sends
+  // when ticked, but for this client it starts unticked, so nothing goes
+  // unless someone decides it should. Only where this screen loaded the
+  // columns; elsewhere the tick behaves as it always has.
+  if (autoMessageHold(client)) return false;
   if (!client || !("email" in client)) return true;
   return Boolean(client.email || client.phone || client.restricted);
 }

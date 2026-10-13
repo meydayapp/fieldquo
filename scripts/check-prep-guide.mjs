@@ -286,6 +286,19 @@ ok("…and recorded for the client page", rows.autoMessageSkip.some((s) => s.sen
 const byHand = await sendPrepGuide({ jobId: "job1", companyId: "co1", member: { id: "m1", userId: "u1", companyId: "co1", role: "owner" }, force: true }, { db, cloudName: "democloud" });
 ok("…a person's Send now still sends", byHand.sent === true && sent.length === 1);
 
+// Do not contact (Client.doNotContactAt, owner 2026-10-14) holds the cron's
+// guide back the same way, recorded under its own cause; Send now still goes.
+seed();
+rows.client[0].doNotContactAt = new Date();
+rows.client[0].doNotContactReason = "Asked not to be called (callback list)";
+rows.autoMessageSkip = [];
+const dncHeld = await sendPrepGuide({ jobId: "job1", companyId: "co1" }, { db, cloudName: "democloud" });
+ok("do not contact: the cron's guide is held back", dncHeld.sent === false && dncHeld.reason === "do_not_contact" && sent.length === 0, JSON.stringify(dncHeld));
+ok("…unclaimed", rows.job[0].prepGuideSentAt === null);
+ok("…and recorded as Do not contact", rows.autoMessageSkip.some((s) => s.sender === "prep_guide" && s.cause === "do_not_contact"), JSON.stringify(rows.autoMessageSkip));
+const dncByHand = await sendPrepGuide({ jobId: "job1", companyId: "co1", member: { id: "m1", userId: "u1", companyId: "co1", role: "owner" }, force: true }, { db, cloudName: "democloud" });
+ok("…a person's Send now still sends to a Do-not-contact client", dncByHand.sent === true && sent.length === 1);
+
 seed({ email: "" });
 ok("no client email → refused even by a person", (await sendPrepGuide({ jobId: "job1", companyId: "co1", force: true }, { db })).reason === "no_client_email" && sent.length === 0);
 seed({ startOffset: null });

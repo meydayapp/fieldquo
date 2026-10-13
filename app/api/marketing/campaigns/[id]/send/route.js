@@ -43,7 +43,7 @@ import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { phoneGateResponse } from "@/lib/trial/phoneGate";
 import { localizeTemplate } from "@/lib/email/templateTranslation";
 import { translationsForSend } from "@/lib/email/templateTranslationStore";
-import { autoMessageGate } from "@/lib/clients/autoMessages";
+import { autoMessageGate, isClientHold } from "@/lib/clients/autoMessages";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -180,9 +180,9 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
   const translations = await translationsForSend(db, campaign.template.id);
 
   // Subscribers held back by their client's "No automatic emails or texts"
-  // switch this pass. Not claimed (no delivery row), so turning the switch
-  // off lets a later press reach them; counted so the campaign can still
-  // complete without them.
+  // switch, or because the client is marked Do not contact, this pass. Not
+  // claimed (no delivery row), so clearing the cause lets a later press reach
+  // them; counted so the campaign can still complete without them.
   let heldBack = 0;
 
   for (const sub of pending) {
@@ -202,7 +202,9 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
       refLabel: campaign.name || null,
     });
     if (!gate.allowed) {
-      if (gate.reason === "auto_messages_off") heldBack++;
+      // Either cause — the switch or Do not contact. An unreadable client
+      // ("unreadable") is not counted: that subscriber is still owed a try.
+      if (isClientHold(gate.reason)) heldBack++;
       continue;
     }
 

@@ -82,7 +82,11 @@ async function loadQuote(token) {
         // BUSINESS client's contact block (contactName, email, phone,
         // address — the PDF's own "Prepared for" panel; lib/quotes/gcSignup.js
         // says why that is no new exposure). A homeowner's object is the name.
-        select: { name: true, email: true, address: true, language: true, type: true, contactName: true, phone: true },
+        // organizationUnit: a business client's department or branch, printed
+        // under its name on the page and on the signed PDF — the same line
+        // the emailed PDF carries (lib/documents/clientUnit.js), never for a
+        // homeowner.
+        select: { name: true, email: true, address: true, language: true, type: true, contactName: true, phone: true, organizationUnit: true },
       },
       company: {
         // No id. `present()` returns this object wholesale to an

@@ -1,0 +1,130 @@
+{
+  "individual": {
+    "en": {
+      "parties": "85e9b46347f2e9c276e0418970ec9d9c",
+      "pdfQuote": "dfe5ef4a257e350b2bc11e625d4ffed4",
+      "pdfInvoice": "38104edd6d21227cd65b2a1c9a79d2a7",
+      "email": "8fac5eb589b07276ddd78dbf67efba5d",
+      "facts": "c8d68a39c2f5c51d7bad7f58538115fe"
+    },
+    "fr": {
+      "parties": "e68faf671cbc78d1b4d209df77bd5ef9",
+      "pdfQuote": "6f49c4a3628d263e3ae1320a0f5acd66",
+      "pdfInvoice": "0277ab8a81bbf10ed5042da743e321ab",
+      "email": "e239b785ddf80f64abf1db39d98f3dac",
+      "facts": "c8d68a39c2f5c51d7bad7f58538115fe"
+    }
+  },
+  "individualStaleUnit": {
+    "en": {
+      "parties": "85e9b46347f2e9c276e0418970ec9d9c",
+      "pdfQuote": "dfe5ef4a257e350b2bc11e625d4ffed4",
+      "pdfInvoice": "38104edd6d21227cd65b2a1c9a79d2a7",
+      "email": "8fac5eb589b07276ddd78dbf67efba5d",
+      "facts": "c8d68a39c2f5c51d7bad7f58538115fe"
+    },
+    "fr": {
+      "parties": "e68faf671cbc78d1b4d209df77bd5ef9",
+      "pdfQuote": "6f49c4a3628d263e3ae1320a0f5acd66",
+      "pdfInvoice": "0277ab8a81bbf10ed5042da743e321ab",
+      "email": "e239b785ddf80f64abf1db39d98f3dac",
+      "facts": "c8d68a39c2f5c51d7bad7f58538115fe"
+    }
+  },
+  "individualNoType": {
+    "en": {
+      "parties": "85e9b46347f2e9c276e0418970ec9d9c",
+      "pdfQuote": "dfe5ef4a257e350b2bc11e625d4ffed4",
+      "pdfInvoice": "38104edd6d21227cd65b2a1c9a79d2a7",
+      "email": "8fac5eb589b07276ddd78dbf67efba5d",
+      "facts": "c8d68a39c2f5c51d7bad7f58538115fe"
+    },
+    "fr": {
+      "parties": "e68faf671cbc78d1b4d209df77bd5ef9",
+      "pdfQuote": "6f49c4a3628d263e3ae1320a0f5acd66",
+      "pdfInvoice": "0277ab8a81bbf10ed5042da743e321ab",
+      "email": "e239b785ddf80f64abf1db39d98f3dac",
+      "facts": "c8d68a39c2f5c51d7bad7f58538115fe"
+    }
+  },
+  "companyNoUnit": {
+    "en": {
+      "parties": "1996ea8050c87a0cf9f38ceaec650d6e",
+      "pdfQuote": "160336680332e83b246a3590474b280d",
+      "pdfInvoice": "9b908b475d62ba68c2ab8532aff74425",
+      "email": "291e15c28a823291964acc8bd3a09dd1",
+      "facts": "c6d4bede7c9910bfd4d71c015702cd84"
+    },
+    "fr": {
+      "parties": "a6a4deeb0139b62a3ecc0b3c3a756dfb",
+      "pdfQuote": "1e84be2e41a756fc878d082d07977d5d",
+      "pdfInvoice": "4fb0fd7f5427d3ad0259d40a4718b471",
+      "email": "56a9a77af738c7155e52380ff1286b6a",
+      "facts": "c6d4bede7c9910bfd4d71c015702cd84"
+    }
+  },
+  "companyBlankUnit": {
+    "en": {
+      "parties": "1996ea8050c87a0cf9f38ceaec650d6e",
+      "pdfQuote": "160336680332e83b246a3590474b280d",
+      "pdfInvoice": "9b908b475d62ba68c2ab8532aff74425",
+      "email": "291e15c28a823291964acc8bd3a09dd1",
+      "facts": "c6d4bede7c9910bfd4d71c015702cd84"
+    },
+    "fr": {
+      "parties": "a6a4deeb0139b62a3ecc0b3c3a756dfb",
+      "pdfQuote": "1e84be2e41a756fc878d082d07977d5d",
+      "pdfInvoice": "4fb0fd7f5427d3ad0259d40a4718b471",
+      "email": "56a9a77af738c7155e52380ff1286b6a",
+      "facts": "c6d4bede7c9910bfd4d71c015702cd84"
+    }
+  },
+  "companyUnit": {
+    "en": {
+      "parties": "b4f23aa829df139971dc8d12a18c84cc",
+      "pdfQuote": "19a5e27e1617ba5bca660182981affcc",
+      "pdfInvoice": "cb09957dc524c648b3fba514343cf17f",
+      "email": "9d9959a95204a9d3f9177f4235a245c1",
+      "facts": "f0497b6eac7e2695cbe28753f5f5b189"
+    },
+    "fr": {
+      "parties": "8c15a852c0f6f1df5685d66c97ca3219",
+      "pdfQuote": "d9e3104b875fc5b1fbb055ced27ff44c",
+      "pdfInvoice": "da238fccf774037e3117a77557fb6776",
+      "email": "39d9a583925bcff588b84cca44bcdfbc",
+      "facts": "f0497b6eac7e2695cbe28753f5f5b189"
+    }
+  },
+  "companyLongUnit": {
+    "en": {
+      "parties": "b4f23aa829df139971dc8d12a18c84cc",
+      "pdfQuote": "19a5e27e1617ba5bca660182981affcc",
+      "pdfInvoice": "cb09957dc524c648b3fba514343cf17f",
+      "email": "9d9959a95204a9d3f9177f4235a245c1",
+      "facts": "f0497b6eac7e2695cbe28753f5f5b189"
+    },
+    "fr": {
+      "parties": "8c15a852c0f6f1df5685d66c97ca3219",
+      "pdfQuote": "d9e3104b875fc5b1fbb055ced27ff44c",
+      "pdfInvoice": "da238fccf774037e3117a77557fb6776",
+      "email": "39d9a583925bcff588b84cca44bcdfbc",
+      "facts": "f0497b6eac7e2695cbe28753f5f5b189"
+    }
+  },
+  "companyHostileUnit": {
+    "en": {
+      "parties": "3628a13e0d7ed327d3ebc7b5e8c392e5",
+      "pdfQuote": "6c35879b2230d2f1e5c0f53c99fb6871",
+      "pdfInvoice": "adcd6e6874265fb3301fda6d98672f0d",
+      "email": "78bf43181d26efb4150218fb6eef4157",
+      "facts": "4c71ec5254a9fed95ca7a2bc24372bbb"
+    },
+    "fr": {
+      "parties": "ef2821daf6364b8b7eb7293ed4233542",
+      "pdfQuote": "3fdc52655a4ece12bbe0c1f6df7ce776",
+      "pdfInvoice": "2dac01504eb34ffaf4967b12228f4df8",
+      "email": "f73ea29c80f5f60fb00c5f999bcb3ad9",
+      "facts": "4c71ec5254a9fed95ca7a2bc24372bbb"
+    }
+  }
+}

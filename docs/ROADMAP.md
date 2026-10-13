@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 14 October 2026 (organisation-client follow-ups, owner said yes to all four: "Do not contact" now holds back every automatic email, text and phone-agent call through the same gate, recorded as its own cause, while a person's Send still sends with a warning; automatic phone-agent calls are re-checked against the gate at DIAL time, manual Call presses never; a company client's department/branch prints under its name on the quote and invoice — staff pages, /q, PDF, email panel — individuals byte-identical; the switch's hint rewritten to be true. Schema additive — NOT applied. See "Organisation clients: follow-ups (14 October 2026)" below.)
 Last updated: 13 October 2026 (government and public tenders: /app/tenders, OFF by default — the `tenders` feature is hidden until FieldQuo turns it on per company; a Tender is a company-type client, a quote as the bid and a job when won; closing date + time + zone, Q&A and site-visit deadlines, bid / no-bid / submitted / won / lost, documents, win/loss card; reminders to the company's own team only, hourly cron, DST-correct, once each. Schema additive — NOT applied. See "Government and public tenders" below.)
 Last updated: 13 October 2026 (organisation clients: an Organization card on a company-type client — department/branch, contacts with roles (add, edit, reorder, make primary, remove), procurement notes, the PO rule — and nothing new on a homeowner's page; a recipient picker on quote/invoice Send for an organisation with more than one contact, default send byte-identical; and "No automatic emails or texts — send by hand only" for any client, one shared gate asked by all 13 automatic senders, every skip listed on the client page. Schema additive — NOT applied. See "Organisation clients: contacts, the Organization card, and automatic messages off" below.)
 
@@ -272,22 +273,114 @@ client type.
   login link, their instant-estimate report, STOP, and the one-line SMS
   acknowledgement. The move/cancel dialog's "Tell the client" tick is a
   person's choice and still sends; it starts unticked for these clients.
-- **Do not contact** is separate and unchanged: it takes a client off
-  call-back lists, bridged calls and bulk portal links. It does NOT stop
-  automatic emails today (owner decision below). The UI explains the
-  difference.
+- **Do not contact** was separate on 13 October (call-back lists, bridged
+  calls, bulk portal links only). Since 14 October it also holds back every
+  automatic message — see the follow-ups section below.
 
 ### Not done / for the owner
 
-- Should "Do not contact" also stop automatic emails and texts? Today it
-  does not (it predates this; it is set from a call-back outcome "asked not
-  to be called"). One line in the gate would make it so.
-- The phone agent's automatic calls are refused at queue time; a call
-  queued BEFORE the switch was turned on is not re-checked at dial time
-  (a manual Call button task cannot be told apart there).
-- Turning the switch off lets automatic messages resume, including ones
-  still due (an unpaid deposit request, an overdue-invoice chase). Said in
-  the switch's hint.
+- ~~Should "Do not contact" also stop automatic emails and texts?~~ Yes
+  (owner, 2026-10-14) — done, see follow-ups below.
+- ~~Dial-time re-check of the phone agent's automatic calls~~ — done, see
+  follow-ups below.
+- Turning the switch off resumes what is still due; the hint now says
+  exactly which (follow-ups, reminders, review requests, scheduled payment
+  requests) and which do not come back (a held receipt, plan-invoice email,
+  call, text, AI reply). No behaviour change (owner, 2026-10-14).
+
+## Organisation clients: follow-ups (14 October 2026)
+
+Owner said yes to four follow-ups on 2026-10-14. Branch
+`feat/dnc-auto-messages`, cut from `fix/oct13d-suite` (21cefa69c). Not
+deployed.
+
+1. **"Do not contact" holds back every automatic message.**
+   `autoMessageGate` (`lib/clients/autoMessages.js`) now reads
+   `Client.doNotContactAt` beside the switch, through one pure
+   `autoMessageHold(client)` that the gate, the screens and the callback
+   report all ask. Do not contact wins when both are set. Every refusal is
+   recorded as before, with the new `AutoMessageSkip.cause`
+   (`do_not_contact` | `auto_messages_off`). Every sender branches on the
+   gate's `allowed`, so all 13 hold it back; the senders that compared the
+   reason string for their own bookkeeping now accept both
+   (`isClientHold` — campaign `heldBack`, receipt state "held", review-cron
+   note). Senders' existing records: receipt row "held" with the
+   Do-not-contact sentence, payment stage stays pending, campaign counts it
+   held back, prep guide unclaimed, phone calls not queued.
+   - **Sending by hand — decision:** allowed, with a warning. The existing
+     Do-not-contact UI only ever promised "never listed again and the phone
+     receptionist will not call them" (`app.callbacks.dncConfirm`); nothing
+     promised it blocked a person's Send, and invoices may still be legally
+     owed. So Send / Request payment / Send receipt / Send now still send;
+     the notice beside them (`AutoMessagesNotice`) for a Do-not-contact
+     client says "nothing goes automatically; Send still sends — use it only
+     for what they need, such as an invoice they owe". The bridged call and
+     the quote's Call button keep refusing a Do-not-contact number as before
+     (consent ledger opt-out written by the call-back outcome).
+   - Copy made true: the Do-not-call confirm now says automatic messages
+     stop and an invoice can still be sent by hand; the switch's "different
+     from Do not contact" line now says Do not contact holds these too and
+     more; the client page shows a Do-not-contact panel (reason, date, the
+     held-back list with each row's cause) and, if both are set, that
+     turning the switch off changes nothing. The "Tell the client" tick and
+     Record payment's receipt box treat it like the switch. 9 languages.
+2. **Dial-time gate for automatic phone-agent calls.** New
+   `VoiceCallTask.origin` ("automatic" from `lib/voice/triggers.js`,
+   "manual" from the quote's Call button; null = queued before the column,
+   treated as automatic). `placeQueuedCall` (`lib/voice/outboundCall.js`)
+   re-asks the gate for every non-manual task that links a client, right
+   after the company's own outbound switch: held → terminal ("skipped", the
+   reason in `lastError`; a held call is not placed later), recorded on the
+   client page under the same record key as the queue-time skip
+   (`voiceCallSkipRef`); unreadable client → retry later. A Call press that
+   finds the trigger's queued call for the same quote adopts it as manual
+   instead of queueing a second. The callback report
+   (`lib/voice/quoteCallbackReport.js`) names `do_not_contact` and
+   `held_back` (held while the switch was on, switch since turned off) from
+   the same AutoMessageSkip rows.
+3. **Department / branch on documents.** One rule,
+   `lib/documents/clientUnit.js` `clientUnitLine` (company clients only,
+   whitespace collapsed, capped at 300, wraps): `DocumentParties` (staff
+   quote page, quote and invoice builders), the staff invoice page's own
+   client block (`DocumentClientUnit`), /q (`quotePageClientFacts` + the
+   public select), the signed PDF, every quote/invoice PDF
+   (`ClientInfoSection`), the email panel (`preparedForBlock`). Quote and
+   invoice emails have no client block today (they greet by first name), and
+   the portal invoice page has none — nothing added there. Individuals and
+   unit-less companies: md5-identical on every surface against 21cefa69c
+   (`scripts/fixtures/clientBlockBaseline.json`). Drawn in
+   `inkMutedOnWash`, ≥4.5:1 on the panel wash across hostile brand colours.
+4. **The switch's hint** rewritten to say what resumes and what does not;
+   behaviour unchanged.
+
+Live DB (read-only, 2026-10-14): 0 clients have Do not contact set and 0
+have a department, so items 1 and 3 change nothing for anyone today.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+```sql
+ALTER TABLE "AutoMessageSkip" ADD COLUMN "cause" TEXT NOT NULL DEFAULT 'auto_messages_off';
+ALTER TABLE "VoiceCallTask" ADD COLUMN "origin" TEXT;
+```
+
+### For the owner
+
+- **There is no screen that clears Do not contact.** It is set by the
+  call-back outcome "Do not call" and nothing clears it (the schema comment
+  said "a person clears it"; no control does). With this change a mistaken
+  "Do not call" also stops automatic receipts and reminders for good.
+  Recommendation: a "Clear Do not contact" action on the client page, which
+  also lifts the consent-ledger opt-out — a product call because it reverses
+  a client's stated wish.
+
+### Checks
+
+`check:org-clients` sections 8–10 (Do not contact under every sender key,
+the senders executed, dial time, the callback report, the hint's claims),
+`check:org-clients-render` (the Do-not-contact notice and panel),
+`check:prep-guide` (Do-not-contact case), new `check:client-unit`
+(esbuild; md5 against the pre-change tree, contrast, wrap, escaping), wired
+into `check:all`. Mutation-tested.
 
 ### Schema (additive — NOT applied; apply BEFORE this deploys)
 

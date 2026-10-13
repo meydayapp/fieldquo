@@ -49,6 +49,14 @@ import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 import { autoMessageGate } from "@/lib/clients/autoMessages";
 
+// The run's note for a request the client's gate held back — words for the
+// cron's log only; whether to send is decided by `gate.allowed`, never by
+// which of the two causes it was.
+const HELD_NOTE = Object.freeze({
+  auto_messages_off: "Automatic messages are off for this client.",
+  do_not_contact: "The client is marked Do not contact.",
+});
+
 const HOUR = 60 * 60 * 1000;
 
 export async function GET(request) {
@@ -139,15 +147,19 @@ export async function GET(request) {
 
       // "No automatic emails or texts" on this client — the one shared gate
       // (lib/clients/autoMessages.js), which lists the held-back request on
-      // the client page. Before the claim: reviewRequestedAt stays null, so
-      // turning the switch off inside the 30-day window lets it go then.
+      // the client page; Do not contact holds it back the same way. Before
+      // the claim: reviewRequestedAt stays null, so clearing the cause inside
+      // the 30-day window lets it go then.
       const gate = await autoMessageGate(db, {
         companyId: company.id,
         clientId: client?.id || null,
         sender: "review_request",
         ref: { type: "job", id: job.id },
       });
-      if (!gate.allowed) { note(gate.reason === "auto_messages_off" ? "Automatic messages are off for this client." : "Couldn't read the client."); continue; }
+      if (!gate.allowed) {
+        note(HELD_NOTE[gate.reason] || "Couldn't read the client.");
+        continue;
+      }
 
       // ── Claim it, then send ───────────────────────────────────────────────
       const claim = await db.job.updateMany({

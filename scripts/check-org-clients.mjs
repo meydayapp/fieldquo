@@ -37,6 +37,18 @@
 //   6. AN INDIVIDUAL IS UNCHANGED — organizationShape gives a homeowner the
 //      keys it always had (plus the switch's two columns), and the picker
 //      never offers itself for one.
+//   8. DO NOT CONTACT (owner, 2026-10-14) — the gate refuses for it under
+//      every sender key, records cause "do_not_contact", wins over the
+//      switch; every sender honours the gate's answer rather than one reason
+//      string; the receipt, campaign, payment-stage, prep-guide and phone
+//      senders are EXECUTED with a Do-not-contact client; a person's Send
+//      receipt still sends.
+//   9. DIAL TIME — enqueueOutbound marks automatic vs manual; placeQueuedCall
+//      re-asks the gate for automatic calls only, terminal and recorded; a
+//      Call press adopts a queued automatic call; the drainer marks it
+//      skipped; the callback report names do_not_contact and held_back.
+//  10. THE HINT IS TRUE — what resumes when the switch is turned off (gate
+//      before claim) and what does not (final receipt, terminal call).
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
@@ -51,6 +63,9 @@ import {
   autoMessagesOff,
   isAutoMessageSender,
   recordAutoMessageSkip,
+  autoMessageHold,
+  isClientHold,
+  AUTO_MESSAGE_HOLD,
   AUTO_MESSAGE_SENDERS,
   AUTO_MESSAGES_REASON_MAX,
 } from "@/lib/clients/autoMessages";
@@ -75,7 +90,7 @@ import {
   DEFAULT_SELECTION,
 } from "@/lib/clients/recipients";
 import { redactClient } from "@/lib/permissions/enforce";
-import { receiptStatus, nextReceiptRetryAt } from "@/lib/payments/receiptState";
+import { receiptStatus, nextReceiptRetryAt, isFinalReceiptError } from "@/lib/payments/receiptState";
 import { classifyClient } from "@/lib/portal/bulkLinks";
 import { APP_MESSAGES } from "@/app/i18n/appMessages.js";
 
@@ -772,7 +787,341 @@ section("6. An individual is unchanged; switching type keeps everything");
   ok("the client PATCH never deletes contacts", !/clientContact\.(delete|deleteMany)/.test(route));
   ok("the client GET reads contacts only for a company", /client\.type === "company"/.test(route));
   ok("the Organization card returns nothing unless type is company", /client\.type !== "company"\) return null/.test(read("app/components/clients/OrganizationCard.js")));
-  ok("the automatic-messages panel and notice return nothing while the switch is off", (read("app/components/clients/AutoMessages.js").match(/if \(!(autoMessagesOff\(client\)|off)\) return null/g) || []).length === 2);
+  // Both ask autoMessageHold (the switch OR Do not contact) and return
+  // nothing when it answers null — a homeowner with neither sees nothing new.
+  ok("the automatic-messages panel and notice return nothing while neither the switch nor Do not contact is set", (read("app/components/clients/AutoMessages.js").match(/if \(!hold\) return null/g) || []).length === 2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("8. Do not contact holds back every automatic message (owner, 2026-10-14)");
+{
+  // 8a. The pure question every screen and the gate ask.
+  const was = new Date("2026-09-01T00:00:00Z");
+  ok("neither set → no hold", autoMessageHold({ autoMessagesOffAt: null, doNotContactAt: null }) === null);
+  ok("switch only → auto_messages_off with its reason", JSON.stringify(autoMessageHold({ autoMessagesOffAt: was, autoMessagesOffReason: "tender" })) === JSON.stringify({ reason: "auto_messages_off", since: was, note: "tender" }));
+  ok("Do not contact only → do_not_contact with ITS reason", JSON.stringify(autoMessageHold({ doNotContactAt: was, doNotContactReason: "asked" })) === JSON.stringify({ reason: "do_not_contact", since: was, note: "asked" }));
+  const both = autoMessageHold({ autoMessagesOffAt: T0, autoMessagesOffReason: "tender", doNotContactAt: was, doNotContactReason: "asked" });
+  ok("both → Do not contact wins, with its reason and date", both.reason === "do_not_contact" && both.note === "asked" && both.since === was, both);
+  for (const junk of [null, undefined, "x", 5, [], { doNotContactReason: "only a reason" }, { autoMessagesOffReason: "only a reason" }]) {
+    ok(`junk ${JSON.stringify(junk)} → no hold`, autoMessageHold(junk) === null);
+  }
+  ok("isClientHold: the two causes and nothing else", isClientHold("do_not_contact") && isClientHold("auto_messages_off") && !isClientHold("unreadable") && !isClientHold(undefined) && !isClientHold("__proto__") && !isClientHold({ toString: () => "do_not_contact" }));
+  ok("the codes are the gate's own", AUTO_MESSAGE_HOLD.SWITCH === "auto_messages_off" && AUTO_MESSAGE_HOLD.DO_NOT_CONTACT === "do_not_contact");
+
+  // 8b. The gate, for EVERY sender key: a Do-not-contact client is refused
+  //     and the skip says so.
+  resetDbStub();
+  seedClients();
+  rows.client.push(
+    { id: "c_dnc", companyId: CO, name: "Raymond Ouellet", type: "individual", email: "ray@example.com", phone: "819-555-0130", autoMessagesOffAt: null, doNotContactAt: new Date("2026-10-11T00:00:00Z"), doNotContactReason: "Asked not to be called (callback list)" },
+    { id: "c_both", companyId: CO, name: "Both Ltd", type: "company", email: "both@example.com", autoMessagesOffAt: new Date("2026-10-01T00:00:00Z"), autoMessagesOffReason: "tender", doNotContactAt: new Date("2026-10-12T00:00:00Z"), doNotContactReason: "Asked twice" },
+    { id: "c_dnc_foreign", companyId: OTHER, name: "Elsewhere", email: "ray@example.com", doNotContactAt: new Date("2026-10-01T00:00:00Z") },
+  );
+  for (const [key, { channel }] of Object.entries(AUTO_MESSAGE_SENDERS)) {
+    const g = await autoMessageGate(db, { companyId: CO, clientId: "c_dnc", sender: key, ref: { type: "rec", id: key }, now: T0 });
+    ok(`${key}: a Do-not-contact client is refused, final, as do_not_contact`, g.allowed === false && g.reason === "do_not_contact" && g.final === true && g.note === "Asked not to be called (callback list)", g);
+    const row = rows.autoMessageSkip.find((s) => s.clientId === "c_dnc" && s.sender === key);
+    ok(`${key}: …recorded with cause do_not_contact, its channel and the Do-not-contact reason`, row?.cause === "do_not_contact" && row?.channel === channel && row?.reason === "Asked not to be called (callback list)", row);
+  }
+  const g2 = await autoMessageGate(db, { companyId: CO, clientId: "c_both", sender: "follow_up", ref: { type: "invoice", id: "i9" }, now: T0 });
+  ok("both set → the gate answers do_not_contact", g2.reason === "do_not_contact" && g2.note === "Asked twice", g2);
+  // A row the switch held on Monday, held by Do not contact on Tuesday.
+  const monday = rows.autoMessageSkip.length;
+  await autoMessageGate(db, { companyId: CO, clientId: "c_off", sender: "review_request", ref: { type: "job", id: "j7" }, now: T0 });
+  ok("…the switch's row says auto_messages_off", rows.autoMessageSkip[monday]?.cause === "auto_messages_off", rows.autoMessageSkip[monday]);
+  rows.client.find((c) => c.id === "c_off").doNotContactAt = new Date("2026-10-13T00:00:00Z");
+  await autoMessageGate(db, { companyId: CO, clientId: "c_off", sender: "review_request", ref: { type: "job", id: "j7" }, now: new Date(T0.getTime() + 86400_000) });
+  ok("…and the same row, met again under Do not contact, says do_not_contact (no second row)", rows.autoMessageSkip.length === monday + 1 && rows.autoMessageSkip[monday].cause === "do_not_contact", rows.autoMessageSkip.slice(monday));
+  rows.client.find((c) => c.id === "c_off").doNotContactAt = null;
+  // By address — a campaign subscriber with no client link.
+  const byAddr = await autoMessageGate(db, { companyId: CO, email: " RAY@example.com ", sender: "marketing_campaign", now: T0 });
+  ok("by address: a Do-not-contact client's address is refused as do_not_contact", byAddr.allowed === false && byAddr.reason === "do_not_contact" && byAddr.clientId === "c_dnc", byAddr);
+  rows.client.push({ id: "c_dup_switch", companyId: CO, name: "Dup", email: "dup@example.com", autoMessagesOffAt: T0 }, { id: "c_dup_dnc", companyId: CO, name: "Dup 2", email: "DUP@example.com", doNotContactAt: T0 });
+  const dup = await autoMessageGate(db, { companyId: CO, email: "dup@example.com", sender: "marketing_campaign", now: T0 });
+  ok("by address shared by a switched-off client and a Do-not-contact one → the stronger statement", dup.reason === "do_not_contact" && dup.clientId === "c_dup_dnc", dup);
+  const foreignDnc = await autoMessageGate(db, { companyId: OTHER, email: "nobody@else.example", sender: "marketing_campaign", now: T0 });
+  ok("another company's Do-not-contact client never answers for this one", foreignDnc.allowed === true);
+  const crossTenant = await autoMessageGate(db, { companyId: CO, clientId: "c_dnc_foreign", sender: "follow_up", now: T0 });
+  ok("…nor by id across tenants", crossTenant.allowed === true && !rows.autoMessageSkip.some((s) => s.clientId === "c_dnc_foreign"));
+  ok("recordAutoMessageSkip refuses a cause that is neither", (await recordAutoMessageSkip(db, { companyId: CO, clientId: "c_dnc", sender: "follow_up", cause: "something_else" })) === false && (await recordAutoMessageSkip(db, { companyId: CO, clientId: "c_dnc", sender: "follow_up", cause: { $ne: 1 } })) === false);
+
+  // 8c. Every sender honours the gate's ANSWER, not one reason string. Each
+  //     file reads `.allowed` straight after asking, and none decides to send
+  //     by comparing the reason to "auto_messages_off" — so the new cause
+  //     cannot slip past a sender that only knew the old one.
+  for (const [key, { file }] of Object.entries(AUTO_MESSAGE_SENDERS)) {
+    const code = read(file).split("\n").filter((l) => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+    const at = code.search(new RegExp(`autoMessageGate\\((db|prisma),\\s*\\{[^}]*?sender:\\s*"${key}"`));
+    const after = at >= 0 ? code.slice(at, at + 900) : "";
+    ok(`${key}: ${file} branches on the gate's .allowed right after asking`, /\.allowed\b/.test(after), after.slice(0, 200));
+    ok(`${key}: …and never decides by reason === "auto_messages_off"`, !/reason\s*===\s*"auto_messages_off"/.test(code));
+  }
+  for (const f of ["lib/voice/outboundCall.js", "lib/payments/receiptState.js"]) {
+    ok(`${f}: no send decided by the switch's code alone`, !/===\s*"auto_messages_off"/.test(read(f).split("\n").filter((l) => !/^\s*(\/\/|\*)/.test(l)).join("\n")));
+  }
+
+  // 8d. The senders, executed with a Do-not-contact client.
+  const { sendPaymentReceipt } = await import("@/lib/payments/sendReceipt");
+  const sent = [];
+  const deps = {
+    sendEmail: async (m) => { sent.push(m); return { id: "re_1" }; },
+    resolveSender: async () => ({ from: "Northline <billing@northline.example>", replyTo: "office@northline.example" }),
+    recordSentEmail: async () => "se_1",
+    ensurePortalToken: async () => "tok",
+    portalUrl: () => "https://app.example/portal/tok",
+  };
+  const fixture = () => {
+    resetDbStub();
+    seedClients();
+    rows.client.push({ id: "c_dnc", companyId: CO, name: "Raymond Ouellet", type: "individual", email: "ray@example.com", doNotContactAt: T0, doNotContactReason: "Asked not to be called" });
+    rows.company = [{ id: CO, name: "Northline", defaultLanguage: "en", emailPaymentReceipts: true }];
+    rows.invoice = [{ id: "inv_d", companyId: CO, clientId: "c_dnc", invoiceNumber: "INV-0077", total: 1000, version: 1, rootInvoiceId: null }];
+    rows.payment = [{ id: "pay_d", invoiceId: "inv_d", kind: "payment", amount: 500, method: "etransfer", receiptAttempts: 0, receiptSentAt: null, receiptClaimedAt: null }];
+  };
+  for (const trigger of ["record", "stripe", "retry"]) {
+    fixture();
+    sent.length = 0;
+    if (trigger === "retry") rows.payment[0].receiptAttempts = 2;
+    const r = await sendPaymentReceipt(db, { companyId: CO, paymentId: "pay_d", trigger, now: T0 }, deps).catch((e) => ({ threw: e.message }));
+    ok(`receipt (${trigger}) to a Do-not-contact client is not sent`, r.sent === false && r.reason === "do_not_contact" && sent.length === 0, r);
+    const p = rows.payment[0];
+    ok(`…(${trigger}) the payment row reads "held" with the Do-not-contact code`, receiptStatus(p, T0).state === "held" && receiptStatus(p, T0).error === "do_not_contact", receiptStatus(p, T0));
+    ok(`…(${trigger}) and no retry is ever due (final)`, isFinalReceiptError("do_not_contact") && nextReceiptRetryAt({ ...p, receiptFirstAttemptAt: T0, receiptLastAttemptAt: T0 }, T0) === null);
+    ok(`…(${trigger}) listed on the client page as Do not contact`, rows.autoMessageSkip.some((s) => s.sender === "payment_receipt" && s.cause === "do_not_contact" && s.refLabel === "INV-0077"));
+  }
+  fixture();
+  sent.length = 0;
+  const byHand = await sendPaymentReceipt(db, { companyId: CO, paymentId: "pay_d", trigger: "manual", actor: { id: "m", userId: "u", name: "Office" }, now: T0 }, deps).catch((e) => ({ threw: e.message }));
+  ok("SENDING BY HAND: a person's Send receipt still sends to a Do-not-contact client", byHand.sent === true && sent.length === 1 && sent[0].to === "ray@example.com", byHand);
+  ok("…and nothing is recorded as held back", rows.autoMessageSkip.length === 0);
+
+  // A campaign: linked and bare-address subscribers of a Do-not-contact client.
+  {
+    const { sendCampaignEmails } = await import("@/app/api/marketing/campaigns/[id]/send/route");
+    resetDbStub();
+    seedClients();
+    rows.client.push({ id: "c_dnc", companyId: CO, name: "Raymond", email: "ray@example.com", doNotContactAt: T0 });
+    rows.marketingSubscriber = [
+      { id: "s_dnc_linked", companyId: CO, email: "ray@example.com", clientId: "c_dnc", subscribed: true, unsubscribeToken: "t1" },
+      { id: "s_dnc_bare", companyId: CO, email: "Ray@Example.com", clientId: null, subscribed: true, unsubscribeToken: "t2" },
+      { id: "s_on", companyId: CO, email: "marie@example.com", clientId: "c_on", subscribed: true, unsubscribeToken: "t3" },
+    ];
+    rows.marketingCampaign = [{ id: "camp_d", companyId: CO, name: "Autumn" }];
+    const campaign = { id: "camp_d", companyId: CO, name: "Autumn", company: { id: CO, name: "Northline" }, template: { id: "tpl", subject: "Hi", blocks: [{ type: "text", text: "Hello" }] } };
+    const res = await sendCampaignEmails({ campaign, companyId: CO, request: new Request("https://app.example/x") }).catch((e) => ({ threw: e.message }));
+    const body = res?.json ? await res.json() : res;
+    const delivered = rows.marketingCampaignDelivery.map((d) => d.subscriberId);
+    ok("campaign: a Do-not-contact client gets nothing, linked or by bare address", !delivered.includes("s_dnc_linked") && !delivered.includes("s_dnc_bare") && delivered.includes("s_on"), delivered);
+    ok("campaign: …counted as held back, and the campaign completes", body?.heldBack === 2 && body?.partial === false, body);
+    ok("campaign: …listed on the client page as Do not contact", rows.autoMessageSkip.some((s) => s.sender === "marketing_campaign" && s.clientId === "c_dnc" && s.cause === "do_not_contact"));
+  }
+
+  // The scheduled payment request (deposit / progress stage).
+  {
+    const { requestStagePayment } = await import("@/lib/paymentSchedule/run");
+    resetDbStub();
+    seedClients();
+    const dncClient = { id: "c_dnc", companyId: CO, name: "Raymond", email: "ray@example.com", requiresPo: false, doNotContactAt: T0, doNotContactReason: "Asked" };
+    rows.client.push(dncClient);
+    const stage = { id: "st_1", companyId: CO, status: "pending", amountCents: 50000, seq: 1, label: "Deposit", invoice: { id: "inv_s", companyId: CO, invoiceNumber: "INV-0100", total: 2000, status: "draft", sentAt: null, clientPoNumber: null, client: dncClient }, job: { id: "j1", companyId: CO } };
+    const stageWrites = [];
+    const stageDb = {
+      ...db,
+      jobPaymentStage: {
+        findUnique: async () => stage,
+        findMany: async () => [stage],
+        update: async (a) => { stageWrites.push(a); return stage; },
+        updateMany: async (a) => { stageWrites.push(a); return { count: 1 }; },
+      },
+      company: { findUnique: async () => ({ id: CO, name: "Northline", defaultLanguage: "en", stripeAccountId: null }) },
+      payment: { findMany: async () => [] },
+      invoice: { findMany: async () => [], findFirst: async () => null, findUnique: async () => null },
+    };
+    const r = await requestStagePayment("st_1", { db: stageDb }).catch((e) => ({ threw: e.message }));
+    ok("scheduled payment request to a Do-not-contact client: not fired, reason do_not_contact", r.fired === false && r.reason === "do_not_contact", r);
+    ok("…the stage stays pending (nothing written), so the office can send by hand", stage.status === "pending" && !stageWrites.some((w) => w.data?.status), stageWrites);
+    ok("…listed as Do not contact", rows.autoMessageSkip.some((s) => s.sender === "payment_stage_request" && s.cause === "do_not_contact" && s.refLabel === "INV-0100"));
+  }
+
+  // Bulk portal links: Do not contact was already "opted out" there — kept.
+  const base = { id: "c_dnc", companyId: CO, email: "ray@example.com", doNotContactAt: T0, autoMessagesOffAt: null, jobs: [{ id: "j", companyId: CO, clientId: "c_dnc", status: "scheduled" }], quotes: [] };
+  ok("bulk portal links: Do not contact is skipped as before (opted_out)", classifyClient(base, { companyId: CO }).skip === "opted_out");
+
+  // The phone agent: neither automatic call is queued for a Do-not-contact client.
+  {
+    const { onBookingConfirmed, onQuoteEmailed } = await import("@/lib/voice/triggers");
+    resetDbStub();
+    seedClients();
+    rows.client.push({ id: "c_dnc", companyId: CO, name: "Raymond", phone: "819-555-0130", doNotContactAt: T0 });
+    rows.booking = [{ id: "b_dnc", mode: "visit", startTime: new Date(Date.now() + 3 * 86400_000), clientName: "x", appointment: { clientId: "c_dnc", companyId: CO, company: { outboundCallsEnabled: true, timezone: "America/Toronto" }, client: { phone: "819-555-0130" } } }];
+    await onBookingConfirmed({ bookingId: "b_dnc" }).catch(() => null);
+    ok("voice reminder call: not queued for a Do-not-contact client", rows.voiceCallTask.length === 0, rows.voiceCallTask);
+    rows.quote = [{ id: "q_dnc", companyId: CO, clientId: "c_dnc", status: "sent", total: 1200, lineItems: [], autoEstimated: true, needsReview: false, sentAt: T0, historicalImportedAt: null, company: { name: "Northline", currency: "CAD", outboundCallsEnabled: true, outboundQuoteCallScope: "all_quotes" }, client: { phone: "819-555-0130" } }];
+    await onQuoteEmailed("q_dnc").catch(() => null);
+    ok("voice quote callback: not queued for a Do-not-contact client", rows.voiceCallTask.length === 0, rows.voiceCallTask);
+    ok("…both listed on the client page as Do not contact", ["booking:b_dnc", "quote:q_dnc"].every((k) => rows.autoMessageSkip.some((s) => s.sender === "voice_call" && s.refKey === k && s.cause === "do_not_contact")), rows.autoMessageSkip);
+  }
+  ok("prep guide: check-prep-guide executes the Do-not-contact case", /do not contact: the cron's guide is held back/.test(read("scripts/check-prep-guide.mjs")));
+
+  // 8e. The screens say it. The notice beside Send warns rather than blocks.
+  const comp = read("app/components/clients/AutoMessages.js");
+  ok("notice and panel both ask autoMessageHold (so a Do-not-contact client gets the warning)", (comp.match(/autoMessageHold\(client\)/g) || []).length === 2);
+  ok("the 'Tell the client' tick starts unticked for Do not contact too", /if \(autoMessageHold\(client\)\) return false;/.test(read("app/components/schedule/EntryActions.js")));
+  ok("the invoice page offers no automatic-receipt box for Do not contact", /const clientHold = autoMessageHold\(invoice\?\.client\);\s*const clientAutoOff = Boolean\(clientHold\);/.test(read("app/app/invoices/[id]/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. Automatic phone calls: the gate again at dial time");
+{
+  const { enqueueOutbound, placeQueuedCall, voiceCallSkipRef, CALL_ORIGIN } = await import("@/lib/voice/outboundCall");
+  const { drainOutboundQueue } = await import("@/lib/voice/drainOutbound");
+  const { summariseQuoteCallbacks } = await import("@/lib/voice/quoteCallbackReport");
+  const { CALLBACK_REFUSED, CALLBACK_REASON_TEXT, callbackReasonKey } = await import("@/lib/voice/quoteCallScope");
+  const prevKey = process.env.RETELL_API_KEY;
+  process.env.RETELL_API_KEY = "test-not-a-key"; // voiceConfigured() only; nothing below reaches the provider
+
+  const reset = () => {
+    resetDbStub();
+    seedClients();
+    rows.company = [{ id: CO, name: "Northline", timezone: "America/Toronto", outboundCallsEnabled: true }];
+    // Phones removed: a call that PASSES the gate stops at "no usable phone
+    // number" — before consent, credit or the provider. No call can be placed.
+    for (const c of rows.client) c.phone = null;
+    rows.client.push({ id: "c_plain", companyId: CO, name: "Plain", phone: null, autoMessagesOffAt: null, doNotContactAt: null });
+  };
+
+  // 9a. The marker.
+  reset();
+  const auto = await enqueueOutbound({ companyId: CO, purpose: "quote_approved", clientId: "c_on", quoteId: "q1", once: true });
+  ok("a trigger's call is queued as automatic (the default)", rows.voiceCallTask[0]?.origin === "automatic", rows.voiceCallTask[0]);
+  await enqueueOutbound({ companyId: CO, purpose: "quote_approved", clientId: "c_on", quoteId: "q2", origin: "manual" });
+  ok("a Call press is queued as manual", rows.voiceCallTask[1]?.origin === "manual", rows.voiceCallTask[1]);
+  for (const junk of ["MANUAL", "Manual ", { toString: () => "manual" }, ["manual"], null]) {
+    await enqueueOutbound({ companyId: CO, purpose: "appointment_reminder", clientId: "c_on", bookingId: `b_${rows.voiceCallTask.length}`, origin: junk });
+    ok(`origin ${JSON.stringify(junk)} is stored as automatic (only the exact word is manual)`, rows.voiceCallTask[rows.voiceCallTask.length - 1].origin === "automatic");
+  }
+  // The column default the stub does not apply (VoiceCallTask.status @default("queued")).
+  for (const t of rows.voiceCallTask) t.status ??= "queued";
+  const again = await enqueueOutbound({ companyId: CO, purpose: "quote_approved", clientId: "c_on", quoteId: "q1", origin: "manual" });
+  ok("a Call press on a quote whose automatic call is queued adopts it — no second call", again?.id === auto.id && rows.voiceCallTask.filter((t) => t.quoteId === "q1").length === 1);
+  ok("…and makes it manual, so the dial-time gate leaves the person's call alone", rows.voiceCallTask.find((t) => t.id === auto.id).origin === "manual");
+  reset();
+  const claimed = await enqueueOutbound({ companyId: CO, purpose: "quote_approved", clientId: "c_on", quoteId: "q3" });
+  rows.voiceCallTask[0].status = "calling";
+  await enqueueOutbound({ companyId: CO, purpose: "quote_approved", clientId: "c_on", quoteId: "q3", origin: "manual" });
+  ok("…but a call the dialler has already claimed is not relabelled under it", rows.voiceCallTask.find((t) => t.id === claimed.id).origin === "automatic");
+  const callRoute = read("app/api/quotes/[id]/call/route.js");
+  ok("the quote's Call button queues with origin manual", /origin: CALL_ORIGIN\.MANUAL/.test(callRoute));
+  const trig = read("lib/voice/triggers.js").split("\n").filter((l) => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  ok("every trigger queues with origin automatic", (trig.match(/enqueueOutbound\(\{/g) || []).length === 3 && (trig.match(/origin: CALL_ORIGIN\.AUTOMATIC/g) || []).length === 3);
+  ok("the enqueue-time and dial-time skips share one record key", JSON.stringify(voiceCallSkipRef({ quoteId: "q" })) === JSON.stringify({ type: "quote", id: "q" }) && JSON.stringify(voiceCallSkipRef({ bookingId: "b" })) === JSON.stringify({ type: "booking", id: "b" }) && voiceCallSkipRef(null) === null);
+
+  // 9b. Dial time.
+  const task = (over) => ({ id: `t_${Math.random().toString(36).slice(2, 8)}`, companyId: CO, purpose: "quote_approved", status: "calling", clientId: "c_on", quoteId: "q9", bookingId: null, leadId: null, context: {}, attempts: 0, origin: "automatic", ...over });
+  const cases = [
+    ["switched on AFTER queueing (automatic)", { clientId: "c_off" }, "auto_messages_off"],
+    ["marked Do not contact after queueing (automatic)", { clientId: "c_dnc" }, "do_not_contact"],
+    ["queued before the origin column (null → automatic)", { clientId: "c_off", origin: null }, "auto_messages_off"],
+    ["an appointment reminder queued days ahead", { clientId: "c_dnc", purpose: "appointment_reminder", quoteId: null, bookingId: "b_7" }, "do_not_contact"],
+  ];
+  for (const [label, over, cause] of cases) {
+    reset();
+    rows.client.push({ id: "c_dnc", companyId: CO, name: "Ray", phone: null, doNotContactAt: T0, doNotContactReason: "Asked" });
+    const t = task(over);
+    const v = await placeQueuedCall(t, { now: T0 }).catch((e) => ({ threw: e.message }));
+    ok(`${label}: not dialled — held, terminal`, v.placed === false && v.terminal === true && v.heldBy === cause && !v.retryLater, v);
+    const ref = voiceCallSkipRef(t);
+    ok(`${label}: …listed on the client page under the same record, as ${cause}`, rows.autoMessageSkip.some((s) => s.sender === "voice_call" && s.clientId === over.clientId && s.refKey === `${ref.type}:${ref.id}` && s.cause === cause), rows.autoMessageSkip);
+  }
+  for (const clientId of ["c_off", "c_dnc"]) {
+    reset();
+    rows.client.push({ id: "c_dnc", companyId: CO, name: "Ray", phone: null, doNotContactAt: T0 });
+    const v = await placeQueuedCall(task({ clientId, origin: "manual" }), { now: T0 }).catch((e) => ({ threw: e.message }));
+    ok(`a person's Call press (${clientId}) is never held by the gate`, v.placed === false && !v.heldBy && /No usable phone number/.test(v.reason), v);
+    ok(`…(${clientId}) and nothing is recorded as held back`, rows.autoMessageSkip.length === 0, rows.autoMessageSkip);
+  }
+  reset();
+  const plain = await placeQueuedCall(task({ clientId: "c_plain" }), { now: T0 });
+  ok("an automatic call to a client with neither set passes the gate as before", !plain.heldBy && /No usable phone number/.test(plain.reason) && rows.autoMessageSkip.length === 0, plain);
+  const lead = await placeQueuedCall(task({ clientId: null, leadId: "l1", purpose: "lead_follow_up", quoteId: null }), { now: T0 });
+  ok("a lead's follow-up (no client) is not asked", !lead.heldBy, lead);
+  reset();
+  const realFind = db.client.findFirst;
+  db.client.findFirst = async () => { throw new Error("P1001"); };
+  const blip = await placeQueuedCall(task({ clientId: "c_on" }), { now: T0 }).catch((e) => ({ threw: e.message }));
+  db.client.findFirst = realFind;
+  ok("an unreadable client holds the call for later — never dials, never drops it", blip.placed === false && blip.retryLater === true && !blip.terminal, blip);
+  reset();
+  rows.company[0].outboundCallsEnabled = false;
+  const masterOff = await placeQueuedCall(task({ clientId: "c_off" }), { now: T0 });
+  ok("the company's master switch is still asked first (unchanged order)", /switched off for this company/.test(masterOff.reason) && rows.autoMessageSkip.length === 0, masterOff);
+
+  // 9c. The drainer records the held call as skipped with the reason.
+  reset();
+  rows.voiceCallTask = [{ id: "t_drain", companyId: CO, purpose: "quote_approved", status: "queued", clientId: "c_off", quoteId: "q_d", bookingId: null, leadId: null, context: {}, attempts: 0, origin: "automatic", notBefore: new Date(T0.getTime() - 60_000), lastTriedAt: null }];
+  const tally = await drainOutboundQueue({ db, now: T0, recordError: async () => {} });
+  const drained = rows.voiceCallTask[0];
+  ok("the cron marks the held call skipped, with the reason, and places nothing", tally.placed === 0 && tally.skipped === 1 && drained.status === "skipped" && /Held back: automatic messages are off/.test(drained.lastError || ""), { tally, drained });
+
+  // 9d. The callback report says why.
+  const q = (id, client) => ({ id, quoteNumber: id, status: "sent", autoEstimated: true, needsReview: false, sentAt: T0, historicalImportedAt: null, company: { outboundCallsEnabled: true, outboundQuoteCallScope: "all_quotes" }, client: { phone: "819-555-0100", name: id, ...client } });
+  const rep = summariseQuoteCallbacks({
+    quotes: [q("Q-dnc", { doNotContactAt: T0 }), q("Q-both", { doNotContactAt: T0, autoMessagesOffAt: T0 }), q("Q-off", { autoMessagesOffAt: T0 }), q("Q-held", {}), q("Q-plain", {})],
+    heldQuotes: { "Q-held": "auto_messages_off" },
+    standing: { "+18195550100": { optedOut: false, consents: [{ source: "self_quote", createdAt: T0 }] } },
+    now: T0,
+  });
+  const why = Object.fromEntries(rep.refusals.map((r) => [r.quoteNumber, r.reason]));
+  ok("report: a Do-not-contact client's quote says do_not_contact", why["Q-dnc"] === CALLBACK_REFUSED.DO_NOT_CONTACT, why);
+  ok("report: both set → do_not_contact, as the gate answers", why["Q-both"] === "do_not_contact", why);
+  ok("report: the switch → auto_messages_off, as before", why["Q-off"] === "auto_messages_off", why);
+  ok("report: a call held back while the switch was on, switch now off → held_back (not 'about to be called')", why["Q-held"] === CALLBACK_REFUSED.HELD_BACK, why);
+  ok("report: a client with neither and no hold is not listed", !("Q-plain" in why), why);
+  for (const code of ["do_not_contact", "held_back"]) {
+    ok(`report: "${code}" has an English fallback and a string in every language`, typeof CALLBACK_REASON_TEXT[callbackReasonKey(code)] === "string" && Object.values(APP_MESSAGES).every((m) => typeof m[callbackReasonKey(code)] === "string"));
+  }
+  ok("report: reads the held-back rows the client page lists (sender voice_call, quote:<id>)", /sender: "voice_call", refKey: \{ in: quoteIds\.map\(\(id\) => `quote:\$\{id\}`\) \}/.test(read("lib/voice/quoteCallbackReport.js")));
+
+  if (prevKey === undefined) delete process.env.RETELL_API_KEY;
+  else process.env.RETELL_API_KEY = prevKey;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. The switch's hint is true after Do not contact joined the gate");
+{
+  // "Turning it off lets follow-ups, reminders, review requests and scheduled
+  // payment requests that are still due go out": true only where the sender
+  // asks the gate BEFORE it claims, so a held message is still unclaimed.
+  const claimAfterGate = {
+    follow_up: ["app/api/cron/follow-ups/route.js", /followUpLog\.create\(/],
+    review_request: ["app/api/cron/review-requests/route.js", /reviewRequestedAt: now/],
+    appointment_reminder: ["app/api/cron/appointment-reminders/route.js", /reminderSentAt: now/],
+    payment_stage_request: ["lib/paymentSchedule/run.js", /ensurePortalToken\(/],
+    prep_guide: ["lib/prepGuide/send.js", /prepGuideSentAt: now/],
+  };
+  for (const [key, [file, claim]] of Object.entries(claimAfterGate)) {
+    const src = read(file);
+    const gateAt = src.search(new RegExp(`sender:\\s*"${key}"`));
+    const claimAt = src.slice(gateAt).search(claim);
+    ok(`${key}: asks the gate before it claims — a held one is still due`, gateAt > -1 && claimAt > 0);
+  }
+  // "Anything already held back (a receipt, … a call …) is not sent later."
+  ok("a held receipt is final — no retry", isFinalReceiptError("auto_messages_off") && isFinalReceiptError("do_not_contact"));
+  ok("a held call is terminal at dial time and `once` at queue time", /terminal: true,\s*heldBy: gate\.reason/.test(read("lib/voice/outboundCall.js")) && /once: true,\s*origin: CALL_ORIGIN\.AUTOMATIC/.test(read("lib/voice/triggers.js")));
+  const en = APP_MESSAGES.en;
+  ok("the hint no longer promises everything resumes", !/including ones still due/.test(en["app.autoMessages.toggleHint"]));
+  ok("…names the Do-not-contact exception", /unless the client is marked Do not contact/.test(en["app.autoMessages.toggleHint"]));
+  ok("…and that a held receipt or call is not sent later", /not sent later/.test(en["app.autoMessages.toggleHint"]) && /receipt/.test(en["app.autoMessages.toggleHint"]) && /call/.test(en["app.autoMessages.toggleHint"]));
+  ok("'Different from Do not contact' is gone — Do not contact now holds these too", !/^Different from/.test(en["app.autoMessages.vsDnc"]) && /holds back these same messages/.test(en["app.autoMessages.vsDnc"]));
+  ok("the Do-not-call confirm says automatic messages stop and an invoice can still be sent by hand", /stop sending them anything automatically/.test(en["app.callbacks.dncConfirm"]) && /by hand/.test(en["app.callbacks.dncConfirm"]));
+  for (const [lang, m] of Object.entries(APP_MESSAGES)) {
+    // The new hint names Do not contact twice (it stops these too; turning
+    // the switch off resumes nothing while it stands) — the old one, once.
+    const dnc = m["app.autoMessages.causeDnc"];
+    const times = dnc ? m["app.autoMessages.toggleHint"].split(dnc).length - 1 : 0;
+    ok(`${lang}: the hint names Do not contact (“${dnc}”) as both a fellow stop and the exception`, times >= 2, times);
+    ok(`${lang}: the confirm keeps its {name}`, /\{name\}/.test(m["app.callbacks.dncConfirm"] || ""));
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -784,6 +1133,10 @@ section("7. Strings, in every language");
     "app.autoMessages.toggle", "app.autoMessages.toggleHint", "app.autoMessages.notice", "app.autoMessages.vsDnc", "app.autoMessages.heldTitle",
     "app.recipients.title", "app.recipients.chosenBelow", "app.invoiceDetail.receiptHeld", "app.invoiceDetail.receiptHeldState",
     "app.invoiceDetail.receiptAutoOff", "app.portalLinks.skip.autoMessagesOff", "app.setVoice.callback.auto_messages_off",
+    // Do not contact joins the gate; the dial-time hold (2026-10-14).
+    "app.autoMessages.dncNotice", "app.autoMessages.dncBody", "app.autoMessages.dncSince", "app.autoMessages.dncAlsoSwitch", "app.autoMessages.causeDnc",
+    "app.invoiceDetail.receiptHeldDnc", "app.invoiceDetail.receiptDncOff", "app.invoiceDetail.receiptHeldStateDnc",
+    "app.setVoice.callback.do_not_contact", "app.setVoice.callback.held_back", "app.callbacks.dncConfirm", "app.callbacks.dncBadge",
   ];
   for (const [lang, msgs] of Object.entries(APP_MESSAGES)) {
     const missing = keys.filter((k) => typeof msgs[k] !== "string" || !msgs[k].trim());

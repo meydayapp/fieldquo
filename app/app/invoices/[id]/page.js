@@ -92,10 +92,11 @@ import CostPanel from "./CostPanel";
 import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
 import { receiptStatus } from "@/lib/payments/receiptState";
 import { recipientsForBody } from "@/lib/clients/recipients";
-import { autoMessagesOff } from "@/lib/clients/autoMessages";
+import { autoMessageHold, AUTO_MESSAGE_HOLD } from "@/lib/clients/autoMessages";
 import RecipientPicker from "@/app/components/clients/RecipientPicker";
 import OtherContacts from "@/app/components/clients/OtherContacts";
 import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
+import { DocumentClientUnit } from "@/app/components/document/QuoteDocument";
 
 
 
@@ -416,10 +417,13 @@ export default function InvoiceDetailPage() {
   // entered after the fact — nothing is sent to the client for those.
   const canSendReceipt =
     hasLevel(caller, "invoices", "view_create_edit") && !invoice?.historicalImportedAt;
-  // "No automatic emails or texts" on this client: the receipt that follows
-  // Record payment is the automatic one (lib/payments/sendReceipt.js trigger
-  // "record"), so the box is not offered — the row's Send receipt is.
-  const clientAutoOff = autoMessagesOff(invoice?.client);
+  // "No automatic emails or texts" on this client, or Do not contact: the
+  // receipt that follows Record payment is the automatic one
+  // (lib/payments/sendReceipt.js trigger "record"), which the gate refuses
+  // for either, so the box is not offered — the row's Send receipt is.
+  const clientHold = autoMessageHold(invoice?.client);
+  const clientAutoOff = Boolean(clientHold);
+  const clientDnc = clientHold?.reason === AUTO_MESSAGE_HOLD.DO_NOT_CONTACT;
   const receiptChecked =
     clientHasEmail && !clientAutoOff && !invoice?.historicalImportedAt && (receiptBox ?? company?.emailPaymentReceipts === true);
 
@@ -433,7 +437,8 @@ export default function InvoiceDetailPage() {
     }
     if (r.alreadySent || r.reason === "already_sent") return { ok: true, text: t("app.invoiceDetail.receiptAlreadySent") };
     if (r.reason === "no_client_email") return { ok: false, text: t("app.invoiceDetail.receiptNoEmail") };
-    if (r.reason === "auto_messages_off") return { ok: false, text: t("app.invoiceDetail.receiptHeld") };
+    if (r.reason === AUTO_MESSAGE_HOLD.SWITCH) return { ok: false, text: t("app.invoiceDetail.receiptHeld") };
+    if (r.reason === AUTO_MESSAGE_HOLD.DO_NOT_CONTACT) return { ok: false, text: t("app.invoiceDetail.receiptHeldDnc") };
     return { ok: false, text: t("app.invoiceDetail.receiptFailedWillRetry") };
   }
 
@@ -1075,6 +1080,9 @@ export default function InvoiceDetailPage() {
             <p className="text-base font-semibold text-foreground mt-0.5 break-words">
               {invoice.client?.name}
             </p>
+            {/* The organisation's department or branch, as the quote page
+                prints it (DocumentParties) — an invoice mirrors its quote. */}
+            <DocumentClientUnit client={invoice.client} />
             {invoice.client?.contactName && (
               <p className="text-sm text-muted-foreground">
                 {invoice.client.contactName}
@@ -1607,7 +1615,9 @@ export default function InvoiceDetailPage() {
                               : r.state === "no_email"
                                 ? t("app.invoiceDetail.receiptNoEmailState")
                                 : r.state === "held"
-                                  ? t("app.invoiceDetail.receiptHeldState")
+                                  ? r.error === AUTO_MESSAGE_HOLD.DO_NOT_CONTACT
+                                    ? t("app.invoiceDetail.receiptHeldStateDnc")
+                                    : t("app.invoiceDetail.receiptHeldState")
                                   : t("app.invoiceDetail.receiptNotSent");
                     const sent = r.state === "sent";
                     return (
@@ -1907,7 +1917,7 @@ export default function InvoiceDetailPage() {
                   where the by-hand one is instead. */}
               {!invoice.historicalImportedAt && clientAutoOff && (
                 <p className="text-xs text-amber-800 dark:text-amber-300" data-receipt-box-auto-off>
-                  {t("app.invoiceDetail.receiptAutoOff")}
+                  {clientDnc ? t("app.invoiceDetail.receiptDncOff") : t("app.invoiceDetail.receiptAutoOff")}
                 </p>
               )}
               {!invoice.historicalImportedAt && !clientAutoOff && (

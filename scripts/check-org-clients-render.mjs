@@ -90,6 +90,24 @@ const fr = html(<OrganizationCard client={orgOff} canEdit onChanged={() => {}} /
 ok("French: the card is in French", fr.includes("Organisation") && fr.includes("Ajouter un contact"));
 const pa = html(<AutoMessagesPanel client={orgOff} />, "pa");
 ok("Punjabi: the panel is in Punjabi", pa.includes("ਕੋਈ ਆਟੋਮੈਟਿਕ ਈਮੇਲ"));
+ok("the switch's panel no longer calls Do not contact merely 'different' — it holds these too", panel.includes("holds back these same messages"));
+
+console.log("\nDo not contact (owner, 2026-10-14): the same notice and panel, saying so");
+const dnc = { ...homeowner, id: "c9", doNotContactAt: "2026-10-11T00:00:00Z", doNotContactReason: "Asked not to be called (callback list)" };
+const dncNotice = html(<AutoMessagesNotice client={dnc} />);
+ok("a Do-not-contact homeowner gets the notice beside Send", dncNotice.includes('data-auto-messages-notice="do_not_contact"'));
+ok("…a WARNING, not a block: Send still sends, use it for what they need", dncNotice.includes("Send still sends") && dncNotice.includes("an invoice they owe"));
+ok("…with the Do-not-contact reason", dncNotice.includes("Asked not to be called (callback list)"));
+const dncPanel = html(<AutoMessagesPanel client={dnc} />);
+ok("the client page's panel shows for Do not contact", dncPanel.includes('data-auto-messages-panel="do_not_contact"'));
+ok("…titled Do not contact, saying what it holds back and what still works", dncPanel.includes(">Do not contact<") && dncPanel.includes("FieldQuo sends them nothing on its own") && dncPanel.includes("still work when you press them"));
+ok("…dated from Do not contact", dncPanel.includes("Marked Do not contact on"));
+ok("…without the switch's 'turning it off' line when the switch is off", !dncPanel.includes("is also on"));
+const bothPanel = html(<AutoMessagesPanel client={{ ...orgOff, doNotContactAt: "2026-10-12T00:00:00Z", doNotContactReason: "Asked twice" }} />);
+ok("both set: Do not contact leads, and says turning the switch off changes nothing", bothPanel.includes('data-auto-messages-panel="do_not_contact"') && bothPanel.includes("Turning it off changes nothing while Do not contact stands") && bothPanel.includes("Asked twice"));
+const frDnc = html(<AutoMessagesNotice client={dnc} />, "fr");
+ok("French: the Do-not-contact warning is in French", frDnc.includes("Ne pas contacter"));
+ok("an individual with NEITHER still renders nothing (unchanged)", html(<AutoMessagesNotice client={homeowner} />) === "" && html(<AutoMessagesPanel client={homeowner} />) === "");
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);

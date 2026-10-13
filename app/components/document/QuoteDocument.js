@@ -43,6 +43,7 @@ import { Building2 } from "lucide-react";
 import BrandTheme from "@/app/components/BrandTheme";
 import RichTextBody from "@/app/components/quotes/RichTextBody";
 import { lineShowsAmount } from "@/lib/quotes/textBlocks";
+import { clientUnitLine } from "@/lib/documents/clientUnit";
 
 /**
  * A region that opens an editor when the caller says it can.
@@ -207,6 +208,22 @@ export function DocumentMasthead({ company, word, number, status = null, meta = 
  *                    replaces the whole left panel (the builder's picker
  *                    before a client is chosen)
  */
+/**
+ * The department or branch under an organisation client's name
+ * (lib/documents/clientUnit.js). Nothing — not an empty paragraph — for a
+ * homeowner or a company without one, so their block is unchanged. Shared by
+ * DocumentParties and the invoice page, whose client block is its own copy.
+ */
+export function DocumentClientUnit({ client }) {
+  const unit = clientUnitLine(client);
+  if (!unit) return null;
+  return (
+    <p className="text-sm text-muted-foreground break-words" data-client-unit>
+      {unit}
+    </p>
+  );
+}
+
 export function DocumentParties({ label, client, clientAddress = "", jobAddress = null, facts = [], edit = {}, clientSlot = null }) {
   // With facts, the job address sits under the client (the quote page); with
   // none it takes the right column (mockup b7: "Prepared for" left, "Job
@@ -230,6 +247,7 @@ export function DocumentParties({ label, client, clientAddress = "", jobAddress 
           <>
             <Editable onClick={edit.client} label={edit.clientLabel} block>
               <p className="text-base font-semibold text-foreground mt-0.5 break-words">{client?.name}</p>
+              <DocumentClientUnit client={client} />
               {client?.contactName && <p className="text-sm text-muted-foreground">{client.contactName}</p>}
               {client?.email && <p className="text-sm text-muted-foreground break-all">{client.email}</p>}
               {client?.phone && <p className="text-sm text-muted-foreground">{client.phone}</p>}
