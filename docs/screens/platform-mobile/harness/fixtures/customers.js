@@ -5,7 +5,9 @@
 // five of its panels, incomplete signups, signup origins, subscriptions, the
 // CSV reports, the migration list and one migration, plans (+ the Connect fee
 // ledger), promotions, feature flags and promo codes, who is signed in (the
-// list's badges and the company's members), and the next-steps letter card.
+// list's badges and the company's members), the next-steps letter card, and
+// the two lifecycle-email cards (the trial sequence's settings on the list,
+// one company's lifecycle letters on its page).
 //
 // ── One world, many views ───────────────────────────────────────────────────
 //
@@ -46,6 +48,8 @@ import {
   NEXT_STEPS_DELAY_HOURS_MAX,
   NEXT_STEPS_WINDOW_HOURS,
 } from "@/lib/signup/nextSteps";
+import { LIFECYCLE_KINDS } from "@/lib/lifecycle/plan";
+import { STORY_TRADES, STORIES_MAX, personalSenderReady } from "@/lib/lifecycle/settings";
 
 // ── Time and randomness ─────────────────────────────────────────────────────
 const DAY = 86400000;
@@ -800,6 +804,73 @@ function onboardingEmail() {
     bounds: { min: NEXT_STEPS_DELAY_HOURS_MIN, max: NEXT_STEPS_DELAY_HOURS_MAX, windowHours: NEXT_STEPS_WINDOW_HOURS },
     sentCount: 37,
     serverNow: new Date().toISOString(),
+  };
+}
+
+// ── The trial sequence's settings (app/api/platform/lifecycle-emails) ─────
+// The GET's payload, built the way the route builds it: the kinds, the story
+// trades and the cap come from the same lib/lifecycle modules, and
+// personalReady is the route's own personalSenderReady() over the sender.
+// The sender is EMPTY — the state production is in until a superadmin sets a
+// real person, and the one the card must say "Not being sent" for. One story
+// is listed so the story editor's row is laid out at 375px too.
+function lifecycleSettings() {
+  const personalSender = { name: "", title: "", replyTo: "", phone: "", bookingUrl: "" };
+  const counts = [9, 7, 12, 4, 2, 3, 6, 5, 4, 3];
+  const sentByKind = Object.fromEntries(LIFECYCLE_KINDS.map((k, i) => [k, counts[i] ?? 0]));
+  // The route counts the per-period kinds by family (lib/lifecycle/marketing.js).
+  sentByKind.win_back = 1;
+  sentByKind.newsletter = 0;
+  return {
+    personalSender,
+    personalReady: personalSenderReady(personalSender),
+    stories: [
+      { title: "How a two-van roofing crew quotes from the driveway", url: "https://www.fieldquo.com/blog/roofing-quotes-from-the-driveway", imageUrl: "", trade: STORY_TRADES[0] || "" },
+    ],
+    storyTrades: STORY_TRADES,
+    storiesMax: STORIES_MAX,
+    sentByKind,
+  };
+}
+
+// ── One company's lifecycle letters (app/api/platform/companies/[id]/lifecycle-emails)
+// The route's three sources: the Company stamps of the older letters, the
+// LifecycleEmail rows (one of each state the page words differently — sent,
+// skipped with a reason lib/lifecycle/run.js really writes, failed with the
+// error kept, a milestone observed but not yet written, and a per-period
+// win-back kind that is listed after the fixed ones), and the owner's
+// preferences as they resolve now.
+function companyLifecycleEmails(id) {
+  const c = COMPANY_BY_ID[id];
+  if (!c) return json({ error: "Not found" }, 404);
+  const row = (kind, over) => ({ kind, observedAt: null, claimedAt: null, sentAt: null, failedAt: null, skipped: null, error: null, toAddress: null, language: null, subject: null, createdAt: ago(10), ...over });
+  const rows = id === COMPANY_ID
+    ? [
+        row("feature_payments", { claimedAt: ago(9, 2), sentAt: ago(9, 2), toAddress: c.email, language: c.defaultLanguage, subject: "Get paid by card on your next invoice", createdAt: ago(9, 2) }),
+        row("feature_booking", { skipped: "already_done", createdAt: ago(7, 2) }),
+        row("feature_quote", { failedAt: ago(5, 2), error: "Resend 429: too many requests — retried on the next run", toAddress: c.email, language: c.defaultLanguage, createdAt: ago(5, 2) }),
+        row("milestone_booking", { observedAt: ago(0, 6), createdAt: ago(0, 6) }),
+        row("win_back:sub_1QeasyroofersRn", { claimedAt: ago(2, 3), sentAt: ago(2, 3), toAddress: c.email, language: c.defaultLanguage, subject: "Your quotes are still here", createdAt: ago(2, 3) }),
+      ]
+    : [];
+  const order = new Map(LIFECYCLE_KINDS.map((k, i) => [k, i]));
+  rows.sort((a, b) => (order.get(a.kind) ?? 99) - (order.get(b.kind) ?? 99));
+  return {
+    company: {
+      id: c.id,
+      timezone: companyRecord(c).timezone,
+      createdAt: c.createdAt,
+      trialEndsAt: c.trialEndsAt,
+      nextStepsEmailSentAt: id === COMPANY_ID ? ago(11, 20) : null,
+      nextStepsEmailSkipped: null,
+      trialReminder7At: id === COMPANY_ID ? ago(4, 3) : null,
+      trialReminder3At: null,
+      trialReminder1At: null,
+      signupNudgeSentAt: null,
+    },
+    rows,
+    kinds: [...LIFECYCLE_KINDS, ...rows.map((r) => r.kind).filter((k) => !order.has(k))],
+    ownerPreferences: { tips: true, updates: false, offers: false, changedVia: "email_link", changedAt: ago(3, 1) },
   };
 }
 
@@ -1611,6 +1682,7 @@ export default function answer({ method, path, url, body }) {
   // a company id and answer 404 — the list's badges then never drew.
   if (path === "/api/platform/companies/presence") return companiesPresence();
   if (path === "/api/platform/onboarding-email" && method === "GET") return onboardingEmail();
+  if (path === "/api/platform/lifecycle-emails" && method === "GET") return lifecycleSettings();
   if (path === "/api/platform/companies" && method === "GET") {
     const q = (url.searchParams.get("q") || "").toLowerCase();
     const status = url.searchParams.get("status") || "";
@@ -1636,6 +1708,7 @@ export default function answer({ method, path, url, body }) {
       if (sub === "history") return companyHistory(id);
       if (sub === "activity") return companyActivity(id);
       if (sub === "dispute-evidence") return disputeEvidence(id);
+      if (sub === "lifecycle-emails") return companyLifecycleEmails(id);
       if (sub === "extend-trial") return { ok: true, trialEndsAt: ahead(Number(body?.days) || 14) };
       // The influencer programme panel. Nobody in the fixture is enrolled;
       // the panel offers the plans to a superadmin and refuses for the rest.

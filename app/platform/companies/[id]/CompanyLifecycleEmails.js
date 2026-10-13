@@ -95,8 +95,12 @@ export default function CompanyLifecycleEmails({ companyId }) {
 
       {loading && <Loader2 size={16} className="animate-spin text-muted-foreground mt-3" />}
       {error && (
-        <p className="text-sm text-red-700 dark:text-red-300 mt-3 flex items-start gap-2">
-          <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}{" "}
+        // The message is its own shrinkable, breakable item and the row wraps:
+        // an error naming a URL is one unbroken word, and in a no-wrap flex
+        // row it pushed Retry 60px past a 375px phone (check:platform-mobile).
+        <p className="text-sm text-red-700 dark:text-red-300 mt-3 flex flex-wrap items-start gap-x-2 gap-y-1">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <span className="min-w-0 flex-1 break-words">{error}</span>
           <button type="button" onClick={load} className="underline underline-offset-2">
             Retry
           </button>
