@@ -109,11 +109,24 @@ const verdict = (company, moment) => {
   return t ? t.level + ":" + t.reason : "full:no_subscription";
 };
 
+// The round trip runs the REAL cancel route, which reads the real clock
+// (`new Date()` in a route handler — there is no deps object to inject one
+// through, and adding a clock parameter to a shipped POST just for a check
+// would be a test seam in production). So these fixtures are dated against
+// the moment the route runs, not against NOW: pinned to NOW, the "trial"
+// below ended at 2026-10-13 12:00 UTC (NOW + 10 days) and from then on the
+// period_end lock was refused with a 409 ("the free trial already ended"),
+// no transaction was recorded, and the check died reading `.ops` of
+// undefined. Every date in this section — fixture and verdict moment — is
+// relative to the same live clock, so the round trip means the same thing
+// on any day it runs.
+const LIVE = new Date();
+const live = (d) => new Date(LIVE.getTime() + d * DAY);
 for (const [label, base, mode] of [
-  ["trial, terms", { id: "co_t", name: "Trial Co", isDemo: false, trialEndsAt: at(10) }, "terms"],
-  ["trial, now", { id: "co_t", name: "Trial Co", isDemo: false, trialEndsAt: at(10) }, "now"],
-  ["trial, period_end", { id: "co_t", name: "Trial Co", isDemo: false, trialEndsAt: at(10) }, "period_end"],
-  ["expired trial, terms", { id: "co_t", name: "Old Co", isDemo: false, trialEndsAt: at(-4) }, "terms"],
+  ["trial, terms", { id: "co_t", name: "Trial Co", isDemo: false, trialEndsAt: live(10) }, "terms"],
+  ["trial, now", { id: "co_t", name: "Trial Co", isDemo: false, trialEndsAt: live(10) }, "now"],
+  ["trial, period_end", { id: "co_t", name: "Trial Co", isDemo: false, trialEndsAt: live(10) }, "period_end"],
+  ["expired trial, terms", { id: "co_t", name: "Old Co", isDemo: false, trialEndsAt: live(-4) }, "terms"],
 ]) {
   const pre = { ...base, platformEndsAt: null, platformEndMode: null, platformEndReason: null };
   stubs.resetStubs();
@@ -134,7 +147,7 @@ for (const [label, base, mode] of [
   const after = applyOp(lockedRow, tx.ops[0]);
   const cols = ["platformEndsAt", "platformEndMode", "platformEndReason", "trialEndsAt"];
   ok(cols.every((k) => JSON.stringify(after[k]) === JSON.stringify(pre[k])), `${label}: every column the lock wrote is back to its pre-lock value; trialEndsAt untouched`);
-  ok([0, 5, 20].every((d) => verdict(after, at(d)) === verdict(pre, at(d))), `${label}: access verdict after unlock = before lock, today / +5d / +20d (${verdict(after, NOW)})`);
+  ok([0, 5, 20].every((d) => verdict(after, live(d)) === verdict(pre, live(d))), `${label}: access verdict after unlock = before lock, today / +5d / +20d (${verdict(after, LIVE)})`);
   ok(tx.ops[0].args.where.id === "co_t", `${label}: the write is scoped to that company`);
   ok(!stubs.calls.some((c) => c.kind === "stripe"), `${label}: Stripe never called`);
   ok(!JSON.stringify(tx.ops).includes("voiceAutoTopup"), `${label}: auto top-up not re-armed`);
