@@ -115,6 +115,73 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Team notification emails, formatted (13 October 2026)
+
+The owner, on Settings › Notifications: "right now these type of emails is a
+simple text email can we add better formatting to the emails that the company
+gets as forms of notifications?" Built on release/oct12.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **One envelope for every email FieldQuo sends a company's own team**
+  (`lib/email/teamNotice.js`): the FieldQuo layout as TRANSACTIONAL mail, a
+  hidden preheader (the notice's own first sentence), a heading, the old
+  sentence(s), a **facts card** of label/value rows, **one button to the exact
+  record**, and a **plain-text part**. Per-notice builders in
+  `lib/notifications/teamEmails.js`; copy in `lib/i18n/teamNoticeCopy.js`
+  (all nine app languages); readers in `lib/notifications/teamReaders.js`.
+- **The notices** (every sendEmail caller whose recipient is the company's own
+  people, found by grep, not assumed):
+  - large quote created — `app/api/cron/large-quote-check/route.js` → `/app/quotes/<id>`
+  - payment received — `lib/notifications/invoicePaymentNotice.js` → `/app/invoices/<id>`
+  - quote approved / declined (team copy) — `app/api/public/quotes/[token]/route.js` → `/app/quotes/<id>`
+  - client ticket opened / replied — `lib/clientTickets/service.js` `emailOffice` → `/app/tickets/<id>`
+  - kitchen design request — `app/api/self-quote/kitchen/route.js` → `/app/leads?lead=<id>` (was the bare list)
+  - client design saved — `app/api/kitchen-design/[token]/route.js` → `/app/quotes/<id>/kitchen`
+  - photo @mention (email fallback) — `lib/photoComments/notify.js` → `/app/jobs/<id>` (had no link)
+  - visit cancelled / moved by the client (office copy) — `app/admin/lib/email/templates.js` → `/app/appointments?appointment=<id>`
+  - NOT email, confirmed: `notifyEvent` (in-app + Web Push only), new lead,
+    new booking, self-quote submitted (the client's confirmation only).
+  - Already on the FieldQuo layout and left alone: billing letters, AI credit,
+    phone rent, auto top-up, spend gate, referral, monthly summary.
+- **Wording unchanged** (English sentences word for word; new words are only
+  headings, card labels, button labels, and "You can turn this email off in
+  Settings › Notifications." on the two switchable alerts). **Reader's
+  language** via `letterLanguage` (was English-only for five of them; the
+  ticket and visit notices read the company's language alone). **Amounts in
+  the company's currency** (the large-quote and payment notices hardcoded
+  "$"). **Money gate**: money facts are dropped for a reader without
+  `showPricing`; the two notices that are ABOUT an amount are not written for
+  such a reader at all (every recipient today is an owner/admin, so nothing
+  changes for anyone now — the gate is for a wider list later).
+- **Client-facing mail unchanged**: the client's half of a visit
+  cancel/move is md5-identical (64 cases, `scripts/fixtures/teamNoticeVisitBaseline.json`).
+- Fixes found on the way: the From display name is stripped of `<>"` (a
+  company name with a quote mark or angle bracket produced a malformed From header); payment notice
+  now reads the family's CURRENT invoice (it read the session's v1 row, whose
+  balance is not updated); client names were unescaped in two notices; the
+  design-saved time was the lambda's clock (UTC), now the company's zone.
+- Stale comment fixed: `app/api/cron/appointment-reminders/route.js` said each
+  reminder was "a billable SMS the contractor pays for" — client texts are not
+  metered (brought numbers excepted).
+
+### Schema
+
+None.
+
+### Checks
+
+`check:team-notices` (new, in `check:all`): every notice × 9 languages ×
+owner / admin / employee with and without `showPricing`; shape, one button
+and its URL, text part, preheader, facts in the reader's language, no amount
+digits for a no-money reader, old English sentences present, English text
+parts md5-pinned (`scripts/fixtures/teamNoticeTextBaseline.json`, `--record`
+to re-pin on purpose), client visit letters md5-unchanged, senders executed
+against stubs, contrast; 15 mutants, all killed. Related checks green;
+`npm run build` exit 0.
+
+---
+
 ## Lifecycle emails, part C: win-back and product updates sent, billing letters on the shared layout, one language rule (11 October 2026)
 
 On top of parts A and B (release/lifecycle-ab pinned at b7a907881).

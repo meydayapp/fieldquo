@@ -43,7 +43,9 @@ import { sendEmail } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { describeWindow, letterLocale } from "@/lib/booking/arrivalWindow";
 import { formatMoney } from "@/lib/currency";
-import { emailCopy, EMAIL_COPY } from "@/lib/i18n/emailCopy";
+import { emailCopy, EMAIL_COPY, SUPPORTED_EMAIL_LANGUAGES } from "@/lib/i18n/emailCopy";
+import { buildTeamNotice, COMPANY_INBOX, noticeOrigin } from "@/lib/email/teamNotice";
+import { teamNoticeCopy } from "@/lib/i18n/teamNoticeCopy";
 import { bookingModeLine, bookingModeLabel, bookingModeNoun, bookingFeeLine, bookingModeCopy } from "@/lib/booking/bookingModes";
 
 /**
@@ -415,6 +417,11 @@ export function buildVisitCancelledEmails({
   about = null,
   language = "en",
   initiatedBy = "client",
+  // The office copy's language (sendVisit*Emails resolves it), the
+  // appointment its button opens, and the app origin for that button.
+  officeLanguage = null,
+  appointmentId = null,
+  origin = null,
 }) {
   const companyName = company?.name || "";
   const copy = visitCopy(language);
@@ -457,32 +464,32 @@ export function buildVisitCancelledEmails({
     footnote: byOffice ? copy.cancelledFootnoteByOffice : copy.cancelledFootnoteByYou,
   });
 
-  // The office's copy is in the OFFICE's language — the company default — and
-  // only exists when a client did the cancelling. An office that pressed the
-  // button does not need a letter about it.
-  const officeCopy = visitCopy(company?.defaultLanguage || "en");
-  const officeWhen = formatWhen(startTime, timezone, company?.defaultLanguage || "en");
+  // The office's copy is in the OFFICE's language — the earliest owner's,
+  // else the company default (sendVisitCancelledEmails resolves it; a direct
+  // caller gets the company default) — and only exists when a client did the
+  // cancelling. An office that pressed the button does not need a letter
+  // about it. Since 2026-10-13 it is a team notice on FieldQuo's layout
+  // (officeNotice below); the CLIENT's letter above is untouched.
+  const officeLang = officeLanguage || company?.defaultLanguage || "en";
+  const officeCopy = visitCopy(officeLang);
+  const officeWhen = formatWhen(startTime, timezone, officeLang);
   const officeNamed = describeAppointment({
     where,
     location,
     eventTypeName: officeEventTypeName || eventTypeName,
-    language: company?.defaultLanguage || "en",
+    language: officeLang,
   });
-  const companyHtml = byOffice
+  const office = byOffice
     ? null
-    : bookingEmailShell({
+    : officeNotice({
+        language: officeLang,
         companyName,
-        headline: esc(officeCopy.officeCancelledHeadline),
+        subject: officeCopy.officeCancelledSubject(clientName, officeWhen),
+        heading: officeCopy.officeCancelledHeadline,
         intro: [
-          esc(officeCopy.officeCancelledIntro(clientName, officeNamed.introName)),
+          officeCopy.officeCancelledIntro(clientName, officeNamed.introName),
           ...(feeLine
-            ? [
-                esc(
-                  refund.refunded
-                    ? officeCopy.officeFeeRefunded(amount)
-                    : officeCopy.officeFeeNotRefunded(amount),
-                ),
-              ]
+            ? [refund.refunded ? officeCopy.officeFeeRefunded(amount) : officeCopy.officeFeeNotRefunded(amount)]
             : []),
         ],
         rows: [
@@ -493,6 +500,8 @@ export function buildVisitCancelledEmails({
           { label: officeCopy.where, value: officeNamed.whereLine },
         ],
         footnote: officeCopy.officeCancelledFootnote,
+        appointmentId,
+        origin,
       });
 
   return {
@@ -504,13 +513,63 @@ export function buildVisitCancelledEmails({
     company: {
       to: byOffice ? null : company?.email || null,
       subject: officeCopy.officeCancelledSubject(clientName, officeWhen),
-      html: companyHtml,
+      html: office?.html || null,
+      text: office?.text || null,
     },
   };
 }
 
 export async function sendVisitCancelledEmails(params) {
-  return sendBothCopies(params.company, buildVisitCancelledEmails(params), params.attachments);
+  const officeLanguage = await officeLanguageFor(params);
+  return sendBothCopies(params.company, buildVisitCancelledEmails({ ...params, officeLanguage }), params.attachments);
+}
+
+/**
+ * The office copy of a visit a CLIENT changed, as a team notice
+ * (lib/email/teamNotice.js): the sentences it always had, the rows it always
+ * had as the facts card, the footnote after it, ONE button to the
+ * appointment, a text part. Addressed to the company's own inbox
+ * (Company.email), which is the business itself — COMPANY_INBOX — so the
+ * fee line keeps its amount, as it always did.
+ */
+function officeNotice({ language, companyName, subject, heading, intro, rows, footnote, appointmentId, origin }) {
+  const base = String(origin || noticeOrigin()).replace(/\/+$/, "");
+  return buildTeamNotice({
+    language,
+    reader: COMPANY_INBOX,
+    origin: base,
+    subject,
+    heading,
+    sub: companyName || null,
+    intro,
+    facts: rows,
+    outro: [footnote],
+    cta: {
+      // The calendar opens the row itself (app/app/appointments/page.js's
+      // ?appointment=). A hand-booked visit with no appointment row opens the
+      // calendar, which is still where the freed slot is.
+      url: appointmentId ? `${base}/app/appointments?appointment=${encodeURIComponent(appointmentId)}` : `${base}/app/appointments`,
+      label: teamNoticeCopy(language).cta.appointment,
+    },
+  });
+}
+
+/**
+ * Which language the office copy is written in: the reader of the company's
+ * inbox, i.e. the earliest owner's own language, else the company's
+ * (lib/i18n/letterLanguage.js) — held to the languages the visit letters are
+ * written in. Lazily imported: it loads the app catalogue, and the client's
+ * letter must not wait on it when there is no office copy to write.
+ */
+async function officeLanguageFor(params) {
+  if (params.officeLanguage) return params.officeLanguage;
+  if (params.initiatedBy === "office" || !params.company?.email || !params.company?.id) return null;
+  try {
+    const { inboxLanguage } = await import("@/lib/notifications/teamReaders");
+    return await inboxLanguage(params.company.id, (code) => SUPPORTED_EMAIL_LANGUAGES.includes(code));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -574,6 +633,11 @@ export function buildVisitRescheduledEmails({
   about = null,
   language = "en",
   initiatedBy = "client",
+  // The office copy's language (sendVisit*Emails resolves it), the
+  // appointment its button opens, and the app origin for that button.
+  officeLanguage = null,
+  appointmentId = null,
+  origin = null,
 }) {
   const companyName = company?.name || "";
   const copy = visitCopy(language);
@@ -608,26 +672,27 @@ export function buildVisitRescheduledEmails({
 
   // The crew's copy always carries the exact time. An arrival window is a
   // promise made to the client, not a change to when the van leaves. Written
-  // in the office's language, and only when the client did the moving.
-  const officeLanguage = company?.defaultLanguage || "en";
-  const officeCopy = visitCopy(officeLanguage);
-  const exactWhen = formatWhen(startTime, timezone, officeLanguage);
-  const officeWasWhen = formatWhen(previousStartTime, timezone, officeLanguage);
+  // in the office's language (see buildVisitCancelledEmails), and only when
+  // the client did the moving. A team notice on FieldQuo's layout since
+  // 2026-10-13; the client's letter above is untouched.
+  const officeLang = officeLanguage || company?.defaultLanguage || "en";
+  const officeCopy = visitCopy(officeLang);
+  const exactWhen = formatWhen(startTime, timezone, officeLang);
+  const officeWasWhen = formatWhen(previousStartTime, timezone, officeLang);
   const officeNamed = describeAppointment({
     where,
     location,
     eventTypeName: officeEventTypeName || eventTypeName,
-    language: officeLanguage,
+    language: officeLang,
   });
-  const companyHtml = byOffice
+  const office = byOffice
     ? null
-    : bookingEmailShell({
+    : officeNotice({
+        language: officeLang,
         companyName,
-        headline: esc(officeCopy.officeMovedHeadline),
-        intro: [
-          esc(officeCopy.officeMovedIntro(clientName, officeNamed.introName)),
-          esc(officeCopy.officeMovedLine),
-        ],
+        subject: officeCopy.officeMovedSubject(clientName, exactWhen),
+        heading: officeCopy.officeMovedHeadline,
+        intro: [officeCopy.officeMovedIntro(clientName, officeNamed.introName), officeCopy.officeMovedLine],
         rows: [
           { label: officeCopy.client, value: clientName },
           { label: officeCopy.email, value: clientEmail },
@@ -637,6 +702,8 @@ export function buildVisitRescheduledEmails({
           { label: officeCopy.where, value: officeNamed.whereLine },
         ],
         footnote: officeCopy.officeMovedFootnote,
+        appointmentId,
+        origin,
       });
 
   return {
@@ -648,11 +715,13 @@ export function buildVisitRescheduledEmails({
     company: {
       to: byOffice ? null : company?.email || null,
       subject: officeCopy.officeMovedSubject(clientName, exactWhen),
-      html: companyHtml,
+      html: office?.html || null,
+      text: office?.text || null,
     },
   };
 }
 
 export async function sendVisitRescheduledEmails(params) {
-  return sendBothCopies(params.company, buildVisitRescheduledEmails(params), params.attachments);
+  const officeLanguage = await officeLanguageFor(params);
+  return sendBothCopies(params.company, buildVisitRescheduledEmails({ ...params, officeLanguage }), params.attachments);
 }

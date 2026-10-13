@@ -9,6 +9,10 @@ import { db } from "@/lib/db";
 // module that constructs one, so the demo interception has a single seam
 // instead of fourteen. See that file's header.
 import { sendEmail } from "@/lib/email/resend";
+import { getAppOrigin } from "@/lib/appUrl";
+import { teamNoticeFrom } from "@/lib/email/teamNotice";
+import { largeQuoteNotice } from "@/lib/notifications/teamEmails";
+import { memberReaders, READER_MEMBER_SELECT } from "@/lib/notifications/teamReaders";
 
 // Vercel Cron hits this on a schedule and emails admins about quotes above
 // their company's threshold.
@@ -33,8 +37,12 @@ export async function GET(request) {
 
   const rules = await db.notificationRule.findMany({
     where: { type: "large_quote", active: true },
-    include: { company: true },
+    // currency/timezone/defaultLanguage: the alert prints the amount in the
+    // company's own currency (it hardcoded "$"), the time in its zone, and
+    // falls back to its language for a reader who never chose one.
+    include: { company: { select: { name: true, currency: true, timezone: true, defaultLanguage: true } } },
   });
+  const origin = getAppOrigin(request);
 
   let notified = 0;
 
@@ -50,7 +58,14 @@ export async function GET(request) {
         // It is not a large quote that just came in; it is bookkeeping.
         historicalImportedAt: null,
       },
-      include: { client: true },
+      select: {
+        id: true,
+        quoteNumber: true,
+        total: true,
+        createdAt: true,
+        client: { select: { name: true } },
+        createdBy: { select: { name: true } },
+      },
     });
 
     if (largeQuotes.length === 0) continue;
@@ -61,21 +76,39 @@ export async function GET(request) {
         role: { in: ["owner", "admin"] },
         active: true,
       },
-      include: { user: true },
+      select: READER_MEMBER_SELECT,
     });
+    // Each admin in their own language — one email per admin, as before.
+    const readers = memberReaders(admins, rule.company);
 
     for (const quote of largeQuotes) {
-      for (const admin of admins) {
-        if (!admin.user.email) continue;
+      for (const r of readers) {
+        // Null for a reader who may not see money: never, today, for an
+        // owner or admin — the builder holds the rule so that a wider
+        // recipient list can't widen what is read (lib/email/teamNotice.js).
+        const mail = largeQuoteNotice({
+          language: r.language,
+          company: rule.company,
+          quote,
+          threshold: rule.threshold,
+          writtenBy: quote.createdBy?.name || null,
+          reader: r.reader,
+          origin,
+        });
+        if (!mail) continue;
         await sendEmail({
           // The company this notice is about, so a demo company's staff notice
           // is simulated like everything else it sends. sendEmail re-reads the
           // row; this is an id, not a verdict.
           companyId: rule.companyId,
-          from: `${rule.company.name} <notifications@fieldquo.com>`,
-          to: admin.user.email,
-          subject: `Large quote created: $${Number(quote.total).toLocaleString()}`,
-          html: `<p>A quote for <strong>${quote.client.name}</strong> was just created for <strong>$${Number(quote.total).toLocaleString()}</strong>, above your $${Number(rule.threshold).toLocaleString()} threshold.</p>`,
+          // FieldQuo's fixed notifications address under the company's name,
+          // as before — with the name cleaned of the characters that broke
+          // the header (teamNoticeFrom).
+          from: teamNoticeFrom(rule.company.name),
+          to: r.email,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
         });
         notified++;
       }
