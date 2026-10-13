@@ -52,6 +52,7 @@ import {
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 import { localisedCompany } from "@/lib/i18n/companyText";
 import { loadPhrases } from "@/lib/i18n/phrases";
+import { resolveSendRecipients, recipientText } from "@/lib/clients/recipients";
 import {
   REQUEST_CHOICES,
   requestOptions,
@@ -146,6 +147,16 @@ export async function POST(request, { params }) {
   // Read once, here, before anything is minted or emailed: a refused figure
   // must leave nothing behind. No `mode` is the chase as it always was.
   const body = await request.json().catch(() => ({}));
+  // Who it goes to: the client's email exactly as it always was, unless the
+  // picker chose among an organisation's contacts (lib/clients/recipients.js
+  // — ids in, this client's own addresses out). Untrimmed in the default
+  // case on purpose: it is the value this route has always sent.
+  let chaseTo = invoice.client.email;
+  if (body?.recipients != null) {
+    const chosen = await resolveSendRecipients(db, { companyId: member.companyId, client: invoice.client, selection: body.recipients });
+    if (chosen.error) return NextResponse.json({ error: chosen.error, code: chosen.code }, { status: chosen.status });
+    if (chosen.to) chaseTo = chosen.to;
+  }
   const note = String(body?.note || "").trim();
   const mode =
     body?.mode === undefined || body?.mode === null || body?.mode === "" ? "balance" : body.mode;
@@ -348,7 +359,7 @@ export async function POST(request, { params }) {
     clientMail: true,
     from,
     replyTo,
-    to: invoice.client.email,
+    to: chaseTo,
     subject,
     html,
     text,
@@ -399,7 +410,7 @@ export async function POST(request, { params }) {
   const stamped = await db.invoice.update({
     where: { id: invoice.id },
     data: {
-      ...(invoice.sentAt ? {} : { sentAt: chasedAt, sentToEmail: invoice.client.email }),
+      ...(invoice.sentAt ? {} : { sentAt: chasedAt, sentToEmail: recipientText(chaseTo) }),
       ...(invoice.status === "draft" ? { status: "sent" } : {}),
       lastChasedAt: chasedAt,
       chaseCount: { increment: 1 },
@@ -411,7 +422,7 @@ export async function POST(request, { params }) {
   if (paymentRequest) {
     await db.invoicePaymentRequest.update({
       where: { id: paymentRequest.id, companyId: member.companyId },
-      data: { status: "open", sentToEmail: invoice.client.email },
+      data: { status: "open", sentToEmail: recipientText(chaseTo) },
     });
     // One open request per invoice: an older link stops asking for a figure
     // the office has since replaced, and falls back to the balance.
@@ -443,7 +454,7 @@ export async function POST(request, { params }) {
     jobId: invoice.jobId || null,
     quoteId: invoice.quoteId || null,
     invoiceId: invoice.id,
-    mail: { to: invoice.client.email, from, replyTo, subject, html, text },
+    mail: { to: chaseTo, from, replyTo, subject, html, text },
     result,
     sentByUserId: member.userId || null,
     sentByName: await actorName(db, member.userId),
@@ -458,11 +469,11 @@ export async function POST(request, { params }) {
     entityId: invoice.id,
     summary:
       mode === "balance"
-        ? `Chased invoice ${invoice.invoiceNumber} (${[balance.toFixed(2), company?.currency].filter(Boolean).join(" ")} owing) to ${invoice.client.email}`
-        : `Asked ${invoice.client.email} for ${[(requestCents / 100).toFixed(2), company?.currency].filter(Boolean).join(" ")} on invoice ${invoice.invoiceNumber}` +
+        ? `Chased invoice ${invoice.invoiceNumber} (${[balance.toFixed(2), company?.currency].filter(Boolean).join(" ")} owing) to ${recipientText(chaseTo)}`
+        : `Asked ${recipientText(chaseTo)} for ${[(requestCents / 100).toFixed(2), company?.currency].filter(Boolean).join(" ")} on invoice ${invoice.invoiceNumber}` +
           (mode === "next_stage" ? ` (${options.nextStage.label})` : " (a different amount)"),
     metadata: {
-      to: invoice.client.email,
+      to: recipientText(chaseTo),
       balance,
       manual: true,
       mode,
@@ -475,7 +486,7 @@ export async function POST(request, { params }) {
 
   return NextResponse.json({
     sent: true,
-    to: invoice.client.email,
+    to: recipientText(chaseTo),
     balance,
     // What this email asked for — the balance, a stage's share or the
     // office's figure — so the banner names the right number.

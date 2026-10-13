@@ -47,6 +47,7 @@ import { newSurveyToken } from "@/lib/reviews/satisfactionTokens";
 import { ensureReviewQrToken, reviewQrPngUrl } from "@/lib/reviews/qrToken";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
+import { autoMessageGate } from "@/lib/clients/autoMessages";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -135,6 +136,18 @@ export async function GET(request) {
 
       const verdict = shouldRequestReview({ job, company, client, subscribed, now });
       if (!verdict.send) { note(verdict.reason); continue; }
+
+      // "No automatic emails or texts" on this client — the one shared gate
+      // (lib/clients/autoMessages.js), which lists the held-back request on
+      // the client page. Before the claim: reviewRequestedAt stays null, so
+      // turning the switch off inside the 30-day window lets it go then.
+      const gate = await autoMessageGate(db, {
+        companyId: company.id,
+        clientId: client?.id || null,
+        sender: "review_request",
+        ref: { type: "job", id: job.id },
+      });
+      if (!gate.allowed) { note(gate.reason === "auto_messages_off" ? "Automatic messages are off for this client." : "Couldn't read the client."); continue; }
 
       // ── Claim it, then send ───────────────────────────────────────────────
       const claim = await db.job.updateMany({

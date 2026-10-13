@@ -6,7 +6,7 @@
 // esbuild step. Writes are recorded in `writes` so the check can assert on
 // arguments; unscripted models throw by name rather than answering "nothing".
 
-export const rows = { job: [], company: [], client: [], serviceCategory: [], serviceDocument: [], jobDocument: [], member: [], user: [], activityLog: [], product: [] };
+export const rows = { job: [], company: [], client: [], serviceCategory: [], serviceDocument: [], jobDocument: [], member: [], user: [], activityLog: [], product: [], autoMessageSkip: [] };
 export const writes = [];
 export function reset() {
   for (const k of Object.keys(rows)) rows[k] = [];
@@ -129,6 +129,23 @@ export const db = {
   activityLog: model("activityLog"),
   companyServiceCategory: model("companyServiceCategory"),
   product: model("product"),
+  // The automatic-messages gate's record (lib/clients/autoMessages.js), keyed
+  // on its compound unique like Postgres would.
+  autoMessageSkip: model("autoMessageSkip", {
+    upsert: async ({ where, create, update }) => {
+      const key = where.clientId_sender_refKey;
+      const found = rows.autoMessageSkip.find((r) => r.clientId === key.clientId && r.sender === key.sender && r.refKey === key.refKey);
+      if (found) {
+        Object.assign(found, update);
+        writes.push({ model: "autoMessageSkip", op: "upsert:update", data: update });
+        return found;
+      }
+      const row = { id: id("autoMessageSkip"), ...create };
+      rows.autoMessageSkip.push(row);
+      writes.push({ model: "autoMessageSkip", op: "upsert:create", data: row });
+      return row;
+    },
+  }),
 };
 // Anything else the product reaches for is a scripting gap, not an answer.
 export default new Proxy(db, {

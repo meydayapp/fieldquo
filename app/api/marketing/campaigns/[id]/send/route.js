@@ -43,6 +43,7 @@ import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { phoneGateResponse } from "@/lib/trial/phoneGate";
 import { localizeTemplate } from "@/lib/email/templateTranslation";
 import { translationsForSend } from "@/lib/email/templateTranslationStore";
+import { autoMessageGate } from "@/lib/clients/autoMessages";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -178,7 +179,33 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
   // translated here — a send never calls a model and never waits for one.
   const translations = await translationsForSend(db, campaign.template.id);
 
+  // Subscribers held back by their client's "No automatic emails or texts"
+  // switch this pass. Not claimed (no delivery row), so turning the switch
+  // off lets a later press reach them; counted so the campaign can still
+  // complete without them.
+  let heldBack = 0;
+
   for (const sub of pending) {
+    // ── "No automatic emails or texts" ────────────────────────────────────
+    //
+    // A campaign is one press reaching the whole list — not this client
+    // being sent something by hand. The one shared gate
+    // (lib/clients/autoMessages.js) asks by the subscriber's client when it
+    // has one, and by address when it has none, and lists the held-back
+    // campaign on the client page.
+    const gate = await autoMessageGate(db, {
+      companyId: campaign.companyId,
+      clientId: sub.clientId || null,
+      email: sub.clientId ? null : sub.email,
+      sender: "marketing_campaign",
+      ref: { type: "campaign", id },
+      refLabel: campaign.name || null,
+    });
+    if (!gate.allowed) {
+      if (gate.reason === "auto_messages_off") heldBack++;
+      continue;
+    }
+
     // The claim. A unique-constraint failure here means someone else (an
     // earlier attempt, or a request racing this one) already has this
     // subscriber — skip, don't send. Any OTHER failure (e.g. the DB itself
@@ -272,7 +299,9 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
   // request aren't held against this pass — the guard is about not leaving
   // someone who was supposed to get this email un-emailed, not about
   // freezing the list.
-  const complete = deliveredCount >= subscribers.length;
+  // Held-back subscribers are accounted for, not missing: a campaign whose
+  // only gap is clients who asked for no automatic mail is complete.
+  const complete = deliveredCount + heldBack >= subscribers.length;
 
   const updated = await db.marketingCampaign.update({
     where: { id },
@@ -287,6 +316,7 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
   return NextResponse.json({
     ok: true,
     sent: deliveredCount,
+    heldBack,
     partial: !complete,
     campaign: updated,
   });

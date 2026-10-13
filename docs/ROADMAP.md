@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 13 October 2026 (government and public tenders: /app/tenders, OFF by default — the `tenders` feature is hidden until FieldQuo turns it on per company; a Tender is a company-type client, a quote as the bid and a job when won; closing date + time + zone, Q&A and site-visit deadlines, bid / no-bid / submitted / won / lost, documents, win/loss card; reminders to the company's own team only, hourly cron, DST-correct, once each. Schema additive — NOT applied. See "Government and public tenders" below.)
+Last updated: 13 October 2026 (organisation clients: an Organization card on a company-type client — department/branch, contacts with roles (add, edit, reorder, make primary, remove), procurement notes, the PO rule — and nothing new on a homeowner's page; a recipient picker on quote/invoice Send for an organisation with more than one contact, default send byte-identical; and "No automatic emails or texts — send by hand only" for any client, one shared gate asked by all 13 automatic senders, every skip listed on the client page. Schema additive — NOT applied. See "Organisation clients: contacts, the Organization card, and automatic messages off" below.)
 
 Last updated: 12 October 2026 (payment receipts to clients: one email per payment on the company's stationery in the client's language — amount, method, date, invoice, total paid so far and balance as of that payment, portal link — sent from Record payment's "Email a receipt" box (default from Settings → Payments → "Email clients a receipt automatically", on), from every Stripe payment when that is on, and from a Send / Resend receipt button on each payment row; failures retried hourly with backoff, five attempts in 48 h; payments recorded before this are never sent automatically. Kept in the job and client History. Schema additive — NOT applied. See "Payment receipts to clients" below.)
 
@@ -217,6 +218,100 @@ DST, tenant scope, transitions, idempotency, permission gates per preset,
 summary, upload-folder proofs, the no-email import walk, mobile tap targets.
 ---
 
+## Organisation clients: contacts, the Organization card, and automatic messages off (13 October 2026)
+
+Brief: fq-ship/briefs/org-clients-and-tenders.md, items 1 and 3 (item 2, the
+tender record, is a separate branch). Owner's redirect the same day: contacts
+live in an **Organization card** shown only for a `company` client; a
+homeowner's page is unchanged; the automatic-messages switch is for every
+client type.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Organization card** (`app/components/clients/OrganizationCard.js`, client
+  page): department / branch (`Client.organizationUnit`), the contacts with
+  roles — primary first — and procurement notes (`Client.procurementNotes`),
+  plus the existing "Requires a PO" rule shown there for an organisation.
+  Renders nothing for an individual; GET `/api/clients/[id]` does not send an
+  individual those keys at all (`organizationShape`). Switching to individual
+  hides it and deletes nothing; switching back shows it all again.
+- **Contacts** (`model ClientContact`, `lib/clients/contacts.js`,
+  `/api/clients/[id]/contacts[/<id>]`): add, edit, reorder, make primary,
+  remove (the contact only; never the primary). `Client.contactName/email/
+  phone` stay THE primary and every existing reader is untouched; a row with
+  `isPrimary` is that same person kept in step (so the primary can have a
+  role and notes), written only by the card or mirrored from the client's
+  Edit form. "Make primary" keeps the old primary as a contact. Read at
+  clientsProperties `full_view`, written at `full_edit`; `contacts` is in
+  `CLIENT_RESTRICTED_FIELDS`. Shown under the client details on the quote,
+  invoice and job pages (`OtherContacts`) under the same rule.
+- **Recipient picker on Send** (`RecipientPicker`, `lib/clients/recipients.js`):
+  quote page, quote builder, invoice page (Send + Request payment), invoice
+  builder — only for an organisation with more than one contact with an
+  email. The browser posts contact ids; the server reads addresses off this
+  client's rows. No selection → the body and the `to` are byte-identical to
+  before (md5 in the check).
+- **"No automatic emails or texts — send by hand only"** (`Client.
+  autoMessagesOffAt/Reason`, on the client's Edit form, any type): one gate,
+  `autoMessageGate` in `lib/clients/autoMessages.js`, asked by every
+  automatic sender — follow-ups, review requests, automatic receipts
+  (record / Stripe / retry), payment-schedule requests, service-plan
+  invoices, the prep-guide cron, bulk portal links, marketing campaigns, the
+  office's appointment confirmation, appointment/visit reminder texts,
+  on-my-way texts, AI employee replies (kept as a draft), the phone agent's
+  automatic calls. Each refusal is an `AutoMessageSkip` row listed on the
+  client page; each sender's own record too (receipt row "held", campaign
+  `heldBack`, AI draft `suppressedReason`, callback report reason). Fails
+  closed. A person's Send / Request payment / Send receipt / Send now /
+  Email portal link still sends, with a notice beside the button. Record
+  payment drops its receipt box for such a client and says to use Send
+  receipt.
+- **Decision (stated, not asked):** transactional confirmations of the
+  client's OWN action still go — the signed copy after they approve, the
+  booking confirmation, the waiver copy, their own reschedule/cancel, their
+  login link, their instant-estimate report, STOP, and the one-line SMS
+  acknowledgement. The move/cancel dialog's "Tell the client" tick is a
+  person's choice and still sends; it starts unticked for these clients.
+- **Do not contact** is separate and unchanged: it takes a client off
+  call-back lists, bridged calls and bulk portal links. It does NOT stop
+  automatic emails today (owner decision below). The UI explains the
+  difference.
+
+### Not done / for the owner
+
+- Should "Do not contact" also stop automatic emails and texts? Today it
+  does not (it predates this; it is set from a call-back outcome "asked not
+  to be called"). One line in the gate would make it so.
+- The phone agent's automatic calls are refused at queue time; a call
+  queued BEFORE the switch was turned on is not re-checked at dial time
+  (a manual Call button task cannot be told apart there).
+- Turning the switch off lets automatic messages resume, including ones
+  still due (an unpaid deposit request, an overdue-invoice chase). Said in
+  the switch's hint.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+```sql
+ALTER TABLE "Client" ADD COLUMN "autoMessagesOffAt" TIMESTAMP(3), ADD COLUMN "autoMessagesOffReason" TEXT, ADD COLUMN "organizationUnit" TEXT, ADD COLUMN "procurementNotes" TEXT;
+CREATE TABLE "ClientContact" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "clientId" TEXT NOT NULL, "name" TEXT NOT NULL, "role" TEXT, "email" TEXT, "phone" TEXT, "notes" TEXT, "isPrimary" BOOLEAN NOT NULL DEFAULT false, "sortOrder" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "ClientContact_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "AutoMessageSkip" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "clientId" TEXT NOT NULL, "sender" TEXT NOT NULL, "channel" TEXT NOT NULL, "refKey" TEXT NOT NULL DEFAULT '', "refLabel" TEXT, "reason" TEXT, "firstSkippedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "lastSkippedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AutoMessageSkip_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "ClientContact_companyId_clientId_idx" ON "ClientContact"("companyId", "clientId");
+CREATE INDEX "AutoMessageSkip_companyId_clientId_lastSkippedAt_idx" ON "AutoMessageSkip"("companyId", "clientId", "lastSkippedAt");
+CREATE UNIQUE INDEX "AutoMessageSkip_clientId_sender_refKey_key" ON "AutoMessageSkip"("clientId", "sender", "refKey");
+ALTER TABLE "ClientContact" ADD CONSTRAINT "ClientContact_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ClientContact" ADD CONSTRAINT "ClientContact_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AutoMessageSkip" ADD CONSTRAINT "AutoMessageSkip_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AutoMessageSkip" ADD CONSTRAINT "AutoMessageSkip_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+### Checks
+
+`check:org-clients` (executes the gate, the senders, the contacts lib and
+routes, the client route, recipients and redaction against the scripted db;
+classifies every one of the ~80 files that reach a send primitive) and
+`check:org-clients-render` (react-dom/server: every new component renders
+the empty string for a homeowner). `check:prep-guide` executes the held-back
+guide. Mutation-tested.
 ## Team notification emails, formatted (13 October 2026)
 
 The owner, on Settings › Notifications: "right now these type of emails is a

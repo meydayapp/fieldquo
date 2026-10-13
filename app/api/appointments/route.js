@@ -24,6 +24,7 @@ import { loadScheduleFeed } from "@/lib/schedule/feed";
 import { attachCalendarTexts } from "@/lib/sms/deliveryStore";
 import { scheduleSync } from "@/lib/calendar/googleSync";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { autoMessageGate } from "@/lib/clients/autoMessages";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -341,7 +342,22 @@ export async function POST(request) {
     const language = resolveClientLanguage({ document, client, company });
     notice.language = language;
     const to = String(client.email || "").trim();
-    if (to && company) {
+    // "No automatic emails or texts" on this client: the confirmation is a
+    // side effect of booking the visit, not something a person chose to
+    // send. The one shared gate (lib/clients/autoMessages.js) lists it on the
+    // client page, and `heldBack` says so in the response rather than a
+    // bare "not sent".
+    const gate =
+      to && company
+        ? await autoMessageGate(db, {
+            companyId: member.companyId,
+            clientId: client.id,
+            sender: "appointment_confirmation",
+            ref: { type: "appointment", id: appointment.id },
+          })
+        : { allowed: true };
+    if (!gate.allowed) notice.heldBack = gate.reason;
+    if (to && company && gate.allowed) {
       notice.to = to;
       const label = aboutLabel(appointment);
       const result = await sendBookingConfirmationEmail({

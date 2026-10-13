@@ -258,6 +258,12 @@ export const rows = {
   // so it has to be written, not assumed.
   jobVisit: [],
   smsDelivery: [],
+  // An organisation's contacts and the automatic messages held back for a
+  // client (scripts/check-org-clients.mjs): "make primary loses nobody" and
+  // "a cron meeting the same reminder every hour writes ONE row" are claims
+  // about writes, so they have to be executed against rows.
+  clientContact: [],
+  autoMessageSkip: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -355,6 +361,8 @@ export function resetDbStub() {
   rows.platformAdmin = [];
   rows.jobVisit = [];
   rows.smsDelivery = [];
+  rows.clientContact = [];
+  rows.autoMessageSkip = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -720,6 +728,8 @@ export const db = new Proxy(
     documentSignature: model("documentSignature"),
     jobVisit: model("jobVisit"),
     smsDelivery: model("smsDelivery"),
+    clientContact: model("clientContact"),
+    autoMessageSkip: model("autoMessageSkip"),
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),

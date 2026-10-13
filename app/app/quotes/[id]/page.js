@@ -125,6 +125,10 @@ import {
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
+import { recipientsForBody, isDefaultSelection } from "@/lib/clients/recipients";
+import RecipientPicker from "@/app/components/clients/RecipientPicker";
+import OtherContacts from "@/app/components/clients/OtherContacts";
+import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { taxLineHeadline, taxLineSource } from "@/lib/tax/taxLine";
@@ -490,6 +494,9 @@ export default function QuoteDetailPage() {
    * message.
    */
   const [pendingSend, setPendingSend] = useState(null);
+  // The send dialog's recipient picker (organisation clients with more than
+  // one contact). null = the primary, as every send was before the picker.
+  const [recipientSel, setRecipientSel] = useState(null);
 
   async function sendQuote(kind) {
     // ── One click used to email the client ────────────────────────────────
@@ -514,7 +521,9 @@ export default function QuoteDetailPage() {
       return;
     }
     // A rendered modal, not window.confirm — see SendConfirmModal for why.
-    // The actual send happens in doSend once they confirm.
+    // The actual send happens in doSend once they confirm. Each dialog
+    // starts on the primary alone.
+    setRecipientSel(null);
     setPendingSend({ kind, to });
   }
 
@@ -542,7 +551,9 @@ export default function QuoteDetailPage() {
       const res = await fetch(`/api/quotes/${id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({ kind }, "quote send"),
+        // recipientsForBody returns { kind } itself while the picker is on
+        // its default (or absent) — the body every send has always posted.
+        body: jsonBody(recipientsForBody({ kind }, recipientSel), "quote send"),
       });
       const data = await res.json().catch(() => null);
       // The company never finished checkout. Not a failure to report either:
@@ -1048,6 +1059,9 @@ export default function QuoteDetailPage() {
               </>
             );
           })()}
+          {/* "No automatic emails or texts" on this client: said beside the
+              Send button, which still sends. Nothing for anyone else. */}
+          <AutoMessagesNotice client={quote.client} className="basis-full order-last" />
           {quote.status === "sent" && quote.sentAt && !quote.historicalImportedAt && (
             <button
               onClick={() => sendQuote("follow_up")}
@@ -1286,7 +1300,7 @@ export default function QuoteDetailPage() {
         // Wrapped, not passed. `onConfirm={doSend}` handed doSend the click
         // event as its first argument — see the note in doSend.
         onConfirm={() => doSend()}
-        recipient={pendingSend?.to}
+        recipient={isDefaultSelection(recipientSel) ? pendingSend?.to : t("app.recipients.chosenBelow")}
         title={
           pendingSend?.kind === "follow_up"
             ? t("app.quoteDetail.confirmFollowUpTitle", "Send a follow-up?")
@@ -1299,7 +1313,17 @@ export default function QuoteDetailPage() {
         confirmLabel={t("app.quoteDetail.send", "Send")}
         // Once per client: a company-sounding name saved as an individual
         // would get no "Add this price to your own quote" line.
-        extra={pendingSend ? <BusinessQuestion clientId={quote?.client?.id} /> : null}
+        extra={
+          pendingSend ? (
+            <>
+              {/* An organisation with more than one contact: who receives it.
+                  Renders nothing otherwise — see RecipientPicker. */}
+              <RecipientPicker client={quote?.client} value={recipientSel} onChange={setRecipientSel} />
+              <AutoMessagesNotice client={quote?.client} className="mt-3 justify-center" />
+              <BusinessQuestion clientId={quote?.client?.id} />
+            </>
+          ) : null
+        }
       />
 
       {justSent && (
@@ -1650,6 +1674,10 @@ export default function QuoteDetailPage() {
             ...(quote.validUntil ? [[t("app.quoteEdit.validUntil"), formatDate(quote.validUntil)]] : []),
           ]}
         />
+        {/* Staff-only, under the parties: an organisation's other people.
+            Renders nothing for a homeowner, an organisation with no one but
+            the primary, or a member who may not see contact details. */}
+        <OtherContacts client={quote.client} className="px-5 sm:px-7 pb-4" />
 
         {quote.scopeGroups?.length > 0 && (
           <section className="px-5 sm:px-7 py-5 space-y-3">

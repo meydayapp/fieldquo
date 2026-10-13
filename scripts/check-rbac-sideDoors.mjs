@@ -150,7 +150,10 @@ console.log("\nThe client DETAIL route redacts like the list beside it");
 // detail and harvested every customer's email and phone. The exportable
 // customer list, reached through the one door nobody checked.
 const CLIENT_DETAIL = read("../app/api/clients/[id]/route.js");
-t("GET applies redactClient", /redactClient\(full, client\)/.test(CLIENT_DETAIL));
+// organizationShape (lib/clients/contacts.js) only adds an organisation's
+// `contacts` and drops an individual's Organization fields; redactClient is
+// still the last thing applied to what leaves the route.
+t("GET applies redactClient", /redactClient\(full, (client|organizationShape\(client, contactRows\))\)/.test(CLIENT_DETAIL));
 t("...and redacts the nested quotes' share tokens",
   /redactQuotes\(full, client\.quotes\)/.test(CLIENT_DETAIL));
 

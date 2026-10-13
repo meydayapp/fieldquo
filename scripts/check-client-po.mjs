@@ -510,13 +510,19 @@ console.log("\n5. The client-requires-PO prompt\n");
   const modal = read("app/components/documents/ClientPoRequiredModal.js");
   ok("the dialog offers 'add it and send' and 'send without'", /onSend\(\{ clientPoNumber: typed \}\)/.test(modal) && /onSend\(\{ sendWithoutPo: true \}\)/.test(modal));
   const builder = decomment(read("app/components/invoices/builder/InvoiceBuilder.js"));
-  ok("Save & send asks in its confirm dialog, then posts sendWithoutPo only when it asked", /poMissing\s*\?\s*`\$\{t\("app\.clientPo\.sendWarning"/.test(builder) && /\.\.\.\(poMissing \? \{ headers: \{ "Content-Type": "application\/json" \}, body: JSON\.stringify\(\{ sendWithoutPo: true \}\) \} : \{\}\)/.test(builder));
+  // The body is built through recipientsForBody (lib/clients/recipients.js),
+  // which hands back the SAME null / { sendWithoutPo } while the recipient
+  // picker is on its default — check-org-clients proves that by md5.
+  ok("Save & send asks in its confirm dialog, then posts sendWithoutPo only when it asked", /poMissing\s*\?\s*`\$\{t\("app\.clientPo\.sendWarning"/.test(builder) && /recipientsForBody\(poMissing \? \{ sendWithoutPo: true \} : null, recipientSel\)/.test(builder) && /\.\.\.\(sendPayload \? \{ headers: \{ "Content-Type": "application\/json" \}, body: JSON\.stringify\(sendPayload\) \} : \{\}\)/.test(builder));
 
   const clientPatch = decomment(read("app/api/clients/[id]/route.js"));
   ok("the client record's switch is written (boolean only)", /\.\.\.\(typeof requiresPo === "boolean" && \{ requiresPo \}\)/.test(clientPatch));
   ok("…on create too, true only when said", /requiresPo: requiresPo === true/.test(decomment(read("app/api/clients/route.js"))));
   const clientPage = read("app/app/clients/[id]/page.js");
-  ok("…the client page edits it and shows it", /requiresPo: client\.requiresPo === true/.test(clientPage) && /checked=\{Boolean\(form\.requiresPo\)\}/.test(clientPage) && /\{client\.requiresPo && \(/.test(clientPage));
+  // Shown in the contact block for a homeowner and in the Organization card
+  // for an organisation (app/components/clients/OrganizationCard.js) — one
+  // or the other, never neither.
+  ok("…the client page edits it and shows it", /requiresPo: client\.requiresPo === true/.test(clientPage) && /checked=\{Boolean\(form\.requiresPo\)\}/.test(clientPage) && /\{client\.requiresPo && !isCompany && \(/.test(clientPage) && /\{client\.requiresPo && \(/.test(read("app/components/clients/OrganizationCard.js")));
 
   for (const k of ["app.clientPo.promptTitle", "app.clientPo.promptBody", "app.clientPo.promptEnter", "app.clientPo.promptAnyway", "app.clientPo.sendWarning", "app.clientDetail.requiresPo"]) {
     ok(`${k} exists in every app language`, Object.values(APP_MESSAGES).every((m) => typeof m[k] === "string" && m[k].trim()));
