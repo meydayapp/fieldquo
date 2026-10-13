@@ -369,6 +369,9 @@ export async function POST(request, { params }) {
     // default (visitView decides, so the letter and the page agree).
     language: movedLanguage,
     initiatedBy: "client",
+    // The office copy's button opens this appointment on the calendar.
+    appointmentId: booking.appointmentId || null,
+    origin: getAppOrigin(request),
     ...(invite && { attachments: [invite] }),
   }).catch((err) => console.error("[visit] reschedule emails failed:", err?.message));
 

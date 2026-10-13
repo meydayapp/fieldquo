@@ -4,9 +4,15 @@
 // pattern as the other crons; run hourly so a reminder fires within the hour of
 // its target lead time.
 //
-// Opt-in per company (Company.appointmentReminderHours): every reminder is a
-// billable SMS the contractor pays for, so a company that hasn't set a lead time
-// gets nothing here — no surprise charges for a feature nobody switched on.
+// Opt-in per company (Company.appointmentReminderHours): a reminder is a text
+// to the company's client in the company's name, so a company that hasn't set a
+// lead time gets nothing here — nobody's clients start getting texts from a
+// feature nobody switched on. It is NOT a per-text charge: lib/sms/twilioClient.js
+// meters no credit for a client text, and Settings › Notifications says so
+// ("nothing is billed per text", app/app/settings/notifications/page.js). The
+// one exception is a company that brought its own number — a text from it
+// draws on that number's phone balance, as a crew text does
+// (lib/businessNumber/meter.js, via meterOutboundIfBrought).
 //
 // Three guards keep it from becoming a nuisance or a double-send:
 //   * reminderSentAt — once-only, so an appointment is reminded exactly once

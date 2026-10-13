@@ -131,6 +131,9 @@ export async function POST(request) {
     slug: true,
     dateFormat: true,
     email: true,
+    // The staff notice's time and fallback language.
+    timezone: true,
+    defaultLanguage: true,
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -228,35 +231,52 @@ export async function POST(request) {
   //
   // Best-effort. A failed email must not lose the client's design — they drew
   // it, it's saved, and the lead is in the list either way.
+  //
+  // On FieldQuo's team-notice layout since 2026-10-13: the same sentences, a
+  // facts card (client, cabinets, finish, received), ONE button to THIS lead
+  // — /app/leads?lead=<id> opens its drawer on the board (app/app/leads/
+  // page.js); it used to be the bare list, from before that link existed —
+  // and a text part, in each reader's own language. Imported lazily: the
+  // reader lookups load the app catalogue, and this is a stranger's request.
   try {
+    const [{ memberReaders, READER_MEMBER_SELECT }, { groupReaders }, { kitchenRequestNotice }] = await Promise.all([
+      import("@/lib/notifications/teamReaders"),
+      import("@/lib/email/teamNotice"),
+      import("@/lib/notifications/teamEmails"),
+    ]);
     const staff = await db.member.findMany({
       where: { companyId: company.id, active: true, role: { in: ["owner", "admin"] } },
-      include: { user: { select: { email: true } } },
+      select: READER_MEMBER_SELECT,
       distinct: ["userId"],
     });
-    const to = staff.map((m) => m.user?.email).filter(Boolean);
-    if (to.length) {
+    const groups = groupReaders(memberReaders(staff, company));
+    if (groups.length) {
       const { from, replyTo } = await resolveSender(company, company.id);
-      // The leads LIST. There's no lead detail route, and emailing a link to
-      // a 404 is worse than emailing no link at all — it reads as the product
-      // being broken at the exact moment a new enquiry arrives.
-      const link = `${getAppOrigin(request)}/app/leads`;
-      await sendEmail({
-        // A demo's public self-quote page is a real, reachable URL. The
-        // notice this sends is internal, but the company is the seam.
-        companyId: company.id,
-        from,
-        replyTo,
-        to,
-        subject: `Kitchen design request — ${name}`,
-        html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;line-height:1.5;">
-          <p><strong>${esc(name)}</strong> designed a kitchen on your website and asked for a price.</p>
-          <p>${esc(counts.cabinet || 0)} cabinets · ${esc(describeFinish(design.finish))}</p>
-          <p>Open the lead to see their drawing, price it, and send them a quote.</p>
-          <p><a href="${link}">Open the request →</a></p>
-        </div>`,
-        text: `${name} designed a kitchen on your website and asked for a price.\n\n${link}`,
-      });
+      const origin = getAppOrigin(request);
+      for (const group of groups) {
+        const mail = kitchenRequestNotice({
+          language: group.language,
+          company,
+          lead,
+          name,
+          cabinets: counts.cabinet || 0,
+          finish: describeFinish(design.finish),
+          receivedAt: lead.createdAt || new Date(),
+          reader: group.reader,
+          origin,
+        });
+        await sendEmail({
+          // A demo's public self-quote page is a real, reachable URL. The
+          // notice this sends is internal, but the company is the seam.
+          companyId: company.id,
+          from,
+          replyTo,
+          to: group.to,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+        });
+      }
     }
   } catch (err) {
     console.error("[self-quote/kitchen] couldn't notify the company:", err);
@@ -276,11 +296,4 @@ export async function POST(request) {
 /** "1 cabinet" / "4 cabinets". It's on a screen a contractor reads all day. */
 function plural(n, word) {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
-}
-
-function esc(s) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-  );
 }
