@@ -322,7 +322,11 @@ ok("...on entityType invoice", /entityType: "invoice"/.test(route));
 // for (lib/email/sentEmailHistory.js), so History lists the chase once.
 // 2026-10-07: the metadata also says WHAT was asked (mode, the figure, the
 // stage or the request row) — app/api/invoices/[id]/request-payment.
-ok("...with the address and balance in the metadata, and marked manual", /metadata: \{\s*to: invoice\.client\.email,\s*balance,\s*manual: true,[\s\S]{0,400}?\.\.\.\(sentEmailId \? \{ sentEmailId \} : \{\}\),\s*\}/.test(route));
+// 2026-10-13: the address is `chaseTo` — the client's email exactly as before
+// unless the recipient picker chose an organisation's contacts
+// (lib/clients/recipients.js; check:org-clients proves the default is
+// byte-identical) — written as text.
+ok("...with the address and balance in the metadata, and marked manual", /metadata: \{\s*to: recipientText\(chaseTo\),\s*balance,\s*manual: true,[\s\S]{0,400}?\.\.\.\(sentEmailId \? \{ sentEmailId \} : \{\}\),\s*\}/.test(route) && /let chaseTo = invoice\.client\.email;/.test(route));
 ok("stamps lastChasedAt on every send", /lastChasedAt: chasedAt/.test(route));
 ok("...and increments chaseCount", /chaseCount: \{ increment: 1 \}/.test(route));
 ok("...while sentAt keeps its stamp-only-if-empty rule", /\.\.\.\(invoice\.sentAt \? \{\} : \{ sentAt: chasedAt/.test(route));

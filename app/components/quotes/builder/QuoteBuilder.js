@@ -51,6 +51,9 @@ import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
 import SendConfirmModal from "@/app/components/SendConfirmModal";
 import BusinessQuestion from "@/app/components/quotes/BusinessQuestion";
+import RecipientPicker from "@/app/components/clients/RecipientPicker";
+import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
+import { recipientsForBody, isDefaultSelection } from "@/lib/clients/recipients";
 import StaleWriteBanner from "@/app/components/StaleWriteBanner";
 import { readStaleConflict } from "@/lib/concurrency/staleWriteClient";
 import { fetchJson } from "@/lib/fetchJson";
@@ -1233,6 +1236,9 @@ export function QuoteBuilderForm({
   const conflictRef = useRef(null);
   const [showTour, setShowTour] = useState(false);
   const [pendingSend, setPendingSend] = useState(null);
+  // The send dialog's recipient picker — null is the primary, as every send
+  // was before it (lib/clients/recipients.js recipientsForBody).
+  const [recipientSel, setRecipientSel] = useState(null);
 
   // See the banner's own note further down: it renders at the top of a very
   // long page and the Save buttons are at the bottom, so a refusal set here
@@ -2533,6 +2539,7 @@ export function QuoteBuilderForm({
         setError(t("app.quoteNew.noClientEmail"));
         return;
       }
+      setRecipientSel(null);
       setPendingSend({ to });
       return;
     }
@@ -2665,7 +2672,9 @@ export function QuoteBuilderForm({
       const sendRes = await fetch(`/api/quotes/${id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "quote" }),
+        // The same `{ kind: "quote" }` as ever unless the picker chose
+        // someone other than the primary alone.
+        body: JSON.stringify(recipientsForBody({ kind: "quote" }, recipientSel)),
       });
       if (!sendRes.ok) {
         const data = await sendRes.json().catch(() => null);
@@ -3604,12 +3613,21 @@ export function QuoteBuilderForm({
         setPendingSend(null);
         handleSave("sent", { confirmed: true });
       }}
-      recipient={pendingSend?.to}
+      recipient={isDefaultSelection(recipientSel) ? pendingSend?.to : t("app.recipients.chosenBelow")}
       title={t("app.quoteNew.confirmSendTitle")}
       detail={t("app.quoteNew.confirmSendDetail")}
       confirmLabel={t("app.quoteNew.confirmSendCta")}
-      // The quote page's question, here too — see BusinessQuestion.
-      extra={pendingSend ? <BusinessQuestion clientId={selectedClient?.id} /> : null}
+      // The quote page's question, here too — see BusinessQuestion. And the
+      // same recipient picker and automatic-messages notice as that page.
+      extra={
+        pendingSend ? (
+          <>
+            <RecipientPicker client={selectedClient} value={recipientSel} onChange={setRecipientSel} />
+            <AutoMessagesNotice client={selectedClient} className="mt-3 justify-center" />
+            <BusinessQuestion clientId={selectedClient?.id} />
+          </>
+        ) : null
+      }
     />
     </>
   );

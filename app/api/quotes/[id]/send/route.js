@@ -65,6 +65,7 @@ import {
 import { withCompanyGallery } from "@/lib/company/gallery";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 import { localisedCompany } from "@/lib/i18n/companyText";
+import { resolveSendRecipients, recipientText } from "@/lib/clients/recipients";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -126,7 +127,14 @@ export async function POST(request, { params }) {
     );
   }
 
-  const to = quote.client?.email?.trim();
+  // Who it goes to. With no `recipients` in the body — every send before the
+  // picker existed, every homeowner, and any organisation that has one
+  // contact — this is the client's email exactly as it always was. The
+  // picker names contacts by id; lib/clients/recipients.js reads their
+  // addresses off this client's own rows.
+  const chosen = await resolveSendRecipients(db, { companyId: member.companyId, client: quote.client, selection: body?.recipients });
+  if (chosen.error) return NextResponse.json({ error: chosen.error, code: chosen.code }, { status: chosen.status });
+  const to = chosen.to;
   if (!to) {
     return NextResponse.json(
       {
@@ -436,7 +444,7 @@ export async function POST(request, { params }) {
         }
       : {
           sentAt: new Date(),
-          sentToEmail: to,
+          sentToEmail: recipientText(to),
           // A quote already accepted or declined shouldn't be dragged back to
           // "sent" by someone re-emailing a copy of it.
           ...(quote.status === "draft" ? { status: "sent" } : {}),
@@ -498,10 +506,10 @@ export async function POST(request, { params }) {
     action: isFollowUp ? "quote.followed_up" : "quote.sent",
     entityType: "quote",
     entityId: quote.id,
-    summary: `${isFollowUp ? "Sent a follow-up for" : "Sent"} quote ${quote.quoteNumber} to ${to}`,
+    summary: `${isFollowUp ? "Sent a follow-up for" : "Sent"} quote ${quote.quoteNumber} to ${recipientText(to)}`,
     // sentEmailId: the kept copy this log row stands for, so the timeline
     // and History list the send once (and link "view email" to it).
-    metadata: { to, total: quote.total, ...(sentEmailId ? { sentEmailId } : {}) },
+    metadata: { to: recipientText(to), total: quote.total, ...(sentEmailId ? { sentEmailId } : {}) },
   });
 
   // `simulated` is the ONE thing about a demo send that differs from a real
@@ -512,7 +520,7 @@ export async function POST(request, { params }) {
   // AGENTS.md names first.
   return NextResponse.json({
     ...updated,
-    to,
+    to: recipientText(to),
     messageId: result?.id || null,
     simulated: result?.simulated === true,
     // Why a demo's send was simulated ("cap", "not_live", …), or that it went

@@ -273,6 +273,19 @@ mailState.skip = true;
 const skipped = await sendPrepGuide({ jobId: "job1", companyId: "co1" }, { db, cloudName: "democloud" });
 ok("unconfigured email releases the claim", skipped.reason === "email_unconfigured" && rows.job[0].prepGuideSentAt === null);
 
+// "No automatic emails or texts" on the client (lib/clients/autoMessages.js):
+// the cron's send is held back and recorded; a person's Send now still goes.
+seed();
+rows.client[0].autoMessagesOffAt = new Date();
+rows.client[0].autoMessagesOffReason = "Tender: SAP Ariba only";
+rows.autoMessageSkip ||= [];
+const held = await sendPrepGuide({ jobId: "job1", companyId: "co1" }, { db, cloudName: "democloud" });
+ok("automatic messages off: the cron's guide is held back", held.sent === false && held.reason === "auto_messages_off" && sent.length === 0, JSON.stringify(held));
+ok("…unclaimed, so the job page still offers Send now", rows.job[0].prepGuideSentAt === null);
+ok("…and recorded for the client page", rows.autoMessageSkip.some((s) => s.sender === "prep_guide" && s.clientId === "cl1" && s.refLabel === "Kitchen refinish — Tremblay"));
+const byHand = await sendPrepGuide({ jobId: "job1", companyId: "co1", member: { id: "m1", userId: "u1", companyId: "co1", role: "owner" }, force: true }, { db, cloudName: "democloud" });
+ok("…a person's Send now still sends", byHand.sent === true && sent.length === 1);
+
 seed({ email: "" });
 ok("no client email → refused even by a person", (await sendPrepGuide({ jobId: "job1", companyId: "co1", force: true }, { db })).reason === "no_client_email" && sent.length === 0);
 seed({ startOffset: null });

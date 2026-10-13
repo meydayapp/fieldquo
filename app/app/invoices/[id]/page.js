@@ -91,6 +91,11 @@ import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import CostPanel from "./CostPanel";
 import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
 import { receiptStatus } from "@/lib/payments/receiptState";
+import { recipientsForBody } from "@/lib/clients/recipients";
+import { autoMessagesOff } from "@/lib/clients/autoMessages";
+import RecipientPicker from "@/app/components/clients/RecipientPicker";
+import OtherContacts from "@/app/components/clients/OtherContacts";
+import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
 
 
 
@@ -197,6 +202,9 @@ export default function InvoiceDetailPage() {
   // touches it, so the default follows the company's setting when the
   // business-info row arrives rather than freezing at whatever it was first.
   const [receiptBox, setReceiptBox] = useState(null);
+  // Send / Request payment's recipient picker (an organisation with more than
+  // one contact). null = the primary, as every send was before it.
+  const [recipientSel, setRecipientSel] = useState(null);
   // A payment row's Send / Resend receipt: which row is in flight, which row
   // is asking "send again?", and what the last press said.
   const [receiptBusy, setReceiptBusy] = useState("");
@@ -354,9 +362,12 @@ export default function InvoiceDetailPage() {
     try {
       // `answer` is the PO dialog's: { clientPoNumber } or { sendWithoutPo }.
       // A plain press sends no body, exactly as before.
+      // The picker's choice joins it only when it is not the primary alone
+      // (lib/clients/recipients.js) — a plain press still sends no body.
+      const payload = recipientsForBody(answer, recipientSel);
       const res = await fetch(`/api/invoices/${id}/send`, {
         method: "POST",
-        ...(answer ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(answer) } : {}),
+        ...(payload ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) } : {}),
       });
       const data = await res.json().catch(() => null);
       // The invoice says tax applies and charges none. Not a failure to
@@ -405,8 +416,12 @@ export default function InvoiceDetailPage() {
   // entered after the fact — nothing is sent to the client for those.
   const canSendReceipt =
     hasLevel(caller, "invoices", "view_create_edit") && !invoice?.historicalImportedAt;
+  // "No automatic emails or texts" on this client: the receipt that follows
+  // Record payment is the automatic one (lib/payments/sendReceipt.js trigger
+  // "record"), so the box is not offered — the row's Send receipt is.
+  const clientAutoOff = autoMessagesOff(invoice?.client);
   const receiptChecked =
-    clientHasEmail && !invoice?.historicalImportedAt && (receiptBox ?? company?.emailPaymentReceipts === true);
+    clientHasEmail && !clientAutoOff && !invoice?.historicalImportedAt && (receiptBox ?? company?.emailPaymentReceipts === true);
 
   // What a receipt outcome says, for the banner under the page header.
   function receiptOutcomeText(r) {
@@ -418,6 +433,7 @@ export default function InvoiceDetailPage() {
     }
     if (r.alreadySent || r.reason === "already_sent") return { ok: true, text: t("app.invoiceDetail.receiptAlreadySent") };
     if (r.reason === "no_client_email") return { ok: false, text: t("app.invoiceDetail.receiptNoEmail") };
+    if (r.reason === "auto_messages_off") return { ok: false, text: t("app.invoiceDetail.receiptHeld") };
     return { ok: false, text: t("app.invoiceDetail.receiptFailedWillRetry") };
   }
 
@@ -523,7 +539,10 @@ export default function InvoiceDetailPage() {
         // The typed figure goes as the text that was typed: the route parses
         // it strictly and holds it to the balance it computes itself.
         body: jsonBody(
-          { note: chaseNote.trim(), mode, ...(mode === "custom" ? { amount: String(chaseAmount).trim() } : {}) },
+          recipientsForBody(
+            { note: chaseNote.trim(), mode, ...(mode === "custom" ? { amount: String(chaseAmount).trim() } : {}) },
+            recipientSel,
+          ),
           "invoice reminder",
         ),
       });
@@ -854,6 +873,16 @@ export default function InvoiceDetailPage() {
                 {t("app.invoiceDetail.sendAskStage", { label: invoice.sendAsk.stage.label, index: invoice.sendAsk.stage.index, count: invoice.sendAsk.stage.count, amount: money(invoice.sendAsk.requested), collected: money(invoice.sendAsk.collected) })}
               </p>
             )}
+            {/* "No automatic emails or texts" on this client — Send, Request
+                payment and Send receipt still send. Nothing for anyone else. */}
+            {!historical && <AutoMessagesNotice client={invoice.client} className="basis-full" />}
+            {/* Who Send and Request payment go to, for an organisation with
+                more than one contact; nothing for anyone else. */}
+            {owing && !historical && (
+              <div className="basis-full">
+                <RecipientPicker client={invoice.client} value={recipientSel} onChange={setRecipientSel} className="!mt-1" />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1061,6 +1090,8 @@ export default function InvoiceDetailPage() {
                 {invoice.client.phone}
               </p>
             )}
+            {/* An organisation's other people — nothing for anyone else. */}
+            <OtherContacts client={invoice.client} className="mt-2" />
           </div>
 
           <dl className="text-sm space-y-1 sm:text-right">
@@ -1575,7 +1606,9 @@ export default function InvoiceDetailPage() {
                               ? t("app.invoiceDetail.receiptFailed", { reason: r.error || "" })
                               : r.state === "no_email"
                                 ? t("app.invoiceDetail.receiptNoEmailState")
-                                : t("app.invoiceDetail.receiptNotSent");
+                                : r.state === "held"
+                                  ? t("app.invoiceDetail.receiptHeldState")
+                                  : t("app.invoiceDetail.receiptNotSent");
                     const sent = r.state === "sent";
                     return (
                       <span
@@ -1869,7 +1902,15 @@ export default function InvoiceDetailPage() {
                   when Settings → Payments says so; off and disabled, with the
                   reason, when there is nowhere to send it. Past jobs entered
                   after the fact send nothing, so the box is not offered. */}
-              {!invoice.historicalImportedAt && (
+              {/* "No automatic emails or texts": no box (it would be the
+                  automatic receipt the switch refuses) — the sentence says
+                  where the by-hand one is instead. */}
+              {!invoice.historicalImportedAt && clientAutoOff && (
+                <p className="text-xs text-amber-800 dark:text-amber-300" data-receipt-box-auto-off>
+                  {t("app.invoiceDetail.receiptAutoOff")}
+                </p>
+              )}
+              {!invoice.historicalImportedAt && !clientAutoOff && (
                 <label className="flex items-start gap-2 text-sm text-foreground" data-receipt-box>
                   <input
                     type="checkbox"

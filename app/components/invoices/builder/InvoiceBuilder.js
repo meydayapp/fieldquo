@@ -57,6 +57,9 @@ import { Clock, WifiOff, X, History, Download, Loader2 } from "lucide-react";
 
 import MediaUploader from "@/app/components/MediaUploader";
 import SendConfirmModal from "@/app/components/SendConfirmModal";
+import RecipientPicker from "@/app/components/clients/RecipientPicker";
+import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
+import { recipientsForBody, isDefaultSelection } from "@/lib/clients/recipients";
 import CostMarginPanel from "@/app/components/quotes/builder/CostMarginPanel";
 import LineItemsTable from "@/app/components/quotes/builder/LineItemsTable";
 import DocumentBuilder from "@/app/components/quotes/builder/DocumentBuilder";
@@ -425,6 +428,9 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
   const [error, setError] = useState("");
   const errorRef = useRef(null);
   const [pendingSend, setPendingSend] = useState(null);
+  // The send dialog's recipient picker — null is the primary, as every send
+  // was before it (lib/clients/recipients.js recipientsForBody).
+  const [recipientSel, setRecipientSel] = useState(null);
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [error]);
@@ -682,6 +688,7 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
         setError(t("app.invoiceBuilder.noClientEmail", "This client has no email address, so there's nowhere to send it. Save it as a draft and add one first."));
         return;
       }
+      setRecipientSel(null);
       setPendingSend({ to });
       return;
     }
@@ -786,9 +793,12 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
     if (action === "sent") {
       // The send dialog already said this client requires a PO and this
       // invoice has none; pressing Send there was the "send anyway".
+      // No body at all for a plain send, exactly as before; the picker's
+      // choice rides along only when it is not the primary alone.
+      const sendPayload = recipientsForBody(poMissing ? { sendWithoutPo: true } : null, recipientSel);
       const sendRes = await fetch(`/api/invoices/${invoice.id}/send`, {
         method: "POST",
-        ...(poMissing ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sendWithoutPo: true }) } : {}),
+        ...(sendPayload ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(sendPayload) } : {}),
       });
       if (!sendRes.ok) {
         const data = await sendRes.json().catch(() => null);
@@ -974,7 +984,7 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
         setPendingSend(null);
         handleSave("sent", { confirmed: true });
       }}
-      recipient={pendingSend?.to}
+      recipient={isDefaultSelection(recipientSel) ? pendingSend?.to : t("app.recipients.chosenBelow")}
       title={t("app.invoiceBuilder.confirmSendTitle", "Send this invoice?")}
       detail={
         // The client's "requires a PO" rule, asked HERE rather than refused
@@ -985,6 +995,16 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
           : t("app.quoteNew.confirmSendDetail")
       }
       confirmLabel={poMissing ? t("app.clientPo.promptAnyway") : t("app.invoiceNew.saveSend")}
+      // Who receives it (an organisation with more than one contact) and the
+      // automatic-messages notice — both render nothing for everyone else.
+      extra={
+        pendingSend ? (
+          <>
+            <RecipientPicker client={selectedClient} value={recipientSel} onChange={setRecipientSel} />
+            <AutoMessagesNotice client={selectedClient} className="mt-3 justify-center" />
+          </>
+        ) : null
+      }
     />
   );
 

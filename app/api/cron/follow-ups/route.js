@@ -35,6 +35,7 @@ import { runCallbackRotation } from "@/lib/callbacks/build";
 import { runPriceRequestReminders } from "@/lib/subRequests/server";
 import { sendPriceRequestEmail } from "@/lib/subRequests/send";
 import { getAppOrigin } from "@/lib/appUrl";
+import { autoMessageGate } from "@/lib/clients/autoMessages";
 
 function cutoffFor(rule) {
   const ms =
@@ -280,6 +281,27 @@ export async function GET(request) {
       if (finder.entityType === "quote" && !(await quoteTaxReady(db, entity, entity.company))) {
         stop("tax");
         continue;
+      }
+
+      // ── "No automatic emails or texts" on this client ─────────────────────
+      //
+      // lib/clients/autoMessages.js — the one gate every automatic sender
+      // asks, which records the held-back chase on the client page. Before
+      // the claim, like the two gates above: the switch is a state a person
+      // can turn off again, and when they do the chase resumes rather than
+      // having been used up. A lead has no client row to carry the switch.
+      if (finder.entityType !== "lead") {
+        const gate = await autoMessageGate(db, {
+          companyId: entity.companyId,
+          clientId: entity.clientId || entity.client?.id || null,
+          sender: "follow_up",
+          ref: { type: finder.entityType, id: entity.id },
+          refLabel: entity.quoteNumber || entity.invoiceNumber || entity.title || null,
+        });
+        if (!gate.allowed) {
+          stop(gate.reason);
+          continue;
+        }
       }
 
       try {

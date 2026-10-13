@@ -52,6 +52,7 @@ import { localisedCompany } from "@/lib/i18n/companyText";
 import { buildHowToPay, onlineOptions } from "@/lib/payments/offlineMethods";
 import { PAY_OVER_TIME_COMPANY_SELECT, payOverTimeGuideUrl } from "@/lib/payments/payOverTimeGuide";
 import { getAppOrigin } from "@/lib/appUrl";
+import { resolveSendRecipients, recipientText } from "@/lib/clients/recipients";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -90,7 +91,17 @@ export async function POST(request, { params }) {
     );
   }
 
-  const to = invoice.client?.email?.trim();
+  // Read once, here: who it goes to is decided before anything else is.
+  // The PO prompt below reads the same body.
+  const sendBody = await request.json().catch(() => ({}));
+
+  // Who it goes to. With no `recipients` in the body — every send before the
+  // picker existed, every homeowner, an organisation with one contact, the
+  // offline queue's empty POST — this is the client's email exactly as it
+  // always was (lib/clients/recipients.js).
+  const chosen = await resolveSendRecipients(db, { companyId: member.companyId, client: invoice.client, selection: sendBody?.recipients });
+  if (chosen.error) return NextResponse.json({ error: chosen.error, code: chosen.code }, { status: chosen.status });
+  const to = chosen.to;
   if (!to) {
     return NextResponse.json(
       {
@@ -205,7 +216,6 @@ export async function POST(request, { params }) {
   // takes a PO only by amendment, so the prompt says so rather than writing
   // into a document the client already holds. Placed after the hard refusals
   // so nobody types a PO only to be refused for something else.
-  const sendBody = await request.json().catch(() => ({}));
   const typedPo = readClientPoInput(sendBody);
   if (typedPo && !normaliseClientPo(invoice.clientPoNumber)) {
     if (invoice.status !== "draft") {
@@ -349,7 +359,7 @@ export async function POST(request, { params }) {
     where: { id: invoice.id },
     data: {
       sentAt: new Date(),
-      sentToEmail: to,
+      sentToEmail: recipientText(to),
       // Don't drag a paid or overdue invoice back to "sent" because someone
       // emailed a copy of it.
       ...(invoice.status === "draft" ? { status: "sent" } : {}),
@@ -411,9 +421,9 @@ export async function POST(request, { params }) {
     entityType: "invoice",
     entityId: invoice.id,
     summary: ask.stage
-      ? `Sent invoice ${invoice.invoiceNumber} to ${to}, asking for ${ask.stage.label} (${(ask.requestCents / 100).toFixed(2)})`
-      : `Sent invoice ${invoice.invoiceNumber} to ${to}`,
-    metadata: { to, total: invoice.total, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? ask.stage.label : null, ...(sentEmailId ? { sentEmailId } : {}) },
+      ? `Sent invoice ${invoice.invoiceNumber} to ${recipientText(to)}, asking for ${ask.stage.label} (${(ask.requestCents / 100).toFixed(2)})`
+      : `Sent invoice ${invoice.invoiceNumber} to ${recipientText(to)}`,
+    metadata: { to: recipientText(to), total: invoice.total, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? ask.stage.label : null, ...(sentEmailId ? { sentEmailId } : {}) },
   });
 
   // A person sent it — with the PO, or deliberately without. Whatever was held
@@ -437,7 +447,7 @@ export async function POST(request, { params }) {
   // stop the UI claiming an email arrived.
   return NextResponse.json({
     ...updated,
-    to,
+    to: recipientText(to),
     messageId: result?.id || null,
     simulated: result?.simulated === true,
     simulatedReason: result?.simulatedReason || null,

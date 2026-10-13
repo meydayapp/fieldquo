@@ -78,6 +78,8 @@ import PaymentScheduleCard from "./PaymentScheduleCard";
 import JobClientPo from "@/app/components/jobs/JobClientPo";
 import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
+import OtherContacts from "@/app/components/clients/OtherContacts";
+import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
 
 // ── One STATUS_STYLES held two vocabularies, and lost a key doing it ───────
 //
@@ -694,6 +696,12 @@ export default function JobDetail({ jobId }) {
             label={t("app.field.email")}
             value={job.client?.email || <Absent client={job.client} t={t} />}
           />
+          {/* An organisation's other people (site contact, accounts
+              payable…). Nothing for a homeowner or a member who may not see
+              contact details. */}
+          <OtherContacts client={job.client} />
+          {/* Said here too, where the crew and office look before a visit. */}
+          <AutoMessagesNotice client={job.client} />
           {/* Where the work is, when it is not where the bill goes. Only when
               set — null means NOT ASKED (Job.siteAddress), and printing the
               client's address here instead would be the invented default that

@@ -39,6 +39,7 @@ import { renderMessage } from "@/lib/sms/renderTemplate";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { maySms } from "@/lib/sms/optOut";
 import { reminderWindow, reminderVerdict } from "@/lib/sms/reminderPlan";
+import { autoMessageGate } from "@/lib/clients/autoMessages";
 
 // Only look a week out, whatever a company's lead time is — bounds the query,
 // and no sane reminder lead time exceeds it. The per-company window is applied
@@ -142,6 +143,20 @@ export async function GET(request) {
     // someone who asked us to stop.
     const allowed = await maySms({ companyId: row.company.id, phone: e164 });
     if (!allowed) {
+      skipped++;
+      continue;
+    }
+
+    // "No automatic emails or texts" on this client — the one shared gate
+    // (lib/clients/autoMessages.js), which lists the held-back reminder on the
+    // client page. Before the claim: nothing was sent, so nothing is stamped.
+    const gate = await autoMessageGate(db, {
+      companyId: row.company.id,
+      clientId: row.client?.id || null,
+      sender: "appointment_reminder",
+      ref: { type: row.kind, id: row.id },
+    });
+    if (!gate.allowed) {
       skipped++;
       continue;
     }

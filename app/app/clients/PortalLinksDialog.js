@@ -20,6 +20,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 const SKIP_KEYS = [
   ["no_email", "app.portalLinks.skip.noEmail"],
   ["opted_out", "app.portalLinks.skip.optedOut"],
+  // Client.autoMessagesOffAt — lib/portal/bulkLinks.js classifyClient.
+  ["auto_messages_off", "app.portalLinks.skip.autoMessagesOff"],
   ["inactive", "app.portalLinks.skip.inactive"],
   ["recent", "app.portalLinks.skip.recent"],
 ];

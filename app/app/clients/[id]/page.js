@@ -47,6 +47,8 @@ import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
+import OrganizationCard from "@/app/components/clients/OrganizationCard";
+import { AutoMessagesPanel } from "@/app/components/clients/AutoMessages";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -149,6 +151,11 @@ export default function ClientDetailPage() {
       language: client.language || null,
       // Client.requiresPo — read by the invoice send (lib/documents/clientPo.js).
       requiresPo: client.requiresPo === true,
+      // "No automatic emails or texts" — every client type has it. Sent as a
+      // boolean; lib/clients/autoMessages.js autoMessagesUpdate keeps the
+      // original date when it was already on.
+      autoMessagesOff: Boolean(client.autoMessagesOffAt),
+      autoMessagesOffReason: client.autoMessagesOffReason || "",
     });
     setEditing(true);
   }
@@ -404,7 +411,8 @@ export default function ClientDetailPage() {
         {/* Said on the record, not only in the edit form: the office should
             know before raising an invoice that this client's payables desk
             wants a PO on it. */}
-        {client.requiresPo && (
+        {/* An organisation shows it in its Organization card below. */}
+        {client.requiresPo && !isCompany && (
           <div className="flex items-center gap-2 text-sm text-foreground" data-client-requires-po>
             <Hash size={14} className="text-muted-foreground shrink-0" />
             {t("app.clientDetail.requiresPo")}
@@ -432,6 +440,14 @@ export default function ClientDetailPage() {
           </p>
         )}
       </div>
+
+      {/* Only for a client of type company — OrganizationCard returns
+          nothing for anyone else, so a homeowner's page is unchanged. */}
+      <OrganizationCard client={client} canEdit={canEditClient} onChanged={load} />
+
+      {/* Only while "No automatic emails or texts" is on (any client type):
+          why, since when, and what was held back. */}
+      <AutoMessagesPanel client={client} />
 
       {/* Quick actions — each drawn only if its endpoint would accept it.
           Both of these opened a full builder for a member at view_only whose
@@ -754,6 +770,31 @@ export default function ClientDetailPage() {
                   <span className="block text-xs text-muted-foreground">{t("app.clientDetail.requiresPoHint")}</span>
                 </span>
               </label>
+
+              {/* Client.autoMessagesOffAt — lib/clients/autoMessages.js is the
+                  gate every automatic sender asks. Sending by hand still
+                  works; the hint says how it differs from Do not contact. */}
+              <label className="flex items-start gap-2 text-sm text-foreground cursor-pointer" data-auto-messages-toggle>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.autoMessagesOff)}
+                  onChange={(e) => setForm({ ...form, autoMessagesOff: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  {t("app.autoMessages.toggle")}
+                  <span className="block text-xs text-muted-foreground">{t("app.autoMessages.toggleHint")}</span>
+                </span>
+              </label>
+              {form.autoMessagesOff && (
+                <input
+                  placeholder={t("app.autoMessages.reasonPlaceholder")}
+                  value={form.autoMessagesOffReason}
+                  maxLength={300}
+                  onChange={(e) => setForm({ ...form, autoMessagesOffReason: e.target.value })}
+                  className={inputClass}
+                />
+              )}
 
               <CustomFieldInputs cf={cf} />
 

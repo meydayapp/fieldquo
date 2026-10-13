@@ -40,6 +40,7 @@ import { hasLevel } from "@/lib/permissions/enforce";
 import { appointmentActions } from "@/lib/appointments/statusLabels";
 import { captureStamp } from "@/lib/location/capture";
 import { languageMeta } from "@/app/i18n/languages";
+import { AutoMessagesNotice } from "@/app/components/clients/AutoMessages";
 
 /** The PATCH target for a row of this kind. */
 function endpointFor({ kind, id, jobId }) {
@@ -222,6 +223,12 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
  * have silently dropped the text too.
  */
 function notifyByDefault(client) {
+  // "No automatic emails or texts — send by hand only" (Client.autoMessagesOffAt,
+  // lib/clients/autoMessages.js): the tick is a person's per-change choice and
+  // still sends when ticked, but for this client it starts unticked, so
+  // nothing goes unless someone decides it should. Only where this screen
+  // loaded the column; elsewhere the tick behaves as it always has.
+  if (client?.autoMessagesOffAt) return false;
   if (!client || !("email" in client)) return true;
   return Boolean(client.email || client.phone || client.restricted);
 }
@@ -244,6 +251,7 @@ function NotifyRow({ t, client, notify, setNotify }) {
         <span>{label}</span>
       </label>
       {withTextHint && <p className="text-xs text-muted-foreground mt-1 ml-6">{t("app.visitAction.textHint")}</p>}
+      <AutoMessagesNotice client={client} className="mt-1 ml-6" />
     </div>
   );
   if (client?.restricted) return tick(t("app.visitAction.emailRestricted"), true);

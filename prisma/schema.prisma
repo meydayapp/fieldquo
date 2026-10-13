@@ -2826,6 +2826,8 @@ model Company {
   planReadMessages      PlanReadMessage[]
   jobDailyLogs          JobDailyLog[]
   clientEquipment       ClientEquipment[]
+  clientContacts        ClientContact[]
+  autoMessageSkips      AutoMessageSkip[]
   suppliers             Supplier[]
   purchaseOrders        PurchaseOrder[]
   stockMovements        StockMovement[]
@@ -3414,6 +3416,11 @@ model Client {
   satisfactionResponses SatisfactionResponse[]
   equipment ClientEquipment[]
   callbackEntries CallbackEntry[]
+  /// The other people at an organisation client (lib/clients/contacts.js).
+  /// Shown in the Organization card, which a company-type client gets; kept,
+  /// never deleted, when the client is switched back to an individual.
+  contacts        ClientContact[]
+  autoMessageSkips AutoMessageSkip[]
 
   /// "Don't call me." Set by a callback outcome (lib/callbacks/outcomes.js),
   /// which also opts the phone out of the voice agent's consent ledger
@@ -3462,7 +3469,96 @@ model Client {
   /// Written only on this company's own action.
   linkedCompanyId    String?
 
+  /// The department, branch or division of an organisation client the work is
+  /// for — "Science and Parliamentary Infrastructure Branch" under PSPC.
+  /// Drawn and edited in the Organization card (company-type clients only);
+  /// kept when the client is switched to an individual, never shown for one.
+  /// Not printed on documents — nothing reads it but the card.
+  organizationUnit   String?
+  /// How this organisation wants to be dealt with — "Questions only through
+  /// SAP Ariba Event Messages, not by email". Staff-facing, in the
+  /// Organization card; never sent to the client. Separate from `notes`
+  /// because the notes dial (lib/permissions/enforce.js) hides private notes
+  /// from roles that still need to know the procurement rules.
+  procurementNotes   String?
+
+  /// "No automatic emails or texts — send by hand only." Set by a person on
+  /// the client's edit form, for any client type. While set, the shared gate
+  /// lib/clients/autoMessages.js (autoMessageGate) refuses every automatic
+  /// client-facing message — follow-ups, reminders, review requests,
+  /// automatic receipts, deposit requests, plan invoices, on-my-way texts,
+  /// the AI employee's replies, the phone agent's automatic calls — and
+  /// records each one it held back (AutoMessageSkip). A person pressing Send
+  /// is not refused. Different from doNotContactAt, which takes the client
+  /// off call-back lists and calls. Null = automatic messages go as normal.
+  autoMessagesOffAt     DateTime?
+  /// Why, in the office's words — "Government tender: questions only through
+  /// SAP Ariba". Shown beside the switch and on every held-back row.
+  autoMessagesOffReason String?
+
   @@unique([companyId, linkedCompanyId])
+}
+
+/// One more person at an organisation client — the Contracting Authority,
+/// the Technical Authority, a site contact, accounts payable.
+///
+/// The client's own contactName / email / phone stay THE primary contact and
+/// every existing reader keeps reading them. A row with isPrimary is that same
+/// person, kept in step with those three columns by lib/clients/contacts.js
+/// (the only writer), so the primary can carry a role and notes too. At most
+/// one row per client is primary. No row is created for an existing client
+/// until a person edits its contacts — nothing is migrated.
+model ClientContact {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name      String
+  /// Free text; the card suggests Contracting Authority, Technical Authority,
+  /// Project Authority, Site contact, Billing / Accounts payable.
+  role      String?
+  email     String?
+  phone     String?
+  notes     String?
+  isPrimary Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, clientId])
+}
+
+/// An automatic message the shared gate (lib/clients/autoMessages.js) held
+/// back because the client has "No automatic emails or texts" on. One row per
+/// (client, sender, record): a cron that re-evaluates the same reminder every
+/// hour moves lastSkippedAt rather than adding rows. Listed on the client
+/// page under the switch. Written only by recordAutoMessageSkip.
+model AutoMessageSkip {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// A key of AUTO_MESSAGE_SENDERS — "follow_up", "appointment_reminder" …
+  sender    String
+  /// "email" | "sms" | "call"
+  channel   String
+  /// The record it was about ("invoice:<id>", "visit:<id>"), or "" for none.
+  refKey    String  @default("")
+  /// What the record is called on screen (an invoice number, a job title).
+  refLabel  String?
+  /// Client.autoMessagesOffReason at the moment it was held back.
+  reason    String?
+
+  firstSkippedAt DateTime @default(now())
+  lastSkippedAt  DateTime @default(now())
+
+  @@unique([clientId, sender, refKey])
+  @@index([companyId, clientId, lastSkippedAt])
 }
 
 /// See Company.taxMode.

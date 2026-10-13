@@ -25,6 +25,7 @@ import { textClientOfChange } from "@/lib/schedule/changeText";
 import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { scheduleSync } from "@/lib/calendar/googleSync";
+import { autoMessageGate } from "@/lib/clients/autoMessages";
 
 /**
  * "20 min" / "1 h 10" — the number the template's {eta} slot takes.
@@ -267,6 +268,18 @@ export async function PATCH(request, { params }) {
       // lib/sms/optOut.js.
       const allowed = await maySms({ companyId: visit.job.companyId, phone: visit.job.client.phone });
       if (!allowed) return;
+      // "No automatic emails or texts" on this client: the text is a side
+      // effect of the status tap, not a message somebody chose to send. The
+      // one shared gate (lib/clients/autoMessages.js) lists it on the client
+      // page.
+      const gate = await autoMessageGate(db, {
+        companyId: visit.job.companyId,
+        clientId: visit.job.client?.id || null,
+        sender: "on_my_way",
+        ref: { type: "visit", id: visit.id },
+        refLabel: visit.job.title || null,
+      });
+      if (!gate.allowed) return;
 
       // ── The ETA, when there is one to give ──────────────────────────────
       //

@@ -23,6 +23,8 @@ import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import { cleanAddressPart } from "@/lib/format/address";
 import { emailRefusal, cleanEmail } from "@/lib/validation";
 import { identityChanges, loadClientUsage, editScopeRefusal } from "@/lib/clients/editScope";
+import { organizationShape, orgText, orgWritable, syncPrimaryFromClient } from "@/lib/clients/contacts";
+import { autoMessagesUpdate } from "@/lib/clients/autoMessages";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -59,6 +61,17 @@ export async function GET(request, { params }) {
 
   if (!client)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // The organisation's people, for a company client only (organizationShape).
+  // redactClient below removes `contacts` below "full_view" with the rest of
+  // the contact details (CLIENT_RESTRICTED_FIELDS).
+  const contactRows =
+    client.type === "company"
+      ? await db.clientContact.findMany({
+          where: { companyId: member.companyId, clientId: client.id },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        })
+      : null;
 
   // ── The list redacted; this didn't ─────────────────────────────────────
   //
@@ -98,7 +111,7 @@ export async function GET(request, { params }) {
     : null;
 
   return NextResponse.json({
-    ...redactClient(full, client),
+    ...redactClient(full, organizationShape(client, contactRows)),
     ...("quotes" in client && { quotes: redactQuotes(full, client.quotes) }),
     ...("invoices" in client && { invoices: redactInvoices(full, client.invoices) }),
     ...("jobs" in client && { jobs: redactJobs(full, client.jobs) }),
@@ -146,7 +159,19 @@ export async function PATCH(request, { params }) {
     // "Requires a PO number on invoices" (Client.requiresPo). A boolean or
     // nothing — anything else is ignored rather than read as true.
     requiresPo,
+    // The Organization card (company clients): department / branch and the
+    // procurement notes. Strings or nothing; "" clears.
+    organizationUnit,
+    procurementNotes,
   } = body;
+  // "No automatic emails or texts" — autoMessagesOff (boolean) and its
+  // reason, for any client type. lib/clients/autoMessages.js decides what
+  // that writes; anything that isn't a boolean leaves the switch alone.
+  const autoData = autoMessagesUpdate(existing, body);
+  // Read before the update, for the trail's "was it on" — the row object is
+  // not guaranteed to be untouched by the write.
+  const wasAutoOff = Boolean(existing.autoMessagesOffAt);
+  const wasAutoReason = existing.autoMessagesOffReason ?? null;
 
   // Editing a client's address is the moment a working one becomes a broken
   // one. An empty string is a deliberate clear and is allowed; anything else
@@ -222,8 +247,20 @@ export async function PATCH(request, { params }) {
         language: isSupported(language) ? language : null,
       }),
       ...(typeof requiresPo === "boolean" && { requiresPo }),
+      // A string (trimmed, capped; "" clears) or null; anything else — a
+      // number, an object — is ignored rather than read as a clear.
+      ...(orgWritable(organizationUnit) && { organizationUnit: orgText(organizationUnit) }),
+      ...(orgWritable(procurementNotes) && { procurementNotes: orgText(procurementNotes) }),
+      ...autoData,
     },
   });
+
+  // The primary contact row, when the Organization card made one, follows the
+  // client's own contactName / email / phone — the card and the documents
+  // must never name two different primaries.
+  if (contactName !== undefined || email !== undefined || phone !== undefined || type !== undefined) {
+    await syncPrimaryFromClient(db, { companyId: member.companyId, clientId: id, client: updated });
+  }
 
   // Client edits were unlogged — QA changed a client's email address and the
   // Activity Log recorded nothing, while the page states it keeps "clients or
@@ -248,8 +285,13 @@ export async function PATCH(request, { params }) {
     ["county", county],
     ["language", language],
     ["requiresPo", typeof requiresPo === "boolean" ? requiresPo : undefined],
+    ["organizationUnit", orgWritable(organizationUnit) ? orgText(organizationUnit) : undefined],
+    ["procurementNotes", orgWritable(procurementNotes) ? orgText(procurementNotes) : undefined],
+    // Said as on/off, judged against what it was.
+    ["autoMessagesOff", "autoMessagesOffAt" in autoData ? autoData.autoMessagesOffAt !== null : undefined, wasAutoOff],
+    ["autoMessagesOffReason", "autoMessagesOffReason" in autoData ? autoData.autoMessagesOffReason : undefined, wasAutoReason],
   ]
-    .filter(([field, value]) => value !== undefined && value !== existing[field])
+    .filter(([field, value, was]) => value !== undefined && value !== (was !== undefined ? was : existing[field]))
     .map(([field]) => field);
 
   if (changedFields.length) {
