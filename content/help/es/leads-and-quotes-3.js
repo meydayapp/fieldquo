@@ -1008,4 +1008,76 @@ export const ARTICLES = {
       },
     ],
   },
+  "government-and-public-tenders": {
+    title: "Licitaciones públicas y de gobierno",
+    summary:
+      "Dé seguimiento a cada licitación pública que observa o a la que se presenta — la hora de cierre en la zona horaria del comprador, el plazo de preguntas, la visita al sitio, ofertar o no, presentada, ganada o perdida — con recordatorios a su propio equipo antes de cada plazo.",
+    updated: "2026-10-13",
+    intro: [
+      "Un ministerio o una ciudad compra por licitación: una convocatoria en CanadaBuys, SAP Ariba, MERX o el portal de una ciudad, una hora de cierre fija y reglas sobre cómo puede hacer preguntas. **Licitaciones** reúne cada una en un solo lugar: el comprador es un cliente normal y su precio, una cotización normal.",
+      "Las licitaciones están desactivadas hasta que se activen para su empresa. Si no ve **Licitaciones** en **Más**, pida al soporte de FieldQuo que las active.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "Abra **Más → Licitaciones**. La lista muestra primero sus licitaciones abiertas, cada una con su hora de cierre en la zona horaria del comprador y el tiempo que queda. Una licitación que cierra hoy tiene un borde ámbar. Una licitación que cerró mientras seguía **En seguimiento**, **Ofertando** o **En preparación** tiene un borde rojo y dice **Cerrada — no marcada como presentada**." },
+          { p: "La tarjeta **Ganadas / perdidas** de arriba cuenta sus licitaciones por estado y muestra cuántas ganó de las ya decididas. Si usted puede ver precios, también suma lo que vale cada estado: el valor del contrato cuando se ganó, si no su cotización vinculada, si no la estimación del comprador. Una licitación sin ninguno de esos valores se cuenta, pero no se valora. Los filtros cambian la lista, nunca la tarjeta." },
+        ],
+      },
+      {
+        id: "add",
+        heading: "Cómo agregar una licitación",
+        blocks: [
+          { steps: [
+            "Presione **Agregar** en la pantalla de licitaciones.",
+            "En **Comprador**, elija el cliente que publica la licitación. Si ese cliente está registrado como persona, el formulario lo indica y ofrece **Marcar … como organización** o un campo para agregar una organización nueva. También puede guardar así.",
+            "Complete el título, el **Número de la licitación**, dónde fue **Publicada en** y **Cómo deben hacerse las preguntas**, por ejemplo \"Solo por los mensajes del evento en SAP Ariba\".",
+            "Elija la **Zona horaria de las horas de la licitación**. Empieza con la de su empresa. La mayoría de los cierres federales están en hora del Este.",
+            "Ingrese la **Fecha de cierre** y la **Hora de cierre** tal como las publica la convocatoria. Ambas son obligatorias. Agregue el plazo de preguntas y la visita al sitio si la licitación los tiene, y marque **La visita al sitio es obligatoria** cuando lo sea.",
+            "Presione **Agregar licitación**.",
+          ] },
+          { note: "Deje un campo vacío cuando la licitación no lo indica. Una fecha sin hora sigue siendo una fecha: FieldQuo nunca inventa una hora." },
+        ],
+      },
+      {
+        id: "status",
+        heading: "Estado de la oferta",
+        blocks: [
+          { p: "Los botones de **Estado de la oferta** hacen avanzar la licitación: **Decidir ofertar** o **Decidir no ofertar** (para no ofertar se pide un motivo), **Empezar a preparar**, **Marcar como presentada** (con el número de confirmación del portal) y luego **Marcar como ganada** (con el número y el valor del contrato) o **Marcar como perdida** (con el precio ganador si se publicó, quién ganó y sus notas de retroalimentación). **El comprador la canceló** y **Retirar nuestra oferta** cierran una licitación sin resultado." },
+          { p: "Solo se ofrecen los pasos que tienen sentido desde el estado actual. Una licitación ganada o perdida puede volver a presentada si se marcó por error." },
+        ],
+      },
+      {
+        id: "quote-and-job",
+        heading: "Su cotización y, si gana, el trabajo",
+        blocks: [
+          { p: "**Crear cotización para esta licitación** abre el creador de cotizaciones de siempre con el comprador ya elegido. Al guardar, la cotización queda vinculada a la licitación como su oferta. También puede vincular una cotización que ya escribió para este comprador." },
+          { p: "Cuando la licitación se gana, **Convertir en trabajo** crea el trabajo igual que la pantalla de trabajos, a partir de su cotización. No marca la cotización como aceptada y no le envía nada al comprador. Presionarlo otra vez abre el mismo trabajo." },
+        ],
+      },
+      {
+        id: "reminders",
+        heading: "Recordatorios de plazos",
+        blocks: [
+          { bullets: [
+            "Dos días antes del plazo de preguntas.",
+            "El día antes de la visita al sitio.",
+            "Tres días, un día y tres horas antes del cierre.",
+          ] },
+          { p: "Cada recordatorio llega una sola vez, en la campana y como notificación en el teléfono, a todas las personas de su equipo que pueden ver cotizaciones. Las horas siguen la zona horaria de la licitación, incluidos los días de cambio de horario. Un plazo con fecha pero sin hora se recuerda a las 9:00 de esa mañana. Los recordatorios se detienen cuando la oferta se presenta." },
+          { warning: "FieldQuo nunca le envía correos ni mensajes de texto al comprador desde una licitación. Haga sus preguntas como lo indica la licitación." },
+          { p: "**Agregar a mi calendario** descarga el cierre, el plazo de preguntas y la visita al sitio para su propio calendario. No incluye datos de contacto ni precios." },
+        ],
+      },
+      {
+        id: "access",
+        heading: "Quién puede verlo",
+        blocks: [
+          { p: "Cualquier persona que puede ver cotizaciones ve la pantalla de licitaciones. Agregar y cambiar licitaciones requiere el nivel **Ver, crear y editar** en cotizaciones. Los datos de la autoridad contratante y de la autoridad técnica solo los ve quien puede ver la información completa de los clientes, y cada monto solo quien puede ver precios. Convertir en trabajo requiere permiso para crear trabajos." },
+        ],
+      },
+    ],
+  },
 };

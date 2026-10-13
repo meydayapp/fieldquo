@@ -61,6 +61,7 @@ import {
   X,
   MessagesSquare,
   BarChart3,
+  Landmark,
 } from "lucide-react";
 import Logo from "@/app/components/Logo";
 import { activeGroupKey, isGroupOpen, isRowActive } from "@/app/components/layout/navDisclosure";
@@ -248,6 +249,11 @@ export const MORE_GROUPS = [
       // Recurring work sold as a package — a standing instruction to raise
       // an invoice.
       { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
+      // Bids on public contracts — PSPC on SAP Ariba, a city on Bids&Tenders.
+      // Absent for every company whose `tenders` feature is hidden, which is
+      // the default (lib/features/registry.js); gated on the quotes ladder
+      // for everyone else (lib/permissions/nav.js).
+      { key: "app.nav.tenders", href: "/app/tenders", icon: Landmark, helpArticle: "tenders" },
       // What clients raised from their portal — repairs, warranty claims,
       // questions, reschedules, visits to book. Reached from here, from the
       // notification a new one raises, and from the count on a client's page.

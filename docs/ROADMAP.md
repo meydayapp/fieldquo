@@ -1,5 +1,7 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 13 October 2026 (government and public tenders: /app/tenders, OFF by default — the `tenders` feature is hidden until FieldQuo turns it on per company; a Tender is a company-type client, a quote as the bid and a job when won; closing date + time + zone, Q&A and site-visit deadlines, bid / no-bid / submitted / won / lost, documents, win/loss card; reminders to the company's own team only, hourly cron, DST-correct, once each. Schema additive — NOT applied. See "Government and public tenders" below.)
+
 Last updated: 12 October 2026 (payment receipts to clients: one email per payment on the company's stationery in the client's language — amount, method, date, invoice, total paid so far and balance as of that payment, portal link — sent from Record payment's "Email a receipt" box (default from Settings → Payments → "Email clients a receipt automatically", on), from every Stripe payment when that is on, and from a Send / Resend receipt button on each payment row; failures retried hourly with backoff, five attempts in 48 h; payments recorded before this are never sent automatically. Kept in the job and client History. Schema additive — NOT applied. See "Payment receipts to clients" below.)
 
 Last updated: 10 October 2026 (colours & materials: a "Colours & materials" card on every job — rows of area, product, colour name + code, finish, coats, notes and a swatch photo, with trade suggestions — copied from the quote when the job is created and by an idempotent "Pull from quote", printed on the work order (screen, print, PDF), read-only for Crew; the quote builder takes several colour rows per service beside the untouched cabinet Colour / Sheen / Door style. Schema additive — NOT applied (JobSelection + QuoteScopeGroup.selections). Client view waits on the owner. See "Colours & materials on the job" below.)
@@ -114,6 +116,105 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Government and public tenders (13 October 2026)
+
+Owner, 2026-10-13: applying for government tenders (PSPC on SAP Ariba,
+questions only through Event Messages), then "most of the companies probably
+do not go with government contracts" — so the module is OFF by default. Item 2
+of `fq-ship/briefs/org-clients-and-tenders.md`; items 1 and 3 (client contacts,
+the per-client "automatic messages off" switch) are a separate branch.
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **`Tender`, `TenderDocument`, `TenderReminder`** (additive; SQL below). The
+  buyer is an ordinary `Client` (an organisation), our price an ordinary
+  `Quote`, the work an ordinary `Job` — plain ids, proved by
+  `lib/tenant/ownedIds.js` on every write, no `@relation` (so Client's model
+  is untouched). Dates are stored as the solicitation prints them —
+  YYYY-MM-DD, HH:MM and an IANA zone (company's by default) — and the
+  instants are computed (`lib/tenders/time.js`).
+- **Off by default**: the `tenders` entry in `lib/features/registry.js` is
+  `hidden`. Row, pages (`app/app/tenders/layout.js` FeatureGate), API
+  (`/api/tenders`, gated in `lib/currentMember.js`) and the reminder cron all
+  follow it. FieldQuo turns it on per company in **/platform → Features**.
+- **/app/tenders** (More → Work): list with status and closing filters, a
+  countdown in the tender's zone, closing-today (amber) and overdue (red:
+  closed while still watching / bidding / preparing) rows, and the **Win /
+  loss** card (`lib/tenders/summary.js`: counts, value in cents — contract
+  value, else bid quote, else estimate; unvalued counted, never $0; win rate
+  = won / decided). **/app/tenders/new** and **/app/tenders/[id]**: the
+  questions-channel banner first; deadlines; status buttons from
+  `lib/tenders/status.js`'s table (no-bid needs a reason; submitted keeps the
+  portal confirmation; won the contract number/value; lost the winning
+  price/winner/debrief); documents through `uploadFile()` (purpose `plans`,
+  URL proved to be in this company's folder); Contracting / Technical
+  Authority name, email, phone **stored on the tender for now — to be linked
+  to `ClientContact` once that table lands**.
+- **The buyer is an organisation**: picking an individual client shows a
+  notice with "Mark … as an organisation" (PATCH /api/clients/[id] { type })
+  and "add a new organisation" (POST /api/clients) — offered, never blocking.
+- **Create quote for this tender** → the ordinary quote builder with the
+  buyer prefilled. `QuoteBuilder` now honours `?clientId=` in create mode —
+  the client page's "New quote" and a callback's "Book" already linked with it
+  and the builder ignored it — and `?tenderId=` links the new quote back
+  (POST /api/tenders/[id]/quote, which refuses another company's quote or a
+  quote for a different client).
+- **Convert to job** (won only) → `lib/jobs/createJob.js`, the same helper
+  POST /api/jobs uses, inside a row lock: once per tender; links the bid
+  quote's existing job instead of a second one. Deliberately NOT "mark the
+  quote accepted" — that path can run the deposit schedule and email the
+  buyer.
+- **Reminders to the company's own team, never the buyer**:
+  `/api/cron/tender-reminders`, hourly at :17 — Q&A −2 d, site visit −1 d,
+  closing −3 d / −1 d / −3 h; "one day before" is a calendar day in the
+  tender's zone (25 h across the November change), each claimed once in
+  `TenderReminder`; a moved deadline is reminded afresh. Bell + Web Push via
+  `notifyEvent` (`tender.questionsDue`, `tender.siteVisit`,
+  `tender.siteVisitMandatory`, `tender.closing`; audience quotes view_only).
+  No email or SMS path exists from the module (check-tenders walks the
+  imports).
+- **Calendar**: "Add to my calendar" downloads an .ics of the closing, Q&A
+  deadline and site visit (`/api/tenders/[id]/ics`), times only, no contacts,
+  no money. NOT written to the company calendar: the only company-wide event
+  surface (`ScheduleEvent`) is shown to every worker including Crew, who may
+  not see quotes — see below.
+- **Permissions** (`lib/tenders/access.js`): read = quotes view_only (the nav
+  row's rung too), write = quotes view_create_edit, contacts =
+  clientsProperties full_view, money = showPricing, convert = job:create +
+  jobs view_create_edit. A contact or money field from someone who may not see
+  it is a 403, not ignored.
+- Help article `government-and-public-tenders` (en/fr/es); 190 strings × 9
+  languages.
+
+### Not built — decisions for the owner
+
+- **Self-serve switch.** Today only FieldQuo (/platform → Features) turns
+  Tenders on. Letting a company switch it on itself needs an adoption column
+  (`Company.tendersEnabled`) and a Settings row — small, but a second "is it
+  on?" answer, so not built without a yes.
+- **Closings on a shared calendar.** Putting closings on the week board's
+  Events row would show bids to Crew. A manager-only calendar layer is a
+  product decision.
+- **Contacts → `ClientContact`.** When the contacts table ships, the six
+  authority fields become two links; a one-off copy into ClientContact rows.
+- **Deleting a client with tenders** is not blocked by the client delete
+  guard (the tender then says "Client removed"); adding tenders to that guard
+  touches the client route, which this branch was told not to edit.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+`CREATE TYPE "TenderStatus"`, `CREATE TABLE "Tender"`, `"TenderDocument"`,
+`"TenderReminder"`, five indexes and two cascading FKs (child → Tender) — the
+`prisma migrate diff` output is in the commit message. Verified absent on
+production (read-only transaction, 2026-10-13).
+
+### Checks
+
+`npm run check:tenders` (in check:all) executes the routes against an
+in-memory database and the reminder runner against a recording notifier —
+DST, tenant scope, transitions, idempotency, permission gates per preset,
+summary, upload-folder proofs, the no-email import walk, mobile tap targets.
 
 ## Lifecycle emails, part C: win-back and product updates sent, billing letters on the shared layout, one language rule (11 October 2026)
 

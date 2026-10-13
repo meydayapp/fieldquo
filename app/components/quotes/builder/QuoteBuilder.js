@@ -694,7 +694,19 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
     }
 
     if (!callId) {
-      setInitial(initialStateFromQuote(null));
+      // `?clientId=` — opened for a known client: the client page's "New
+      // quote", a callback's "Book", a tender's "Create quote for this
+      // tender". Those links existed and this builder ignored the parameter,
+      // so the picker opened empty every time. The id is looked up in the
+      // company's own client list, never trusted: an unknown id opens the
+      // ordinary empty picker.
+      const presetClientId =
+        typeof window === "undefined"
+          ? null
+          : new URLSearchParams(window.location.search).get("clientId");
+      const presetClient =
+        (presetClientId && (bootstrap.clients || []).find((c) => c.id === presetClientId)) || null;
+      setInitial({ ...initialStateFromQuote(null), ...(presetClient ? { client: presetClient } : {}) });
       return;
     }
 
@@ -2637,6 +2649,23 @@ export function QuoteBuilderForm({
         return;
       }
       quote = await res.json();
+
+      // `?tenderId=` — opened from a tender's "Create quote for this tender".
+      // The quote is the ordinary one this builder just saved; the tender
+      // only records that it is our bid (POST /api/tenders/[id]/quote, which
+      // proves the quote is ours and the tender buyer's). A refused link
+      // leaves the quote saved and the tender showing "no bid quote linked"
+      // with its own picker — said in the console here, not swallowed.
+      const tenderId =
+        typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("tenderId");
+      if (tenderId && quote?.id) {
+        const linked = await fetch(`/api/tenders/${encodeURIComponent(tenderId)}/quote`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quoteId: quote.id }),
+        }).catch(() => null);
+        if (!linked?.ok) console.error("[quote builder] the new quote could not be linked to its tender", tenderId);
+      }
     }
 
     const id = quote?.id || quoteId;

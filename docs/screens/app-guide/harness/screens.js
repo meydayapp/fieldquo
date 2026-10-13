@@ -228,6 +228,7 @@ export const SCREENS = [
   // ── The More groups, in the order /app/more tiles them ─────────────────
   // Work & sales
   { slug: "plans", nav: "app.nav.plans", href: "/app/plans", page: "app/app/plans/page.js" },
+  { slug: "tenders", nav: "app.nav.tenders", href: "/app/tenders", page: "app/app/tenders/page.js" },
   { slug: "tasks", nav: "app.nav.tasks", href: "/app/tasks", page: "app/app/tasks/page.js" },
   { slug: "funnels", nav: "app.nav.funnels", href: "/app/funnels", page: "app/app/funnels/page.js" },
   { slug: "crew-inbox", nav: "app.nav.crewInbox", href: "/app/crew-inbox", page: "app/app/crew-inbox/page.js" },

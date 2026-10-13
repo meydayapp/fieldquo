@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 41, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 45, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, the team-chat mention, the conversation follow-up, and \"Did this visit happen?\"",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, the team-chat mention, the conversation follow-up, \"Did this visit happen?\", and the four tender deadlines",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -409,6 +409,13 @@ ok(
         // the room to "none" or is looking at it; scripts/check-company-
         // chat.mjs executes the narrowing against the real notifyEvent.
         "chat.mention",
+        // Tender deadlines (2026-10-13): the company's own team, from
+        // app/api/cron/tender-reminders — scripts/check-tenders.mjs
+        // executes the once-only claim and the zone arithmetic.
+        "tender.questionsDue",
+        "tender.siteVisit",
+        "tender.siteVisitMandatory",
+        "tender.closing",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -518,6 +525,14 @@ const EXPECTED = {
   // a quote nobody received is the most actionable thing on a dispatcher's
   // board. Crew is quotes:none and Legacy has no grid, so both fail closed.
   "quote.undelivered": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  // Tender deadlines: the same rung as the tender screens (quotes
+  // view_only), no money, supervisors in — the Manager running the bid is
+  // who must hear "closes tomorrow". Crew (quotes: none) and Legacy (no
+  // grid) fail closed.
+  "tender.questionsDue": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  "tender.siteVisit": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  "tender.siteVisitMandatory": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  "tender.closing": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
   // The employee home. The worker-facing four sit on the schedule ladder's
   // floor — everyone — and are narrowed to the named person by the call
   // site (recipientUserIds); with nobody named, as here, the whole audience.

@@ -4328,6 +4328,172 @@ model SubcontractorPayment {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Tenders — bids on public contracts (owner, 2026-10-13)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// A solicitation the company is watching or bidding on: PSPC's RFSA on SAP
+// Ariba, a city's RFQ on Bids&Tenders. The BUYER is an ordinary Client (type
+// company) — a government department is a client that happens to buy by
+// tender — so nothing here duplicates the client book. Off by default: the
+// `tenders` entry in lib/features/registry.js is "hidden" until FieldQuo turns
+// it on for a company, because most contractors never bid on public work.
+//
+// ── Plain ids, no @relation to Client, Quote, Job or Company ──────────────
+//
+// Deliberate. A relation needs a back-relation field on the other model, and
+// Client is being reshaped in parallel (contacts, the automatic-messages
+// switch); this table must not edit it. So clientId / quoteId / jobId are
+// proved on every write by lib/tenant/ownedIds.js and resolved at read time
+// by lib/tenders/load.js, which says "removed" when a row is gone rather than
+// failing. The 174 other models with a bare companyId do the same.
+//
+// ── Dates are WALL-CLOCK in the tender's own zone ──────────────────────────
+//
+// "Closes 2026-11-04 at 14:00 Eastern" is what the solicitation says, so that
+// is what is stored: a YYYY-MM-DD string, an HH:MM string and an IANA zone.
+// The instants (closingAt, questionsDeadlineAt, siteVisitAt) are COMPUTED from
+// those by lib/tenders/time.js on every write, never typed, and exist so the
+// list can sort and the reminder cron can query. A date with no time stays
+// a date — no invented 23:59 (AGENTS.md failure class #5).
+enum TenderStatus {
+  watching
+  bid
+  no_bid
+  preparing
+  submitted
+  won
+  lost
+  cancelled
+  withdrawn
+}
+
+model Tender {
+  id        String @id @default(cuid())
+  companyId String
+  /// The buyer organisation. A Client id, proved on write; see the header.
+  clientId  String
+  /// Our bid price, once a quote is written for it. Optional.
+  quoteId   String?
+  /// The job, once the tender is won and converted. Optional.
+  jobId     String?
+
+  solicitationNumber String?
+  title              String
+  /// "Science and Parliamentary Infrastructure Branch" — the part of the
+  /// buyer issuing this one. Free text; a department has dozens.
+  buyerBranch        String?
+  /// canadabuys | sap_ariba | merx | bids_and_tenders | biddingo | email |
+  /// other — lib/tenders/constants.js TENDER_SOURCES is the closed list.
+  source             String  @default("other")
+  sourceUrl          String?
+  /// How questions must be asked — "Only through SAP Ariba Event Messages".
+  /// Printed as a banner on the tender, because asking the wrong way can
+  /// disqualify a bid.
+  questionsChannel   String?
+
+  /// Stored on the tender for now; links to ClientContact once that table
+  /// lands (docs/ROADMAP.md). Shown only at clientsProperties full_view.
+  contractingAuthorityName  String?
+  contractingAuthorityEmail String?
+  contractingAuthorityPhone String?
+  technicalAuthorityName    String?
+  technicalAuthorityEmail   String?
+  technicalAuthorityPhone   String?
+
+  /// IANA zone every date below is wall-clock in. Defaults to the company's.
+  timeZone               String
+  publishedDate          String?
+  questionsDeadlineDate  String?
+  questionsDeadlineTime  String?
+  questionsDeadlineAt    DateTime?
+  siteVisitDate          String?
+  siteVisitTime          String?
+  siteVisitMandatory     Boolean   @default(false)
+  siteVisitLocation      String?
+  siteVisitAt            DateTime?
+  closingDate            String
+  closingTime            String
+  closingAt              DateTime
+  /// How long the bid must stay open for acceptance after closing.
+  bidValidityDays        Int?
+  expectedAwardDate      String?
+
+  /// The buyer's published estimate, when there is one. Money: withheld from
+  /// a member without showPricing (lib/tenders/access.js).
+  estimatedValue      Decimal? @db.Decimal(14, 2)
+  bidSecurityRequired Boolean  @default(false)
+  bidSecurityAmount   Decimal? @db.Decimal(14, 2)
+  /// "Reliability status for every worker on site" — free text, as written.
+  securityClearance   String?
+  notes               String?
+
+  status         TenderStatus @default(watching)
+  /// Why we bid or didn't — required for no_bid (lib/tenders/status.js).
+  decisionReason String?
+  decidedAt      DateTime?
+  submittedAt        DateTime?
+  confirmationNumber String?
+  contractNumber     String?
+  awardedValue       Decimal? @db.Decimal(14, 2)
+  awardedAt          DateTime?
+  winningPrice       Decimal? @db.Decimal(14, 2)
+  winnerName         String?
+  debriefNotes       String?
+  /// Why it was cancelled (by the buyer) or withdrawn (by us).
+  closedReason       String?
+  closedAt           DateTime?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documents TenderDocument[]
+  reminders TenderReminder[]
+
+  @@index([companyId, status])
+  @@index([companyId, closingAt])
+  @@index([status, closingAt])
+}
+
+/// A file on a tender: the solicitation, an addendum, our submission, the
+/// award letter. Uploaded straight to Cloudinary by uploadFile() (purpose
+/// "plans": PDFs, spreadsheets and photos); the URL is proved to sit in THIS
+/// company's folder before it is stored (lib/tenders/documents.js).
+model TenderDocument {
+  id           String   @id @default(cuid())
+  companyId    String
+  tenderId     String
+  tender       Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  name         String
+  /// solicitation | addendum | submission | correspondence | award | other
+  kind         String   @default("other")
+  url          String
+  mimeType     String?
+  sizeBytes    Int?
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+
+  @@index([tenderId])
+}
+
+/// One deadline reminder that went out — the claim that makes each fire once.
+/// Unique on (tender, kind, dueAt): a second cron run finds the row and stops;
+/// a closing date that MOVES gives a new dueAt and so a fresh reminder.
+model TenderReminder {
+  id        String   @id @default(cuid())
+  companyId String
+  tenderId  String
+  tender    Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  /// questions_2d | site_visit_1d | closing_3d | closing_1d | closing_3h
+  kind      String
+  dueAt     DateTime
+  sentAt    DateTime @default(now())
+  delivered Int      @default(0)
+
+  @@unique([tenderId, kind, dueAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Location stamps — where the phone was when somebody tapped something
 // ═══════════════════════════════════════════════════════════════════════════
 //

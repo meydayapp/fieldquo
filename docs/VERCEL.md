@@ -334,6 +334,17 @@ as "for development, not for production apps used by real advertisers."
   days, open `OnboardingRun` rows), and one feed row + Web Push per reminder
   — no email, no SMS, no AI. A company with nobody on a checklist and no
   dated certificate costs nothing beyond the invocation.
+- **`/api/cron/tender-reminders`** (hourly at :17, `vercel.json`, 2026-10-13)
+  — tender deadline reminders to the company's own team: Q&A deadline −2
+  days, site visit −1 day, closing −3 days / −1 day / −3 hours, each once
+  (`TenderReminder` unique claim), in the tender's own time zone. Hourly
+  because of the three-hour mark. Skips every company whose `tenders`
+  feature is hidden or locked — the default (`lib/features/registry.js`).
+  Nothing to set beyond `CRON_SECRET`. Cost: **24 invocations a day**
+  (~720 a month), one indexed query over open tenders (`Tender` by status
+  and `closingAt`, at most 2,000) plus two feature reads per company that
+  has any; one feed row + Web Push per reminder — no email, no SMS, never
+  to the buyer.
 - **`/api/cron/time-clock-watch` — every 15 minutes (2026-09-13). Nothing to set** beyond `CRON_SECRET`. Asks a worker "Still clocked in?" (push + bell) and tells their manager once when an open time entry has outlived its published shift by 30 min (14 h with no shift), and writes the late / no-show / early-out verdict per published shift (`ShiftAttendance`). It never closes an entry. Cost: **96 invocations a day** (~2,900 a month), each a handful of indexed reads bounded at 500 open entries and 2,000 shifts; a company with no published shifts and nobody clocked in costs one query per run. `vercel.json` carries the schedule.
 - **`/api/cron/sms-delivery-reconcile` — hourly at :41 (2026-09-24). Nothing
   new to set** beyond `CRON_SECRET` and the Twilio credentials already there.

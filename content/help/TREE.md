@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-13 — 362 articles in the tree; written: en 362, fr 362, es 362; “Only in FieldQuo”: 34._
+_Generated 2026-10-13 — 363 articles in the tree; written: en 363, fr 363, es 363; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -120,7 +120,7 @@ _Generated 2026-10-13 — 362 articles in the tree; written: en 362, fr 362, es 
 | `glossary` — Glossary | ✓ | ✓ | ✓ |  |  |  |
 | `what-your-clients-get` — What your clients get out of it | ✓ | ✓ | ✓ |  | client_portal |  |
 
-### leads-and-quotes (41)
+### leads-and-quotes (42)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -165,6 +165,7 @@ _Generated 2026-10-13 — 362 articles in the tree; written: en 362, fr 362, es 
 | `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
 | `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |
 | `start-from-drawings` — Start from drawings: the drawing read | ✓ | ✓ | ✓ |  | ai_vision |  |
+| `government-and-public-tenders` — Government and public tenders | ✓ | ✓ | ✓ | tenders | tenders |  |
 
 ### jobs-and-scheduling (32)
 

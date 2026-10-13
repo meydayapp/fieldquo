@@ -1008,4 +1008,76 @@ export const ARTICLES = {
       },
     ],
   },
+  "government-and-public-tenders": {
+    title: "Appels d'offres publics et gouvernementaux",
+    summary:
+      "Suivez chaque appel d'offres public que vous surveillez ou auquel vous soumissionnez — l'heure de clôture dans le fuseau de l'acheteur, la date limite des questions, la visite des lieux, la décision de soumissionner, la soumission, gagné ou perdu — avec des rappels à votre propre équipe avant chaque échéance.",
+    updated: "2026-10-13",
+    intro: [
+      "Un ministère ou une ville achète par appel d'offres : une invitation publiée sur CanadaBuys, SAP Ariba, MERX ou le portail d'une ville, une heure de clôture fixe et des règles sur la façon de poser vos questions. **Appels d'offres** garde chacun au même endroit : l'acheteur est un client ordinaire et votre prix, une soumission ordinaire.",
+      "Les appels d'offres sont désactivés tant qu'ils n'ont pas été activés pour votre entreprise. Si vous ne voyez pas **Appels d'offres** sous **Plus**, demandez au soutien FieldQuo de les activer.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "Ouvrez **Plus → Appels d'offres**. La liste montre d'abord vos appels d'offres ouverts, chacun avec son heure de clôture dans le fuseau de l'acheteur et le temps qui reste. Un appel d'offres qui ferme aujourd'hui a une bordure ambre. Un appel d'offres fermé alors qu'il est encore **En veille**, **On soumissionne** ou **En préparation** a une bordure rouge et affiche **Clôturé — non marqué comme soumis**." },
+          { p: "La carte **Gagnés / perdus** en haut compte vos appels d'offres par statut et indique combien vous en avez gagné parmi ceux qui sont décidés. Si vous voyez les prix, elle additionne aussi ce que vaut chaque statut : la valeur du contrat quand il est gagné, sinon votre soumission liée, sinon l'estimation de l'acheteur. Un appel d'offres sans aucune de ces valeurs est compté, mais pas évalué. Les filtres changent la liste, jamais la carte." },
+        ],
+      },
+      {
+        id: "add",
+        heading: "Ajouter un appel d'offres",
+        blocks: [
+          { steps: [
+            "Appuyez sur **Ajouter** dans l'écran des appels d'offres.",
+            "Sous **Acheteur**, choisissez le client qui publie l'appel d'offres. Si ce client est inscrit comme une personne, le formulaire le signale et propose **Indiquer … comme organisation** ou une case pour ajouter une nouvelle organisation. Vous pouvez aussi enregistrer tel quel.",
+            "Remplissez le titre, le **Numéro de l'invitation**, l'endroit où il est **Publié sur** et **Comment poser les questions**, par exemple « Seulement par la messagerie d'événement de SAP Ariba ».",
+            "Choisissez le **Fuseau horaire des heures indiquées dans l'appel d'offres**. Il commence au fuseau de votre entreprise. La plupart des clôtures fédérales sont à l'heure de l'Est.",
+            "Entrez la **Date de clôture** et l'**Heure de clôture** exactement comme l'invitation les indique. Les deux sont obligatoires. Ajoutez la date limite des questions et la visite des lieux s'il y en a, et cochez **La visite des lieux est obligatoire** quand c'est le cas.",
+            "Appuyez sur **Ajouter l'appel d'offres**.",
+          ] },
+          { note: "Laissez une case vide quand l'appel d'offres ne dit rien. Une date sans heure reste une date : FieldQuo n'invente jamais d'heure." },
+        ],
+      },
+      {
+        id: "status",
+        heading: "Statut de la soumission",
+        blocks: [
+          { p: "Les boutons sous **Statut de la soumission** font avancer l'appel d'offres : **Décider de soumissionner** ou **Décider de ne pas soumissionner** (une raison est obligatoire pour ne pas soumissionner), **Commencer la préparation**, **Marquer soumis** (avec le numéro de confirmation du portail), puis **Marquer gagné** (avec le numéro et la valeur du contrat) ou **Marquer perdu** (avec le prix gagnant s'il a été publié, le gagnant et vos notes de compte rendu). **Annulé par l'acheteur** et **Retirer notre soumission** ferment un appel d'offres sans résultat." },
+          { p: "Seules les étapes qui ont du sens à partir du statut actuel sont proposées. Un appel d'offres gagné ou perdu peut revenir à soumis s'il a été marqué par erreur." },
+        ],
+      },
+      {
+        id: "quote-and-job",
+        heading: "Votre soumission, puis le chantier quand vous gagnez",
+        blocks: [
+          { p: "**Créer une soumission pour cet appel d'offres** ouvre le créateur de soumission habituel avec l'acheteur déjà choisi. À l'enregistrement, la soumission est liée à l'appel d'offres comme votre prix. Vous pouvez aussi lier une soumission déjà rédigée pour cet acheteur." },
+          { p: "Quand l'appel d'offres est gagné, **Convertir en chantier** crée le chantier de la même façon que l'écran des chantiers, à partir de votre soumission. Cela ne marque pas la soumission comme acceptée et n'envoie rien à l'acheteur. Appuyer de nouveau ouvre le même chantier." },
+        ],
+      },
+      {
+        id: "reminders",
+        heading: "Rappels d'échéance",
+        blocks: [
+          { bullets: [
+            "Deux jours avant la date limite des questions.",
+            "La veille de la visite des lieux.",
+            "Trois jours, un jour et trois heures avant la clôture.",
+          ] },
+          { p: "Chaque rappel arrive une seule fois, dans la cloche et comme notification sur le téléphone, pour toutes les personnes de votre équipe qui voient les soumissions. Les heures suivent le fuseau de l'appel d'offres, y compris les jours de changement d'heure. Une échéance avec une date mais sans heure est rappelée à 9 h ce matin-là. Les rappels s'arrêtent dès que la soumission est déposée." },
+          { warning: "FieldQuo n'envoie jamais de courriel ni de texto à l'acheteur depuis un appel d'offres. Posez vos questions de la façon prévue par l'appel d'offres." },
+          { p: "**Ajouter à mon calendrier** télécharge la clôture, la date limite des questions et la visite des lieux pour votre propre calendrier. Le fichier ne contient ni coordonnées ni prix." },
+        ],
+      },
+      {
+        id: "access",
+        heading: "Qui peut le voir",
+        blocks: [
+          { p: "Toute personne qui peut voir les soumissions voit l'écran des appels d'offres. Ajouter et modifier des appels d'offres demande, pour les soumissions, le niveau **Voir, créer et modifier**. Les coordonnées de l'autorité contractante et de l'autorité technique ne s'affichent qu'aux personnes qui voient l'information complète des clients, et chaque montant seulement à celles qui voient les prix. Convertir en chantier demande la permission de créer des chantiers." },
+        ],
+      },
+    ],
+  },
 };

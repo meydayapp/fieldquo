@@ -1026,4 +1026,76 @@ export const ARTICLES = {
       },
     ],
   },
+  "government-and-public-tenders": {
+    title: "Government and public tenders",
+    summary:
+      "Track every public tender you watch or bid on — the closing time in the buyer's time zone, the questions deadline, the site visit, bid or no-bid, submitted, won or lost — with reminders to your own team before each deadline.",
+    updated: "2026-10-13",
+    intro: [
+      "A government department or a city buys by tender: a solicitation on CanadaBuys, SAP Ariba, MERX or a city portal, a fixed closing time, and rules about how you may ask questions. **Tenders** keeps each one in one place, with the buyer as an ordinary client and your price as an ordinary quote.",
+      "Tenders is off unless it has been switched on for your company. If you do not see **Tenders** under **More**, ask FieldQuo support to turn it on.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "Open **More → Tenders**. The list shows your open tenders first, each with its closing time in the buyer's time zone and the time left. A tender closing today has an amber edge. A tender that has closed while it is still marked **Watching**, **Bidding** or **Preparing** has a red edge and says **Closed — not marked submitted**." },
+          { p: "The **Win / loss** card at the top counts your tenders by status, and shows how many you won of those decided. If you can see prices, it also adds up what each status is worth: the contract value when won, otherwise your linked bid quote, otherwise the buyer's estimate. A tender with none of those is counted but not valued. The filters change the list, never the card." },
+        ],
+      },
+      {
+        id: "add",
+        heading: "How to add a tender",
+        blocks: [
+          { steps: [
+            "Press **Add** on the Tenders screen.",
+            "Under **Buyer**, pick the client the tender is from. If that client is set up as a person, the form says so and offers **Mark … as an organisation** or a box to add a new organisation. You can also save as it is.",
+            "Fill in the title, the **Solicitation number**, where it is **Published on**, and **How questions must be asked**, for example \"Only through SAP Ariba Event Messages\".",
+            "Pick the **Time zone the tender's times are in**. It starts as your company's. Most federal closings are Eastern time.",
+            "Enter the **Closing date** and **Closing time** exactly as the solicitation prints them. Both are required. Add the questions deadline and the site visit if the tender has them, and tick **The site visit is mandatory** when it is.",
+            "Press **Add tender**.",
+          ] },
+          { note: "Leave a box blank when the tender does not say. A date with no time stays a date: FieldQuo never invents a time for it." },
+        ],
+      },
+      {
+        id: "status",
+        heading: "Bid status",
+        blocks: [
+          { p: "The buttons under **Bid status** move the tender along: **Decide to bid** or **Decide not to bid** (a reason is required for not bidding), **Start preparing**, **Mark submitted** (with the portal's confirmation number), then **Mark won** (with the contract number and value) or **Mark lost** (with the winning price if it was published, who won, and your debrief notes). **Buyer cancelled it** and **Withdraw our bid** close a tender without a result." },
+          { p: "Only the moves that make sense from the current status are offered. A won or lost tender can be put back to submitted if it was marked by mistake." },
+        ],
+      },
+      {
+        id: "quote-and-job",
+        heading: "Your bid quote, and the job when you win",
+        blocks: [
+          { p: "**Create quote for this tender** opens the normal quote builder with the buyer already picked. When you save, the quote is linked to the tender as your bid. You can also link a quote you already wrote for this buyer." },
+          { p: "When the tender is won, **Convert to job** creates the job the same way the Jobs screen does, from your bid quote. It does not mark the quote accepted and does not send the buyer anything. Pressing it again opens the same job." },
+        ],
+      },
+      {
+        id: "reminders",
+        heading: "Deadline reminders",
+        blocks: [
+          { bullets: [
+            "Two days before the questions deadline.",
+            "The day before the site visit.",
+            "Three days, one day and three hours before the closing.",
+          ] },
+          { p: "Each reminder arrives once, in the bell and as a phone notification, for everyone on your team who can see quotes. The times follow the tender's own time zone, including the days the clocks change. A deadline with a date but no time is reminded at 9:00 that morning. Reminders stop once the bid is submitted." },
+          { warning: "FieldQuo never emails or texts the buyer from a tender. Ask your questions the way the tender says." },
+          { p: "**Add to my calendar** downloads the closing, the questions deadline and the site visit for your own calendar. It holds no contact details or prices." },
+        ],
+      },
+      {
+        id: "access",
+        heading: "Who can see it",
+        blocks: [
+          { p: "Anyone who can view quotes sees the Tenders screen. Adding and changing tenders needs quotes **View, create, and edit**. The Contracting and Technical Authority's details show only to people who can see full client information, and every amount shows only to people who can see prices. Converting to a job needs permission to create jobs." },
+        ],
+      },
+    ],
+  },
 };

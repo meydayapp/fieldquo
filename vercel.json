@@ -173,6 +173,10 @@
       "schedule": "40 7 * * *"
     },
     {
+      "path": "/api/cron/tender-reminders",
+      "schedule": "17 * * * *"
+    },
+    {
       "path": "/api/cron/appointment-outcomes",
       "schedule": "30 13 * * *"
     },
