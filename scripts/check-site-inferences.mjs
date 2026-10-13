@@ -235,18 +235,23 @@ section("1. The stage exists, is real, and sits on the claimed lane between the 
 
   // The planner: a researched, claimed prospect with no run gets one — and
   // only that, because the stage chains into the brief and the script.
+  // Every call is pinned to NOW, the fixture's own clock: a claimed prospect
+  // is re-crawled once its crawl is 30 days old (recrawlDue, MIN_RECRAWL_MS),
+  // so read against the real clock the CRAWLED date became "due a re-crawl"
+  // on 2026-10-09 and every plan below turned into CRAWL_WEBSITE instead of
+  // the stage under test. check-pipeline-progress.mjs owns the re-crawl rule.
   const done = RESEARCH_CHAIN.map((k) => ({ id: k, kind: k, status: "done", createdAt: NOW }));
   const prospect = { id: "p", websiteUrl: "http://x.example/", lastCrawledAt: CRAWLED, doNotContactAt: null, campaignId: null };
-  const plan = researchPlan({ prospect, tasks: done, priority: "claimed", script: null, inferenceRun: null });
+  const plan = researchPlan({ now: NOW, prospect, tasks: done, priority: "claimed", script: null, inferenceRun: null });
   ok("ensureResearchQueued plans the inference stage first for a claimed prospect with no run", plan.enqueue.length === 1 && plan.enqueue[0].kind === "INFER_FROM_SITE", plan);
   ok("…in the claimed lane", plan.enqueue[0]?.payload?.priority === "claimed" && plan.enqueue[0]?.notBefore === CLAIMED_NOT_BEFORE);
-  ok("…never on the backlog lane", researchPlan({ prospect, tasks: done, priority: "backlog", inferenceRun: null }).skipped === "complete");
+  ok("…never on the backlog lane", researchPlan({ now: NOW, prospect, tasks: done, priority: "backlog", inferenceRun: null }).skipped === "complete");
   const run = { crawledAt: CRAWLED, promptVersion: SITE_INFERENCE_VERSION };
-  ok("a current run moves the plan on to the script", researchPlan({ prospect, tasks: done, priority: "claimed", script: null, inferenceRun: run }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
-  ok("…a run older than the crawl is redone", researchPlan({ prospect: { ...prospect, lastCrawledAt: NOW }, tasks: done, priority: "claimed", inferenceRun: run }).enqueue[0]?.kind === "INFER_FROM_SITE");
-  ok("…and so is one written by an older prompt", researchPlan({ prospect, tasks: done, priority: "claimed", inferenceRun: { ...run, promptVersion: "0" } }).enqueue[0]?.kind === "INFER_FROM_SITE");
+  ok("a current run moves the plan on to the script", researchPlan({ now: NOW, prospect, tasks: done, priority: "claimed", script: null, inferenceRun: run }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+  ok("…a run older than the crawl is redone", researchPlan({ now: NOW, prospect: { ...prospect, lastCrawledAt: NOW }, tasks: done, priority: "claimed", inferenceRun: run }).enqueue[0]?.kind === "INFER_FROM_SITE");
+  ok("…and so is one written by an older prompt", researchPlan({ now: NOW, prospect, tasks: done, priority: "claimed", inferenceRun: { ...run, promptVersion: "0" } }).enqueue[0]?.kind === "INFER_FROM_SITE");
   const failedThrice = [...done, ...[1, 2, 3].map((n) => ({ id: `f${n}`, kind: "INFER_FROM_SITE", status: "failed", createdAt: NOW }))];
-  ok("three failed tries exhaust the bound", researchPlan({ prospect, tasks: failedThrice, priority: "claimed", inferenceRun: null }).skipped === "requeues_exhausted");
+  ok("three failed tries exhaust the bound", researchPlan({ now: NOW, prospect, tasks: failedThrice, priority: "claimed", inferenceRun: null }).skipped === "requeues_exhausted");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
