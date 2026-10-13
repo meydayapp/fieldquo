@@ -83,7 +83,26 @@ ok("the constant's own file imports nothing", !/^import /m.test(cc));
 // itself (the ledger's own definition file) — a grep this blunt will always
 // need a couple of named exceptions, and naming them beats narrowing the
 // pattern until it stops finding what it's actually for.
-const crediters = execLines("grep -rln 'addCredit' app lib").filter(
+//
+// Matched in CODE, not in comments. The bare-word match above is kept (a
+// reference, not just a call, is what counts), but a file whose only
+// `addCredit` is in prose — lib/ai/creditLow.js says "lib/voice/credits.js
+// addCredit / debitCredit call afterAiLedgerWrite", describing who calls IT —
+// credits nobody. Counting comments made that letter's explanation of its own
+// trigger read as a fifth money path, and the only ways to "fix" that from the
+// code side were to make the comment vaguer or to allow-list a file that
+// doesn't credit; both teach the assertion to look away. Stripping comments
+// first keeps the assertion on what the file does. It never hides a real
+// crediter: an import, a call or a `deps.addCredit || addCredit` fallback is
+// code and survives the strip.
+const stripComments = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    // A line comment starts at line start or after whitespace/punctuation that
+    // can't be the `:` of a URL inside a string ("https://…").
+    .replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+const mentionsInCode = (f) => /\baddCredit\b/.test(stripComments(readFileSync(join(ROOT, f), "utf8")));
+const crediters = execLines("grep -rln 'addCredit' app lib").filter(mentionsInCode).filter(
   (f) =>
     !f.endsWith("lib/voice/credits.js") &&
     !f.endsWith("app/app/settings/ai-credit/page.js") &&
@@ -125,6 +144,11 @@ ok("the fourth is the AI bundle's monthly grant",
 // which this list deliberately excludes — see the filter above. Its call
 // site in lib/demo/seedDemo.js calls grantDemoAiCredit(), not addCredit()
 // directly, so it never shows up in `crediters` either way.
+// The low-credit letter READS the AI balance after a write; it must never be
+// the thing that writes. If an import or call of addCredit ever appears in its
+// code, it has become a money path and this fails by name.
+ok("the low-credit letter (lib/ai/creditLow.js) reads the wallet, never credits it",
+   !mentionsInCode("lib/ai/creditLow.js") && !crediters.some((f) => f.endsWith("lib/ai/creditLow.js")));
 // And that settlement is reached from BOTH doors, so a browser that never comes
 // back from Stripe is not the only thing standing between a charge and a
 // credit — which is exactly what it used to be.
