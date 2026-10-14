@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 356 models.
+it cannot drift from the code. 358 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -23,8 +23,8 @@ tenancy, so it carries no information.
 | **Prospect** | 18 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +8 |
 | **PlatformAdmin** | 16 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesCallAttempt, SalesCallEvent, SalesJurisdictionOverride, SalesTelemarketerRegistration +6 |
 | **Client** | 15 | Appointment, AutoMessageSkip, CallbackEntry, ClientContact, ClientEquipment, ClientTicket, Invoice, Job, MessageThread, PamphletStop +5 |
+| **Member** | 13 | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, JobPhotoComment, JobPhotoMention, MemberAlertPreference, MemberGoogleCalendar +3 |
 | **Quote** | 13 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuotePlanOffer +3 |
-| **Member** | 12 | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery +2 |
 | **SalesLead** | 12 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLeadLinkEvent, SalesRepNote +2 |
 | **Invoice** | 8 | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task, TimeEntry |
 | **ServiceCategory** | 6 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup, ServiceDocument |
@@ -38,7 +38,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>356 models — expand</summary>
+<details><summary>358 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -141,7 +141,8 @@ tenancy, so it carries no information.
 | `MarketingSubscriber` | — | MarketingCampaignDelivery |
 | `Material` | — | Expense, MaterialPriceEntry |
 | `MaterialPriceEntry` | Expense, Material | — |
-| `Member` | MemberGoogleCalendar | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
+| `Member` | MemberGoogleCalendar | AssetUseLog, CalendarMirror, CallbackRule, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, JobPhotoComment, JobPhotoMention, MemberAlertPreference, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
+| `MemberAlertPreference` | Member | — |
 | `MemberGoogleCalendar` | Member | Member |
 | `Message` | EmailMessage, MessageThread | EmailMessage |
 | `MessageThread` | Client, MessagingChannel | Message |

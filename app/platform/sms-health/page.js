@@ -31,6 +31,7 @@ const PURPOSE_LABELS = {
   photo_mention: "Photo mention",
   sales_signup_link: "Sales: signup link",
   sales_reply: "Sales: rep reply",
+  staff_alert: "Staff alert (client opened/approved)",
   other: "Other",
 };
 

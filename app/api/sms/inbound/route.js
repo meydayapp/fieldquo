@@ -102,7 +102,7 @@ import { classifyInboundSms } from "@/lib/sms/optOutKeywords";
 import { recordSmsOptOut, recordSmsOptIn } from "@/lib/sms/optOut";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { handleSalesInboundSms } from "@/lib/sales/salesSms";
-import { resolveInboundTenants } from "@/lib/sms/clientLine";
+import { resolveInboundTenants, companiesHoldingStaffPhone } from "@/lib/sms/clientLine";
 import { recordError } from "@/lib/platform/errorLog";
 import { handleInboundClientSms } from "@/lib/aiEmployee/smsChannel";
 
@@ -144,6 +144,36 @@ export async function POST(request) {
   // the number is neither, which is the sales branch's cue below.
   const tenants = await resolveInboundTenants({ to, from });
   const company = tenants.companies[0] || null;
+
+  // ── STOP / START from a company's own staff (2026-10-14) ────────────────
+  //
+  // Client-activity alert texts (lib/notifications/staffTexts.js) reach a
+  // company's own people from the shared line and end "Reply STOP to end
+  // these texts". A staff phone is on a Member row, not a client record, so
+  // the holder lookup above cannot see it — recorded here for every company
+  // whose active member holds the phone, on the same SmsOptOut row
+  // maySms() reads. Companies already found as client holders are left to
+  // the loop below, so nobody is written twice. Before the sales branch,
+  // because a staff phone with no client record arrives with no tenant and
+  // would otherwise be handed to it and dropped.
+  const keyword = tenants.kind === "shared" ? classifyInboundSms(body) : null;
+  if (keyword) {
+    const staffCompanies = await companiesHoldingStaffPhone(from).catch(() => []);
+    for (const staff of staffCompanies) {
+      if (tenants.companies.some((t) => t.id === staff.id)) continue;
+      try {
+        if (keyword === "opt_out") await recordSmsOptOut({ companyId: staff.id, phone: from, body });
+        else await recordSmsOptIn({ companyId: staff.id, phone: from, body });
+      } catch (err) {
+        await recordError({
+          area: "sms_opt_out",
+          message: `Failed to record staff SMS ${keyword}: ${err.message}`,
+          companyId: staff.id,
+          detail: { to, from, resolvedBy: "staff_phone" },
+        }).catch(() => {});
+      }
+    }
+  }
 
   // ── Not a tenant's number. It may be FieldQuo's OWN sales number ─────────
   //

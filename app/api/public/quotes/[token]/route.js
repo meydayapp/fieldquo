@@ -9,7 +9,7 @@
 // record to anyone with the link.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
@@ -954,20 +954,24 @@ export async function POST(request, { params }) {
 
       // ── The feed entry, ALONGSIDE the email above — never instead of it ──
       //
-      // dispatchDecisionEmails already emailed owner+admin with the signed PDF
-      // attached, and that is unchanged: this sends no mail of its own (see
-      // the note at the foot of lib/notifications/catalog.js on why v1 adds no
-      // channel), so an acceptance still produces exactly one email.
+      // dispatchDecisionEmails already emailed the team with the signed PDF
+      // attached; this sends no approval email of its own, so an acceptance
+      // still produces exactly one team email.
       //
       // What the feed adds is a copy that does not need a mail client open in
       // a driveway, and — because the audience comes from the catalog rather
       // than from another `role: { in: ["owner","admin"] }` query — one that
-      // can reach an estimator the email never did.
+      // can reach an estimator the email never did. Since 2026-10-14 it also
+      // carries the TEXT a person asked for in Settings › Notifications
+      // ("send me a text when the client has approved a quote" —
+      // lib/notifications/staffTexts.js), with the amount only for readers
+      // who may see it.
       //
-      // Not awaited, inside the same best-effort block as the activity row:
-      // the client's approval is already committed, and nothing here may make
-      // it look like it failed.
-      notifyEvent({
+      // after(): the client's approval is already committed and its response
+      // must not wait on a carrier — but a text must not be cut off when the
+      // response is sent either, which a bare un-awaited promise risks on a
+      // serverless function. Nothing here may make the approval look failed.
+      const acceptedAlert = {
         companyId: updated.companyId,
         type: "quote.accepted",
         entityId: updated.id,
@@ -983,7 +987,8 @@ export async function POST(request, { params }) {
         // answer rather than a gap.
         actorUserId: null,
         actorName: "Client (approval link)",
-      }).catch(() => {});
+      };
+      after(() => notifyEvent(acceptedAlert).catch(() => {}));
     } catch (err) {
       console.error("[public quote] job/invoice/activity failed:", err);
     }
@@ -1053,15 +1058,26 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
         defaultLanguage: true,
       },
     }),
-    db.member.findMany({
-      where: {
-        companyId: updated.companyId,
-        active: true,
-        role: { in: ["owner", "admin"] },
-      },
-      select: READER_MEMBER_SELECT,
-      distinct: ["userId"],
-    }),
+    // An APPROVAL is a client alert since 2026-10-14
+    // (lib/notifications/clientAlerts.js "quote.accepted"): the company can
+    // switch it off, an owner or admin can switch their own copy off, and
+    // anybody else the catalog admits for it (an estimator with prices) can
+    // switch one on. Nobody having chosen anything is exactly the owners and
+    // admins, as before. A DECLINE is not an alert and still goes to the
+    // owners and admins unconditionally.
+    accepted
+      ? import("@/lib/notifications/alertPlan").then(({ emailMembersFor }) =>
+          emailMembersFor(db, { companyId: updated.companyId, type: "quote.accepted", select: READER_MEMBER_SELECT }),
+        )
+      : db.member.findMany({
+          where: {
+            companyId: updated.companyId,
+            active: true,
+            role: { in: ["owner", "admin"] },
+          },
+          select: READER_MEMBER_SELECT,
+          distinct: ["userId"],
+        }),
   ]);
 
   const { from, replyTo } = await resolveSender(

@@ -3101,6 +3101,8 @@ model Member {
   // The feed's read state hangs off the Member, not the User — see the comment
   // on NotificationDelivery for why a user in two companies must not share one.
   notificationDeliveries NotificationDelivery[]
+  /// How this person hears about client events — MemberAlertPreference.
+  alertPreferences MemberAlertPreference[]
 
   // The crew chat hangs off the Member for the same reason: a person in two
   // companies is two participants, and neither may see the other's rooms.
@@ -3907,6 +3909,17 @@ model Quote {
   /// Read through lib/quotes/quoteViews.js.
   viewedAt  DateTime?
   viewCount Int       @default(0)
+
+  /// When the team was last ALERTED that the client opened this quote
+  /// (bell, push, and any email or text people chose — the owner, 2026-10-14).
+  /// The first open alerts; a re-open alerts again only once this is more
+  /// than a day old, so a client reading the quote five times over dinner is
+  /// one "opened again", not five. Claimed by a conditional UPDATE in
+  /// POST /api/public/quotes/[token]/viewed, so two tabs opening at once
+  /// alert once. Raw SQL there, like viewCount, so Quote.updatedAt does not
+  /// move. Null = never alerted (including every quote opened before this
+  /// existed). Decided by lib/notifications/clientAlerts.js viewAlertDue.
+  viewAlertedAt DateTime?
 
   /// Why it was lost, when anyone says.
   ///
@@ -18391,6 +18404,73 @@ model NotificationDelivery {
   /// with skipDuplicates leans on exactly this index.
   @@unique([eventId, memberId])
   @@index([companyId, memberId, readAt, createdAt])
+}
+
+/// One person's choice of how they hear about one client event (the owner,
+/// 2026-10-14: "send me a text when the client has opened / approved a
+/// quote / change order / request"). The events and every default live in
+/// lib/notifications/clientAlerts.js (CLIENT_ALERTS); this row only records
+/// what a person CHANGED.
+///
+/// Per Member, not per User, for the reason NotificationDelivery gives: a
+/// person in two companies chooses twice, and a text about one company's
+/// quote must never be switched on from the other company's settings.
+///
+/// Each channel is nullable on purpose. Null = "never chosen", which reads as
+/// the event's default (bell on; email per event; text OFF) — absence is not a
+/// statement, so a person who ticked only "Text me" has not also said "never
+/// email me". Written by PUT /api/settings/alert-preferences (the person's
+/// own row only); read by notifyEvent (lib/notifications/notify.js) and by
+/// the two existing emails that now honour it (the quote-approval team email
+/// and the client-ticket email).
+model MemberAlertPreference {
+  id        String @id @default(cuid())
+  companyId String
+  memberId  String
+  member    Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  /// A CLIENT_ALERTS key — a NOTIFICATION_TYPES type ("quote.viewed", …).
+  event     String
+  /// The bell and the browser push, one switch.
+  inApp     Boolean?
+  email     Boolean?
+  sms       Boolean?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([memberId, event])
+  @@index([companyId, event])
+}
+
+/// Every alert text FieldQuo sent — or decided not to send — to a company's
+/// OWN staff about a client event (lib/notifications/staffTexts.js). FieldQuo
+/// pays for these, so each one is recorded: the per-person daily cap is a
+/// count over this table, and "why didn't I get a text?" is answerable from
+/// `status`/`reason` rather than from a guess.
+///
+/// No foreign keys on purpose: it is a ledger of what left the building, and
+/// a person removed from the company tomorrow does not un-send yesterday's
+/// text. The company's SmsDelivery row (purpose "staff_alert") carries the
+/// carrier's receipt for the same send.
+model StaffAlertText {
+  id        String   @id @default(cuid())
+  companyId String
+  memberId  String
+  /// The cap is per PERSON across companies — one phone, one daily limit.
+  userId    String
+  event     String
+  entityId  String?
+  toE164    String?
+  /// sent | refused
+  status    String
+  /// Why a text was refused: no_phone | rate_limited | opted_out |
+  /// no_sms_number | trial_phone_gate | send_failed | simulated.
+  reason    String?
+  sid       String?
+  segments  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

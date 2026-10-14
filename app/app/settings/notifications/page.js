@@ -14,9 +14,20 @@ import { Loader2, AlertCircle, Bell, Check } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BrowserNotifications from "@/app/components/notifications/BrowserNotifications";
 import EmailPreferencesPanel from "@/app/components/email/EmailPreferencesPanel";
+import ClientAlertsPanel from "./ClientAlertsPanel";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 
 export default function NotificationsPage() {
   const { t, language } = useTranslation();
+  // Owners and admins (and a read-only support session) see the company-wide
+  // cards; everybody sees their own. The same "owner-admin" rule the
+  // notification-rules and appointment-reminders routes enforce.
+  const { canSee, canChange } = useSettingsAccess();
+  const companyCards = canSee("owner-admin");
+  // A support session reads everything and changes nothing (non-negotiable
+  // #2): the personal panel is drawn disabled rather than as boxes whose
+  // saves the route refuses.
+  const readOnly = !canChange("everyone");
   const [rules, setRules] = useState([]);
   const [threshold, setThreshold] = useState("");
   const [active, setActive] = useState(true);
@@ -183,6 +194,18 @@ export default function NotificationsPage() {
         </div>
       )}
 
+      {/* A client opened or approved a quote, signed a change order, sent a
+          request — each person's own bell / email / text, and the company
+          switch for owners and admins (2026-10-14). See the component. */}
+      <ClientAlertsPanel readOnly={readOnly} />
+
+      {/* The three company-wide cards write rules only owners and admins may
+          change (the routes refuse everyone else). Since the screen opened
+          to every member for their OWN alerts (2026-10-14), they are drawn
+          only for the people whose saves would land — never as live boxes
+          that answer 403. A support session sees them, read-only. */}
+      {companyCards && (
+      <>
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-start gap-3">
           <Bell size={18} className="text-muted-foreground mt-0.5 shrink-0" />
@@ -338,6 +361,8 @@ export default function NotificationsPage() {
           )}
         </p>
       </div>
+      </>
+      )}
 
       {/* Per person, per browser — the company-level rules above decide WHAT
           is announced; this decides whether this person's browser rings for

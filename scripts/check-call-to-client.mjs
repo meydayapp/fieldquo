@@ -242,7 +242,10 @@ export async function load(url, context, nextLoad) {
   if (url === "fq:db")
     return mod("export const db = new Proxy({}, { get: (_t, p) => globalThis.__FQ_DB[p] });");
   if (url === "fq:next")
-    return mod("export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200, __json: true }) };");
+    // after() since 2026-10-14: the public quote route hands its approval
+    // alert to after() (lib/notifications/staffTexts.js). Nothing here
+    // approves a quote, so it is never called; it only has to exist.
+    return mod("export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200, __json: true }) }; export function after() {}");
   if (url === "fq:member")
     return mod("export const memberOrRefusal = async () => globalThis.__FQ_MEMBER ? { member: globalThis.__FQ_MEMBER } : { response: { body: { error: 'Unauthorized' }, status: 401 } };");
   if (url === "fq:gate")

@@ -119,6 +119,96 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Client activity alerts: opened, approved, change order, request — bell, email, text (14 October 2026)
+
+Owner, 2026-10-14: "is there a way for a company to be notified when the
+client has opened the quote?", then "yes and as a text message as optional in
+the notifications (send me a text when the client has opened / approved a
+quote change order request".
+
+### What shipped (not deployed — worktree branch, unpushed)
+
+- **Four client events, one table** — `lib/notifications/clientAlerts.js`
+  (`CLIENT_ALERTS`): `quote.viewed` (new feed type), `quote.accepted`
+  (existing), `changeOrder.approved` (new feed type), `client_ticket.opened`
+  (existing). Every channel default lives there: bell + push ON; text OFF;
+  email OFF for "opened" and change orders, ON for owners/admins on an
+  approval (the email that already went), ON for whoever holds a request.
+- **Opened** — `POST /api/public/quotes/[token]/viewed` alerts only after
+  `viewVerdict` recorded the open (staff preview, support session, bot,
+  prefetch never count), on the first open and then at most once a day
+  (`Quote.viewAlertedAt`, claimed by a conditional UPDATE so two tabs alert
+  once — `lib/quotes/viewAlert.js`), "opened quote Q-12 (3rd time)".
+  People-scoped: owners/admins plus whoever wrote or is assigned the quote.
+- **Approved** — the public approval route hands `quote.accepted` to
+  `after()` (it was an un-awaited promise); the existing approval team email
+  now follows each person's choice (`emailMembersFor`) and the company switch.
+  Declines are unchanged.
+- **Change order approved** — `POST /api/public/change-orders/[token]` →
+  `lib/jobs/changeOrderAlert.js` after the commit. Money type (amount only to
+  showPricing; supervisors excluded like the other money types); people =
+  who raised it + the quote's writer/assignee + owners/admins.
+- **Request** — `openTicket` now awaits its notice so a text is not cut off;
+  `emailOffice` honours the holder's email switch and the company switch for
+  a NEW request (a client's reply still always emails).
+- **Texts** — `lib/notifications/staffTexts.js`: FieldQuo's system number on
+  the company's behalf (demo + trial phone gate apply), never the brought
+  business number, nothing debited from the company's credit; to
+  `Member.phone`; `maySms` (STOP) first; 20 per person per rolling 24 h;
+  every send or refusal is a `StaffAlertText` row (sent / no_phone /
+  rate_limited / opted_out / no_sms_number / trial_phone_gate / send_failed /
+  simulated). Copy in nine languages (`lib/i18n/clientAlertCopy.js`), amount
+  formatted per reader and only for showPricing. A STOP/START from a staff
+  phone to the shared line is now recorded for that member's company
+  (`app/api/sms/inbound`, `companiesHoldingStaffPhone`).
+- **New emails** for "opened" and "change order approved" on the team-notice
+  layout (`quoteViewedNotice`, `changeOrderApprovedNotice`), nine languages.
+- **Settings › Notifications** (`ClientAlertsPanel`): each person's bell /
+  email / text per event, their own mobile number, "turned off for the
+  company" / "not available with your access" instead of dead boxes; owners
+  and admins get one company switch per event (NotificationRule types
+  `quote_viewed`, `quote_accepted`, `change_order_approved`,
+  `client_request`; no row = ON). The screen now opens for every member
+  (`settingsAccess` "everyone"); the three company-wide cards are drawn for
+  owners/admins only. Help article updated (en/fr/es).
+
+### Decisions for the owner
+
+- **Self-quote leads and booking requests are NOT "a client sent a request"**
+  in this build — only a client-portal ticket is. Both already ring the bell
+  as `lead.created`; say if they should also be textable.
+- **The approval bell keeps its old audience** (every member with quotes
+  access and prices), while "opened" and "change order approved" go to the
+  quote's own people + owners/admins. Narrow approvals the same way?
+- **Managers** (supervisor role) get no change-order or quote-approval alert —
+  the catalog's standing conservative answer for money types; one line each.
+- **Phone entered, not verified.** A wrong number texts a stranger up to 20
+  times a day until corrected; verification would reuse the trial
+  phone-verify flow.
+- **FieldQuo pays.** ≈2¢ a segment at FieldQuo's floor (Twilio US cost
+  ≈0.83¢ + carrier fees); see the check's printed segment counts.
+
+### Schema (additive — NOT applied; apply BEFORE this deploys)
+
+`ALTER TABLE "Quote" ADD COLUMN "viewAlertedAt" TIMESTAMP(3)`;
+`CREATE TABLE "MemberAlertPreference"` (+ unique (memberId, event), index
+(companyId, event), FK memberId → Member ON DELETE CASCADE);
+`CREATE TABLE "StaffAlertText"` (+ indexes (userId, createdAt),
+(companyId, createdAt)). Full SQL in the commit message. Verified absent on
+the Neon database (read-only transaction, 2026-10-14).
+
+### Checks
+
+`npm run check:client-alerts` (in check:all) executes the viewed, approval,
+change-order and inbound-SMS routes, `openTicket`/`emailOffice` and the
+settings route against an in-memory database of two companies with Twilio,
+Resend and push recorded — first open, staff/prefetch/bot/support refused,
+24 h window and count, simultaneous opens, opt-in / number / STOP / cap /
+carrier refusal / trial gate / demo, no amount without prices, company B
+never alerted, company and personal switches, nine languages — and catches
+18 mutations of the shipped code.
+---
+
 ## Government and public tenders (13 October 2026)
 
 Owner, 2026-10-13: applying for government tenders (PSPC on SAP Ariba,

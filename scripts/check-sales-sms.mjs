@@ -577,6 +577,12 @@ section("3. Every tenant-scoped SMS path passes companyId");
     // credit (urgent_alert_text), and maySms() is asked first so a STOP is
     // honoured. textFrom() is the one function that sends.
     ["lib/aiEmployee/urgentAlerts.js", "textFrom"],
+    // A client opened / approved something — the text a company's own staff
+    // asked for (2026-10-14, lib/notifications/staffTexts.js): FieldQuo's
+    // system number ON BEHALF OF the company, so it passes companyId (the
+    // demo guard and the trial phone gate fire), maySms() is asked first so a
+    // STOP is honoured, and every send is a StaffAlertText row.
+    ["lib/notifications/staffTexts.js", "sendStaffTexts"],
   ];
 
   for (const [file, fn] of SITES) {
