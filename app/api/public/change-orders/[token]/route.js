@@ -21,8 +21,9 @@
 // can move it.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
+import { alertChangeOrderApproved } from "@/lib/jobs/changeOrderAlert";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { recordActivity } from "@/lib/activity/log";
 import { changeOrderSummary } from "@/lib/jobs/changeOrderValue";
@@ -292,6 +293,16 @@ export async function POST(request, { params }) {
       summary: `Change order ${label} approved and signed by ${signature.name} (${Number(co.priceDelta) >= 0 ? "+" : ""}${Number(co.priceDelta).toFixed(2)})`,
       metadata: { changeOrderId: co.id, priceDelta: Number(co.priceDelta), signedBy: signature.name },
     },
+  );
+
+  // The team's alert (2026-10-14): bell + push, and the email or text each
+  // person chose — lib/jobs/changeOrderAlert.js. After the response, so the
+  // client's confirmation never waits on a carrier, and never a reason this
+  // approval looks like it failed.
+  after(() =>
+    alertChangeOrderApproved(db, { changeOrderId: co.id, label, signedBy: signature.name }).catch((err) =>
+      console.error("[change order] alert failed:", err?.message),
+    ),
   );
 
   const fresh = await load(token);

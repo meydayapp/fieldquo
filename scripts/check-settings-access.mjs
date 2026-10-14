@@ -285,6 +285,10 @@ const CREW_SETTINGS = [
   // member may connect their own, and a crew member's client email is still
   // the company's record. Company-level controls on it are owner/admin-only.
   "app.settings.workEmail",
+  // Their OWN client-activity alerts, browser notifications and the emails
+  // FieldQuo sends them (2026-10-14) — the screen's company-wide cards are
+  // drawn for owners and admins only (app/app/settings/notifications/page.js).
+  "app.settings.notifications",
 ];
 
 const crewRows = rowsFor("worker");
@@ -295,7 +299,7 @@ for (const key of CREW_SETTINGS) {
   ok(crewRows.includes(key), `Crew keeps ${key}`);
 }
 ok(crewRows.length === CREW_SETTINGS.length,
-  "…and nothing else. Crew's whole settings surface is those five rows",
+  "…and nothing else. Crew's whole settings surface is those six rows",
   crewRows.filter((k) => !CREW_SETTINGS.includes(k)).join(", ") ||
     `${crewRows.length} rows`);
 

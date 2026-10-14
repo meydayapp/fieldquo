@@ -255,6 +255,7 @@ const CLASSIFIED = {
   "lib/notifications/invoicePaymentNotice.js": "not_client — tells the company's team",
   "lib/photoComments/notify.js": "not_client — staff mention",
   "lib/aiEmployee/urgentAlerts.js": "not_client — the company's on-call person",
+  "lib/notifications/staffTexts.js": "not_client — the company's own staff, told a client opened or approved something",
   "app/api/crew/inbound/route.js": "not_client — crew line",
   "app/api/crew/line/route.js": "not_client — crew line test",
   "lib/crew/lineRent.js": "not_client — the company",

@@ -42,6 +42,8 @@ import {
   kitchenRequestNotice,
   kitchenDesignSavedNotice,
   photoMentionNotice,
+  quoteViewedNotice,
+  changeOrderApprovedNotice,
 } from "@/lib/notifications/teamEmails";
 import { TEAM_NOTICE_PAIRS, teamNoticeFrom, groupReaders, COMPANY_INBOX, readerSeesMoney } from "@/lib/email/teamNotice";
 import { TEAM_NOTICE_LANGUAGES, teamNoticeCopy } from "@/lib/i18n/teamNoticeCopy";
@@ -245,6 +247,45 @@ const CASES = [
     }),
     facts: ["job", "client", "mentionedBy"],
   },
+  // ── Client activity alerts (2026-10-14) — lib/notifications/staffTexts.js ──
+  // The two emails that are NEW with the alerts (the older two — quote
+  // approved, client ticket — are the cases above and below). No "old
+  // English" to keep: these sentences are the first ones.
+  {
+    name: "client opened a quote (first)",
+    cta: "quote",
+    money: false,
+    url: `${ORIGIN}/app/quotes/q_7`,
+    build: (language, reader) =>
+      quoteViewedNotice({ language, company: COMPANY, quote: { id: "q_7", quoteNumber: "Q-2026-0022" }, clientName: CLIENT, count: 1, openedAt: AT, reader, origin: ORIGIN }),
+    oldEn: () => ({ subject: `${CLIENT} opened quote Q-2026-0022`, sentences: [`${CLIENT} just opened quote Q-2026-0022.`] }),
+    facts: ["client", "quote", "timesOpened", "opened"],
+  },
+  {
+    name: "client opened a quote (again)",
+    cta: "quote",
+    money: false,
+    url: `${ORIGIN}/app/quotes/q_7`,
+    build: (language, reader) =>
+      quoteViewedNotice({ language, company: COMPANY, quote: { id: "q_7", quoteNumber: "Q-2026-0022" }, clientName: CLIENT, count: 3, openedAt: AT, reader, origin: ORIGIN }),
+    oldEn: () => ({ subject: `${CLIENT} opened quote Q-2026-0022 (3rd time)`, sentences: [`${CLIENT} opened quote Q-2026-0022 again (3rd time).`] }),
+    facts: ["client", "quote", "timesOpened", "opened"],
+  },
+  {
+    // Not `money: true` — the letter is about a signature, not an amount, so
+    // a reader without money sight still gets it, with the amount row gone
+    // (section 3 proves the digits are nowhere); the readers who may see
+    // money read it (amountForMoneyReaders).
+    name: "change order approved",
+    cta: "job",
+    money: false,
+    amountForMoneyReaders: true,
+    url: `${ORIGIN}/app/jobs/job_5`,
+    build: (language, reader) =>
+      changeOrderApprovedNotice({ language, company: COMPANY, job: { id: "job_5" }, clientName: CLIENT, label: "CO-2", amount: A.approved, signedBy: "Marie T.", decidedAt: AT, reader, origin: ORIGIN }),
+    oldEn: () => ({ subject: `${CLIENT} approved change order CO-2`, sentences: [`${CLIENT} approved and signed change order CO-2.`] }),
+    facts: ["client", "changeOrder", "signedBy", "decidedAt"],
+  },
   {
     name: "client ticket",
     money: false,
@@ -342,7 +383,7 @@ for (const c of CASES) {
     for (const n of Object.values(A)) ok(!mail.html.includes(html(money(n, language))), `${label}: ${money(n, language)} is not printed`);
   }
   // …and the readers who may see money do see it.
-  if (c.money || c.name.startsWith("quote approved")) {
+  if (c.money || c.name.startsWith("quote approved") || c.amountForMoneyReaders) {
     for (const reader of [OWNER, ADMIN, WITH_MONEY]) {
       const mail = c.build("en", reader);
       ok(mail && AMOUNT_DIGITS.test(digits(mail.text)), `${c.name}: ${reader.role}${reader.permissions?.showPricing ? " with showPricing" : ""} reads the amount`);
@@ -446,6 +487,11 @@ console.log("5. Senders");
   const sent = [];
   const mk = (holder) => ({
     company: { findUnique: async () => ({ name: COMPANY.name, defaultLanguage: "es", timezone: "America/Toronto" }) },
+    // A new request is a client alert since 2026-10-14: the company switch
+    // and the holder's own email choice are read. Never configured = on;
+    // scripts/check-client-alerts.mjs executes the "off" halves.
+    notificationRule: { findFirst: async () => null },
+    memberAlertPreference: { findMany: async () => [] },
     member: {
       findFirst: async ({ where }) => (where.userId ? holder : { role: "owner", permissions: null, user: { email: "owner@x.test", language: null } }),
     },

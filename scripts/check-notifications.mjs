@@ -77,6 +77,8 @@ const ROWS = {
   notificationDelivery: [],
   user: [],
   company: [],
+  notificationRule: [],
+  memberAlertPreference: [],
 };
 
 const RELATIONS = new Set(["event", "member", "company", "client", "deliveries"]);
@@ -232,6 +234,11 @@ globalThis.__FQ_DB = new Proxy(
     notificationDelivery: stubModel("notificationDelivery"),
     user: stubModel("user"),
     company: stubModel("company"),
+    // The client-alert layer (2026-10-14) reads the company switch and each
+    // recipient's channel choice for quote.accepted / client_ticket.opened.
+    // Empty here = never configured = the defaults: bell on, no texts.
+    notificationRule: stubModel("notificationRule"),
+    memberAlertPreference: stubModel("memberAlertPreference"),
   },
   {
     get(target, prop) {
@@ -328,7 +335,7 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 45, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 47, NOTIFICATION_TYPE_KEYS);
 ok(
   "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's four, the three supply types, the two client-ticket types, the new-services notice, the team-chat mention, the conversation follow-up, \"Did this visit happen?\", and the four tender deadlines",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
@@ -342,6 +349,11 @@ ok(
         "leave.requested",
         "payment.disputed",
         "quote.accepted",
+        // The client opened the quote, and signed a change order
+        // (2026-10-14) — people-scoped client alerts; scripts/check-client-
+        // alerts.mjs executes the routes, the channels and the texts.
+        "quote.viewed",
+        "changeOrder.approved",
         "quote.needsReview",
         // Manny Conto's quote bounced off two spaces in his address and
         // nothing in the product said so. See the catalog entry.
@@ -510,6 +522,12 @@ const EXPECTED = {
   // so they qualify — which is the point of moving off the hardcoded owner+admin
   // pair. Crew is `quotes: none` AND showPricing:false, excluded twice over.
   "quote.accepted": ["m_owner", "m_admin", "m_estimator"],
+  // People-scoped client alerts (2026-10-14), sent here with NO people: the
+  // resolver fails closed to the unrestricted roles. With the quote's own
+  // people named, scripts/check-client-alerts.mjs shows the estimator and
+  // the manager who wrote it are added — and nobody else.
+  "quote.viewed": ["m_owner", "m_admin"],
+  "changeOrder.approved": ["m_owner", "m_admin"],
   // Money, invoices ladder. Estimator is invoices:view_only with showPricing.
   "invoice.paid": ["m_owner", "m_admin", "m_estimator"],
   // Operational. Crew is requests:none; Legacy fails closed on the grid.
@@ -632,7 +650,9 @@ section("4. A money event never reaches a member who may not see money");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MONEY_TYPES = NOTIFICATION_TYPE_KEYS.filter((t) => NOTIFICATION_TYPES[t].money);
-ok("three of the seven carry money", MONEY_TYPES.length === 3, MONEY_TYPES);
+// Four since 2026-10-14: a change order the client signed carries its amount,
+// on the same terms as an approved quote.
+ok("four carry money", MONEY_TYPES.length === 4, MONEY_TYPES);
 // The undelivered-quote row says a document did not land, never what it was
 // worth — so it reaches people who may not see prices, on purpose.
 ok("an undelivered quote carries no money", NOTIFICATION_TYPES["quote.undelivered"].money === false);
@@ -1165,18 +1185,32 @@ section("16. Every catalog type has an English AND a French sentence");
 
 {
   const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  // A sentence is a "{placeholder}" string, or — for quote.viewed, whose
+  // "(2nd time)" exists only past the first open — a function of the params.
+  // A function is asked which params it READS, by calling it with a
+  // recording proxy whose every value is "2": numeric enough to take the
+  // richest branch, so a param read only on a re-open still counts.
+  const sentence = (v) => typeof v === "string" || typeof v === "function";
+  const placeholdersOf = (template) =>
+    typeof template === "function"
+      ? (() => {
+          const seen = new Set();
+          template(new Proxy({}, { get: (_t, k) => (typeof k === "string" && seen.add(k), "2") }));
+          return [...seen];
+        })()
+      : [...String(template || "").matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((m) => m[1]);
   for (const type of NOTIFICATION_TYPE_KEYS) {
     const key = `app.notif.type.${type}`;
-    ok(`${key} has English`, typeof APP_MESSAGES.en[key] === "string");
-    ok(`${key} has French`, typeof APP_MESSAGES.fr[key] === "string");
+    ok(`${key} has English`, sentence(APP_MESSAGES.en[key]));
+    ok(`${key} has French`, sentence(APP_MESSAGES.fr[key]));
     // Money never appears in a template either — the figure is rendered from
     // the `amount` the server decided to send, on its own line.
-    ok(`${key} interpolates no money placeholder`, !/\{(amount|total|price|value)\}/.test(APP_MESSAGES.en[key]));
+    ok(`${key} interpolates no money placeholder`, !placeholdersOf(APP_MESSAGES.en[key]).some((p) => /^(amount|total|price|value)$/.test(p)));
   }
   // And the placeholders a template asks for are ones the catalog declares.
   for (const type of NOTIFICATION_TYPE_KEYS) {
     const template = APP_MESSAGES.en[`app.notif.type.${type}`] || "";
-    const wanted = [...template.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((m) => m[1]);
+    const wanted = placeholdersOf(template);
     const declared = NOTIFICATION_TYPES[type].params;
     ok(
       `"${type}" only interpolates declared params`,
@@ -1193,8 +1227,8 @@ section("16. Every catalog type has an English AND a French sentence");
   // fault — written by two handlers, read by none — and it sat in the table
   // this feature extends, so the feed does not get to reintroduce it.
   for (const type of NOTIFICATION_TYPE_KEYS) {
-    const template = APP_MESSAGES.en[`app.notif.type.${type}`] || "";
-    const interpolated = [...template.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((m) => m[1]);
+    // A function message is read by placeholdersOf above.
+    const interpolated = placeholdersOf(APP_MESSAGES.en[`app.notif.type.${type}`] || "");
     const unrendered = NOTIFICATION_TYPES[type].params.filter(
       (k) => !interpolated.includes(k) && !NOTE_PARAMS.includes(k),
     );

@@ -273,10 +273,10 @@ export const ARTICLES = {
   "settings-notifications": {
     title: "Notifications",
     summary:
-      "Quand FieldQuo envoie un courriel aux propriétaires pour une grande soumission ou une facture payée, combien de temps à l'avance les clients reçoivent un texto de rappel, et les notifications du navigateur pour vous.",
-    updated: "2026-09-12",
+      "Comment vous êtes averti quand un client ouvre ou approuve une soumission, signe un avenant ou envoie une demande; quand FieldQuo envoie un courriel aux propriétaires pour une grande soumission ou une facture payée; combien de temps à l'avance les clients reçoivent un texto de rappel; et les notifications du navigateur pour vous.",
+    updated: "2026-10-14",
     intro: [
-      "**Paramètres → Notifications** se compose de quatre cartes. Deux décident quand FieldQuo envoie un courriel à toute personne ayant un rôle de propriétaire ou d'administrateur — une grande soumission créée, une facture payée en ligne. Une décide si les clients reçoivent un texto de rappel avant une visite et combien de temps à l'avance. La dernière est personnelle : si ce navigateur, sur cet appareil, vous montre une notification système quand quelque chose se passe dans votre compte.",
+      "**Paramètres → Notifications** commence par **Alertes sur l'activité des clients** — comment VOUS êtes averti qu'un client a ouvert ou approuvé une soumission, signé un avenant ou envoyé une demande, par la cloche, un courriel ou un texto. Puis, pour les propriétaires et administrateurs, trois cartes d'entreprise : deux décident quand FieldQuo envoie un courriel à toute personne ayant un rôle de propriétaire ou d'administrateur — une grande soumission créée, une facture payée en ligne — et une décide si les clients reçoivent un texto de rappel avant une visite et combien de temps à l'avance. La carte du navigateur est personnelle : si ce navigateur, sur cet appareil, vous montre une notification système quand quelque chose se passe dans votre compte.",
     ],
     sections: [
       {
@@ -284,6 +284,21 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Seules les alertes qui partent réellement sont listées. Il y a un seuil à taper (le montant de la grande soumission), un interrupteur activé par défaut (facture payée), un choix de préavis (rappels), et un interrupteur par navigateur. Une carte de pied de page, **Courriels destinés aux clients**, vous rappelle que les courriels de soumission, de reçu et de relance se configurent ailleurs : leur contenu vit dans [[settings-email-templates|Modèles de courriel]], le moment de leur envoi dans [[settings-follow-ups|Relances]]." },
+        ],
+      },
+      {
+        id: "client-alerts",
+        heading: "Alertes sur l'activité des clients",
+        blocks: [
+          { p: "**Sachez dès qu'un client ouvre une soumission, l'approuve, signe un avenant ou envoie une demande.** Chaque personne choisit pour elle-même, événement par événement : **Appli et notifications** (la cloche et, si elle est activée, une notification du navigateur), **Courriel** et **Texto**. La cloche est activée pour tout le monde jusqu'à ce qu'on la désactive; les textos sont désactivés jusqu'à ce qu'une personne les active; le courriel est désactivé pour « ouvre une soumission », activé pour les propriétaires et administrateurs pour « approuve une soumission » (le courriel qui partait déjà) et activé pour la personne responsable d'une demande." },
+          { bullets: [
+            "**Un client ouvre une soumission** — la première fois qu'il l'ouvre, puis au plus une fois par jour s'il y revient (« a ouvert la soumission Q-2026-0022 (2e fois) »). Ouvrir votre propre lien en étant connecté, un aperçu de lien dans une messagerie ou un préchargement du navigateur ne comptent jamais.",
+            "**Un client approuve une soumission** et **Un client approuve un avenant** — le montant n'est montré qu'aux personnes qui peuvent voir les prix; les autres ne reçoivent pas ces alertes du tout.",
+            "**Un client envoie une demande** — une nouvelle demande depuis le portail client.",
+            "Les propriétaires et administrateurs sont avertis pour toutes les soumissions; les autres, pour les soumissions et travaux qui sont les leurs (rédigés par eux ou qui leur sont assignés).",
+            "**Votre numéro de cellulaire pour les textos** est votre propre numéro dans la liste de l'équipe; les textos viennent du numéro de FieldQuo, ne vous coûtent rien et s'arrêtent à 20 par jour. Répondez STOP à l'un d'eux pour arrêter, START pour reprendre.",
+            "**Pour toute l'entreprise** (propriétaires et administrateurs) : désactivez un événement et personne dans l'entreprise n'est averti — ni cloche, ni notification, ni courriel, ni texto.",
+          ] },
         ],
       },
       {
@@ -338,14 +353,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Les propriétaires et les administrateurs seulement. Les cartes qui valent pour toute l'entreprise écrivent des règles que les routes refusent à tout autre, et la carte du navigateur est affichée sur cet écran aux mêmes personnes; la ligne est cachée à tous les autres niveaux." },
+          { p: "Tous les membres. **Alertes sur l'activité des clients**, la carte du navigateur et la carte des courriels de FieldQuo appartiennent à chaque personne. Les trois cartes d'entreprise — et les interrupteurs d'entreprise sous les alertes clients — ne sont affichés qu'aux propriétaires et administrateurs, parce que les routes refusent toute autre personne." },
         ],
       },
     ],
     faq: [
       { q: "Qui reçoit les courriels de grande soumission et de facture payée?", a: "Chaque membre ayant un rôle de propriétaire ou d'administrateur et une adresse courriel. Il n'y a pas de désabonnement par personne sur cet écran." },
       { q: "J'ai rédigé une soumission de 15 000 $ et rien n'est arrivé. Pourquoi?", a: "La vérification des grandes soumissions s'exécute une fois par jour. Si le seuil est fixé et la case cochée, le courriel arrive à la prochaine exécution." },
-      { q: "Puis-je recevoir un texto plutôt qu'un courriel pour ces alertes?", a: "Non. Les alertes qui vous sont destinées sont des courriels et, si vous l'activez, une notification du navigateur. Les textos sont pour les clients." },
+      { q: "Puis-je recevoir un texto plutôt qu'un courriel pour ces alertes?", a: "Pour l'activité des clients — une soumission ouverte ou approuvée, un avenant approuvé, une nouvelle demande — oui : cochez **Texto** sous **Alertes sur l'activité des clients** et ajoutez votre numéro de cellulaire. Les alertes de grande soumission et de facture payée sont par courriel seulement." },
     ],
   },
 

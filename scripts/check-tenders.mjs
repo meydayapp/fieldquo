@@ -296,6 +296,14 @@ ok(seen.has("lib/tenders/reminders.js") && seen.has("app/api/tenders/[id]/job/ro
 ok(senders.length === 0, `no module reachable from the tender code sends mail or SMS (${seen.size} modules walked)`, senders);
 ok(!/contractingAuthorityEmail|technicalAuthorityEmail/.test(read("lib/tenders/reminders.js").replace(/\/\/.*$/gm, "")), "the reminder module never reads a buyer email");
 ok(read("lib/notifications/catalog.js").includes("the feed sends NO email and NO SMS"), "the notification feed still states it sends no email or SMS");
+// Since 2026-10-14 the feed DOES text and email for the four client-activity
+// types (lib/notifications/clientAlerts.js) — so the statement above is only
+// true for the tender types while none of them is one of those.
+{
+  const alerts = read("lib/notifications/clientAlerts.js");
+  const table = alerts.slice(alerts.indexOf("export const CLIENT_ALERTS"), alerts.indexOf("export const CLIENT_ALERT_EVENTS"));
+  ok(table.length > 0 && !/"tender\./.test(table), "no tender type is a client alert (the only types the feed texts or emails)");
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. Status transitions");

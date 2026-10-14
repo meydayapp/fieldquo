@@ -273,10 +273,10 @@ export const ARTICLES = {
   "settings-notifications": {
     title: "Notifications",
     summary:
-      "When FieldQuo emails the owners about a large quote or a paid invoice, how far ahead clients are texted a reminder, and browser notifications for you.",
-    updated: "2026-09-12",
+      "How you hear when a client opens or approves a quote, signs a change order or sends a request; when FieldQuo emails the owners about a large quote or a paid invoice; how far ahead clients are texted a reminder; and browser notifications for you.",
+    updated: "2026-10-14",
     intro: [
-      "**Settings → Notifications** is four cards. Two decide when FieldQuo emails everyone with an owner or administrator role — a large quote created, an invoice paid online. One decides whether clients are texted a reminder before a visit and how far ahead. The last is personal: whether this browser, on this device, shows you a system notification when something happens in your account.",
+      "**Settings → Notifications** opens with **Client activity alerts** — how YOU hear that a client opened or approved a quote, signed a change order or sent a request, by bell, email or text. Then, for owners and administrators, three company cards: two decide when FieldQuo emails everyone with an owner or administrator role — a large quote created, an invoice paid online — and one decides whether clients are texted a reminder before a visit and how far ahead. The browser card is personal: whether this browser, on this device, shows you a system notification when something happens in your account.",
     ],
     sections: [
       {
@@ -284,6 +284,21 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Only alerts that actually fire are listed. There is one threshold to type (the large-quote amount), one switch that is on by default (invoice paid), one choice of lead time (reminders), and one per-browser switch. A footer card, **Client-facing emails**, reminds you that quote, receipt and follow-up emails are configured elsewhere: what they say lives in [[settings-email-templates|Email Templates]], when they go out in [[settings-follow-ups|Follow-ups]]." },
+        ],
+      },
+      {
+        id: "client-alerts",
+        heading: "Client activity alerts",
+        blocks: [
+          { p: "**Know the moment a client opens a quote, approves one, signs a change order or sends a request.** Each person chooses for themselves, per event: **App & push** (the bell and, where it is on, a browser notification), **Email**, and **Text me**. The bell is on for everyone until they switch it off; texts are off until a person switches them on; email is off for “opens a quote”, on for owners and admins for “approves a quote” (the email that always went), and on for whoever holds a request." },
+          { bullets: [
+            "**A client opens a quote** — the first time they open it, then at most once a day if they come back to it (“opened quote Q-2026-0022 (2nd time)”). Opening your own link while signed in, a link preview in a chat app and a browser prefetch never count.",
+            "**A client approves a quote** and **A client approves a change order** — the amount is shown only to people who may see prices; anyone else does not receive these at all.",
+            "**A client sends a request** — a new request from the client portal.",
+            "Owners and admins hear about every quote; anyone else hears about the quotes and jobs that are theirs (written by them or assigned to them).",
+            "**Your mobile number for texts** is your own number on the team list; texts come from FieldQuo's number, cost you nothing, and stop at 20 a day. Reply STOP to any of them to stop, START to resume.",
+            "**For the whole company** (owners and admins): switch an event off and nobody in the company is alerted about it — no bell, push, email or text.",
+          ] },
         ],
       },
       {
@@ -338,14 +353,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "Owners and administrators only. The company-wide cards write rules the routes refuse to anyone else, and the browser card is shown on this screen for the same people; the row is hidden from every other level." },
+          { p: "Every member. **Client activity alerts**, the browser card and the emails-from-FieldQuo card are each person's own. The three company-wide cards — and the company switches under the client alerts — are shown to owners and administrators only, because the routes refuse anyone else." },
         ],
       },
     ],
     faq: [
       { q: "Who receives the large-quote and invoice-paid emails?", a: "Every member with an owner or administrator role who has an email address. There is no per-person opt-out on this screen." },
       { q: "I wrote a $15,000 quote and nothing arrived. Why?", a: "The large-quote check runs once a day. If the threshold is set and the box ticked, the email arrives on the next run." },
-      { q: "Can I get a text instead of an email for these alerts?", a: "No. Alerts to you are email and, if you turn it on, a browser notification. Texts are for clients." },
+      { q: "Can I get a text instead of an email for these alerts?", a: "For client activity — a quote opened or approved, a change order approved, a new request — yes: tick **Text me** under **Client activity alerts** and add your mobile number. The large-quote and invoice-paid alerts are email only." },
     ],
   },
 

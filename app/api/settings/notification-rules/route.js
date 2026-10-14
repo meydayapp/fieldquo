@@ -30,6 +30,35 @@ export const RULE_TYPES = {
     needsThreshold: false,
     description: "Email owners and admins when a client pays an invoice.",
   },
+  // ── Client activity alerts (2026-10-14) ───────────────────────────────
+  //
+  // The COMPANY switch for each of the four client events in
+  // lib/notifications/clientAlerts.js (CLIENT_ALERTS[…].rule). Default ON —
+  // no row, never configured — and read by notifyEvent (via
+  // lib/notifications/alertPlan.js) and by the two emails that predate it.
+  // OFF = nobody in the company hears about that event on any channel.
+  // Each person's own channels are a different door:
+  // /api/settings/alert-preferences.
+  quote_viewed: {
+    label: "Client opened a quote",
+    needsThreshold: false,
+    description: "Alert the team when a client opens a quote.",
+  },
+  quote_accepted: {
+    label: "Client approved a quote",
+    needsThreshold: false,
+    description: "Alert the team when a client approves a quote.",
+  },
+  change_order_approved: {
+    label: "Client approved a change order",
+    needsThreshold: false,
+    description: "Alert the team when a client approves a change order.",
+  },
+  client_request: {
+    label: "Client sent a request",
+    needsThreshold: false,
+    description: "Alert the team when a client sends a request from their portal.",
+  },
 };
 
 // Coarse role check on purpose. The granular grid (PERMISSION_CATEGORIES) has

@@ -273,10 +273,10 @@ export const ARTICLES = {
   "settings-notifications": {
     title: "Notificaciones",
     summary:
-      "Cuándo FieldQuo envía un correo a los propietarios por un presupuesto grande o una factura pagada, con cuánta antelación se envía un recordatorio por texto a los clientes, y las notificaciones del navegador para usted.",
-    updated: "2026-09-12",
+      "Cómo se entera cuando un cliente abre o aprueba un presupuesto, firma una orden de cambio o envía una solicitud; cuándo FieldQuo envía un correo a los propietarios por un presupuesto grande o una factura pagada; con cuánta antelación se envía un recordatorio por texto a los clientes; y las notificaciones del navegador para usted.",
+    updated: "2026-10-14",
     intro: [
-      "**Configuración → Notificaciones** son cuatro tarjetas. Dos deciden cuándo FieldQuo envía un correo a todos con rol de propietario o administrador — un presupuesto grande creado, una factura pagada en línea. Una decide si a los clientes se les envía un recordatorio por texto antes de una visita y con cuánta antelación. La última es personal: si este navegador, en este dispositivo, le muestra una notificación del sistema cuando ocurre algo en su cuenta.",
+      "**Configuración → Notificaciones** empieza con **Alertas de actividad de clientes**: cómo se entera USTED de que un cliente abrió o aprobó un presupuesto, firmó una orden de cambio o envió una solicitud, por campana, correo o mensaje de texto. Después, para propietarios y administradores, tres tarjetas de la empresa: dos deciden cuándo FieldQuo envía un correo a todos con rol de propietario o administrador — un presupuesto grande creado, una factura pagada en línea — y una decide si a los clientes se les envía un recordatorio por texto antes de una visita y con cuánta antelación. La tarjeta del navegador es personal: si este navegador, en este dispositivo, le muestra una notificación del sistema cuando ocurre algo en su cuenta.",
     ],
     sections: [
       {
@@ -284,6 +284,21 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Solo se listan las alertas que realmente se disparan. Hay un umbral que escribir (el monto del presupuesto grande), un interruptor activado de forma predeterminada (factura pagada), una elección de antelación (recordatorios) y un interruptor por navegador. Una tarjeta al pie, **Correos para clientes**, le recuerda que los correos de presupuesto, recibo y seguimiento se configuran en otra parte: lo que dicen está en [[settings-email-templates|Plantillas de correo]], cuándo se envían en [[settings-follow-ups|Seguimientos]]." },
+        ],
+      },
+      {
+        id: "client-alerts",
+        heading: "Alertas de actividad de clientes",
+        blocks: [
+          { p: "**Entérese en cuanto un cliente abra un presupuesto, lo apruebe, firme una orden de cambio o envíe una solicitud.** Cada persona elige por sí misma, evento por evento: **App y avisos** (la campana y, si está activada, una notificación del navegador), **Correo** y **Mensaje de texto**. La campana está activada para todos hasta que la desactiven; los mensajes de texto están desactivados hasta que una persona los active; el correo está desactivado para «abre un presupuesto», activado para propietarios y administradores para «aprueba un presupuesto» (el correo que ya se enviaba) y activado para quien tenga asignada una solicitud." },
+          { bullets: [
+            "**Un cliente abre un presupuesto** — la primera vez que lo abre y, después, como máximo una vez al día si vuelve a verlo («abrió el presupuesto Q-2026-0022 (2.ª vez)»). Abrir su propio enlace con la sesión iniciada, la vista previa de un enlace en una app de mensajería o una precarga del navegador nunca cuentan.",
+            "**Un cliente aprueba un presupuesto** y **Un cliente aprueba una orden de cambio** — el importe solo se muestra a quien puede ver precios; los demás no reciben estas alertas.",
+            "**Un cliente envía una solicitud** — una solicitud nueva desde el portal del cliente.",
+            "Los propietarios y administradores reciben avisos de todos los presupuestos; los demás, de los presupuestos y trabajos que son suyos (escritos por ellos o asignados a ellos).",
+            "**Su número de celular para mensajes** es su propio número en la lista del equipo; los mensajes salen del número de FieldQuo, no le cuestan nada y se detienen en 20 al día. Responda STOP a cualquiera para detenerlos y START para reanudarlos.",
+            "**Para toda la empresa** (propietarios y administradores): desactive un evento y nadie en la empresa recibe aviso — ni campana, ni aviso, ni correo, ni mensaje.",
+          ] },
         ],
       },
       {
@@ -338,14 +353,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "Solo propietarios y administradores. Las tarjetas de toda la empresa escriben reglas que las rutas rechazan a cualquier otro, y la tarjeta del navegador se muestra en esta pantalla a las mismas personas; la fila se oculta a todos los demás niveles." },
+          { p: "Todos los miembros. **Alertas de actividad de clientes**, la tarjeta del navegador y la tarjeta de correos de FieldQuo son de cada persona. Las tres tarjetas de la empresa — y los interruptores de empresa bajo las alertas de clientes — solo se muestran a propietarios y administradores, porque las rutas rechazan a cualquier otra persona." },
         ],
       },
     ],
     faq: [
       { q: "¿Quién recibe los correos de presupuesto grande y factura pagada?", a: "Cada miembro con rol de propietario o administrador que tenga una dirección de correo. No hay baja por persona en esta pantalla." },
       { q: "Redacté un presupuesto de $15,000 y no llegó nada. ¿Por qué?", a: "La revisión del presupuesto grande se ejecuta una vez al día. Si el umbral está fijado y la casilla marcada, el correo llega en la próxima ejecución." },
-      { q: "¿Puedo recibir un mensaje de texto en vez de un correo para estas alertas?", a: "No. Las alertas para usted son correo y, si lo activa, una notificación del navegador. Los mensajes de texto son para los clientes." },
+      { q: "¿Puedo recibir un mensaje de texto en vez de un correo para estas alertas?", a: "Para la actividad de clientes — un presupuesto abierto o aprobado, una orden de cambio aprobada, una solicitud nueva — sí: marque **Mensaje de texto** en **Alertas de actividad de clientes** y agregue su número de celular. Las alertas de presupuesto grande y de factura pagada son solo por correo." },
     ],
   },
 
