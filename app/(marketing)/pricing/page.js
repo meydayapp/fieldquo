@@ -12,6 +12,8 @@ import { livePromotions, universalPromotions, withOffers, customOfferTable } fro
 import { marketingMetadata, siteOrigin } from "@/lib/marketing/metadata";
 import { pricingProductLd } from "@/lib/seo/structuredData";
 import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
+import { currencyMeta } from "@/lib/currency";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import { recordError } from "@/lib/platform/errorLog";
 import { oneRowPerTier } from "@/lib/pricing/oneRowPerTier";
 import PricingPlans from "./PricingPlans";
@@ -32,29 +34,62 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION =
   "Simple monthly pricing for field service teams, by headcount. Quotes, invoicing, scheduling and payments in every plan. 14 days free, no contract.";
 
+/** The currency the one-per-URL statements (the <title>, the JSON-LD) speak in. */
+export const CANONICAL_CURRENCY = "CAD";
+
 /**
- * The cheapest monthly-equivalent a visitor is shown on the 1-year tab — the
- * figure the page OPENS on (the tab defaults to the year) — resolved through
- * the same functions as the cards, so the title cannot name a price the
- * cards do not. Null when nothing can be read; the title then carries no
- * figure rather than a remembered one.
+ * The promotions the DEFAULT page shows: only those that apply in every
+ * currency the ladder is sold in, because the unchosen page stands in for
+ * all of them. One function, called by the render AND by generateMetadata.
+ *
+ * ══ The live bug this replaced (2026-10-15) ═══════════════════════════════
+ *
+ * The title used to compute its own promotion set from the COLLAPSED rows
+ * (oneRowPerTier keeps one row per tier, so its currencies are a subset of
+ * what is sold). A sale scoped to that subset passed universalPromotions
+ * there and failed it here, so production's title read "from $59.40/mo"
+ * — a 28%-off year — while every card and the JSON-LD said $82.50 with no
+ * sale. Two places deciding which sale applies is how they came to disagree;
+ * now there is one.
  */
-async function entryYearPerMonth(now) {
-  const { sellable } = partitionPlans(await db.plan.findMany({ orderBy: { priceMonthly: "asc" } }));
-  const plans = oneRowPerTier(sellable).filter((p) => p.tierKey);
-  const promotions = universalPromotions(
-    await livePromotions({ now }),
-    [...new Set(plans.map((p) => p.currency))],
-  );
-  const perMonth = withOffers(plans, { promotions, now })
+function defaultPromotions(live, sellable) {
+  return universalPromotions(live, [...new Set(sellable.filter((p) => p.tierKey).map((p) => p.currency))]);
+}
+
+/**
+ * The canonical ladder: the CAD tier rows priced under the DEFAULT page's
+ * promotions. What the <title> and the Product JSON-LD both read — never a
+ * visitor's chosen currency, because a title and a structured-data block are
+ * one per URL and a search engine sees exactly one of them.
+ */
+export function canonicalLadder({ sellable, promotions, now }) {
+  const rows = oneRowPerTier(sellable.filter((p) => p.tierKey && p.currency === CANONICAL_CURRENCY));
+  return withOffers(rows, { promotions, now });
+}
+
+/** The cheapest 1-year monthly-equivalent on the canonical ladder, or null. */
+export function entryYearPerMonth(ladder) {
+  const perMonth = (ladder || [])
     .map((p) => (p.offers?.year?.available ? Number(p.offers.year.perMonth) : null))
     .filter((n) => Number.isFinite(n) && n > 0);
   return perMonth.length ? Math.min(...perMonth) : null;
 }
 
-/** 82.5 → "$82.50", 99 → "$99": cents only when there are cents. */
+/**
+ * 82.5 → "$82.50", 99 → "$99", 1234 → "$1,234": the canonical currency's
+ * symbol and the English card's own rule — offerMoney in
+ * app/components/billing/PlanOfferPrice.js, which this server module cannot
+ * import because that file is a client module. check:site-seo renders the
+ * default card and asserts the title's string equals the card's, so the two
+ * cannot drift apart unnoticed.
+ */
 export function titlePrice(n) {
-  return `$${Number.isInteger(n) ? String(n) : n.toFixed(2)}`;
+  const v = Number(n);
+  const whole = Math.round(v * 100) % 100 === 0;
+  return `${currencyMeta(CANONICAL_CURRENCY).symbol}${v.toLocaleString(
+    numberLocaleFor("en"),
+    whole ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+  )}`;
 }
 
 // ── The <title> (site audit D5.1, 2026-10-15) ────────────────────────────
@@ -68,7 +103,10 @@ export function titlePrice(n) {
 export async function generateMetadata() {
   let title = "Field service software pricing | FieldQuo";
   try {
-    const entry = await entryYearPerMonth(new Date());
+    const now = new Date();
+    const { sellable } = partitionPlans(await db.plan.findMany({ orderBy: { priceMonthly: "asc" } }));
+    const promotions = defaultPromotions(await livePromotions({ now }), sellable);
+    const entry = entryYearPerMonth(canonicalLadder({ sellable, promotions, now }));
     if (entry !== null) title = `Field service software from ${titlePrice(entry)}/mo billed yearly | FieldQuo`;
   } catch {
     // The fallback title, never a remembered price.
@@ -124,11 +162,10 @@ export default async function PricingPage({ searchParams } = {}) {
   // CAD-only sale printed here would be promised to an American.
   const now = new Date();
   // With a chosen currency the page stands in for that one alone, so a sale
-  // scoped to it may be shown; otherwise every currency it collapses.
-  const promotions = universalPromotions(
-    await livePromotions({ now }),
-    shownCurrency ? [shownCurrency] : [...new Set(sellable.filter((p) => p.tierKey).map((p) => p.currency))],
-  );
+  // scoped to it may be shown; otherwise every currency it collapses — the
+  // same defaultPromotions the <title> uses.
+  const live = await livePromotions({ now });
+  const promotions = shownCurrency ? universalPromotions(live, [shownCurrency]) : defaultPromotions(live, sellable);
   const offersById = new Map(withOffers(plans, { promotions, now }).map((p) => [p.id, p.offers]));
 
   const serialised = plans.map((plan) => ({
@@ -170,13 +207,17 @@ export default async function PricingPage({ searchParams } = {}) {
     : null;
   if (customOffer) customOffer.offers = customOfferTable(customOffer, { promotions, now });
 
-  // Product JSON-LD (site audit D5.5): the CAD ladder rows through the same
-  // offers resolver as the cards, so the structured prices are the printed
-  // ones — lib/seo/structuredData.js. Never allowed to break the page.
+  // Product JSON-LD (site audit D5.5): the canonical CAD ladder under the
+  // DEFAULT page's promotions — exactly what the <title> reads, whatever
+  // currency this visitor chose — so the two one-per-URL statements cannot
+  // disagree with each other or with the default cards.
+  // lib/seo/structuredData.js. Never allowed to break the page.
   let productLd = null;
   try {
-    const cad = oneRowPerTier(sellable.filter((p) => p.tierKey && p.currency === "CAD"));
-    productLd = pricingProductLd({ origin: siteOrigin(), plans: withOffers(cad, { promotions, now }) });
+    productLd = pricingProductLd({
+      origin: siteOrigin(),
+      plans: canonicalLadder({ sellable, promotions: defaultPromotions(live, sellable), now }),
+    });
   } catch (err) {
     await recordError({
       area: "marketing",

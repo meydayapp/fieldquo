@@ -43,7 +43,7 @@ import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { MESSAGES } from "@/app/i18n/messages";
 import { LANGUAGE_CODES } from "@/app/i18n/languages";
 import HomePage from "@/app/(marketing)/page";
-import { generateMetadata as pricingMetadata, titlePrice } from "@/app/(marketing)/pricing/page";
+import { generateMetadata as pricingMetadata, titlePrice, CANONICAL_CURRENCY } from "@/app/(marketing)/pricing/page";
 import PricingPage from "@/app/(marketing)/pricing/page";
 import AboutContent from "@/app/(marketing)/about/AboutContent";
 import CustomerStory, { CUSTOMER_STORIES } from "@/app/components/marketing/home/CustomerStory";
@@ -190,6 +190,47 @@ ok("exactly one card is marked popular, and it is that rung", (pricingHtml.match
 ok('the card says "Most popular" and "Most shops start here."', printed.includes("Most popular") && printed.includes("Most shops start here."));
 ok("/pricing links the per-competitor pages", COMPARE_PAGES.filter((c) => ["jobber", "housecall_pro"].includes(c.competitorId)).every((c) => pricingHtml.includes(`href="/compare/${c.slug}"`)));
 const meta = await pricingMetadata();
+// ── The title, the default card and the JSON-LD say ONE price ─────────────
+// Production, 2026-10-15: the title read "$59.40" while the cards and the
+// JSON-LD read "$82.50", because the title computed its own set of
+// applicable sales. Asserted on the RENDERED default page, with the live
+// shape that caused it: a 1-year sale scoped to some currencies only.
+const cardYearSolo = (html) => {
+  // The card's BIG figure (PlanOfferPrice's leading-tight line), not the
+  // crossed-out monthly price printed above it.
+  const card = html.match(/data-plan-popular="solo"([\s\S]*?)<\/a>/)?.[1] || "";
+  const big = card.match(/font-bold text-foreground leading-tight">([^<]*)</)?.[1] || "";
+  return decode(big).match(/\$\d[\d,]*(?:\.\d{2})?/)?.[0] || null;
+};
+const titleFigure = (t) => t.match(/from (\S+)\/mo billed yearly/)?.[1] || null;
+const ldYearPerMonth = (html) => {
+  const p = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).find((d) => d["@type"] === "Product");
+  const solo = p?.offers.find((o) => o.name.startsWith("Solo") && o.priceSpecification.billingDuration === "P1Y");
+  return solo ? Number(solo.priceSpecification.description.split(" ")[0]) : null;
+};
+const scopedSale = {
+  id: "cad-only",
+  label: "Canada sale",
+  active: true,
+  startsAt: "2026-09-01T00:00:00Z",
+  endsAt: "2099-01-01T00:00:00Z",
+  discountKind: "percent",
+  discountValue: 28,
+  durationMonths: 12,
+  tierKeys: null,
+  currencies: [CANONICAL_CURRENCY],
+  appliesTo: "year",
+};
+for (const [label, promos] of [["no sale", []], ["a sale scoped to one currency", [scopedSale]], ["a sale on every currency", [{ ...scopedSale, id: "all", currencies: null }]]]) {
+  db.platformPromotion = { findMany: async () => promos };
+  const html = render(await PricingPage());
+  const t = (await pricingMetadata()).title;
+  const card = cardYearSolo(html);
+  const ldFigure = ldYearPerMonth(html);
+  ok(`${label}: the title's price is the default card's price`, Boolean(card) && titleFigure(t) === card, `title ${titleFigure(t)} · card ${card}`);
+  ok(`${label}: …and the JSON-LD's monthly-equivalent`, ldFigure !== null && titlePrice(ldFigure) === titleFigure(t), `json-ld ${ldFigure} · title ${titleFigure(t)}`);
+}
+db.platformPromotion = { findMany: async () => [] };
 ok("the title carries the category and the yearly price, said as yearly", meta.title === `Field service software from ${titlePrice(82.5)}/mo billed yearly | FieldQuo`, meta.title);
 ok("…and is at most 65 characters", meta.title.length <= 65, String(meta.title.length));
 ok("titlePrice writes cents only when there are cents", titlePrice(82.5) === "$82.50" && titlePrice(99) === "$99");
