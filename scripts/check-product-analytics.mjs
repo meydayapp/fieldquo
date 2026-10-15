@@ -401,9 +401,20 @@ section("8. wiring");
   const salesApi = read("app/api/sales/product-usage/route.js");
   ok("the sales route rides requireSalesRep, reads the app surface only, and uses the gated aggregate", /requireSalesRep\(request\)/.test(salesApi) && /surface: "app"/.test(salesApi) && /salesTopFeatures\(rows/.test(salesApi) && !/companyId|name:/.test(salesApi.replace(/\/\/.*$/gm, "")));
   ok("the card is on /sales and in the Playbook", /<ProductUsageCard \/>/.test(read("app/sales/page.js")) && /<ProductUsageCard compact \/>/.test(read("app/sales/playbook/PlaybookView.js")));
-  ok("the privacy page says page views are measured first-party", /without any third-party\s+analytics service, tracking cookie or advertising pixel/.test(read("app/(marketing)/privacy/page.js")));
+  // 2026-10-15: the page used to say page views were measured "without any
+  // third-party analytics service". The owner then added HeyCatch, product
+  // analytics on fieldquo.com and /app only (lib/heycatch/gate.js), and that
+  // sentence became false — so the privacy page and the help articles were
+  // rewritten, and this rule now pins BOTH truths instead of the old one:
+  // FieldQuo's own page-view counting is still first-party with no tracking
+  // cookie or pixel, AND the one third-party analytics service is named with
+  // its limits (never on a client's page, no name/email/phone).
+  const privacy = read("app/(marketing)/privacy/page.js").replace(/\s+/g, " ");
+  ok("the privacy page says FieldQuo's own page views are measured first-party", /are viewed &mdash; the marketing site, the help centre, the back office and the pages a company&apos;s clients open &mdash; itself, with no tracking cookie or advertising pixel/.test(privacy));
+  ok("…and names HeyCatch, never on a client's page, no name/email/phone", /HeyCatch/.test(privacy) && /never loaded on a quote, invoice, booking page, client portal or a contractor&apos;s website/.test(privacy) && /never by name, email address or phone number/.test(privacy));
   for (const lang of ["en", "fr", "es"]) {
-    ok(`the ${lang} data-and-privacy article carries the sentence`, /(analytic|analyse Web|analítica web)/i.test(read(`content/help/${lang}/integrations.js`)) && /(cookie|témoin)/i.test(read(`content/help/${lang}/integrations.js`)) && /\bIP\b/.test(read(`content/help/${lang}/integrations.js`)));
+    const article = read(`content/help/${lang}/integrations.js`);
+    ok(`the ${lang} data-and-privacy article carries the sentence`, /(analytic|analyse|analítica)/i.test(article) && /(cookie|témoin)/i.test(article) && /\bIP\b/.test(article) && /HeyCatch/.test(article));
   }
   const keys = ["title", "lastDays", "intro", "playbookIntro", "notEnough", "companies", "loadFailed", "loading", "tryAgain"].map((k) => `app.salesUsage.${k}`);
   for (const lang of Object.keys(APP_MESSAGES)) {

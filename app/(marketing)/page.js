@@ -41,7 +41,8 @@ import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import { translate } from "@/lib/i18n/resolveMessage";
 import { homeFaqItems } from "@/lib/marketing/homeFaq";
 import { runningCompanyCount, usageProof } from "@/lib/marketing/usageCount";
-import { faqPageLd, ldJson } from "@/lib/seo/structuredData";
+import { faqPageLd } from "@/lib/seo/structuredData";
+import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
 import HomeHero from "@/app/components/marketing/home/HomeHero";
 import ProductDemo from "@/app/components/marketing/home/ProductDemo";
 import ResultsResearch from "@/app/components/marketing/home/ResultsResearch";
@@ -138,7 +139,7 @@ export default async function HomePage() {
 
   return (
     <>
-      {faqLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(faqLd) }} /> : null}
+      {faqLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: scriptSafeJson(faqLd) }} /> : null}
       <HomeHero sale={sale} />
       <ProductDemo />
       <ResultsResearch usage={usageShown} />

@@ -3,7 +3,8 @@ import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 import MarketingFooter from "@/app/components/marketing/MarketingFooter";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
 import { siteOrigin } from "@/lib/marketing/metadata";
-import { organizationLd, ldJson } from "@/lib/seo/structuredData";
+import { organizationLd } from "@/lib/seo/structuredData";
+import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
 
 export default function MarketingLayout({ children }) {
   return (
@@ -15,7 +16,7 @@ export default function MarketingLayout({ children }) {
           real profile exists). */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: ldJson(organizationLd(siteOrigin())) }}
+        dangerouslySetInnerHTML={{ __html: scriptSafeJson(organizationLd(siteOrigin())) }}
       />
       <MarketingHeader />
       <main className="flex-1">{children}</main>

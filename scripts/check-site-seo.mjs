@@ -30,7 +30,8 @@ import { db } from "@/lib/db";
 import { robotsTxt, robotsSiteFor, TOKEN_AND_CLIENT_PATHS, FIELDQUO_PRIVATE_PATHS } from "@/lib/seo/robots";
 import { sitemapPaths, sitemapXml, MARKETING_PAGES } from "@/lib/seo/sitemap";
 import { llmsTxt } from "@/lib/seo/llmsTxt";
-import { organizationLd, pricingProductLd, faqPageLd, ldJson } from "@/lib/seo/structuredData";
+import { organizationLd, pricingProductLd, faqPageLd } from "@/lib/seo/structuredData";
+import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
 import { usageProof, USAGE_COUNT_THRESHOLD, runningCompanyWhere } from "@/lib/marketing/usageCount";
 import { POPULAR_TIER_KEY } from "@/lib/pricing/popularTier";
 import { SEAT_LADDER, defaultAnnualPrice } from "@/lib/pricing/ladder";
@@ -140,7 +141,10 @@ ok("Organization: FieldQuo, url, logo", org["@type"] === "Organization" && org.n
 ok("no sameAs on the company (no real profiles exist yet)", !("sameAs" in org));
 ok("the founder is a Person with his LinkedIn as HIS sameAs", org.founder?.["@type"] === "Person" && org.founder.name === "Emilio Boves" && org.founder.sameAs?.[0] === FOUNDER.linkedinUrl);
 ok("the founder's image is an absolute URL to the committed photo", org.founder?.image === `${ORIGIN}/founder/emilio-boves.jpg` && read("public/founder/emilio-boves.jpg").length > 1000);
-ok("ldJson escapes < so no string can close the script", !ldJson({ a: "</script><script>" }).includes("</script>"));
+ok("the JSON-LD serialiser escapes < so no string can close the script", !scriptSafeJson({ a: "</script><script>" }).includes("</script>"));
+for (const f of ["app/(marketing)/layout.js", "app/(marketing)/page.js", "app/(marketing)/pricing/page.js"]) {
+  ok(`${f} serialises its JSON-LD with scriptSafeJson`, /__html:\s*scriptSafeJson\(/.test(read(f)) && !/__html:\s*JSON\.stringify\(/.test(read(f)));
+}
 ok("the marketing layout prints it, and only the marketing layout", /organizationLd\(siteOrigin\(\)\)/.test(read("app/(marketing)/layout.js")) && !/organizationLd/.test(read("app/layout.js")));
 
 // ═══════════════════════════════════════════════════════════════════════════

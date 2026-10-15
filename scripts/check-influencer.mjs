@@ -79,7 +79,14 @@ function company(id, name, email, extra = {}) {
     createdAt: NOW,
     onboardingStatus: "active",
     stripeChargesEnabled: true,
-    trialEndsAt: new Date(NOW.getTime() + 30 * 86_400_000),
+    // A trial still RUNNING by the real clock, not by NOW. redeemPromoCode
+    // (lib/platform/promoCodes.js) extends from the trial end only while
+    // `trialEndsAt > new Date()` and from today otherwise — the wall clock, by
+    // design. Pinned to NOW + 30 days, this fixture expired at 15:00 UTC on
+    // 2026-10-15 and "0 months leaves the trial exactly where it was" began
+    // failing on every run, the code unchanged. Thirty days from the real
+    // clock keeps the assertion about what it says: a running trial, 0 months.
+    trialEndsAt: new Date(Date.now() + 30 * 86_400_000),
     referralCode: null,
     referredByCode: null,
     referredAt: null,

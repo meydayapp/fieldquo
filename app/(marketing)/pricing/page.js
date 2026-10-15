@@ -10,7 +10,8 @@ import { partitionPlans } from "@/lib/platform/sellablePlans";
 import { customOfferFromScale } from "@/lib/billing/customPlan";
 import { livePromotions, universalPromotions, withOffers, customOfferTable } from "@/lib/billing/promotions";
 import { marketingMetadata, siteOrigin } from "@/lib/marketing/metadata";
-import { pricingProductLd, ldJson } from "@/lib/seo/structuredData";
+import { pricingProductLd } from "@/lib/seo/structuredData";
+import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
 import { recordError } from "@/lib/platform/errorLog";
 import { oneRowPerTier } from "@/lib/pricing/oneRowPerTier";
 import PricingPlans from "./PricingPlans";
@@ -187,7 +188,7 @@ export default async function PricingPage({ searchParams } = {}) {
   return (
     <>
     {productLd ? (
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(productLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: scriptSafeJson(productLd) }} />
     ) : null}
     <PricingPlans
       plans={serialised}

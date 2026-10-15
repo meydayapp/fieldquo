@@ -314,6 +314,14 @@ const KNOWN_DANGEROUS_HTML_SITES = {
     "The bio link's own colour tokens into a <style>. Every value AND its fallback go through the six-digit hex test in linkPageTokenCss, ending at a literal that cannot come from a company — check:bio-link drives a hostile pageBg through all three schemes and proves the block stays balanced.",
   "app/components/BrandTheme.js":
     "CSS built from a company's brandColor, but only after isValidHex() — a value that fails the hex regex never reaches tokensToCss, so nothing free-form is ever concatenated into the <style> tag.",
+  // Site audit, 2026-10-15: fieldquo.com's own JSON-LD. Marketing pages only
+  // — never a contractor's — each through scriptSafeJson, asserted below.
+  "app/(marketing)/layout.js":
+    "Organization JSON-LD for FieldQuo itself (lib/seo/structuredData.js organizationLd): constants plus siteOrigin() and the founder constants in lib/marketing/founder.js. Nothing from a request or a tenant reaches it.",
+  "app/(marketing)/page.js":
+    "FAQPage JSON-LD built by homeFaqItems from FieldQuo's own English catalogue, TRIAL_DAYS, GRACE_DAYS and the language lists — no tenant or request data.",
+  "app/(marketing)/pricing/page.js":
+    "Product/Offer JSON-LD from FieldQuo's own Plan rows (name, tier, currency, resolved offer amounts). Plan names are typed by FieldQuo staff in /platform, not by a tenant; serialised through scriptSafeJson all the same.",
   "app/co/[token]/ChangeOrderApproval.js":
     "The change order's rich-text body (staff-typed) into the addendum. Sanitised at the write (POST /api/jobs/[id]/change-orders → normaliseChangeOrderInput) AND again on the way out (GET /api/public/change-orders/[token] → sanitiseChangeOrderBody): a closed allow-list of b/i/u/ul/ol/li/p/br/a, every text node re-escaped, every attribute dropped except an http(s) href — check:job-plan drives script, onerror, javascript: and entity-encoded javascript: through it.",
 };
@@ -327,6 +335,10 @@ for (const f of Object.keys(KNOWN_DANGEROUS_HTML_SITES)) {
   ok(`${f} still exists and still uses dangerouslySetInnerHTML`, dangerousHtmlFiles.includes(f));
 }
 
+for (const f of ["app/(marketing)/layout.js", "app/(marketing)/page.js", "app/(marketing)/pricing/page.js"]) {
+  const src = readFileSync(join(ROOT, f), "utf8");
+  ok(`${f}: its JSON-LD sink uses scriptSafeJson`, /__html:\s*scriptSafeJson\(/.test(src) && !/__html:\s*JSON\.stringify\(/.test(src));
+}
 {
   const src = readFileSync(join(ROOT, "app/site/[subdomain]/page.js"), "utf8");
   ok("the JSON-LD sink uses scriptSafeJson", /__html:\s*scriptSafeJson\(/.test(src));
