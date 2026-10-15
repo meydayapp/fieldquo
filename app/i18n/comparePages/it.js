@@ -310,6 +310,37 @@ const it = {
   // Richiamata da PricingPlans.js da quando il blocco è stato scritto e mai
   // definita, che è la seconda metà della stessa segnalazione.
   "pricing.addOnsCompare": "Ogni cifra qui sopra è stata letta dalla loro pagina prezzi, nella data indicata. Il confronto completo fianco a fianco, compreso quello che FieldQuo non fa, è qui →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "Passare da {competitor}",
+  "compare.switch.csv":
+    "Porti con sé clienti, prodotti e prezzi e i lavori passati con le importazioni da foglio di calcolo (CSV) di FieldQuo — se {competitor} le consente di esportarli in un foglio di calcolo, ognuno entra come un file.",
+  "compare.switch.service":
+    "Oppure lo facciamo noi: il nostro servizio di migrazione dati a pagamento aggiunge per lei clienti e preventivi, dopo che ha accettato e pagato il prezzo. Aggiungiamo soltanto — non modifichiamo né cancelliamo mai nulla di ciò che è già nel suo account.",
+  "compare.switch.overlap":
+    "Usi entrambi durante la prova gratuita di {days} giorni e disdica {competitor} quando FieldQuo fa già il lavoro.",
+  "compare.switch.notMoved":
+    "Le fatture aperte e lo storico dei pagamenti non vengono trasferiti: finisca di incassare ciò che è già in sospeso su {competitor} e invii le nuove fatture da FieldQuo.",
+  "compare.faq.title":
+    "Domande sul passaggio",
+  "compare.faq.trial.q":
+    "Posso provare FieldQuo prima di lasciare {competitor}?",
+  "compare.faq.trial.a":
+    "Sì. La prova dura {days} giorni con tutte le funzioni attive, quindi può inviare preventivi veri da FieldQuo mentre {competitor} è ancora attivo.",
+  "compare.faq.brand.q":
+    "I miei clienti vedranno il nome FieldQuo?",
+  "compare.faq.brand.a":
+    "No. I suoi preventivi, le sue fatture e le email che li accompagnano mostrano il suo logo, il suo colore e il nome della sua azienda, non i nostri.",
+  "compare.faq.contract.q":
+    "C'è un contratto?",
+  "compare.faq.contract.a":
+    "Non con il piano mensile: lo disdica da Account e fatturazione e resta attivo fino alla fine del mese pagato. Il piano annuale si paga per l'anno e dura fino alla sua fine.",
+  "compare.faq.prices.q":
+    "Quanto sono aggiornati i prezzi di {competitor} in questa pagina?",
+  "compare.faq.prices.a":
+    "Ogni cifra è stata letta dalla pagina prezzi di {competitor} stessa, alla data indicata accanto. Una cifra smette di essere mostrata {staleDays} giorni dopo la lettura, quindi un prezzo vecchio non viene mai presentato come quello di oggi.",
+
 };
 
 export default it;

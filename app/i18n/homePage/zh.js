@@ -71,9 +71,9 @@ export const HOME_PAGE_ZH = {
   "home.how.quote.title": "发出报价",
   "home.how.quote.body": "在现场用你自己的价格做好报价，还没出车道就发出去。",
   "home.how.schedule.title": "安排活儿",
-  "home.how.schedule.body": "客户同意的报价直接变成活儿。放进日历，派好工人。",
+  "home.how.schedule.body": "客户同意的报价直接变成活儿。放进日历，派好工人。有人请病假，就把他的上门安排交给别人，或者改到别的日子——上门时间变了的客户会收到新的时间。",
   "home.how.work.title": "干活",
-  "home.how.work.body": "你的工人用手机打卡、加照片、按清单一项项完成。",
+  "home.how.work.body": "你的工人用手机打卡、加照片、按清单一项项完成。每个人都可以把应用切换成自己的语言。",
   "home.how.paid.title": "收到钱",
   "home.how.paid.body": "从活儿直接开发票，在线收款，直接进你自己的银行账户。",
   "home.how.numbers.title": "心里有数",
@@ -149,7 +149,7 @@ export const HOME_PAGE_ZH = {
 
   "home.why.title": "别再用五个不同的应用来管生意了。",
   "home.why.body":
-    "每个独立工具都存着一份自己的客户资料，要靠你来让它们保持一致。FieldQuo 只存一份。",
+    "每个独立工具都存着一份自己的客户资料，要靠你来让它们保持一致。FieldQuo 只存一份。一天下来，不用再把东西从一个应用抄到另一个应用。",
   "home.why.before": "各自独立的工具",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "报价",
@@ -197,4 +197,52 @@ export const HOME_PAGE_ZH = {
 
   "home.final.title": "你的下一单活儿，可以在 FieldQuo 里完成。",
   "home.final.body": "从第一通电话到最后一笔付款。",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "为油漆工、屋面工、水管工、电工以及其他各行各业而做——从单干的师傅到 20 人的施工队。",
+  "home.results.fact.usage":
+    "过去 {days} 天里有 {count} 家承包商用 FieldQuo 打理生意",
+  "home.faq.notFor.q":
+    "FieldQuo 不适合谁？",
+  "home.faq.notFor.a":
+    "办公室用户超过 {maxSeats} 人或外勤人员超过 {maxCrew} 人的公司——这是我们最大的套餐——以及不在客户现场干活、不需要报价和开发票的生意，比如商店或餐馆。",
+  "home.stories.title":
+    "FieldQuo 先在我们自己的生意里用起来。",
+  "home.stories.connection.founderCompany":
+    "FieldQuo 创始人自己的公司",
+  "home.stories.connection.founderFamily":
+    "由创始人的家人经营",
+  "home.stories.aboutLink":
+    "创始人为什么做 FieldQuo",
+  "about.title":
+    "关于 FieldQuo",
+  "about.intro":
+    "FieldQuo 出自自己经营真实施工生意的人之手，源于报价、排期和收款时每天遇到的麻烦。我们做了当初希望自己能有的工具——现在我们为所有行当做它，而不只是我们自己这一行。",
+  "about.founder.heading":
+    "在一家真实的施工公司里做出来的",
+  "about.founder.p1":
+    "我是 Emilio Boves。我在渥太华经营 TrueFinish Cabinets，做厨房翻新和柜门换面；我也在工地上做过多年地板和综合施工。",
+  "about.founder.p2":
+    "很长一段时间，我用五个不同的应用来管生意：一个做报价，一个排日程，一张表格算成本，另一个开发票，剩下的全靠手机。报价总是晚一天才发出去，定金要一笔笔手动去催，而且好多年我根本没法给客户提供分期付款。",
+  "about.founder.p3":
+    "所以我先在自己的公司里把 FieldQuo 做了出来。如今 TrueFinish 的每一份报价、每个活儿、每张发票和每笔付款都走 FieldQuo，我家人的生意 Sunset Space 也一样。在真实的活儿上撑不住的东西，就不发布。",
+  "about.founder.p4":
+    "这就是为什么每个套餐都有全部功能，为什么你的报价和发票上印的是你的标志而不是我们的，也是为什么你的工人可以用自己的语言来用它。",
+  "about.founder.signature":
+    "—— {name}，FieldQuo 创始人、TrueFinish Cabinets 老板",
+  "about.founder.photoAlt":
+    "{name} 在 TrueFinish Cabinets 的施工现场",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "关于创始人",
+  "footer.links.allComparisons":
+    "全部对比",
+  "pricing.popularNote":
+    "大多数商家从这里开始。",
+  "pricing.vsLinks":
+    "并排对比：",
+  "about.founder.linkedinLabel":
+    "{name} 的 LinkedIn",
 };

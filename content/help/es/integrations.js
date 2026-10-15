@@ -723,7 +723,7 @@ const PART_1 = {
         heading: "Qué servicios ven qué datos",
         blocks: [
           { p: "La página de privacidad de FieldQuo lista cada servicio externo al que el producto está conectado, y la compilación falla si la lista deja de coincidir con el código. Esta es esa lista, en las palabras que le importan a un contratista." },
-          { p: "Hay algo que a propósito NO está en ella: un servicio de analítica web. FieldQuo cuenta por sí mismo qué páginas propias se abren, sin cookie de rastreo, sin píxel publicitario y sin guardar direcciones IP: registra la ruta de la página, nunca qué cotización o cliente aparecía en ella." },
+          { p: "FieldQuo cuenta por sí mismo qué páginas se abren, sin cookie de rastreo, sin píxel publicitario y sin guardar direcciones IP: registra la ruta de la página, nunca qué cotización o cliente aparecía en ella. Desde octubre de 2026, un servicio de analítica de producto, HeyCatch, mide además cómo los contratistas usan fieldquo.com y la oficina: páginas y clics, con el texto en pantalla y las direcciones de los enlaces ocultos, y a usted solo lo identifica por su id de usuario, el id de su empresa, su rol y su plan. Nunca se carga en nada que abran sus clientes: cotizaciones, facturas, páginas de reserva, el portal del cliente o su sitio web." },
           { table: {
             head: ["Servicio", "Qué recibe"],
             rows: [

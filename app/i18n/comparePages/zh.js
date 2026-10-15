@@ -301,6 +301,37 @@ const zh = {
   // Referenced by PricingPlans.js since the block was written and never
   // defined, which is the second half of the same reported bug.
   "pricing.addOnsCompare": "上面每一个数字，都是在标注的日期从他们自己的价格页上读到的。完整的并排对比，包括 FieldQuo 做不到的事，在这里 →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "从 {competitor} 换过来",
+  "compare.switch.csv":
+    "用 FieldQuo 的表格（CSV）导入，把你的客户、产品和价格、以前的活儿搬过来——如果 {competitor} 允许你导出成表格，每一样都是一个文件导进来。",
+  "compare.switch.service":
+    "或者交给我们：我们的付费数据迁移服务会替你添加客户和报价，前提是你接受并支付了报价。我们只添加记录——从不修改或删除你账户里已有的任何东西。",
+  "compare.switch.overlap":
+    "在 {days} 天免费试用期间两个一起用，等 FieldQuo 把活儿接过来了再取消 {competitor}。",
+  "compare.switch.notMoved":
+    "未结清的发票和付款记录不会搬过来：把 {competitor} 里已经开出去的款项收完，新发票从 FieldQuo 发。",
+  "compare.faq.title":
+    "关于换用的问题",
+  "compare.faq.trial.q":
+    "离开 {competitor} 之前能先试用 FieldQuo 吗？",
+  "compare.faq.trial.a":
+    "可以。试用期 {days} 天，所有功能都打开，所以在 {competitor} 还在用的时候，你就能从 FieldQuo 发真实的报价。",
+  "compare.faq.brand.q":
+    "我的客户会看到 FieldQuo 的名字吗？",
+  "compare.faq.brand.a":
+    "不会。你的报价、发票以及发送它们的邮件上显示的是你的标志、你的颜色和你的公司名，不是我们的。",
+  "compare.faq.contract.q":
+    "要签合同吗？",
+  "compare.faq.contract.a":
+    "月付套餐不用：在“账户与账单”里取消，它会用到所付月份结束。一年期套餐按年付费，用到年底为止。",
+  "compare.faq.prices.q":
+    "本页上 {competitor} 的价格有多新？",
+  "compare.faq.prices.a":
+    "每个数字都是在旁边标注的日期，从 {competitor} 自己的价格页面上读取的。读取后满 {staleDays} 天，这个数字就不再显示，所以旧价格绝不会被当成今天的价格。",
+
 };
 
 export default zh;

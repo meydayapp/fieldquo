@@ -9,7 +9,9 @@ import { db } from "@/lib/db";
 import { partitionPlans } from "@/lib/platform/sellablePlans";
 import { customOfferFromScale } from "@/lib/billing/customPlan";
 import { livePromotions, universalPromotions, withOffers, customOfferTable } from "@/lib/billing/promotions";
-import { marketingMetadata } from "@/lib/marketing/metadata";
+import { marketingMetadata, siteOrigin } from "@/lib/marketing/metadata";
+import { pricingProductLd, ldJson } from "@/lib/seo/structuredData";
+import { recordError } from "@/lib/platform/errorLog";
 import { oneRowPerTier } from "@/lib/pricing/oneRowPerTier";
 import PricingPlans from "./PricingPlans";
 import { resolveAiCap } from "@/lib/ai/usage";
@@ -26,12 +28,52 @@ import { aiAdviceUnits, aiAdviceBundles } from "@/lib/ai/planAdviceUnits";
 // keep serving them until the next deploy.
 export const dynamic = "force-dynamic";
 
-export const metadata = marketingMetadata({
-  path: "/pricing",
-  title: "Pricing — FieldQuo",
-  description:
-    "Simple monthly pricing for field service teams, by headcount. Quotes, invoicing, scheduling and payments in every plan. 14 days free, no contract.",
-});
+const DESCRIPTION =
+  "Simple monthly pricing for field service teams, by headcount. Quotes, invoicing, scheduling and payments in every plan. 14 days free, no contract.";
+
+/**
+ * The cheapest monthly-equivalent a visitor is shown on the 1-year tab — the
+ * figure the page OPENS on (the tab defaults to the year) — resolved through
+ * the same functions as the cards, so the title cannot name a price the
+ * cards do not. Null when nothing can be read; the title then carries no
+ * figure rather than a remembered one.
+ */
+async function entryYearPerMonth(now) {
+  const { sellable } = partitionPlans(await db.plan.findMany({ orderBy: { priceMonthly: "asc" } }));
+  const plans = oneRowPerTier(sellable).filter((p) => p.tierKey);
+  const promotions = universalPromotions(
+    await livePromotions({ now }),
+    [...new Set(plans.map((p) => p.currency))],
+  );
+  const perMonth = withOffers(plans, { promotions, now })
+    .map((p) => (p.offers?.year?.available ? Number(p.offers.year.perMonth) : null))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return perMonth.length ? Math.min(...perMonth) : null;
+}
+
+/** 82.5 → "$82.50", 99 → "$99": cents only when there are cents. */
+export function titlePrice(n) {
+  return `$${Number.isInteger(n) ? String(n) : n.toFixed(2)}`;
+}
+
+// ── The <title> (site audit D5.1, 2026-10-15) ────────────────────────────
+//
+// It was "Pricing — FieldQuo": no category keyword, no price. Now the
+// category and the entry price, with the honest marker the owner asked for:
+// the page opens on the 1-year tab, so the figure is the 1-year price per
+// month, and a title cannot carry the asterisk the cards have — so it says
+// "billed yearly" in words. Generated per request, because /pricing is
+// force-dynamic and the price lives in the Plan table, not in this file.
+export async function generateMetadata() {
+  let title = "Field service software pricing | FieldQuo";
+  try {
+    const entry = await entryYearPerMonth(new Date());
+    if (entry !== null) title = `Field service software from ${titlePrice(entry)}/mo billed yearly | FieldQuo`;
+  } catch {
+    // The fallback title, never a remembered price.
+  }
+  return marketingMetadata({ path: "/pricing", title, description: DESCRIPTION });
+}
 
 // Lives in lib/pricing/oneRowPerTier.js — the homepage's pricing band uses it
 // too. Re-exported so check:pricing-page's import of it from here still holds.
@@ -127,12 +169,32 @@ export default async function PricingPage({ searchParams } = {}) {
     : null;
   if (customOffer) customOffer.offers = customOfferTable(customOffer, { promotions, now });
 
+  // Product JSON-LD (site audit D5.5): the CAD ladder rows through the same
+  // offers resolver as the cards, so the structured prices are the printed
+  // ones — lib/seo/structuredData.js. Never allowed to break the page.
+  let productLd = null;
+  try {
+    const cad = oneRowPerTier(sellable.filter((p) => p.tierKey && p.currency === "CAD"));
+    productLd = pricingProductLd({ origin: siteOrigin(), plans: withOffers(cad, { promotions, now }) });
+  } catch (err) {
+    await recordError({
+      area: "marketing",
+      code: "pricing_jsonld",
+      message: `Pricing structured data not built: ${err?.message || err}`,
+    }).catch(() => {});
+  }
+
   return (
+    <>
+    {productLd ? (
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(productLd) }} />
+    ) : null}
     <PricingPlans
       plans={serialised}
       customOffer={customOffer}
       aiAdvice={aiAdvice}
       currencyChoice={{ shown: shownCurrency, options: currencyOptions(sellable) }}
     />
+    </>
   );
 }

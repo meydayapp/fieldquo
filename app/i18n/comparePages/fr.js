@@ -312,6 +312,37 @@ const fr = {
   // Référencée par PricingPlans.js depuis l’écriture du bloc et jamais
   // définie, ce qui est la seconde moitié du même bogue rapporté.
   "pricing.addOnsCompare": "Chaque montant ci-dessus a été relevé sur leur propre page de prix, à la date indiquée. Le comparatif complet, y compris ce que FieldQuo ne fait pas, est ici →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "Passer de {competitor} à FieldQuo",
+  "compare.switch.csv":
+    "Apportez vos clients, vos produits et vos prix, et vos anciens chantiers avec les importations par tableur (CSV) de FieldQuo — si {competitor} vous permet de les exporter vers un tableur, chacun s'importe en un fichier.",
+  "compare.switch.service":
+    "Ou confiez-nous le travail : notre service payant de migration des données ajoute vos clients et vos soumissions pour vous, une fois que vous avez accepté et payé son prix. Nous ne faisons qu'ajouter — nous ne modifions ni ne supprimons jamais rien de ce qui est déjà dans votre compte.",
+  "compare.switch.overlap":
+    "Utilisez les deux pendant l'essai gratuit de {days} jours, et annulez {competitor} une fois que FieldQuo fait le travail.",
+  "compare.switch.notMoved":
+    "Les factures ouvertes et l'historique des paiements ne sont pas transférés : terminez la perception de ce qui est déjà en cours dans {competitor}, et envoyez les nouvelles factures depuis FieldQuo.",
+  "compare.faq.title":
+    "Questions sur le changement",
+  "compare.faq.trial.q":
+    "Puis-je essayer FieldQuo avant de quitter {competitor}?",
+  "compare.faq.trial.a":
+    "Oui. L'essai dure {days} jours avec toutes les fonctions activées, alors vous pouvez envoyer de vraies soumissions depuis FieldQuo pendant que {competitor} roule encore.",
+  "compare.faq.brand.q":
+    "Mes clients verront-ils le nom de FieldQuo?",
+  "compare.faq.brand.a":
+    "Non. Vos soumissions, vos factures et les courriels qui les accompagnent affichent votre logo, votre couleur et le nom de votre entreprise, pas les nôtres.",
+  "compare.faq.contract.q":
+    "Y a-t-il un contrat?",
+  "compare.faq.contract.a":
+    "Pas avec le forfait mensuel : annulez dans Compte et facturation et il fonctionne jusqu'à la fin du mois payé. Le forfait d'un an est payé pour l'année et va jusqu'à la fin de celle-ci.",
+  "compare.faq.prices.q":
+    "Les prix de {competitor} sur cette page sont-ils à jour?",
+  "compare.faq.prices.a":
+    "Chaque montant a été relevé sur la page de prix de {competitor} elle-même, à la date indiquée à côté. Un montant cesse d'être affiché {staleDays} jours après sa lecture, donc un vieux prix n'est jamais présenté comme celui d'aujourd'hui.",
+
 };
 
 export default fr;

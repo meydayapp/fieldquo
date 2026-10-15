@@ -88,10 +88,10 @@ export const HOME_PAGE_FR = {
     "Montez-la sur place à partir de vos propres prix et envoyez-la avant de quitter l'entrée.",
   "home.how.schedule.title": "Planifiez le chantier",
   "home.how.schedule.body":
-    "La soumission acceptée devient un chantier. Placez-le au calendrier et assignez l'équipe.",
+    "La soumission acceptée devient un chantier. Placez-le au calendrier et assignez l'équipe. Si quelqu'un appelle malade, confiez ses visites à quelqu'un d'autre ou déplacez-les à un autre jour — un client dont la visite change reçoit la nouvelle heure.",
   "home.how.work.title": "Faites le travail",
   "home.how.work.body":
-    "Votre équipe pointe, ajoute des photos et suit la liste de vérification depuis son téléphone.",
+    "Votre équipe pointe, ajoute des photos et suit la liste de vérification depuis son téléphone. Chacun peut mettre l'application dans sa propre langue.",
   "home.how.paid.title": "Soyez payé",
   "home.how.paid.body":
     "Facturez à partir du chantier et encaissez en ligne, directement dans votre propre compte bancaire.",
@@ -175,7 +175,7 @@ export const HOME_PAGE_FR = {
   "home.why.title":
     "Arrêtez de gérer votre entreprise dans cinq applications différentes.",
   "home.why.body":
-    "Chaque outil séparé garde sa propre copie de votre client, et c'est vous qui devez les tenir à jour. FieldQuo n'en garde qu'une.",
+    "Chaque outil séparé garde sa propre copie de votre client, et c'est vous qui devez les tenir à jour. FieldQuo n'en garde qu'une. Plus rien à recopier d'une application à l'autre en fin de journée.",
   "home.why.before": "Outils séparés",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "Soumissions",
@@ -226,4 +226,52 @@ export const HOME_PAGE_FR = {
 
   "home.final.title": "Votre prochain chantier peut passer par FieldQuo.",
   "home.final.body": "Du premier appel jusqu'au dernier paiement.",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "Pour les peintres, couvreurs, plombiers, électriciens et tous les autres métiers — de l'entrepreneur seul aux équipes de 20.",
+  "home.results.fact.usage":
+    "{count} entrepreneurs ont fait rouler leur entreprise avec FieldQuo au cours des {days} derniers jours",
+  "home.faq.notFor.q":
+    "Pour qui FieldQuo n'est-il pas conçu?",
+  "home.faq.notFor.a":
+    "Les entreprises de plus de {maxSeats} utilisateurs au bureau ou de {maxCrew} personnes sur le terrain — le plus gros forfait qui existe — et les commerces qui ne font pas de soumissions ni de factures pour des travaux chez leurs clients, comme les magasins ou les restaurants.",
+  "home.stories.title":
+    "FieldQuo fait d'abord rouler nos propres entreprises.",
+  "home.stories.connection.founderCompany":
+    "L'entreprise du fondateur de FieldQuo",
+  "home.stories.connection.founderFamily":
+    "Dirigée par la famille du fondateur",
+  "home.stories.aboutLink":
+    "Pourquoi le fondateur a créé FieldQuo",
+  "about.title":
+    "À propos de FieldQuo",
+  "about.intro":
+    "FieldQuo a été conçu par des gens qui dirigent une vraie entreprise de construction, à partir des frictions de tous les jours : faire des soumissions, planifier et se faire payer. Nous avons bâti l'outil que nous aurions voulu avoir — et nous le bâtissons maintenant pour tous les métiers, pas seulement le nôtre.",
+  "about.founder.heading":
+    "Conçu au sein d'une vraie entreprise de construction",
+  "about.founder.p1":
+    "Je m'appelle Emilio Boves. Je dirige TrueFinish Cabinets à Ottawa. Nous remettons à neuf et revêtons des cuisines, et j'ai aussi passé des années sur les chantiers à faire des planchers et de la construction générale.",
+  "about.founder.p2":
+    "Pendant longtemps, j'ai géré l'entreprise avec cinq applications différentes : une pour les soumissions, une pour l'horaire, un tableur pour les coûts, une autre pour les factures, et mon téléphone pour tout le reste. Les soumissions partaient avec un jour de retard, les dépôts se réclamaient à la main, et pendant des années je n'ai pas pu offrir de financement à mes clients.",
+  "about.founder.p3":
+    "Alors j'ai d'abord bâti FieldQuo dans ma propre entreprise. Chaque soumission, chantier, facture et paiement chez TrueFinish passe par là aujourd'hui, tout comme l'entreprise de ma famille, Sunset Space. Si quelque chose ne tient pas sur un vrai chantier, ça ne sort pas.",
+  "about.founder.p4":
+    "C'est pour ça que chaque forfait a toutes les fonctions, que vos soumissions et vos factures portent votre logo plutôt que le nôtre, et que votre équipe peut l'utiliser dans sa propre langue.",
+  "about.founder.signature":
+    "— {name}, fondateur de FieldQuo et propriétaire de TrueFinish Cabinets",
+  "about.founder.photoAlt":
+    "{name} sur un chantier de TrueFinish Cabinets",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "Le fondateur",
+  "footer.links.allComparisons":
+    "Toutes les comparaisons",
+  "pricing.popularNote":
+    "La plupart des entreprises commencent ici.",
+  "pricing.vsLinks":
+    "Côte à côte :",
+  "about.founder.linkedinLabel":
+    "{name} sur LinkedIn",
 };

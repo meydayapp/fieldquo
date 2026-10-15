@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 15 October 2026 (fieldquo.com site audit + HeyCatch analytics: robots/sitemap/llms.txt per host, Organization/Product/FAQ JSON-LD, FAQ answers in the server HTML, testimonial band with the founder connection disclosed, founder block on /about, "Most popular" on Solo from national business counts, pricing title with the yearly price, switching notes + FAQ on every comparison, /vs redirects; HeyCatch on FieldQuo's own pages only, no PII. See "fieldquo.com site audit + HeyCatch analytics (15 October 2026)" below.)
 Last updated: 14 October 2026 (organisation-client follow-ups, owner said yes to all four: "Do not contact" now holds back every automatic email, text and phone-agent call through the same gate, recorded as its own cause, while a person's Send still sends with a warning; automatic phone-agent calls are re-checked against the gate at DIAL time, manual Call presses never; a company client's department/branch prints under its name on the quote and invoice — staff pages, /q, PDF, email panel — individuals byte-identical; the switch's hint rewritten to be true. Schema additive — NOT applied. See "Organisation clients: follow-ups (14 October 2026)" below.)
 Last updated: 13 October 2026 (government and public tenders: /app/tenders, OFF by default — the `tenders` feature is hidden until FieldQuo turns it on per company; a Tender is a company-type client, a quote as the bid and a job when won; closing date + time + zone, Q&A and site-visit deadlines, bid / no-bid / submitted / won / lost, documents, win/loss card; reminders to the company's own team only, hourly cron, DST-correct, once each. Schema additive — NOT applied. See "Government and public tenders" below.)
 Last updated: 13 October 2026 (organisation clients: an Organization card on a company-type client — department/branch, contacts with roles (add, edit, reorder, make primary, remove), procurement notes, the PO rule — and nothing new on a homeowner's page; a recipient picker on quote/invoice Send for an organisation with more than one contact, default send byte-identical; and "No automatic emails or texts — send by hand only" for any client, one shared gate asked by all 13 automatic senders, every skip listed on the client page. Schema additive — NOT applied. See "Organisation clients: contacts, the Organization card, and automatic messages off" below.)
@@ -116,6 +117,74 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## fieldquo.com site audit + HeyCatch analytics (15 October 2026)
+
+The heycatch audit of fieldquo.com (brief: fq-ship/briefs/site-audit.md) plus
+the owner's HeyCatch install, one batch. Not deployed — worktree branch,
+unpushed. No schema change.
+
+### What shipped
+
+- **SEO plumbing.** `/robots.txt` answers per HOST (lib/seo/robots.js): FieldQuo
+  disallows /app, /platform, /sales, /api and every token page and names its
+  sitemap; a contractor's host gets no FieldQuo name or sitemap; Vercel
+  previews `Disallow: /`. `/sitemap.xml` lists FieldQuo's marketing pages only
+  (lib/seo/sitemap.js). `/llms.txt` (FieldQuo host only, no prices).
+  Organization JSON-LD on every marketing page (no `sameAs`; the founder as a
+  Person with his LinkedIn), Product/Offer JSON-LD on /pricing from the same
+  offers resolver as the cards (CAD), FAQPage JSON-LD on the homepage from the
+  same builder as the visible FAQ (lib/marketing/homeFaq.js).
+- **FAQ answers in the server HTML** (FAQ.js: closed answers `hidden`, not
+  unmounted) — homepage, /product pages, and the new compare FAQ.
+- **Homepage:** eyebrow naming trades and crew size (national data); the
+  customer-story slot is now a testimonial band with TrueFinish and Sunset
+  Space, each DISCLOSING the founder connection, linked to /about#founder;
+  usage-count block that counts real running companies and renders nothing
+  below USAGE_COUNT_THRESHOLD (100); FAQ "Who is FieldQuo not built for?";
+  one-line additions on sick-day rescheduling, crew language, end-of-day.
+- **/pricing:** "Most popular" + "Most shops start here." on Solo — the rung
+  the median trades shop fits (US SUSB 2022 NAICS 238; StatCan 33-10-1174-01;
+  sources in lib/pricing/popularTier.js); title "Field service software from
+  $82.50/mo billed yearly | FieldQuo" generated from the Plan rows; links to
+  the Jobber and Housecall Pro comparisons.
+- **/about:** the founder block (owner's draft, all marketing languages),
+  photo (public/founder/emilio-boves.jpg) and LinkedIn; footer "About the
+  founder" and a Compare column.
+- **/compare/<slug>:** "Switching from <competitor>" migration notes and a
+  switching FAQ on every comparison; `/vs/<competitor>` 308s to the page.
+- **HeyCatch** (@heycatch/sdk 0.8.3): loaded only behind lib/heycatch/gate.js
+  (FieldQuo's hosts AND FieldQuo's pages — never a client-facing page or a
+  contractor host), text/attribute masking on, localStorage persistence;
+  setIdentity with user id + companyId/role/plan only, never for a support
+  session; resetIdentity on sign-out; server events trial_started,
+  subscription_started / plan_selected, first_quote_sent (production only);
+  signup_started from the browser; /a-style short links on FieldQuo's hosts
+  only, skipping c f i l q r w. Privacy policy + processors list + help
+  article updated; privacy effective date 2026-10-15.
+
+### For the owner
+
+- Press "I've installed" in the HeyCatch dashboard after the deploy, from a
+  real browser on www.fieldquo.com.
+- Third-party review profiles (G2, Capterra, Trustpilot) and any
+  guarantee/security badge — none exist, none were built.
+- The usage block appears by itself at 100 running companies; lower
+  USAGE_COUNT_THRESHOLD in lib/marketing/usageCount.js to show it sooner.
+- ko/pt/ru catalogue files carry the new keys but are not wired into
+  messages.js (homePage/index.js imports nine languages); comparePages/pt.js
+  was empty on main and now holds only the new keys.
+
+### Checks
+
+`check:site-seo` (robots per host, sitemap contents, llms.txt, all JSON-LD,
+FAQ in HTML, counter threshold, story disclosure, founder block, pricing
+title and badge, new keys in every language) and `check:heycatch` (gate over
+every client-facing route and foreign host, route classification, single
+gated SDK import, no-PII identity, server events, short links, /vs) — both in
+`check:all`.
 
 ---
 

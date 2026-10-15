@@ -1,23 +1,20 @@
 // app/(marketing)/about/page.js
+//
+// Server half: metadata only. The page body — the intro and the founder
+// block (site audit D3.3, 2026-10-15) — is AboutContent, a client component
+// because translation lives in React context. It was one hard-coded English
+// paragraph with no person behind it; the audit scored founder-led trust 1/4
+// for exactly that.
 import { marketingMetadata } from "@/lib/marketing/metadata";
+import AboutContent from "./AboutContent";
 
 export const metadata = marketingMetadata({
   path: "/about",
-  title: "About FieldQuo",
+  title: "About FieldQuo — built inside a real contracting company",
   description:
-    "FieldQuo was built by people who run a real contracting business, out of the everyday friction of quoting, scheduling and getting paid.",
+    "FieldQuo was built by Emilio Boves inside TrueFinish Cabinets, his cabinet refinishing company in Ottawa, and runs his business today.",
 });
 
 export default function AboutPage() {
-  return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-3xl font-bold text-foreground mb-4">About FieldQuo</h1>
-      <p className="text-muted-foreground leading-relaxed">
-        FieldQuo was built by people who run a real contracting business, out of
-        the everyday friction of quoting, scheduling, and getting paid. We built
-        the tool we wished we had — and now we're building it for every trade,
-        not just our own.
-      </p>
-    </div>
-  );
+  return <AboutContent />;
 }

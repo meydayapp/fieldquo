@@ -36,6 +36,8 @@ import {
   formatPackPrice,
 } from "@/lib/marketing/videoAllowance";
 import { peopleLines } from "@/lib/pricing/peopleLines";
+import { POPULAR_TIER_KEY } from "@/lib/pricing/popularTier";
+import { FEATURED_COMPARISONS } from "@/lib/marketing/featuredComparisons";
 
 /**
  * How many columns the plan grid gets, given how many plans exist.
@@ -503,15 +505,34 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
               // The server's offer for the chosen tab; a card with no year
               // keeps its monthly offer rather than inventing one.
               const offer = plan.offers?.[cadence]?.available ? plan.offers[cadence] : plan.offers?.month || null;
+              // The recommended rung (site audit D4.3): the one the typical
+              // trades shop fits, from national business counts — see
+              // lib/pricing/popularTier.js for the sources. Highlighted, not
+              // pre-selected: these cards are links to signup, and nothing
+              // here is chosen for the visitor.
+              const popular = plan.tierKey === POPULAR_TIER_KEY;
               return (
                 <div
                   key={plan.id}
-                  className="relative overflow-hidden border border-border rounded-2xl p-8 flex flex-col hover:border-foreground/40 transition-colors"
+                  data-plan-popular={popular ? plan.tierKey : undefined}
+                  className={`relative overflow-hidden rounded-2xl p-8 flex flex-col transition-colors ${
+                    popular
+                      ? "border-2 border-primary shadow-md"
+                      : "border border-border hover:border-foreground/40"
+                  }`}
                 >
                   <OfferRibbon offer={offer} t={t} />
+                  {popular ? (
+                    <span className="mb-3 self-start rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
+                      {t("pricing.popular")}
+                    </span>
+                  ) : null}
                   <h3 className="text-lg font-semibold text-foreground pr-10">
                     {plan.name}
                   </h3>
+                  {popular ? (
+                    <p className="mt-1 text-sm font-medium text-foreground">{t("pricing.popularNote")}</p>
+                  ) : null}
                   {offer ? (
                     <PlanOfferPrice
                       offer={offer}
@@ -645,6 +666,25 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
           <IncludedEverywhere t={t} />
 
           <AddOnComparison t={t} asOf={asOf} locale={locale} />
+
+          {/* The per-competitor pages, named (site audit D5.3): the two a
+              Canadian shop most often weighs FieldQuo against first, then
+              every comparison (lib/marketing/featuredComparisons.js;
+              check:site-seo proves each slug is a real comparison page). */}
+          <p className="mt-4 text-center text-sm text-muted-foreground" data-pricing-vs-links>
+            {t("pricing.vsLinks")}{" "}
+            {FEATURED_COMPARISONS.map((c) => (
+              <span key={c.slug}>
+                <Link href={`/compare/${c.slug}`} className="underline font-medium text-foreground">
+                  {t("compare.vs", { competitor: c.name })}
+                </Link>
+                {" · "}
+              </span>
+            ))}
+            <Link href="/compare" className="underline font-medium text-foreground">
+              {t("footer.links.allComparisons")}
+            </Link>
+          </p>
 
           {/* ── What this note may and may not claim ──────────────────────
               It used to open "All prices are in CAD", with the code filled in

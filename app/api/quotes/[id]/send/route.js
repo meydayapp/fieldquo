@@ -33,6 +33,7 @@ import { onQuoteSent } from "@/lib/quotes/quoteLifecycle";
 import { onQuoteEmailed } from "@/lib/voice/triggers";
 import { recordActivity } from "@/lib/activity/log";
 import { recordFeatureUse } from "@/lib/analytics/product/server";
+import { trackServerEvent } from "@/lib/heycatch/server";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import {
   loadEnforceableMember,
@@ -486,6 +487,22 @@ export async function POST(request, { params }) {
   // FieldQuo's own usage count (lib/analytics/product/server.js): a quote
   // left, so "quote_sent" moves. After the send, best-effort, never throws.
   await recordFeatureUse("quote_sent", { companyId: member.companyId, memberId: member.id });
+
+  // HeyCatch's first_quote_sent (lib/heycatch/server.js): the company's very
+  // first quote reaching a client — the moment a trial becomes a business
+  // using FieldQuo. "First" is the database's answer after this send: the
+  // quote had no sentAt before it, and it is now the only one with one. Not
+  // for a follow-up, a demo's simulated send, or a support session.
+  if (!isFollowUp && !quote.sentAt && result?.simulated !== true && !member.impersonation) {
+    try {
+      const everSent = await db.quote.count({ where: { companyId: member.companyId, sentAt: { not: null } } });
+      if (everSent === 1) {
+        await trackServerEvent("first_quote_sent", { companyId: member.companyId }, { userId: member.userId, request });
+      }
+    } catch {
+      // Analytics only — the quote has already gone.
+    }
+  }
 
   // The email as it went — subject, body, recipients — for the History tab
   // on the client and job pages (lib/email/sentEmailHistory.js). After the

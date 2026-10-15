@@ -72,6 +72,18 @@ export default function HomeHero({ sale = null }) {
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-14 sm:pt-20 sm:pb-20 text-center">
         {sale ? <SalePill sale={sale} /> : null}
 
+        {/* The eyebrow (site audit D1.1 / D2.1, 2026-10-15): the trades and
+            the crew size, named before the headline, which stays as the
+            owner approved it. Trades from lib/trades/catalog.js. The size
+            from national counts, not a guess — US Census SUSB 2022 (NAICS
+            238, specialty trade contractors) and Statistics Canada's
+            Canadian Business Counts, June 2026 (table 33-10-1174-01): the
+            median employer firm has 1–4 employees and 91% have fewer than
+            20 in both countries. lib/pricing/popularTier.js has the sources. */}
+        <p className="mx-auto mb-5 max-w-3xl text-sm sm:text-base font-semibold text-brand-accent-text text-balance" data-hero-eyebrow>
+          {t("home.hero.eyebrow")}
+        </p>
+
         <h1 className="mx-auto max-w-4xl text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground text-balance leading-[1.08]">
           {t("home.hero.title")}
         </h1>

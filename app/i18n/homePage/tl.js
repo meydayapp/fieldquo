@@ -85,10 +85,10 @@ export const HOME_PAGE_TL = {
     "Gawin ito sa mismong site gamit ang sarili mong presyo at ipadala bago ka umalis sa driveway.",
   "home.how.schedule.title": "I-schedule ang trabaho",
   "home.how.schedule.body":
-    "Nagiging trabaho ang aprubadong quote. Ilagay ito sa kalendaryo at i-assign ang crew.",
+    "Nagiging trabaho ang aprubadong quote. Ilagay ito sa kalendaryo at i-assign ang crew. Kapag may nag-sick leave, ibigay ang mga visit niya sa iba o ilipat sa ibang araw — sinasabihan ng bagong oras ang kliyenteng nalipat ang visit.",
   "home.how.work.title": "Gawin ang trabaho",
   "home.how.work.body":
-    "Nagka-clock in ang crew mo, nagdadagdag ng litrato at tinatapos ang checklist mula sa phone nila.",
+    "Nagka-clock in ang crew mo, nagdadagdag ng litrato at tinatapos ang checklist mula sa phone nila. Puwedeng ilipat ng bawat isa ang app sa sarili nilang wika.",
   "home.how.paid.title": "Mabayaran",
   "home.how.paid.body":
     "Mag-invoice mula sa trabaho at tumanggap ng bayad online, diretso sa sarili mong bank account.",
@@ -171,7 +171,7 @@ export const HOME_PAGE_TL = {
   "home.why.title":
     "Tigilan na ang pagpapatakbo ng negosyo sa limang magkakaibang app.",
   "home.why.body":
-    "Bawat hiwalay na tool ay may sariling kopya ng customer mo, at ikaw ang nagpapanatiling magkakatugma ang mga ito. Iisa lang ang hawak ng FieldQuo.",
+    "Bawat hiwalay na tool ay may sariling kopya ng customer mo, at ikaw ang nagpapanatiling magkakatugma ang mga ito. Iisa lang ang hawak ng FieldQuo. Wala nang kokopyahin mula sa isang app papunta sa iba sa dulo ng araw.",
   "home.why.before": "Hiwalay na mga tool",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "Mga quote",
@@ -222,4 +222,52 @@ export const HOME_PAGE_TL = {
 
   "home.final.title": "Puwedeng dumaan sa FieldQuo ang susunod mong trabaho.",
   "home.final.body": "Mula sa unang tawag hanggang sa huling bayad.",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "Para sa mga pintor, roofer, tubero, electrician at bawat iba pang trade — mula sa nagtatrabahong mag-isa hanggang sa crew na 20.",
+  "home.results.fact.usage":
+    "{count} contractor ang nagpatakbo ng negosyo nila sa FieldQuo sa nakaraang {days} araw",
+  "home.faq.notFor.q":
+    "Para kanino hindi ginawa ang FieldQuo?",
+  "home.faq.notFor.a":
+    "Sa mga kompanyang may higit sa {maxSeats} user sa opisina o {maxCrew} tao sa field — iyon ang pinakamalaking plano — at sa mga negosyong hindi nagku-quote at nag-i-invoice para sa trabaho sa lugar ng kliyente, gaya ng mga tindahan o restawran.",
+  "home.stories.title":
+    "Una nang pinatatakbo ng FieldQuo ang sarili naming mga negosyo.",
+  "home.stories.connection.founderCompany":
+    "Sariling kompanya ng founder ng FieldQuo",
+  "home.stories.connection.founderFamily":
+    "Pinatatakbo ng pamilya ng founder",
+  "home.stories.aboutLink":
+    "Bakit ginawa ng founder ang FieldQuo",
+  "about.title":
+    "Tungkol sa FieldQuo",
+  "about.intro":
+    "Ginawa ang FieldQuo ng mga taong nagpapatakbo ng totoong contracting na negosyo, mula sa araw-araw na abala ng pag-quote, pag-schedule at pagpapabayad. Ginawa namin ang tool na sana'y mayroon kami noon — at ngayon ginagawa namin ito para sa bawat trade, hindi lang sa amin.",
+  "about.founder.heading":
+    "Binuo sa loob ng totoong contracting na kompanya",
+  "about.founder.p1":
+    "Ako si Emilio Boves. Pinatatakbo ko ang TrueFinish Cabinets sa Ottawa. Nire-refinish at nire-reface namin ang mga kusina, at ilang taon din akong nasa mga job site na gumagawa ng flooring at general construction.",
+  "about.founder.p2":
+    "Matagal kong pinatakbo ang negosyo sa limang magkakaibang app: isa para sa quote, isa para sa schedule, spreadsheet para sa gastos, isa pa para sa invoice, at ang phone ko para sa lahat ng iba pa. Isang araw na huli lumalabas ang mga quote, mano-manong sinisingil ang mga deposito, at ilang taon akong hindi talaga makapag-alok ng financing sa mga kliyente ko.",
+  "about.founder.p3":
+    "Kaya una kong binuo ang FieldQuo sa loob ng sarili kong kompanya. Ngayon, dito dumadaan ang bawat quote, trabaho, invoice at bayad sa TrueFinish, pati na ang negosyo ng pamilya ko, ang Sunset Space. Kung may hindi kumakapit sa totoong trabaho, hindi ito inilalabas.",
+  "about.founder.p4":
+    "Kaya nasa bawat plano ang bawat feature, kaya logo mo ang nasa mga quote at invoice mo at hindi ang amin, at kaya magagamit ito ng crew mo sa sarili nilang wika.",
+  "about.founder.signature":
+    "— {name}, founder ng FieldQuo at may-ari ng TrueFinish Cabinets",
+  "about.founder.photoAlt":
+    "{name} sa isang trabaho ng TrueFinish Cabinets",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "Tungkol sa founder",
+  "footer.links.allComparisons":
+    "Lahat ng paghahambing",
+  "pricing.popularNote":
+    "Dito nagsisimula ang karamihan ng mga negosyo.",
+  "pricing.vsLinks":
+    "Magkatabi:",
+  "about.founder.linkedinLabel":
+    "{name} sa LinkedIn",
 };

@@ -14,8 +14,17 @@ export default function LanguageSwitcher({ compact = false }) {
   const { language, changeLanguage } = useTranslation();
 
   return (
+    // The full-size switcher WRAPS. Eight 44px pills are ~370px and the mobile
+    // menu has ~327 at 375px wide, so a single pill row put Italian past the
+    // screen edge with no way to reach it (site audit mobile pass, 2026-10-15).
+    // A rounded rectangle rather than a pill, because a two-row pill shape
+    // reads as a broken outline.
     <div
-      className="flex items-center gap-0.5 rounded-full border border-border px-1 py-1"
+      className={
+        compact
+          ? "flex items-center gap-0.5 rounded-full border border-border px-1 py-1"
+          : "flex flex-wrap items-center justify-center gap-0.5 rounded-2xl border border-border px-1 py-1"
+      }
       role="group"
       aria-label="Language"
     >

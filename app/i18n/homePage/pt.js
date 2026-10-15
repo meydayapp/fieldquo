@@ -83,10 +83,10 @@ export const HOME_PAGE_PT_BR = {
     "Crie o orçamento no local usando seus próprios preços e envie antes mesmo de sair.",
   "home.how.schedule.title": "Agende o serviço",
   "home.how.schedule.body":
-    "O orçamento aprovado vira um serviço. Coloque-o na agenda e atribua a equipe.",
+    "O orçamento aprovado vira um serviço. Coloque-o na agenda e atribua a equipe. Se alguém avisar que está doente, passe as visitas dele para outra pessoa ou mude para outro dia — o cliente cuja visita muda recebe o novo horário.",
   "home.how.work.title": "Execute o serviço",
   "home.how.work.body":
-    "Sua equipe registra o horário, adiciona fotos e segue o checklist pelo celular.",
+    "Sua equipe registra o horário, adiciona fotos e segue o checklist pelo celular. Cada um pode colocar o aplicativo no próprio idioma.",
   "home.how.paid.title": "Receba o pagamento",
   "home.how.paid.body":
     "Gere a fatura a partir do serviço e receba pagamentos online diretamente na sua conta bancária.",
@@ -169,7 +169,7 @@ export const HOME_PAGE_PT_BR = {
   "home.why.title":
     "Pare de administrar sua empresa em cinco aplicativos diferentes.",
   "home.why.body":
-    "Cada ferramenta separada mantém sua própria cópia dos dados do cliente, e cabe a você manter tudo sincronizado. O FieldQuo mantém um único registro.",
+    "Cada ferramenta separada mantém sua própria cópia dos dados do cliente, e cabe a você manter tudo sincronizado. O FieldQuo mantém um único registro. Nada para copiar de um aplicativo para outro no fim do dia.",
   "home.why.before": "Ferramentas separadas",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "Orçamentos",
@@ -219,4 +219,52 @@ export const HOME_PAGE_PT_BR = {
 
   "home.final.title": "Seu próximo serviço pode ser gerenciado pelo FieldQuo.",
   "home.final.body": "Do primeiro contato ao pagamento final.",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "Para pintores, telhadistas, encanadores, eletricistas e todos os outros ofícios — de quem trabalha sozinho a equipes de 20.",
+  "home.results.fact.usage":
+    "{count} prestadores de serviço tocaram o negócio no FieldQuo nos últimos {days} dias",
+  "home.faq.notFor.q":
+    "Para quem o FieldQuo não foi feito?",
+  "home.faq.notFor.a":
+    "Para empresas com mais de {maxSeats} usuários no escritório ou {maxCrew} pessoas em campo — o maior plano que existe — e para negócios que não fazem orçamentos nem faturas de serviços no imóvel do cliente, como lojas ou restaurantes.",
+  "home.stories.title":
+    "O FieldQuo roda primeiro nos nossos próprios negócios.",
+  "home.stories.connection.founderCompany":
+    "A empresa do próprio fundador do FieldQuo",
+  "home.stories.connection.founderFamily":
+    "Administrada pela família do fundador",
+  "home.stories.aboutLink":
+    "Por que o fundador criou o FieldQuo",
+  "about.title":
+    "Sobre o FieldQuo",
+  "about.intro":
+    "O FieldQuo foi criado por pessoas que tocam um negócio de obras de verdade, a partir dos atritos do dia a dia: orçar, agendar e receber. Construímos a ferramenta que gostaríamos de ter tido — e agora a construímos para todos os ofícios, não só o nosso.",
+  "about.founder.heading":
+    "Feito dentro de uma empresa de obras de verdade",
+  "about.founder.p1":
+    "Eu sou Emilio Boves. Comando a TrueFinish Cabinets em Ottawa. Reformamos e revestimos cozinhas, e também passei anos em obra fazendo pisos e construção em geral.",
+  "about.founder.p2":
+    "Por muito tempo toquei o negócio em cinco aplicativos diferentes: um para orçamentos, um para a agenda, uma planilha para os custos, outro para as faturas e o celular para todo o resto. Os orçamentos saíam com um dia de atraso, os sinais eram cobrados na mão e, por anos, não consegui oferecer nenhum financiamento aos meus clientes.",
+  "about.founder.p3":
+    "Então construí o FieldQuo primeiro dentro da minha própria empresa. Hoje todo orçamento, serviço, fatura e pagamento da TrueFinish passa por ele, assim como o negócio da minha família, a Sunset Space. Se algo não aguenta um serviço de verdade, não é lançado.",
+  "about.founder.p4":
+    "É por isso que todo plano tem todos os recursos, que seus orçamentos e faturas levam o seu logotipo e não o nosso, e que sua equipe pode usá-lo no próprio idioma.",
+  "about.founder.signature":
+    "— {name}, fundador do FieldQuo e dono da TrueFinish Cabinets",
+  "about.founder.photoAlt":
+    "{name} em um serviço da TrueFinish Cabinets",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "Sobre o fundador",
+  "footer.links.allComparisons":
+    "Todas as comparações",
+  "pricing.popularNote":
+    "A maioria das empresas começa aqui.",
+  "pricing.vsLinks":
+    "Lado a lado:",
+  "about.founder.linkedinLabel":
+    "{name} no LinkedIn",
 };

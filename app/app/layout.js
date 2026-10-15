@@ -8,6 +8,8 @@ import MobileTabBar from "@/app/components/layout/MobileTabBar";
 import { NavShellProvider } from "@/app/components/layout/NavShell";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import ActivityBeat from "@/app/components/layout/ActivityBeat";
+import AnalyticsIdentity from "@/app/components/analytics/AnalyticsIdentity";
+import { identityPayload } from "@/lib/heycatch/gate";
 import BillingBanner from "@/app/components/layout/BillingBanner";
 import EmailVerifyBanner from "@/app/components/layout/EmailVerifyBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
@@ -192,6 +194,38 @@ async function getLockState() {
  * showing everything: a menu row leading to a gated page costs one click, while
  * a blanked-out nav on a database blip looks like the account broke.
  */
+/**
+ * Who HeyCatch is told is using /app — built by identityPayload
+ * (lib/heycatch/gate.js): the user id plus company, role and plan tier, never
+ * contact details, and null for any support session or demo sandbox. The plan
+ * is the tier key ("solo", "crew", …) of the company's subscription, or null
+ * when there is none yet. Never throws: analytics must not take the shell down.
+ */
+async function getAnalyticsIdentity() {
+  try {
+    const member = await getCurrentMember(
+      { headers: await headers(), method: "GET", url: "" },
+      { skipBillingGate: true },
+    );
+    if (!member?.userId || member.impersonation) return null;
+    const sub = member.companyId
+      ? await db.subscription.findUnique({
+          where: { companyId: member.companyId },
+          select: { plan: { select: { tierKey: true } } },
+        })
+      : null;
+    return identityPayload({
+      userId: member.userId,
+      companyId: member.companyId,
+      role: member.role,
+      plan: sub?.plan?.tierKey || null,
+      impersonation: member.impersonation,
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function getFeatureFlags() {
   try {
     const member = await getCurrentMember(
@@ -421,7 +455,7 @@ async function getSetupRedirect() {
 }
 
 export default async function AppLayout({ children }) {
-  const [company, language, locked, featureFlags, callerPermissions, setupPath, settingsShell] =
+  const [company, language, locked, featureFlags, callerPermissions, setupPath, settingsShell, analyticsIdentity] =
     await Promise.all([
       getCompanyShell(),
       getAppLanguage(),
@@ -433,6 +467,7 @@ export default async function AppLayout({ children }) {
       resolveCallerPermissions(),
       getSetupRedirect(),
       resolveSettingsShell(),
+      getAnalyticsIdentity(),
     ]);
 
   // Whether the shell may tell the rest of this browser "signed in, and this
@@ -535,6 +570,10 @@ export default async function AppLayout({ children }) {
           active. The route refuses one regardless — this is the third of
           three refusals, listed in app/api/presence/route.js, not the only. */}
       <ActivityBeat enabled={!settingsShell.access?.impersonation} />
+      {/* Renders nothing. HeyCatch's setIdentity with the user id and three
+          company facts; null — so nothing — for a support session or demo
+          sandbox (app/components/analytics/AnalyticsIdentity.js). */}
+      <AnalyticsIdentity identity={analyticsIdentity} />
 
       {/* Renders nothing when the account is in good standing, which is the
           common case. Mounted here rather than on the billing page because

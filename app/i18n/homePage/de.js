@@ -85,10 +85,10 @@ export const HOME_PAGE_DE = {
     "Erstellen Sie es vor Ort mit Ihren eigenen Preisen und schicken Sie es ab, bevor Sie aus der Einfahrt fahren.",
   "home.how.schedule.title": "Auftrag einplanen",
   "home.how.schedule.body":
-    "Aus dem angenommenen Angebot wird ein Auftrag. Tragen Sie ihn in den Kalender ein und teilen Sie das Team ein.",
+    "Aus dem angenommenen Angebot wird ein Auftrag. Tragen Sie ihn in den Kalender ein und teilen Sie das Team ein. Meldet sich jemand krank, geben Sie seine Termine an jemand anderen oder verschieben Sie sie auf einen anderen Tag — ein Kunde, dessen Termin sich verschiebt, erfährt die neue Uhrzeit.",
   "home.how.work.title": "Arbeit erledigen",
   "home.how.work.body":
-    "Ihr Team stempelt ein, lädt Fotos hoch und arbeitet die Checkliste am Handy ab.",
+    "Ihr Team stempelt ein, lädt Fotos hoch und arbeitet die Checkliste am Handy ab. Jeder kann die App auf die eigene Sprache umstellen.",
   "home.how.paid.title": "Bezahlt werden",
   "home.how.paid.body":
     "Stellen Sie die Rechnung direkt aus dem Auftrag und nehmen Sie Zahlungen online an — direkt auf Ihr eigenes Bankkonto.",
@@ -171,7 +171,7 @@ export const HOME_PAGE_DE = {
   "home.why.title":
     "Schluss damit, Ihr Geschäft über fünf verschiedene Apps zu führen.",
   "home.why.body":
-    "Jedes separate Tool hat seine eigene Kopie Ihres Kunden, und Sie sind derjenige, der sie abgleicht. FieldQuo hat nur eine.",
+    "Jedes separate Tool hat seine eigene Kopie Ihres Kunden, und Sie sind derjenige, der sie abgleicht. FieldQuo hat nur eine. Am Ende des Tages gibt es nichts mehr von App zu App abzutippen.",
   "home.why.before": "Separate Tools",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "Angebote",
@@ -222,4 +222,52 @@ export const HOME_PAGE_DE = {
 
   "home.final.title": "Ihr nächster Auftrag kann über FieldQuo laufen.",
   "home.final.body": "Vom ersten Anruf bis zur letzten Zahlung.",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "Für Maler, Dachdecker, Installateure, Elektriker und jedes andere Handwerk — vom Ein-Personen-Betrieb bis zum Team mit 20 Leuten.",
+  "home.results.fact.usage":
+    "{count} Betriebe haben in den letzten {days} Tagen mit FieldQuo gearbeitet",
+  "home.faq.notFor.q":
+    "Für wen ist FieldQuo nicht gemacht?",
+  "home.faq.notFor.a":
+    "Für Unternehmen mit mehr als {maxSeats} Büro-Nutzern oder {maxCrew} Leuten im Außendienst — das ist der größte Tarif, den es gibt — und für Geschäfte, die keine Arbeiten beim Kunden vor Ort anbieten und abrechnen, etwa Läden oder Restaurants.",
+  "home.stories.title":
+    "Mit FieldQuo laufen zuerst unsere eigenen Betriebe.",
+  "home.stories.connection.founderCompany":
+    "Das eigene Unternehmen des FieldQuo-Gründers",
+  "home.stories.connection.founderFamily":
+    "Geführt von der Familie des Gründers",
+  "home.stories.aboutLink":
+    "Warum der Gründer FieldQuo gebaut hat",
+  "about.title":
+    "Über FieldQuo",
+  "about.intro":
+    "FieldQuo wurde von Leuten gebaut, die selbst einen echten Handwerksbetrieb führen — aus dem alltäglichen Ärger mit Angeboten, Planung und Bezahlung heraus. Wir haben das Werkzeug gebaut, das wir uns gewünscht hätten, und bauen es jetzt für jedes Handwerk, nicht nur für unseres.",
+  "about.founder.heading":
+    "Entstanden in einem echten Handwerksbetrieb",
+  "about.founder.p1":
+    "Ich bin Emilio Boves. Ich führe TrueFinish Cabinets in Ottawa. Wir arbeiten Küchen auf und verkleiden Küchenfronten neu, und ich habe außerdem jahrelang auf Baustellen Böden verlegt und im allgemeinen Bau gearbeitet.",
+  "about.founder.p2":
+    "Lange Zeit habe ich den Betrieb mit fünf verschiedenen Apps geführt: eine für Angebote, eine für den Terminplan, eine Tabelle für die Kosten, eine weitere für Rechnungen und mein Handy für alles andere. Angebote gingen einen Tag zu spät raus, Anzahlungen wurden von Hand hinterhergejagt, und jahrelang konnte ich meinen Kunden überhaupt keine Finanzierung anbieten.",
+  "about.founder.p3":
+    "Also habe ich FieldQuo zuerst in meinem eigenen Betrieb gebaut. Jedes Angebot, jeder Auftrag, jede Rechnung und jede Zahlung bei TrueFinish läuft heute darüber, ebenso das Geschäft meiner Familie, Sunset Space. Was auf einer echten Baustelle nicht hält, wird nicht ausgeliefert.",
+  "about.founder.p4":
+    "Deshalb hat jeder Tarif jede Funktion, deshalb tragen Ihre Angebote und Rechnungen Ihr Logo statt unseres, und deshalb kann Ihr Team es in der eigenen Sprache nutzen.",
+  "about.founder.signature":
+    "— {name}, Gründer von FieldQuo und Inhaber von TrueFinish Cabinets",
+  "about.founder.photoAlt":
+    "{name} bei einem Auftrag von TrueFinish Cabinets",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "Über den Gründer",
+  "footer.links.allComparisons":
+    "Alle Vergleiche",
+  "pricing.popularNote":
+    "Die meisten Betriebe fangen hier an.",
+  "pricing.vsLinks":
+    "Im direkten Vergleich:",
+  "about.founder.linkedinLabel":
+    "{name} auf LinkedIn",
 };

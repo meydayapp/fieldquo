@@ -22,48 +22,21 @@
 //              SUPPORTED_EMAIL_LANGUAGES, app screens from APP_LANGUAGES
 //              (complete AND reviewed) — see app/(marketing)/page.js
 //   devices    the app is a web app with a manifest (app/manifest.js)
+//   notFor     the custom plan's cap (CUSTOM_MAX_SEATS, CUSTOM_CREW_GAP in
+//              lib/pricing/ladder.js) — site audit D2.B, 2026-10-15
+//
+// The items are built by homeFaqItems (lib/marketing/homeFaq.js), which the
+// homepage ALSO calls on the server for its FAQPage JSON-LD — so the
+// structured answers are the visible ones, word for word in English.
 "use client";
 
 import FAQ from "@/app/components/marketing/FAQ";
-import { TRIAL_DAYS, TRIAL_CARD_REQUIRED } from "@/lib/pricing";
+import { homeFaqItems } from "@/lib/marketing/homeFaq";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
 
-function listOf(names, locale) {
-  const list = (names || []).filter(Boolean);
-  try {
-    return new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(list);
-  } catch {
-    return list.join(", ");
-  }
-}
-
 export default function HomeFAQ({ graceDays, languages = { email: [], app: [] } }) {
   const { t, language } = useTranslation();
-  const locale = numberLocaleFor(language);
-
-  const items = [
-    { id: "trial", q: t("home.faq.trial.q"), a: t("home.faq.trial.a", { days: TRIAL_DAYS }) },
-    {
-      id: "card",
-      q: t("home.faq.card.q"),
-      a: TRIAL_CARD_REQUIRED
-        ? t("home.faq.card.aCard", { days: TRIAL_DAYS })
-        : t("home.faq.card.aNoCard", { grace: graceDays }),
-    },
-    { id: "cancel", q: t("home.faq.cancel.q"), a: t("home.faq.cancel.a") },
-    { id: "switch", q: t("home.faq.switch.q"), a: t("home.faq.switch.a") },
-    { id: "migration", q: t("home.faq.migration.q"), a: t("home.faq.migration.a") },
-    {
-      id: "languages",
-      q: t("home.faq.languages.q"),
-      a: t("home.faq.languages.a", {
-        emailLanguages: listOf(languages.email, locale),
-        appLanguages: listOf(languages.app, locale),
-      }),
-    },
-    { id: "devices", q: t("home.faq.devices.q"), a: t("home.faq.devices.a") },
-  ];
-
+  const items = homeFaqItems(t, { graceDays, languages, locale: numberLocaleFor(language) });
   return <FAQ items={items} title={t("faq.title")} />;
 }

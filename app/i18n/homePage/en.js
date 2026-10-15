@@ -98,10 +98,10 @@ export const HOME_PAGE_EN = {
     "Build it on site from your own prices and send it before you leave the driveway.",
   "home.how.schedule.title": "Schedule the job",
   "home.how.schedule.body":
-    "The approved quote becomes a job. Put it on the calendar and assign the crew.",
+    "The approved quote becomes a job. Put it on the calendar and assign the crew. If someone calls in sick, give their visits to someone else or move them to another day — a client whose visit moves is told the new time.",
   "home.how.work.title": "Do the work",
   "home.how.work.body":
-    "Your crew clocks in, adds photos and works through the checklist from their phone.",
+    "Your crew clocks in, adds photos and works through the checklist from their phone. Each of them can switch the app to their own language.",
   "home.how.paid.title": "Get paid",
   "home.how.paid.body":
     "Invoice from the job and take payment online, straight to your own bank account.",
@@ -192,7 +192,7 @@ export const HOME_PAGE_EN = {
   // ── Why FieldQuo ─────────────────────────────────────────────────────────
   "home.why.title": "Stop running your business across five different apps.",
   "home.why.body":
-    "Every separate tool keeps its own copy of your customer, and you are the one who keeps them in step. FieldQuo keeps one.",
+    "Every separate tool keeps its own copy of your customer, and you are the one who keeps them in step. FieldQuo keeps one. Nothing left to copy from app to app at the end of the day.",
   "home.why.before": "Separate tools",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "Quotes",
@@ -245,4 +245,52 @@ export const HOME_PAGE_EN = {
   // ── Final ask ────────────────────────────────────────────────────────────
   "home.final.title": "Your next job can run through FieldQuo.",
   "home.final.body": "From the first call to the final payment.",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "For painters, roofers, plumbers, electricians and every other trade — from one-person outfits to crews of 20.",
+  "home.results.fact.usage":
+    "{count} contractors ran their business on FieldQuo in the last {days} days",
+  "home.faq.notFor.q":
+    "Who is FieldQuo not built for?",
+  "home.faq.notFor.a":
+    "Companies with more than {maxSeats} office users or {maxCrew} people in the field — the largest plan there is — and businesses that don't quote and invoice for work at their clients' properties, such as shops or restaurants.",
+  "home.stories.title":
+    "FieldQuo runs our own businesses first.",
+  "home.stories.connection.founderCompany":
+    "FieldQuo's founder's own company",
+  "home.stories.connection.founderFamily":
+    "Run by the founder's family",
+  "home.stories.aboutLink":
+    "Why the founder built FieldQuo",
+  "about.title":
+    "About FieldQuo",
+  "about.intro":
+    "FieldQuo was built by people who run a real contracting business, out of the everyday friction of quoting, scheduling, and getting paid. We built the tool we wished we had — and now we're building it for every trade, not just our own.",
+  "about.founder.heading":
+    "Built inside a real contracting company",
+  "about.founder.p1":
+    "I'm Emilio Boves. I run TrueFinish Cabinets in Ottawa. We refinish and reface kitchens, and I've also spent years on job sites doing flooring and general construction.",
+  "about.founder.p2":
+    "For a long time I ran the business across five different apps: one for quotes, one for the schedule, a spreadsheet for costs, another for invoices, and my phone for everything else. Quotes went out a day late, deposits got chased by hand, and for years I couldn't offer my clients financing at all.",
+  "about.founder.p3":
+    "So I built FieldQuo inside my own company first. Every quote, job, invoice and payment at TrueFinish runs through it today, and so does my family's business, Sunset Space. If something doesn't hold up on a real job, it doesn't ship.",
+  "about.founder.p4":
+    "That's why every plan has every feature, why your quotes and invoices carry your logo instead of ours, and why your crew can use it in their own language.",
+  "about.founder.signature":
+    "— {name}, founder of FieldQuo and owner of TrueFinish Cabinets",
+  "about.founder.photoAlt":
+    "{name} at a TrueFinish Cabinets job",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "About the founder",
+  "footer.links.allComparisons":
+    "All comparisons",
+  "pricing.popularNote":
+    "Most shops start here.",
+  "pricing.vsLinks":
+    "Side by side:",
+  "about.founder.linkedinLabel":
+    "{name} on LinkedIn",
 };

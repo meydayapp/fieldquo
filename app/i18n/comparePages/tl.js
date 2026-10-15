@@ -306,6 +306,37 @@ const tl = {
 
   // ── /pricing's own line under the add-on stack ──────────────────────────
   "pricing.addOnsCompare": "Bawat numero sa itaas ay binasa mula sa sarili nilang pricing page, sa petsang nakalagay. Ang buong magkatabing paghahambing, kasama ang hindi ginagawa ng FieldQuo, ay narito →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "Paglipat mula sa {competitor}",
+  "compare.switch.csv":
+    "Dalhin ang mga kliyente mo, ang mga produkto at presyo mo, at ang mga dati mong trabaho gamit ang spreadsheet (CSV) import ng FieldQuo — kung pinapayagan ka ng {competitor} na i-export ang mga ito sa spreadsheet, tig-isang file ang bawat isa.",
+  "compare.switch.service":
+    "O ipagawa sa amin: idinadagdag ng bayad naming data-migration service ang mga kliyente at quote mo, kapag tinanggap at binayaran mo na ang presyo nito. Nagdadagdag lang kami — hindi namin binabago o binubura ang anumang nasa account mo na.",
+  "compare.switch.overlap":
+    "Gamitin ang dalawa habang nasa {days}-araw na libreng subok, at i-cancel ang {competitor} kapag FieldQuo na ang gumagawa ng trabaho.",
+  "compare.switch.notMoved":
+    "Hindi kasamang lilipat ang mga bukas na invoice at ang kasaysayan ng bayad: tapusin ang paniningil sa nasa {competitor} na, at magpadala ng mga bagong invoice mula sa FieldQuo.",
+  "compare.faq.title":
+    "Mga tanong tungkol sa paglipat",
+  "compare.faq.trial.q":
+    "Puwede ko bang subukan ang FieldQuo bago umalis sa {competitor}?",
+  "compare.faq.trial.a":
+    "Oo. {days} araw ang subok na naka-on ang bawat feature, kaya makakapagpadala ka ng totoong quote mula sa FieldQuo habang tumatakbo pa ang {competitor}.",
+  "compare.faq.brand.q":
+    "Makikita ba ng mga kliyente ko ang pangalang FieldQuo?",
+  "compare.faq.brand.a":
+    "Hindi. Ang mga quote mo, ang mga invoice mo at ang mga email na kasama nito ay nagpapakita ng logo mo, kulay mo at pangalan ng negosyo mo, hindi ng amin.",
+  "compare.faq.contract.q":
+    "May kontrata ba?",
+  "compare.faq.contract.a":
+    "Wala sa buwanang plano: i-cancel sa Account & Billing at gagana pa ito hanggang sa katapusan ng buwang binayaran mo. Ang 1-taong plano ay bayad para sa taon at tumatakbo hanggang sa katapusan nito.",
+  "compare.faq.prices.q":
+    "Gaano kabago ang mga presyo ng {competitor} sa page na ito?",
+  "compare.faq.prices.a":
+    "Binasa ang bawat halaga sa sariling pricing page ng {competitor} sa petsang nakasulat sa tabi nito. Hindi na ipinapakita ang isang halaga {staleDays} araw matapos itong basahin, kaya hindi kailanman ipinapakita ang lumang presyo na parang presyo ngayon.",
+
 };
 
 export default tl;

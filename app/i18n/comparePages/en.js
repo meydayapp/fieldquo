@@ -322,6 +322,37 @@ const en = {
   // Referenced by PricingPlans.js since the block was written and never
   // defined, which is the second half of the same reported bug.
   "pricing.addOnsCompare": "Every figure above was read off their own pricing page, on the date shown. The full side-by-side, including what FieldQuo does not do, is here →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "Switching from {competitor}",
+  "compare.switch.csv":
+    "Bring your clients, your products and prices, and your past jobs across with FieldQuo's spreadsheet (CSV) imports — if {competitor} lets you export them to a spreadsheet, each one goes in as a file.",
+  "compare.switch.service":
+    "Or have us do it: our paid data-migration service adds your clients and quotes for you once you have accepted and paid its price. We only add records — we never change or delete anything already in your account.",
+  "compare.switch.overlap":
+    "Run both during the {days}-day free trial, and cancel {competitor} once FieldQuo is doing the work.",
+  "compare.switch.notMoved":
+    "Open invoices and payment history don't come across: finish collecting what is already out in {competitor}, and send new invoices from FieldQuo.",
+  "compare.faq.title":
+    "Questions about switching",
+  "compare.faq.trial.q":
+    "Can I try FieldQuo before I leave {competitor}?",
+  "compare.faq.trial.a":
+    "Yes. The trial is {days} days with every feature switched on, so you can send real quotes from FieldQuo while {competitor} is still running.",
+  "compare.faq.brand.q":
+    "Will my clients see FieldQuo's name?",
+  "compare.faq.brand.a":
+    "No. Your quotes, your invoices and the emails that carry them show your logo, your colour and your business name, not ours.",
+  "compare.faq.contract.q":
+    "Is there a contract?",
+  "compare.faq.contract.a":
+    "Not on the monthly plan: cancel from Account & Billing and it keeps working to the end of the month you paid for. The 1-year plan is paid for the year and runs to the end of it.",
+  "compare.faq.prices.q":
+    "How current are {competitor}'s prices on this page?",
+  "compare.faq.prices.a":
+    "Each figure was read off {competitor}'s own pricing page on the date printed beside it. A figure stops being shown {staleDays} days after it was read, so an old price is never presented as today's.",
+
 };
 
 export default en;

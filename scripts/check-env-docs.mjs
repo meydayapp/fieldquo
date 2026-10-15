@@ -19,7 +19,10 @@ const DOC = "docs/VERCEL.md";
 
 // Set by Vercel itself; documented as "don't set these by hand" rather than as
 // rows in the tables, so they're exempt from the row check.
-const PLATFORM_PROVIDED = new Set(["NODE_ENV", "VERCEL_URL"]);
+// VERCEL_ENV joined 2026-10-15: lib/platform/errorKinds.js has always read it
+// (through a parameter this scan cannot see) and scripts/check-heycatch.mjs
+// sets it to prove server events are production-only. Vercel sets it.
+const PLATFORM_PROVIDED = new Set(["NODE_ENV", "VERCEL_URL", "VERCEL_ENV"]);
 
 // Read ONLY by local operator scripts that never run on Vercel — account
 // recovery, one-off maintenance. They are terminal arguments the operator types

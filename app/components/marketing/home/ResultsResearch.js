@@ -10,21 +10,28 @@
 //      FieldQuo's results and never the size of the improvement. See
 //      research.js for the figures and why they are worded as they are.
 //
-// There is no customer count, logo wall or testimonial here because FieldQuo
-// has none it can stand behind yet. Absence of a statement is not a
-// statement (AGENTS.md, failure class 5), and an invented one on the page a
-// stranger judges us by is the worst place to make one.
+// There is no logo wall or testimonial here because FieldQuo has none it can
+// stand behind yet. Absence of a statement is not a statement (AGENTS.md,
+// failure class 5), and an invented one on the page a stranger judges us by is
+// the worst place to make one.
+//
+// The customer COUNT (site audit D3.1, 2026-10-15) is the one exception, and
+// only because it is read rather than written: `usage` arrives from the
+// server as { count } when lib/marketing/usageCount.js counted at least
+// USAGE_COUNT_THRESHOLD companies running FieldQuo, and as null otherwise —
+// in which case nothing at all renders in its place.
 "use client";
 
-import { CheckCircle2, Layers, Unlock } from "lucide-react";
+import { CheckCircle2, Layers, Unlock, Users } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import { RESEARCH_SOURCE, RESEARCH_STATS } from "./research";
 import TrialLine from "./TrialLine";
+import { ACTIVE_WINDOW_DAYS } from "@/lib/marketing/usageCount";
 
 const PROMISES = ["volume", "overhead", "techs"];
 
-export default function ResultsResearch() {
+export default function ResultsResearch({ usage = null }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
 
@@ -81,6 +88,12 @@ export default function ResultsResearch() {
         </div>
 
         <ul className="mt-8 flex flex-wrap justify-center gap-3 text-sm font-semibold text-foreground">
+          {usage?.count ? (
+            <li className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2" data-usage-count>
+              <Users size={16} aria-hidden="true" className="text-primary" />
+              {t("home.results.fact.usage", { count: new Intl.NumberFormat(locale).format(usage.count), days: ACTIVE_WINDOW_DAYS })}
+            </li>
+          ) : null}
           <li className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
             <Layers size={16} aria-hidden="true" className="text-primary" />
             {t("home.results.fact.onePlatform")}

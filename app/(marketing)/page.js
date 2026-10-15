@@ -36,6 +36,12 @@ import { GRACE_DAYS } from "@/lib/billing/access";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { SUPPORTED_EMAIL_LANGUAGES } from "@/lib/i18n/emailCopy";
 import { APP_LANGUAGES } from "@/app/i18n/appMessages";
+import { MESSAGES } from "@/app/i18n/messages";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
+import { translate } from "@/lib/i18n/resolveMessage";
+import { homeFaqItems } from "@/lib/marketing/homeFaq";
+import { runningCompanyCount, usageProof } from "@/lib/marketing/usageCount";
+import { faqPageLd, ldJson } from "@/lib/seo/structuredData";
 import HomeHero from "@/app/components/marketing/home/HomeHero";
 import ProductDemo from "@/app/components/marketing/home/ProductDemo";
 import ResultsResearch from "@/app/components/marketing/home/ResultsResearch";
@@ -101,19 +107,41 @@ async function pricingAndSale(now) {
   }
 }
 
+/**
+ * The usage proof (site audit D3.1) — a COUNT, read here, shown only at or
+ * above the threshold. lib/marketing/usageCount.js says what counts and why
+ * nothing is typed. A failed read is null: the block is simply absent, as it
+ * is below the threshold.
+ */
+async function usage(now) {
+  try {
+    return usageProof(await runningCompanyCount(db, now));
+  } catch {
+    return null;
+  }
+}
+
 export default async function HomePage() {
-  const { sale, plans } = await pricingAndSale(new Date());
+  const now = new Date();
+  const [{ sale, plans }, usageShown] = await Promise.all([pricingAndSale(now), usage(now)]);
 
   const languages = {
     email: namesOf(SUPPORTED_EMAIL_LANGUAGES),
     app: namesOf(APP_LANGUAGES),
   };
 
+  // FAQPage JSON-LD (site audit D5.5): built by the SAME function the
+  // visible FAQ renders from, in English — the language this page is
+  // server-rendered in — so the structured answers are the visible ones.
+  const enT = (key, values) => translate(MESSAGES, "en", "en", key, values);
+  const faqLd = faqPageLd(homeFaqItems(enT, { graceDays: GRACE_DAYS, languages, locale: numberLocaleFor("en") }));
+
   return (
     <>
+      {faqLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(faqLd) }} /> : null}
       <HomeHero sale={sale} />
       <ProductDemo />
-      <ResultsResearch />
+      <ResultsResearch usage={usageShown} />
       <HowItWorks />
       <TradeSelector />
       <OutcomeGroups />

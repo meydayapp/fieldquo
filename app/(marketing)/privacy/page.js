@@ -141,8 +141,8 @@ export default function PrivacyPage() {
       <p>
         FieldQuo measures which of its own pages are viewed &mdash; the
         marketing site, the help centre, the back office and the pages a
-        company&apos;s clients open &mdash; itself, without any third-party
-        analytics service, tracking cookie or advertising pixel. What is
+        company&apos;s clients open &mdash; itself, with no tracking cookie
+        or advertising pixel. What is
         recorded is the page&apos;s route (never the specific quote, booking
         or client it showed), the interface language, a screen-size bucket,
         the referring site&apos;s domain and any campaign tags in the link,
@@ -156,6 +156,19 @@ export default function PrivacyPage() {
         we can find slow pages: the page path without its query string, the
         device and browser type, and how long the page took to load. It is
         listed in Section 4.
+      </p>
+      <p>
+        On FieldQuo&apos;s own website (fieldquo.com) and inside the back
+        office, and nowhere else, we also use HeyCatch, a product analytics
+        service, to understand how contractors find FieldQuo and use it: the
+        pages viewed and the buttons and links clicked, with on-screen text
+        and link addresses masked so a client&apos;s name, address or document
+        link is never sent. A signed-in contractor is identified to it only by
+        their FieldQuo user id, their company&apos;s id, their role and their
+        plan &mdash; never by name, email address or phone number. It is never
+        loaded on a quote, invoice, booking page, client portal or a
+        contractor&apos;s website, so a company&apos;s clients are never
+        measured by it. It is listed in Section 4.
       </p>
       <p>
         We do not knowingly collect information from anyone we know to be a

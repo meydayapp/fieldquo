@@ -297,6 +297,37 @@ const de = {
 
   // ── /pricing's own line under the add-on stack ──────────────────────────
   "pricing.addOnsCompare": "Jede Zahl oben wurde am angegebenen Datum von ihrer eigenen Preisseite abgelesen. Der vollständige Vergleich nebeneinander — samt dem, was FieldQuo nicht macht — steht hier →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "Von {competitor} wechseln",
+  "compare.switch.csv":
+    "Bringen Sie Ihre Kunden, Ihre Produkte und Preise und Ihre früheren Aufträge mit den Tabellen-Importen (CSV) von FieldQuo mit — wenn {competitor} Ihnen den Export in eine Tabelle erlaubt, kommt jedes davon als eine Datei herein.",
+  "compare.switch.service":
+    "Oder lassen Sie es uns machen: Unser kostenpflichtiger Datenmigrations-Service legt Ihre Kunden und Angebote für Sie an, sobald Sie den Preis angenommen und bezahlt haben. Wir fügen nur hinzu — wir ändern oder löschen nie etwas, das schon in Ihrem Konto ist.",
+  "compare.switch.overlap":
+    "Nutzen Sie beides während der {days}-tägigen kostenlosen Testphase und kündigen Sie {competitor}, sobald FieldQuo die Arbeit macht.",
+  "compare.switch.notMoved":
+    "Offene Rechnungen und der Zahlungsverlauf kommen nicht mit: Ziehen Sie ein, was in {competitor} schon offen ist, und schicken Sie neue Rechnungen aus FieldQuo.",
+  "compare.faq.title":
+    "Fragen zum Wechsel",
+  "compare.faq.trial.q":
+    "Kann ich FieldQuo testen, bevor ich {competitor} verlasse?",
+  "compare.faq.trial.a":
+    "Ja. Die Testphase dauert {days} Tage mit allen Funktionen, Sie können also echte Angebote aus FieldQuo verschicken, während {competitor} noch läuft.",
+  "compare.faq.brand.q":
+    "Sehen meine Kunden den Namen FieldQuo?",
+  "compare.faq.brand.a":
+    "Nein. Ihre Angebote, Ihre Rechnungen und die E-Mails dazu zeigen Ihr Logo, Ihre Farbe und Ihren Firmennamen, nicht unsere.",
+  "compare.faq.contract.q":
+    "Gibt es einen Vertrag?",
+  "compare.faq.contract.a":
+    "Nicht beim Monatstarif: Kündigen Sie unter Konto & Abrechnung, und er läuft bis zum Ende des bezahlten Monats. Der 1-Jahres-Tarif wird für das Jahr bezahlt und läuft bis zu dessen Ende.",
+  "compare.faq.prices.q":
+    "Wie aktuell sind die Preise von {competitor} auf dieser Seite?",
+  "compare.faq.prices.a":
+    "Jeder Betrag wurde von der Preisseite von {competitor} selbst abgelesen, an dem daneben angegebenen Datum. Ein Betrag wird {staleDays} Tage nach dem Ablesen nicht mehr angezeigt, ein alter Preis wird also nie als heutiger dargestellt.",
+
 };
 
 export default de;

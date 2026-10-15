@@ -271,7 +271,7 @@ section("5. Nothing invented: no unapproved story, no fetched rates");
     ok("no customer story is on the page (none has been approved yet)", true);
   } else {
     const entries = (body.match(/\bid\s*:/g) || []).length;
-    for (const field of ["approvedBy", "approvedOn", "originalLanguage"]) {
+    for (const field of ["approvedBy", "approvedOn", "originalLanguage", "connection"]) {
       ok(
         `every customer story carries ${field}`,
         (body.match(new RegExp(`\\b${field}\\s*:`, "g")) || []).length >= entries,

@@ -723,7 +723,7 @@ const PART_1 = {
         heading: "Quels services voient quelles données",
         blocks: [
           { p: "La page de confidentialité de FieldQuo liste chaque service externe auquel le produit est branché, et la compilation échoue si la liste cesse de correspondre au code. Voici cette liste, dans les mots qui comptent pour un entrepreneur." },
-          { p: "Une chose n’y figure PAS, volontairement : un service d’analyse Web. FieldQuo compte lui-même quelles pages de son propre site sont ouvertes, sans témoin de suivi, sans pixel publicitaire et sans conserver d’adresse IP — il enregistre la route de la page, jamais quelle soumission ou quel client s’y trouvait." },
+          { p: "FieldQuo compte lui-même quelles pages sont ouvertes, sans témoin de suivi, sans pixel publicitaire et sans conserver d’adresse IP — il enregistre la route de la page, jamais quelle soumission ou quel client s’y trouvait. Depuis octobre 2026, un service d’analyse de produit, HeyCatch, mesure aussi comment les entrepreneurs utilisent fieldquo.com et le bureau : pages et clics, avec le texte à l’écran et l’adresse des liens masqués, et vous n’y êtes identifié que par votre identifiant d’utilisateur, celui de votre entreprise, votre rôle et votre forfait. Il n’est jamais chargé sur ce que vos clients ouvrent — soumissions, factures, pages de réservation, portail client ou votre site Web." },
           { table: {
             head: ["Service", "Ce qu'il reçoit"],
             rows: [

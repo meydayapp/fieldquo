@@ -308,6 +308,37 @@ const es = {
   // Referenced by PricingPlans.js since the block was written and never
   // defined, which is the second half of the same reported bug.
   "pricing.addOnsCompare": "Cada cifra de arriba se leyó en su propia página de precios, en la fecha indicada. La comparativa completa lado a lado, incluido lo que FieldQuo no hace, está aquí →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "Cambiarse desde {competitor}",
+  "compare.switch.csv":
+    "Traiga sus clientes, sus productos y precios, y sus trabajos anteriores con las importaciones por hoja de cálculo (CSV) de FieldQuo — si {competitor} le permite exportarlos a una hoja de cálculo, cada uno entra como un archivo.",
+  "compare.switch.service":
+    "O deje que lo hagamos nosotros: nuestro servicio de migración de datos, de pago, agrega sus clientes y presupuestos por usted una vez que acepte y pague su precio. Solo agregamos registros — nunca cambiamos ni borramos nada de lo que ya está en su cuenta.",
+  "compare.switch.overlap":
+    "Use los dos durante la prueba gratis de {days} días, y cancele {competitor} cuando FieldQuo ya esté haciendo el trabajo.",
+  "compare.switch.notMoved":
+    "Las facturas abiertas y el historial de pagos no se traspasan: termine de cobrar lo que ya tiene pendiente en {competitor} y envíe las facturas nuevas desde FieldQuo.",
+  "compare.faq.title":
+    "Preguntas sobre el cambio",
+  "compare.faq.trial.q":
+    "¿Puedo probar FieldQuo antes de dejar {competitor}?",
+  "compare.faq.trial.a":
+    "Sí. La prueba dura {days} días con todas las funciones activadas, así que puede enviar presupuestos reales desde FieldQuo mientras {competitor} sigue funcionando.",
+  "compare.faq.brand.q":
+    "¿Verán mis clientes el nombre de FieldQuo?",
+  "compare.faq.brand.a":
+    "No. Sus presupuestos, sus facturas y los correos que los acompañan muestran su logo, su color y el nombre de su negocio, no los nuestros.",
+  "compare.faq.contract.q":
+    "¿Hay contrato?",
+  "compare.faq.contract.a":
+    "No en el plan mensual: cancele desde Cuenta y facturación y sigue funcionando hasta el final del mes que pagó. El plan de 1 año se paga por el año y dura hasta su final.",
+  "compare.faq.prices.q":
+    "¿Qué tan actuales son los precios de {competitor} en esta página?",
+  "compare.faq.prices.a":
+    "Cada cifra se tomó de la propia página de precios de {competitor} en la fecha que aparece a su lado. Una cifra deja de mostrarse {staleDays} días después de leerla, así que un precio viejo nunca se presenta como el de hoy.",
+
 };
 
 export default es;

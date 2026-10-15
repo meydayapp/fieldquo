@@ -29,6 +29,7 @@ import { billingBasis } from "@/lib/signup/funnel";
 import { chargeFor, isBillingInterval } from "@/lib/billing/interval";
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
 import { recordError } from "@/lib/platform/errorLog";
+import { trackServerEvent } from "@/lib/heycatch/server";
 import { recordSignupOrigin } from "@/lib/platform/signupOrigin";
 import { deriveVia } from "@/lib/platform/signupFlags";
 import { stampSignupPlanByToken } from "@/lib/sales/signupProgress";
@@ -509,6 +510,15 @@ export async function POST(request) {
       { status: 409 },
     );
   }
+
+  // HeyCatch: the company exists and its trial clock has started. After the
+  // transaction committed, never before; trackServerEvent never throws and
+  // sends nothing outside production (lib/heycatch/server.js).
+  await trackServerEvent(
+    "trial_started",
+    { companyId: company.id, tier: plan?.tierKey || chosenTier || null },
+    { userId: session.user.id, request },
+  );
 
   // The code the signup carried is EITHER a platform promo code (influencer /
   // tester — "FQ-XXXX", extra free months, no referrer) OR a company referral

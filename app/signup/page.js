@@ -32,6 +32,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { signUp, signOut } from "@/lib/auth-client";
+import { withAnalytics } from "@/lib/heycatch/client";
 import { TRIAL_PRICE, TRIAL_DAYS, TRIAL_CARD_REQUIRED, trialLabel } from "@/lib/pricing";
 import { billingBasis } from "@/lib/signup/funnel";
 import { annualPriceOf, annualSaving, chargeFor } from "@/lib/billing/interval";
@@ -1015,6 +1016,19 @@ export default function SignupPage() {
           () => handleAccountSubmit(),
         );
         return;
+      }
+
+      // HeyCatch: the login exists — the one sign-up fact only this browser
+      // witnesses before the company POST. The id only, never the address
+      // (lib/heycatch/gate.js identityPayload); trial_started follows from
+      // the server once the company is created. Fire-and-forget: a vendor
+      // being slow must not hold up the next step.
+      const newUserId = result?.data?.user?.id;
+      if (newUserId) {
+        withAnalytics((analytics) => {
+          analytics.setIdentity(newUserId, {});
+          analytics.trackEvent("signup_started");
+        });
       }
 
       // "Company details" on the rep's panel is reported by the welcome

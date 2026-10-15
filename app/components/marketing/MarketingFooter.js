@@ -8,6 +8,13 @@
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useIndustryLabels } from "@/app/hooks/useIndustryLabels";
+import { FEATURED_COMPARISONS } from "@/lib/marketing/featuredComparisons";
+
+// The Compare column (site audit D5.3, 2026-10-15): the two comparisons a
+// Canadian shop weighs first, by name, then all of them. Links point at the
+// canonical /compare/fieldquo-vs-<x> pages — /vs/<x> redirects there
+// (next.config.mjs). lib/marketing/featuredComparisons.js says why the list
+// is written out rather than derived.
 
 // Keys + hrefs only. Labels resolve from the catalog under footer.links.*,
 // reusing the product.* keys the header already defines rather than
@@ -48,6 +55,8 @@ const FOOTER_COLUMNS = [
     titleKey: "footer.company",
     links: [
       { key: "footer.links.about", href: "/about" },
+      // The founder block on /about (site audit D3.3).
+      { key: "footer.links.founder", href: "/about#founder" },
       { key: "footer.links.careers", href: "/careers" },
       { key: "footer.links.privacy", href: "/privacy" },
       { key: "footer.links.terms", href: "/terms" },
@@ -59,11 +68,17 @@ const FOOTER_COLUMNS = [
 export default function MarketingFooter() {
   const { t } = useTranslation();
   const industries = useIndustryLabels();
+  const comparisons = FEATURED_COMPARISONS.map((c) => ({
+    href: `/compare/${c.slug}`,
+    label: t("compare.vs", { competitor: c.name }),
+  }));
 
   return (
     <footer className="bg-primary text-primary-foreground/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        {/* Six columns from lg; three at md, so the Compare column added on
+            2026-10-15 does not squeeze the trades list into one-word lines. */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
           <div className="col-span-2 md:col-span-1">
             <span className="text-xl font-bold text-white tracking-tight">
               FieldQuo
@@ -98,6 +113,24 @@ export default function MarketingFooter() {
                   </Link>
                 </li>
               ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-white mb-3">{t("nav.compare")}</h4>
+            <ul className="space-y-2">
+              {comparisons.map((c) => (
+                <li key={c.href}>
+                  <Link href={c.href} className="text-sm text-primary-foreground/80 hover:text-primary-foreground">
+                    {c.label}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link href="/compare" className="text-sm text-primary-foreground/80 hover:text-primary-foreground">
+                  {t("footer.links.allComparisons")}
+                </Link>
+              </li>
             </ul>
           </div>
 

@@ -340,6 +340,37 @@ const ko = {
 
   "pricing.addOnsCompare":
     "위의 모든 금액은 표시된 날짜에 해당 회사의 자체 가격 페이지에서 확인했습니다. FieldQuo가 제공하지 않는 기능까지 포함한 전체 비교는 여기에서 확인하세요 →",
+
+  // ── Site audit 2026-10-15: switching notes and FAQ on every /compare/<slug> page ──
+  "compare.switch.title":
+    "{competitor}에서 옮겨 오기",
+  "compare.switch.csv":
+    "FieldQuo의 스프레드시트(CSV) 가져오기로 고객, 상품과 가격, 지난 작업을 옮겨 오세요. {competitor}에서 스프레드시트로 내보낼 수 있다면 각각 파일 하나로 가져올 수 있습니다.",
+  "compare.switch.service":
+    "또는 저희에게 맡기세요. 유료 데이터 이전 서비스는 가격을 승인하고 결제하시면 고객과 견적을 대신 추가해 드립니다. 저희는 기록을 추가만 하며, 계정에 이미 있는 내용은 절대 변경하거나 삭제하지 않습니다.",
+  "compare.switch.overlap":
+    "{days}일 무료 체험 기간 동안 두 가지를 함께 쓰다가, FieldQuo가 일을 맡게 되면 {competitor}를 해지하세요.",
+  "compare.switch.notMoved":
+    "미결 청구서와 결제 내역은 옮겨지지 않습니다. {competitor}에 이미 나가 있는 금액은 그쪽에서 마저 받고, 새 청구서는 FieldQuo에서 보내세요.",
+  "compare.faq.title":
+    "전환에 관한 질문",
+  "compare.faq.trial.q":
+    "{competitor}를 떠나기 전에 FieldQuo를 써 볼 수 있나요?",
+  "compare.faq.trial.a":
+    "네. 체험 기간은 {days}일이며 모든 기능이 켜져 있어, {competitor}를 쓰는 동안에도 FieldQuo에서 실제 견적을 보낼 수 있습니다.",
+  "compare.faq.brand.q":
+    "고객에게 FieldQuo 이름이 보이나요?",
+  "compare.faq.brand.a":
+    "아니요. 견적서, 청구서, 그리고 이를 보내는 이메일에는 저희가 아니라 고객님의 로고, 색상, 상호가 표시됩니다.",
+  "compare.faq.contract.q":
+    "약정이 있나요?",
+  "compare.faq.contract.a":
+    "월간 요금제에는 없습니다. 계정 및 결제에서 해지하면 결제한 달이 끝날 때까지 계속 사용할 수 있습니다. 1년 요금제는 1년치를 결제하며 그 기간이 끝날 때까지 이용됩니다.",
+  "compare.faq.prices.q":
+    "이 페이지의 {competitor} 가격은 얼마나 최신인가요?",
+  "compare.faq.prices.a":
+    "각 금액은 옆에 표시된 날짜에 {competitor}의 자체 가격 페이지에서 확인한 것입니다. 확인 후 {staleDays}일이 지나면 표시되지 않으므로, 오래된 가격이 오늘 가격처럼 보이는 일은 없습니다.",
+
 };
 
 export default ko;

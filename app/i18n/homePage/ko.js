@@ -77,10 +77,10 @@ export const HOME_PAGE_KO = {
     "현장에서 직접 설정한 가격으로 견적을 만들고 출발하기 전에 고객에게 보내세요.",
   "home.how.schedule.title": "작업 일정 잡기",
   "home.how.schedule.body":
-    "승인된 견적을 작업으로 전환하고 캘린더에 추가한 뒤 팀을 배정하세요.",
+    "승인된 견적을 작업으로 전환하고 캘린더에 추가한 뒤 팀을 배정하세요. 누군가 아파서 못 나오면 그 사람의 방문 일정을 다른 팀원에게 넘기거나 다른 날로 옮기세요. 방문 일정이 바뀐 고객에게는 새 시간이 안내됩니다.",
   "home.how.work.title": "작업 수행",
   "home.how.work.body":
-    "팀원은 휴대폰에서 출근 시간을 기록하고, 사진을 추가하고, 체크리스트에 따라 작업할 수 있습니다.",
+    "팀원은 휴대폰에서 출근 시간을 기록하고, 사진을 추가하고, 체크리스트에 따라 작업할 수 있습니다. 팀원마다 앱을 자신의 언어로 바꿔 쓸 수 있습니다.",
   "home.how.paid.title": "결제 받기",
   "home.how.paid.body":
     "작업에서 바로 청구서를 만들고 온라인으로 결제를 받아 본인 은행 계좌로 직접 입금받으세요.",
@@ -161,7 +161,7 @@ export const HOME_PAGE_KO = {
 
   "home.why.title": "여러 앱을 오가며 비즈니스를 운영하지 마세요.",
   "home.why.body":
-    "각각의 도구는 고객 정보를 따로 저장하기 때문에 결국 직접 정보를 맞춰야 합니다. FieldQuo는 하나의 고객 기록으로 관리합니다.",
+    "각각의 도구는 고객 정보를 따로 저장하기 때문에 결국 직접 정보를 맞춰야 합니다. FieldQuo는 하나의 고객 기록으로 관리합니다. 하루를 마치며 앱에서 앱으로 옮겨 적을 일이 남지 않습니다.",
   "home.why.before": "개별 도구",
   "home.why.tool.crm": "CRM",
   "home.why.tool.quotes": "견적",
@@ -212,4 +212,52 @@ export const HOME_PAGE_KO = {
 
   "home.final.title": "다음 작업부터 FieldQuo로 관리하세요.",
   "home.final.body": "첫 문의부터 최종 결제까지.",
+
+  // ── Site audit 2026-10-15: hero eyebrow, usage count, who it is not for, customer stories, /about founder block, footer and /pricing labels ──
+  "home.hero.eyebrow":
+    "페인터, 지붕 시공업자, 배관공, 전기 기술자 등 모든 업종을 위한 서비스 — 1인 사업자부터 20명 규모의 팀까지.",
+  "home.results.fact.usage":
+    "지난 {days}일 동안 {count}개 시공업체가 FieldQuo로 사업을 운영했습니다",
+  "home.faq.notFor.q":
+    "FieldQuo가 맞지 않는 곳은 어디인가요?",
+  "home.faq.notFor.a":
+    "사무실 사용자가 {maxSeats}명 또는 현장 인원이 {maxCrew}명을 넘는 회사(가장 큰 요금제의 한도입니다), 그리고 매장이나 식당처럼 고객 현장 작업에 대해 견적서와 청구서를 보내지 않는 사업입니다.",
+  "home.stories.title":
+    "FieldQuo는 먼저 우리 자신의 사업을 운영합니다.",
+  "home.stories.connection.founderCompany":
+    "FieldQuo 창업자가 직접 운영하는 회사",
+  "home.stories.connection.founderFamily":
+    "창업자의 가족이 운영",
+  "home.stories.aboutLink":
+    "창업자가 FieldQuo를 만든 이유",
+  "about.title":
+    "FieldQuo 소개",
+  "about.intro":
+    "FieldQuo는 실제 시공 사업을 운영하는 사람들이 견적, 일정 관리, 대금 수령에서 매일 겪는 불편함에서 출발해 만들었습니다. 우리가 갖고 싶었던 도구를 만들었고, 이제는 우리 업종뿐 아니라 모든 업종을 위해 만들고 있습니다.",
+  "about.founder.heading":
+    "실제 시공 회사 안에서 만들어졌습니다",
+  "about.founder.p1":
+    "저는 Emilio Boves입니다. 오타와에서 TrueFinish Cabinets를 운영하고 있습니다. 주방 캐비닛 리피니싱과 리페이싱을 하고, 바닥 시공과 일반 건축 현장에서도 여러 해 일했습니다.",
+  "about.founder.p2":
+    "오랫동안 저는 다섯 개의 앱으로 사업을 운영했습니다. 견적용 하나, 일정용 하나, 비용 관리용 스프레드시트, 청구서용 또 하나, 그리고 나머지는 전부 휴대폰으로요. 견적은 하루씩 늦게 나갔고, 계약금은 일일이 손으로 독촉해야 했으며, 수년 동안 고객에게 할부 결제를 전혀 제공할 수 없었습니다.",
+  "about.founder.p3":
+    "그래서 FieldQuo를 먼저 제 회사 안에서 만들었습니다. 지금 TrueFinish의 모든 견적, 작업, 청구서, 결제가 FieldQuo로 처리되고, 제 가족의 사업인 Sunset Space도 마찬가지입니다. 실제 현장에서 버티지 못하는 기능은 출시하지 않습니다.",
+  "about.founder.p4":
+    "그래서 모든 요금제에 모든 기능이 들어 있고, 견적서와 청구서에는 저희 로고가 아니라 고객님의 로고가 들어가며, 팀원들은 각자의 언어로 사용할 수 있습니다.",
+  "about.founder.signature":
+    "— {name}, FieldQuo 창업자 겸 TrueFinish Cabinets 대표",
+  "about.founder.photoAlt":
+    "TrueFinish Cabinets 작업 현장의 {name}",
+  "about.founder.linkedin":
+    "LinkedIn",
+  "footer.links.founder":
+    "창업자 소개",
+  "footer.links.allComparisons":
+    "모든 비교",
+  "pricing.popularNote":
+    "대부분의 업체가 여기서 시작합니다.",
+  "pricing.vsLinks":
+    "나란히 비교:",
+  "about.founder.linkedinLabel":
+    "LinkedIn의 {name}",
 };

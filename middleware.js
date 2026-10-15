@@ -506,7 +506,11 @@ export const config = {
     // The help centre's sitemap. The catch-all below skips anything with a
     // file extension, so help.fieldquo.com/sitemap.xml would never reach the
     // rewrite above and would 404; naming it here costs one invocation per
-    // crawler visit. On the apex it falls straight through (no such file).
+    // crawler visit. On the apex it falls straight through to FieldQuo's own
+    // sitemap (app/sitemap.xml/route.js); on a contractor's subdomain the
+    // tenant rewrite above sends it into their site, so FieldQuo's list is
+    // never served as theirs. /robots.txt is NOT matched — it answers every
+    // host itself, by the Host header (lib/seo/robots.js).
     "/sitemap.xml",
     // The subdomain check above needs to see the root path, and every path
     // on a tenant host. This matcher excludes Next's own internals and

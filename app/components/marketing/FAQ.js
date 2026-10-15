@@ -49,9 +49,8 @@ export default function FAQ({ items, title }) {
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   // The chevron rotates and nothing told a screen reader why.
-                  // The answer below is mounted/unmounted rather than hidden,
-                  // so aria-expanded is the only signal the row has a state.
                   aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${faq.id}`}
                   className="w-full flex items-center justify-between gap-3 min-h-[44px] px-5 py-4 text-left"
                 >
                   <span className="font-medium text-foreground">
@@ -62,14 +61,24 @@ export default function FAQ({ items, title }) {
                     className={`shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
                   />
                 </button>
-                {isOpen && (
-                  // A rule between the question and its answer, inset to the
-                  // same padding as the text: without it the answer reads as a
-                  // second line of the question rather than the reply to it.
-                  <div className="mx-5 border-t border-border pt-4 pb-5 text-muted-foreground text-sm leading-relaxed">
-                    {faq.a}
-                  </div>
-                )}
+                {/* A rule between the question and its answer, inset to the
+                    same padding as the text: without it the answer reads as a
+                    second line of the question rather than the reply to it.
+
+                    Every answer is in the HTML, closed ones `hidden` (site
+                    audit D1.4, 2026-10-15). It was mounted only while open,
+                    so the server sent the first answer and none of the rest:
+                    a crawler, an AI assistant or a phone with scripts still
+                    loading saw six questions with nothing under them. `hidden`
+                    keeps the look identical and takes closed answers out of
+                    the accessibility tree exactly as unmounting did. */}
+                <div
+                  id={`faq-answer-${faq.id}`}
+                  hidden={!isOpen}
+                  className="mx-5 border-t border-border pt-4 pb-5 text-muted-foreground text-sm leading-relaxed"
+                >
+                  {faq.a}
+                </div>
               </div>
             );
           })}

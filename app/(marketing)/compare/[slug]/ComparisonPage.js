@@ -110,6 +110,7 @@ import { AMOUNT_WITHHELD, compareFigures } from "../copyFigures";
 // none of them falls back to another. A kind with no entry here renders
 // nothing rather than borrowing the nearest one.
 import TheCase from "../TheCase";
+import SwitchingNotes from "../SwitchingNotes";
 
 // `price.ask` and `price.currency` are theirs and are never translated. The
 // sentence AROUND them is ours: a French reader was getting "No price published
@@ -1451,6 +1452,9 @@ export default function ComparisonPage({ slug, asOf }) {
           })}
         </div>
       </div>
+
+      {/* ── Switching, and its questions (site audit D5.3) ─────────────────── */}
+      <SwitchingNotes competitorName={competitor.name} />
 
       {/* ── Close ─────────────────────────────────────────────────────────── */}
       <div className="bg-primary">
