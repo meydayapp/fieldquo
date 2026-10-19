@@ -10465,6 +10465,26 @@ model MetaPageConnection {
   /// appears to work and doesn't.
   webhookSubscribeError String?
 
+  /// The webhook fields this Page was ACTUALLY subscribed to, comma-separated
+  /// and sorted — not the list FieldQuo would send today.
+  ///
+  /// Meta writes a Page's subscription once, at connect, and then delivers
+  /// only the fields that subscription asked for. So adding a field to
+  /// PAGE_MESSAGING_WEBHOOK_FIELDS silently changes nothing for every Page
+  /// already connected: it keeps receiving the old list for ever, and nothing
+  /// anywhere says so. That is how `message_echoes` came to sit in the code's
+  /// list while a Page connected earlier received no echoes at all — a feature
+  /// that appears to work and does not, which is the failure AGENTS.md leads
+  /// with.
+  ///
+  /// Storing what was sent is what lets lib/meta/pageConnection.js compare the
+  /// two and let the settings panel offer Subscribe again. Null means a Page
+  /// subscribed before this column existed: unknown, not empty, and shown as
+  /// needing a re-subscribe rather than guessed at — the alternative was
+  /// backfilling today's list onto every old row, which would have asserted
+  /// the one thing that is certainly false.
+  webhookFields String?
+
   /// Who connected it. Shown on the settings panel beside connectedAt — "Ravi
   /// connected this on 3 March" is the answer support actually needs when a
   /// second owner asks why the company's posts appear under a Page they did

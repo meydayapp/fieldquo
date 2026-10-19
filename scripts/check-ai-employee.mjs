@@ -717,6 +717,7 @@ for (const role of AI_EMPLOYEE_ROLES) {
   const { definitionsForRole, executeFor, TOOL_RISK } = await import("../lib/aiEmployee/tools.js");
   const { switchableToolsForRole, cleanDisabledTools, ALWAYS_ON_TOOLS } = await import("../lib/aiEmployee/roles.js");
   const { respondToMessage, PROMPT_ERROR } = await import("../lib/aiEmployee/respond.js");
+  const { aiEmployeeOnOutboundEcho } = await import("../lib/aiEmployee/inbound.js");
 
   // ── The vocabulary ───────────────────────────────────────────────────────
   ok("four intents, closed", INTENTS.length === 4 && ["book", "price", "problem", "other"].every((i) => INTENTS.includes(i)));
@@ -1098,6 +1099,63 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("the thread read hands the screen the holder and the resume candidate", /resumeCandidate\(/.test(code("app/api/messaging/threads/[id]/route.js")) && /assignedEmployeeId: undefined/.test(code("app/api/messaging/threads/[id]/route.js")));
     ok("the resume route exists and refuses a thread nobody took", /not_taken_over/.test(code("app/api/messaging/threads/[id]/ai-resume/route.js")) && /resumeEmployee\(/.test(code("app/api/messaging/threads/[id]/ai-resume/route.js")));
     ok("Conversations draws the bar from the thread's `ai` shape and posts to the resume route", /ai-resume/.test(code("app/components/messaging/AiHolderBar.js")) && /<AiHolderBar/.test(code("app/app/messages/page.js")));
+  }
+
+  // ── A reply typed in MESSENGER silences it too ───────────────────────────
+  //
+  // The block above covers a person answering inside FieldQuo. Most
+  // contractors do not: they pick up the phone and answer in the Messenger
+  // app, and until the echo reached this hook the employee could not tell.
+  // A real thread (TrueFinish, 19 Oct 2026) has a person answering at 8:18,
+  // 8:19 and 8:20 and the employee replying over them at 8:18, 8:19 and 8:21,
+  // with humanTookOverAt null throughout. That is this test.
+  {
+    const echoDb = (over = {}) => makeDb({
+      aiEmployee: employees(),
+      messageThread: [thread({ assignedEmployeeId: "C", ...over })],
+      company: [company],
+    });
+
+    const db = echoDb();
+    const r = await aiEmployeeOnOutboundEcho({ companyId: "C1", threadId: "th1", body: "Hi Daniela that was my bot", sentAt: t0, prisma: db });
+    ok("an outbound message FieldQuo did not send is a person taking over", r.acted === true);
+    ok("...it clears the assignment and stamps the moment they typed", db.$store.messageThread[0].assignedEmployeeId === null && db.$store.messageThread[0].humanTookOverAt === t0);
+    ok("...logged without inventing a member to blame it on", db.$store.aiEmployeeRoutingEvent.some((e) => e.kind === "human_took_over" && e.reason === null));
+
+    // The race the text match exists for: the send path writes its Message row
+    // AFTER Meta returns the mid, so a fast echo can create the row first and
+    // arrive here looking foreign. Matched on the TEXT, because a clock window
+    // would be a number to tune for ever.
+    const own = makeDb({
+      aiEmployee: employees(),
+      messageThread: [thread({ assignedEmployeeId: "C" })],
+      company: [company],
+      aiEmployeeReply: [{ id: "r1", companyId: "C1", threadId: "th1", draftText: "Thanks — what work are you looking to have done?", sentAt: t0 }],
+    });
+    const mine = await aiEmployeeOnOutboundEcho({ companyId: "C1", threadId: "th1", body: "Thanks — what work are you looking to have done?", sentAt: t0, prisma: own });
+    ok("the employee's OWN echo is not read as a human", mine.acted === false && mine.reason === "own_echo" && own.$store.messageThread[0].humanTookOverAt === null);
+
+    const already = echoDb({ humanTookOverAt: new Date(t0 - 600_000) });
+    const again = await aiEmployeeOnOutboundEcho({ companyId: "C1", threadId: "th1", body: "and another thing", sentAt: t0, prisma: already });
+    ok("a second message does not move the moment they took over", again.acted === false && already.$store.messageThread[0].humanTookOverAt?.getTime() === t0.getTime() - 600_000);
+
+    const other = echoDb();
+    const foreign = await aiEmployeeOnOutboundEcho({ companyId: "OTHER", threadId: "th1", body: "hello", sentAt: t0, prisma: other });
+    ok("the thread is read under companyId, so no other tenant can stamp it", foreign.acted === false && other.$store.messageThread[0].humanTookOverAt === null);
+
+    // The ingest is what calls it, and the two conditions it is called under
+    // are the whole correctness of the feature: only a row the ingest CREATED
+    // (one FieldQuo did not send), and never an imported one — a pull of the
+    // last thirty days would otherwise silence the employee on every thread
+    // the import touched.
+    const ingest = code("lib/messaging/ingest.js");
+    ok("the ingest calls it only for an outbound row it created, and never for history",
+      /if \(created && event\.direction === "out" && !event\.imported\) \{/.test(ingest)
+        && /aiEmployeeOnOutboundEcho\(\{/.test(ingest));
+
+    // Meta delivers an echo only to a subscription that asked for it.
+    ok("`message_echoes` is subscribed, or none of this fires at all",
+      /"message_echoes"/.test(code("lib/meta/client.js")));
   }
 
   // ── Burst → one reply ────────────────────────────────────────────────────

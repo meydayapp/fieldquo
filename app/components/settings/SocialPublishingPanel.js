@@ -441,14 +441,56 @@ export default function SocialPublishingPanel() {
               inbox, the AI employee and the monthly review all waited on
               messages Meta was never asked to send. */}
           {connection.webhookSubscribedAt ? (
-            <p className="flex items-start gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 size={15} className="shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
-              <span>
-                {t("app.setSocial.webhookOn", {
-                  date: new Date(connection.webhookSubscribedAt).toLocaleDateString(),
-                })}
-              </span>
-            </p>
+            <>
+              <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 size={15} className="shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  {t("app.setSocial.webhookOn", {
+                    date: new Date(connection.webhookSubscribedAt).toLocaleDateString(),
+                  })}
+                </span>
+              </p>
+
+              {/* ── Subscribed, but to an older list than FieldQuo now reads ──
+                  Meta writes a Page's subscription once, at connect, and then
+                  delivers only the fields it asked for — so a field added to
+                  PAGE_MESSAGING_WEBHOOK_FIELDS reaches Pages connected
+                  AFTERWARDS and no others, with nothing anywhere saying which
+                  are behind. That is how this Page could be subscribed and
+                  still never deliver an echo or a button tap.
+
+                  Not an error: the connection works and posting works, so this
+                  is its own quieter state rather than a second use of the
+                  failure box below. The button is the same retry — subscribing
+                  again re-sends the current list, which is the whole fix. */}
+              {connection.webhookFieldsStale && (
+                <div className="space-y-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-semibold">
+                        {t("app.setSocial.webhookStaleTitle", "This Page needs subscribing again")}
+                      </p>
+                      <p>
+                        {t(
+                          "app.setSocial.webhookStaleBody",
+                          "FieldQuo now reads more from your Page than it did when this was connected \u2014 button taps on your ads, and replies you send from the Messenger app. Until you subscribe again, those never arrive, and your AI assistant answers without them.",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRetryWebhook()}
+                    disabled={retryingWebhook}
+                    className="border border-amber-300 dark:border-amber-800 px-3 py-1.5 rounded-full text-xs font-semibold disabled:opacity-50"
+                  >
+                    {retryingWebhook
+                      ? t("app.action.saving", "Saving\u2026")
+                      : t("app.setSocial.webhookRetry", "Try subscribing again")}
+                  </button>
+                </div>
+              )}
+            </>
           ) : connection.webhookSubscribeErrorKind ? (
             <div className="space-y-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
               <div className="flex items-start gap-2">

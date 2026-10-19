@@ -221,6 +221,7 @@ export async function GET(request) {
       instagramUsername: instagram.username,
       grantedScopes: scopes,
       webhookSubscribedAt: webhook.webhookSubscribedAt,
+      webhookFields: webhook.webhookFields,
       connectedByUserId: member.userId,
     });
   } catch (err) {

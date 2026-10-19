@@ -23,7 +23,11 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { connectionStatusKey } from "../lib/social/metaConnection.js";
-import { publicPageConnectionShape } from "../lib/meta/pageConnection.js";
+import {
+  publicPageConnectionShape,
+  webhookFieldsStale,
+  normaliseWebhookFields,
+} from "../lib/meta/pageConnection.js";
 import {
   subscribePageWebhook,
   unsubscribePageWebhook,
@@ -273,9 +277,17 @@ ok("a connected connection does not read as an error",
       sender: { id: "HOMEOWNER" }, recipient: { id: "PAGE_1" },
       read: { watermark: 4 },
     }))[0],
+    messaging_postbacks: ev(page({
+      sender: { id: "HOMEOWNER" }, recipient: { id: "PAGE_1" }, timestamp: 5,
+      postback: { mid: "m3", title: "Cabinet Refinishing", payload: "SVC_REFINISH" },
+    }))[0],
   };
 
-  ok("the subscribed fields are exactly the four the parser reads",
+  // The rule, not the count: nothing is subscribed that the parser throws
+  // away, and nothing the parser reads is left unsubscribed. Written as a set
+  // comparison so adding a field means adding the payload that proves it is
+  // read — which is the whole discipline PAGE_MESSAGING_WEBHOOK_FIELDS states.
+  ok("every subscribed field is one the parser reads, and no other",
     fields.slice().sort().join(",") === Object.keys(READS).sort().join(","), fields);
   ok("`messages` produces an inbound message event",
     READS.messages?.kind === "message" && READS.messages?.direction === "in", READS.messages);
@@ -284,17 +296,89 @@ ok("a connected connection does not read as an error",
   ok("`message_deliveries` produces a delivery receipt", READS.message_deliveries?.kind === "delivery");
   ok("`message_reads` produces a read receipt", READS.message_reads?.kind === "read");
 
-  // The brief for this change named messaging_postbacks. The parser drops a
-  // postback (its own final branch counts it alongside opt-ins, reactions and
-  // referrals), so subscribing to it would be asking Meta for traffic nothing
-  // turns into a row. It goes in the day a branch reads it.
-  const postback = parseMessagingEnvelope(page({
-    sender: { id: "HOMEOWNER" }, recipient: { id: "PAGE_1" },
-    postback: { title: "Get started", payload: "START" },
-  }));
-  ok("a postback is still dropped by the parser, so it is NOT subscribed",
-    postback.events.length === 0 && postback.dropped === 1 && !fields.includes("messaging_postbacks"),
-    fields);
+  ok("`messaging_postbacks` produces an inbound message carrying the button's label",
+    READS.messaging_postbacks?.kind === "message"
+      && READS.messaging_postbacks?.direction === "in"
+      && READS.messaging_postbacks?.body === "Cabinet Refinishing",
+    READS.messaging_postbacks);
+
+  // The fields that are still NOT subscribed, and the reason: the parser
+  // drops them. The rule above cuts both ways, and this is the half that
+  // keeps a field out until something reads it.
+  // `messaging_referrals` is NOT in this list: the parser does read a
+  // referral now (it is how an ad click reaches the thread), so it belongs to
+  // the rule above, not here. It stays unsubscribed as a separate FIELD
+  // because the only referral this build can act on rides inside a postback,
+  // which is subscribed.
+  for (const [name, item] of [
+    ["messaging_optins", { optin: { ref: "x" } }],
+    ["message_reactions", { reaction: { mid: "m1", action: "react", emoji: "\u2764" } }],
+  ]) {
+    const parsed = parseMessagingEnvelope(page({
+      sender: { id: "HOMEOWNER" }, recipient: { id: "PAGE_1" }, ...item,
+    }));
+    ok(`a ${name} event is dropped by the parser, so it is NOT subscribed`,
+      parsed.events.length === 0 && parsed.dropped === 1 && !fields.includes(name),
+      fields);
+  }
+}
+
+// ── A Page already connected does not re-subscribe itself ──────────────────
+//
+// Meta writes a subscription once and then delivers only the fields it asked
+// for, so adding one to PAGE_MESSAGING_WEBHOOK_FIELDS changes nothing for the
+// Pages already connected. That is not hypothetical: `message_echoes` sat in
+// this list while a Page connected earlier received no echo at all, which is
+// why the AI employee could reply over a contractor answering from Messenger
+// and never know. MetaPageConnection.webhookFields is what makes it sayable.
+{
+  const subscribed = { webhookSubscribedAt: new Date("2026-01-01") };
+
+  ok("a Page holding today's fields is not stale",
+    webhookFieldsStale({ ...subscribed, webhookFields: PAGE_MESSAGING_WEBHOOK_FIELDS.join(",") }) === false);
+
+  ok("a Page missing a field FieldQuo now reads IS stale",
+    webhookFieldsStale({
+      ...subscribed,
+      webhookFields: PAGE_MESSAGING_WEBHOOK_FIELDS.filter((f) => f !== "messaging_postbacks").join(","),
+    }) === true);
+
+  // The real-world row this was written for: subscribed long ago, column
+  // added later. Unknown is reported stale, because the one thing known about
+  // it is that it predates every field added since.
+  ok("a Page subscribed before the column existed is stale, not assumed current",
+    webhookFieldsStale({ ...subscribed, webhookFields: null }) === true);
+
+  // An unsubscribed Page has a louder problem and the panel already has a
+  // sentence for it; saying "subscribe again" over "never subscribed" would
+  // be two buttons for one state.
+  ok("a Page that was never subscribed is not reported stale",
+    webhookFieldsStale({ webhookSubscribedAt: null, webhookFields: null }) === false);
+
+  // A field REMOVED from the code is one nothing reads any more. Nagging a
+  // contractor to re-subscribe over it would be a control with nothing behind
+  // it — and `leadgen` rides on the same call, so extras are the normal case.
+  ok("a Page carrying extra fields is not stale",
+    webhookFieldsStale({
+      ...subscribed,
+      webhookFields: [...PAGE_MESSAGING_WEBHOOK_FIELDS, "leadgen", "retired_field"].join(","),
+    }) === false);
+
+  // Order is not a fact about the subscription: reordering the constant must
+  // not make every connected Page in the database light up at once.
+  ok("the comparison ignores order",
+    webhookFieldsStale({
+      ...subscribed,
+      webhookFields: [...PAGE_MESSAGING_WEBHOOK_FIELDS].reverse().join(","),
+    }) === false);
+
+  ok("whitespace and blanks in a stored list do not count as fields",
+    normaliseWebhookFields(" messages , , message_reads ").join(",") === "message_reads,messages");
+
+  ok("the panel is told, so the sentence can be drawn",
+    publicPageConnectionShape({
+      pageId: "P", webhookSubscribedAt: new Date(), webhookFields: null,
+    })?.webhookFieldsStale === true);
 }
 
 // ── Connecting subscribes, with the PAGE token and never the user token ────

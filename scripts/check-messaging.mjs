@@ -262,6 +262,86 @@ ok(
     entry: [{ id: "PAGE_1", messaging: [{ sender: { id: "P" }, recipient: { id: "PAGE_1" }, message: { text: "hi" } }] }],
   }).events.length === 0,
 );
+// ── Button taps ──────────────────────────────────────────────────────────
+//
+// `messaging_postbacks` was unsubscribed and dropped for as long as nothing
+// read it. The AI employee reads the thread now, and every Meta ad CTA opens
+// with a postback — so a dropped tap is the employee answering a lead whose
+// one statement of what they want it never saw.
+const postback = parseMessagingEnvelope({
+  object: "page",
+  entry: [
+    {
+      id: "PAGE_1",
+      messaging: [
+        {
+          sender: { id: "PSID_1" },
+          recipient: { id: "PAGE_1" },
+          timestamp: 1757000700000,
+          postback: { mid: "mid.pb1", title: "Cabinet Refinishing", payload: "SVC_REFINISH" },
+        },
+      ],
+    },
+  ],
+});
+ok("a button tap becomes a message", postback.events.length === 1);
+ok("a tap is direction 'in' — the Page does not tap its own buttons", postback.events[0]?.direction === "in");
+ok(
+  "the body is the button's LABEL, which is what the conversation shows",
+  postback.events[0]?.body === "Cabinet Refinishing",
+);
+ok("a tap keys the thread on the person", postback.events[0]?.threadExternalId === "PSID_1");
+ok("a tap de-duplicates on its mid", postback.events[0]?.externalId === "mid.pb1");
+ok("a tap is not counted as dropped", postback.dropped === 0);
+ok(
+  "the developer payload is NOT stored — nothing reads it",
+  !JSON.stringify(postback.events[0]).includes("SVC_REFINISH"),
+);
+ok(
+  "a postback with no mid is dropped — nothing to de-duplicate on",
+  parseMessagingEnvelope({
+    object: "page",
+    entry: [{ id: "PAGE_1", messaging: [{ sender: { id: "P" }, recipient: { id: "PAGE_1" }, postback: { title: "Hi" } }] }],
+  }).events.length === 0,
+);
+ok(
+  "a titleless postback (Get Started) is dropped, not stored as a blank bubble",
+  parseMessagingEnvelope({
+    object: "page",
+    entry: [{ id: "PAGE_1", messaging: [{ sender: { id: "P" }, recipient: { id: "PAGE_1" }, postback: { mid: "m", payload: "GET_STARTED" } }] }],
+  }).events.length === 0,
+);
+
+// A QUICK REPLY needs no branch: Meta sends it as an ordinary message whose
+// `text` is the label. Asserted rather than assumed, because the two look
+// alike from outside and only one of them was ever broken.
+const quick = parseMessagingEnvelope({
+  object: "page",
+  entry: [
+    {
+      id: "PAGE_1",
+      messaging: [
+        {
+          sender: { id: "PSID_1" },
+          recipient: { id: "PAGE_1" },
+          timestamp: 1757000800000,
+          message: { mid: "mid.qr1", text: "Free Quote", quick_reply: { payload: "FREE_QUOTE" } },
+        },
+      ],
+    },
+  ],
+});
+ok("a quick reply arrives through the ordinary message branch", quick.events[0]?.body === "Free Quote");
+ok("a quick reply is direction 'in'", quick.events[0]?.direction === "in");
+
+ok(
+  "an opt-in is still dropped — nothing reads it",
+  parseMessagingEnvelope({
+    object: "page",
+    entry: [{ id: "PAGE_1", messaging: [{ sender: { id: "P" }, recipient: { id: "PAGE_1" }, optin: { ref: "x" } }] }],
+  }).dropped === 1,
+);
+
 ok(
   "a missing timestamp becomes null, never 'now'",
   parseMessagingEnvelope({
