@@ -480,14 +480,20 @@ export default function CostMarginPanel({
                 empty on purpose. On an invoice every cell is a fact and the
                 columns need naming. */}
             {hoursAreActual && crew.length > 0 && (
-              <div className="hidden sm:grid grid-cols-12 gap-2 border-b border-border px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                <span className="col-span-4">{t("app.cost.colName")}</span>
-                <span className="col-span-3">{t("app.cost.colRate")}</span>
-                <span className="col-span-3">{t("app.cost.colHours")}</span>
-                <span className="col-span-1 text-right">{t("app.cost.colCost")}</span>
-                <span className="col-span-1" />
+              <div className="grid grid-cols-12 gap-2 border-b border-border px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="col-span-4">{t("app.cost.colRate")}</span>
+                <span className="col-span-4">{t("app.cost.colHours")}</span>
+                <span className="col-span-4 text-right">{t("app.cost.colCost")}</span>
               </div>
             )}
+            {/* ── Two lines, at every width ──────────────────────────────
+                Name and the remove button, then rate / hours / cost. It was
+                one line of five cells above `sm:`, and `sm:` is the VIEWPORT,
+                not this panel — which is a ~290px sidebar on a desktop
+                screen. So the money cell got 1/12 of it and "$1,287.60"
+                rendered as "$1,2", with the hours box clipped beside it. A
+                figure the estimator cannot read is the one thing this panel
+                exists to show them. Four columns each, nothing to truncate. */}
             {crew.map((m, i) => {
               const priced = estimate.crew?.[i];
               return (
@@ -496,7 +502,7 @@ export default function CostMarginPanel({
                   className="grid grid-cols-12 items-center gap-2 border-b border-border px-3 py-2 last:border-0"
                 >
                   <input
-                    className="col-span-12 rounded border border-border px-2 py-1 text-sm sm:col-span-4"
+                    className="col-span-10 rounded border border-border px-2 py-1 text-sm"
                     placeholder={t("app.cost.nameOrRole")}
                     value={m.name || ""}
                     onChange={(e) =>
@@ -507,7 +513,17 @@ export default function CostMarginPanel({
                       )
                     }
                   />
-                  <div className="col-span-4 sm:col-span-3">
+                  <button
+                    type="button"
+                    onClick={() => onCrewChange(crew.filter((_, j) => j !== i))}
+                    className="col-span-2 justify-self-end self-center text-muted-foreground hover:text-red-600"
+                    aria-label={t("app.cost.removeMember", {
+                      name: m.name || t("app.cost.crewMember"),
+                    })}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <div className="col-span-4">
                     <input
                       type="number"
                       min="0"
@@ -532,7 +548,7 @@ export default function CostMarginPanel({
                       className="w-full rounded border border-border px-2 py-1 text-sm"
                     />
                   </div>
-                  <div className="col-span-4 sm:col-span-3">
+                  <div className="col-span-4">
                     {/* Blank means "take an even share of what is left".
                         Typing a number here takes those hours out of the pool
                         and the others re-share the remainder — it does not
@@ -561,19 +577,9 @@ export default function CostMarginPanel({
                       className="w-full rounded border border-border px-2 py-1 text-sm"
                     />
                   </div>
-                  <div className="col-span-3 text-right text-sm tabular-nums sm:col-span-1">
+                  <div className="col-span-4 self-center text-right text-sm tabular-nums whitespace-nowrap">
                     {priced ? money(priced.cost) : "—"}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onCrewChange(crew.filter((_, j) => j !== i))}
-                    className="col-span-1 text-muted-foreground hover:text-red-600"
-                    aria-label={t("app.cost.removeMember", {
-                      name: m.name || t("app.cost.crewMember"),
-                    })}
-                  >
-                    <Trash2 size={14} />
-                  </button>
                 </div>
               );
             })}

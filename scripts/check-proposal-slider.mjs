@@ -248,5 +248,56 @@ section("5. The hint in all eight document languages");
   ok("wired into check:all", /npm run check:proposal-slider/.test(JSON.parse(read("package.json")).scripts["check:all"]));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("6. The photos are DELIVERED, not served as the originals");
+{
+  // Reported 2026-10-20 from a live quote: five before/after pairs rendered
+  // as empty grey boxes on the client's page and arrived only slowly on a
+  // phone. Nothing was broken — the markup served Cloudinary ORIGINALS, and
+  // one of that company's was 1.7 MB. Ten of those is the whole section.
+  //
+  // Executed, not read: the component is rendered and the src attributes are
+  // the assertion, because "we call resizedUrl somewhere" is the kind of
+  // claim that survives the call being removed from the tag that matters.
+  const theme = { ink: "#111111", paper: "#fefefe", accentWash: "#eeeeff", inkMuted: "#555555" };
+  const CLOUDINARY = "https://res.cloudinary.com/demo/image/upload/v1790080132/fieldquo/companies/co_1/kitchen.jpg";
+  const html = renderToStaticMarkup(
+    h(SharedBeforeAfter, { before: CLOUDINARY, after: CLOUDINARY, theme }),
+  );
+  const srcs = [...html.matchAll(/src="([^"]+)"/g)].map((m) => m[1]);
+  ok("both images are rendered", srcs.length === 2, srcs.length);
+  ok(
+    "…through a delivered variant, never the original",
+    srcs.every((u) => u.includes("/upload/w_1400,c_limit,q_auto,f_auto/")),
+    srcs,
+  );
+  ok(
+    "…and the original path is gone from the tag",
+    srcs.every((u) => !/\/upload\/v1790080132/.test(u)),
+    srcs,
+  );
+
+  // c_limit never enlarges and f_auto negotiates the format: a small photo is
+  // untouched, which is why this is safe to apply to every gallery picture.
+  ok("c_limit, so a small photo is not blown up", srcs.every((u) => u.includes("c_limit")));
+
+  // A URL that is not Cloudinary's passes through unharmed — a company that
+  // ever stores a photo elsewhere must not get a mangled src.
+  const foreign = renderToStaticMarkup(
+    h(SharedBeforeAfter, { before: "https://example.com/b.jpg", after: "https://example.com/a.jpg", theme }),
+  );
+  ok(
+    "a non-Cloudinary URL is left exactly as it is",
+    [...foreign.matchAll(/src="([^"]+)"/g)].every((m) => /^https:\/\/example\.com\/[ab]\.jpg$/.test(m[1])),
+  );
+
+  // The half-pair case (one photo, no slider) goes through the same variant.
+  const sections = read("app/components/public/proposal/ProposalSections.js");
+  ok(
+    "the single-photo fallback is sized too",
+    /<img src=\{resizedUrl\(src, \{ width: 1400 \}\)\}/.test(sections),
+  );
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

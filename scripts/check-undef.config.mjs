@@ -51,6 +51,12 @@ const GLOBALS = [
   "MutationObserver", "IntersectionObserver", "ResizeObserver", "requestAnimationFrame", "cancelAnimationFrame",
   "Image", "HTMLElement", "Node", "Element", "getComputedStyle", "matchMedia", "alert", "confirm", "prompt",
   "FileReader", "DataTransfer", "CSS", "Audio", "screen", "devicePixelRatio",
+  // Clipboard API. `ClipboardItem` is the half of it that takes a PROMISE of
+  // the contents, which is the only way to copy something that has to be
+  // fetched first without Safari revoking the gesture — see
+  // lib/clipboardCopy.js. Guarded with a typeof check at every use, because
+  // older browsers genuinely do not have it.
+  "ClipboardItem",
   // react/jsx (classic + automatic runtime references)
   "React", "JSX",
 ];

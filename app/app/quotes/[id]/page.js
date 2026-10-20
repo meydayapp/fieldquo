@@ -101,6 +101,7 @@ import SaveAsTemplateModal from "@/app/components/quotes/SaveAsTemplateModal";
 import { Eye, Share2, LayoutTemplate, Archive, ArchiveRestore, ClipboardCopy } from "lucide-react";
 import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
 import { fetchClientLink, downloadQuotePdf } from "@/lib/quotes/clientActions";
+import { copyFromPromise, ClipboardRefused } from "@/lib/clipboardCopy";
 import {
   DocumentFrame,
   DocumentMasthead,
@@ -352,6 +353,10 @@ export default function QuoteDetailPage() {
   // One line under the strip for the menu's quiet successes — "link copied",
   // "saved as template", "shared" — where a modal would be an interruption.
   const [menuNotice, setMenuNotice] = useState("");
+  // The client link, on screen, when the browser refused to put it on the
+  // clipboard (lib/clipboardCopy.js). Never pre-filled: the token is minted on
+  // first use, so it only exists once somebody has asked for it.
+  const [linkFallback, setLinkFallback] = useState("");
   // The send refused because an optional email section is switched on with
   // nothing in it. Held as state rather than flattened into `error`, because
   // the 409 carries the two ways out and a red banner cannot offer a button.
@@ -678,12 +683,22 @@ export default function QuoteDetailPage() {
     setMenuBusy("link");
     setError("");
     setMenuNotice("");
+    setLinkFallback("");
     try {
-      const url = await clientLink();
-      await navigator.clipboard.writeText(url);
+      // The fetch is STARTED here and handed over unawaited — see
+      // lib/clipboardCopy.js. Awaiting it first ends the click's gesture, and
+      // WebKit then refuses the write outright.
+      await copyFromPromise(clientLink());
       setMenuNotice(t("app.sendMenu.linkCopied", "Client link copied."));
     } catch (err) {
-      setError(err.message || t("app.sendMenu.linkError", "Couldn't get the client link."));
+      // Refused by the browser, not by us: the link exists, so it goes on
+      // screen to copy by hand rather than leaving a red banner and no URL.
+      if (err instanceof ClipboardRefused) {
+        setLinkFallback(err.text);
+        setMenuNotice(t("app.sendMenu.linkCopyBlocked"));
+      } else {
+        setError(err.message || t("app.sendMenu.linkError", "Couldn't get the client link."));
+      }
     } finally {
       setMenuBusy("");
     }
@@ -1200,6 +1215,19 @@ export default function QuoteDetailPage() {
         <p className="text-sm text-green-800 dark:text-green-300 flex items-center gap-1.5" data-menu-notice>
           <CheckCircle2 size={14} /> {menuNotice}
         </p>
+      )}
+      {linkFallback && (
+        <input
+          readOnly
+          data-link-fallback
+          value={linkFallback}
+          onFocus={(e) => e.currentTarget.select()}
+          // Focused and selected on arrival: the one action left is Ctrl/Cmd-C,
+          // and asking somebody to hand-select a 60-character token is how a
+          // fallback becomes a dead end of its own.
+          ref={(el) => el?.select()}
+          className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-xs font-mono"
+        />
       )}
       <ShareWithStaffModal
         isOpen={shareStaffOpen}

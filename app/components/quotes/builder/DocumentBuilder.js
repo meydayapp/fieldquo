@@ -135,6 +135,7 @@ import { scopeGroupPayload } from "@/lib/quotes/builderPayload";
 import { hasCustomFactors } from "@/lib/pricing/customFactors";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { fetchClientLink, downloadQuotePdf } from "@/lib/quotes/clientActions";
+import { copyFromPromise, ClipboardRefused } from "@/lib/clipboardCopy";
 import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
 import { buildWorkOrderModel } from "@/lib/workOrder/build";
 import { paintTakeoff } from "@/lib/pricing/paintTakeoff";
@@ -809,9 +810,17 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
       busy: menuBusy === "link",
       onSelect: () =>
         menuAction("link", async () => {
-          const url = await fetchClientLink(quoteId);
-          await navigator.clipboard.writeText(url);
-          setNotice(t("app.sendMenu.linkCopied", "Client link copied."));
+          // Unawaited on purpose — lib/clipboardCopy.js. WebKit ends the
+          // click's gesture at the first await, and refuses the write after it.
+          try {
+            await copyFromPromise(fetchClientLink(quoteId));
+            setNotice(t("app.sendMenu.linkCopied", "Client link copied."));
+          } catch (err) {
+            // The browser refused the clipboard; the link itself is fine, so
+            // it goes in the notice to be copied by hand rather than lost.
+            if (!(err instanceof ClipboardRefused)) throw err;
+            setNotice(`${t("app.sendMenu.linkCopyBlocked")} ${err.text}`);
+          }
         }),
     },
     workOrderJobId && {

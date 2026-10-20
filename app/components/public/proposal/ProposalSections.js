@@ -35,6 +35,7 @@
 import { FileText, Play, Star } from "lucide-react";
 import BeforeAfter from "@/app/components/public/BeforeAfter";
 import { fillPair } from "@/lib/documents/theme";
+import { resizedUrl } from "@/lib/media/cloudinaryUrl";
 
 /** The anchors the contents jump to; keys match the server's `sections`. */
 export const PROPOSAL_SECTION_IDS = {
@@ -197,7 +198,10 @@ function SinglePhoto({ src, label, caption, theme }) {
     <figure className="m-0">
       <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={`${label}${caption ? ` — ${caption}` : ""}`} className="block w-full h-auto rounded-xl" loading="lazy" />
+        {/* Through the same delivered variant the slider uses — see the note
+            in BeforeAfter.js. A gallery original is a phone photo, and the
+            half-pair case must not be the one that still ships 1.7 MB. */}
+        <img src={resizedUrl(src, { width: 1400 })} alt={`${label}${caption ? ` — ${caption}` : ""}`} className="block w-full h-auto rounded-xl" loading="lazy" />
         <span
           className="absolute top-3 left-3 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider pointer-events-none"
           style={{ backgroundColor: theme.paper, color: theme.ink, borderRadius: 4 }}

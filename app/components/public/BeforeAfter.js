@@ -60,6 +60,7 @@
 "use client";
 
 import { useCallback, useId, useState } from "react";
+import { resizedUrl } from "@/lib/media/cloudinaryUrl";
 
 // The shapes a photo's box may take with fitToPhoto: 3:4 portrait to 16:9.
 const MIN_RATIO = 3 / 4;
@@ -103,6 +104,20 @@ export default function BeforeAfter({
   const alt = (word) => `${word}${caption ? ` — ${caption}` : ""}`;
   const motionSafe = Boolean(handle);
 
+  // ── Delivered, not original ────────────────────────────────────────────
+  //
+  // These are gallery uploads: phone photos of a kitchen, which Cloudinary
+  // stores at whatever the camera produced. Served raw, ONE of this company's
+  // was 1.7 MB, and a five-pair section is ten of them — so the slider boxes
+  // sat empty on the client's quote while the originals crawled down. The
+  // owner read that as broken, which on a phone in a driveway it is.
+  //
+  // c_limit never enlarges, so a small photo is untouched; f_auto/q_auto let
+  // Cloudinary negotiate webp/avif at the edge. 1400 is the widest this box
+  // is ever drawn at (a full-width website block on a retina laptop) — the
+  // proposal's three-up grid draws it at a third of that.
+  const shown = (u) => resizedUrl(u, { width: 1400 });
+
   const boxStyle = { backgroundColor: theme?.accentWash || "#f4f4f5" };
   if (fitToPhoto && ratio) boxStyle.aspectRatio = String(ratio);
 
@@ -122,7 +137,7 @@ export default function BeforeAfter({
         {/* AFTER — the base layer, and the no-JS answer. Absolute so both images
             share one box; the aspect ratio above owns the height. */}
         <img
-          src={after}
+          src={shown(after)}
           alt={named ? alt(afterText) : caption ? `After: ${caption}` : "After"}
           className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
@@ -138,7 +153,7 @@ export default function BeforeAfter({
             measurement, reflows for free, and object-cover keeps the two photos
             aligned even though they were never shot at the same aspect ratio. */}
         <img
-          src={before}
+          src={shown(before)}
           {...(named ? { alt: alt(beforeText) } : { alt: "", "aria-hidden": "true" })}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
