@@ -20541,6 +20541,21 @@ model Message {
   /// leave the cron spinning on a row it will not change.
   mediaPending Boolean @default(false)
 
+  /// This inbound message still owes the AI employee a turn.
+  ///
+  /// Same shape, and the same argument, as mediaPending above: written with
+  /// the row by the ingest, cleared by whoever completes the turn, read by
+  /// /api/cron/messaging-ai. DERIVED, never set by hand —
+  /// lib/messaging/aiTurn.js's owesAiTurn is the single definition, so the
+  /// flag and the hook cannot disagree.
+  ///
+  /// It exists because the turn is awaited INSIDE the webhook request and the
+  /// row is committed before it. A function cut off mid-turn used to lose the
+  /// reply permanently: Meta redelivers, the upsert finds the row, `created`
+  /// is false, and nothing asks the employee again. The flag survives the
+  /// timeout; the sweeper finishes what the webhook started.
+  aiPending Boolean @default(false)
+
   /// Pulled from Meta's history (lib/messaging/pageImport.js, lib/meta/
   /// historyBackfill.js) rather than delivered as it happened. Written from
   /// the event's `imported` flag by the ingest, which also keeps the AI
@@ -20594,6 +20609,12 @@ model Message {
   /// picture is taken first — a homeowner who sent a photo five minutes ago
   /// has been waiting longer than one who sent one now.
   @@index([mediaPending, sentAt])
+
+  /// The sweeper's whole query. `createdAt` second, NOT sentAt: the sweeper
+  /// waits a grace period after the row was WRITTEN, which is when the turn
+  /// started — a webhook delivering a message Meta stamped two hours ago must
+  /// get its two minutes like any other, not be swept the instant it lands.
+  @@index([aiPending, createdAt])
 
   /// The email headers of a message filed from a connected mailbox, or sent
   /// from the inbox as an email. Null on every chat message.

@@ -53,6 +53,7 @@ import { WEB_CHAT_LANGUAGES, webChatCopy } from "../lib/aiEmployee/webChatCopy.j
 import { AI_BEST_MODEL, tierForModel, modelForTier } from "../lib/ai/provider.js";
 import { hasKnownPricing, typicalConversationCostCents, pricingFor } from "../lib/ai/usage.js";
 import { MESSAGING_PLATFORMS, META_PLATFORMS, OWN_PLATFORMS, SOURCE_FOR_PLATFORM } from "../lib/messaging/platforms.js";
+import { owesAiTurn } from "../lib/messaging/aiTurn.js";
 import { CONVERSATION_SOURCES } from "../lib/attribution/conversationOutcome.js";
 import { NOTIFICATION_TYPES } from "../lib/notifications/catalog.js";
 import { hrefFor } from "../lib/notifications/render.js";
@@ -230,7 +231,14 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
   ok("2b. ...and refuses a thread whose company disagrees", /tenant_mismatch/.test(web));
   const sms = code("lib/aiEmployee/smsChannel.js");
   ok("2c. a phone held by two companies gets no automatic reply", /const shared = companies\.length > 1/.test(sms) && /noAutoReply: shared/.test(sms));
-  ok("2d. ...and the ingest honours that flag before the employee hook", /!event\.noAutoReply/.test(code("lib/messaging/ingest.js")));
+  // The rule moved into lib/messaging/aiTurn.js's owesAiTurn, which the ingest
+  // uses for BOTH the hook and the aiPending flag the sweeper reads — so it is
+  // executed here rather than matched, and the grep that remains only checks
+  // the ingest still defers to it. Deleting either half fails this line.
+  ok("2d. ...and the ingest honours that flag before the employee hook",
+    owesAiTurn({ direction: "in", noAutoReply: true }) === false &&
+    owesAiTurn({ direction: "in" }) === true &&
+    /owesAiTurn\(event\)/.test(code("lib/messaging/ingest.js")));
   ok("2e. ...and the shared line is written to the thread for a person to read", /type: "shared_line"/.test(sms));
   ok("2f. the acknowledgement is never sent on a shared line", /\} else if \(result\.created && !result\.ai\?\.replied\)/.test(sms));
   // 3. A proposal can only be approved by a member of its own company.

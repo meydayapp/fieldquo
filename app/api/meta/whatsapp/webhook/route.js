@@ -45,6 +45,20 @@
 // with a forgery.
 export const runtime = "nodejs";
 
+// The AI employee's turn is awaited inside this request (lib/messaging/
+// ingest.js): a burst debounce, a routing model call, the main model call,
+// tool calls, then a Graph send. On the platform default that is routinely
+// cut off, and a turn killed here used to lose the reply for good — Meta
+// redelivers, the upsert finds the row, `created` is false, and nobody asks
+// the employee again.
+//
+// Raising the ceiling does not raise the bill: Vercel charges for time
+// actually spent, and the only requests that will now run longer are the ones
+// that were being killed. The ceiling is the first line of defence; the
+// sweeper (/api/cron/messaging-ai, via Message.aiPending) is the second, and
+// it is the one that makes the loss recoverable rather than merely rarer.
+export const maxDuration = 120;
+
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
 import {

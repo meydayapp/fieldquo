@@ -133,6 +133,12 @@ export const rows = {
   // rather than throwing into its own catch and logging a failure on every
   // messaging check.
   aiEmployee: [],
+  // The reply rows the employee writes — one per turn that got as far as
+  // composing, created BEFORE the send and updated with sentAt after
+  // (lib/aiEmployee/respond.js). /api/cron/messaging-ai counts them to refuse
+  // a message whose turn already ran, which is the guard that stops a
+  // recovered turn sending a homeowner the same reply twice.
+  aiEmployeeReply: [],
   // The Facebook Page / Instagram PUBLISHING connection
   // (check-meta-pages-connect.mjs). The claims that need executing are
   // "a disconnected row can never answer connected" and "the token that comes
@@ -520,6 +526,30 @@ function selectMany(name, args = {}) {
       return r;
     });
   }
+  // The sweeper's read (/api/cron/messaging-ai): a pending message with the
+  // thread that owns it and that thread's channel, so one query carries the
+  // companyId and the platform the recovered turn needs. Answered from the
+  // sibling fixture tables, like the prospect joins above — a stub that
+  // returned the bare row would make the route skip every message for want of
+  // a companyId, and the check would be asserting the harness.
+  if (args.select && name === "message" && args.select.thread) {
+    out = out.map((m) => {
+      const thread = rows.messageThread.find((t) => t.id === m.threadId) || null;
+      const channel = thread
+        ? rows.messagingChannel.find((c) => c.id === thread.channelId) || null
+        : null;
+      return {
+        ...m,
+        thread: thread
+          ? {
+              id: thread.id,
+              companyId: thread.companyId,
+              channel: channel ? { platform: channel.platform } : null,
+            }
+          : null,
+      };
+    });
+  }
   if (args.select && name === "salesQueueClaim" && args.select.prospect) {
     out = out.map((c) => {
       const p = rows.prospect.find((x) => x.id === c.prospectId) || null;
@@ -760,6 +790,7 @@ export const db = new Proxy(
     messageThread: model("messageThread"),
     message: model("message"),
     aiEmployee: model("aiEmployee"),
+    aiEmployeeReply: model("aiEmployeeReply"),
     metaPageConnection: model("metaPageConnection"),
     whatsAppTemplate: model("whatsAppTemplate"),
     leadRequest: model("leadRequest"),
