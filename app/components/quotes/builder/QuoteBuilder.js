@@ -2492,12 +2492,18 @@ export function QuoteBuilderForm({
     }
   }
 
+  // Returns whatever runSave returned — `{ ok: true, id }` only on the
+  // `stay` path, undefined everywhere else, including the throw caught here.
+  // Every caller that just wants a save ignores it; the review panel reads it,
+  // and reads "anything but { ok: true }" as "do not review", which is why
+  // nothing had to be returned from the dozen refusal paths inside.
   async function handleSave(action, opts) {
     try {
-      await runSave(action, opts);
+      return await runSave(action, opts);
     } catch (err) {
       setSaving("");
       setError(err?.message || t("app.quoteEdit.saveError"));
+      return undefined;
     }
   }
 
@@ -2509,8 +2515,13 @@ export function QuoteBuilderForm({
    *   version the server just named in a stale-write refusal. Still GUARDED:
    *   if a third save landed while the banner was on screen, this conflicts
    *   again rather than forcing. There is no unguarded overwrite here.
+   * @param {boolean} [opts.stay] save and STAY on this screen, answering
+   *   `{ ok: true, id }`. For the review panel, which has to persist what is
+   *   on screen before anything reads the row back — see `saveForReview`.
+   *   Every other caller navigates, which is why the navigation is the
+   *   default and this is the exception rather than the other way round.
    */
-  async function runSave(action, { confirmed = false, againstVersion } = {}) {
+  async function runSave(action, { confirmed = false, againstVersion, stay = false } = {}) {
     setError("");
     // Cleared as the retry starts, not on success — leaving last attempt's
     // banner up during a save that may well succeed reads as a failure.
@@ -2754,11 +2765,48 @@ export function QuoteBuilderForm({
       return;
     }
 
+    // The review panel's save: no navigation, and the ONE truthy answer this
+    // function gives. Every refusal above returns undefined, so a caller that
+    // only proceeds on `{ ok: true }` cannot review stale data by accident —
+    // fail closed, because the alternative is the 42/100 a filled-in quote
+    // scored on Q-2026-0026. The spinner IS cleared here, unlike below: this
+    // screen stays mounted and the button has to come back.
+    if (stay) {
+      setSaving("");
+      return { ok: true, id };
+    }
+
     // Deliberately still "saving" here: the router push is about to unmount this
     // screen. Clearing it first flashes an enabled button for a frame, which is
     // long enough to double-submit on a slow connection.
     router.push(`/app/quotes/${id}`);
   }
+
+  // ── The review reviews what is on screen ────────────────────────────────
+  //
+  // Both the AI review and the paid deep photo read read the SAVED quote out
+  // of the database (app/api/quotes/[id]/review/route.js does a findFirst).
+  // Create mode has always been safe: "Save & review" saves and then routes
+  // to `?review=1`, and the comment on that branch says so. Edit mode never
+  // got the same guarantee, so the panel scored a row while the estimator
+  // looked at something else — Q-2026-0026 came back "No expiry date", "No
+  // line items", "No photos" with four thumbnails and a priced $5,122 section
+  // on screen, all of it unsaved.
+  //
+  // This is the builder's OWN save (the same `runSave` every button uses),
+  // not a second one: a second save path is how the two modes disagreed about
+  // tax once, and the quote's lines are flattened at save time by exactly one
+  // function. Saved as a draft rather than with whatever status is on the row
+  // — the PATCH body carries no status on an edit, so nothing in the pipeline
+  // moves and a sent quote stays sent.
+  const saveForReview = async () => {
+    const saved = await handleSave("draft", { stay: true });
+    if (saved?.ok) return { ok: true };
+    // No sentence back: the reason is already on screen in the builder's own
+    // error box or stale-write banner, and both scroll themselves into view
+    // when set. The panel says that nothing was reviewed and points at it.
+    return { ok: false };
+  };
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -3622,6 +3670,10 @@ export function QuoteBuilderForm({
           }
         }}
         autoReview={autoReview}
+        // Persist what the estimator is looking at before the panel reads the
+        // row back — see saveForReview above. Only in edit mode, which is the
+        // only mode this panel renders in.
+        onSaveFirst={saveForReview}
       />
     )}
 
@@ -3661,6 +3713,45 @@ export function QuoteBuilderForm({
     </>
   );
 
+  // ── The lines the CLIENT will read, not only the ones typed by hand ─────
+  //
+  // A cabinet or painting group added in this session carries NO line items of
+  // its own: its price derives from the takeoff and the unit rate, and is
+  // flattened into lines at save time by scopeGroupPayload — the `persisted`
+  // rule at the top of lib/quotes/builderPayload.js. Reading `g.lineItems`
+  // alone therefore saw nothing on a structured estimate, and the panel told
+  // an estimator looking at a priced $5,122 Cabinet Refinishing section that
+  // the quote had "No line items — there's nothing here to price". A high
+  // finding, on every structured estimate this product can build, dragging
+  // the count with it.
+  //
+  // Derived through the SAVE's own function rather than by reading the takeoff
+  // a second time: these are byte-for-byte the lines the quote will be stored
+  // with, so this panel and the saved AI review cannot disagree about what is
+  // on the document. It is also the arithmetic groupTotal already does on
+  // every render, so nothing new is being paid for here.
+  const readinessGroups = scopeGroups.map((g) => {
+    const override = wordingOverrideFor(g.categoryId);
+    try {
+      return {
+        ...g,
+        override,
+        lineItems: buildScopeGroupPayload(
+          g,
+          rateOverridesFor(g.categoryId),
+          quoteLanguage || companyLanguage,
+        ).lineItems,
+      };
+    } catch {
+      // A takeoff halfway through being filled in can be a shape the price
+      // book refuses — the same reason storedTakeoffDrift guards its own call.
+      // A readiness panel is not worth a white screen, so fall back to the
+      // typed lines (what this showed before) and leave the Save button to
+      // report the real refusal, which it does in words.
+      return { ...g, override, lineItems: Array.isArray(g.lineItems) ? g.lineItems : [] };
+    }
+  });
+
   // The readiness input, worked out here rather than by the model. Same
   // checks lib/ai/quoteReview.js runs — they were never AI work, just null
   // checks that happened to live behind an API call.
@@ -3678,12 +3769,10 @@ export function QuoteBuilderForm({
     // Each group with the company's saved wording beside it, so the "no
     // description" check reads the document the way the client does — a
     // name over a scope paragraph is not a bare name.
-    scopeGroups: scopeGroups.map((g) => ({ ...g, override: wordingOverrideFor(g.categoryId) })),
+    scopeGroups: readinessGroups,
     client: selectedClient,
   };
-  const readinessItems = scopeGroups.flatMap((g) =>
-    Array.isArray(g.lineItems) ? g.lineItems : [],
-  );
+  const readinessItems = readinessGroups.flatMap((g) => g.lineItems);
 
   // A painting company's empty new quote opens on the estimate-type cards
   // (EstimateTypeFirst.js), in both layouts, instead of the service tiles.

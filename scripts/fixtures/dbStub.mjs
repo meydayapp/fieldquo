@@ -25,6 +25,12 @@ export const rows = {
   // A quote's scope groups, for the routes that write a group beside the
   // quote (approve-estimate's adjustment line). Empty unless a check scripts one.
   quoteScopeGroup: [],
+  // Imported subcontractor costs linked to a quote's groups. Read on EVERY
+  // builder save — PATCH /api/quotes/[id] calls reconcileImportsForQuote to
+  // drop an import whose group the editor deleted — so a check that executes
+  // that route needs it even when nothing was ever imported. Empty is the
+  // ordinary state: a company that has imported nothing.
+  quoteImport: [],
   // Maintenance plans on a quote (check-plan-templates' route half).
   servicePlanTemplate: [],
   quotePlanOffer: [],
@@ -303,6 +309,7 @@ export function resetDbStub() {
   rows.client = [];
   rows.quote = [];
   rows.quoteScopeGroup = [];
+  rows.quoteImport = [];
   rows.servicePlanTemplate = [];
   rows.quotePlanOffer = [];
   rows.voiceCallTask = [];
@@ -764,6 +771,7 @@ export const db = new Proxy(
     client: model("client"),
     quote: model("quote"),
     quoteScopeGroup: model("quoteScopeGroup"),
+    quoteImport: model("quoteImport"),
     voiceCallTask: model("voiceCallTask"),
     callConsent: model("callConsent"),
     company: model("company"),

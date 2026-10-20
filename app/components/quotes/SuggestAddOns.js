@@ -40,6 +40,7 @@ import {
   useAiCreditTopup,
 } from "@/app/components/ai/AiCreditTopupDialog";
 import { resolveParams } from "@/lib/quotes/reviewSentence";
+import { runAfterSave } from "@/lib/quotes/reviewGate";
 import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
 
 // Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
@@ -73,6 +74,13 @@ const SEVERITY = {
  *                  quote. It is not a "review on open" setting: the whole
  *                  reason POST and GET are split on that route is that
  *                  reopening a quote must not spend tokens.
+ * @param onSaveFirst  `async () => ({ ok, error? })` — persist whatever the
+ *                  editor is holding, BEFORE the review or the deep read
+ *                  reads the row back. Passed by the builder in edit mode
+ *                  (QuoteBuilder's own save, not a second one); absent
+ *                  wherever there is no unsaved state to lose. The rule and
+ *                  the stop live in lib/quotes/reviewGate.js, used by both
+ *                  buttons below so there is one copy of "no save, no run".
  */
 export default function SuggestAddOns({
   quoteId,
@@ -83,6 +91,7 @@ export default function SuggestAddOns({
   // estimator to check on site, so this is the only box they may land in.
   onReviewNotes,
   autoReview = false,
+  onSaveFirst,
   // ── The actuals finding's one-press adjustment ─────────────────────────
   //
   // `onApplyActuals(finding)` is the builder's own state change (lib/quotes/
@@ -151,6 +160,9 @@ export default function SuggestAddOns({
 
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState(false);
+  // The save the press does first, so the button says "Saving your changes…"
+  // rather than "Reviewing…" while the quote is still being written.
+  const [savingFirst, setSavingFirst] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
   const [edited, setEdited] = useState(false);
@@ -263,16 +275,51 @@ export default function SuggestAddOns({
     if (!autoReview || loading || readOnly || !quoteId) return;
     if (autoRan.current) return;
     autoRan.current = true;
-    runReview();
+    // `saveFirst: false` — this arrival IS the save. "Save & review" on the
+    // builder saved the draft and routed here; saving again would be a second
+    // write for one click, and there is nothing unsaved on a page that has
+    // only just loaded.
+    runReview({ saveFirst: false });
   }, [autoReview, loading, readOnly, quoteId]);
 
-  async function runReview() {
+  // The parent's save, wrapped only to drive the label above. One copy, used
+  // by both buttons — the review and the deep read have the same dependency on
+  // the row being up to date.
+  const saveFirstTracked = onSaveFirst
+    ? async () => {
+        setSavingFirst(true);
+        try {
+          return await onSaveFirst();
+        } finally {
+          setSavingFirst(false);
+        }
+      }
+    : undefined;
+
+  /**
+   * @param saveFirst  persist the editor's state before reading the row back.
+   *   True for every press on this screen — the review reads the SAVED quote,
+   *   and in edit mode the expiry, the photos and the lines on screen may
+   *   never have been saved. The save itself is the parent's (`onSaveFirst`);
+   *   without one there is nothing to persist and this is a plain review.
+   */
+  async function runReview({ saveFirst = true } = {}) {
     setError("");
     setReviewing(true);
     try {
-      const data = await fetchJson(`/api/quotes/${quoteId}/review`, {
-        method: "POST",
+      const gated = await runAfterSave({
+        save: saveFirst ? saveFirstTracked : undefined,
+        run: () => fetchJson(`/api/quotes/${quoteId}/review`, { method: "POST" }),
       });
+      // Nothing ran, and that is said rather than papered over with a score
+      // off the last saved version. The reason itself is in the builder's own
+      // error banner, which `onSaveFirst` scrolls to — repeating it here in
+      // vaguer words would be two accounts of one failure.
+      if (!gated.ok) {
+        setError(gated.error || t("app.quoteReview.notSaved"));
+        return;
+      }
+      const data = gated.result;
       setReview(data.review);
       setReviewedAt(data.reviewedAt);
       setDismissed([]);
@@ -317,7 +364,20 @@ export default function SuggestAddOns({
     setVisionError("");
     setVisionRunning(true);
     try {
-      const data = await fetchJson(`/api/quotes/${quoteId}/vision`, { method: "POST" });
+      // Saved first, through the same gate as the review above. This read
+      // costs real credit and counts the photos ON THE ROW, so an unsaved
+      // upload used to buy nothing and come back "This quote has no photos
+      // attached yet" with the thumbnails on screen. After the save that
+      // sentence is true when it appears.
+      const gated = await runAfterSave({
+        save: saveFirstTracked,
+        run: () => fetchJson(`/api/quotes/${quoteId}/vision`, { method: "POST" }),
+      });
+      if (!gated.ok) {
+        setVisionError(gated.error || t("app.quoteReview.notSaved"));
+        return;
+      }
+      const data = gated.result;
       setVisionPasses(Array.isArray(data?.passes) ? data.passes : []);
       setVisionTradeNames(data?.tradeNames || {});
       // The wallet just moved. Re-read the verdict rather than arithmetic on
@@ -473,8 +533,11 @@ export default function SuggestAddOns({
         {!readOnly && (
           <button
             type="button"
-            onClick={runReview}
-            disabled={reviewing}
+            onClick={() => runReview()}
+            // Not while the deep read is going either: both presses now SAVE
+            // first, and two saves in flight from one screen is the stale-write
+            // banner for no reason. One at a time.
+            disabled={reviewing || visionRunning}
             className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full disabled:opacity-60"
           >
             {reviewing ? (
@@ -482,7 +545,14 @@ export default function SuggestAddOns({
             ) : (
               <Sparkles size={14} />
             )}
-            {reviewing
+            {/* Two words for two steps, because the press now does both: the
+                quote is saved and only then reviewed. "Reviewing…" over a
+                save is the kind of label that makes people distrust the
+                spinner. Read with `reviewing`, so this button does not
+                narrate the deep read's save. */}
+            {reviewing && savingFirst
+              ? t("app.quoteReview.savingFirst")
+              : reviewing
               ? t("app.quoteReview.reviewing")
               : reviewedAt
                 ? t("app.quoteReview.reviewAgain")
@@ -893,7 +963,7 @@ export default function SuggestAddOns({
               <button
                 type="button"
                 onClick={runVision}
-                disabled={visionRunning}
+                disabled={visionRunning || reviewing}
                 className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-4 py-2 rounded-full disabled:opacity-60 shrink-0"
               >
                 {visionRunning ? (
@@ -901,7 +971,9 @@ export default function SuggestAddOns({
                 ) : (
                   <Eye size={14} />
                 )}
-                {visionRunning
+                {visionRunning && savingFirst
+                  ? t("app.quoteReview.savingFirst")
+                  : visionRunning
                   ? t("app.deepRead.running")
                   : visionPasses.length > 0
                     ? t("app.deepRead.runAgain")

@@ -101,8 +101,18 @@ export async function POST(request, { params }) {
 
   const photoCount = photosFromQuote(quote).length;
   if (!photoCount) {
+    // "SAVED on this quote", not "attached": this counts the row, and the old
+    // wording was read as a statement about the screen. The builder press now
+    // saves before it gets here (lib/quotes/reviewGate.js), so the only way to
+    // see this with thumbnails on screen is an upload that never finished —
+    // which is what the second sentence is for. It was an hour of the owner's
+    // time to work that out once.
     return NextResponse.json(
-      { error: "This quote has no photos attached yet — there's nothing for a deep read to look at." },
+      {
+        error:
+          "No photos are saved on this quote, so there is nothing for a deep read to look at. " +
+          "If you have just attached some, check they finished uploading.",
+      },
       { status: 400 },
     );
   }
