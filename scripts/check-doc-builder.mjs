@@ -52,6 +52,7 @@ import { paintingCategoryFor, paintingCategoriesOf } from "../app/components/quo
 import { createFabHiddenOn } from "../app/components/layout/CreateMenu.js";
 import { completenessChecks, effectiveProcessNotes } from "../lib/quotes/completeness.js";
 import { newScopeGroup, scopeGroupPayload, groupSubtotal } from "../lib/quotes/builderPayload.js";
+import { defaultValidUntil } from "../lib/quotes/validUntil.js";
 import ServicesTab from "../app/components/quotes/builder/ServicesTab.js";
 import ProductionRateField, { productionDraftFrom, productionFromDraft } from "../app/components/pricing/ProductionRateField.js";
 import { groupProduction, productionMapFrom } from "../lib/services/productionRates.js";
@@ -426,19 +427,42 @@ for (const [label, mode, id, initial] of CASES) {
 // not, and clicking it opens the same date field a create has.
 {
   const masthead = (html) => (html.split("data-doc-masthead")[1] || "").split("data-doc-parties")[0].replace(/<!-- -->/g, "");
-  const nullExpiry = { ...STORED_QUOTE, language: "en", validUntil: null };
+  // A quote the client HAS been sent and that carries no expiry: "no expiry"
+  // is a term they have already read, so the row says so and nothing is
+  // suggested over it. (Until 2026-10-20 a DRAFT read this way too, which is
+  // the state a lead-converted quote was stuck in — see the draft case below
+  // and lib/quotes/validUntil.js.)
+  const nullExpiry = { ...STORED_QUOTE, language: "en", status: "sent", validUntil: null };
   const editNull = render("document", "edit", "q1", { ...initialStateFromQuote(nullExpiry), quote: nullExpiry, costingLoaded: true });
-  ok("expiry: an edit with NO expiry still shows the Valid until row", masthead(editNull).includes("Valid until"), masthead(editNull).slice(0, 400));
+  ok("expiry: a SENT quote with NO expiry still shows the Valid until row", masthead(editNull).includes("Valid until"), masthead(editNull).slice(0, 400));
   ok("…saying it is not set, not inventing a date", masthead(editNull).includes("No expiry date"));
   ok("…next to the issue date it already showed", /Date/.test(masthead(editNull)));
+  // A DRAFT with no expiry opens on the same 30-day suggestion a create does:
+  // nothing has been published, and an empty box is how every quote in the
+  // product ended up with no expiry at all.
+  const draftNull = { ...STORED_QUOTE, language: "en", status: "draft", validUntil: null };
+  const editDraftNull = render("document", "edit", "q1", { ...initialStateFromQuote(draftNull), quote: draftNull, costingLoaded: true });
+  ok(
+    "expiry: a DRAFT with no expiry opens on the 30-day suggestion, not an empty row",
+    masthead(editDraftNull).includes("Valid until") && !masthead(editDraftNull).includes("No expiry date"),
+    masthead(editDraftNull).slice(0, 300),
+  );
   const setExpiry = { ...STORED_QUOTE, language: "en" };
   const editSet = render("document", "edit", "q1", { ...initialStateFromQuote(setExpiry), quote: setExpiry, costingLoaded: true });
   ok("expiry: an edit WITH an expiry prints the date, not the not-set line", masthead(editSet).includes("Valid until") && !masthead(editSet).includes("No expiry date"));
   const create = render("document", "create", null, initialStateFromQuote(null));
   ok("expiry: a create still opens with the dated row", masthead(create).includes("Valid until") && !masthead(create).includes("No expiry date"));
-  // The classic layout always drew the field; pinned so it stays that way.
+  // The classic layout always drew the field; pinned so it stays that way —
+  // empty on a sent quote whose term is "no expiry", carrying the suggestion
+  // on a draft that has published nothing.
   const classicNull = render("classic", "edit", "q1", initialStateFromQuote(nullExpiry));
-  ok("expiry: classic edit with no expiry draws the empty date field", /id="quote-valid-until"[^>]*value=""/.test(classicNull) || /value=""[^>]*id="quote-valid-until"/.test(classicNull));
+  ok("expiry: classic edit of a SENT quote with no expiry draws the empty date field", /id="quote-valid-until"[^>]*value=""/.test(classicNull) || /value=""[^>]*id="quote-valid-until"/.test(classicNull));
+  const classicDraftNull = render("classic", "edit", "q1", initialStateFromQuote(draftNull));
+  ok(
+    "expiry: classic edit of a DRAFT with no expiry carries the suggested date in the field",
+    new RegExp(`id="quote-valid-until"[^>]*value="${defaultValidUntil()}"`).test(classicDraftNull) ||
+      new RegExp(`value="${defaultValidUntil()}"[^>]*id="quote-valid-until"`).test(classicDraftNull),
+  );
 }
 
 // A stored draft carrying the estimator's own complexity factor (lib/pricing/

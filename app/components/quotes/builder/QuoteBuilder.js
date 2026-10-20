@@ -134,6 +134,7 @@ import {
   billedUnitsOf,
   withCabinetAnswers,
   storedTakeoffDrift,
+  reviveSeedScopeGroup,
 } from "@/lib/quotes/builderPayload";
 // Refinish | Reface inside one cabinet group — what carries and why is in
 // the module's header.
@@ -290,6 +291,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       taxEnabled: true,
       taxRate: null,
       validUntil: defaultValidUntil(),
+      validUntilDefaulted: true,
       costing: null,
       assignedTo: null,
       siteAddress: "",
@@ -326,9 +328,30 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     discount: discount ? String(discount) : "",
     taxEnabled: quote.taxEnabled !== false,
     taxRate,
+    // ── A stored quote with no expiry opens on the same SUGGESTION ────────
+    //
+    // lib/quotes/validUntil.js's header draws the line this follows: what
+    // AGENTS.md forbids is "a value written on their behalf that they never
+    // see", and "a pre-filled form field the user reads and confirms is a
+    // suggestion". So the 30 days are offered here, in the visible, clearable
+    // box with the hint saying what they are — never written at conversion,
+    // where nobody would have seen them.
+    //
+    // Offered only while the quote is still a DRAFT. On one the client has
+    // been sent, a null expiry is a published fact ("this does not expire")
+    // and re-suggesting a date would quietly change a term somebody already
+    // read. A draft has published nothing, which is the same ground create
+    // mode stands on.
+    //
+    // This is what a lead-converted quote was missing: convertLeadToQuote
+    // writes no validUntil, create mode's pre-fill never ran on it, and the
+    // review then flagged `no_expiry` on every single one.
     validUntil: quote.validUntil
       ? new Date(quote.validUntil).toISOString().slice(0, 10)
-      : "",
+      : quote.status && quote.status !== "draft"
+        ? ""
+        : defaultValidUntil(),
+    validUntilDefaulted: !quote.validUntil,
     costing: null,
     assignedTo: quote.assignedTo || null,
     // Where the work is, as saved. "" for a quote written before the column
@@ -1053,7 +1076,32 @@ export function QuoteBuilderForm({
     isEdit && selectedClient?.id && selectedClient.id !== (start.client?.id || null) ? selectedClient.id : null;
 
   // ── Scope ────────────────────────────────────────────────────────────────
-  const [scopeGroups, setScopeGroups] = useState(start.groups || []);
+  //
+  // A stored group with no line items is a SEED, not a frozen price — the one
+  // lib/leads/convertLead.js writes from a lead's category and the homeowner's
+  // counts. It opens here as the live group the service picker would have
+  // added, keeping its row id and its intake: see reviveSeedScopeGroup, which
+  // explains why a group with no stored lines cannot be the double-pricing
+  // case `persisted` exists to prevent. Done HERE and not in groupFromStored
+  // because it needs the company's own category row — the rate card — which
+  // only the bootstrap has, and because every stored group must still LOAD
+  // persisted whatever the quote's status (check-paint-coats-labour.mjs).
+  //
+  // Only while the lines are still editable. On a quote past `sent` the API
+  // refuses scopeGroups, so deriving a price the save cannot store would be a
+  // form that appears to work and doesn't.
+  const [scopeGroups, setScopeGroups] = useState(() =>
+    (start.groups || []).map((g) =>
+      !isEdit || OPEN_STATUSES.includes(start.status)
+        ? reviveSeedScopeGroup(
+            g,
+            categories.find((c) => c.id === g.categoryId) || null,
+            rateOverridesIn(categories, g.categoryId),
+            { language: start.language || boot.companyLanguage || "en" },
+          )
+        : g,
+    ),
+  );
   const [reasonsOpen, setReasonsOpen] = useState({});
 
 
@@ -1199,6 +1247,10 @@ export function QuoteBuilderForm({
   const [taxResult, setTaxResult] = useState(null);
   const [taxSchemeNote, setTaxSchemeNote] = useState("");
   const [validUntil, setValidUntil] = useState(start.validUntil ?? "");
+  // Whether the date the box OPENED with was the suggestion rather than the
+  // quote's own stored term — read by the hint under the field. A fixed
+  // property of how the form opened, like the create-mode flag it replaces.
+  const validUntilDefaulted = start.validUntilDefaulted ?? !isEdit;
 
   // ── Cost & margin (internal, never client-facing) ────────────────────────
   const seededCosting = useMemo(
@@ -3805,7 +3857,7 @@ export function QuoteBuilderForm({
           assignedToId, setAssignedToId, setAssignedToTouched,
           discount, setDiscount, appliedDiscount, taxableBase, taxEnabled, setTaxEnabled, taxRate, setTaxRate,
           setTaxRateTouched, taxNote, taxCaution, taxAssumed, taxSchemeNote, taxDetail, vatWorkType, setVatWorkType,
-          validUntil, setValidUntil, subtotal, tax, total, estimate,
+          validUntil, setValidUntil, validUntilDefaulted, subtotal, tax, total, estimate,
           taxLine,
           saving, error, errorRef, conflict, conflictRef, runSave, handleSave, pendingSend, setPendingSend,
           cf, readiness, readinessItems, OPEN_STATUSES, TOUR_STEPS, showTour, setShowTour,
@@ -4231,10 +4283,12 @@ export function QuoteBuilderForm({
         onTaxToggle={setTaxEnabled}
         validUntil={validUntil}
         onValidUntilChange={setValidUntil}
-        // A create opens on the 30-day suggestion and the hint says so. An edit
-        // opens on whatever the quote already carries, and claiming that came
-        // from a default would be describing something that never happened.
-        validUntilDefaulted={!isEdit}
+        // True when the date in the box is the 30-day SUGGESTION — a create,
+        // or an edit of a draft that was stored without an expiry (a
+        // lead-converted quote). False when it is the quote's own stored
+        // date: calling that a default would describe something that never
+        // happened. See initialStateFromQuote.
+        validUntilDefaulted={validUntilDefaulted}
         currency={companyCurrency}
         saving={saving}
         disabled={isEdit ? false : !selectedClient || scopeGroups.length === 0}

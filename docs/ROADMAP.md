@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 20 October 2026 (a quote started from a LEAD is now the same quote "New quote" makes. Second defect on Q-2026-0026: lib/leads/convertLead.js writes a scope group with the lead's category and the homeowner's counts and NO line items, and QuoteBuilder loads every stored group as `persisted` — so the estimator got a Cabinet Refinishing card with the unit-pricing form and the takeoff both hidden and no way to reach a price: 20 doors + 6 drawers price at $3,900.00 through the service picker and $0.00 through that group. A stored group with no line items is now a SEED, not a price (isSeedScopeGroup / reviveSeedScopeGroup, lib/quotes/builderPayload.js): its subtotal IS the sum of its lines, so there is no price to reprice and nothing to double — both failures `persisted` prevents are impossible on that shape. It opens as the group the picker would have added, built through newScopeGroup so a cabinet group carries the book's per-door rate, keeping the row id; groups with stored lines, custom factors or an imported cost are untouched, md5 included; draft and sent only. The expiry is offered in edit mode on a draft that has none, never stored at conversion — validUntil.js's own header. No QuoteCosting row at conversion either, deliberately: it would freeze a margin against $0.00; the cost comes off the group's intake on recompute, which the live group is what makes reachable. The photos were NOT a bug — the quote was created at 20:14:49Z and all four images landed at 20:36. npm run check:lead-quote-parity, 55 checks, in check:all. No schema change.)
 Last updated: 20 October 2026 (the quote review reviews what is ON SCREEN. Reported from live quote Q-2026-0026: four photos, the expiry filled, the process wording written and a priced $5,122 Cabinet Refinishing section, and the panel beside it scoring 42/100 with "No expiry date", "No line items", "Nothing about what happens next", "No photos" and a deep photo read saying there were no photos at all. Nothing was wrong with the review: app/api/quotes/[id]/review/route.js reads the SAVED row, whose validUntil was NULL, processNotes empty and clientPhotos NULL — every one of those things was unsaved browser state. Create mode never had this ("Save & review" saves, then routes to ?review=1); edit mode never got the same guarantee. Now a press of "Review again" or "Run deep read" in edit mode saves FIRST through the builder's own runSave (`stay: true` — no navigation, and the one path that answers `{ ok: true }`), and the review runs only if that save landed; lib/quotes/reviewGate.js holds the rule for both buttons, fails closed, and is executed rather than described. A refused save says so and reviews nothing — a quiet fallback to the stored row would spend a model call and FILE a score about a document nobody is looking at. The arrival from "Save & review" does not re-save (no double write). Second, separate bug in the same panel: the live "things worth fixing" count flattened only the lines TYPED by hand, and a structured estimate holds none — its lines are derived and flattened at save time — so "No line items, there's nothing here to price" fired on every cabinet, painting and stairs estimate the product can build. It now reads the lines the SAVE would store, through scopeGroupPayload itself, so the panel and the stored review cannot disagree about the document. The deep read's refusal was reworded to name the row ("No photos are saved on this quote…if you have just attached some, check they finished uploading") — the old "has no photos attached yet" was read as a claim about the screen. npm run check:quote-review-freshness (52 checks) executes the gate, then the REAL PATCH /api/quotes/[id] from the unsaved editor state and the completeness checks either side of it: before the save the stored row is the owner's four findings, after it they are gone and the stored line is the $3,900 on screen; a refusal mid-edit writes nothing and reviews nothing. No schema change.)
 Last updated: 20 October 2026 (the AI employee's reply survives the webhook being killed. lib/messaging/ingest.js AWAITS aiEmployeeOnInbound inside the Meta webhook request — a 2.5–6s burst hold, a routing model call, the main model call, tool calls, then a Graph send — and the Message row is committed BEFORE any of it, with the hook firing only when the upsert CREATED the row. So a function cut off mid-turn lost the reply permanently: Meta redelivers, the upsert finds the row, `created` is false, and nothing asked the employee again. There was no sweeper and no retry queue, and the homeowner simply got silence. Now `Message.aiPending` is written with the row from lib/messaging/aiTurn.js's `owesAiTurn` — the single predicate the hook itself uses, so the flag and the work cannot disagree — cleared the moment the inline turn returns, and swept by /api/cron/messaging-ai every minute. The inline turn STAYS: a reply in three seconds is the product, the sweep is the net under it. Three guards stop a double reply: a two-minute grace so a turn that is still running is never raced, a conditional `updateMany` claim so two ticks cannot both take a row, and a refusal when an AiEmployeeReply row already exists for the message — sound only because respond.js records that row BEFORE it calls send(). Exactly ONE recovery attempt, deliberately: unbounded retries on a path whose dominant cost is model calls is an unbounded bill. Both Meta webhooks now declare maxDuration. npm run check:ai-turn (28 checks) EXECUTES the sweeper against a killed turn, a still-running one, two overlapping ticks and a turn that already sent — the gap that let this ship, since check-messaging and check-whatsapp each stop at opposite edges of this path and neither crosses webhook → employee → send in one run. Schema additive — `Message.aiPending` + @@index([aiPending, createdAt]); NOT applied, SQL below.)
 Last updated: 15 October 2026 (fieldquo.com site audit + HeyCatch analytics: robots/sitemap/llms.txt per host, Organization/Product/FAQ JSON-LD, FAQ answers in the server HTML, testimonial band with the founder connection disclosed, founder block on /about, "Most popular" on Solo from national business counts, pricing title with the yearly price, switching notes + FAQ on every comparison, /vs redirects; HeyCatch on FieldQuo's own pages only, no PII. See "fieldquo.com site audit + HeyCatch analytics (15 October 2026)" below.)
@@ -30467,3 +30468,94 @@ Both already use the SAME `Quote.shareToken`, so the link is one hop away — bu
 (`agent/quote-link`), and serving a provisional draft there is a lifecycle
 question — whether a homeowner may accept a price no one has reviewed — not a
 rendering one. See the report of 22 September 2026.
+
+## A quote started from a lead is the same quote "New quote" makes (20 October 2026)
+
+Second defect from live quote Q-2026-0026 (the first — the review reading the
+saved row instead of the screen — is the entry at the top of this file). The
+owner converted Tracey Leroux's Messenger lead, built the quote, and it came to
+$0.00 with no expiry, no operational cost and no photos. Verified against the
+production row rather than inferred: `createdVia "lead_conversion"`, total $0.00,
+one scope group with `label` NULL, `lineItems` NULL and `intakeValues` NULL, no
+`QuoteCosting` row, `validUntil` NULL, `clientPhotos` NULL.
+
+**The one that mattered: the seeded scope group could not be priced.**
+`lib/leads/convertLead.js` writes a `QuoteScopeGroup` carrying the lead's
+category and the homeowner's counts with no line items, and `QuoteBuilder`
+loads every stored group as `persisted` — the rule that stops a sent quote
+being repriced and stops a derived line being counted twice. So the estimator
+was handed a Cabinet Refinishing card with the unit-pricing form and the
+takeoff both hidden, and no way to reach a price: 20 doors and 6 drawers price
+at **$3,900.00** through a group added from the service picker and at **$0.00**
+through that one. (The owner's counts went into the cost-only intake box that
+is explicitly wired to the cost estimate and not to the price.)
+
+Fixed by treating a stored group with **no line items** as a seed rather than a
+price — `isSeedScopeGroup` / `reviveSeedScopeGroup` in
+`lib/quotes/builderPayload.js`, beside the `persisted` rule they qualify. That
+condition is the whole argument: a persisted group's subtotal IS the sum of its
+lines, so a group with none is worth $0.00 — there is no price to reprice and
+nothing for a derived line to be added to twice. Both failures `persisted`
+exists to prevent are arithmetically impossible on that shape, which is why
+the test is the lines and not the quote's status or its `createdVia`. A seed
+opens as the group the service picker would have added — built by calling
+`newScopeGroup`, so a cabinet group gets the book's per-door rate and a takeoff
+trade gets a takeoff config, rather than a flipped flag rendering a form with
+no rate behind it — keeping the stored row's id, so the save updates the lead's
+group instead of orphaning it. Groups carrying stored lines, custom complexity
+factors or an imported subcontractor cost are untouched, md5 included. Only
+while the quote is still `draft` or `sent`: past that the API refuses
+`scopeGroups`, and offering a price the save would refuse is a control that
+appears to work.
+
+Rejected: having the conversion write no group at all and carry the category
+and counts for the builder to open fresh. Simpler, but it loses the group's
+identity — the quote would arrive with no scope section until somebody picked
+a tile (the opposite of what `convertLead`'s header says the conversion is
+for), and the builder would have to re-read the lead through the quote on open.
+
+**The expiry** is now offered in edit mode on a draft that has none, not
+written at conversion. `lib/quotes/validUntil.js`'s own header settles it: what
+AGENTS.md forbids is "a value written on their behalf that they never see", and
+"a pre-filled form field the user reads and confirms is a suggestion". So the
+30 days appear in the visible, clearable box with the hint saying what they
+are. Only on a draft — on a sent quote a null expiry is a term the client has
+already read, and re-suggesting a date would quietly change it. The hint now
+distinguishes all three states honestly (`validUntilDefaulted` travels with the
+initial state instead of being `!isEdit`).
+
+**Operational cost.** No `QuoteCosting` row is written at conversion, on
+purpose, and the block above `convertLeadToQuote` says why: the row is costed
+against a price, this quote's is $0.00, and `GET /api/quotes/[id]/costing`
+trusts a saved row unconditionally — a frozen −100% margin is worse than an
+honest absence. "New quote" writes no row either until the estimator names a
+crew or types hours (`shouldWriteQuoteCosting`); until then labour and
+materials are RECOMPUTED on read from the group's own intake answers. Which is
+where the owner's "it is not calculating the operational cost" actually came
+from: the counts could not be entered anywhere that saved them, because the
+group loaded frozen. With it live the counts save with the scope, the recompute
+has a real basis (asserted: hours > 0 and materials > 0, not `costBasisMissing`),
+and naming a crew writes the row through the same `buildQuoteCostingRow` every
+other save uses.
+
+**The photos were not a bug.** Established from the row: the quote was created
+at 20:14:49Z and all four Cloudinary images on that lead's thread arrived at
+20:36 and after. The thread link and the `state === "ready"` filter both
+behaved — there was nothing there yet. `conversationPhotos` is a snapshot taken
+at conversion, and that is now written down in its header so it is not
+re-investigated as a broken carry. Its silent `.catch(() => [])` now logs.
+**Still open:** photos the homeowner sends AFTER the conversion never reach the
+quote. Carrying them forward needs a second trigger (on open, or when an
+attachment becomes ready) and is a separate piece of work.
+
+`npm run check:lead-quote-parity` — 55 checks, in `check:all`. It EXECUTES
+`convertLeadToQuote` against the scripted database, shapes the written group as
+`GET /api/quotes/[id]` returns it, loads it through the builder's own
+`initialStateFromQuote`, prices it through `builderPayload` and asserts the
+figure to the cent against the same scope typed into a new quote (same payload
+md5, bar the row id), RENDERS `QuoteBuilderForm` over the converted quote and
+requires the unit-pricing form and $3,900.00 on screen in both layouts, runs
+`buildQuoteCostingRow` and `deriveQuoteCosting` over what the first save
+stores, and mutation-tests five guards. `check:doc-builder`'s two expiry
+assertions were rewritten rather than deleted: the "not set" case now covers a
+SENT quote, where it is still true. No schema change.

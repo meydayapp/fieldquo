@@ -202,7 +202,10 @@ export default function UnitPricingFields({
   const reasonCount = group.complexityReasons?.length || 0;
 
   return (
-    <div className="space-y-4 pb-4 border-b border-border">
+    // Marked so a check can assert the form is ON SCREEN rather than infer it
+    // from the gate's source — this is the control a lead-converted quote was
+    // missing (scripts/check-lead-quote-parity.mjs).
+    <div className="space-y-4 pb-4 border-b border-border" data-unit-pricing>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="Doors">
           <input
