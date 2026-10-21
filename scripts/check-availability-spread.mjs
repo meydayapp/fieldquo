@@ -31,7 +31,7 @@
 
 import { readFileSync } from "node:fs";
 import { decomment } from "./tenantScopeScan.mjs";
-import { bookableSlots, spreadSlots, SLOT_DAYS, SLOT_PER_DAY } from "@/lib/voice/availability";
+import { bookableSlots, spreadSlots, SLOT_DAYS, SLOT_PER_DAY, SLOT_DAY_MAX } from "@/lib/voice/availability";
 import { rows, resetDbStub } from "@/lib/db";
 
 let pass = 0;
@@ -53,7 +53,7 @@ const USER = "u_owner";
 const TZ = "America/Toronto";
 const OPEN = { open: "08:00", close: "17:00" };
 
-function seed({ hours = { mon: OPEN, tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN, sat: { closed: true }, sun: { closed: true } } } = {}) {
+function seed({ hours = { mon: OPEN, tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN, sat: { closed: true }, sun: { closed: true } }, durationMinutes = 30, bufferAfter = 0 } = {}) {
   resetDbStub();
   rows.company = [{
     id: COMPANY, timezone: TZ, defaultLanguage: "en", businessHours: hours,
@@ -62,7 +62,7 @@ function seed({ hours = { mon: OPEN, tue: OPEN, wed: OPEN, thu: OPEN, fri: OPEN,
   }];
   rows.eventType = [{
     id: "et_1", companyId: COMPANY, userId: USER, active: true,
-    durationMinutes: 30, bufferBefore: 0, bufferAfter: 0, feeCents: 0,
+    durationMinutes, bufferBefore: 0, bufferAfter, feeCents: 0,
     name: "On-site estimate", slug: "estimate", mode: "on_site", requiresAddress: true,
   }];
   rows.availabilitySchedule = [1, 2, 3, 4, 5].map((d) => ({
@@ -173,10 +173,68 @@ section("5. What the model is told about the list");
 {
   const tools = read("lib/aiEmployee/tools.js");
   ok("the tool calls it a sample, not the diary", /SAMPLE spread over the next few working days/.test(tools));
-  ok("…and forbids declaring a day or a part of a day full", /Never say a day or a time of day is unavailable/.test(tools));
+  ok("…and forbids declaring a day or a part of a day full", /never say a day or a part of a day is unavailable/i.test(tools));
+  ok("…and promises the whole day when one is named", /With a date, this IS that whole day/.test(tools) && /returns that WHOLE day/.test(tools));
   ok("…and says how to look at another day", /call check_availability again with that date/i.test(tools));
   ok("the empty answer is still honest", /Nothing is free in that window/.test(tools));
   ok("wired into check:all", /npm run check:availability-spread/.test(JSON.parse(read("package.json")).scripts["check:all"]));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("6. Two OFFERS are never closer than the appointment is long");
+
+{
+  // What the owner read in the transcript: "would Wednesday at 8:00 AM or
+  // Wednesday at 8:15 AM suit you better?" — for an in-person estimate.
+  seed({ durationMinutes: 90 });
+  const visit = await bookableSlots(COMPANY);
+  const firstDay = visit.filter((s) => dayOf(s.iso) === dayOf(visit[0].iso)).map((s) => new Date(s.iso).getTime());
+  const gaps = firstDay.slice(1).map((t, i) => (t - firstDay[i]) / 60000);
+  ok("a 90-minute visit is not offered every 15 minutes", gaps.every((g) => g >= 90), gaps);
+
+  // A phone call keeps exactly what it had — this is not "coarser for
+  // everyone", it is "as far apart as the job is long". And the underlying
+  // grid is untouched either way: every one of those times still exists and
+  // can still be booked, including from the public page, which needs the fine
+  // grid for its travel fitting (scripts/check-booking-modes.mjs).
+  seed({ durationMinutes: 15 });
+  const call = await bookableSlots(COMPANY, null);
+  const callDay = call.filter((s) => dayOf(s.iso) === dayOf(call[0].iso)).map((s) => new Date(s.iso).getTime());
+  ok("a 15-minute call still has a 15-minute grid underneath", callDay.length > 0);
+
+  // The time reserved AFTER a visit is part of what the day loses to it.
+  seed({ durationMinutes: 60, bufferAfter: 30 });
+  const buffered = await bookableSlots(COMPANY, null);
+  const bDay = buffered.filter((s) => dayOf(s.iso) === dayOf(buffered[0].iso)).map((s) => new Date(s.iso).getTime());
+  const bGaps = bDay.slice(1).map((t, i) => (t - bDay[i]) / 60000);
+  ok("an hour's visit with half an hour after it steps by 90", bGaps.every((g) => g >= 90), bGaps);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("7. A named date is answered with that whole day");
+
+{
+  seed({ durationMinutes: 90 });
+  const browse = await bookableSlots(COMPANY);
+  const day = [...new Set(browse.map((s) => dayOf(s.iso)))][1];
+
+  const asked = await bookableSlots(COMPANY, day);
+  ok("every time returned is on the day asked about", asked.every((s) => dayOf(s.iso) === day), [...new Set(asked.map((s) => dayOf(s.iso)))]);
+  ok("…more of it than the three a browse shows", asked.length > SLOT_PER_DAY, asked.length);
+  ok("…reaching the end of the working day", Math.max(...asked.map((s) => hourOf(s.iso))) >= 15, asked.map((s) => s.label));
+  ok("…and starting at the beginning of it", Math.min(...asked.map((s) => hourOf(s.iso))) <= 9, asked.map((s) => s.label));
+  ok("…capped so it stays readable", asked.length <= SLOT_DAY_MAX, asked.length);
+
+  // A day with nothing free is not a dead end: the agent still gets times to
+  // offer, and every label names its own weekday.
+  const saturday = (() => {
+    const d = new Date(`${day}T12:00:00Z`);
+    while (d.getUTCDay() !== 6) d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const shut = await bookableSlots(COMPANY, saturday);
+  ok("a closed Saturday falls back to real times rather than nothing", shut.length > 0, shut.length);
+  ok("…none of them pretending to be that Saturday", shut.every((s) => dayOf(s.iso) !== saturday));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
