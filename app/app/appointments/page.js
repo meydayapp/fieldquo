@@ -1890,6 +1890,12 @@ function NewAppointmentModal({ members, canAssign, myUserId, onClose, onCreated,
     setSaving(true);
     const body = {
       ...form,
+      // A real instant, not the naive "2026-10-21T18:00" the input holds: the
+      // browser knows which zone 6pm meant, and the server must not have to
+      // guess. The server resolves a naive value against the company's zone
+      // too (instantFromWallClock) — this is the caller saying it plainly,
+      // and it is what the sibling screens have always sent.
+      scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : form.scheduledAt,
       ...(client.id ? { clientId: client.id } : { clientName: client.name }),
       ...(about && { [`${about.kind}Id`]: about.id }),
     };

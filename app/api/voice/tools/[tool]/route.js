@@ -443,7 +443,9 @@ async function availability(ctx, args) {
   }
 
   // Three at most. A voice agent reading eight options is unlistenable, and the
-  // caller remembers none of them.
+  // caller remembers none of them. Since bookableSlots samples ACROSS the day
+  // rather than returning its first quarter-hour (spreadSlots), these three are
+  // a morning, a middle and an afternoon rather than 8:00, 8:15 and 8:30.
   const offered = slots.slice(0, 3);
   return NextResponse.json({
     slots: offered,

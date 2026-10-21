@@ -30,6 +30,7 @@ import { resolveFamily, familyFill, aboutKindOf, isQuoteMeasure } from "@/lib/sc
 import { geocodeAppointment, locationChanged } from "@/lib/geo/geocodeAppointment";
 import { scheduleSync } from "@/lib/calendar/googleSync";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
+import { instantFromWallClock } from "@/lib/booking/timezone";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -342,7 +343,9 @@ export async function PATCH(request, { params }) {
   // which it may; a client never can. See moveEntry.js for why.
   let plan = null;
   if (body.scheduledAt !== undefined) {
-    const start = new Date(body.scheduledAt);
+    // The same wall-clock rule as POST: a reschedule typed into the office
+    // screen is a time in the company's zone, not the server's.
+    const start = instantFromWallClock(body.scheduledAt, existing.company?.timezone || null);
     const stops = Number.isFinite(start.getTime())
       ? await assigneeStopsAround({
           companyId: member.companyId,

@@ -17,6 +17,7 @@ import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { serviceName, isMeasure } from "@/lib/schedule/clientNotice";
 import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { pickAbout, prefillLocation, aboutLabel } from "@/lib/schedule/appointmentAbout";
+import { instantFromWallClock } from "@/lib/booking/timezone";
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
 import { resolveFamily, familyFill } from "@/lib/schedule/appointmentFamily";
 import { geocodeAppointment, appointmentAddress } from "@/lib/geo/geocodeAppointment";
@@ -124,7 +125,23 @@ export async function POST(request) {
     );
   }
 
-  const when = new Date(scheduledAt);
+  // ── 6pm means 6pm where the company is ─────────────────────────────────
+  //
+  // The calendar screen posts what the <input type="datetime-local"> gave it:
+  // "2026-10-21T18:00", no zone. `new Date()` on that reads it as the
+  // PROCESS's local time, and this process is Vercel's, which is UTC — so a
+  // 6pm visit was stored as 18:00Z and drawn back as 2pm in Toronto. Exactly
+  // the company's offset, every time, on every appointment made from that
+  // screen; the owner rescheduled two of them by hand before saying so.
+  //
+  // Resolved against the company's own zone, which is the calendar the time
+  // was typed into. A caller that sends a real instant ("…Z") is left alone —
+  // see instantFromWallClock.
+  const tzRow = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { timezone: true },
+  });
+  const when = instantFromWallClock(scheduledAt, tzRow?.timezone);
   if (Number.isNaN(when.getTime())) {
     return NextResponse.json({ error: "That isn't a date and time." }, { status: 400 });
   }

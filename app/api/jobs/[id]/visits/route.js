@@ -15,6 +15,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 import { syncJobRoom } from "@/lib/company/chat/store";
 import { scheduleSync } from "@/lib/calendar/googleSync";
+import { instantFromWallClock } from "@/lib/booking/timezone";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -111,6 +112,15 @@ export async function POST(request, { params }) {
     );
   }
 
+
+  // Read in the COMPANY's zone, not the server's — the job row above does not
+  // carry the company, and a naive wall-clock time left to `new Date()` on
+  // Vercel is read as UTC. See instantFromWallClock.
+  const visitTz = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { timezone: true },
+  });
+  const visitWhen = instantFromWallClock(scheduledAt, visitTz?.timezone);
   // Whoever books the return visit is the one who says why — see
   // lib/jobs/callbackReasons.js. An unrecognised value is refused rather than
   // silently stored, the same discipline the checklist normaliser applies to
@@ -153,7 +163,10 @@ export async function POST(request, { params }) {
   const visit = await db.jobVisit.create({
     data: {
       jobId: _params.id,
-      scheduledAt: new Date(scheduledAt),
+      // The same wall-clock rule as /api/appointments: the invoice's job
+      // panel posts the raw <input type="datetime-local"> value, and reading
+      // that as the server's own local time is how a 6pm visit became 2pm.
+      scheduledAt: visitWhen,
       assignedToId: assignedToId || null,
       checklistItems: items.length ? items : null,
       notes: notes || null,

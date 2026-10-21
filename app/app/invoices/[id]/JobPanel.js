@@ -159,7 +159,9 @@ export default function JobPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scheduledAt,
+          // The instant, not the naive input value — see the note in
+          // lib/booking/timezone.js instantFromWallClock.
+          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : scheduledAt,
           assignedToId: assignedToId || null,
         }),
       });
