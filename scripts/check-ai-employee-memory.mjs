@@ -28,6 +28,8 @@ import {
   HISTORY_LIMIT,
   ON_FILE_RULES,
   PARTIAL_ANSWER_RULE,
+  appointmentWhen,
+  LIVE_APPOINTMENT_STATUSES,
 } from "../lib/aiEmployee/threadMemory.js";
 import { buildEmployeePrompt } from "../lib/aiEmployee/roles.js";
 import { definitionsForRole, executeFor } from "../lib/aiEmployee/tools.js";
@@ -312,6 +314,41 @@ console.log("5. The earlier block, and prompts with nothing to add");
   ok("the window is still twelve chat turns", HISTORY_LIMIT === 12);
   const base = { employee: { role: "receptionist", tone: "friendly" }, company: { name: "Acme" } };
   ok("no card and no earlier history → the prompt is byte-identical to before", buildEmployeePrompt(base) === buildEmployeePrompt({ ...base, onFileCard: null, earlier: null }) && !buildEmployeePrompt(base).includes("ON FILE"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("6. The Nadia replay: a visit already booked");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner, 2026-10-22: the closer "kept offering new dates and confirming
+// different appointments even after the first appointment had been
+// scheduled". Same shape as the Tony replay above, one field later — the
+// booking had scrolled past HISTORY_LIMIT and nothing carried it forward.
+{
+  const client = { id: "c1", name: "Nadia Mawhib", type: "person", phone: "613-262-7407", address: "29 Rialto Way", city: "Ottawa" };
+  const when = appointmentWhen(new Date("2026-10-29T18:00:00Z"), "America/Toronto");
+
+  ok("the time is spelled in the company's own clock", when === "Thursday, October 29 at 2:00 PM", when);
+  ok("an unusable date answers null rather than throwing", appointmentWhen(new Date("nope"), "America/Toronto") === null);
+  ok("no timezone still answers — the wrong hour is correctable, silence is not", typeof appointmentWhen(new Date("2026-10-29T18:00:00Z"), null) === "string");
+
+  const card = onFileCardText(shapeOnFile({ client, appointment: { when, status: "scheduled" } }));
+  ok("the card names the booking", card.includes("Thursday, October 29 at 2:00 PM"));
+  ok("…and says it is already booked", card.includes("already booked"));
+  ok("…and never invites a second one", !card.includes("Nothing a booking needs is missing"));
+
+  const held = onFileCardText(shapeOnFile({ client, appointment: { when, status: "needs_supervisor" } }));
+  ok("a held slot reads as being confirmed, not as booked", held.includes("someone from the team is confirming") && !held.includes("— already booked"));
+
+  ok("a fee-due booking never reaches the card — it is not a row", !LIVE_APPOINTMENT_STATUSES.includes("pending_payment"));
+  ok("over, cancelled and no-show appointments do not gag the employee", ["cancelled", "completed", "no_show", "rescheduled"].every((s) => !LIVE_APPOINTMENT_STATUSES.includes(s)));
+
+  const none = onFileCardText(shapeOnFile({ client }));
+  ok("with nothing booked the card is exactly what it was", none.includes("Nothing a booking needs is missing") && !none.includes("Appointment:"));
+  ok("…and the field is null, not absent", shapeOnFile({ client }).appointment === null);
+  ok("a booking with no contact details is still on file", shapeOnFile({ appointment: { when, status: "scheduled" } })?.appointment?.status === "booked");
+  ok("an unformatted appointment is dropped, never half-drawn", shapeOnFile({ client, appointment: { when: null, status: "scheduled" } }).appointment === null);
+  ok("the rules tell it not to offer another time", ON_FILE_RULES.includes("already have a time") && ON_FILE_RULES.includes("replaces the one they had"));
 }
 
 console.log(`\ncheck-ai-employee-memory: ${passed} passed, ${failed} failed`);
