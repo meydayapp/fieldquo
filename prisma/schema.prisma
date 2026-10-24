@@ -9944,7 +9944,24 @@ model Expense {
   /// split can be shown back line by line. Null means "the whole receipt".
   receiptLines Json?
 
+  // ── The sourcing-list line this row was ticked bought from ──────────────
+  //
+  // Job costing sums Expense by projectId and reads JobMaterial not at all,
+  // so a material ticked bought with a price moved the material row and
+  // nothing else — see lib/receipts/toExpense.js for the whole argument.
+  // This is the link that makes that write reversible: a repeat tick finds
+  // its own row instead of writing a second, an edited price updates it, and
+  // an untick removes THAT row and only that row.
+  //
+  // A bare String, not a relation, deliberately — exactly as projectId is. A
+  // JobMaterial is deleted outright when a hand-added line is removed, and a
+  // foreign key would either block that or cascade a real purchase out of the
+  // books. Null on every row typed by hand, imported, or confirmed from a
+  // receipt, which is what keeps those three out of reach of the tick.
+  jobMaterialId String?
+
   @@index([receiptId])
+  @@index([companyId, jobMaterialId])
 }
 
 /// A purchase receipt, kept as the bookkeeping record — photo(s) or a PDF, what

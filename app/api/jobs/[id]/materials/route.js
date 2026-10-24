@@ -25,6 +25,7 @@ import {
   recordMaterialPrice,
   sourcingProgress,
 } from "@/lib/jobs/sourcingList";
+import { syncPurchaseExpense } from "@/lib/receipts/toExpense";
 import { taskForJobMaterials } from "@/lib/tasks/autoCreate";
 import { stockLevels } from "@/lib/purchasing/stock";
 import { onHandStatus } from "@/lib/materials/list";
@@ -531,6 +532,42 @@ export async function PATCH(request, { params }) {
       qty: num(updated.qty),
       actualCost,
     });
+  }
+
+  // ── The other loop closing: what the JOB cost ───────────────────────────
+  //
+  // recordMaterialPrice above answers "what does this company pay for
+  // primer". This answers "what has this job cost" — the question the job
+  // page asks and, until this was wired, got $0.00 for on a list with
+  // materials ticked bought. Job costing sums Expense by projectId and reads
+  // JobMaterial not at all; lib/receipts/toExpense.js carries the argument.
+  //
+  // Only on a TICK. A body recording how many were USED on an already-bought
+  // line is not a purchase and must not re-price one.
+  if (isTick) {
+    const booked = await syncPurchaseExpense({
+      companyId: member.companyId,
+      jobId: id,
+      line: updated,
+      createdById: member.userId,
+    });
+    if (booked.changed) {
+      await recordActivity(member, {
+        action:
+          booked.action === "removed"
+            ? "expense.deleted"
+            : booked.action === "updated"
+              ? "expense.updated"
+              : "expense.created",
+        entityType: "expense",
+        entityId: booked.id,
+        summary:
+          booked.action === "removed"
+            ? `Unticked ${updated.name} — took its cost back off the job`
+            : `${updated.name} bought for ${booked.amount} on this job`,
+        metadata: { projectId: id, jobMaterialId: updated.id, amount: booked.amount ?? null },
+      });
+    }
   }
 
   // On the record under whoever ticked it — crew work is logged under the
