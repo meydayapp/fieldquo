@@ -164,8 +164,8 @@ export default function SalesLeadsPage() {
 
   return (
     <div className="space-y-6" data-tour="sales-leads">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Users size={20} className="text-muted-foreground" />
             {t("app.salesLeads.title")}

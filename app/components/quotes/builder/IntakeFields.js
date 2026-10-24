@@ -38,7 +38,13 @@ export default function IntakeFields({ fields = [], values = {}, onChange }) {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 pb-4 border-b border-border">
+    // One column on a phone. These labels are the COMPANY's own words — an
+    // intake field is whatever they named it in Settings — so the two-column
+    // grid that fits "Rooms" and "Storeys" breaks on "Approximate ceiling
+    // height in the main living area". Everything else in this builder pairs
+    // short fields it controls; this is the one grid whose content is typed
+    // by somebody else.
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-4 border-b border-border">
       {fields.map((field) => (
         <div key={field.key}>
           <label className="text-xs text-muted-foreground">{field.label}</label>

@@ -586,8 +586,16 @@ function LeadsPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      {/* Stacked on a phone, side by side from `sm` — the shape
+          appointments/page.js and marketing/page.js already use.
+          As one un-wrapping row this page was unreadable on a phone
+          (owner, 2026-10-24, with a screenshot): the action group is
+          `shrink-0` and three buttons wide, so the title column was the
+          only thing that could give. It gave down to about 70px, which
+          wrapped "Enquiries from your booking page and contact forms."
+          into six lines — and the row still overflowed the screen. */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">{t("app.leads.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("app.leads.subtitle")}</p>
         </div>

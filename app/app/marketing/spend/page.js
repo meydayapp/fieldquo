@@ -532,8 +532,8 @@ export default function MarketingSpendPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">{t("app.marketingSpend.title", "Marketing Spend")}</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xl">
             {t(

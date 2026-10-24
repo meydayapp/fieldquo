@@ -673,6 +673,47 @@ const RULES = [
   },
 
   {
+    id: "header-row-wraps",
+    tier: "strict",
+    title: "a page header's actions drop below the title instead of crushing it",
+    // ── Why this rule exists ───────────────────────────────────────────────
+    //
+    // The owner sent a phone screenshot of /app/leads on 2026-10-24. The
+    // title column had collapsed to about 70px — "Enquiries from your
+    // booking page and contact forms." wrapped into six lines down the left
+    // — while the three header buttons ran off the right edge and the whole
+    // row overflowed the screen.
+    //
+    // Every rule above passed that file. None of them can see this: there is
+    // no fixed width, no table, no nowrap. The hazard is a RELATIONSHIP —
+    // `justify-between` with an action group that may not shrink, and no way
+    // for the row to wrap, leaves the title as the only flexible thing in it.
+    //
+    // A list row with a label and a value is the same three classes and is
+    // correct, which is why `<h1>` is required: that makes it a page header
+    // rather than a row, and a page header is the one place where the right
+    // side is a pile of buttons sized by their own text.
+    //
+    // The fix is the shape appointments/page.js and marketing/page.js
+    // already use — `flex-col sm:flex-row` — so this names it rather than
+    // inventing a second convention.
+    run(src) {
+      const bad = [];
+      for (const m of src.matchAll(/className="([^"]*\bflex\b[^"]*\bjustify-between\b[^"]*)"/g)) {
+        // Already able to stack or wrap at narrow widths.
+        if (/\bflex-wrap\b|\bflex-col\b/.test(m[1])) continue;
+        const win = src.slice(m.index, m.index + 900);
+        if (!/<h1\b/.test(win)) continue;
+        if (!/\b(?:flex-)?shrink-0\b/.test(win)) continue;
+        bad.push(
+          "a page header row (h1 + shrink-0 actions) that cannot wrap — the title column is the only thing that can give, and it collapses",
+        );
+      }
+      return bad;
+    },
+  },
+
+  {
     id: "nowrap-outside-scroll",
     tier: "strict",
     title: "nothing refuses to wrap outside a scroll container",

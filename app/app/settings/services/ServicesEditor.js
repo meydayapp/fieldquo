@@ -507,8 +507,8 @@ export default function ServicesEditor({ compact = false, focus = "services", on
         )
       ) : (
         <>
-          <div className="flex items-start justify-between gap-4 mb-1">
-            <h1 className="text-xl font-semibold">{t("app.settings.services")}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-1">
+            <h1 className="text-xl font-semibold min-w-0">{t("app.settings.services")}</h1>
             <button
               onClick={() => setShowCustomModal(true)}
               className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground shrink-0"
