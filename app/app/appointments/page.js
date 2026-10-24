@@ -29,7 +29,7 @@ import SmsReceiptLine from "@/app/components/sms/SmsReceiptLine";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { personOptionLabel } from "@/lib/team/personLabel";
-import { dayKey, monthGrid, localeFormat, localeDateTime } from "@/lib/calendar/monthGrid";
+import { dayKey, monthGrid, localeFormat, localeDateTime, upcomingFirst, byTimeAsc } from "@/lib/calendar/monthGrid";
 import { travelLegs, describeTravel } from "@/lib/booking/travel";
 import { bookingModeLabel, bookingModeLine } from "@/lib/booking/bookingModes";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -480,9 +480,13 @@ export default function AppointmentsPage() {
       .filter((b) => !selectedDay || dayKey(new Date(b.start)) === selectedDay)
       .filter((b) => filter === "all")
       .map((b) => ({ kind: "busy", id: `busy-${b.userId}-${b.start}`, scheduledAt: b.start, endAt: b.end, memberName: b.memberName, userId: b.userId }));
-    if (!busyRows.length) return shownEntries;
-    return [...shownEntries, ...busyRows].sort((x, y) => new Date(x.scheduledAt) - new Date(y.scheduledAt));
-  }, [shownEntries, busyBlocks, selectedDay, filter]);
+    const rows = busyRows.length ? [...shownEntries, ...busyRows] : shownEntries;
+    // Inside one picked day, plain time order is the only order that means
+    // anything — 9am before 2pm. It is the WHOLE list that has to open on
+    // what is next, not a day somebody chose to look at.
+    if (selectedDay) return busyRows.length ? [...rows].sort(byTimeAsc) : rows;
+    return upcomingFirst(rows, todayKey);
+  }, [shownEntries, busyBlocks, selectedDay, filter, todayKey]);
 
   function pickDay(key) {
     // Clicking the selected day again clears it. A day filter you can enter and

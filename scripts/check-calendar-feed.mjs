@@ -26,6 +26,7 @@ import { FEED_COPY, FEED_COPY_LANGS, FEED_COPY_KEYS } from "@/lib/calendar/feedC
 import { feedUrls, mintFeedToken } from "@/lib/calendar/feedToken";
 import { buildVtimezone, resolveTimeZone, localWallClock } from "@/lib/calendar/vtimezone";
 import { feedEventsFor, buildFeedCalendar, foldLine, feedWindow } from "@/lib/calendar/feed";
+import { dayKey, upcomingFirst } from "@/lib/calendar/monthGrid";
 import { bookingModeLabel } from "@/lib/booking/bookingModes";
 import { SETTINGS_ROW_CAPABILITY, canSeeSettingsRow } from "@/lib/permissions/settingsAccess";
 import { APP_PAGES } from "@/lib/analytics/product/appPages.js";
@@ -706,6 +707,38 @@ if (/TODO\(booking-modes\)/.test(read("lib/calendar/feed.js"))) {
   warn("lib/calendar/feed.js still carries TODO(booking-modes): swap in the mode label helper from lib/booking once it lands");
 } else {
   ok("the booking-modes TODO has been resolved", true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\nThe schedule list opens on what is next");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner, 2026-10-24: the calendar "doesn't automatically show you the
+// next appointment in the list, always the older one until you click on a
+// specific date". The feed is ordered ASC for the month grid; the list under
+// it inherited that and opened on the oldest row the company had.
+{
+  const at = (s) => ({ id: s, scheduledAt: new Date(s) });
+  const today = dayKey(new Date("2026-10-24T12:00:00"));
+  const rows = [
+    at("2025-03-02T09:00:00"),
+    at("2026-10-20T09:00:00"),
+    at("2026-10-24T09:00:00"),
+    at("2026-10-24T15:00:00"),
+    at("2026-10-29T14:00:00"),
+  ];
+  const out = upcomingFirst(rows, today).map((r) => r.id);
+
+  ok("the next appointment leads, not the oldest", out[0] === "2026-10-24T09:00:00", out[0]);
+  ok("a visit earlier TODAY is still today, not history", out[1] === "2026-10-24T15:00:00");
+  ok("the future runs forward", out[2] === "2026-10-29T14:00:00");
+  ok("the past follows, most recent first", out[3] === "2026-10-20T09:00:00" && out[4] === "2025-03-02T09:00:00");
+  ok("nothing is hidden — every row is still there", out.length === rows.length);
+  ok("the caller's array is not reordered under it", rows[0].id === "2025-03-02T09:00:00");
+  ok("an all-past calendar still answers", upcomingFirst([at("2020-01-01T09:00:00")], today).length === 1);
+  ok("no rows, and no throw", upcomingFirst([], today).length === 0 && upcomingFirst(null, today).length === 0);
+  const junk = upcomingFirst([at("2026-10-29T14:00:00"), { id: "junk", scheduledAt: "nope" }], today);
+  ok("a row the list cannot place goes last, never missing", junk.length === 2 && junk[1].id === "junk");
 }
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s), ${warnings.length} warning(s).\n`);
