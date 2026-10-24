@@ -18,9 +18,12 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson, errorText } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { showToast } from "@/lib/toast";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 export default function PrepGuideCard({ jobId }) {
   const { t, language } = useTranslation();
+  // Above the `!data` return below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "prepGuide");
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -103,9 +106,13 @@ export default function PrepGuideCard({ jobId }) {
   return (
     <div className="rounded-lg border border-border p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <FileText size={16} className="text-muted-foreground" />
-          {t("app.prepGuide.job.title", "Client preparation guide")}
+        <h2 className="min-w-0 flex-1 text-sm font-semibold">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <FileText size={16} className="text-muted-foreground" />
+              {t("app.prepGuide.job.title", "Client preparation guide")}
+            </span>
+          </JobSectionToggle>
         </h2>
         <a
           href={`/api/jobs/${jobId}/prep-guide/pdf`}
@@ -117,52 +124,54 @@ export default function PrepGuideCard({ jobId }) {
         </a>
       </div>
 
-      <p className="text-sm text-foreground">{line}</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {[
-          data.trades.length ? data.trades.join(", ") : null,
-          t("app.prepGuide.job.language", "In {lang}", { lang: data.language.toUpperCase() }),
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        {/* openUrl: the filed copy has no extension and its stored Cloudinary
-            URL answers 401 (lib/media/fileOpen.js). No link, no sentence. */}
-        {data.document?.openUrl && (
-          <>
-            {" · "}
-            <a href={data.document.openUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
-              {t("app.prepGuide.job.openSent", "Open the copy that was sent")}
-            </a>
-          </>
-        )}
-      </p>
+      <div id={section.bodyId} hidden={!section.open}>
+        <p className="text-sm text-foreground">{line}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {[
+            data.trades.length ? data.trades.join(", ") : null,
+            t("app.prepGuide.job.language", "In {lang}", { lang: data.language.toUpperCase() }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          {/* openUrl: the filed copy has no extension and its stored Cloudinary
+              URL answers 401 (lib/media/fileOpen.js). No link, no sentence. */}
+          {data.document?.openUrl && (
+            <>
+              {" · "}
+              <a href={data.document.openUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+                {t("app.prepGuide.job.openSent", "Open the copy that was sent")}
+              </a>
+            </>
+          )}
+        </p>
 
-      {data.canSend && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {sendable && (
-            <button
-              type="button"
-              onClick={sendNow}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded bg-inverted px-3 py-1.5 text-sm font-medium text-inverted-foreground disabled:opacity-50"
-            >
-              <Send size={14} />
-              {data.sentAt ? t("app.prepGuide.job.sendAgain", "Send again") : t("app.prepGuide.job.sendNow", "Send now")}
-            </button>
-          )}
-          {!data.sentAt && (
-            <button
-              type="button"
-              onClick={() => setSuppressed(!data.suppressedAt)}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
-            >
-              {data.suppressedAt ? <Bell size={14} /> : <BellOff size={14} />}
-              {data.suppressedAt ? t("app.prepGuide.job.allow", "Allow sending") : t("app.prepGuide.job.dontSend", "Don't send for this job")}
-            </button>
-          )}
-        </div>
-      )}
+        {data.canSend && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {sendable && (
+              <button
+                type="button"
+                onClick={sendNow}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded bg-inverted px-3 py-1.5 text-sm font-medium text-inverted-foreground disabled:opacity-50"
+              >
+                <Send size={14} />
+                {data.sentAt ? t("app.prepGuide.job.sendAgain", "Send again") : t("app.prepGuide.job.sendNow", "Send now")}
+              </button>
+            )}
+            {!data.sentAt && (
+              <button
+                type="button"
+                onClick={() => setSuppressed(!data.suppressedAt)}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+              >
+                {data.suppressedAt ? <Bell size={14} /> : <BellOff size={14} />}
+                {data.suppressedAt ? t("app.prepGuide.job.allow", "Allow sending") : t("app.prepGuide.job.dontSend", "Don't send for this job")}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

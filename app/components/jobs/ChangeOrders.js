@@ -36,6 +36,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { changeOrderStatus, changeOrderSummary } from "@/lib/jobs/changeOrderValue";
 import { useCompanyMoney, useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import MediaUploader from "@/app/components/MediaUploader";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 // `signed` takes the formatter rather than closing over a module-level one —
 // the /app layout resolves the company's currency once (CompanyPreferencesProvider),
@@ -44,6 +45,9 @@ import MediaUploader from "@/app/components/MediaUploader";
 const signed = (v, money) => `${Number(v) > 0 ? "+" : ""}${money(v)}`;
 
 export default function ChangeOrders({ jobId, changeOrders, onChanged, newLabel = null, extraActions = null }) {
+  // Above the `orders.length === 0 && !canLog` return below — every hook on
+  // this page sits above the early returns (scripts/check-job-page-hooks.mjs).
+  const section = useJobSection(jobId, "changeOrders");
   const money = useCompanyMoney();
   const { formatDate, formatDateTime } = useCompanyPreferences();
   const { t } = useTranslation();
@@ -185,9 +189,13 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged, newLabel 
   return (
     <div className="bg-card border border-border rounded-xl p-5" data-tour="job-change-orders">
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
-          <FileEdit size={15} className="text-muted-foreground" />
-          {t("app.changeOrder.title", "Change orders")}
+        <h2 className="min-w-0 flex-1 font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <FileEdit size={15} className="text-muted-foreground" />
+              {t("app.changeOrder.title", "Change orders")}
+            </span>
+          </JobSectionToggle>
         </h2>
         <div className="flex items-center gap-2 flex-wrap">
           {/* The quote page puts "Add a sub's quote" here, beside the
@@ -209,194 +217,199 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged, newLabel 
         <div className="mb-3 text-sm text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-lg px-3 py-2">{notice}</div>
       )}
 
-      {/* Agreed and not-yet-agreed money, kept apart. A blended total would
-          state that a change nobody has said yes to is part of the job. */}
-      {/* Without showPricing the server sent no priceDelta (lib/permissions/
-          enforce.js redactChangeOrder), so there is no total to draw — the
-          scope of each change still lists below. */}
-      {orders.length > 0 && hasShowPricing && (
-        <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-          <span className="text-muted-foreground">
-            {t("app.changeOrder.approvedTotal", "Agreed changes")}: <span className="font-semibold text-foreground tabular-nums">{signed(summary.approvedTotal, money)}</span>
-          </span>
-          {summary.pendingTotal !== 0 && (
+      {/* The new-change-order form stays below this, outside the fold: "New
+          change order" sits in the header and is clickable while the list is
+          folded, so a form inside a hidden div would be a dead button. */}
+      <div id={section.bodyId} hidden={!section.open}>
+        {/* Agreed and not-yet-agreed money, kept apart. A blended total would
+            state that a change nobody has said yes to is part of the job. */}
+        {/* Without showPricing the server sent no priceDelta (lib/permissions/
+            enforce.js redactChangeOrder), so there is no total to draw — the
+            scope of each change still lists below. */}
+        {orders.length > 0 && hasShowPricing && (
+          <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
             <span className="text-muted-foreground">
-              {t("app.changeOrder.pendingTotal", "Awaiting agreement")}: <span className="font-semibold text-foreground tabular-nums">{signed(summary.pendingTotal, money)}</span>
+              {t("app.changeOrder.approvedTotal", "Agreed changes")}: <span className="font-semibold text-foreground tabular-nums">{signed(summary.approvedTotal, money)}</span>
             </span>
-          )}
-        </div>
-      )}
+            {summary.pendingTotal !== 0 && (
+              <span className="text-muted-foreground">
+                {t("app.changeOrder.pendingTotal", "Awaiting agreement")}: <span className="font-semibold text-foreground tabular-nums">{signed(summary.pendingTotal, money)}</span>
+              </span>
+            )}
+          </div>
+        )}
 
-      {orders.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("app.changeOrder.none", "None logged. Use this once the client has agreed to a change in scope — never for an ordinary edit to the quote or invoice.")}
-        </p>
-      ) : (
-        <div className="divide-y divide-border">
-          {orders.map((co) => {
-            const status = changeOrderStatus(co);
-            const against = co.task?.title
-              ? t("app.changeOrder.againstTask", "Against step: {title}", { title: co.task.title })
-              : co.originalLine?.description
-                ? t("app.changeOrder.againstLine", "Against line: {title}", { title: co.originalLine.description })
-                : null;
-            const facts = [against, co.createdBy?.name || t("app.changeOrder.unknownAuthor", "Someone"), formatDate(co.createdAt)].filter(Boolean).join(" · ");
-            const extras = [
-              Number.isInteger(co.scheduleDeltaDays) && co.scheduleDeltaDays !== 0 ? t("app.changeOrder.scheduleShort", "Schedule {days}", { days: `${co.scheduleDeltaDays > 0 ? "+" : ""}${co.scheduleDeltaDays} ${t("app.changeOrder.daysUnit", "d")}` }) : null,
-              co.photos?.length ? t("app.changeOrder.photoCount", "{count} photo(s)", { count: co.photos.length }) : null,
-            ].filter(Boolean);
-            return (
-              <div key={co.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-foreground">
-                      <b>{co.label}</b> · {co.description}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{facts}</p>
-                    {extras.length > 0 && <p className="text-xs text-muted-foreground mt-0.5">{extras.join(" · ")}</p>}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    {hasShowPricing && (
-                      <span className={`tabular-nums text-sm font-semibold ${status !== "approved" ? "text-muted-foreground" : Number(co.priceDelta) < 0 ? "text-red-600 dark:text-red-400" : "text-foreground"} ${status === "rejected" ? "line-through" : ""}`}>
-                        {signed(co.priceDelta, money)}
-                      </span>
-                    )}
-                    <div className="text-xs mt-0.5">
-                      {status === "approved" && (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                          <Check size={11} />
-                          {t("app.changeOrder.approvedAt", "Approved · {when}", { when: co.decidedAt ? formatDateTime(co.decidedAt) : "" })}
+        {orders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("app.changeOrder.none", "None logged. Use this once the client has agreed to a change in scope — never for an ordinary edit to the quote or invoice.")}
+          </p>
+        ) : (
+          <div className="divide-y divide-border">
+            {orders.map((co) => {
+              const status = changeOrderStatus(co);
+              const against = co.task?.title
+                ? t("app.changeOrder.againstTask", "Against step: {title}", { title: co.task.title })
+                : co.originalLine?.description
+                  ? t("app.changeOrder.againstLine", "Against line: {title}", { title: co.originalLine.description })
+                  : null;
+              const facts = [against, co.createdBy?.name || t("app.changeOrder.unknownAuthor", "Someone"), formatDate(co.createdAt)].filter(Boolean).join(" · ");
+              const extras = [
+                Number.isInteger(co.scheduleDeltaDays) && co.scheduleDeltaDays !== 0 ? t("app.changeOrder.scheduleShort", "Schedule {days}", { days: `${co.scheduleDeltaDays > 0 ? "+" : ""}${co.scheduleDeltaDays} ${t("app.changeOrder.daysUnit", "d")}` }) : null,
+                co.photos?.length ? t("app.changeOrder.photoCount", "{count} photo(s)", { count: co.photos.length }) : null,
+              ].filter(Boolean);
+              return (
+                <div key={co.id} className="py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-foreground">
+                        <b>{co.label}</b> · {co.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{facts}</p>
+                      {extras.length > 0 && <p className="text-xs text-muted-foreground mt-0.5">{extras.join(" · ")}</p>}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {hasShowPricing && (
+                        <span className={`tabular-nums text-sm font-semibold ${status !== "approved" ? "text-muted-foreground" : Number(co.priceDelta) < 0 ? "text-red-600 dark:text-red-400" : "text-foreground"} ${status === "rejected" ? "line-through" : ""}`}>
+                          {signed(co.priceDelta, money)}
                         </span>
                       )}
-                      {status === "approved" && (co.signedBy || co.invoiceId || co.decidedBy?.name) && (
-                        <div className="text-muted-foreground">
-                          {co.signedBy
-                            ? t("app.changeOrder.signedBy", "Signed {name}", { name: co.signedBy })
-                            : co.decidedBy?.name
-                              ? t("app.changeOrder.markedBy", "Marked agreed by {name}", { name: co.decidedBy.name })
-                              : ""}
-                          {co.invoiceId ? ` · ${t("app.changeOrder.onInvoice", "on {invoice}", { invoice: co.invoice?.invoiceNumber || "—" })}` : ""}
-                        </div>
-                      )}
-                      {status === "approved" && hasShowPricing && hasInvoices && !co.invoiceId && <div className="text-amber-700 dark:text-amber-400">{t("app.changeOrder.unbilled", "Not yet invoiced")}</div>}
-                      {status === "waiting_client" && (
-                        <>
-                          <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">
-                            <Clock size={11} />
-                            {t("app.changeOrder.waitingClient", "Waiting on client approval")}
+                      <div className="text-xs mt-0.5">
+                        {status === "approved" && (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                            <Check size={11} />
+                            {t("app.changeOrder.approvedAt", "Approved · {when}", { when: co.decidedAt ? formatDateTime(co.decidedAt) : "" })}
                           </span>
+                        )}
+                        {status === "approved" && (co.signedBy || co.invoiceId || co.decidedBy?.name) && (
                           <div className="text-muted-foreground">
-                            {co.sentAt ? t("app.changeOrder.sentAt", "Sent by {via} {when}", { via: viaLabel(co.sentVia, t), when: formatDateTime(co.sentAt) }) : ""}
-                            {co.viewedAt ? ` · ${t("app.changeOrder.viewed", "opened")}` : ""}
-                            {canLog && (
-                              <>
-                                {" · "}
-                                <button type="button" disabled={busyId === co.id} onClick={() => resend(co)} className="underline underline-offset-2 hover:text-foreground disabled:opacity-60">
-                                  {t("app.changeOrder.resend", "Resend")}
-                                </button>
-                              </>
-                            )}
+                            {co.signedBy
+                              ? t("app.changeOrder.signedBy", "Signed {name}", { name: co.signedBy })
+                              : co.decidedBy?.name
+                                ? t("app.changeOrder.markedBy", "Marked agreed by {name}", { name: co.decidedBy.name })
+                                : ""}
+                            {co.invoiceId ? ` · ${t("app.changeOrder.onInvoice", "on {invoice}", { invoice: co.invoice?.invoiceNumber || "—" })}` : ""}
                           </div>
-                        </>
-                      )}
-                      {status === "pending" && <span className="text-muted-foreground">{t("app.changeOrder.statusPending", "Not yet agreed — affects nothing")}</span>}
-                      {status === "rejected" && <span className="text-muted-foreground">{t("app.changeOrder.statusRejected", "Rejected — affects nothing")}</span>}
-                      {status === "unrecognised" && <span className="text-muted-foreground">{t("app.changeOrder.statusUnknown", "Unknown status — affects nothing")}</span>}
+                        )}
+                        {status === "approved" && hasShowPricing && hasInvoices && !co.invoiceId && <div className="text-amber-700 dark:text-amber-400">{t("app.changeOrder.unbilled", "Not yet invoiced")}</div>}
+                        {status === "waiting_client" && (
+                          <>
+                            <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">
+                              <Clock size={11} />
+                              {t("app.changeOrder.waitingClient", "Waiting on client approval")}
+                            </span>
+                            <div className="text-muted-foreground">
+                              {co.sentAt ? t("app.changeOrder.sentAt", "Sent by {via} {when}", { via: viaLabel(co.sentVia, t), when: formatDateTime(co.sentAt) }) : ""}
+                              {co.viewedAt ? ` · ${t("app.changeOrder.viewed", "opened")}` : ""}
+                              {canLog && (
+                                <>
+                                  {" · "}
+                                  <button type="button" disabled={busyId === co.id} onClick={() => resend(co)} className="underline underline-offset-2 hover:text-foreground disabled:opacity-60">
+                                    {t("app.changeOrder.resend", "Resend")}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
+                        {status === "pending" && <span className="text-muted-foreground">{t("app.changeOrder.statusPending", "Not yet agreed — affects nothing")}</span>}
+                        {status === "rejected" && <span className="text-muted-foreground">{t("app.changeOrder.statusRejected", "Rejected — affects nothing")}</span>}
+                        {status === "unrecognised" && <span className="text-muted-foreground">{t("app.changeOrder.statusUnknown", "Unknown status — affects nothing")}</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* A billed change order has no controls: its money is on a
-                    document. A change order out for signature has no "Mark
-                    agreed" — the signature is the agreement. */}
-                {canLog && !co.invoiceId && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {status === "pending" && (
-                      <>
-                        <button type="button" disabled={busyId === co.id} onClick={() => resend(co)} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
-                          <Send size={12} />
-                          {t("app.changeOrder.sendForApproval", "Send for approval")}
-                        </button>
+                  {/* A billed change order has no controls: its money is on a
+                      document. A change order out for signature has no "Mark
+                      agreed" — the signature is the agreement. */}
+                  {canLog && !co.invoiceId && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {status === "pending" && (
+                        <>
+                          <button type="button" disabled={busyId === co.id} onClick={() => resend(co)} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                            <Send size={12} />
+                            {t("app.changeOrder.sendForApproval", "Send for approval")}
+                          </button>
+                          <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                            <Check size={12} />
+                            {t("app.changeOrder.approve", "Mark agreed")}
+                          </button>
+                        </>
+                      )}
+                      {status === "rejected" && (
                         <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
                           <Check size={12} />
                           {t("app.changeOrder.approve", "Mark agreed")}
                         </button>
-                      </>
-                    )}
-                    {status === "rejected" && (
-                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
-                        <Check size={12} />
-                        {t("app.changeOrder.approve", "Mark agreed")}
+                      )}
+                      {status !== "rejected" && (
+                        <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "rejected")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                          <X size={12} />
+                          {status === "waiting_client" ? t("app.changeOrder.withdraw", "Withdraw") : t("app.changeOrder.reject", "Reject")}
+                        </button>
+                      )}
+                      {status !== "pending" && (
+                        <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "pending")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                          <Undo2 size={12} />
+                          {t("app.changeOrder.reopen", "Back to pending")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Agreed work that nobody has billed ─────────────────────────────
+            Loud on purpose: "explicit" billing is only safer than automatic
+            billing if the contractor is actually told there is something to bill. */}
+        {billing && billing.unbilled?.count > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {t("app.changeOrder.billTitle", "{amount} of agreed changes isn't on an invoice yet", { amount: signed(billing.unbilled.total, money) })}
+                </p>
+                {billing.canBill && canLog && !confirmBill && (
+                  <button type="button" onClick={() => setConfirmBill(true)} className="mt-2 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-1.5 rounded-lg">
+                    <FileText size={13} />
+                    {t("app.changeOrder.bill", "Add to {invoice}", { invoice: invoiceLabel })}
+                  </button>
+                )}
+                {billing.canBill && canLog && confirmBill && (
+                  <div className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                    <p className="text-sm text-foreground">
+                      {t("app.changeOrder.billConfirm", "Add {amount} to {invoice}? Its total becomes {total}.", {
+                        amount: signed(billing.preview?.added, money),
+                        invoice: invoiceLabel,
+                        total: money(billing.preview?.newTotal),
+                      })}
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button type="button" disabled={busyId === "bill"} onClick={bill} className="bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60">
+                        {busyId === "bill" ? t("app.changeOrder.billing", "Adding…") : t("app.action.confirm", "Confirm")}
                       </button>
-                    )}
-                    {status !== "rejected" && (
-                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "rejected")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
-                        <X size={12} />
-                        {status === "waiting_client" ? t("app.changeOrder.withdraw", "Withdraw") : t("app.changeOrder.reject", "Reject")}
+                      <button type="button" onClick={() => setConfirmBill(false)} className="border border-border text-foreground text-sm font-semibold px-3 py-1.5 rounded-lg">
+                        {t("app.action.cancel")}
                       </button>
-                    )}
-                    {status !== "pending" && (
-                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "pending")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
-                        <Undo2 size={12} />
-                        {t("app.changeOrder.reopen", "Back to pending")}
-                      </button>
-                    )}
+                    </div>
                   </div>
                 )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Agreed work that nobody has billed ─────────────────────────────
-          Loud on purpose: "explicit" billing is only safer than automatic
-          billing if the contractor is actually told there is something to bill. */}
-      {billing && billing.unbilled?.count > 0 && (
-        <div className="mt-4 pt-4 border-t border-border">
-          <div className="flex items-start gap-2">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">
-                {t("app.changeOrder.billTitle", "{amount} of agreed changes isn't on an invoice yet", { amount: signed(billing.unbilled.total, money) })}
-              </p>
-              {billing.canBill && canLog && !confirmBill && (
-                <button type="button" onClick={() => setConfirmBill(true)} className="mt-2 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-1.5 rounded-lg">
-                  <FileText size={13} />
-                  {t("app.changeOrder.bill", "Add to {invoice}", { invoice: invoiceLabel })}
-                </button>
-              )}
-              {billing.canBill && canLog && confirmBill && (
-                <div className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-                  <p className="text-sm text-foreground">
-                    {t("app.changeOrder.billConfirm", "Add {amount} to {invoice}? Its total becomes {total}.", {
-                      amount: signed(billing.preview?.added, money),
-                      invoice: invoiceLabel,
-                      total: money(billing.preview?.newTotal),
-                    })}
+                {!billing.canBill && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {billing.reason === "no_invoice" && t("app.changeOrder.reasonNoInvoice", "There's no invoice on this job yet. These become billable once one is raised.")}
+                    {billing.reason === "invoice_sent" && t("app.changeOrder.reasonInvoiceSent", "{invoice} has already been sent, so FieldQuo won't change it on its own. Amend it from the invoice page to bill these.", { invoice: invoiceLabel })}
+                    {billing.reason === "tax_rate_underivable" && t("app.changeOrder.reasonTaxRate", "{invoice} charges tax but has nothing to work the rate out from, so these can't be added automatically. Add them on the invoice itself.", { invoice: invoiceLabel })}
+                    {billing.reason === "already_on_invoice" && t("app.changeOrder.reasonAlreadyOn", "These are already on {invoice}.", { invoice: invoiceLabel })}
                   </p>
-                  <div className="mt-2 flex gap-2">
-                    <button type="button" disabled={busyId === "bill"} onClick={bill} className="bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60">
-                      {busyId === "bill" ? t("app.changeOrder.billing", "Adding…") : t("app.action.confirm", "Confirm")}
-                    </button>
-                    <button type="button" onClick={() => setConfirmBill(false)} className="border border-border text-foreground text-sm font-semibold px-3 py-1.5 rounded-lg">
-                      {t("app.action.cancel")}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {!billing.canBill && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {billing.reason === "no_invoice" && t("app.changeOrder.reasonNoInvoice", "There's no invoice on this job yet. These become billable once one is raised.")}
-                  {billing.reason === "invoice_sent" && t("app.changeOrder.reasonInvoiceSent", "{invoice} has already been sent, so FieldQuo won't change it on its own. Amend it from the invoice page to bill these.", { invoice: invoiceLabel })}
-                  {billing.reason === "tax_rate_underivable" && t("app.changeOrder.reasonTaxRate", "{invoice} charges tax but has nothing to work the rate out from, so these can't be added automatically. Add them on the invoice itself.", { invoice: invoiceLabel })}
-                  {billing.reason === "already_on_invoice" && t("app.changeOrder.reasonAlreadyOn", "These are already on {invoice}.", { invoice: invoiceLabel })}
-                </p>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {adding && (
         <ChangeOrderForm

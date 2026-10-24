@@ -45,9 +45,13 @@ import {
   revisionCount,
 } from "@/lib/jobs/documents";
 import OpenFileLink from "@/app/components/files/OpenFileLink";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 export default function JobDocuments({ jobId }) {
   const { t, language } = useTranslation();
+  // Above the `!data` return below — scripts/check-job-page-hooks.mjs. Named
+  // `section` because `open` here already means "the upload form is showing".
+  const section = useJobSection(jobId, "documents");
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   // Set when the upload is a REVISION of an existing document rather than a
@@ -139,9 +143,13 @@ export default function JobDocuments({ jobId }) {
   return (
     <div id="documents" className="bg-card border border-border rounded-xl p-4 sm:p-5 scroll-mt-4">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="font-semibold text-foreground flex items-center gap-1.5">
-          <FileText size={16} />
-          {t("app.jobDocuments.title", "Documents")}
+        <h2 className="min-w-0 flex-1 font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <FileText size={16} />
+              {t("app.jobDocuments.title", "Documents")}
+            </span>
+          </JobSectionToggle>
         </h2>
         {/* Drawn only when the POST would succeed. The server decided this
             (canUpload), so the button and the gate cannot disagree. */}
@@ -160,127 +168,132 @@ export default function JobDocuments({ jobId }) {
         )}
       </div>
 
-      {chains.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {data.failed
-            ? t("app.jobDocuments.unknown", "Couldn't load the documents on this job.")
-            : t(
-                "app.jobDocuments.empty",
-                "No documents on this job yet — plans, permits, warranties.",
-              )}
-        </p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {chains.map((chain) => {
-            const doc = chain.current;
-            const revs = revisionCount(chain);
-            const size = formatBytes(doc.sizeBytes);
-            return (
-              <li key={chain.id} className="py-3 first:pt-0">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <OpenFileLink
-                      href={doc.openUrl}
-                      className="text-sm font-medium text-foreground underline break-words"
-                      plainClassName="text-sm font-medium text-foreground break-words"
-                    >
-                      {doc.name}
-                    </OpenFileLink>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {t(`app.jobDocuments.kind.${doc.kind}`, doc.kind)}
-                      {" · "}
-                      {new Date(doc.uploadedAt).toLocaleDateString(language)}
-                      {/* Null sizeBytes prints NOTHING. "0 bytes" would read as
-                          a failed upload and send somebody to upload it again —
-                          see the column's own comment in schema.prisma. */}
-                      {size ? ` · ${size}` : ""}
-                      {revs > 1 &&
-                        ` · ${t("app.jobDocuments.revision", "Rev {n}", { n: revs })}`}
-                      {/* A row the system filed says so — "filed on acceptance"
-                          rather than implying a person chose to upload it.
-                          Null source is a hand upload and prints nothing. */}
-                      {doc.source === "acceptance" &&
-                        ` · ${t("app.jobDocuments.source.acceptance", "Filed on acceptance")}`}
-                      {doc.source === "invoice_send" &&
-                        ` · ${t("app.jobDocuments.source.invoiceSend", "Filed when sent")}`}
-                      {doc.source === "backfill" &&
-                        ` · ${t("app.jobDocuments.source.backfill", "Filed from the quote")}`}
-                      {doc.source === "quote_upload" &&
-                        ` · ${t("app.jobDocuments.source.quoteUpload", "Uploaded on the quote")}`}
-                      {doc.source === "prep_guide" &&
-                        ` · ${t("app.jobDocuments.source.prepGuide", "Filed when sent to the client")}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {revs > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpanded((e) => ({ ...e, [chain.id]: !e[chain.id] }))
-                        }
-                        className="inline-flex min-h-[44px] items-center gap-1 text-xs font-semibold text-foreground"
-                      >
-                        <History size={13} />
-                        {t("app.jobDocuments.history", "History")}
-                      </button>
-                    )}
-                    {data.canUpload && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRevising({ id: doc.id, name: doc.name, kind: doc.kind });
-                          setOpen(true);
-                        }}
-                        className="inline-flex min-h-[44px] items-center gap-1 text-xs font-semibold text-foreground"
-                      >
-                        <Upload size={13} />
-                        {t("app.jobDocuments.revise", "New version")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {expanded[chain.id] && chain.history.length > 0 && (
-                  <ul className="mt-2 border-l border-border pl-3 space-y-1">
-                    {chain.history.map((old) => {
-                      const oldSize = formatBytes(old.sizeBytes);
-                      return (
-                        <li key={old.id} className="text-xs">
-                          <OpenFileLink
-                            href={old.openUrl}
-                            className="text-muted-foreground underline break-words"
-                            plainClassName="text-muted-foreground break-words"
-                          >
-                            {old.name}
-                          </OpenFileLink>
-                          <span className="text-muted-foreground">
-                            {" · "}
-                            {new Date(old.uploadedAt).toLocaleDateString(language)}
-                            {oldSize ? ` · ${oldSize}` : ""}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+      {/* The upload form stays below, outside the fold: "Add a document" is in
+          the header and works while the list is folded, and a form in a hidden
+          div would be a button that did nothing. */}
+      <div id={section.bodyId} hidden={!section.open}>
+        {chains.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {data.failed
+              ? t("app.jobDocuments.unknown", "Couldn't load the documents on this job.")
+              : t(
+                  "app.jobDocuments.empty",
+                  "No documents on this job yet — plans, permits, warranties.",
                 )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {chains.map((chain) => {
+              const doc = chain.current;
+              const revs = revisionCount(chain);
+              const size = formatBytes(doc.sizeBytes);
+              return (
+                <li key={chain.id} className="py-3 first:pt-0">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <OpenFileLink
+                        href={doc.openUrl}
+                        className="text-sm font-medium text-foreground underline break-words"
+                        plainClassName="text-sm font-medium text-foreground break-words"
+                      >
+                        {doc.name}
+                      </OpenFileLink>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {t(`app.jobDocuments.kind.${doc.kind}`, doc.kind)}
+                        {" · "}
+                        {new Date(doc.uploadedAt).toLocaleDateString(language)}
+                        {/* Null sizeBytes prints NOTHING. "0 bytes" would read as
+                            a failed upload and send somebody to upload it again —
+                            see the column's own comment in schema.prisma. */}
+                        {size ? ` · ${size}` : ""}
+                        {revs > 1 &&
+                          ` · ${t("app.jobDocuments.revision", "Rev {n}", { n: revs })}`}
+                        {/* A row the system filed says so — "filed on acceptance"
+                            rather than implying a person chose to upload it.
+                            Null source is a hand upload and prints nothing. */}
+                        {doc.source === "acceptance" &&
+                          ` · ${t("app.jobDocuments.source.acceptance", "Filed on acceptance")}`}
+                        {doc.source === "invoice_send" &&
+                          ` · ${t("app.jobDocuments.source.invoiceSend", "Filed when sent")}`}
+                        {doc.source === "backfill" &&
+                          ` · ${t("app.jobDocuments.source.backfill", "Filed from the quote")}`}
+                        {doc.source === "quote_upload" &&
+                          ` · ${t("app.jobDocuments.source.quoteUpload", "Uploaded on the quote")}`}
+                        {doc.source === "prep_guide" &&
+                          ` · ${t("app.jobDocuments.source.prepGuide", "Filed when sent to the client")}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {revs > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpanded((e) => ({ ...e, [chain.id]: !e[chain.id] }))
+                          }
+                          className="inline-flex min-h-[44px] items-center gap-1 text-xs font-semibold text-foreground"
+                        >
+                          <History size={13} />
+                          {t("app.jobDocuments.history", "History")}
+                        </button>
+                      )}
+                      {data.canUpload && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRevising({ id: doc.id, name: doc.name, kind: doc.kind });
+                            setOpen(true);
+                          }}
+                          className="inline-flex min-h-[44px] items-center gap-1 text-xs font-semibold text-foreground"
+                        >
+                          <Upload size={13} />
+                          {t("app.jobDocuments.revise", "New version")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-      {/* "There is nothing here" and "there is something here you may not see"
-          are different statements. Saying the first when the second is true
-          sends a crew member chasing a contract that was filed weeks ago. */}
-      {data.hiddenCount > 0 && (
-        <p className="mt-3 text-xs italic text-muted-foreground">
-          {t(
-            "app.jobDocuments.hidden",
-            "{count} more hidden by your access level",
-            { count: data.hiddenCount },
-          )}
-        </p>
-      )}
+                  {expanded[chain.id] && chain.history.length > 0 && (
+                    <ul className="mt-2 border-l border-border pl-3 space-y-1">
+                      {chain.history.map((old) => {
+                        const oldSize = formatBytes(old.sizeBytes);
+                        return (
+                          <li key={old.id} className="text-xs">
+                            <OpenFileLink
+                              href={old.openUrl}
+                              className="text-muted-foreground underline break-words"
+                              plainClassName="text-muted-foreground break-words"
+                            >
+                              {old.name}
+                            </OpenFileLink>
+                            <span className="text-muted-foreground">
+                              {" · "}
+                              {new Date(old.uploadedAt).toLocaleDateString(language)}
+                              {oldSize ? ` · ${oldSize}` : ""}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* "There is nothing here" and "there is something here you may not see"
+            are different statements. Saying the first when the second is true
+            sends a crew member chasing a contract that was filed weeks ago. */}
+        {data.hiddenCount > 0 && (
+          <p className="mt-3 text-xs italic text-muted-foreground">
+            {t(
+              "app.jobDocuments.hidden",
+              "{count} more hidden by your access level",
+              { count: data.hiddenCount },
+            )}
+          </p>
+        )}
+      </div>
 
       {open && data.canUpload && (
         <form onSubmit={submit} className="mt-4 border-t border-border pt-4 space-y-3">

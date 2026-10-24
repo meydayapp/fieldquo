@@ -14,6 +14,7 @@ import { Clock, Send, CircleSlash, AlertCircle, CheckCircle2 } from "lucide-reac
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { paymentScheduleShortfall } from "@/lib/jobs/changeOrderValue";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 function formatDateOnly(value) {
   if (!value) return "";
@@ -45,9 +46,12 @@ function StatusIcon({ stage }) {
   return <Clock size={15} className="text-muted-foreground" />;
 }
 
-export default function PaymentScheduleCard({ stages, changeOrders }) {
+export default function PaymentScheduleCard({ jobId, stages, changeOrders }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
+  // Above the `stages.length === 0` return below, where every hook on this
+  // page has to sit (scripts/check-job-page-hooks.mjs).
+  const section = useJobSection(jobId, "paymentSchedule");
   // ── Why the stages are NOT recomputed when a change order is agreed ───────
   //
   // JobPaymentStage.amountCents is frozen at creation, and its comment gives
@@ -76,81 +80,85 @@ export default function PaymentScheduleCard({ stages, changeOrders }) {
   return (
     <div className="bg-card border border-border rounded-xl px-4 py-3.5">
       <h3 className="text-sm font-semibold text-foreground mb-2.5">
-        {t("app.job.paymentSchedule.title", "Payment schedule")}
+        <JobSectionToggle section={section}>
+          {t("app.job.paymentSchedule.title", "Payment schedule")}
+        </JobSectionToggle>
       </h3>
-      <div className="space-y-2">
-        {[...stages]
-          .sort((a, b) => a.seq - b.seq)
-          .map((stage) => (
-            <div
-              key={stage.id}
-              className="flex items-start justify-between gap-3 text-sm"
-            >
-              <div className="flex items-start gap-2 min-w-0">
-                <span className="mt-0.5 shrink-0">
-                  <StatusIcon stage={stage} />
-                </span>
-                <div className="min-w-0">
-                  <div className="font-medium text-foreground truncate">
-                    {stage.label} — {Number(stage.percentage)}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {/* What the money received covers — read first, because
-                        a stage the client has already paid needs no other
-                        word (lib/invoices/paymentRequest.js). A stage still
-                        waiting on a date can be paid ahead like this. */}
-                    {stage.coverState === "paid" && (
-                      <span className="text-emerald-700 dark:text-emerald-400 font-medium" data-stage-cover="paid">
-                        {t("app.job.paymentSchedule.paid")}
-                      </span>
-                    )}
-                    {stage.coverState === "part_paid" && (
-                      <span className="text-foreground" data-stage-cover="part_paid">
-                        {t("app.job.paymentSchedule.partPaid", {
-                          covered: money(Number(stage.coveredCents || 0) / 100),
-                          remaining: money(Number(stage.remainingCents || 0) / 100),
-                        })}
-                        {" · "}
-                      </span>
-                    )}
-                    {stage.coverState !== "paid" && stage.status === "requested" &&
-                      t("app.job.paymentSchedule.requested", "Requested") +
-                        (stage.dueDate ? ` · ${formatDateOnly(stage.dueDate)}` : "")}
-                    {stage.coverState !== "paid" && stage.status === "waived" &&
-                      t("app.job.paymentSchedule.waived", "Waived (0%)")}
-                    {/* Held for the client's PO — "no PO, no invoice"
-                        (lib/paymentSchedule/poHold.js). Adding the PO on
-                        this job sends it. */}
-                    {stage.coverState !== "paid" && stage.status === "pending" && stage.heldForPoAt &&
-                      t("app.job.paymentSchedule.heldForPo")}
-                    {stage.coverState !== "paid" && stage.status === "pending" && !stage.heldForPoAt && stage.blockedReason &&
-                      t(
-                        BLOCKED_KEY[stage.blockedReason] || "app.job.paymentSchedule.pending",
-                        BLOCKED_FALLBACK[stage.blockedReason] || "Waiting",
+      <div id={section.bodyId} hidden={!section.open}>
+        <div className="space-y-2">
+          {[...stages]
+            .sort((a, b) => a.seq - b.seq)
+            .map((stage) => (
+              <div
+                key={stage.id}
+                className="flex items-start justify-between gap-3 text-sm"
+              >
+                <div className="flex items-start gap-2 min-w-0">
+                  <span className="mt-0.5 shrink-0">
+                    <StatusIcon stage={stage} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-medium text-foreground truncate">
+                      {stage.label} — {Number(stage.percentage)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {/* What the money received covers — read first, because
+                          a stage the client has already paid needs no other
+                          word (lib/invoices/paymentRequest.js). A stage still
+                          waiting on a date can be paid ahead like this. */}
+                      {stage.coverState === "paid" && (
+                        <span className="text-emerald-700 dark:text-emerald-400 font-medium" data-stage-cover="paid">
+                          {t("app.job.paymentSchedule.paid")}
+                        </span>
                       )}
-                    {stage.coverState !== "paid" && stage.status === "pending" && !stage.heldForPoAt && !stage.blockedReason && stage.dueDate &&
-                      t("app.job.paymentSchedule.dueOn", "Due {date}", {
-                        date: formatDateOnly(stage.dueDate),
-                      })}
+                      {stage.coverState === "part_paid" && (
+                        <span className="text-foreground" data-stage-cover="part_paid">
+                          {t("app.job.paymentSchedule.partPaid", {
+                            covered: money(Number(stage.coveredCents || 0) / 100),
+                            remaining: money(Number(stage.remainingCents || 0) / 100),
+                          })}
+                          {" · "}
+                        </span>
+                      )}
+                      {stage.coverState !== "paid" && stage.status === "requested" &&
+                        t("app.job.paymentSchedule.requested", "Requested") +
+                          (stage.dueDate ? ` · ${formatDateOnly(stage.dueDate)}` : "")}
+                      {stage.coverState !== "paid" && stage.status === "waived" &&
+                        t("app.job.paymentSchedule.waived", "Waived (0%)")}
+                      {/* Held for the client's PO — "no PO, no invoice"
+                          (lib/paymentSchedule/poHold.js). Adding the PO on
+                          this job sends it. */}
+                      {stage.coverState !== "paid" && stage.status === "pending" && stage.heldForPoAt &&
+                        t("app.job.paymentSchedule.heldForPo")}
+                      {stage.coverState !== "paid" && stage.status === "pending" && !stage.heldForPoAt && stage.blockedReason &&
+                        t(
+                          BLOCKED_KEY[stage.blockedReason] || "app.job.paymentSchedule.pending",
+                          BLOCKED_FALLBACK[stage.blockedReason] || "Waiting",
+                        )}
+                      {stage.coverState !== "paid" && stage.status === "pending" && !stage.heldForPoAt && !stage.blockedReason && stage.dueDate &&
+                        t("app.job.paymentSchedule.dueOn", "Due {date}", {
+                          date: formatDateOnly(stage.dueDate),
+                        })}
+                    </div>
                   </div>
                 </div>
+                <div className="shrink-0 font-medium tabular-nums text-foreground">
+                  {money(Number(stage.amountCents || 0) / 100)}
+                </div>
               </div>
-              <div className="shrink-0 font-medium tabular-nums text-foreground">
-                {money(Number(stage.amountCents || 0) / 100)}
-              </div>
-            </div>
-          ))}
-      </div>
+            ))}
+        </div>
 
-      {shortfall.applies && (
-        <p className="mt-2.5 pt-2.5 border-t border-border text-xs text-muted-foreground">
-          {t(
-            "app.job.paymentSchedule.changeOrderNote",
-            "These stages are percentages of the accepted quote and don't include {amount} of agreed changes. That's collected on the invoice balance, not by a stage.",
-            { amount: money(Number(shortfall.approvedChangeCents || 0) / 100) },
-          )}
-        </p>
-      )}
+        {shortfall.applies && (
+          <p className="mt-2.5 pt-2.5 border-t border-border text-xs text-muted-foreground">
+            {t(
+              "app.job.paymentSchedule.changeOrderNote",
+              "These stages are percentages of the accepted quote and don't include {amount} of agreed changes. That's collected on the invoice balance, not by a stage.",
+              { amount: money(Number(shortfall.approvedChangeCents || 0) / 100) },
+            )}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

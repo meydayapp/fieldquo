@@ -30470,3 +30470,56 @@ Both already use the SAME `Quote.shareToken`, so the link is one hop away — bu
 (`agent/quote-link`), and serving a provisional draft there is a lifecycle
 question — whether a homeowner may accept a price no one has reviewed — not a
 rendering one. See the report of 22 September 2026.
+
+## The job page folds (24 October 2026)
+
+The owner's words: "can the sections within a job be collapsed so i don't have
+to infinitely scroll down". `/app/jobs/<id>` stacks two dozen cards, and a crew
+member on a phone scrolled past all of them to reach the visits.
+
+Eighteen section headings are now buttons. Each card's own `<h2>`/`<h3>` wraps a
+44px-tall full-row button carrying a chevron, `aria-expanded` and
+`aria-controls` — heading-wraps-button, the WAI-ARIA accordion shape, so the
+heading stays in the accessibility tree and the card stays findable by heading
+navigation. Rotation respects `prefers-reduced-motion`. The fold uses the HTML
+`hidden` attribute rather than unmounting: Tailwind's preflight makes that
+`display: none !important`, so no display class can defeat it, and a half-typed
+daily log or an open editor survives being folded away.
+
+Everything defaults to OPEN. Nothing anybody could see before this shipped is
+hidden by it; closed is only ever a state somebody chose.
+
+**Why the toggle lives in each card and not in a wrapper around them.** The
+obvious implementation is a `<Collapsible>` around every child in
+`JobDetail.js` — one file, one diff. `JobDetail` cannot see whether a child drew
+anything, and most of these cards fetch their own data and return null (no
+subcontractors, no payment schedule, no prep guide, no to-dos). A wrapper would
+have rendered a heading and a chevron over nothing, which is the dead control
+AGENTS.md forbids. The card knows; the page above it does not.
+
+**Controls that sit outside the fold.** A header button whose output lands
+inside the fold would otherwise write a result nobody can see — the same
+failure as a button that does nothing. Three answers, per card: the close-out
+banner and `CostReview` modal stay above the fold in `JobCosting`, the upload
+form stays below it in `JobDocuments` and `ChangeOrders`, and "Build the
+material list", "Rebuild from the quote", "Log equipment" and "Record what we
+installed" call `section.expand()` first. Unfolding on demand, never on every
+render — re-applying it each render would silently undo a click, the mistake
+`navDisclosure.js` records for the active nav group.
+
+State lives in `localStorage`, one entry per job, under
+`fq-job-sections:<jobId>` — a JSON map of section key to boolean. Disclosure is
+a preference, not a record, the same call `navDisclosure.js` made. Keyed on the
+job id alone and not companyId + jobId: `Job.id` is a cuid, unique across every
+tenant, so a company scope would restate a uniqueness the id already carries,
+and threading a companyId through sixteen components to do it is the copy that
+rots. Every read and write is wrapped; a private window, cleared site data and
+hand-edited JSON all read as "everything open". The real `readState` /
+`writeState` were executed against eleven hostile payloads and a storage object
+that throws on every access.
+
+**Not folded, and why.** `WaiversCard`, `FiledEmails`, `ConversationTabs`,
+`JobChecklist`, `JobCommissions` and `PriceRequestsPanel` are shared with the
+quote, client and invoice screens, where a job-keyed preference is a different
+product question. `SuggestedTasks` is a one-button action card with nothing to
+fold.

@@ -24,6 +24,7 @@ import JobMaterials from "@/app/components/jobs/JobMaterials";
 import JobSelections from "@/app/components/jobs/JobSelections";
 import JobTasks from "@/app/components/jobs/JobTasks";
 import JobPlan from "@/app/components/jobs/JobPlan";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
@@ -230,6 +231,12 @@ export default function JobDetail({ jobId }) {
   // Bumped when the subcontractor panel writes an agreed amount or a
   // payment, so the costing panel above it re-reads the total it shows.
   const [costingKey, setCostingKey] = useState(0);
+  // The two sections this page draws itself. Declared up here with the other
+  // state, ABOVE the loading/not-found returns below — a hook under an early
+  // return is React #310, and the shape scripts/check-job-page-hooks.mjs was
+  // written to catch. Every other card on the page owns its own.
+  const clientSection = useJobSection(jobId, "client");
+  const visitsSection = useJobSection(jobId, "visits");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -626,7 +633,7 @@ export default function JobDetail({ jobId }) {
       {/* changeOrders so the card can say that its frozen stage amounts don't
           cover agreed changes — see the card's own header for why the stages
           are deliberately NOT recomputed. */}
-      <PaymentScheduleCard stages={job.paymentStages} changeOrders={job.changeOrders} />
+      <PaymentScheduleCard jobId={job.id} stages={job.paymentStages} changeOrders={job.changeOrders} />
 
       {/* Client — the details someone needs before they set off */}
       <div
@@ -634,139 +641,143 @@ export default function JobDetail({ jobId }) {
         className="bg-card border border-border rounded-xl p-5"
       >
         <h2 className="font-semibold text-foreground mb-4">
-          {t("app.job.client")}
+          <JobSectionToggle section={clientSection}>
+            {t("app.job.client")}
+          </JobSectionToggle>
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* The four labels were English literals on the one page a crew
-              stares at all day. app.field.* already carries these exact words
-              in all nine languages (the client form reads them) — a second
-              copy would be the same word translated twice, and the copy is the
-              one that rots. */}
-          <Field icon={User} label={t("app.field.name")} value={job.client?.name} />
-          <Field
-            icon={Phone}
-            label={t("app.field.phone")}
-            value={
-              job.client?.phone ? (
-                <span className="inline-flex flex-wrap items-center gap-2">
-                  <a
-                    href={`tel:${job.client.phone}`}
-                    className="text-foreground underline"
-                  >
-                    {job.client.phone}
-                  </a>
-                  {/* From the business number, when the company has one. */}
-                  <BridgeCallButton kind="job" id={job.id} />
-                </span>
-              ) : (
-                <Absent client={job.client} t={t} />
-              )
-            }
-          />
-          <Field
-            icon={MapPin}
-            label={t("app.field.address")}
-            value={
-              job.client?.address ? (
-                // Opens the device's default maps app — the single most-used
-                // action on this page for anyone in a vehicle.
-                <a
-                  href={`https://maps.google.com/?q=${encodeURIComponent(
-                    formatAddress(job.client),
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-foreground underline"
-                >
-                  {/* Was address + city, which duplicated the city and also
-                      disagreed with the maps link above it. One formatter now,
-                      so the text and the destination match. */}
-                  {formatAddress(job.client)}
-                </a>
-              ) : (
-                // The address is NOT one of the restricted fields — a member on
-                // name_address_only gets it in full — so a blank one here is a
-                // genuine blank, and Absent says so.
-                <Absent client={job.client} t={t} />
-              )
-            }
-          />
-          <Field
-            icon={FileText}
-            label={t("app.field.email")}
-            value={job.client?.email || <Absent client={job.client} t={t} />}
-          />
-          {/* An organisation's other people (site contact, accounts
-              payable…). Nothing for a homeowner or a member who may not see
-              contact details. */}
-          <OtherContacts client={job.client} />
-          {/* Said here too, where the crew and office look before a visit. */}
-          <AutoMessagesNotice client={job.client} />
-          {/* Where the work is, when it is not where the bill goes. Only when
-              set — null means NOT ASKED (Job.siteAddress), and printing the
-              client's address here instead would be the invented default that
-              column's comment warns against. Same maps link as above. */}
-          {job.siteAddress && (
+        <div id={clientSection.bodyId} hidden={!clientSection.open}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* The four labels were English literals on the one page a crew
+                stares at all day. app.field.* already carries these exact words
+                in all nine languages (the client form reads them) — a second
+                copy would be the same word translated twice, and the copy is the
+                one that rots. */}
+            <Field icon={User} label={t("app.field.name")} value={job.client?.name} />
+            <Field
+              icon={Phone}
+              label={t("app.field.phone")}
+              value={
+                job.client?.phone ? (
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <a
+                      href={`tel:${job.client.phone}`}
+                      className="text-foreground underline"
+                    >
+                      {job.client.phone}
+                    </a>
+                    {/* From the business number, when the company has one. */}
+                    <BridgeCallButton kind="job" id={job.id} />
+                  </span>
+                ) : (
+                  <Absent client={job.client} t={t} />
+                )
+              }
+            />
             <Field
               icon={MapPin}
-              label={t("app.job.siteAddress")}
+              label={t("app.field.address")}
               value={
-                <>
+                job.client?.address ? (
+                  // Opens the device's default maps app — the single most-used
+                  // action on this page for anyone in a vehicle.
                   <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(job.siteAddress)}`}
+                    href={`https://maps.google.com/?q=${encodeURIComponent(
+                      formatAddress(job.client),
+                    )}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-foreground underline"
                   >
-                    {job.siteAddress}
+                    {/* Was address + city, which duplicated the city and also
+                        disagreed with the maps link above it. One formatter now,
+                        so the text and the destination match. */}
+                    {formatAddress(job.client)}
                   </a>
-                  {/* Whether the distance chips on the timesheet can say
-                      anything for this job. A geocode that failed is not an
-                      error to the office, but it is a fact they can fix by
-                      tidying the address. */}
-                  {job.latitude == null && (
-                    <span className="block text-xs text-muted-foreground mt-0.5">
-                      {t("app.job.siteNotPinned")}
-                    </span>
-                  )}
-                </>
+                ) : (
+                  // The address is NOT one of the restricted fields — a member on
+                  // name_address_only gets it in full — so a blank one here is a
+                  // genuine blank, and Absent says so.
+                  <Absent client={job.client} t={t} />
+                )
               }
             />
+            <Field
+              icon={FileText}
+              label={t("app.field.email")}
+              value={job.client?.email || <Absent client={job.client} t={t} />}
+            />
+            {/* An organisation's other people (site contact, accounts
+                payable…). Nothing for a homeowner or a member who may not see
+                contact details. */}
+            <OtherContacts client={job.client} />
+            {/* Said here too, where the crew and office look before a visit. */}
+            <AutoMessagesNotice client={job.client} />
+            {/* Where the work is, when it is not where the bill goes. Only when
+                set — null means NOT ASKED (Job.siteAddress), and printing the
+                client's address here instead would be the invented default that
+                column's comment warns against. Same maps link as above. */}
+            {job.siteAddress && (
+              <Field
+                icon={MapPin}
+                label={t("app.job.siteAddress")}
+                value={
+                  <>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(job.siteAddress)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground underline"
+                    >
+                      {job.siteAddress}
+                    </a>
+                    {/* Whether the distance chips on the timesheet can say
+                        anything for this job. A geocode that failed is not an
+                        error to the office, but it is a fact they can fix by
+                        tidying the address. */}
+                    {job.latitude == null && (
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        {t("app.job.siteNotPinned")}
+                      </span>
+                    )}
+                  </>
+                }
+              />
+            )}
+          </div>
+          {/* How to get there, and what it looks like when you do. Directions
+              go to where the WORK is: the site address, else the client's own
+              address only for an individual — a company client's address is an
+              office, and sending a crew there is the mistake Job.siteAddress
+              exists to prevent. The Street View resolves the same address on
+              the server (lib/maps/streetViewTarget.js) and loads only on tap. */}
+          {workAddress && (
+          <div className="mt-4 pt-3 border-t border-border space-y-3">
+            <DirectionsButtons t={t} address={workAddress} />
+            <StreetViewPeek
+              kind="job"
+              id={job.id}
+              labels={{
+                see: t("app.streetView.see"),
+                hide: t("app.streetView.hide"),
+                openInMaps: t("app.streetView.openInMaps"),
+                frameTitle: t("app.streetView.frameTitle"),
+              }}
+            />
+          </div>
           )}
-        </div>
-        {/* How to get there, and what it looks like when you do. Directions
-            go to where the WORK is: the site address, else the client's own
-            address only for an individual — a company client's address is an
-            office, and sending a crew there is the mistake Job.siteAddress
-            exists to prevent. The Street View resolves the same address on
-            the server (lib/maps/streetViewTarget.js) and loads only on tap. */}
-        {workAddress && (
-        <div className="mt-4 pt-3 border-t border-border space-y-3">
-          <DirectionsButtons t={t} address={workAddress} />
-          <StreetViewPeek
-            kind="job"
-            id={job.id}
-            labels={{
-              see: t("app.streetView.see"),
-              hide: t("app.streetView.hide"),
-              openInMaps: t("app.streetView.openInMaps"),
-              frameTitle: t("app.streetView.frameTitle"),
-            }}
+          {/* The company's own extra boxes (Settings > Custom fields), answered
+              ones only. Renders nothing for a company that defined none. */}
+          <CustomFieldsPanel
+            entityType="job"
+            entityId={job.id}
+            variant="rows"
+            className="mt-4 pt-3 border-t border-border"
           />
+          {/* The client's PO number — carried from the quote, typed here when
+              it arrives after approval, and copied onto the job's draft
+              invoices on save. See JobClientPo. */}
+          <JobClientPo job={job} canEdit={canEditJob} onSaved={load} />
         </div>
-        )}
-        {/* The company's own extra boxes (Settings > Custom fields), answered
-            ones only. Renders nothing for a company that defined none. */}
-        <CustomFieldsPanel
-          entityType="job"
-          entityId={job.id}
-          variant="rows"
-          className="mt-4 pt-3 border-t border-border"
-        />
-        {/* The client's PO number — carried from the quote, typed here when
-            it arrives after approval, and copied onto the job's draft
-            invoices on save. See JobClientPo. */}
-        <JobClientPo job={job} canEdit={canEditJob} onSaved={load} />
       </div>
 
       {/* What the work is done in — "Uppers: BM Chantilly Lace OC-65, satin,
@@ -911,9 +922,14 @@ export default function JobDetail({ jobId }) {
         className="bg-card border border-border rounded-xl p-5"
       >
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <div>
+          {/* flex-1 so the toggle inside the heading spans the row rather
+              than just the word "Visits" — the buttons beside it keep their
+              own width, and they stay reachable while the list is folded. */}
+          <div className="min-w-0 flex-1">
             <h2 className="font-semibold text-foreground">
-              {t("app.job.visits")}
+              <JobSectionToggle section={visitsSection}>
+                {t("app.job.visits")}
+              </JobSectionToggle>
             </h2>
             {job.visits?.length > 0 && (
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -959,160 +975,162 @@ export default function JobDetail({ jobId }) {
           </div>
         </div>
 
-        {/* Who the quote was costed with (lib/jobs/quotedCrew.js) — carried
-            from the approved quote so the first visit isn't staffed from
-            memory. Names only; the quote's pay rates stay on the quote. The
-            new-visit form opens on the first of them who can sign in. Absent
-            when the quote named nobody, rather than a heading over nothing. */}
-        {job.quotedCrew?.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-border" data-quoted-crew>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              {t("app.job.quotedCrew", "Crew on the quote")}
-              {job.quote?.quoteNumber ? ` · ${job.quote.quoteNumber}` : ""}
-            </div>
-            <p className="text-sm text-foreground">
-              {job.quotedCrew.map((m) => m.name).join(", ")}
-            </p>
-          </div>
-        )}
-
-        {/* The estimator's measure, scheduled on the QUOTE before this job
-            existed (lib/quotes/siteVisit.js). Read-only here — it is an
-            Appointment, edited on the calendar or the quote — and above the
-            crew's visits because it happened first. Rendered only when there
-            is one; a heading over nothing would claim a visit that never was. */}
-        {job.quote?.appointments?.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-border">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              {t("app.siteVisit.onJobHeading", "Estimator's on-site visit")}
-              {job.quote?.quoteNumber ? ` · ${job.quote.quoteNumber}` : ""}
-            </div>
-            <SiteVisitRows visits={job.quote.appointments} />
-          </div>
-        )}
-
-        {/* Appointments booked by hand ABOUT this job on the calendar
-            (Appointment.jobId) — the husband's call about the kitchen, a
-            walk-through — as opposed to the crew's visits below. Same rows
-            as the measures above: one component, one way of describing an
-            appointment. Read-only here for the same reason. */}
-        {/* Since 2026-10-07: the whole family's — booked about this job,
-            its quote or its invoice (lib/schedule/appointmentFamily.js) —
-            less the measures already listed above, each row linking to the
-            quote and the invoice. The job's own list is the fallback for a
-            payload from before the field existed. */}
-        {(() => {
-          const shown = new Set((job.quote?.appointments || []).map((a) => a.id));
-          const rows = (job.familyAppointments || job.appointments || []).filter((a) => !shown.has(a.id));
-          return rows.length > 0 ? (
-            <div className="mb-4 pb-4 border-b border-border" data-family-appointments>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                {t("app.appts.familyHeading")}
+        <div id={visitsSection.bodyId} hidden={!visitsSection.open}>
+          {/* Who the quote was costed with (lib/jobs/quotedCrew.js) — carried
+              from the approved quote so the first visit isn't staffed from
+              memory. Names only; the quote's pay rates stay on the quote. The
+              new-visit form opens on the first of them who can sign in. Absent
+              when the quote named nobody, rather than a heading over nothing. */}
+          {job.quotedCrew?.length > 0 && (
+            <div className="mb-4 pb-4 border-b border-border" data-quoted-crew>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                {t("app.job.quotedCrew", "Crew on the quote")}
+                {job.quote?.quoteNumber ? ` · ${job.quote.quoteNumber}` : ""}
               </div>
-              <SiteVisitRows visits={rows} here={{ kind: "job", id: job.id }} />
+              <p className="text-sm text-foreground">
+                {job.quotedCrew.map((m) => m.name).join(", ")}
+              </p>
             </div>
-          ) : null;
-        })()}
+          )}
 
-        {!job.visits?.length ? (
-          <p className="text-sm text-muted-foreground">
-            {t("app.job.noVisits")}
-          </p>
-        ) : (
-          <div className="divide-y divide-border">
-            {job.visits.map((v) => {
-              const items = Array.isArray(v.checklistItems)
-                ? v.checklistItems
-                : [];
-              const done = items.filter((i) => i?.done).length;
-              // A nudge, not a rule — see lib/jobs/visitInRange.js for why a
-              // visit before startDate or after endDate is often intentional
-              // (a pre-job look, a warranty callback) and never blocked.
-              const outsideRange = isVisitOutsideJobRange(v, job);
+          {/* The estimator's measure, scheduled on the QUOTE before this job
+              existed (lib/quotes/siteVisit.js). Read-only here — it is an
+              Appointment, edited on the calendar or the quote — and above the
+              crew's visits because it happened first. Rendered only when there
+              is one; a heading over nothing would claim a visit that never was. */}
+          {job.quote?.appointments?.length > 0 && (
+            <div className="mb-4 pb-4 border-b border-border">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                {t("app.siteVisit.onJobHeading", "Estimator's on-site visit")}
+                {job.quote?.quoteNumber ? ` · ${job.quote.quoteNumber}` : ""}
+              </div>
+              <SiteVisitRows visits={job.quote.appointments} />
+            </div>
+          )}
 
-              return (
-                <div key={v.id} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar size={14} className="text-muted-foreground" />
-                        <span className="font-medium text-foreground">
-                          {formatDateTime(v.scheduledAt)}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full border ${visitStatusClasses(v.status)}`}
-                        >
-                          {/* `t` passed, not omitted: this badge rendered the
-                              map's English in every office. Same key the
-                              appointments calendar reads for the same visit —
-                              see lib/jobs/visitStatus.js. */}
-                          {visitStatusLabel(v.status, t)}
-                        </span>
-                        {outsideRange && (
-                          <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
-                            {t("app.job.visitOutsideRange", "Outside job dates")}
+          {/* Appointments booked by hand ABOUT this job on the calendar
+              (Appointment.jobId) — the husband's call about the kitchen, a
+              walk-through — as opposed to the crew's visits below. Same rows
+              as the measures above: one component, one way of describing an
+              appointment. Read-only here for the same reason. */}
+          {/* Since 2026-10-07: the whole family's — booked about this job,
+              its quote or its invoice (lib/schedule/appointmentFamily.js) —
+              less the measures already listed above, each row linking to the
+              quote and the invoice. The job's own list is the fallback for a
+              payload from before the field existed. */}
+          {(() => {
+            const shown = new Set((job.quote?.appointments || []).map((a) => a.id));
+            const rows = (job.familyAppointments || job.appointments || []).filter((a) => !shown.has(a.id));
+            return rows.length > 0 ? (
+              <div className="mb-4 pb-4 border-b border-border" data-family-appointments>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  {t("app.appts.familyHeading")}
+                </div>
+                <SiteVisitRows visits={rows} here={{ kind: "job", id: job.id }} />
+              </div>
+            ) : null;
+          })()}
+
+          {!job.visits?.length ? (
+            <p className="text-sm text-muted-foreground">
+              {t("app.job.noVisits")}
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {job.visits.map((v) => {
+                const items = Array.isArray(v.checklistItems)
+                  ? v.checklistItems
+                  : [];
+                const done = items.filter((i) => i?.done).length;
+                // A nudge, not a rule — see lib/jobs/visitInRange.js for why a
+                // visit before startDate or after endDate is often intentional
+                // (a pre-job look, a warranty callback) and never blocked.
+                const outsideRange = isVisitOutsideJobRange(v, job);
+
+                return (
+                  <div key={v.id} className="py-4 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar size={14} className="text-muted-foreground" />
+                          <span className="font-medium text-foreground">
+                            {formatDateTime(v.scheduledAt)}
                           </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full border ${visitStatusClasses(v.status)}`}
+                          >
+                            {/* `t` passed, not omitted: this badge rendered the
+                                map's English in every office. Same key the
+                                appointments calendar reads for the same visit —
+                                see lib/jobs/visitStatus.js. */}
+                            {visitStatusLabel(v.status, t)}
+                          </span>
+                          {outsideRange && (
+                            <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                              {t("app.job.visitOutsideRange", "Outside job dates")}
+                            </span>
+                          )}
+                          {v.returnReason && (
+                            <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                              {callbackReasonLabel(v.returnReason, t)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {v.assignedTo?.name
+                            ? t("app.visitAction.assignedTo", { name: v.assignedTo.name })
+                            : t("app.visitAction.unassigned", "Unassigned")}
+                          {items.length > 0 &&
+                            ` · ${done}/${items.length} checklist items`}
+                          {v.photos?.length > 0 &&
+                            ` · ${v.photos.length} photo${v.photos.length === 1 ? "" : "s"}`}
+                        </p>
+                        {/* Where the phone was when they tapped — one line per
+                            stamp, nothing when there is none. A stamp with no
+                            distance (the job had no site address at the time) is
+                            still a fact worth a line, said as exactly that. */}
+                        {(v.locationStamps || [])
+                          .filter((st) => st.kind === "on_the_way" || st.kind === "completed")
+                          .map((st) => (
+                            <p key={st.id} className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <MapPin size={11} />
+                              {stampLine(st, t)}
+                            </p>
+                          ))}
+                        {v.notes && (
+                          <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">
+                            {v.notes}
+                          </p>
                         )}
-                        {v.returnReason && (
-                          <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
-                            {callbackReasonLabel(v.returnReason, t)}
-                          </span>
+                        {v.returnNotes && (
+                          <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 whitespace-pre-wrap">
+                            {v.returnNotes}
+                          </p>
+                        )}
+                        {/* Why the office called it off — the row is kept, so the
+                            reason is kept with it. Cleared when it goes back on. */}
+                        {v.cancelReason && ["cancelled", "canceled"].includes(v.status) && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t("app.visitAction.cancelledWhy", { reason: v.cancelReason })}
+                          </p>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {v.assignedTo?.name
-                          ? t("app.visitAction.assignedTo", { name: v.assignedTo.name })
-                          : t("app.visitAction.unassigned", "Unassigned")}
-                        {items.length > 0 &&
-                          ` · ${done}/${items.length} checklist items`}
-                        {v.photos?.length > 0 &&
-                          ` · ${v.photos.length} photo${v.photos.length === 1 ? "" : "s"}`}
-                      </p>
-                      {/* Where the phone was when they tapped — one line per
-                          stamp, nothing when there is none. A stamp with no
-                          distance (the job had no site address at the time) is
-                          still a fact worth a line, said as exactly that. */}
-                      {(v.locationStamps || [])
-                        .filter((st) => st.kind === "on_the_way" || st.kind === "completed")
-                        .map((st) => (
-                          <p key={st.id} className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <MapPin size={11} />
-                            {stampLine(st, t)}
-                          </p>
-                        ))}
-                      {v.notes && (
-                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">
-                          {v.notes}
-                        </p>
-                      )}
-                      {v.returnNotes && (
-                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 whitespace-pre-wrap">
-                          {v.returnNotes}
-                        </p>
-                      )}
-                      {/* Why the office called it off — the row is kept, so the
-                          reason is kept with it. Cleared when it goes back on. */}
-                      {v.cancelReason && ["cancelled", "canceled"].includes(v.status) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {t("app.visitAction.cancelledWhy", { reason: v.cancelReason })}
-                        </p>
-                      )}
                     </div>
+
+                    <VisitStatus
+                      jobId={jobId}
+                      visit={v}
+                      client={job.client}
+                      onChanged={load}
+                    />
+
+                    <VisitChecklist jobId={jobId} visit={v} onChanged={load} />
                   </div>
-
-                  <VisitStatus
-                    jobId={jobId}
-                    visit={v}
-                    client={job.client}
-                    onChanged={load}
-                  />
-
-                  <VisitChecklist jobId={jobId} visit={v} onChanged={load} />
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* The job's own checklists — the trade's form attached when the job

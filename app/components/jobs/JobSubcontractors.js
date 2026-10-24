@@ -27,12 +27,15 @@ import { reportResponseError } from "@/lib/clientErrors";
 import ExpiryBadge from "@/app/components/ExpiryBadge";
 import RecordPaymentForm from "@/app/components/subcontractors/RecordPaymentForm";
 import { JOB_SUBCONTRACTOR_STATUSES } from "@/lib/subcontractors/money";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/10 min-h-[44px]";
 
 export default function JobSubcontractors({ jobId, onChanged }) {
   const { t } = useTranslation();
+  // Above the early returns below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "subcontractors");
   const { money, formatDate } = useCompanyPreferences();
   const [data, setData] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -169,9 +172,13 @@ export default function JobSubcontractors({ jobId, onChanged }) {
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
-            <HardHat size={16} /> {t("app.subcontractors.onJobTitle", "Subs on this job")}
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-foreground">
+            <JobSectionToggle section={section}>
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <HardHat size={16} /> {t("app.subcontractors.onJobTitle", "Subs on this job")}
+              </span>
+            </JobSectionToggle>
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {canSeeMoney
@@ -182,7 +189,11 @@ export default function JobSubcontractors({ jobId, onChanged }) {
         {canManage && !adding && (
           <button
             type="button"
-            onClick={() => setAdding(true)}
+            onClick={() => {
+              // "Add a sub" is in the header, its form under the fold.
+              section.expand();
+              setAdding(true);
+            }}
             className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-sm font-semibold min-h-[44px] shrink-0"
           >
             <Plus size={14} /> {t("app.subcontractors.addToJob", "Add a sub")}
@@ -190,228 +201,230 @@ export default function JobSubcontractors({ jobId, onChanged }) {
         )}
       </div>
 
-      {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      <div id={section.bodyId} hidden={!section.open}>
+        {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      {/* Imported quotes not yet on the job — one click each. Only rendered
-          when there is one to adopt; a heading over nothing is noise. */}
-      {canManage && pendingImports.length > 0 && (
-        <div className="mb-4 border border-border rounded-lg p-3 space-y-2">
-          <p className="text-xs font-semibold text-foreground">
-            {t("app.subcontractors.fromQuoteTitle", "From the quote's imported prices")}
-          </p>
-          {pendingImports.map((imp) => (
-            <div key={imp.id} className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-sm text-foreground truncate">
-                {imp.sourceCompanyName || imp.label || t("app.subcontractors.importedQuote", "Imported quote")}
-                {imp.label && imp.sourceCompanyName ? ` — ${imp.label}` : ""}
-                {canSeeMoney && imp.amount != null ? ` · ${money(imp.amount)}` : ""}
-              </span>
-              <button
-                type="button"
-                disabled={busyId === imp.id}
-                onClick={() => adopt(imp)}
-                className="shrink-0 border border-border rounded-full px-3 py-1.5 text-xs font-semibold min-h-[44px] disabled:opacity-50"
-              >
-                {t("app.subcontractors.putOnJob", "Put on this job")}
+        {/* Imported quotes not yet on the job — one click each. Only rendered
+            when there is one to adopt; a heading over nothing is noise. */}
+        {canManage && pendingImports.length > 0 && (
+          <div className="mb-4 border border-border rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground">
+              {t("app.subcontractors.fromQuoteTitle", "From the quote's imported prices")}
+            </p>
+            {pendingImports.map((imp) => (
+              <div key={imp.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 text-sm text-foreground truncate">
+                  {imp.sourceCompanyName || imp.label || t("app.subcontractors.importedQuote", "Imported quote")}
+                  {imp.label && imp.sourceCompanyName ? ` — ${imp.label}` : ""}
+                  {canSeeMoney && imp.amount != null ? ` · ${money(imp.amount)}` : ""}
+                </span>
+                <button
+                  type="button"
+                  disabled={busyId === imp.id}
+                  onClick={() => adopt(imp)}
+                  className="shrink-0 border border-border rounded-full px-3 py-1.5 text-xs font-semibold min-h-[44px] disabled:opacity-50"
+                >
+                  {t("app.subcontractors.putOnJob", "Put on this job")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {adding && (
+          <form onSubmit={submitAdd} className="mb-4 border border-border rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground">{t("app.subcontractors.addToJob", "Add a sub")}</p>
+              <button type="button" onClick={() => setAdding(false)} aria-label={t("app.subcontractors.cancel", "Cancel")} className="p-2 -m-2 text-muted-foreground min-h-[44px] min-w-[44px]">
+                <X size={16} />
               </button>
             </div>
-          ))}
-        </div>
-      )}
-
-      {adding && (
-        <form onSubmit={submitAdd} className="mb-4 border border-border rounded-lg p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">{t("app.subcontractors.addToJob", "Add a sub")}</p>
-            <button type="button" onClick={() => setAdding(false)} aria-label={t("app.subcontractors.cancel", "Cancel")} className="p-2 -m-2 text-muted-foreground min-h-[44px] min-w-[44px]">
-              <X size={16} />
-            </button>
-          </div>
-          {roster.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("app.subcontractors.rosterEmpty", "No subcontractors on your list yet.")}{" "}
-              <Link href="/app/subcontractors/new" className="underline font-semibold text-foreground">
-                {t("app.subcontractors.addFirst", "Add your first subcontractor")}
-              </Link>
-            </p>
-          ) : (
-            <>
-              <label className="block text-xs text-muted-foreground">
-                {t("app.subcontractors.which", "Which subcontractor")}
-                <select className={`${inputClass} mt-1`} value={form.subcontractorId} onChange={(e) => setForm({ ...form, subcontractorId: e.target.value })}>
-                  <option value="">{t("app.subcontractors.pickOne", "Pick one…")}</option>
-                  {roster.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                      {s.trade ? ` — ${s.trade}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {canSeeMoney && (
-                  <label className="block text-xs text-muted-foreground">
-                    {t("app.subcontractors.agreedAmount", "Agreed amount")}
-                    <input className={`${inputClass} mt-1`} inputMode="decimal" value={form.agreedAmount} onChange={(e) => setForm({ ...form, agreedAmount: e.target.value })} placeholder={t("app.subcontractors.amountLater", "Leave blank if not agreed yet")} />
-                  </label>
-                )}
+            {roster.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("app.subcontractors.rosterEmpty", "No subcontractors on your list yet.")}{" "}
+                <Link href="/app/subcontractors/new" className="underline font-semibold text-foreground">
+                  {t("app.subcontractors.addFirst", "Add your first subcontractor")}
+                </Link>
+              </p>
+            ) : (
+              <>
                 <label className="block text-xs text-muted-foreground">
-                  {t("app.subcontractors.visit", "Visit (optional)")}
-                  <select className={`${inputClass} mt-1`} value={form.visitId} onChange={(e) => setForm({ ...form, visitId: e.target.value })}>
-                    <option value="">{t("app.subcontractors.noVisit", "Not tied to a visit")}</option>
-                    {visits.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {formatDate(v.scheduledAt)}
+                  {t("app.subcontractors.which", "Which subcontractor")}
+                  <select className={`${inputClass} mt-1`} value={form.subcontractorId} onChange={(e) => setForm({ ...form, subcontractorId: e.target.value })}>
+                    <option value="">{t("app.subcontractors.pickOne", "Pick one…")}</option>
+                    {roster.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.trade ? ` — ${s.trade}` : ""}
                       </option>
                     ))}
                   </select>
                 </label>
-              </div>
-              <input className={inputClass} placeholder={t("app.subcontractors.scopePlaceholder", "What they're doing (optional)")} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              <button type="submit" disabled={busyId === "new"} className="min-h-[44px] rounded-lg bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50">
-                {t("app.subcontractors.putOnJob", "Put on this job")}
-              </button>
-            </>
-          )}
-        </form>
-      )}
-
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("app.subcontractors.noneOnJob", "No subcontractors on this job.")}</p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {rows.map((row) => (
-            <li key={row.id} className="py-3 space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <Link href={`/app/subcontractors/${row.subcontractor.id}`} className="block text-sm font-semibold text-foreground underline truncate">
-                    {row.subcontractor.name}
-                  </Link>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {[row.subcontractor.trade, row.description, row.visit ? formatDate(row.visit.scheduledAt) : null].filter(Boolean).join(" · ")}
-                  </p>
-                  {row.subcontractor.attention.state !== "ok" && (
-                    <ExpiryBadge
-                      state={row.subcontractor.attention.state}
-                      className="mt-1"
-                      label={
-                        row.subcontractor.attention.state === "unknown"
-                          ? t("app.subcontractors.paperworkUnknown", "Insurance not recorded")
-                          : row.subcontractor.attention.state === "expired"
-                            ? t("app.subcontractors.paperworkExpired", "Insurance or clearance expired")
-                            : t("app.subcontractors.paperworkSoon", "Insurance or clearance expiring")
-                      }
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {canSeeMoney && (
+                    <label className="block text-xs text-muted-foreground">
+                      {t("app.subcontractors.agreedAmount", "Agreed amount")}
+                      <input className={`${inputClass} mt-1`} inputMode="decimal" value={form.agreedAmount} onChange={(e) => setForm({ ...form, agreedAmount: e.target.value })} placeholder={t("app.subcontractors.amountLater", "Leave blank if not agreed yet")} />
+                    </label>
                   )}
-                </div>
-                <div className="shrink-0 text-right">
-                  {canManage && canSeeMoney ? (
-                    <select
-                      value={row.status}
-                      disabled={busyId === row.id || row.status === "paid"}
-                      onChange={(e) => patch(row, { status: e.target.value })}
-                      aria-label={t("app.subcontractors.statusLabel", "Status")}
-                      className="border border-border rounded-lg px-2 py-1.5 text-xs font-semibold bg-card text-foreground min-h-[44px] disabled:opacity-70"
-                    >
-                      {JOB_SUBCONTRACTOR_STATUSES.map((s) => (
-                        <option key={s} value={s} disabled={s === "paid" && row.status !== "paid"}>
-                          {statusLabel(s)}
+                  <label className="block text-xs text-muted-foreground">
+                    {t("app.subcontractors.visit", "Visit (optional)")}
+                    <select className={`${inputClass} mt-1`} value={form.visitId} onChange={(e) => setForm({ ...form, visitId: e.target.value })}>
+                      <option value="">{t("app.subcontractors.noVisit", "Not tied to a visit")}</option>
+                      {visits.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {formatDate(v.scheduledAt)}
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <span className="text-xs font-semibold text-foreground">{statusLabel(row.status)}</span>
-                  )}
-                  {!row.restricted && (
-                    <p className="text-sm font-semibold text-foreground tabular-nums mt-1">
-                      {row.agreedAmount > 0 ? money(row.agreedAmount) : t("app.subcontractors.noAmountYet", "No amount yet")}
-                    </p>
-                  )}
-                  {!row.restricted && row.agreedAmount > 0 && (
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {row.remaining > 0
-                        ? t("app.subcontractors.paidOfAgreed", "{paid} paid, {remaining} to go", { paid: money(row.paid), remaining: money(row.remaining) })
-                        : row.remaining < 0
-                          ? t("app.subcontractors.overpaid", "Overpaid by {amount}", { amount: money(-row.remaining) })
-                          : t("app.subcontractors.paidInFull", "Paid in full")}
-                    </p>
-                  )}
+                  </label>
                 </div>
-              </div>
+                <input className={inputClass} placeholder={t("app.subcontractors.scopePlaceholder", "What they're doing (optional)")} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                <button type="submit" disabled={busyId === "new"} className="min-h-[44px] rounded-lg bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50">
+                  {t("app.subcontractors.putOnJob", "Put on this job")}
+                </button>
+              </>
+            )}
+          </form>
+        )}
 
-              {/* The sub's own invoices, when they are on FieldQuo and sent
-                  them to this company (lib/subcontractors/sourceLink.js). The
-                  amount above stays the approved figure; a bill that doesn't
-                  match it is said out loud here, never adopted silently. */}
-              {!row.restricted && row.bills?.length > 0 && (
-                <div className="text-xs space-y-0.5">
-                  {row.bills.map((b) => (
-                    <p key={b.id} className="text-muted-foreground tabular-nums">
-                      {t("app.subcontractors.billLine", "Their invoice {number} · {amount} · {date}", {
-                        number: b.invoiceNumber,
-                        amount: money(b.total),
-                        date: b.sentAt ? formatDate(b.sentAt) : "—",
-                      })}
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("app.subcontractors.noneOnJob", "No subcontractors on this job.")}</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {rows.map((row) => (
+              <li key={row.id} className="py-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link href={`/app/subcontractors/${row.subcontractor.id}`} className="block text-sm font-semibold text-foreground underline truncate">
+                      {row.subcontractor.name}
+                    </Link>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {[row.subcontractor.trade, row.description, row.visit ? formatDate(row.visit.scheduledAt) : null].filter(Boolean).join(" · ")}
                     </p>
-                  ))}
-                  {row.billing?.state === "differs" ? (
-                    <p className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
-                      {t("app.subcontractors.billDiffers", "Invoice {billed} differs from approved {approved}", {
-                        billed: money(row.billing.billed),
-                        approved: money(row.billing.approved),
-                      })}
-                    </p>
-                  ) : row.billing?.state === "matches" ? (
-                    <p className="text-muted-foreground">{t("app.subcontractors.billMatches", "Matches the approved amount")}</p>
-                  ) : null}
+                    {row.subcontractor.attention.state !== "ok" && (
+                      <ExpiryBadge
+                        state={row.subcontractor.attention.state}
+                        className="mt-1"
+                        label={
+                          row.subcontractor.attention.state === "unknown"
+                            ? t("app.subcontractors.paperworkUnknown", "Insurance not recorded")
+                            : row.subcontractor.attention.state === "expired"
+                              ? t("app.subcontractors.paperworkExpired", "Insurance or clearance expired")
+                              : t("app.subcontractors.paperworkSoon", "Insurance or clearance expiring")
+                        }
+                      />
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {canManage && canSeeMoney ? (
+                      <select
+                        value={row.status}
+                        disabled={busyId === row.id || row.status === "paid"}
+                        onChange={(e) => patch(row, { status: e.target.value })}
+                        aria-label={t("app.subcontractors.statusLabel", "Status")}
+                        className="border border-border rounded-lg px-2 py-1.5 text-xs font-semibold bg-card text-foreground min-h-[44px] disabled:opacity-70"
+                      >
+                        {JOB_SUBCONTRACTOR_STATUSES.map((s) => (
+                          <option key={s} value={s} disabled={s === "paid" && row.status !== "paid"}>
+                            {statusLabel(s)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs font-semibold text-foreground">{statusLabel(row.status)}</span>
+                    )}
+                    {!row.restricted && (
+                      <p className="text-sm font-semibold text-foreground tabular-nums mt-1">
+                        {row.agreedAmount > 0 ? money(row.agreedAmount) : t("app.subcontractors.noAmountYet", "No amount yet")}
+                      </p>
+                    )}
+                    {!row.restricted && row.agreedAmount > 0 && (
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {row.remaining > 0
+                          ? t("app.subcontractors.paidOfAgreed", "{paid} paid, {remaining} to go", { paid: money(row.paid), remaining: money(row.remaining) })
+                          : row.remaining < 0
+                            ? t("app.subcontractors.overpaid", "Overpaid by {amount}", { amount: money(-row.remaining) })
+                            : t("app.subcontractors.paidInFull", "Paid in full")}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              {canManage && (
-                <div className="flex flex-wrap items-center gap-3">
-                  {canSeeMoney && row.status !== "paid" && payingId !== row.id && (
-                    <button type="button" onClick={() => setPayingId(row.id)} className="text-xs font-semibold underline text-foreground min-h-[44px]">
-                      {t("app.subcontractors.recordPayment", "Record a payment")}
-                    </button>
-                  )}
-                  {canSeeMoney && row.status === "quoted" && (
-                    <button
-                      type="button"
-                      disabled={busyId === row.id}
-                      onClick={() => {
-                        const raw = window.prompt(t("app.subcontractors.agreedPrompt", "Agreed amount with this subcontractor:"), row.agreedAmount > 0 ? String(row.agreedAmount) : "");
-                        if (raw == null) return;
-                        patch(row, { agreedAmount: raw, status: "agreed" });
-                      }}
-                      className="text-xs font-semibold underline text-foreground min-h-[44px] disabled:opacity-50"
-                    >
-                      {t("app.subcontractors.setAgreed", "Set agreed amount")}
-                    </button>
-                  )}
-                  {!row.hasPayments && (
-                    <button type="button" disabled={busyId === row.id} onClick={() => remove(row)} className="text-xs underline text-muted-foreground min-h-[44px] disabled:opacity-50">
-                      {t("app.subcontractors.takeOff", "Take off this job")}
-                    </button>
-                  )}
-                </div>
-              )}
+                {/* The sub's own invoices, when they are on FieldQuo and sent
+                    them to this company (lib/subcontractors/sourceLink.js). The
+                    amount above stays the approved figure; a bill that doesn't
+                    match it is said out loud here, never adopted silently. */}
+                {!row.restricted && row.bills?.length > 0 && (
+                  <div className="text-xs space-y-0.5">
+                    {row.bills.map((b) => (
+                      <p key={b.id} className="text-muted-foreground tabular-nums">
+                        {t("app.subcontractors.billLine", "Their invoice {number} · {amount} · {date}", {
+                          number: b.invoiceNumber,
+                          amount: money(b.total),
+                          date: b.sentAt ? formatDate(b.sentAt) : "—",
+                        })}
+                      </p>
+                    ))}
+                    {row.billing?.state === "differs" ? (
+                      <p className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+                        {t("app.subcontractors.billDiffers", "Invoice {billed} differs from approved {approved}", {
+                          billed: money(row.billing.billed),
+                          approved: money(row.billing.approved),
+                        })}
+                      </p>
+                    ) : row.billing?.state === "matches" ? (
+                      <p className="text-muted-foreground">{t("app.subcontractors.billMatches", "Matches the approved amount")}</p>
+                    ) : null}
+                  </div>
+                )}
 
-              {payingId === row.id && (
-                <RecordPaymentForm
-                  subcontractorId={row.subcontractor.id}
-                  jobSubcontractorId={row.id}
-                  remaining={row.remaining}
-                  onSaved={() => {
-                    setPayingId(null);
-                    applied(null);
-                  }}
-                  onCancel={() => setPayingId(null)}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                {canManage && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {canSeeMoney && row.status !== "paid" && payingId !== row.id && (
+                      <button type="button" onClick={() => setPayingId(row.id)} className="text-xs font-semibold underline text-foreground min-h-[44px]">
+                        {t("app.subcontractors.recordPayment", "Record a payment")}
+                      </button>
+                    )}
+                    {canSeeMoney && row.status === "quoted" && (
+                      <button
+                        type="button"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          const raw = window.prompt(t("app.subcontractors.agreedPrompt", "Agreed amount with this subcontractor:"), row.agreedAmount > 0 ? String(row.agreedAmount) : "");
+                          if (raw == null) return;
+                          patch(row, { agreedAmount: raw, status: "agreed" });
+                        }}
+                        className="text-xs font-semibold underline text-foreground min-h-[44px] disabled:opacity-50"
+                      >
+                        {t("app.subcontractors.setAgreed", "Set agreed amount")}
+                      </button>
+                    )}
+                    {!row.hasPayments && (
+                      <button type="button" disabled={busyId === row.id} onClick={() => remove(row)} className="text-xs underline text-muted-foreground min-h-[44px] disabled:opacity-50">
+                        {t("app.subcontractors.takeOff", "Take off this job")}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {payingId === row.id && (
+                  <RecordPaymentForm
+                    subcontractorId={row.subcontractor.id}
+                    jobSubcontractorId={row.id}
+                    remaining={row.remaining}
+                    onSaved={() => {
+                      setPayingId(null);
+                      applied(null);
+                    }}
+                    onCancel={() => setPayingId(null)}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

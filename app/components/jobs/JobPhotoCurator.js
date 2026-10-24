@@ -51,10 +51,13 @@ import MediaUploader from "@/app/components/MediaUploader";
 import JobPhotoComments from "@/app/components/jobs/JobPhotoComments";
 import PhotoAnnotatorLoader from "@/app/components/photoAnnotator/PhotoAnnotatorLoader";
 import { displayPhotoUrl, isAnnotated } from "@/lib/jobs/photoAnnotation";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 
 export default function JobPhotoCurator({ jobId }) {
   const { t } = useTranslation();
+  // Above the loading return below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "photoCuration");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -144,8 +147,12 @@ export default function JobPhotoCurator({ jobId }) {
     <>
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1">
-        <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-          <ImageIcon size={15} /> {t("app.jobPhotos.title", { count: photos.length })}
+        <h2 className="min-w-0 flex-1 text-sm font-bold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <ImageIcon size={15} /> {t("app.jobPhotos.title", { count: photos.length })}
+            </span>
+          </JobSectionToggle>
         </h2>
         {canCurate && (
           <span className="text-xs text-muted-foreground">
@@ -153,92 +160,94 @@ export default function JobPhotoCurator({ jobId }) {
           </span>
         )}
       </div>
-      {canCurate ? (
-        <p className="text-xs text-muted-foreground mb-1">
-          {t("app.jobPhotos.starTip", "Tap the star to show a photo on your website. Start + finish of a job become a before/after.")}
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground mb-3">
-          {t("app.jobPhotos.crewTip", "Photos you add are filed to this job for the office. Comment on any photo to flag something.")}
-        </p>
-      )}
-      {canManageTags && (
-        <p className="text-xs text-muted-foreground mb-3">
-          <Link href="/app/settings/job-photo-tags" className="inline-flex items-center gap-1 underline hover:no-underline">
-            <Settings2 size={11} /> {t("app.jobPhotoTags.manage")}
-          </Link>
-        </p>
-      )}
-
-      {photos.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {photos.map((p) => (
-            <PhotoCard
-              key={p.id}
-              photo={p}
-              stages={stages}
-              tags={tags}
-              busy={busy === p.id}
-              canCurate={canCurate}
-              t={t}
-              onFeature={() => patch(p.id, { featured: !p.featured })}
-              onStage={(stage) => patch(p.id, { stage })}
-              onComment={() => setCommentingOn(p)}
-              onAnnotate={() => setAnnotating(p)}
-              onRemoveMarkup={() => patch(p.id, { clearAnnotation: true })}
-              onTags={(tagIds) => patch(p.id, { tagIds })}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          {t("app.jobPhotos.empty", "Nothing filed yet. Add photos here, or text them to your crew line and they land automatically.")}
-        </p>
-      )}
-
-      {/* ── The intake path ───────────────────────────────────────────────
-          Uploads through /api/upload, exactly like a quote's client photos —
-          one signed Cloudinary path shared by every surface rather than a
-          second one whose rules drift. The URL then gets filed against this
-          job by POST /api/jobs/[id]/photos, which is where the company scope
-          and the permission level are enforced — jobs:view_only, so this
-          works for Crew and Estimator too, not only view_create_edit. */}
-      <div className="mt-4 pt-4 border-t border-border">
-        <MediaUploader
-          uploadUrl="/api/upload" purpose="jobs"
-          value={[]}
-          max={12}
-          // The job's words, not the homeowner's: MediaUploader's default
-          // hint is the self-quote form's "helps us quote accurately".
-          label={t("app.jobPhotos.uploadLabel", "Add photos or a short clip")}
-          hint={t("app.jobPhotos.uploadHint", "Before, during and after shots of the work. They're filed to this job.")}
-          onChange={async (added) => {
-            const usable = (added || []).filter((m) => m?.url);
-            if (!usable.length) return;
-            const res = await fetch(`/api/jobs/${jobId}/photos`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                photos: usable.map((m) => ({ url: m.url, stage: "progress" })),
-              }),
-            });
-            if (!res.ok) {
-              await reportResponseError(res, "Couldn't file those photos against the job.");
-              return;
-            }
-            // Re-read rather than trusting what we just sent: the server decides
-            // the stage and the id, and a list built from the request would
-            // disagree with the one the next page load shows.
-            await load();
-          }}
-        />
-        {/* Changing the stage is curation (PATCH, view_create_edit); the
-            sentence inviting it is for the people who can. */}
-        {canCurate && (
-          <p className="text-[11px] text-muted-foreground/70 mt-2">
-            {t("app.jobPhotos.filedAsProgress", "Filed as “progress” — change the stage on any photo after it lands.")}
+      <div id={section.bodyId} hidden={!section.open}>
+        {canCurate ? (
+          <p className="text-xs text-muted-foreground mb-1">
+            {t("app.jobPhotos.starTip", "Tap the star to show a photo on your website. Start + finish of a job become a before/after.")}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground mb-3">
+            {t("app.jobPhotos.crewTip", "Photos you add are filed to this job for the office. Comment on any photo to flag something.")}
           </p>
         )}
+        {canManageTags && (
+          <p className="text-xs text-muted-foreground mb-3">
+            <Link href="/app/settings/job-photo-tags" className="inline-flex items-center gap-1 underline hover:no-underline">
+              <Settings2 size={11} /> {t("app.jobPhotoTags.manage")}
+            </Link>
+          </p>
+        )}
+
+        {photos.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {photos.map((p) => (
+              <PhotoCard
+                key={p.id}
+                photo={p}
+                stages={stages}
+                tags={tags}
+                busy={busy === p.id}
+                canCurate={canCurate}
+                t={t}
+                onFeature={() => patch(p.id, { featured: !p.featured })}
+                onStage={(stage) => patch(p.id, { stage })}
+                onComment={() => setCommentingOn(p)}
+                onAnnotate={() => setAnnotating(p)}
+                onRemoveMarkup={() => patch(p.id, { clearAnnotation: true })}
+                onTags={(tagIds) => patch(p.id, { tagIds })}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {t("app.jobPhotos.empty", "Nothing filed yet. Add photos here, or text them to your crew line and they land automatically.")}
+          </p>
+        )}
+
+        {/* ── The intake path ───────────────────────────────────────────────
+            Uploads through /api/upload, exactly like a quote's client photos —
+            one signed Cloudinary path shared by every surface rather than a
+            second one whose rules drift. The URL then gets filed against this
+            job by POST /api/jobs/[id]/photos, which is where the company scope
+            and the permission level are enforced — jobs:view_only, so this
+            works for Crew and Estimator too, not only view_create_edit. */}
+        <div className="mt-4 pt-4 border-t border-border">
+          <MediaUploader
+            uploadUrl="/api/upload" purpose="jobs"
+            value={[]}
+            max={12}
+            // The job's words, not the homeowner's: MediaUploader's default
+            // hint is the self-quote form's "helps us quote accurately".
+            label={t("app.jobPhotos.uploadLabel", "Add photos or a short clip")}
+            hint={t("app.jobPhotos.uploadHint", "Before, during and after shots of the work. They're filed to this job.")}
+            onChange={async (added) => {
+              const usable = (added || []).filter((m) => m?.url);
+              if (!usable.length) return;
+              const res = await fetch(`/api/jobs/${jobId}/photos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  photos: usable.map((m) => ({ url: m.url, stage: "progress" })),
+                }),
+              });
+              if (!res.ok) {
+                await reportResponseError(res, "Couldn't file those photos against the job.");
+                return;
+              }
+              // Re-read rather than trusting what we just sent: the server decides
+              // the stage and the id, and a list built from the request would
+              // disagree with the one the next page load shows.
+              await load();
+            }}
+          />
+          {/* Changing the stage is curation (PATCH, view_create_edit); the
+              sentence inviting it is for the people who can. */}
+          {canCurate && (
+            <p className="text-[11px] text-muted-foreground/70 mt-2">
+              {t("app.jobPhotos.filedAsProgress", "Filed as “progress” — change the stage on any photo after it lands.")}
+            </p>
+          )}
+        </div>
       </div>
 
       {commentingOn && (

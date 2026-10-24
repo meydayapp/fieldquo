@@ -50,6 +50,7 @@ import { MATERIAL_LIST_CENTS } from "@/lib/ai/imageEconomics";
 import { MATERIAL_GROUP_LABEL_KEYS, groupRows } from "@/lib/materials/list";
 import { PURCHASING_CATEGORY, PURCHASING_LEVEL } from "@/lib/purchasing/access";
 import { AiCreditTopupDialog, useAiCreditTopup } from "@/app/components/ai/AiCreditTopupDialog";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 const inputClass =
   "w-full border border-border rounded px-2 py-1 text-sm bg-background";
@@ -70,6 +71,8 @@ const GROUP_FALLBACK = {
 };
 
 export default function JobMaterials({ jobId }) {
+  // Above the loading return further down — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "materials");
   const money = useCompanyMoney();
   const { t, language } = useTranslation();
   // The same question the route asks, asked of the same grid. Every write here
@@ -165,6 +168,7 @@ export default function JobMaterials({ jobId }) {
   }
 
   async function build() {
+    section.expand();
     setBuildNote("");
     setError("");
     setBuilding(true);
@@ -314,23 +318,30 @@ export default function JobMaterials({ jobId }) {
   return (
     <div id="job-materials" className="bg-card border border-border rounded-xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">
-          {t("app.jobMaterials.title", "Materials to buy")}
-          {p?.total > 0 && (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {t("app.materialList.summary", "{total} lines · {bought} bought · {short} short in stock", {
-                total: p.total,
-                bought: p.bought,
-                short: shortCount,
-              })}
+        <h2 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="min-w-0">
+              {t("app.jobMaterials.title", "Materials to buy")}
+              {p?.total > 0 && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {t("app.materialList.summary", "{total} lines · {bought} bought · {short} short in stock", {
+                    total: p.total,
+                    bought: p.bought,
+                    short: shortCount,
+                  })}
+                </span>
+              )}
             </span>
-          )}
+          </JobSectionToggle>
         </h2>
         {canEdit && (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => send("POST", { regenerate: true })}
+              onClick={() => {
+                section.expand();
+                send("POST", { regenerate: true });
+              }}
               className="flex items-center gap-1 rounded border border-transparent px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <RefreshCw size={12} />
@@ -352,237 +363,243 @@ export default function JobMaterials({ jobId }) {
         )}
       </div>
 
-      {/* The banner: what the build reads, which model, what it costs, what
-          the balance is, when it last ran and by whom. Every figure is read
-          back — the price from the one constant, the balance from the wallet,
-          the model from the job row the build wrote. Mirrors the deep photo
-          read's wording so the two paid features read as one product. */}
-      {canEdit && (
-        <div className="mt-3 border border-border border-l-[3px] border-l-brand-accent bg-muted px-3 py-2 text-xs text-muted-foreground">
-          <b className="text-foreground">{t("app.materialList.bannerWho", "FieldQuo AI")}</b>{" "}
-          {t("app.materialList.bannerWhat", "reads the approved lines, the takeoff, your Material Costs rates and what is on the shelf, and lists everything the job consumes — grouped, with a reason per line.")}{" "}
-          {built?.model && (
-            <>
-              {t("app.materialList.bannerModel", "Model:")} <b className="text-foreground">{built.model}</b> ·{" "}
-            </>
-          )}
-          {t("app.materialList.bannerCost", "Costs {price} of AI credit each time it runs, separate from your phone balance.", { price })}
-          {balance && (
-            <>
-              {" "}
-              {t("app.materialList.bannerBalance", "Balance {balance}.", { balance })}
-            </>
-          )}
-          {built?.at && (
-            <>
-              {" "}
-              {t("app.materialList.bannerLast", "Last built {date} {time}{by}.", {
-                date: formatShortDate(built.at, language),
-                time: formatTimeOfDay(built.at, language),
-                by: built.by ? ` ${t("app.materialList.bannerBy", "by {name}", { name: built.by })}` : "",
-              })}
-            </>
-          )}{" "}
-          {t("app.materialList.bannerCheck", "Quantities are estimates — check them before you order.")}
-        </div>
-      )}
-      {buildNote && <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{buildNote}</p>}
-
-      {materials.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          {canEdit
-            ? t("app.materialList.emptyEdit", "Nothing here yet. Build the material list for the complete list — the paint from your rates plus the tape, plastic, caulk and sundries — or Rebuild from the quote for the takeoff's own lines, or add a line by hand.")
-            : t("app.jobMaterials.emptyView", "Nothing here yet. Whoever priced this job can build the list from the quote.")}
-        </p>
-      ) : (
-        <div className="mt-3">
-          {groups.map((g) => (
-            <div key={g.group}>
-              <div className="mt-2 bg-muted px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t(MATERIAL_GROUP_LABEL_KEYS[g.group], GROUP_FALLBACK[g.group])}
-              </div>
-              <ul className="divide-y divide-border">
-                {g.rows.map((m) => (
-                  <MaterialRow
-                    key={m.id}
-                    m={m}
-                    t={t}
-                    money={money}
-                    canEdit={canEdit}
-                    ownTickMode={!canEdit && data?.tick === "own"}
-                    onOwnTick={() => ownTick(m)}
-                    canOrder={canOrder}
-                    busy={busyId === m.id}
-                    isOpen={expanded === m.id}
-                    draft={draft}
-                    setDraft={setDraft}
-                    usedEdit={usedEdit}
-                    setUsedEdit={setUsedEdit}
-                    qtyEdit={qtyEdit}
-                    setQtyEdit={setQtyEdit}
-                    scanning={scanning}
-                    setScanning={setScanning}
-                    onOpen={() => open(m)}
-                    onToggle={() => toggle(m)}
-                    onCancel={() => {
-                      setExpanded(null);
-                      setScanning(null);
-                    }}
-                    onSaveUsed={() => saveUsed(m)}
-                    onSaveQty={() => saveQty(m)}
-                    onRemove={() => send("DELETE", null, `?materialId=${encodeURIComponent(m.id)}`)}
-                    onShop={() => addToShoppingList([m.id])}
-                    ordering={ordering}
-                  />
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* `costHidden` means the server removed the two money totals. Rendering
-          the block anyway would print "Estimated $0.00" — money(undefined) is
-          $0.00 — which claims the job's materials cost nothing. A withheld
-          figure and a zero are different statements, and the zero is the more
-          dangerous of the two. */}
-      {p?.total > 0 && !p.costHidden && (
-        <div className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
-          <div className="flex justify-between">
-            <span>{t("app.jobMaterials.estimated", "Estimated")}</span>
-            <span className="tabular-nums">{money(p.estimatedTotal)}</span>
+      {/* AiCreditTopupDialog stays below, outside the fold — it is opened by
+          the Build button in the header and a dialog in a hidden div is no
+          dialog. Build and Rebuild expand the card first, for the same
+          reason: a result written under a fold is a button that did nothing. */}
+      <div id={section.bodyId} hidden={!section.open}>
+        {/* The banner: what the build reads, which model, what it costs, what
+            the balance is, when it last ran and by whom. Every figure is read
+            back — the price from the one constant, the balance from the wallet,
+            the model from the job row the build wrote. Mirrors the deep photo
+            read's wording so the two paid features read as one product. */}
+        {canEdit && (
+          <div className="mt-3 border border-border border-l-[3px] border-l-brand-accent bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <b className="text-foreground">{t("app.materialList.bannerWho", "FieldQuo AI")}</b>{" "}
+            {t("app.materialList.bannerWhat", "reads the approved lines, the takeoff, your Material Costs rates and what is on the shelf, and lists everything the job consumes — grouped, with a reason per line.")}{" "}
+            {built?.model && (
+              <>
+                {t("app.materialList.bannerModel", "Model:")} <b className="text-foreground">{built.model}</b> ·{" "}
+              </>
+            )}
+            {t("app.materialList.bannerCost", "Costs {price} of AI credit each time it runs, separate from your phone balance.", { price })}
+            {balance && (
+              <>
+                {" "}
+                {t("app.materialList.bannerBalance", "Balance {balance}.", { balance })}
+              </>
+            )}
+            {built?.at && (
+              <>
+                {" "}
+                {t("app.materialList.bannerLast", "Last built {date} {time}{by}.", {
+                  date: formatShortDate(built.at, language),
+                  time: formatTimeOfDay(built.at, language),
+                  by: built.by ? ` ${t("app.materialList.bannerBy", "by {name}", { name: built.by })}` : "",
+                })}
+              </>
+            )}{" "}
+            {t("app.materialList.bannerCheck", "Quantities are estimates — check them before you order.")}
           </div>
-          {p.actualTotal > 0 && (
-            <div className="flex justify-between text-foreground">
-              <span>{t("app.jobMaterials.actualSoFar", "Actually paid, so far")}</span>
-              <span className="tabular-nums">{money(p.actualTotal)}</span>
-            </div>
-          )}
-          {p.unpriced > 0 && (
-            <p className="mt-1 text-amber-700 dark:text-amber-400">
-              {t("app.materialList.unpriced", "{count} lines have no price, so the estimate above is an understatement. Enter what you pay as you tick them off and it builds your own price history.", { count: p.unpriced })}
-            </p>
-          )}
-        </div>
-      )}
+        )}
+        {buildNote && <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{buildNote}</p>}
 
-      {/* The foot: what is short, and the things to do about the list.
-          "Send to supplier" is deliberately absent — there is no supplier
-          email path in the product yet, and a button that set a status and
-          emailed nobody is the first example in AGENTS.md. */}
-      {materials.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-          <p className="text-xs text-muted-foreground">
-            {shortCount > 0
-              ? t("app.materialList.shortNote", "Shopping list: {count} lines short. Lines you remove stay removed on the next build.", { count: shortCount })
-              : t("app.materialList.nothingShort", "Nothing tracked is short. Lines you remove stay removed on the next build.")}
+        {materials.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {canEdit
+              ? t("app.materialList.emptyEdit", "Nothing here yet. Build the material list for the complete list — the paint from your rates plus the tape, plastic, caulk and sundries — or Rebuild from the quote for the takeoff's own lines, or add a line by hand.")
+              : t("app.jobMaterials.emptyView", "Nothing here yet. Whoever priced this job can build the list from the quote.")}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {canEdit && !adding && (
-              <button
-                type="button"
-                onClick={() => setAdding(true)}
+        ) : (
+          <div className="mt-3">
+            {groups.map((g) => (
+              <div key={g.group}>
+                <div className="mt-2 bg-muted px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t(MATERIAL_GROUP_LABEL_KEYS[g.group], GROUP_FALLBACK[g.group])}
+                </div>
+                <ul className="divide-y divide-border">
+                  {g.rows.map((m) => (
+                    <MaterialRow
+                      key={m.id}
+                      m={m}
+                      t={t}
+                      money={money}
+                      canEdit={canEdit}
+                      ownTickMode={!canEdit && data?.tick === "own"}
+                      onOwnTick={() => ownTick(m)}
+                      canOrder={canOrder}
+                      busy={busyId === m.id}
+                      isOpen={expanded === m.id}
+                      draft={draft}
+                      setDraft={setDraft}
+                      usedEdit={usedEdit}
+                      setUsedEdit={setUsedEdit}
+                      qtyEdit={qtyEdit}
+                      setQtyEdit={setQtyEdit}
+                      scanning={scanning}
+                      setScanning={setScanning}
+                      onOpen={() => open(m)}
+                      onToggle={() => toggle(m)}
+                      onCancel={() => {
+                        setExpanded(null);
+                        setScanning(null);
+                      }}
+                      onSaveUsed={() => saveUsed(m)}
+                      onSaveQty={() => saveQty(m)}
+                      onRemove={() => send("DELETE", null, `?materialId=${encodeURIComponent(m.id)}`)}
+                      onShop={() => addToShoppingList([m.id])}
+                      ordering={ordering}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* `costHidden` means the server removed the two money totals. Rendering
+            the block anyway would print "Estimated $0.00" — money(undefined) is
+            $0.00 — which claims the job's materials cost nothing. A withheld
+            figure and a zero are different statements, and the zero is the more
+            dangerous of the two. */}
+        {p?.total > 0 && !p.costHidden && (
+          <div className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
+            <div className="flex justify-between">
+              <span>{t("app.jobMaterials.estimated", "Estimated")}</span>
+              <span className="tabular-nums">{money(p.estimatedTotal)}</span>
+            </div>
+            {p.actualTotal > 0 && (
+              <div className="flex justify-between text-foreground">
+                <span>{t("app.jobMaterials.actualSoFar", "Actually paid, so far")}</span>
+                <span className="tabular-nums">{money(p.actualTotal)}</span>
+              </div>
+            )}
+            {p.unpriced > 0 && (
+              <p className="mt-1 text-amber-700 dark:text-amber-400">
+                {t("app.materialList.unpriced", "{count} lines have no price, so the estimate above is an understatement. Enter what you pay as you tick them off and it builds your own price history.", { count: p.unpriced })}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* The foot: what is short, and the things to do about the list.
+            "Send to supplier" is deliberately absent — there is no supplier
+            email path in the product yet, and a button that set a status and
+            emailed nobody is the first example in AGENTS.md. */}
+        {materials.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">
+              {shortCount > 0
+                ? t("app.materialList.shortNote", "Shopping list: {count} lines short. Lines you remove stay removed on the next build.", { count: shortCount })
+                : t("app.materialList.nothingShort", "Nothing tracked is short. Lines you remove stay removed on the next build.")}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {canEdit && !adding && (
+                <button
+                  type="button"
+                  onClick={() => setAdding(true)}
+                  className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs font-semibold text-foreground min-h-[36px]"
+                >
+                  <Plus size={13} /> {t("app.jobMaterials.addLine", "Add a line")}
+                </button>
+              )}
+              <a
+                href={`/api/jobs/${jobId}/materials/print`}
+                target="_blank"
+                rel="noopener"
                 className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs font-semibold text-foreground min-h-[36px]"
               >
-                <Plus size={13} /> {t("app.jobMaterials.addLine", "Add a line")}
-              </button>
-            )}
-            <a
-              href={`/api/jobs/${jobId}/materials/print`}
-              target="_blank"
-              rel="noopener"
-              className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs font-semibold text-foreground min-h-[36px]"
-            >
-              <Printer size={13} /> {t("app.materialList.print", "Print list")}
-            </a>
-            {canOrder && shortCount > 0 && (
-              <button
-                type="button"
-                onClick={() => addToShoppingList(null)}
-                disabled={ordering}
-                className="flex items-center gap-1 rounded bg-foreground px-2.5 py-1 text-xs font-semibold text-background disabled:opacity-60 min-h-[36px]"
-              >
-                {ordering ? <Loader2 size={13} className="animate-spin" /> : <ShoppingCart size={13} />}
-                {t("app.materialList.addAllShort", "Add short lines to shopping list")}
-              </button>
-            )}
+                <Printer size={13} /> {t("app.materialList.print", "Print list")}
+              </a>
+              {canOrder && shortCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => addToShoppingList(null)}
+                  disabled={ordering}
+                  className="flex items-center gap-1 rounded bg-foreground px-2.5 py-1 text-xs font-semibold text-background disabled:opacity-60 min-h-[36px]"
+                >
+                  {ordering ? <Loader2 size={13} className="animate-spin" /> : <ShoppingCart size={13} />}
+                  {t("app.materialList.addAllShort", "Add short lines to shopping list")}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-      {orderNote && (
-        <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
-          {orderNote}{" "}
-          <Link href="/app/purchasing" className="underline">
-            {t("app.materialList.openPurchasing", "Open Purchasing")}
+        )}
+        {orderNote && (
+          <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
+            {orderNote}{" "}
+            <Link href="/app/purchasing" className="underline">
+              {t("app.materialList.openPurchasing", "Open Purchasing")}
+            </Link>
+          </p>
+        )}
+
+        {adding && canEdit && (
+          <form
+            className="mt-3 flex flex-wrap items-end gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newLine.name.trim()) return;
+              const ok = await send("POST", newLine);
+              if (ok) {
+                setNewLine({ name: "", qty: 1, unit: "each" });
+                setAdding(false);
+              }
+            }}
+          >
+            <input
+              autoFocus
+              value={newLine.name}
+              onChange={(e) =>
+                setNewLine((n) => ({ ...n, name: e.target.value }))
+              }
+              placeholder={t("app.jobMaterials.addPlaceholder", "What else does this job need?")}
+              className={`${inputClass} flex-1 min-w-[12rem]`}
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={newLine.qty}
+              onChange={(e) => setNewLine((n) => ({ ...n, qty: e.target.value }))}
+              className={`${inputClass} w-20`}
+            />
+            <input
+              value={newLine.unit}
+              onChange={(e) =>
+                setNewLine((n) => ({ ...n, unit: e.target.value }))
+              }
+              className={`${inputClass} w-24`}
+            />
+            <button
+              type="submit"
+              className="rounded bg-foreground px-3 py-1 text-xs font-medium text-background"
+            >
+              {t("app.action.add", "Add")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(false)}
+              className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {t("app.action.cancel", "Cancel")}
+            </button>
+          </form>
+        )}
+
+        {/* The crew's way in to purchasing: a request from the field for this
+            job, on their phone — see app/app/me/supplies. Offered to everyone
+            who can see the job; the request route scopes to assigned jobs. */}
+        <p className="mt-3 text-xs text-muted-foreground">
+          <Link href={`/app/me/supplies?jobId=${encodeURIComponent(jobId)}`} className="underline">
+            {t("app.supplies.requestFromJob", "Short of something on site? Request a supply")}
           </Link>
         </p>
-      )}
 
-      {adding && canEdit && (
-        <form
-          className="mt-3 flex flex-wrap items-end gap-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!newLine.name.trim()) return;
-            const ok = await send("POST", newLine);
-            if (ok) {
-              setNewLine({ name: "", qty: 1, unit: "each" });
-              setAdding(false);
-            }
-          }}
-        >
-          <input
-            autoFocus
-            value={newLine.name}
-            onChange={(e) =>
-              setNewLine((n) => ({ ...n, name: e.target.value }))
-            }
-            placeholder={t("app.jobMaterials.addPlaceholder", "What else does this job need?")}
-            className={`${inputClass} flex-1 min-w-[12rem]`}
-          />
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={newLine.qty}
-            onChange={(e) => setNewLine((n) => ({ ...n, qty: e.target.value }))}
-            className={`${inputClass} w-20`}
-          />
-          <input
-            value={newLine.unit}
-            onChange={(e) =>
-              setNewLine((n) => ({ ...n, unit: e.target.value }))
-            }
-            className={`${inputClass} w-24`}
-          />
-          <button
-            type="submit"
-            className="rounded bg-foreground px-3 py-1 text-xs font-medium text-background"
-          >
-            {t("app.action.add", "Add")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdding(false)}
-            className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            {t("app.action.cancel", "Cancel")}
-          </button>
-        </form>
-      )}
-
-      {/* The crew's way in to purchasing: a request from the field for this
-          job, on their phone — see app/app/me/supplies. Offered to everyone
-          who can see the job; the request route scopes to assigned jobs. */}
-      <p className="mt-3 text-xs text-muted-foreground">
-        <Link href={`/app/me/supplies?jobId=${encodeURIComponent(jobId)}`} className="underline">
-          {t("app.supplies.requestFromJob", "Short of something on site? Request a supply")}
-        </Link>
-      </p>
-
-      {error && (
-        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
-      )}
+        {error && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
 
       <AiCreditTopupDialog {...topup.dialogProps} />
     </div>
