@@ -43,6 +43,7 @@ import {
   formatSelectionLine,
   isBlankSelection,
 } from "@/lib/jobs/selections";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 const EDITABLE = ["templateKey", "area", "product", "colourName", "colourCode", "finish", "coats", "notes", "swatchUrl"];
 
@@ -54,6 +55,8 @@ function draftFrom(row, templateKey) {
 
 export default function JobSelections({ jobId }) {
   const { t } = useTranslation();
+  // Above the loading/error returns below — see scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "selections");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -254,16 +257,24 @@ export default function JobSelections({ jobId }) {
   return (
     <div id="job-selections" className="bg-card border border-border rounded-xl p-5" data-job-selections>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Palette size={15} className="text-muted-foreground" />
-          {t("app.selections.title", "Colours & materials")}
+        <h2 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Palette size={15} className="text-muted-foreground" />
+              {t("app.selections.title", "Colours & materials")}
+            </span>
+          </JobSectionToggle>
         </h2>
         {canEdit && !editing && (
           <div className="flex flex-wrap gap-2">
             {data?.hasQuote && (
               <button
                 type="button"
-                onClick={pull}
+                onClick={() => {
+                  // Both header buttons write rows that land under the fold.
+                  section.expand();
+                  pull();
+                }}
                 disabled={busy}
                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium border border-border rounded-lg text-foreground hover:bg-muted disabled:opacity-50"
               >
@@ -272,7 +283,10 @@ export default function JobSelections({ jobId }) {
             )}
             <button
               type="button"
-              onClick={() => setEditing({ id: "new", draft: draftFrom(null, defaultTemplate) })}
+              onClick={() => {
+                section.expand();
+                setEditing({ id: "new", draft: draftFrom(null, defaultTemplate) });
+              }}
               disabled={busy}
               className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
             >
@@ -282,68 +296,70 @@ export default function JobSelections({ jobId }) {
         )}
       </div>
 
-      {notice && <p className="mt-2 text-xs text-muted-foreground" role="status">{notice}</p>}
-      {error && <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>}
+      <div id={section.bodyId} hidden={!section.open}>
+        {notice && <p className="mt-2 text-xs text-muted-foreground" role="status">{notice}</p>}
+        {error && <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>}
 
-      {rows.length === 0 && !editing && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          {canEdit
-            ? data?.hasQuote
-              ? t("app.selections.emptyEditQuote", "No colours recorded yet. Add one, or pull them from the quote.")
-              : t("app.selections.emptyEdit", "No colours recorded yet.")
-            : t("app.selections.emptyRead", "No colours recorded for this job.")}
-        </p>
-      )}
+        {rows.length === 0 && !editing && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {canEdit
+              ? data?.hasQuote
+                ? t("app.selections.emptyEditQuote", "No colours recorded yet. Add one, or pull them from the quote.")
+                : t("app.selections.emptyEdit", "No colours recorded yet.")
+              : t("app.selections.emptyRead", "No colours recorded for this job.")}
+          </p>
+        )}
 
-      <ul className="mt-3 space-y-2">
-        {rows.map((row, i) => {
-          if (editing?.id === row.id) return <li key={row.id}>{editor(row.id)}</li>;
-          const { line, notes } = formatSelectionLine(row, { coatsText });
-          return (
-            <li key={row.id} className="flex items-start gap-3" data-selection-row={row.id}>
-              {row.swatchUrl ? (
-                <a href={row.swatchUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={row.swatchUrl} alt={t("app.selections.swatch", "Swatch photo")} className="h-9 w-9 rounded object-cover border border-border" />
-                </a>
-              ) : null}
-              <div className="min-w-0 flex-1">
-                <div className="text-sm text-foreground break-words">{line}</div>
-                {notes && <div className="text-xs text-muted-foreground whitespace-pre-line break-words">{notes}</div>}
-              </div>
-              {canEdit && !editing && (
-                confirmRemove === row.id ? (
-                  <span className="flex shrink-0 items-center gap-2 text-xs">
-                    <span className="text-muted-foreground">{t("app.selections.removeConfirm", "Remove this row?")}</span>
-                    <button type="button" onClick={() => remove(row.id)} disabled={busy} className="font-medium text-destructive hover:underline">
-                      {t("app.selections.removeYes", "Remove")}
-                    </button>
-                    <button type="button" onClick={() => setConfirmRemove(null)} className="text-muted-foreground hover:underline">
-                      {t("app.selections.cancel", "Cancel")}
-                    </button>
-                  </span>
-                ) : (
-                  <span className="flex shrink-0 items-center gap-0.5">
-                    <button type="button" onClick={() => move(i, -1)} disabled={busy || i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label={t("app.selections.moveUp", "Move up")}>
-                      <ArrowUp size={14} />
-                    </button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={busy || i === rows.length - 1} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label={t("app.selections.moveDown", "Move down")}>
-                      <ArrowDown size={14} />
-                    </button>
-                    <button type="button" onClick={() => setEditing({ id: row.id, draft: draftFrom(row, defaultTemplate) })} className="p-1 text-muted-foreground hover:text-foreground" aria-label={t("app.selections.edit", "Edit")}>
-                      <Pencil size={14} />
-                    </button>
-                    <button type="button" onClick={() => setConfirmRemove(row.id)} className="p-1 text-muted-foreground hover:text-destructive" aria-label={t("app.selections.removeYes", "Remove")}>
-                      <Trash2 size={14} />
-                    </button>
-                  </span>
-                )
-              )}
-            </li>
-          );
-        })}
-        {editing?.id === "new" && <li>{editor("new")}</li>}
-      </ul>
+        <ul className="mt-3 space-y-2">
+          {rows.map((row, i) => {
+            if (editing?.id === row.id) return <li key={row.id}>{editor(row.id)}</li>;
+            const { line, notes } = formatSelectionLine(row, { coatsText });
+            return (
+              <li key={row.id} className="flex items-start gap-3" data-selection-row={row.id}>
+                {row.swatchUrl ? (
+                  <a href={row.swatchUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={row.swatchUrl} alt={t("app.selections.swatch", "Swatch photo")} className="h-9 w-9 rounded object-cover border border-border" />
+                  </a>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-foreground break-words">{line}</div>
+                  {notes && <div className="text-xs text-muted-foreground whitespace-pre-line break-words">{notes}</div>}
+                </div>
+                {canEdit && !editing && (
+                  confirmRemove === row.id ? (
+                    <span className="flex shrink-0 items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">{t("app.selections.removeConfirm", "Remove this row?")}</span>
+                      <button type="button" onClick={() => remove(row.id)} disabled={busy} className="font-medium text-destructive hover:underline">
+                        {t("app.selections.removeYes", "Remove")}
+                      </button>
+                      <button type="button" onClick={() => setConfirmRemove(null)} className="text-muted-foreground hover:underline">
+                        {t("app.selections.cancel", "Cancel")}
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      <button type="button" onClick={() => move(i, -1)} disabled={busy || i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label={t("app.selections.moveUp", "Move up")}>
+                        <ArrowUp size={14} />
+                      </button>
+                      <button type="button" onClick={() => move(i, 1)} disabled={busy || i === rows.length - 1} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label={t("app.selections.moveDown", "Move down")}>
+                        <ArrowDown size={14} />
+                      </button>
+                      <button type="button" onClick={() => setEditing({ id: row.id, draft: draftFrom(row, defaultTemplate) })} className="p-1 text-muted-foreground hover:text-foreground" aria-label={t("app.selections.edit", "Edit")}>
+                        <Pencil size={14} />
+                      </button>
+                      <button type="button" onClick={() => setConfirmRemove(row.id)} className="p-1 text-muted-foreground hover:text-destructive" aria-label={t("app.selections.removeYes", "Remove")}>
+                        <Trash2 size={14} />
+                      </button>
+                    </span>
+                  )
+                )}
+              </li>
+            );
+          })}
+          {editing?.id === "new" && <li>{editor("new")}</li>}
+        </ul>
+      </div>
     </div>
   );
 }

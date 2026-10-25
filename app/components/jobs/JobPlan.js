@@ -52,6 +52,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { reportResponseError } from "@/lib/clientErrors";
 import { useSession } from "@/lib/auth-client";
 import { crewDayLanes, dayOf } from "@/lib/jobs/plan";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 const hours = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : `${Number(v).toFixed(1)} h`);
 
@@ -64,6 +65,10 @@ const PILL = {
 };
 
 export default function JobPlan({ jobId, onChanged }) {
+  // Two cards, two keys. Above the failed/loading returns below, where every
+  // hook on this page has to sit (scripts/check-job-page-hooks.mjs).
+  const planSection = useJobSection(jobId, "plan");
+  const daySection = useJobSection(jobId, "planDay");
   // PATCH /api/tasks/[id] lets a member move a step that is theirs or
   // unassigned; anyone else's needs task:create (the plan payload's
   // `canCreate`). Asked per step below so a colleague's step is not offered
@@ -214,24 +219,37 @@ export default function JobPlan({ jobId, onChanged }) {
     <>
       <div className="bg-card border border-border rounded-xl p-5" data-tour="job-plan">
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <h2 className="font-semibold text-foreground flex items-center gap-2 flex-wrap">
-            <ListOrdered size={15} className="text-muted-foreground" />
-            {t("app.jobPlan.title", "Job plan")}
-            {steps.length > 0 && (
-              <span className="text-xs font-normal text-muted-foreground">
-                {t("app.jobPlan.summary", "{count} steps · {done} done · {estimated} estimated · {clocked} clocked", {
-                  count: summary.count,
-                  done: summary.done,
-                  estimated: hours(summary.estimatedHours),
-                  clocked: hours(summary.clockedHours),
-                })}
+          <h2 className="min-w-0 flex-1 font-semibold text-foreground">
+            <JobSectionToggle section={planSection}>
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
+                <ListOrdered size={15} className="text-muted-foreground" />
+                {t("app.jobPlan.title", "Job plan")}
+                {steps.length > 0 && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {t("app.jobPlan.summary", "{count} steps · {done} done · {estimated} estimated · {clocked} clocked", {
+                      count: summary.count,
+                      done: summary.done,
+                      estimated: hours(summary.estimatedHours),
+                      clocked: hours(summary.clockedHours),
+                    })}
+                  </span>
+                )}
               </span>
-            )}
+            </JobSectionToggle>
           </h2>
           {canEdit && (
             <div className="flex gap-2 flex-wrap">
               {steps.length > 1 && !reordering && (
-                <button type="button" onClick={startReorder} className="border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Reorder and Add a step are in the header; the handles and
+                    // the form they open are under the fold.
+                    planSection.expand();
+                    startReorder();
+                  }}
+                  className="border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+                >
                   {t("app.jobPlan.reorder", "Reorder")}
                 </button>
               )}
@@ -246,7 +264,14 @@ export default function JobPlan({ jobId, onChanged }) {
                 </>
               )}
               {canCreate && !adding && !reordering && (
-                <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-1.5 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    planSection.expand();
+                    setAdding(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-1.5 rounded-lg"
+                >
                   <Plus size={13} />
                   {t("app.jobPlan.addStep", "Add a step")}
                 </button>
@@ -255,127 +280,133 @@ export default function JobPlan({ jobId, onChanged }) {
           )}
         </div>
 
-        {steps.length > 0 && job.quoteNumber && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("app.jobPlan.builtFrom", "Built from the {lines} approved lines and {options} ticked options on {quote}{when}. Edit anything; a step you add by hand survives a rebuild.", {
-              lines: fromQuote,
-              options,
-              quote: job.quoteNumber,
-              when: job.acceptedAt && job.clientName ? ` ${t("app.jobPlan.whenApproved", "when {client} approved it on {date}", { client: job.clientName, date: formatDate(job.acceptedAt) })}` : "",
-            })}
-          </p>
-        )}
+        <div id={planSection.bodyId} hidden={!planSection.open}>
+          {steps.length > 0 && job.quoteNumber && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("app.jobPlan.builtFrom", "Built from the {lines} approved lines and {options} ticked options on {quote}{when}. Edit anything; a step you add by hand survives a rebuild.", {
+                lines: fromQuote,
+                options,
+                quote: job.quoteNumber,
+                when: job.acceptedAt && job.clientName ? ` ${t("app.jobPlan.whenApproved", "when {client} approved it on {date}", { client: job.clientName, date: formatDate(job.acceptedAt) })}` : "",
+              })}
+            </p>
+          )}
 
-        {error && (
-          <div className="mt-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 flex items-start gap-2">
-            <AlertCircle size={14} className="shrink-0 mt-0.5" />
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="mt-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 flex items-start gap-2">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
 
-        {steps.length === 0 && (
-          <div className="mt-3 text-sm text-muted-foreground">
-            <p>{t("app.jobPlan.empty", "No plan yet.")}</p>
-            {canEdit && job.quoteNumber && (
-              <button type="button" disabled={busy === "rebuild"} onClick={() => act("rebuild", { action: "rebuild" })} className="mt-2 inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted text-foreground disabled:opacity-60">
-                {busy === "rebuild" ? <Loader2 size={13} className="animate-spin" /> : <Hammer size={13} />}
-                {t("app.jobPlan.buildFromQuote", "Build from {quote}", { quote: job.quoteNumber })}
-              </button>
-            )}
-          </div>
-        )}
+          {steps.length === 0 && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              <p>{t("app.jobPlan.empty", "No plan yet.")}</p>
+              {canEdit && job.quoteNumber && (
+                <button type="button" disabled={busy === "rebuild"} onClick={() => act("rebuild", { action: "rebuild" })} className="mt-2 inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted text-foreground disabled:opacity-60">
+                  {busy === "rebuild" ? <Loader2 size={13} className="animate-spin" /> : <Hammer size={13} />}
+                  {t("app.jobPlan.buildFromQuote", "Build from {quote}", { quote: job.quoteNumber })}
+                </button>
+              )}
+            </div>
+          )}
 
-        {adding && (
-          <StepForm
-            t={t}
-            members={members}
-            steps={steps}
-            canAssign={canAssign}
-            busy={busy === "add"}
-            onCancel={() => setAdding(false)}
-            onSubmit={async (values) => {
-              setBusy("add");
-              setError("");
-              try {
-                const res = await fetch("/api/tasks", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ ...values, jobId, planStep: true }),
-                });
-                if (!res.ok) {
-                  const message = await reportResponseError(res, t("app.jobPlan.updateFailed", "Couldn't update that step."));
-                  setError(message || t("app.jobPlan.updateFailed", "Couldn't update that step."));
-                  return;
+          {adding && (
+            <StepForm
+              t={t}
+              members={members}
+              steps={steps}
+              canAssign={canAssign}
+              busy={busy === "add"}
+              onCancel={() => setAdding(false)}
+              onSubmit={async (values) => {
+                setBusy("add");
+                setError("");
+                try {
+                  const res = await fetch("/api/tasks", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...values, jobId, planStep: true }),
+                  });
+                  if (!res.ok) {
+                    const message = await reportResponseError(res, t("app.jobPlan.updateFailed", "Couldn't update that step."));
+                    setError(message || t("app.jobPlan.updateFailed", "Couldn't update that step."));
+                    return;
+                  }
+                  setAdding(false);
+                  await load();
+                  onChanged?.();
+                } finally {
+                  setBusy("");
                 }
-                setAdding(false);
-                await load();
-                onChanged?.();
-              } finally {
-                setBusy("");
-              }
-            }}
-          />
-        )}
+              }}
+            />
+          )}
 
-        {shown.length > 0 && (
-          <ol className="mt-3 divide-y divide-border">
-            {shown.map((s, i) => (
-              <li key={s.id} className="py-3 first:pt-0 last:pb-0">
-                {editingId === s.id ? (
-                  <StepForm
-                    t={t}
-                    step={s}
-                    members={members}
-                    steps={steps}
-                    canAssign={canAssign}
-                    busy={busy === s.id}
-                    onCancel={() => setEditingId(null)}
-                    onSubmit={async (values) => {
-                      if (await patch(s, values)) setEditingId(null);
-                    }}
-                  />
-                ) : (
-                  <StepRow
-                    t={t}
-                    step={s}
-                    index={i}
-                    formatDate={formatDate}
-                    reordering={reordering}
-                    busy={busy === s.id}
-                    canEdit={canEdit}
-                    canWork={canCreate || !s.assignedToId || (me !== null && s.assignedToId === me)}
-                    onMove={(dir) => move(s.id, dir)}
-                    onStart={() => patch(s, { status: "in_progress" })}
-                    onDone={() => patch(s, { status: "done" })}
-                    onReopen={() => patch(s, { status: "open" })}
-                    onEdit={() => setEditingId(s.id)}
-                    holding={holdId === s.id}
-                    onHold={() => setHoldId(s.id)}
-                    onHoldCancel={() => setHoldId(null)}
-                    onHoldSave={async (reason) => {
-                      if (await patch(s, { waitingReason: reason })) setHoldId(null);
-                    }}
-                    onHoldClear={() => patch(s, { waitingReason: null })}
-                  />
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
+          {shown.length > 0 && (
+            <ol className="mt-3 divide-y divide-border">
+              {shown.map((s, i) => (
+                <li key={s.id} className="py-3 first:pt-0 last:pb-0">
+                  {editingId === s.id ? (
+                    <StepForm
+                      t={t}
+                      step={s}
+                      members={members}
+                      steps={steps}
+                      canAssign={canAssign}
+                      busy={busy === s.id}
+                      onCancel={() => setEditingId(null)}
+                      onSubmit={async (values) => {
+                        if (await patch(s, values)) setEditingId(null);
+                      }}
+                    />
+                  ) : (
+                    <StepRow
+                      t={t}
+                      step={s}
+                      index={i}
+                      formatDate={formatDate}
+                      reordering={reordering}
+                      busy={busy === s.id}
+                      canEdit={canEdit}
+                      canWork={canCreate || !s.assignedToId || (me !== null && s.assignedToId === me)}
+                      onMove={(dir) => move(s.id, dir)}
+                      onStart={() => patch(s, { status: "in_progress" })}
+                      onDone={() => patch(s, { status: "done" })}
+                      onReopen={() => patch(s, { status: "open" })}
+                      onEdit={() => setEditingId(s.id)}
+                      holding={holdId === s.id}
+                      onHold={() => setHoldId(s.id)}
+                      onHoldCancel={() => setHoldId(null)}
+                      onHoldSave={async (reason) => {
+                        if (await patch(s, { waitingReason: reason })) setHoldId(null);
+                      }}
+                      onHoldClear={() => patch(s, { waitingReason: null })}
+                    />
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
 
-        {steps.length > 0 && canEdit && job.quoteNumber && (
-          <button type="button" disabled={busy === "rebuild"} onClick={() => act("rebuild", { action: "rebuild" })} className="mt-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-60">
-            {t("app.jobPlan.rebuild", "Add any lines from {quote} that aren't here yet", { quote: job.quoteNumber })}
-          </button>
-        )}
+          {steps.length > 0 && canEdit && job.quoteNumber && (
+            <button type="button" disabled={busy === "rebuild"} onClick={() => act("rebuild", { action: "rebuild" })} className="mt-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-60">
+              {t("app.jobPlan.rebuild", "Add any lines from {quote} that aren't here yet", { quote: job.quoteNumber })}
+            </button>
+          )}
+        </div>
       </div>
 
       {steps.length > 0 && day && (
         <div className="bg-card border border-border rounded-xl p-5" data-tour="job-plan-day">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="font-semibold text-foreground">
-              {t("app.jobPlan.dayView", "Crew day view")}{" "}
-              <span className="text-xs font-normal text-muted-foreground">{formatDate(`${day}T12:00:00`)}</span>
+            <h2 className="min-w-0 flex-1 font-semibold text-foreground">
+              <JobSectionToggle section={daySection}>
+                <span className="min-w-0">
+                  {t("app.jobPlan.dayView", "Crew day view")}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">{formatDate(`${day}T12:00:00`)}</span>
+                </span>
+              </JobSectionToggle>
             </h2>
             <div className="flex items-center gap-1">
               <button type="button" aria-label={t("app.jobPlan.prevDay", "Previous day")} onClick={() => setDay(shiftDay(day, -1))} className="border border-border rounded-lg p-1.5 hover:bg-muted">
@@ -387,38 +418,40 @@ export default function JobPlan({ jobId, onChanged }) {
               </button>
             </div>
           </div>
-          {lanes.length === 0 ? (
-            <p className="text-sm text-muted-foreground mt-3">{t("app.jobPlan.dayEmpty", "Nothing planned for this day. Give a step a date to see it here.")}</p>
-          ) : (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {lanes.map((lane) => (
-                <div key={lane.id} className="border border-border rounded-lg p-3">
-                  <h4 className="text-sm font-semibold text-foreground flex items-baseline justify-between gap-2">
-                    <span>{lane.name || t("app.jobPlan.unassignedLane", "Unassigned")}</span>
-                    {lane.plannedHours > 0 && <span className="text-xs font-normal text-muted-foreground">{t("app.jobPlan.planned", "{hours} planned", { hours: hours(lane.plannedHours) })}</span>}
-                  </h4>
-                  <div className="mt-2 space-y-1.5">
-                    {lane.blocks.map((b) => (
-                      <div key={b.id} className={`rounded-md border px-2.5 py-1.5 text-sm ${b.planStatus === "done" ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30" : b.planStatus === "waiting" ? "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30" : "border-border bg-muted/40"}`}>
-                        {b.scheduledStart && b.scheduledEnd && (
-                          <div className="text-[11px] font-semibold text-muted-foreground tabular-nums">
-                            {timeOf(b.scheduledStart)} – {timeOf(b.scheduledEnd)}
+          <div id={daySection.bodyId} hidden={!daySection.open}>
+            {lanes.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-3">{t("app.jobPlan.dayEmpty", "Nothing planned for this day. Give a step a date to see it here.")}</p>
+            ) : (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {lanes.map((lane) => (
+                  <div key={lane.id} className="border border-border rounded-lg p-3">
+                    <h4 className="text-sm font-semibold text-foreground flex items-baseline justify-between gap-2">
+                      <span>{lane.name || t("app.jobPlan.unassignedLane", "Unassigned")}</span>
+                      {lane.plannedHours > 0 && <span className="text-xs font-normal text-muted-foreground">{t("app.jobPlan.planned", "{hours} planned", { hours: hours(lane.plannedHours) })}</span>}
+                    </h4>
+                    <div className="mt-2 space-y-1.5">
+                      {lane.blocks.map((b) => (
+                        <div key={b.id} className={`rounded-md border px-2.5 py-1.5 text-sm ${b.planStatus === "done" ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30" : b.planStatus === "waiting" ? "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30" : "border-border bg-muted/40"}`}>
+                          {b.scheduledStart && b.scheduledEnd && (
+                            <div className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+                              {timeOf(b.scheduledStart)} – {timeOf(b.scheduledEnd)}
+                            </div>
+                          )}
+                          <div className="text-foreground">{b.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {t("app.jobPlan.stepN", "Step {n}", { n: steps.indexOf(b) + 1 })}
+                            {hours(b.estimatedHours) ? ` · ${t("app.jobPlan.estShort", "{hours} est", { hours: hours(b.estimatedHours) })}` : ""}
+                            {b.planStatus === "done" ? ` · ${t("app.jobPlan.status.done", "Done")}` : ""}
+                            {b.planStatus === "waiting" && b.waitingOn?.[0] ? ` · ${t("app.jobPlan.waitingOn", "Waiting on {what}", { what: b.waitingOn[0].label })}` : ""}
                           </div>
-                        )}
-                        <div className="text-foreground">{b.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {t("app.jobPlan.stepN", "Step {n}", { n: steps.indexOf(b) + 1 })}
-                          {hours(b.estimatedHours) ? ` · ${t("app.jobPlan.estShort", "{hours} est", { hours: hours(b.estimatedHours) })}` : ""}
-                          {b.planStatus === "done" ? ` · ${t("app.jobPlan.status.done", "Done")}` : ""}
-                          {b.planStatus === "waiting" && b.waitingOn?.[0] ? ` · ${t("app.jobPlan.waitingOn", "Waiting on {what}", { what: b.waitingOn[0].label })}` : ""}
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>

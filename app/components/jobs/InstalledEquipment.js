@@ -44,6 +44,7 @@ import {
   defaultInstalledAt,
   dateInputValue,
 } from "@/lib/equipment/installed";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/10";
@@ -96,6 +97,8 @@ export default function InstalledEquipment({ job, onJobChanged }) {
   const [linking, setLinking] = useState(false);
 
   const jobId = job?.id;
+  // Above the forbidden/loading returns below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "installedEquipment");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,15 +200,20 @@ export default function InstalledEquipment({ job, onJobChanged }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-          <ShieldCheck size={15} />
-          {t("app.installed.title", "Installed at this site")}
-          {data && <span className="text-xs font-normal text-muted-foreground">({here.length})</span>}
+        <h3 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <ShieldCheck size={15} />
+              {t("app.installed.title", "Installed at this site")}
+              {data && <span className="text-xs font-normal text-muted-foreground">({here.length})</span>}
+            </span>
+          </JobSectionToggle>
         </h3>
         {canWrite && !adding && (
           <button
             type="button"
             onClick={() => {
+              section.expand();
               setForm(emptyForm(job));
               setFormError("");
               setAdding(true);
@@ -217,195 +225,197 @@ export default function InstalledEquipment({ job, onJobChanged }) {
           </button>
         )}
       </div>
-      <p className="text-xs text-muted-foreground mb-3">
-        {t(
-          "app.installed.intro",
-          "The client's own equipment — furnace, water heater, unit — and what it's covered by. Not the company's kit; that's logged above.",
-        )}
-      </p>
+      <div id={section.bodyId} hidden={!section.open}>
+        <p className="text-xs text-muted-foreground mb-3">
+          {t(
+            "app.installed.intro",
+            "The client's own equipment — furnace, water heater, unit — and what it's covered by. Not the company's kit; that's logged above.",
+          )}
+        </p>
 
-      <ListState
-        loading={loading}
-        errorKey={errorKey}
-        isEmpty={!!data && all.length === 0 && !adding}
-        onRetry={load}
-        empty={
-          <p className="text-xs text-muted-foreground">
-            {t("app.installed.empty", "Nothing recorded at this address yet.")}
-          </p>
-        }
-      >
-        {here.length > 0 && (
-          <ul className="space-y-2">
-            {here.map((row) => (
-              <Row key={row.id} row={row} language={language} clientId={data.clientId} linked={row.id === linkedId} />
-            ))}
-          </ul>
-        )}
-        {elsewhere.length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs font-semibold text-muted-foreground mb-1">
-              {t("app.installed.elsewhere", "At this client's other addresses")}
+        <ListState
+          loading={loading}
+          errorKey={errorKey}
+          isEmpty={!!data && all.length === 0 && !adding}
+          onRetry={load}
+          empty={
+            <p className="text-xs text-muted-foreground">
+              {t("app.installed.empty", "Nothing recorded at this address yet.")}
             </p>
+          }
+        >
+          {here.length > 0 && (
             <ul className="space-y-2">
-              {elsewhere.map((row) => (
-                <Row key={row.id} row={row} language={language} clientId={data.clientId} linked={row.id === linkedId} showSite />
+              {here.map((row) => (
+                <Row key={row.id} row={row} language={language} clientId={data.clientId} linked={row.id === linkedId} />
               ))}
             </ul>
-          </div>
-        )}
-      </ListState>
-
-      {/* A warranty callback says WHICH piece it is about. Offered only when
-          the server said the job may carry one (a warranty callback), and only
-          with rows to choose from; the link is written on the job, so the
-          banner at the top of the page picks it up on the next read. */}
-      {canLinkWarranty && all.length > 0 && (
-        <label className="block mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-          {t("app.installed.whichForCallback", "Which equipment is this warranty callback about?")}
-          <select
-            className={`${inputClass} mt-1`}
-            value={linkedId || ""}
-            disabled={linking}
-            onChange={(e) => linkWarranty(e.target.value)}
-          >
-            <option value="">{t("app.installed.notChosen", "Not chosen")}</option>
-            {all.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.name}
-                {row.serialNumber ? ` · ${row.serialNumber}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-
-      {adding && form && (
-        <form onSubmit={submit} className="mt-3 pt-3 border-t border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-foreground">
-              {t("app.installed.record", "Record what we installed")}
-            </h4>
-            <button
-              type="button"
-              onClick={() => {
-                setAdding(false);
-                setForm(null);
-              }}
-              aria-label={t("app.action.cancel", "Cancel")}
-              className="p-2 -m-2 text-muted-foreground"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <input
-            required
-            className={inputClass}
-            placeholder={t("app.equipment.namePlaceholder", "Furnace, panel, water heater…")}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input
-              className={inputClass}
-              placeholder={t("app.equipment.manufacturer", "Manufacturer")}
-              value={form.manufacturer}
-              onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-            />
-            <input
-              className={inputClass}
-              placeholder={t("app.equipment.modelNumber", "Model number")}
-              value={form.modelNumber}
-              onChange={(e) => setForm({ ...form, modelNumber: e.target.value })}
-            />
-            <input
-              className={inputClass}
-              placeholder={t("app.equipment.serialNumber", "Serial number")}
-              value={form.serialNumber}
-              onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="block text-xs text-muted-foreground">
-              {t("app.equipment.installedAt", "Installed")}
-              <input
-                type="date"
-                className={`${inputClass} mt-1`}
-                value={form.installedAt}
-                onChange={(e) => setForm({ ...form, installedAt: e.target.value })}
-              />
-            </label>
-            <label className="block text-xs text-muted-foreground">
-              {t("app.installed.warrantyLength", "Warranty runs for")}
-              <select
-                className={`${inputClass} mt-1`}
-                value={form.length}
-                onChange={(e) => setForm({ ...form, length: e.target.value })}
-              >
-                {WARRANTY_LENGTH_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {t(LENGTH_LABELS[o.key][0], LENGTH_LABELS[o.key][1])}
-                  </option>
+          )}
+          {elsewhere.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-1">
+                {t("app.installed.elsewhere", "At this client's other addresses")}
+              </p>
+              <ul className="space-y-2">
+                {elsewhere.map((row) => (
+                  <Row key={row.id} row={row} language={language} clientId={data.clientId} linked={row.id === linkedId} showSite />
                 ))}
-              </select>
-            </label>
-          </div>
-          {form.length === "custom" && (
-            <label className="block text-xs text-muted-foreground">
-              {t("app.equipment.warrantyEndsAt", "Warranty covers until")}
+              </ul>
+            </div>
+          )}
+        </ListState>
+
+        {/* A warranty callback says WHICH piece it is about. Offered only when
+            the server said the job may carry one (a warranty callback), and only
+            with rows to choose from; the link is written on the job, so the
+            banner at the top of the page picks it up on the next read. */}
+        {canLinkWarranty && all.length > 0 && (
+          <label className="block mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+            {t("app.installed.whichForCallback", "Which equipment is this warranty callback about?")}
+            <select
+              className={`${inputClass} mt-1`}
+              value={linkedId || ""}
+              disabled={linking}
+              onChange={(e) => linkWarranty(e.target.value)}
+            >
+              <option value="">{t("app.installed.notChosen", "Not chosen")}</option>
+              {all.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name}
+                  {row.serialNumber ? ` · ${row.serialNumber}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {adding && form && (
+          <form onSubmit={submit} className="mt-3 pt-3 border-t border-border space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">
+                {t("app.installed.record", "Record what we installed")}
+              </h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdding(false);
+                  setForm(null);
+                }}
+                aria-label={t("app.action.cancel", "Cancel")}
+                className="p-2 -m-2 text-muted-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <input
+              required
+              className={inputClass}
+              placeholder={t("app.equipment.namePlaceholder", "Furnace, panel, water heater…")}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input
-                type="date"
-                className={`${inputClass} mt-1`}
-                value={form.customEndsAt}
-                onChange={(e) => setForm({ ...form, customEndsAt: e.target.value })}
+                className={inputClass}
+                placeholder={t("app.equipment.manufacturer", "Manufacturer")}
+                value={form.manufacturer}
+                onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
               />
-            </label>
-          )}
-          {/* The date the choice means, said before it is saved. */}
-          <p className="text-xs text-muted-foreground">
-            {warrantyEnd?.error
-              ? warrantyEnd.error
-              : warrantyEnd?.warrantyEndsAt
-                ? t("app.installed.coveredUntilPreview", "Covered until {date}", {
-                    date: formatDate(warrantyEnd.warrantyEndsAt, language),
-                  })
-                : t(
-                    "app.equipment.warrantyBlankHint",
-                    "Leave the warranty date blank if you don't know it. It'll show as \"not recorded\" — never as out of warranty.",
-                  )}
-          </p>
+              <input
+                className={inputClass}
+                placeholder={t("app.equipment.modelNumber", "Model number")}
+                value={form.modelNumber}
+                onChange={(e) => setForm({ ...form, modelNumber: e.target.value })}
+              />
+              <input
+                className={inputClass}
+                placeholder={t("app.equipment.serialNumber", "Serial number")}
+                value={form.serialNumber}
+                onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
+              />
+            </div>
 
-          <input
-            className={inputClass}
-            placeholder={t("app.equipment.warrantyProvider", "Who's covering it")}
-            value={form.warrantyProvider}
-            onChange={(e) => setForm({ ...form, warrantyProvider: e.target.value })}
-          />
-          <textarea
-            rows={2}
-            className={inputClass}
-            placeholder={t("app.equipment.notes", "Notes — access, quirks, what to bring")}
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-
-          {formError && (
-            <p role="alert" className="text-sm text-red-700 dark:text-red-300">
-              {formError}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block text-xs text-muted-foreground">
+                {t("app.equipment.installedAt", "Installed")}
+                <input
+                  type="date"
+                  className={`${inputClass} mt-1`}
+                  value={form.installedAt}
+                  onChange={(e) => setForm({ ...form, installedAt: e.target.value })}
+                />
+              </label>
+              <label className="block text-xs text-muted-foreground">
+                {t("app.installed.warrantyLength", "Warranty runs for")}
+                <select
+                  className={`${inputClass} mt-1`}
+                  value={form.length}
+                  onChange={(e) => setForm({ ...form, length: e.target.value })}
+                >
+                  {WARRANTY_LENGTH_OPTIONS.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {t(LENGTH_LABELS[o.key][0], LENGTH_LABELS[o.key][1])}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {form.length === "custom" && (
+              <label className="block text-xs text-muted-foreground">
+                {t("app.equipment.warrantyEndsAt", "Warranty covers until")}
+                <input
+                  type="date"
+                  className={`${inputClass} mt-1`}
+                  value={form.customEndsAt}
+                  onChange={(e) => setForm({ ...form, customEndsAt: e.target.value })}
+                />
+              </label>
+            )}
+            {/* The date the choice means, said before it is saved. */}
+            <p className="text-xs text-muted-foreground">
+              {warrantyEnd?.error
+                ? warrantyEnd.error
+                : warrantyEnd?.warrantyEndsAt
+                  ? t("app.installed.coveredUntilPreview", "Covered until {date}", {
+                      date: formatDate(warrantyEnd.warrantyEndsAt, language),
+                    })
+                  : t(
+                      "app.equipment.warrantyBlankHint",
+                      "Leave the warranty date blank if you don't know it. It'll show as \"not recorded\" — never as out of warranty.",
+                    )}
             </p>
-          )}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full bg-inverted text-inverted-foreground py-3 rounded-lg text-sm font-semibold disabled:opacity-60 min-h-[44px]"
-          >
-            {saving ? t("app.action.saving", "Saving…") : t("app.action.save", "Save")}
-          </button>
-        </form>
-      )}
+            <input
+              className={inputClass}
+              placeholder={t("app.equipment.warrantyProvider", "Who's covering it")}
+              value={form.warrantyProvider}
+              onChange={(e) => setForm({ ...form, warrantyProvider: e.target.value })}
+            />
+            <textarea
+              rows={2}
+              className={inputClass}
+              placeholder={t("app.equipment.notes", "Notes — access, quirks, what to bring")}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+
+            {formError && (
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+                {formError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full bg-inverted text-inverted-foreground py-3 rounded-lg text-sm font-semibold disabled:opacity-60 min-h-[44px]"
+            >
+              {saving ? t("app.action.saving", "Saving…") : t("app.action.save", "Save")}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

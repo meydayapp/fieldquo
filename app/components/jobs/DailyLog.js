@@ -40,6 +40,7 @@ import {
   bodyToText,
   seedBody,
 } from "@/lib/jobs/dailyLog";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 /** Long enough that a sentence isn't three saves, short enough to survive a
  *  phone locking itself. Blur saves immediately regardless. */
@@ -63,6 +64,8 @@ function toDraft(log) {
 
 export default function DailyLog({ jobId }) {
   const { t, language } = useTranslation();
+  // Above the `!data` return below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "dailyLog");
 
   const [day, setDay] = useState(() => localDayKey());
   const [data, setData] = useState(null);
@@ -233,9 +236,13 @@ export default function DailyLog({ jobId }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-        <h2 className="font-semibold text-foreground flex items-center gap-1.5">
-          <CalendarDays size={16} />
-          {t("app.dailyLog.title", "Daily log")}
+        <h2 className="min-w-0 flex-1 font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <CalendarDays size={16} />
+              {t("app.dailyLog.title", "Daily log")}
+            </span>
+          </JobSectionToggle>
         </h2>
         <SaveState
           t={t}
@@ -246,153 +253,155 @@ export default function DailyLog({ jobId }) {
         />
       </div>
 
-      {/* Day picker. One row on a phone: the two days anybody actually files
-          plus a date field for the rest. */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setDay(today)}
-          className={`min-h-[44px] rounded-lg border px-3 text-sm font-semibold ${
-            day === today
-              ? "border-foreground bg-foreground text-background"
-              : "border-border text-foreground"
-          }`}
-        >
-          {t("app.dailyLog.today", "Today")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setDay(shiftDayKey(today, -1))}
-          className={`min-h-[44px] rounded-lg border px-3 text-sm font-semibold ${
-            day === shiftDayKey(today, -1)
-              ? "border-foreground bg-foreground text-background"
-              : "border-border text-foreground"
-          }`}
-        >
-          {t("app.dailyLog.yesterday", "Yesterday")}
-        </button>
-        <input
-          type="date"
-          value={day}
-          max={today}
-          onChange={(e) => e.target.value && setDay(e.target.value)}
-          aria-label={t("app.dailyLog.pickDay", "Pick a day")}
-          className="min-h-[44px] rounded-lg border border-border bg-background px-3 text-sm text-foreground"
-        />
-      </div>
-
-      {/* What the product already knows about this day. Facts, not the log —
-          they are shown whether or not a log exists, because they stay true
-          after somebody edits the seeded text away. */}
-      {data.day && (data.day.photoCount > 0 || data.day.taskLines?.length > 0) && (
-        <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {data.day.photoCount > 0 && (
-            <span className="inline-flex items-center gap-1">
-              <Camera size={13} />
-              {t("app.dailyLog.photosToday", "{count} photos", {
-                count: data.day.photoCount,
-              })}
-            </span>
-          )}
-          {data.day.taskLines?.length > 0 && (
-            <span className="inline-flex items-center gap-1">
-              <CheckCircle2 size={13} />
-              {t("app.dailyLog.tasksToday", "{count} to-dos finished", {
-                count: data.day.taskLines.length,
-              })}
-            </span>
-          )}
-        </div>
-      )}
-
-      {conflict && (
-        <div className="mt-3">
-          {/* No `href`: a daily log has no page of its own to open, and a link
-              that goes nowhere is worse than no link. `onOverwrite` re-saves
-              against the version the server just named — still guarded, so a
-              third save conflicts again rather than forcing. */}
-          <StaleWriteBanner
-            conflict={conflict}
-            busy={saving}
-            onOverwrite={() => save({ overwriteWith: conflict.currentUpdatedAt })}
+      <div id={section.bodyId} hidden={!section.open}>
+        {/* Day picker. One row on a phone: the two days anybody actually files
+            plus a date field for the rest. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setDay(today)}
+            className={`min-h-[44px] rounded-lg border px-3 text-sm font-semibold ${
+              day === today
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-foreground"
+            }`}
+          >
+            {t("app.dailyLog.today", "Today")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDay(shiftDayKey(today, -1))}
+            className={`min-h-[44px] rounded-lg border px-3 text-sm font-semibold ${
+              day === shiftDayKey(today, -1)
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-foreground"
+            }`}
+          >
+            {t("app.dailyLog.yesterday", "Yesterday")}
+          </button>
+          <input
+            type="date"
+            value={day}
+            max={today}
+            onChange={(e) => e.target.value && setDay(e.target.value)}
+            aria-label={t("app.dailyLog.pickDay", "Pick a day")}
+            className="min-h-[44px] rounded-lg border border-border bg-background px-3 text-sm text-foreground"
           />
         </div>
-      )}
 
-      <div className="mt-3">
-        <DailyLogEditor
-          value={draft}
-          disabled={data.failed}
-          onChange={(next) => {
-            setDraft(next);
-            setDirty(true);
-          }}
-        />
-      </div>
+        {/* What the product already knows about this day. Facts, not the log —
+            they are shown whether or not a log exists, because they stay true
+            after somebody edits the seeded text away. */}
+        {data.day && (data.day.photoCount > 0 || data.day.taskLines?.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+            {data.day.photoCount > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Camera size={13} />
+                {t("app.dailyLog.photosToday", "{count} photos", {
+                  count: data.day.photoCount,
+                })}
+              </span>
+            )}
+            {data.day.taskLines?.length > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle2 size={13} />
+                {t("app.dailyLog.tasksToday", "{count} to-dos finished", {
+                  count: data.day.taskLines.length,
+                })}
+              </span>
+            )}
+          </div>
+        )}
 
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => save()}
-          disabled={saving || !dirty || Boolean(conflict)}
-          className="min-h-[44px] rounded-lg bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50"
-        >
-          {saving
-            ? t("app.dailyLog.saving", "Saving…")
-            : t("app.dailyLog.save", "Save the day")}
-        </button>
-        <span className="text-xs text-muted-foreground">
-          {t("app.dailyLog.autosaveNote", "Saves on its own as you type.")}
-        </span>
-      </div>
+        {conflict && (
+          <div className="mt-3">
+            {/* No `href`: a daily log has no page of its own to open, and a link
+                that goes nowhere is worse than no link. `onOverwrite` re-saves
+                against the version the server just named — still guarded, so a
+                third save conflicts again rather than forcing. */}
+            <StaleWriteBanner
+              conflict={conflict}
+              busy={saving}
+              onOverwrite={() => save({ overwriteWith: conflict.currentUpdatedAt })}
+            />
+          </div>
+        )}
 
-      {logs.length > 0 && (
-        <div className="mt-5 border-t border-border pt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("app.dailyLog.recent", "Recent days")}
-          </p>
-          <ul className="mt-2 divide-y divide-border">
-            {logs.map((log) => (
-              <li key={log.id}>
-                <button
-                  type="button"
-                  onClick={() => setDay(log.day)}
-                  className="w-full py-2.5 text-left"
-                >
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm font-medium text-foreground">
-                      {new Date(`${log.day}T00:00:00Z`).toLocaleDateString(language, {
-                        timeZone: "UTC",
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      <Optional
-                        value={log.crewCount}
-                        render={(v) =>
-                          t("app.dailyLog.crewShort", "{count} crew", { count: v })
-                        }
-                      />
-                      <Optional
-                        value={log.hoursOnSite}
-                        render={(v) => t("app.dailyLog.hoursShort", "{count}h", { count: v })}
-                        separator=" · "
-                      />
-                    </span>
-                  </span>
-                  {log.bodyText && (
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {log.bodyText}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+        <div className="mt-3">
+          <DailyLogEditor
+            value={draft}
+            disabled={data.failed}
+            onChange={(next) => {
+              setDraft(next);
+              setDirty(true);
+            }}
+          />
         </div>
-      )}
+
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => save()}
+            disabled={saving || !dirty || Boolean(conflict)}
+            className="min-h-[44px] rounded-lg bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-50"
+          >
+            {saving
+              ? t("app.dailyLog.saving", "Saving…")
+              : t("app.dailyLog.save", "Save the day")}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {t("app.dailyLog.autosaveNote", "Saves on its own as you type.")}
+          </span>
+        </div>
+
+        {logs.length > 0 && (
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("app.dailyLog.recent", "Recent days")}
+            </p>
+            <ul className="mt-2 divide-y divide-border">
+              {logs.map((log) => (
+                <li key={log.id}>
+                  <button
+                    type="button"
+                    onClick={() => setDay(log.day)}
+                    className="w-full py-2.5 text-left"
+                  >
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-medium text-foreground">
+                        {new Date(`${log.day}T00:00:00Z`).toLocaleDateString(language, {
+                          timeZone: "UTC",
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        <Optional
+                          value={log.crewCount}
+                          render={(v) =>
+                            t("app.dailyLog.crewShort", "{count} crew", { count: v })
+                          }
+                        />
+                        <Optional
+                          value={log.hoursOnSite}
+                          render={(v) => t("app.dailyLog.hoursShort", "{count}h", { count: v })}
+                          separator=" · "
+                        />
+                      </span>
+                    </span>
+                    {log.bodyText && (
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {log.bodyText}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

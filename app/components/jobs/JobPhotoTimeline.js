@@ -34,6 +34,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { stageTimeline } from "@/lib/gallery/albums";
 import { filterByTag } from "@/lib/gallery/tags";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 function formatDate(value) {
   if (!value) return "";
@@ -50,6 +51,9 @@ function formatDate(value) {
 
 export default function JobPhotoTimeline({ jobId, jobTitle }) {
   const { t } = useTranslation();
+  // Above the loading return below — scripts/check-job-page-hooks.mjs was
+  // written for a useMemo that slipped under exactly that return in this file.
+  const section = useJobSection(jobId, "photoRecord");
   const [photos, setPhotos] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -134,8 +138,12 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
   return (
     <section data-tour="job-photos" className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-        <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-          <Clock size={15} /> {t("app.jobPhotos.record", { total })}
+        <h2 className="min-w-0 flex-1 text-sm font-bold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Clock size={15} /> {t("app.jobPhotos.record", { total })}
+            </span>
+          </JobSectionToggle>
         </h2>
         <button
           type="button"
@@ -151,95 +159,97 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
           Download photo report
         </button>
       </div>
-      <p className="text-xs text-muted-foreground mb-4">
-        Every photo filed against this job, dated and grouped by stage — the
-        record you'd hand a client, an insurer, or your own future self if this
-        job is ever disputed. Includes issue photos, which never appear on your
-        public website.
-      </p>
-
-      {tagOptions.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
-          <label htmlFor="job-photo-tag-filter" className="text-[11px] font-medium text-muted-foreground">
-            {t("app.jobPhotoTags.filterLabel")}
-          </label>
-          <select
-            id="job-photo-tag-filter"
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-            className="text-xs bg-transparent text-foreground border border-border rounded px-1.5 py-1"
-          >
-            <option value="">{t("app.jobPhotoTags.filterAll")}</option>
-            {tagOptions.map((tg) => (
-              <option key={tg.id} value={tg.id}>
-                {tg.active === false ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {total === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          Nothing filed yet. Add photos below, or text them to your crew line.
+      <div id={section.bodyId} hidden={!section.open}>
+        <p className="text-xs text-muted-foreground mb-4">
+          Every photo filed against this job, dated and grouped by stage — the
+          record you'd hand a client, an insurer, or your own future self if this
+          job is ever disputed. Includes issue photos, which never appear on your
+          public website.
         </p>
-      ) : visiblePhotos.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("app.jobPhotoTags.none")}</p>
-      ) : (
-        <div className="space-y-5">
-          {groups.map((g) => (
-            <div key={g.stage}>
-              <div className="flex items-center gap-1.5 mb-2">
-                {g.stage === "issue" && (
-                  <AlertTriangle size={12} className="text-amber-600 dark:text-amber-400" />
-                )}
-                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  {g.label}
-                </h3>
-                <span className="text-[11px] text-muted-foreground/70">
-                  {g.photos.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {g.photos.map((p) => (
-                  <div key={p.id} className="rounded-lg border border-border overflow-hidden bg-background">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.url}
-                      alt={p.caption || g.label}
-                      className="w-full aspect-square object-cover"
-                    />
-                    <div className="p-1.5">
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatDate(p.createdAt)}
-                      </p>
-                      {p.caption && (
-                        <p className="text-[11px] text-foreground truncate" title={p.caption}>
-                          {p.caption}
+
+        {tagOptions.length > 0 && (
+          <div className="flex items-center gap-2 mb-4">
+            <label htmlFor="job-photo-tag-filter" className="text-[11px] font-medium text-muted-foreground">
+              {t("app.jobPhotoTags.filterLabel")}
+            </label>
+            <select
+              id="job-photo-tag-filter"
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="text-xs bg-transparent text-foreground border border-border rounded px-1.5 py-1"
+            >
+              <option value="">{t("app.jobPhotoTags.filterAll")}</option>
+              {tagOptions.map((tg) => (
+                <option key={tg.id} value={tg.id}>
+                  {tg.active === false ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {total === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Nothing filed yet. Add photos below, or text them to your crew line.
+          </p>
+        ) : visiblePhotos.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t("app.jobPhotoTags.none")}</p>
+        ) : (
+          <div className="space-y-5">
+            {groups.map((g) => (
+              <div key={g.stage}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  {g.stage === "issue" && (
+                    <AlertTriangle size={12} className="text-amber-600 dark:text-amber-400" />
+                  )}
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    {g.label}
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground/70">
+                    {g.photos.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {g.photos.map((p) => (
+                    <div key={p.id} className="rounded-lg border border-border overflow-hidden bg-background">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.url}
+                        alt={p.caption || g.label}
+                        className="w-full aspect-square object-cover"
+                      />
+                      <div className="p-1.5">
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDate(p.createdAt)}
                         </p>
-                      )}
-                      {p.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {p.tags.map((tg) => (
-                            <span
-                              key={tg.id}
-                              title={tg.active === false ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
-                              className={`text-[9px] leading-none px-1.5 py-0.5 rounded-full text-white ${tg.active === false ? "italic" : ""}`}
-                              style={{ backgroundColor: tg.color || "#52525b" }}
-                            >
-                              {tg.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                        {p.caption && (
+                          <p className="text-[11px] text-foreground truncate" title={p.caption}>
+                            {p.caption}
+                          </p>
+                        )}
+                        {p.tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {p.tags.map((tg) => (
+                              <span
+                                key={tg.id}
+                                title={tg.active === false ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
+                                className={`text-[9px] leading-none px-1.5 py-0.5 rounded-full text-white ${tg.active === false ? "italic" : ""}`}
+                                style={{ backgroundColor: tg.color || "#52525b" }}
+                              >
+                                {tg.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

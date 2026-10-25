@@ -23,9 +23,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Wrench, Plus } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 export default function EquipmentUseLog({ jobId }) {
   const { t, language } = useTranslation();
+  // Above the two early returns below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "equipmentUsed");
   const [data, setData] = useState(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ assetId: "", usedOn: "", hours: "" });
@@ -84,14 +87,21 @@ export default function EquipmentUseLog({ jobId }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-          <Wrench size={15} />
-          {t("app.jobEquipment.title", "Company equipment used")}
+        <h3 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+          <JobSectionToggle section={section}>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Wrench size={15} />
+              {t("app.jobEquipment.title", "Company equipment used")}
+            </span>
+          </JobSectionToggle>
         </h3>
         {!adding && data.assets.length > 0 && (
           <button
             type="button"
-            onClick={() => setAdding(true)}
+            onClick={() => {
+              section.expand();
+              setAdding(true);
+            }}
             className="text-xs font-semibold text-foreground flex items-center gap-1"
           >
             <Plus size={13} />
@@ -100,71 +110,73 @@ export default function EquipmentUseLog({ jobId }) {
         )}
       </div>
 
-      {data.logs.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t("app.jobEquipment.empty", "Nothing logged yet.")}
-        </p>
-      ) : (
-        <ul className="space-y-1.5">
-          {data.logs.map((log) => (
-            <li key={log.id} className="flex items-center justify-between text-sm gap-2">
-              <span className="text-foreground truncate">{log.asset?.name || "—"}</span>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {new Date(log.usedOn).toLocaleDateString(language)}
-                {log.hours != null && ` · ${log.hours}${t("app.jobEquipment.hoursShort", "h")}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {adding && (
-        <form onSubmit={submit} className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2">
-          <select
-            value={draft.assetId}
-            onChange={(e) => setDraft({ ...draft, assetId: e.target.value })}
-            className="col-span-2 border border-border rounded px-2 py-1.5 text-sm bg-background"
-            required
-          >
-            <option value="">{t("app.jobEquipment.pickAsset", "Which piece of equipment")}</option>
-            {data.assets.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
+      <div id={section.bodyId} hidden={!section.open}>
+        {data.logs.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {t("app.jobEquipment.empty", "Nothing logged yet.")}
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {data.logs.map((log) => (
+              <li key={log.id} className="flex items-center justify-between text-sm gap-2">
+                <span className="text-foreground truncate">{log.asset?.name || "—"}</span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {new Date(log.usedOn).toLocaleDateString(language)}
+                  {log.hours != null && ` · ${log.hours}${t("app.jobEquipment.hoursShort", "h")}`}
+                </span>
+              </li>
             ))}
-          </select>
-          <input
-            type="date"
-            value={draft.usedOn}
-            onChange={(e) => setDraft({ ...draft, usedOn: e.target.value })}
-            className="border border-border rounded px-2 py-1.5 text-sm bg-background"
-          />
-          <input
-            type="number"
-            min="0"
-            max="24"
-            step="0.5"
-            placeholder={t("app.jobEquipment.hoursOptional", "Hours (optional)")}
-            value={draft.hours}
-            onChange={(e) => setDraft({ ...draft, hours: e.target.value })}
-            className="border border-border rounded px-2 py-1.5 text-sm bg-background"
-          />
-          <button
-            type="submit"
-            disabled={saving || !draft.assetId}
-            className="bg-inverted text-inverted-foreground rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-          >
-            {t("app.jobEquipment.save", "Log it")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdding(false)}
-            className="text-xs text-muted-foreground"
-          >
-            {t("app.jobEquipment.cancel", "Cancel")}
-          </button>
-        </form>
-      )}
+          </ul>
+        )}
+
+        {adding && (
+          <form onSubmit={submit} className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2">
+            <select
+              value={draft.assetId}
+              onChange={(e) => setDraft({ ...draft, assetId: e.target.value })}
+              className="col-span-2 border border-border rounded px-2 py-1.5 text-sm bg-background"
+              required
+            >
+              <option value="">{t("app.jobEquipment.pickAsset", "Which piece of equipment")}</option>
+              {data.assets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={draft.usedOn}
+              onChange={(e) => setDraft({ ...draft, usedOn: e.target.value })}
+              className="border border-border rounded px-2 py-1.5 text-sm bg-background"
+            />
+            <input
+              type="number"
+              min="0"
+              max="24"
+              step="0.5"
+              placeholder={t("app.jobEquipment.hoursOptional", "Hours (optional)")}
+              value={draft.hours}
+              onChange={(e) => setDraft({ ...draft, hours: e.target.value })}
+              className="border border-border rounded px-2 py-1.5 text-sm bg-background"
+            />
+            <button
+              type="submit"
+              disabled={saving || !draft.assetId}
+              className="bg-inverted text-inverted-foreground rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            >
+              {t("app.jobEquipment.save", "Log it")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(false)}
+              className="text-xs text-muted-foreground"
+            >
+              {t("app.jobEquipment.cancel", "Cancel")}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

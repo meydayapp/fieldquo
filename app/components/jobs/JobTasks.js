@@ -45,8 +45,11 @@ import { CircleDot, CheckCircle2, Camera, Loader2, AlertCircle } from "lucide-re
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import MediaUploader from "@/app/components/MediaUploader";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 
 export default function JobTasks({ jobId }) {
+  // Above the `!tasks?.length` return below — scripts/check-job-page-hooks.mjs.
+  const section = useJobSection(jobId, "tasks");
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [tasks, setTasks] = useState(null);
@@ -143,43 +146,49 @@ export default function JobTasks({ jobId }) {
   return (
     <div className="bg-card border border-border rounded-xl p-5" data-tour="job-tasks">
       <h2 className="text-base font-semibold text-foreground">
-        {t("app.job.tasksHeading", "To-dos on this job")}
-        <span className="ml-2 text-xs font-normal text-muted-foreground">
-          {t("app.job.tasksRemaining", "{count} left", { count: open.length })}
-        </span>
+        <JobSectionToggle section={section}>
+          <span className="min-w-0">
+            {t("app.job.tasksHeading", "To-dos on this job")}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {t("app.job.tasksRemaining", "{count} left", { count: open.length })}
+            </span>
+          </span>
+        </JobSectionToggle>
       </h2>
 
-      {error && (
-        <div className="mt-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
-          <AlertCircle size={14} className="shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
+      <div id={section.bodyId} hidden={!section.open}>
+        {error && (
+          <div className="mt-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
+            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            {error}
+          </div>
+        )}
 
-      <div className="mt-3 divide-y divide-border">
-        {[...open, ...done].map((task) => (
-          <TaskRow
-            key={task.id}
-            task={task}
-            busy={busyId === task.id}
-            comment={comments[task.id] || ""}
-            onCommentChange={(v) => setComments((c) => ({ ...c, [task.id]: v }))}
-            onToggle={() =>
-              patchTask(task, { status: task.status === "done" ? "open" : "done" })
-            }
-            onMarkDone={() =>
-              patchTask(task, {
-                status: "done",
-                ...(task.requiresComment && {
-                  completionComment: comments[task.id] || "",
-                }),
-              })
-            }
-            onAddPhotos={(added) => addPhotos(task, added)}
-            formatDate={formatDate}
-            t={t}
-          />
-        ))}
+        <div className="mt-3 divide-y divide-border">
+          {[...open, ...done].map((task) => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              busy={busyId === task.id}
+              comment={comments[task.id] || ""}
+              onCommentChange={(v) => setComments((c) => ({ ...c, [task.id]: v }))}
+              onToggle={() =>
+                patchTask(task, { status: task.status === "done" ? "open" : "done" })
+              }
+              onMarkDone={() =>
+                patchTask(task, {
+                  status: "done",
+                  ...(task.requiresComment && {
+                    completionComment: comments[task.id] || "",
+                  }),
+                })
+              }
+              onAddPhotos={(added) => addPhotos(task, added)}
+              formatDate={formatDate}
+              t={t}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
