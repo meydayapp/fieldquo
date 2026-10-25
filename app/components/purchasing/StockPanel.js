@@ -52,6 +52,8 @@ export default function StockPanel() {
   // nothing, but one that quietly does the wrong thing to somebody in a hurry.
   const [draft, setDraft] = useState({ materialId: "", kind: "received", quantity: "", note: "" });
   const [saveError, setSaveError] = useState("");
+  const [buy, setBuy] = useState({ name: "", quantity: "", unit: "", totalCost: "", supplier: "" });
+  const [buyError, setBuyError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -73,6 +75,32 @@ export default function StockPanel() {
 
   const levels = data?.levels || null;
   const low = data?.low || [];
+
+  async function buyStock(e) {
+    e.preventDefault();
+    if (busy || !buy.name.trim() || !String(buy.quantity).trim()) return;
+    setBusy(true);
+    setBuyError("");
+    try {
+      const res = await fetch("/api/stock/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buy),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, setBuyError, t("app.purchasing.stock.buyFailed"));
+        return;
+      }
+      // The name and unit stay: somebody stocking up types one supplier and
+      // several lines, and clearing the row they just used would make them
+      // retype the shop every time. Quantity and cost clear, because those
+      // are the two that must never be submitted twice by accident.
+      setBuy((b) => ({ ...b, quantity: "", totalCost: "" }));
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function record(e) {
     e.preventDefault();
@@ -162,6 +190,71 @@ export default function StockPanel() {
           </p>
         )}
       </div>
+
+      {/* ── Bought for the shelf ────────────────────────────────────────────
+          Unconditional, unlike the movement form below it, and that is the
+          point. That one renders only when `levels.length > 0`, so a company
+          whose shelf is empty — every company, on day one — was shown no way
+          to put anything on it. Materials could only be born from a job's
+          material list (lib/jobs/sourcingList.js held the only
+          material.create in the repo), so stock bought AHEAD of a job had no
+          door at all. The owner, 2026-10-25: "make somewhere i can enter
+          stock i buy for future jobs and are stored as inventory." */}
+      <form
+        onSubmit={buyStock}
+        className="space-y-2 rounded-xl border border-border bg-card p-4 sm:p-5"
+      >
+        <h2 className="text-sm font-semibold text-foreground">
+          {t("app.purchasing.stock.buyHeading")}
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          {t("app.purchasing.stock.buyHint")}
+        </p>
+        <input
+          value={buy.name}
+          onChange={(e) => setBuy((b) => ({ ...b, name: e.target.value }))}
+          placeholder={t("app.purchasing.stock.buyName")}
+          className={inputClass}
+        />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input
+            inputMode="decimal"
+            value={buy.quantity}
+            onChange={(e) => setBuy((b) => ({ ...b, quantity: e.target.value }))}
+            placeholder={t("app.purchasing.stock.buyQuantity")}
+            className={inputClass}
+          />
+          <input
+            value={buy.unit}
+            onChange={(e) => setBuy((b) => ({ ...b, unit: e.target.value }))}
+            placeholder={t("app.purchasing.stock.buyUnit")}
+            className={inputClass}
+          />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input
+            inputMode="decimal"
+            value={buy.totalCost}
+            onChange={(e) => setBuy((b) => ({ ...b, totalCost: e.target.value }))}
+            placeholder={t("app.purchasing.stock.buyTotalCost")}
+            className={inputClass}
+          />
+          <input
+            value={buy.supplier}
+            onChange={(e) => setBuy((b) => ({ ...b, supplier: e.target.value }))}
+            placeholder={t("app.purchasing.stock.buySupplier")}
+            className={inputClass}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={busy || !buy.name.trim() || !String(buy.quantity).trim()}
+          className="w-full rounded bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50 sm:w-auto"
+        >
+          {t("app.purchasing.stock.buySubmit")}
+        </button>
+        {buyError && <p className="text-xs text-red-600 dark:text-red-400">{buyError}</p>}
+      </form>
 
       {levels && levels.length > 0 && (
         <form

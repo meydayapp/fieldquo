@@ -10280,6 +10280,22 @@ const en = {
   "app.purchasing.stock.saveFailed": "That didn't record. Try again.",
   "app.purchasing.stock.adjustmentHint":
     "A correction can be negative — type a minus sign if the count came up short. Nothing is edited or deleted; the correction is added to the ledger.",
+  // ── Stock bought ahead of any job ───────────────────────────────────────
+  //
+  // Written for somebody standing in a supply yard, not for a procurement
+  // department: "bought", "shelf", "where from", not "goods receipt",
+  // "inventory item", "vendor". The heading says the thing that happened
+  // rather than the record it creates.
+  "app.purchasing.stock.buyHeading": "Bought something for the shelf",
+  "app.purchasing.stock.buyHint":
+    "Stock you keep in the van or the shop, before there is a job for it. Only what it is and how many are needed — the price and the shop are worth adding when you have the receipt, because they are what your future estimates read.",
+  "app.purchasing.stock.buyName": "What did you buy?",
+  "app.purchasing.stock.buyQuantity": "How many",
+  "app.purchasing.stock.buyUnit": "Unit — gal, rolls, boxes",
+  "app.purchasing.stock.buyTotalCost": "What it cost in total (optional)",
+  "app.purchasing.stock.buySupplier": "Where from (optional)",
+  "app.purchasing.stock.buySubmit": "Put it on the shelf",
+  "app.purchasing.stock.buyFailed": "That didn't save. Try again.",
   "app.purchasing.stock.kind.received": "Received",
   "app.purchasing.stock.kind.returned": "Returned to stock",
   "app.purchasing.stock.kind.used": "Used on a job",
