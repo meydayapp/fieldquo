@@ -3791,6 +3791,13 @@ export function QuoteBuilderForm({
       <DocumentBuilder
         b={{
           t, lang, isEdit, quoteId, start, boot, caller, mayCost, canEditScope,
+          // The document layout needs this for the same reason the classic
+          // markup below does: to offer "Start from drawings" on a new quote,
+          // and NOT on one that already came from a read. Until 2026-10-25 it
+          // was not passed, so the entry point to the whole drawing read
+          // existed in one layout only — a company on `document` had no way
+          // in from a new quote at all (the owner found this the hard way).
+          planReadId: initial?.planReadId || null,
           companyCurrency, companyLanguage, quoteLanguage, setQuoteLanguage, languageMeta,
           clients: filteredClients, clientSearch, setClientSearch, selectedClient, setSelectedClient,
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,

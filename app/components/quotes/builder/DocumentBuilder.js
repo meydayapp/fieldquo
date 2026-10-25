@@ -1644,6 +1644,38 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
               {!isInvoice && isEdit && b.scopeGroups.length === 0 && !b.canEditScope && (
                 <p className="text-sm text-muted-foreground text-center py-6">{t("app.quoteEdit.noScopeGroups")}</p>
               )}
+
+              {/* ── Start from drawings ───────────────────────────────────
+                  The same entry QuoteBuilder.js offers in the classic
+                  markup, which this layout returns BEFORE reaching — so a
+                  company on `quoteBuilderLayout: "document"` had no way into
+                  the drawing read from a new quote at all. The read, its
+                  conversation, the takeoff it builds and the pricing off the
+                  company's own book were all finished and unreachable for
+                  them (the owner, 2026-10-25).
+
+                  Here rather than at the top of the document: the owner
+                  asked for it "below add service" — the point where
+                  somebody typing a commercial scope by hand realises the
+                  drawings would do it faster.
+
+                  `!isInvoice` because this component draws invoices too, and
+                  an invoice is never drafted from a drawing set. */}
+              {!isInvoice && !isEdit && !b.planReadId && (
+                <div className="pt-3">
+                  <Link
+                    href={(() => {
+                      const keys = [...new Set((b.scopeGroups || []).map((g) => g.categoryKey).filter(Boolean))];
+                      return keys.length
+                        ? `/app/quotes/drawings/new?categories=${encodeURIComponent(keys.join(","))}`
+                        : "/app/quotes/drawings/new";
+                    })()}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    {t("app.planRead.startFromDrawings", "Start from drawings — upload a drawing set, scope sheet and photos")}
+                  </Link>
+                </div>
+              )}
             </section>
 
             <DocumentTotals
