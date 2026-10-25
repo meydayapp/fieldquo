@@ -17,8 +17,21 @@ import { useEffect } from "react";
  * @param {(skip?: boolean) => void} props.save
  * @param {() => void} props.copy
  * @param {() => void} props.paste
+ * @param {() => void} [props.autoZoom] - fit the frame to the container
+ *   (hooks/useAutoResize.js), the same thing the Footer's Reset button does
+ * @param {(scale: number) => void} [props.zoomToScale] - absolute zoom,
+ *   re-centred on the workspace (hooks/useCanvasPanZoom.js)
  */
-export function useHotkeys({ canvas, undo, redo, save, copy, paste }) {
+export function useHotkeys({
+  canvas,
+  undo,
+  redo,
+  save,
+  copy,
+  paste,
+  autoZoom,
+  zoomToScale,
+}) {
   useEffect(() => {
     function handleKeydown(event) {
       const isCtrlKey = event.ctrlKey || event.metaKey;
@@ -68,9 +81,38 @@ export function useHotkeys({ canvas, undo, redo, save, copy, paste }) {
         canvas?.setActiveObject(new fabric.ActiveSelection(allObjects, { canvas }));
         canvas?.renderAll();
       }
+
+      // Zoom: fit the frame, or snap to 100%.
+      //
+      // TWO bindings for each, because the obvious one is not ours to take.
+      // Ctrl/Cmd+0 is the browser's own "reset page zoom" and Ctrl/Cmd+1..8
+      // switch tabs; in Chrome and Firefox those are reserved and never
+      // reach the page at all, so shipping only them would be shipping two
+      // shortcuts that silently do nothing — the exact failure AGENTS.md
+      // names. They are still registered because they DO arrive in an
+      // installed PWA and in the Capacitor shell, where there is no tab strip
+      // to steal them.
+      //
+      // Shift+0 / Shift+1 are the reliable pair in a browser tab, matched on
+      // event.code so they work on a layout where Shift+0 is not ")". Both
+      // pairs map the same way round (0 = fit, 1 = 100%) rather than
+      // borrowing Figma's inverted Shift+1 = fit, so there is one thing to
+      // remember here instead of two.
+      const wantsFit = event.code === "Digit0" || event.key === "0";
+      const wantsActualSize = event.code === "Digit1" || event.key === "1";
+
+      if ((isCtrlKey || event.shiftKey) && wantsFit) {
+        event.preventDefault();
+        autoZoom?.();
+      }
+
+      if ((isCtrlKey || event.shiftKey) && wantsActualSize) {
+        event.preventDefault();
+        zoomToScale?.(1);
+      }
     }
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [canvas, undo, redo, save, copy, paste]);
+  }, [canvas, undo, redo, save, copy, paste, autoZoom, zoomToScale]);
 }

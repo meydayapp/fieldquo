@@ -33,6 +33,8 @@ import {
   FONT_WEIGHT,
   FONT_SIZE,
   JSON_KEYS,
+  ZOOM_MAX,
+  ZOOM_MIN,
 } from "@/lib/designer/constants";
 import { downloadFile, isTextType, transformText } from "@/lib/designer/utils";
 import { createFilter } from "@/lib/designer/filters";
@@ -42,6 +44,7 @@ import { useHotkeys } from "@/app/components/designer/hooks/useHotkeys";
 import { useClipboard } from "@/app/components/designer/hooks/useClipboard";
 import { useAutoResize } from "@/app/components/designer/hooks/useAutoResize";
 import { useCanvasEvents } from "@/app/components/designer/hooks/useCanvasEvents";
+import { useCanvasPanZoom } from "@/app/components/designer/hooks/useCanvasPanZoom";
 import { useWindowEvents } from "@/app/components/designer/hooks/useWindowEvents";
 import { useLoadState } from "@/app/components/designer/hooks/useLoadState";
 
@@ -185,22 +188,29 @@ const buildEditor = ({
     canRedo,
     autoZoom,
     getWorkspace,
+    // BUG FIX (2026-10-25): the clamp here was `zoomRatio > 1 ? 1 :
+    // zoomRatio` — a hard ceiling of 1 that made this button a no-op at any
+    // scale at or above fit, i.e. a control that appears to work and
+    // doesn't. The ceiling now comes from ZOOM_MAX in
+    // lib/designer/constants.js, shared with the wheel gesture and the
+    // "100%" shortcut (hooks/useCanvasPanZoom.js) so the two cannot drift
+    // apart. The step and the centre-of-canvas anchor are untouched: these
+    // buttons are a coarse control and anchoring them on the cursor would be
+    // meaningless for a click on the footer.
     zoomIn: () => {
-      let zoomRatio = canvas.getZoom();
-      zoomRatio += 0.05;
+      const zoomRatio = canvas.getZoom() + 0.05;
       const center = canvas.getCenter();
       canvas.zoomToPoint(
         new fabric.Point(center.left, center.top),
-        zoomRatio > 1 ? 1 : zoomRatio,
+        zoomRatio > ZOOM_MAX ? ZOOM_MAX : zoomRatio,
       );
     },
     zoomOut: () => {
-      let zoomRatio = canvas.getZoom();
-      zoomRatio -= 0.05;
+      const zoomRatio = canvas.getZoom() - 0.05;
       const center = canvas.getCenter();
       canvas.zoomToPoint(
         new fabric.Point(center.left, center.top),
-        zoomRatio < 0.2 ? 0.2 : zoomRatio,
+        zoomRatio < ZOOM_MIN ? ZOOM_MIN : zoomRatio,
       );
     },
     changeSize: (value) => {
@@ -679,6 +689,9 @@ export function useEditor({
     clearSelectionCallback,
   });
 
+  // Before useHotkeys, which needs zoomToScale for the "100%" shortcut.
+  const { zoomToScale } = useCanvasPanZoom({ canvas });
+
   useHotkeys({
     undo,
     redo,
@@ -686,6 +699,8 @@ export function useEditor({
     paste,
     save,
     canvas,
+    autoZoom,
+    zoomToScale,
   });
 
   useLoadState({
