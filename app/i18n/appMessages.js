@@ -10251,9 +10251,28 @@ const en = {
   "app.purchasing.stock.lowHeading": "Below the reorder level",
   "app.purchasing.stock.noThreshold": "No reorder level set",
   "app.purchasing.stock.threshold": "Reorder at {n}",
-  "app.purchasing.stock.withoutThreshold":
-    "{n} materials have no reorder level, so nothing can be said about whether they are running low.",
-  "app.purchasing.stock.recordHeading": "Record a movement",
+  // "1 materials have no reorder level" — the owner read that off the Stock
+  // tab on 2026-10-25, with exactly one material on the shelf.
+  //
+  // countedNoun is not enough here: it prefixes a count to a declined NOUN,
+  // and this sentence declines on the verb too ("has"/"have",
+  // "it is"/"they are"). pluralForm carries the whole sentence instead, which
+  // is the same helper and the same plural categories, one level up.
+  //
+  // The other languages keep their current wording until somebody translates
+  // the new shape. They are wrong in precisely the same way today, so this is
+  // a strict improvement to one language rather than a divergence between
+  // them.
+  "app.purchasing.stock.withoutThreshold": ({ n }) =>
+    pluralForm("en", n, {
+      one: `${n} material has no reorder level, so nothing can be said about whether it is running low.`,
+      other: `${n} materials have no reorder level, so nothing can be said about whether they are running low.`,
+    }),
+  // Was "Record a movement". A movement is warehouse vocabulary; the person
+  // reading this runs a painting crew and has a tin of primer in their hand.
+  // The heading now says what the form does, and says the ADD case first —
+  // see StockPanel.js on why the form no longer opens on "Used on a job".
+  "app.purchasing.stock.recordHeading": "Add or use stock",
   "app.purchasing.stock.pickMaterial": "Which material?",
   "app.purchasing.stock.quantityPlaceholder": "How many",
   "app.purchasing.stock.notePlaceholder": "Note (optional)",

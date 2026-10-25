@@ -34,7 +34,23 @@ export default function StockPanel() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorKey, setErrorKey] = useState("");
-  const [draft, setDraft] = useState({ materialId: "", kind: "used", quantity: "", note: "" });
+  // ── Why the form opens on "Received" and not "Used on a job" ─────────────
+  //
+  // The owner, 2026-10-25, looking at this tab: "in purchasing stock i cannot
+  // see where i can add". Adding was never missing — it is the first option
+  // in the kind dropdown — but the dropdown opened on "Used on a job", so the
+  // only operation on screen was the one that takes stock AWAY, and the way
+  // to put stock in was hidden inside a control that looked like it did the
+  // opposite.
+  //
+  // Receiving is also the only movement that can be FIRST for any material:
+  // nothing can be used, returned, wasted or counted before some of it has
+  // arrived. Their shelf read "Primer (2 coats) — 0 gal" when they wrote.
+  //
+  // It is a defaulted destructive action otherwise, which is the shape
+  // AGENTS.md warns about from the other side: not a control that does
+  // nothing, but one that quietly does the wrong thing to somebody in a hurry.
+  const [draft, setDraft] = useState({ materialId: "", kind: "received", quantity: "", note: "" });
   const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
 
