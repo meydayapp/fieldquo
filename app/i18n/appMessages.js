@@ -10296,6 +10296,14 @@ const en = {
   "app.purchasing.stock.buySupplier": "Where from (optional)",
   "app.purchasing.stock.buySubmit": "Put it on the shelf",
   "app.purchasing.stock.buyFailed": "That didn't save. Try again.",
+  "app.purchasing.stock.usedNoJob": "Not for a particular job",
+  "app.purchasing.stock.usedCostHint":
+    "What these cost at your average price is added to that job's costs.",
+  // Said at the moment it happens, not left for the costing screen to not
+  // show. "Nothing was added" is the honest sentence; a zero on a job's costs
+  // would be a claim that it was free.
+  "app.purchasing.stock.usedNoCost":
+    "Taken off the shelf, but nothing was added to the job's costs — there is no price recorded for this material yet. Add what you paid the next time you buy it and later jobs will be costed.",
   "app.purchasing.stock.kind.received": "Received",
   "app.purchasing.stock.kind.returned": "Returned to stock",
   "app.purchasing.stock.kind.used": "Used on a job",

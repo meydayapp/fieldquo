@@ -93,7 +93,8 @@ export async function POST(request) {
   // another tenant's material — this check is the whole of that boundary.
   const material = await db.material.findFirst({
     where: { id: materialId, companyId: member.companyId },
-    select: { id: true, name: true },
+    // currentAvgCost and unit are read for the job-costing write below.
+    select: { id: true, name: true, unit: true, currentAvgCost: true },
   });
   if (!material) {
     return NextResponse.json({ error: "That material isn't yours." }, { status: 400 });
@@ -132,6 +133,67 @@ export async function POST(request) {
     },
   });
 
+  // ── What the job paid for what it took off the shelf ─────────────────────
+  //
+  // The owner, 2026-10-25: "i could buy 30 tapes because they are on sale...
+  // in job A i might use 3 so i could say used 3 tapes. they get removed my
+  // inventory as i used them and the cost of those 3 gets added to my job...
+  // now i might just show 27 in the inventory."
+  //
+  // Before this, the quantity moved and the money did not. Job costing sums
+  // Expense by projectId (app/api/jobs/[id]/costing) and reads StockMovement
+  // not at all, so stock a job consumed was free as far as the job knew.
+  //
+  // ── Why this cannot double-count ─────────────────────────────────────────
+  //
+  // Every path that puts stock ON the shelf books no expense — the purchase
+  // form (app/api/stock/purchase), a PO receipt, a supply-request restock.
+  // The one path that books an expense, a scanned receipt, never touches
+  // stock. The two halves are already disjoint, so the cost lands exactly
+  // once: here, when the material is consumed. Breaking that symmetry later
+  // — expensing a purchase that also stocks — would double-count, and this
+  // comment is where somebody should find out.
+  //
+  // ── Valued at the running average, or not at all ─────────────────────────
+  //
+  // Material.currentAvgCost is recomputed from every price entry rather than
+  // nudged (lib/jobs/sourcingList.js), so one mistyped receipt is diluted
+  // rather than baked in. With no price history there is no honest figure:
+  // the movement still happens and the shelf is still right, but no expense
+  // is invented. A zero on a job's costs is a claim, and "we never recorded
+  // what this cost" is not the same claim as "it was free".
+  //
+  // externalId carries the movement id under @@unique([companyId,
+  // externalId]), so a retried request cannot book the cost twice and the
+  // row stays findable if the movement is ever reversed.
+  let costed = null;
+  if (normalised.kind === "used" && jobId) {
+    const unitCost = Number(material.currentAvgCost);
+    const used = Math.abs(Number(normalised.quantity));
+    const amount = Math.round(used * unitCost * 100) / 100;
+    if (Number.isFinite(unitCost) && unitCost > 0 && amount > 0) {
+      const expense = await db.expense.create({
+        data: {
+          companyId: member.companyId,
+          projectId: jobId,
+          materialId: material.id,
+          category: "Materials",
+          amount,
+          isOverhead: false,
+          notes: `${used}${material.unit ? ` ${material.unit}` : ""} of ${material.name} from stock`,
+          externalId: `stock_use:${movement.id}`,
+          createdById: member.userId || null,
+        },
+        select: { id: true, amount: true },
+      });
+      costed = { expenseId: expense.id, amount: Number(expense.amount) };
+    } else {
+      // Said out loud so the screen can say it too, rather than leaving
+      // somebody to notice the job's cost did not move.
+      costed = { expenseId: null, amount: null, reason: "no_unit_cost" };
+    }
+  }
+
   await recordActivity(member, {
     action: "stock.movement",
     entityType: "material",
@@ -139,5 +201,8 @@ export async function POST(request) {
     summary: `${MOVEMENT_KINDS[normalised.kind].label}: ${normalised.quantity} ${material.name}`,
   });
 
-  return NextResponse.json({ movement: shapeMovement(movement, material.name) }, { status: 201 });
+  return NextResponse.json(
+    { movement: shapeMovement(movement, material.name), costed },
+    { status: 201 },
+  );
 }

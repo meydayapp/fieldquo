@@ -50,7 +50,12 @@ export default function StockPanel() {
   // It is a defaulted destructive action otherwise, which is the shape
   // AGENTS.md warns about from the other side: not a control that does
   // nothing, but one that quietly does the wrong thing to somebody in a hurry.
-  const [draft, setDraft] = useState({ materialId: "", kind: "received", quantity: "", note: "" });
+  const [draft, setDraft] = useState({ materialId: "", kind: "received", quantity: "", jobId: "", note: "" });
+  // Only needed to name a job when stock is being used on one. Failing to
+  // load them leaves an empty picker, not a broken form — the movement is
+  // still worth recording without a job on it.
+  const [jobs, setJobs] = useState([]);
+  const [costNote, setCostNote] = useState("");
   const [saveError, setSaveError] = useState("");
   const [buy, setBuy] = useState({ name: "", quantity: "", unit: "", totalCost: "", supplier: "" });
   const [buyError, setBuyError] = useState("");
@@ -72,6 +77,21 @@ export default function StockPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/jobs")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (!cancelled) setJobs(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setJobs([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const levels = data?.levels || null;
   const low = data?.low || [];
@@ -117,6 +137,16 @@ export default function StockPanel() {
         await reportResponseError(res, setSaveError, t("app.purchasing.stock.saveFailed"));
         return;
       }
+      // Say whether the money followed the quantity. A job whose cost did
+      // not move because the material has no price history is a fact the
+      // person recording it should hear now, not discover on the costing
+      // screen a week later.
+      const out = await res.json().catch(() => ({}));
+      setCostNote(
+        out?.costed?.reason === "no_unit_cost"
+          ? t("app.purchasing.stock.usedNoCost")
+          : "",
+      );
       setDraft((d) => ({ ...d, quantity: "", note: "" }));
       await load();
     } finally {
@@ -296,6 +326,31 @@ export default function StockPanel() {
               className={inputClass}
             />
           </div>
+          {/* Only for "used". The kind is literally called "Used on a job"
+              and until now there was nowhere to say WHICH job — the column
+              existed on StockMovement and on the API, and no field asked for
+              it. Naming the job is what moves the material's cost onto that
+              job's total. */}
+          {draft.kind === "used" && (
+            <select
+              value={draft.jobId}
+              onChange={(e) => setDraft((d) => ({ ...d, jobId: e.target.value }))}
+              className={inputClass}
+            >
+              <option value="">{t("app.purchasing.stock.usedNoJob")}</option>
+              {jobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.title}
+                </option>
+              ))}
+            </select>
+          )}
+          {draft.kind === "used" && draft.jobId && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.purchasing.stock.usedCostHint")}
+            </p>
+          )}
+          {costNote && <p className="text-xs text-amber-700 dark:text-amber-400">{costNote}</p>}
           {draft.kind === "adjustment" && (
             <p className="text-xs text-muted-foreground">
               {t("app.purchasing.stock.adjustmentHint")}
