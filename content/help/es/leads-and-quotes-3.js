@@ -1008,6 +1008,81 @@ export const ARTICLES = {
       },
     ],
   },
+  // Las palabras de la pantalla salen del bloque `es` de
+  // app/i18n/appMessages.js (app.nav.drawingReads, app.planRead.list.*), no de
+  // una traducción propia.
+  "the-drawing-reads-list": {
+    title: "Sus lecturas de planos",
+    summary:
+      "La lista de cada juego de planos que mandó leer, en Más → Trabajo y ventas: cómo se llama cada lectura, hasta dónde llegó, cuándo, y si salió una cotización de ella.",
+    updated: "2026-10-25",
+    intro: [
+      "Una lectura de planos guarda todo lo que recibió: las láminas que subió, la hoja de cálculo del alcance, las fotos, la conversación y el borrador con precios. Esta pantalla sirve para volver a una de ellas. Muestra sus treinta lecturas más recientes, la más nueva primero.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Para qué sirve esta pantalla",
+        blocks: [
+          { p: "Aquí están todas las lecturas iniciadas en su empresa, no solo las suyas. Que un estimador esté ausente no debe dejar una lectura fuera del alcance de sus compañeros." },
+          { p: "Abrir una lectura es gratis y no cobra nada. Solo la lectura profunda se cobra, tiene su propio botón dentro de la lectura, y en una lectura marcada **Leído** ya está pagada. Vea [[start-from-drawings|Empezar desde los planos: la lectura de planos]] para saber qué hace una lectura y cuánto cuesta." },
+        ],
+      },
+      {
+        id: "what-is-on-the-screen",
+        heading: "Qué hay en la pantalla",
+        blocks: [
+          { p: "Una tarjeta por lectura, la más nueva arriba. La tarjeta es el enlace: tóquela para abrir la lectura." },
+          { bullets: [
+            "**El nombre del proyecto** — cómo se llama la lectura. Sale del nombre de la solicitud o del cliente cuando la lectura nace de uno de los dos, y se cambia dentro de la lectura en **Nombre del proyecto**.",
+            "**El estado** — una de las cuatro palabras de la tabla de abajo.",
+            "**La fecha** — **Leído el** y el día en que terminó la lectura profunda, o **Iniciado el** y el día en que se creó la lectura cuando todavía no se ha leído.",
+            "**Abrir la cotización que salió de aquí** — solo en una lectura de la que se guardó una cotización. El rótulo es general porque esta lista no lleva el número de la cotización; la página de la cotización sí lo muestra.",
+          ] },
+        ],
+      },
+      {
+        id: "open-a-past-read",
+        heading: "Cómo volver a abrir una lectura",
+        blocks: [
+          { steps: [
+            "Abra **Más** al pie del menú y luego **Lecturas de planos** en **Trabajo y ventas**.",
+            "Toque la lectura que busca. Sus láminas, su conversación y su borrador quedaron tal como los dejó.",
+            "Si prefiere iniciar una nueva, toque **Nueva lectura** arriba a la derecha — o inícela desde una cotización o una solicitud, que es lo que traslada el servicio.",
+          ] },
+          { note: "Una lectura iniciada con **Nueva lectura** todavía no tiene servicio: elíjalo en **Para qué es este presupuesto** dentro de la lectura antes de ejecutarla. Iniciada desde una cotización o una solicitud, el servicio viaja solo." },
+        ],
+      },
+      {
+        id: "what-each-status-means",
+        heading: "Qué significa cada estado",
+        blocks: [
+          { table: {
+            head: ["La palabra de la tarjeta", "Qué significa"],
+            rows: [
+              ["Aún sin leer", "La lectura existe y guarda sus archivos. Nada se ha leído y nada se ha cobrado."],
+              ["Leyendo…", "Hay una lectura profunda en curso. Puede salir de la pantalla: sigue sola."],
+              ["Leído", "La lectura profunda terminó. El resumen, las mediciones y el borrador de cotización están en la página de la lectura."],
+              ["Falló la lectura", "La lectura no pudo terminar. No se cobró nada. Ábrala y vuelva a ejecutar la lectura."],
+            ],
+          } },
+          { p: "Una lectura que falló conserva sus archivos, así que volver a ejecutarla nunca obliga a subir nada dos veces." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Quién la ve",
+        blocks: [
+          { p: "Cualquier persona que puede ver cotizaciones ve esta pantalla y todas las lecturas que tiene. Iniciar una lectura nueva requiere el nivel **Ver, crear y editar** en cotizaciones. La fila no aparece en una empresa a la que FieldQuo no le activó la lectura profunda." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Una lectura del mes pasado ya no está en la lista. ¿Se borró?", a: "No. La lista se detiene en sus treinta lecturas más recientes. Nada más antiguo se quitó." },
+      { q: "¿Abrir una lectura me cobra otra vez?", a: "No. Solo se cobra la lectura profunda, de su crédito de IA, y solo cuando usted la ejecuta dentro de la lectura. Abrirla y releer lo que dice es gratis." },
+      { q: "¿Puedo borrar una lectura de planos?", a: "Hoy no. No existe forma de borrar una lectura de planos, ni aquí ni en otro lugar." },
+    ],
+  },
   "government-and-public-tenders": {
     title: "Licitaciones públicas y de gobierno",
     summary:

@@ -1026,6 +1026,83 @@ export const ARTICLES = {
       },
     ],
   },
+  // Read off app/app/quotes/drawings/page.js, the GET in
+  // app/api/plan-reads/route.js (companyId, createdAt desc, take 30, and the
+  // seven columns it selects), the PlanRead model's status values, and
+  // lib/permissions/nav.js. No figure: this screen is newer than the live
+  // capture set, and docs/screens/live/app/*/ has no shot of it.
+  "the-drawing-reads-list": {
+    title: "Your drawing reads",
+    summary:
+      "The list of every drawing set you have had read, under More → Work & sales: what each read is called, where it got to, when, and whether a quote came out of it.",
+    updated: "2026-10-25",
+    intro: [
+      "A drawing read keeps everything it was given — the sheets you uploaded, the scope spreadsheet, the photos, the conversation and the priced draft. This screen is how you get back to one. It lists your thirty most recent reads, newest first.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "What this screen is for",
+        blocks: [
+          { p: "Every read your company has started is listed here, not only the ones you started yourself. An estimator being away is not a read nobody else can open." },
+          { p: "Opening a read is free and charges nothing. The deep read is the only charged step, it has its own button inside the read, and on a read showing **Read** it has already been paid for. See [[start-from-drawings|Start from drawings: the drawing read]] for what a read does and what it costs." },
+        ],
+      },
+      {
+        id: "what-is-on-the-screen",
+        heading: "What is on the screen",
+        blocks: [
+          { p: "One card per read, newest at the top. The card is the link: press it to open the read." },
+          { bullets: [
+            "**The project name** — what the read is called. It is taken from the lead's or the client's name when the read was started from one, and you change it inside the read under **Project name**.",
+            "**The status** — one of the four words in the table below.",
+            "**The date** — **Read** and the day the deep read finished, or **Started** and the day the read was created when it has not been read yet.",
+            "**Open the quote this became** — on a read a quote was saved from, and only there. It is worded that way because this list does not carry the quote's number; the quote's own page does.",
+          ] },
+        ],
+      },
+      {
+        id: "open-a-past-read",
+        heading: "How to open a past read",
+        blocks: [
+          { steps: [
+            "Open **More** at the foot of the menu, then **Drawing reads** under **Work & sales**.",
+            "Press the read you want. Its sheets, its conversation and its draft are as you left them.",
+            "To start a new one instead, press **New read** at the top right — or start it from a quote or a lead, which is what carries the service across.",
+          ] },
+          { note: "A read started from **New read** has no service on it yet, so choose one under **What this quote is for** inside the read before you run it. Started from a quote or a lead, the service comes across on its own." },
+        ],
+      },
+      {
+        id: "what-each-status-means",
+        heading: "What each status means",
+        blocks: [
+          { table: {
+            head: ["What the card says", "What it means"],
+            rows: [
+              ["Not read yet", "The read exists and holds its files. Nothing has been read and nothing has been charged."],
+              ["Reading…", "A deep read is running. You can leave the screen — it carries on."],
+              ["Read", "The deep read finished. The overview, the measurements and the draft quote are on the read's own page."],
+              ["Read failed", "The read could not finish. Nothing was charged. Open it and start the read again."],
+            ],
+          } },
+          { p: "A failed read keeps its files, so reading it again never means uploading anything twice." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Who can see it",
+        blocks: [
+          { p: "Anyone who can view quotes sees this screen and every read on it. Starting a new read needs quotes **View, create, and edit**. The row is absent altogether for a company FieldQuo has not switched the deep read on for." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "A read I started last month is not in the list. Was it deleted?", a: "No. The list stops at your thirty most recent reads. Nothing older has been removed." },
+      { q: "Does opening a read charge me again?", a: "No. Only the deep read is charged, from your AI credit, and only when you start it from inside the read. Opening one and reading what it says is free." },
+      { q: "Can I delete a drawing read?", a: "Not today. There is no delete for a drawing read, from this screen or anywhere else." },
+    ],
+  },
   "government-and-public-tenders": {
     title: "Government and public tenders",
     summary:

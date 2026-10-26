@@ -246,6 +246,18 @@ export const MORE_GROUPS = [
   {
     key: "app.nav.group.moreWork",
     items: [
+      // Past drawing reads. /api/plan-reads has listed them since the feature
+      // shipped and nothing rendered the list, so reopening one needed its id
+      // from the URL bar — the same "reachable from NOTHING" failure the
+      // /app/tasks comment below records.
+      //
+      // Filed in More rather than beside Quotes on the rail because the rail
+      // is at its eighteen-row ceiling (check:shell §1, the owner's number),
+      // and a read is started from inside the quote builder, not from the
+      // rail: this row is for going BACK to one. It is tiled on /app/more, in
+      // the phone's More sheet and in the rail's search, which is what being
+      // findable means for every other row in this group.
+      { key: "app.nav.drawingReads", href: "/app/quotes/drawings", icon: ScanLine, helpArticle: "drawing-reads" },
       // Recurring work sold as a package — a standing instruction to raise
       // an invoice.
       { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
