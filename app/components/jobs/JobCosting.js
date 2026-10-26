@@ -447,7 +447,23 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
                   "app.jobCosting.unratedNote",
                   "{hours}h were worked by someone with no hourly rate on file, so they're costing nothing here.",
                   { hours: actual.labour.unratedHours },
-                )}
+                )}{" "}
+              {/* Approving unpriced hours changes nothing, so say so NOW
+                  rather than after the trip through the timesheet — and link
+                  the one screen that fixes it, which is three clicks away
+                  under Settings and was never pointed at from here. */}
+              {actual.labour.unratedPendingHours > 0 && (
+                <>
+                  {t(
+                    "app.jobCosting.unratedPendingNote",
+                    "{hours}h of those are from someone with no hourly rate, so approving them won't add any cost.",
+                    { hours: actual.labour.unratedPendingHours },
+                  )}{" "}
+                  <a href="/app/settings/team/workers#own-rate" className="underline">
+                    {t("app.jobCosting.setRateLink", "Set an hourly rate")}
+                  </a>
+                </>
+              )}
             </span>
           </div>
         )}

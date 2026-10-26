@@ -219,5 +219,50 @@ console.log("\nA sub's imported quote, adopted on acceptance, then a signed chan
   t("an import nobody adopted still counts through its expense", unadopted.total, 3250);
 }
 
+// ── Hours that are pending AND unpriced ──────────────────────────────────
+//
+// The owner, 2026-10-26, having clocked 8.26h on a live job: "I just did some
+// labour for a job and the job labour has not updated." Two causes at once —
+// the entries were pending, and his own Worker row had no rate. The panel said
+// only the first, so approving them would have taught him the second a trip
+// later. `unratedPendingHours` is what lets it say both at once.
+//
+// Executed rather than read: this is the arithmetic a contractor decides
+// whether a job made money by.
+{
+  const T = (hours, status, hourlyRate) => ({
+    hours,
+    status,
+    workerId: "w1",
+    worker: { hourlyRate },
+  });
+  const L = (entries) => actualJobCost([], entries).labour;
+
+  t("pending hours from an unrated worker are flagged", L([T(8.26, "pending", null)]).unratedPendingHours, 8.26);
+  t("…and still count as pending", L([T(8.26, "pending", null)]).pendingHours, 8.26);
+  t("…costing nothing yet", L([T(8.26, "pending", null)]).cost, 0);
+  t("a pending hour WITH a rate is not flagged", L([T(8.26, "pending", 45)]).unratedPendingHours, 0);
+  t("approving a rated hour prices it", L([T(8.26, "approved", 45)]).cost, 371.7);
+  t("an approved unrated hour is the OTHER figure", L([T(8.26, "approved", null)]).unratedHours, 8.26);
+  t("…and is not double-counted as pending-unrated", L([T(8.26, "approved", null)]).unratedPendingHours, 0);
+
+  // Number(null) is 0, which would turn "we don't know the rate" into "this
+  // person works for nothing" — the same trap the approved branch guards.
+  t("undefined is an unknown rate", L([T(2, "pending", undefined)]).unratedPendingHours, 2);
+  t("an empty string is an unknown rate", L([T(2, "pending", "")]).unratedPendingHours, 2);
+  t("a missing worker object is an unknown rate", L([{ hours: 3, status: "pending" }]).unratedPendingHours, 3);
+  // But zero is a DECISION, not an absence — a volunteer or an owner taking
+  // no wage on this job. Flagging it would nag about a priced figure.
+  t("zero IS a rate, and is not flagged", L([T(2, "pending", 0)]).unratedPendingHours, 0);
+
+  t("hours of zero add nothing", L([T(0, "pending", null)]).unratedPendingHours, 0);
+  t("null hours add nothing", L([T(null, "pending", null)]).unratedPendingHours, 0);
+
+  const mixed = L([T(5, "pending", null), T(3, "pending", 45), T(2, "approved", 45)]);
+  t("mixed: 8h pending", mixed.pendingHours, 8);
+  t("mixed: only the unpriced 5h are flagged", mixed.unratedPendingHours, 5);
+  t("mixed: the approved 2h cost $90", mixed.cost, 90);
+}
+
 console.log(fail ? `\n${fail} FAILED\n` : "\nALL PASS — a job can say what it cost\n");
 process.exit(fail ? 1 : 0);
