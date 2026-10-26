@@ -135,7 +135,39 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
     <div className="bg-card border border-border rounded-xl p-5">
       <h2 className="font-semibold text-foreground mb-4">
         <JobSectionToggle section={section}>
-          {t("app.jobCosting.title", "What this job has cost")}
+          {/* ── The numbers survive the fold ──────────────────────────────
+              The owner, 2026-10-25: "before on the job you were able to see
+              the labor, overhead, profit.. materials cost etc?? and with the
+              % to know if we were above the target or under ... i don't seem
+              to see it after you changed the collapsable things."
+
+              Nothing was removed — every figure is still below, and the card
+              was closed because somebody closed it, which persists per job.
+              But this card IS its numbers. Folding it to a bare title is the
+              one case where collapsing costs more than the scrolling it
+              saves, because the answer it holds is two figures wide and the
+              whole page is read to find them.
+
+              So the headline rides in the header while the detail folds: the
+              total, and the margin when there is a quoted total to compare
+              against. Shown only when closed — open, it would say each
+              number twice. */}
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span>{t("app.jobCosting.title", "What this job has cost")}</span>
+            {!section.open && !nothingRecorded && (
+              <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                {money(actual.total)}
+                {comparison.marginPct !== null && (
+                  <span className={comparison.profit < 0 ? "text-red-600 dark:text-red-400" : ""}>
+                    {" · "}
+                    {t("app.jobCosting.marginShort", "{pct}% margin", {
+                      pct: String(comparison.marginPct),
+                    })}
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
         </JobSectionToggle>
       </h2>
       {/* ── The close-out ────────────────────────────────────────────────
