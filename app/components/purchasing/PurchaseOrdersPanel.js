@@ -35,7 +35,11 @@ import { formatMilli } from "@/lib/purchasing/quantity";
 
 const inputClass =
   "w-full rounded border border-border bg-background px-3 py-2 text-base sm:text-sm";
-const BLANK_LINE = { description: "", quantity: "", unit: "each", unitCost: "" };
+// stock: does this line land on a shelf? Goods do; a delivery charge or a
+// pallet deposit does not. Sent with the line because the server cannot tell
+// the two apart from the words, and guessing is how nine rolls of tape were
+// received in full against an empty Stock tab.
+const BLANK_LINE = { description: "", quantity: "", unit: "each", unitCost: "", stock: true };
 
 const STATUS_TONE = {
   draft: "text-muted-foreground",
@@ -160,7 +164,7 @@ export default function PurchaseOrdersPanel() {
             </select>
 
             {draft.lines.map((line, i) => (
-              <div key={i} className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr_1fr]">
+              <div key={i} className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
                 <input
                   value={line.description}
                   onChange={(e) =>
@@ -210,6 +214,21 @@ export default function PurchaseOrdersPanel() {
                   placeholder={t("app.purchasing.orders.unitCostPlaceholder")}
                   className={inputClass}
                 />
+                <label className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground sm:self-center">
+                  <input
+                    type="checkbox"
+                    checked={line.stock !== false}
+                    onChange={(e) =>
+                      setDraft((d) => {
+                        const lines = [...d.lines];
+                        lines[i] = { ...lines[i], stock: e.target.checked };
+                        return { ...d, lines };
+                      })
+                    }
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  {t("app.purchasing.orders.lineStock")}
+                </label>
               </div>
             ))}
 
@@ -220,6 +239,10 @@ export default function PurchaseOrdersPanel() {
             >
               + {t("app.purchasing.orders.addLine")}
             </button>
+
+            <p className="text-xs text-muted-foreground">
+              {t("app.purchasing.orders.stockNote")}
+            </p>
 
             <p className="text-xs text-muted-foreground">
               {t("app.purchasing.orders.totalNote")}

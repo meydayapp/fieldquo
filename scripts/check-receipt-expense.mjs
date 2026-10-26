@@ -236,6 +236,61 @@ for (const [label, line] of [
   );
 }
 
+// ── The read repairs itself ──────────────────────────────────────────────
+//
+// A write at tick time is not enough on its own: the owner's own primer was
+// ticked 38 minutes before that writer shipped, so no tick would ever fire
+// for it again and the job read $0 in materials forever. The panel that
+// shows the number has to be able to mend the link itself.
+{
+  const rec = read("lib/receipts/reconcileJobPurchases.js");
+  ok(
+    "a job's bought lines are reconciled, not only written at tick time",
+    /export async function reconcileJobPurchases/.test(rec),
+  );
+  ok(
+    "…through the one writer, not a second copy of the rule",
+    /syncPurchaseExpense/.test(rec) && !/expense\.create\(/.test(rec),
+    "a duplicate of the mapping is the copy nobody updates",
+  );
+  ok(
+    "…claiming an unlinked row once, so one expense cannot cover two lines",
+    /unclaimed\.splice\(at, 1\)/.test(rec),
+    "reusing it would hide a second line's cost",
+  );
+  ok(
+    "…comparing money in cents, not floats",
+    /Math\.round\(Number\(v\) \* 100\)/.test(rec),
+    "316.38 must match a Decimal that round-trips",
+  );
+  ok(
+    "…and never editing or deleting a row it did not write",
+    !/\.update\(/.test(rec) && !/\.delete\(/.test(rec),
+    "repair must not rewrite a company's existing expense",
+  );
+  ok(
+    "…refusing to throw, because the costing panel still has to draw",
+    /catch \(err\)/.test(rec),
+  );
+  ok(
+    "…but returning the outcome, so a repair that fails is not silent",
+    /failed: number/.test(rec) || /out\.failed/.test(rec),
+  );
+
+  const costing = read("app/api/jobs/[id]/costing/route.js");
+  ok(
+    "the costing route reconciles BEFORE it sums",
+    costing.indexOf("reconcileJobPurchases(") !== -1 &&
+      costing.indexOf("reconcileJobPurchases(") < costing.indexOf("db.expense.findMany"),
+    "repairing after the sum shows yesterday's number",
+  );
+  ok(
+    "…and says so in its payload",
+    /\.\.\.\(reconciled\.healed \|\| reconciled\.failed \? \{ reconciled \} : \{\}\)/.test(costing),
+    "computed and dropped is the same as not computed",
+  );
+}
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

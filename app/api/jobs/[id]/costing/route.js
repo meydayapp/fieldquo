@@ -20,6 +20,7 @@ import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { unattributedLabourForJob } from "@/lib/costing/unattributedHours";
 import { contractValue } from "@/lib/jobs/changeOrderValue";
 import { shouldAskRevision, normaliseThresholdPct, DEFAULT_REVISION_THRESHOLD_PCT } from "@/lib/costing/costRevision";
+import { reconcileJobPurchases } from "@/lib/receipts/reconcileJobPurchases";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
@@ -85,6 +86,17 @@ export async function GET(request, { params }) {
     },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // A material line ticked bought is real money the contractor spent, and
+  // this panel is where they read whether the job made any. Repair the link
+  // before summing rather than trusting that the write at tick time landed:
+  // a line ticked before that writer existed, or one whose write failed
+  // silently, otherwise reads as $0 forever. No-op once every line is
+  // costed, which is the normal case. See lib/receipts/reconcileJobPurchases.js.
+  const reconciled = await reconcileJobPurchases({
+    companyId: member.companyId,
+    jobId: job.id,
+  });
 
   const [expenses, timeEntries, assetUseLogs, subcontracts] = await Promise.all([
     db.expense.findMany({
@@ -282,6 +294,8 @@ export async function GET(request, { params }) {
     !(subcontracts && subcontracts.length);
 
   return NextResponse.json({
+    // Named so a repair that cannot write is visible instead of silent.
+    ...(reconciled.healed || reconciled.failed ? { reconciled } : {}),
     actual,
     ...(costsNotRecorded ? { costsNotRecorded: true } : {}),
     // Hours in this window that belong to no job. Its own key, never merged

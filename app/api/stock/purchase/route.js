@@ -34,6 +34,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { findOrCreateMaterial } from "@/lib/stock/findOrCreateMaterial";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
@@ -83,37 +84,20 @@ export async function POST(request) {
   const note = text(body.note, 500) || null;
   const totalCost = num(body.totalCost);
 
-  // Find-or-create, case-insensitively. sourcingList.js matches the name
-  // EXACTLY, so "Frog tape" typed here and "Frog Tape" built from a job would
-  // become two shelves for one roll of tape. Insensitive matching here finds
-  // that row; the remaining half of the problem — sourcingList creating a
-  // second row when the case differs — is left alone deliberately, because it
-  // sits on the receipt-to-expense money path and is not this change's to
-  // move. Named rather than silently diverged from.
-  const existing = await db.material.findFirst({
-    where: { companyId: member.companyId, name: { equals: name, mode: "insensitive" } },
-    select: { id: true, name: true, unit: true },
+  // One shelf per material, found by name. The rule lives in
+  // lib/stock/findOrCreateMaterial.js because purchase orders need the same
+  // one, and two copies is how "Frog tape" and "Frog Tape" become two shelves.
+  const material = await findOrCreateMaterial({
+    companyId: member.companyId,
+    name,
+    unit,
   });
-
-  const material =
-    existing ||
-    (await db.material.create({
-      data: {
-        companyId: member.companyId,
-        name,
-        unit,
-        // Not "job_material": this is stock bought ahead of any job, which is
-        // the whole point of the screen it comes from.
-        category: "stock",
-      },
-      select: { id: true, name: true, unit: true },
-    }));
 
   // A material that existed with no unit, bought with one, learns it. The
   // reverse is never true: a unit already on the row is the one the shelf has
   // been counted in, and overwriting it would silently restate every movement
   // behind it.
-  if (existing && !existing.unit && unit) {
+  if (!material.created && !material.unit && unit) {
     await db.material.update({ where: { id: material.id }, data: { unit } });
   }
 
@@ -159,6 +143,6 @@ export async function POST(request) {
     material: { id: material.id, name: material.name, unit: material.unit || unit },
     movement: { id: movement.id, quantity: String(movement.quantity) },
     unitPrice,
-    created: !existing,
+    created: material.created,
   });
 }

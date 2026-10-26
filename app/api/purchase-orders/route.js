@@ -17,6 +17,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { findOrCreateMaterial } from "@/lib/stock/findOrCreateMaterial";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
@@ -88,6 +89,11 @@ function readLines(raw, companyMaterialIds) {
     lines.push({
       description,
       materialId: materialId || null,
+      // Goods by default, because that is what a purchase order is mostly
+      // for. Unticked on the line that is a delivery charge or a pallet
+      // deposit, which has no shelf to land on — the decision is the
+      // buyer's, made while they type it, not guessed later from the words.
+      stock: line?.stock !== false,
       quantity: fromMilli(qty),
       unit: text(line?.unit, 24),
       unitCost: unitCostCents === null ? null : centsToAmount(unitCostCents),
@@ -146,6 +152,27 @@ export async function POST(request) {
   if (error) return NextResponse.json({ error }, { status: 400 });
   if (!lines.length) {
     return NextResponse.json({ error: "A purchase order needs at least one line." }, { status: 400 });
+  }
+
+  // Give every goods line a shelf before the order is stored.
+  //
+  // The receive route already knows how to stock a line (it writes a
+  // StockMovement for any line with a materialId) — that path was simply
+  // unreachable, because the order form has never set one. So nine rolls of
+  // tape were ordered, marked "9 of 9 lines fully in", and the Stock tab
+  // stayed empty: received, counted, and nowhere. Resolving the name here is
+  // what makes "All in" mean what it says.
+  for (const line of lines) {
+    if (!line.materialId && line.stock) {
+      const material = await findOrCreateMaterial({
+        companyId: member.companyId,
+        name: line.description,
+        unit: line.unit || null,
+      });
+      if (material) line.materialId = material.id;
+    }
+    // The buyer's intent, not a column on the line.
+    delete line.stock;
   }
 
   // ── expectedTotal is computed here, never accepted from the browser ───────
