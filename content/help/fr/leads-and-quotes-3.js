@@ -1008,6 +1008,80 @@ export const ARTICLES = {
       },
     ],
   },
+  // Les mots à l'écran viennent du bloc `fr` de app/i18n/appMessages.js
+  // (app.nav.drawingReads, app.planRead.list.*), pas d'une traduction maison.
+  "the-drawing-reads-list": {
+    title: "Vos lectures de plans",
+    summary:
+      "La liste des jeux de plans que vous avez fait lire, sous Plus → Travail et ventes : le nom de chaque lecture, où elle est rendue, quand, et si une soumission en est sortie.",
+    updated: "2026-10-25",
+    intro: [
+      "Une lecture de plans garde tout ce qu'on lui a remis : les feuilles téléversées, le chiffrier de portée, les photos, la conversation et le brouillon chiffré. Cet écran sert à y revenir. Il affiche vos trente lectures les plus récentes, la plus récente en premier.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "À quoi sert cet écran",
+        blocks: [
+          { p: "Toutes les lectures lancées dans votre entreprise sont ici, pas seulement les vôtres. L'absence d'un estimateur ne doit pas rendre une lecture inaccessible à ses collègues." },
+          { p: "Ouvrir une lecture est gratuit et ne coûte rien. Seule la lecture approfondie est facturée, elle a son propre bouton dans la lecture, et sur une lecture marquée **Lu** elle est déjà payée. Voir [[start-from-drawings|Partir des plans : la lecture de plans]] pour ce qu'une lecture fait et ce qu'elle coûte." },
+        ],
+      },
+      {
+        id: "what-is-on-the-screen",
+        heading: "Ce qu'il y a à l'écran",
+        blocks: [
+          { p: "Une fiche par lecture, la plus récente en haut. La fiche est le lien : touchez-la pour ouvrir la lecture." },
+          { bullets: [
+            "**Le nom du projet** — le nom de la lecture. Il vient du nom de la demande ou du client quand la lecture part de l'un des deux, et vous le changez dans la lecture sous **Nom du projet**.",
+            "**L'état** — l'un des quatre mots du tableau ci-dessous.",
+            "**La date** — **Lu le** et le jour où la lecture approfondie a terminé, ou **Commencé le** et le jour de création quand rien n'a encore été lu.",
+            "**Ouvrir la soumission qui en est sortie** — seulement sur une lecture dont une soumission a été enregistrée. Le libellé reste général parce que cette liste ne transporte pas le numéro de la soumission ; la page de la soumission, elle, l'affiche.",
+          ] },
+        ],
+      },
+      {
+        id: "open-a-past-read",
+        heading: "Rouvrir une lecture",
+        blocks: [
+          { steps: [
+            "Ouvrez **Plus** au bas du menu, puis **Lectures de plans** sous **Travail et ventes**.",
+            "Touchez la lecture voulue. Ses feuilles, sa conversation et son brouillon sont restés tels quels.",
+            "Pour en lancer une nouvelle, touchez **Nouvelle lecture** en haut à droite — ou partez d'une soumission ou d'une demande, ce qui transmet le service visé.",
+          ] },
+          { note: "Une lecture lancée par **Nouvelle lecture** n'a encore aucun service : choisissez-le sous **Objet de ce devis** dans la lecture avant de la lancer. Partie d'une soumission ou d'une demande, le service suit tout seul." },
+        ],
+      },
+      {
+        id: "what-each-status-means",
+        heading: "Ce que chaque état veut dire",
+        blocks: [
+          { table: {
+            head: ["Le mot sur la fiche", "Ce qu'il veut dire"],
+            rows: [
+              ["Pas encore lu", "La lecture existe et garde ses fichiers. Rien n'a été lu et rien n'a été facturé."],
+              ["Lecture…", "Une lecture approfondie est en cours. Vous pouvez quitter l'écran : elle continue."],
+              ["Lu", "La lecture approfondie a terminé. L'aperçu, les mesures et le brouillon de soumission sont sur la page de la lecture."],
+              ["Lecture échouée", "La lecture n'a pas pu aboutir. Rien n'a été facturé. Ouvrez-la et relancez la lecture."],
+            ],
+          } },
+          { p: "Une lecture échouée garde ses fichiers : la relancer n'oblige jamais à téléverser quoi que ce soit deux fois." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Qui le voit",
+        blocks: [
+          { p: "Toute personne qui peut voir les soumissions voit cet écran et toutes les lectures qui s'y trouvent. Lancer une nouvelle lecture demande, pour les soumissions, le niveau **Voir, créer et modifier**. La rangée est absente pour une entreprise à qui FieldQuo n'a pas activé la lecture approfondie." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Une lecture du mois dernier n'est plus dans la liste. A-t-elle été supprimée ?", a: "Non. La liste s'arrête à vos trente lectures les plus récentes. Rien de plus ancien n'a été retiré." },
+      { q: "Est-ce qu'ouvrir une lecture me refacture ?", a: "Non. Seule la lecture approfondie est facturée, sur votre crédit IA, et seulement quand vous la lancez depuis la lecture. Ouvrir et relire ce qu'elle dit est gratuit." },
+      { q: "Puis-je supprimer une lecture de plans ?", a: "Pas aujourd'hui. Aucune suppression n'existe pour une lecture de plans, ni ici ni ailleurs." },
+    ],
+  },
   "government-and-public-tenders": {
     title: "Appels d'offres publics et gouvernementaux",
     summary:
