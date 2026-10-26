@@ -21,6 +21,8 @@
  * cabinet in a drawing — exactly what a stretched photo gets wrong.
  */
 
+import { useId } from "react";
+
 import { doorStyle } from "@/lib/kitchen/finishes";
 
 const DEFAULT_PAINT = "#EDE8DD";
@@ -55,7 +57,19 @@ function isDark(hex) {
   return 0.299 * r + 0.587 * g + 0.114 * b < 140;
 }
 
-export default function CabinetFace({ x, y, w, h, el, color, style: styleKey }) {
+export default function CabinetFace({
+  x,
+  y,
+  w,
+  h,
+  el,
+  color,
+  style: styleKey,
+}) {
+  // SVG gradient ids have to be unique across the whole document, and a
+  // drawing holds one of these per cabinet. useId gives a stable one per
+  // instance that survives hydration; a module counter would not.
+  const gid = useId().replace(/:/g, "");
   const paint = color || el?.config?.paintColor || DEFAULT_PAINT;
   const c = el.config || {};
   const gap = 1.5;
@@ -96,15 +110,92 @@ export default function CabinetFace({ x, y, w, h, el, color, style: styleKey }) 
   // sign — which is why panelDepth is signed in finishes.js rather than being
   // an "isRecessed" boolean that only ever darkens.
   const panelFill = shade(paint, -(style.panelDepth ?? 0.05));
+  const raisedPanel = (style.panelDepth ?? 0) < 0;
   const edgeDark = shade(paint, -0.22);
   const handle = isDark(paint) ? "rgba(255,255,255,.82)" : "rgba(45,32,20,.6)";
 
-  // whole-cabinet paint base — stiles/rails between cells read as paint
+  // Flat fills read as paper. Real doors are one surface under one light, so
+  // every face here is a gradient off the SAME paint rather than a different
+  // colour — the form comes from the light, not from repainting the panel.
   items.push(
-    <rect key="base" x={x} y={y} width={w} height={h} fill={paint} rx={2} />,
+    <defs key="defs">
+      <linearGradient id={`${gid}-face`} x1="0" y1="0" x2="0.35" y2="1">
+        <stop offset="0%" stopColor={shade(paint, 0.11)} />
+        <stop offset="52%" stopColor={paint} />
+        <stop offset="100%" stopColor={shade(paint, -0.09)} />
+      </linearGradient>
+      <linearGradient id={`${gid}-panel`} x1="0" y1="0" x2="0.3" y2="1">
+        <stop
+          offset="0%"
+          stopColor={shade(panelFill, raisedPanel ? 0.09 : -0.06)}
+        />
+        <stop
+          offset="100%"
+          stopColor={shade(panelFill, raisedPanel ? -0.07 : 0.06)}
+        />
+      </linearGradient>
+    </defs>,
   );
 
-  // a recessed Shaker panel inside a given cell rect
+  // whole-cabinet paint base — stiles/rails between cells read as paint
+  items.push(
+    <rect
+      key="base"
+      x={x}
+      y={y}
+      width={w}
+      height={h}
+      fill={`url(#${gid}-face)`}
+      rx={2}
+    />,
+  );
+
+  // Beadboard's vertical beads, at a REAL spacing, so a wide panel gets more
+  // beads rather than the same few stretched — the thing a tiled bitmap gets
+  // wrong and a drafted elevation gets right. Each bead carries its own shaded
+  // and lit side, which is what makes it read as a groove and not a pinstripe.
+  const beads = (bx, by, bw, bh, key) => {
+    const step = Math.max(3, 2.25 * pxPerIn);
+    const out = [];
+    let i = 0;
+    for (let gx = bx + step; gx < bx + bw - 0.6; gx += step, i += 1) {
+      out.push(
+        <rect
+          key={`${key}_bd${i}`}
+          x={gx - 0.45}
+          y={by}
+          width={0.9}
+          height={bh}
+          fill={edgeDark}
+          opacity={0.75}
+        />,
+      );
+      out.push(
+        <rect
+          key={`${key}_bl${i}`}
+          x={gx + 0.45}
+          y={by}
+          width={0.8}
+          height={bh}
+          fill={light}
+          opacity={0.55}
+        />,
+      );
+    }
+    return <g key={`${key}_beads`}>{out}</g>;
+  };
+
+  // A framed panel inside a cell, drawn to the STYLE'S OWN profile.
+  //
+  // `profile` was declared on all four styles in finishes.js and read by
+  // nothing: bevel and bead drew the identical square reveal as Shaker, so a
+  // picker offering four doors produced two shapes. Written and never read —
+  // the picker kept a choice the drawing threw away.
+  //
+  // Light is top-left throughout. A RECESSED panel puts its top and left bevel
+  // faces in shadow; a RAISED one tilts those same faces toward the light, so
+  // the geometry reads proud instead of sunk. That sign is the only difference
+  // between them, which is why panelDepth is signed rather than a boolean.
   const recessed = (cx, cy, cw, ch, key) => {
     // A slab door HAS no panel. Falling through to the frame branch below would
     // draw one anyway and make every style look like Shaker.
@@ -112,9 +203,32 @@ export default function CabinetFace({ x, y, w, h, el, color, style: styleKey }) 
       // too small for a frame → flat painted slab w/ edge bevel
       return (
         <g key={key}>
-          <rect x={cx} y={cy} width={cw} height={ch} fill={paint} rx={1.2} />
-          <rect x={cx} y={cy} width={cw} height={1} fill={light} />
-          <rect x={cx} y={cy + ch - 1} width={cw} height={1} fill={dark} />
+          <rect
+            x={cx}
+            y={cy}
+            width={cw}
+            height={ch}
+            fill={`url(#${gid}-face)`}
+            rx={1.2}
+          />
+          <rect x={cx} y={cy} width={cw} height={0.9} fill={light} />
+          <rect
+            x={cx}
+            y={cy}
+            width={0.9}
+            height={ch}
+            fill={light}
+            opacity={0.7}
+          />
+          <rect x={cx} y={cy + ch - 0.9} width={cw} height={0.9} fill={dark} />
+          <rect
+            x={cx + cw - 0.9}
+            y={cy}
+            width={0.9}
+            height={ch}
+            fill={dark}
+            opacity={0.7}
+          />
         </g>
       );
     }
@@ -122,24 +236,69 @@ export default function CabinetFace({ x, y, w, h, el, color, style: styleKey }) 
       py = cy + FRAME,
       pw = cw - FRAME * 2,
       ph = ch - FRAME * 2;
+
+    // The bevel ring's width, in real inches like FRAME. A raised panel's
+    // chamfer is the wide one you can read across a room; Shaker's and
+    // beadboard's is a crisp step.
+    const B = Math.max(
+      1,
+      Math.min(
+        (style.profile === "bevel" ? 0.6 : 0.16) * pxPerIn,
+        pw / 2 - 1,
+        ph / 2 - 1,
+      ),
+    );
+    const ix = px + B,
+      iy = py + B,
+      iw = pw - B * 2,
+      ih = ph - B * 2;
+    // top/left bevel faces, then bottom/right
+    const tl = raisedPanel ? light : edgeDark;
+    const br = raisedPanel ? edgeDark : light;
+
     return (
       <g key={key}>
-        <rect x={cx} y={cy} width={cw} height={ch} fill={paint} rx={1.5} />
-        <rect x={px} y={py} width={pw} height={ph} fill={darker} rx={1.2} />
         <rect
-          x={px + 1}
-          y={py + 1}
-          width={pw - 2}
-          height={ph - 2}
-          fill={panelFill}
-          rx={1}
+          x={cx}
+          y={cy}
+          width={cw}
+          height={ch}
+          fill={`url(#${gid}-face)`}
+          rx={1.5}
         />
-        {/* inner bevel: dark top/left, light bottom/right */}
-        <rect x={px} y={py} width={pw} height={1} fill={edgeDark} />
-        <rect x={px} y={py} width={1} height={ph} fill={edgeDark} />
-        <rect x={px} y={py + ph - 1} width={pw} height={1} fill={light} />
-        <rect x={px + pw - 1} y={py} width={1} height={ph} fill={light} />
-        {/* outer frame bevel */}
+        {/* the opening: a hairline of true shadow, so the panel does not look
+            painted onto the frame */}
+        <rect x={px} y={py} width={pw} height={ph} fill={darker} rx={1} />
+        {/* the bevel ring, mitred — four faces meeting on the diagonal, not
+            four 1px lines crossing at the corners */}
+        <polygon
+          points={`${px},${py} ${px + pw},${py} ${ix + iw},${iy} ${ix},${iy}`}
+          fill={tl}
+        />
+        <polygon
+          points={`${px},${py} ${ix},${iy} ${ix},${iy + ih} ${px},${py + ph}`}
+          fill={tl}
+          opacity={0.82}
+        />
+        <polygon
+          points={`${px},${py + ph} ${ix},${iy + ih} ${ix + iw},${iy + ih} ${px + pw},${py + ph}`}
+          fill={br}
+        />
+        <polygon
+          points={`${px + pw},${py} ${ix + iw},${iy} ${ix + iw},${iy + ih} ${px + pw},${py + ph}`}
+          fill={br}
+          opacity={0.82}
+        />
+        {/* the panel field */}
+        <rect
+          x={ix}
+          y={iy}
+          width={iw}
+          height={ih}
+          fill={`url(#${gid}-panel)`}
+        />
+        {style.profile === "bead" ? beads(ix, iy, iw, ih, key) : null}
+        {/* the door's own outer bevel, so it reads proud of the carcass */}
         <rect x={cx} y={cy} width={cw} height={0.8} fill={light} />
         <rect x={cx} y={cy + ch - 0.8} width={cw} height={0.8} fill={dark} />
       </g>
@@ -292,4 +451,3 @@ export default function CabinetFace({ x, y, w, h, el, color, style: styleKey }) 
   doorGrid(faceTop, faceBot - faceTop, doors, doorRows, "door");
   return <g>{items}</g>;
 }
-
