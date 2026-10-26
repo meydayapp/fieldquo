@@ -190,6 +190,25 @@ receipt photo
 mattered, and why aiming it at `JobMaterial` alone changed nothing a
 contractor would ever see.
 
+### The two things a wiring fix is not finished without
+
+Learned the second time this exact bug was reported, on the same job, after
+it had been fixed and deployed:
+
+1. **A backfill.** Teaching the write path to write only helps purchases made
+   afterwards. Everything already recorded stays invisible to the total
+   forever, and nobody is told. `scripts/backfill-material-purchase-expenses.mjs`
+   is the pattern — and its guard matters more than its write: 408 of the 410
+   ticked lines in the database were demo-seeded and already expensed by a row
+   that carried no link, so the naive backfill would have doubled the material
+   cost on 408 jobs.
+2. **A visible failure.** `syncPurchaseExpense` is deliberately written never
+   to throw, so a failed Expense cannot lose the purchase that caused it. That
+   is right, and on its own it turned the bug into a silent one: the tick
+   answered 200, the line drew as bought, the error went to a server log, and
+   the job still said `Expenses $0.00`. A writer that may fail quietly must
+   return its verdict to something that renders it.
+
 ## Before you build
 
 Ask three questions of this graph:

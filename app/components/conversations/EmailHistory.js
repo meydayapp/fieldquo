@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Mail, Loader2, AlertTriangle, Eye } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 import { fetchJson } from "@/lib/fetchJson";
 import SentEmailViewer from "./SentEmailViewer";
 
@@ -55,6 +56,11 @@ export default function EmailHistory({ clientId = null, jobId = null, onHidden =
   const [failed, setFailed] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(null);
+  // Folds on the job page only — same rule, and same reason, as the
+  // Conversation card beside it (app/components/conversations/ClientConversation.js).
+  // Never destructured: `open` above is already this card's email viewer.
+  const section = useJobSection(jobId, "emailHistory");
+  const foldable = Boolean(jobId);
 
   const url = clientId
     ? `/api/clients/${encodeURIComponent(clientId)}/email-history`
@@ -82,13 +88,25 @@ export default function EmailHistory({ clientId = null, jobId = null, onHidden =
   return (
     <section className={embedded ? "space-y-3" : "bg-card border border-border rounded-xl p-4 space-y-3"} aria-labelledby={headingId} data-email-history>
       <div>
-        <h2 id={headingId} className="font-semibold text-foreground text-sm flex items-center gap-2">
-          <Mail size={16} aria-hidden="true" />
-          {t("app.emailHistory.title")}
+        <h2 id={headingId} className="font-semibold text-foreground text-sm">
+          {foldable ? (
+            <JobSectionToggle section={section}>
+              <span className="flex min-w-0 items-center gap-2">
+                <Mail size={16} aria-hidden="true" />
+                {t("app.emailHistory.title")}
+              </span>
+            </JobSectionToggle>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Mail size={16} aria-hidden="true" />
+              {t("app.emailHistory.title")}
+            </span>
+          )}
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">{jobId ? t("app.emailHistory.intro.job") : t("app.emailHistory.intro.client")}</p>
       </div>
 
+      <div id={section.bodyId} hidden={!section.open} className="space-y-3">
       {!data && !failed ? (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <Loader2 size={14} className="animate-spin" aria-hidden="true" /> {t("app.emailHistory.loading")}
@@ -143,7 +161,9 @@ export default function EmailHistory({ clientId = null, jobId = null, onHidden =
       ) : null}
 
       {data?.truncated ? <p className="text-xs text-muted-foreground">{t("app.emailHistory.truncated")}</p> : null}
+      </div>
 
+      {/* Outside the fold: a viewer mounted inside a hidden div opens blind. */}
       {open ? <SentEmailViewer emailId={open} onClose={() => setOpen(null)} /> : null}
     </section>
   );

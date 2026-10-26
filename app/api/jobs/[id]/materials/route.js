@@ -544,6 +544,21 @@ export async function PATCH(request, { params }) {
   //
   // Only on a TICK. A body recording how many were USED on an already-bought
   // line is not a purchase and must not re-price one.
+  //
+  // ── Why the outcome is RETURNED and not only logged ─────────────────────
+  //
+  // syncPurchaseExpense never throws, deliberately: the purchase is the fact
+  // the contractor recorded, and its accounting shadow failing must not lose
+  // the tick. But "never throws" became "never tells" — it swallowed the
+  // error into a console line on a server nobody reads, the tick answered 200
+  // with the line drawn as bought, and the job's cost stayed $0.00. That is
+  // this repo's own named failure, a control that appears to work and does
+  // not, wearing the clothes of a safety measure.
+  //
+  // So the verdict rides back on the response and the panel says it, the same
+  // shape and for the same reason app/api/stock/movements/route.js returns
+  // `costed` when stock is consumed with no price history behind it.
+  let costed = null;
   if (isTick) {
     const booked = await syncPurchaseExpense({
       companyId: member.companyId,
@@ -551,6 +566,14 @@ export async function PATCH(request, { params }) {
       line: updated,
       createdById: member.userId,
     });
+    costed = {
+      ok: booked.action !== "error",
+      action: booked.action,
+      amount: booked.amount ?? null,
+      // Only on the failure path. A reason on a success would invite the
+      // panel to narrate the happy case, which nobody needs read to them.
+      ...(booked.action === "error" ? { reason: booked.reason } : {}),
+    };
     if (booked.changed) {
       await recordActivity(member, {
         action:
@@ -584,7 +607,11 @@ export async function PATCH(request, { params }) {
   }
 
   await taskForJobMaterials(id);
-  return NextResponse.json({ ...(await listFor(id, full, { tick })), tick });
+  return NextResponse.json({
+    ...(await listFor(id, full, { tick })),
+    tick,
+    ...(costed ? { costed } : {}),
+  });
 }
 
 export async function DELETE(request, { params }) {

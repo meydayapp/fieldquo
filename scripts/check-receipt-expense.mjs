@@ -176,6 +176,66 @@ for (const [label, line] of [
   );
 }
 
+// ── The failure has to be VISIBLE, which is how it got a second life ──────
+//
+// The writer above was shipped, deployed, and then a real tick on a real job
+// still produced no Expense: syncPurchaseExpense caught its own error,
+// console.error'd it onto a server nobody reads, and answered 200 with the
+// line drawn as bought. "Never throws" had become "never tells" — the bug
+// this file was written to kill, wearing the clothes of a safety measure.
+//
+// So: never throwing stays, and the verdict has to reach the screen.
+{
+  const route = read("app/api/jobs/[id]/materials/route.js");
+  ok(
+    "the tick's response carries whether the money followed it",
+    /costed = \{\s*ok: booked\.action !== "error"/.test(route),
+    "a swallowed failure is how this bug survived being fixed",
+  );
+  ok(
+    "…and that verdict is returned, not just computed",
+    /\.\.\.\(costed \? \{ costed \} : \{\}\)/.test(route),
+    "computed and dropped is the same silence",
+  );
+
+  const panel = read("app/components/jobs/JobMaterials.js");
+  ok("the panel reads it", /next\.costed/.test(panel));
+  ok(
+    "…and says so when the cost did not reach the job",
+    /app\.jobMaterials\.costNotBooked/.test(panel),
+    "a verdict nobody renders is the same silence in a new place",
+  );
+
+  const lib = read("lib/receipts/toExpense.js");
+  ok(
+    "the writer still refuses to throw — the purchase must survive its accounting",
+    /catch \(err\) \{[\s\S]*?action: "error"/.test(lib),
+  );
+}
+
+// ── A fix with no backfill fixes nothing that already happened ────────────
+{
+  const backfill = read("scripts/backfill-material-purchase-expenses.mjs");
+  ok(
+    "the backfill decides with the SAME function the live tick uses",
+    /expenseFromPurchase/.test(backfill),
+    "a second copy of the rule is the copy that rots",
+  );
+  ok("…and is dry unless told otherwise", /--apply/.test(backfill));
+  ok(
+    "…and skips a job that already carries a Materials expense it cannot claim",
+    /importSource: "demo"/.test(backfill) && /amount: line\.actualCost/.test(backfill),
+    "408 of 410 ticked lines were demo-seeded and already paid for — writing those again doubles them",
+  );
+
+  const seed = read("lib/demo/seedContent.js");
+  ok(
+    "the demo seed links its own expense to the line it pays for",
+    /jobMaterialId: materialRow\.id/.test(seed),
+    "unlinked demo rows are what made the backfill guess",
+  );
+}
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

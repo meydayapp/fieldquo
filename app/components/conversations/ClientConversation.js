@@ -38,6 +38,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MessageSquare, Phone, LifeBuoy, ExternalLink, Loader2, ChevronDown, ChevronRight, Send, AlertTriangle, Link2, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useJobSection, JobSectionToggle } from "@/app/components/jobs/JobSection";
 import { useViewOnly } from "@/app/providers/ViewOnlyProvider";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
@@ -104,6 +105,20 @@ function sourceLabel(t, s) {
 
 export default function ClientConversation({ clientId = null, jobId = null, onHidden = null }) {
   const { t, language } = useTranslation();
+  // ── Folds on the JOB page only ──────────────────────────────────────────
+  //
+  // The owner asked for this card to collapse like the rest of a job's
+  // sections, and this is the tallest of them — a timeline with photos that
+  // pushes everything after it off the screen on a phone.
+  //
+  // Not on the client page: nothing there folds (app/app/clients/[id] uses
+  // no section at all), and a lone chevron on one card would be the only
+  // control of its kind on the page — plus useJobSection persists under the
+  // id it is given, so a fold there would be remembered under a client id in
+  // a store named for jobs. When there is no jobId the card renders exactly
+  // as it always has.
+  const section = useJobSection(jobId, "conversation");
+  const foldable = Boolean(jobId);
   const viewOnly = useViewOnly();
   const [data, setData] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -242,16 +257,29 @@ export default function ClientConversation({ clientId = null, jobId = null, onHi
   return (
     <section className="bg-card border border-border rounded-xl p-4 space-y-3" aria-labelledby={headingId}>
       <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="min-w-0">
-          <h2 id={headingId} className="font-semibold text-foreground text-sm flex items-center gap-2">
-            <MessageSquare size={16} aria-hidden="true" />
-            {t("app.conversation.title")}
+        <div className="min-w-0 flex-1">
+          <h2 id={headingId} className="font-semibold text-foreground text-sm">
+            {foldable ? (
+              <JobSectionToggle section={section}>
+                <span className="flex min-w-0 items-center gap-2">
+                  <MessageSquare size={16} aria-hidden="true" />
+                  {t("app.conversation.title")}
+                </span>
+              </JobSectionToggle>
+            ) : (
+              <span className="flex items-center gap-2">
+                <MessageSquare size={16} aria-hidden="true" />
+                {t("app.conversation.title")}
+              </span>
+            )}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {jobId ? t("app.conversation.intro.job") : t("app.conversation.intro.client")}
           </p>
         </div>
-        {jobId && win && win.jobCount > 1 && (
+        {/* Folded away with the timeline it scopes. A "show every job" switch
+            above a hidden timeline is a control whose effect cannot be seen. */}
+        {jobId && section.open && win && win.jobCount > 1 && (
           <button
             type="button"
             className={BTN}
@@ -263,6 +291,7 @@ export default function ClientConversation({ clientId = null, jobId = null, onHi
         )}
       </div>
 
+      <div id={section.bodyId} hidden={!section.open} className="space-y-3">
       {jobId && win?.windowed && (
         <p className="text-xs text-muted-foreground">
           {win.to
@@ -406,6 +435,9 @@ export default function ClientConversation({ clientId = null, jobId = null, onHi
           )}
         </>
       )}
+      </div>
+      {/* Outside the fold, like JobCosting's review modal: a viewer mounted
+          inside a hidden div would open with nothing on screen. */}
       {viewEmail ? <SentEmailViewer emailId={viewEmail} onClose={() => setViewEmail(null)} /> : null}
     </section>
   );

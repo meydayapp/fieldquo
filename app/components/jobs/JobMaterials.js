@@ -115,6 +115,10 @@ export default function JobMaterials({ jobId }) {
   const [buildNote, setBuildNote] = useState("");
   const [ordering, setOrdering] = useState(false);
   const [orderNote, setOrderNote] = useState("");
+  // Set when a tick saved the purchase on the line but its cost did not reach
+  // the job's costs — see the `costed` note in the PATCH route. Shown rather
+  // than swallowed, because the whole point of ticking a price is the margin.
+  const [costNote, setCostNote] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -164,6 +168,18 @@ export default function JobMaterials({ jobId }) {
     const next = await res.json();
     // A write answers with the list and no wallet verdict; keep the one we have.
     setData((d) => ({ ...next, spend: next.spend || d?.spend || null, tick: next.tick ?? d?.tick ?? null }));
+    // Did the money follow the tick? `costed` rides on every tick's response;
+    // its absence means this PATCH was not a tick, which is not a failure.
+    if (next.costed) {
+      setCostNote(
+        next.costed.ok
+          ? ""
+          : t(
+              "app.jobMaterials.costNotBooked",
+              "Saved on the line, but this cost didn't reach the job's costs. Tick it again — if it keeps happening, tell us.",
+            ),
+      );
+    }
     return next;
   }
 
@@ -595,6 +611,10 @@ export default function JobMaterials({ jobId }) {
             {t("app.supplies.requestFromJob", "Short of something on site? Request a supply")}
           </Link>
         </p>
+
+        {costNote && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{costNote}</p>
+        )}
 
         {error && (
           <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
