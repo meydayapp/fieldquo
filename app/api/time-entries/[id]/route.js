@@ -11,6 +11,7 @@ import { entryHours, openBreak } from "@/lib/timeclock/entryHours";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { closeApproval, didSelfApprove } from "@/lib/timeclock/closeApproval";
 import { resolveWallClock } from "@/lib/time/wallClock";
 import { recordActivity } from "@/lib/activity/log";
 import { isCrewHome } from "@/lib/dashboard/crewHome";
@@ -220,9 +221,29 @@ export async function PATCH(request, { params }) {
     statusProvided: status !== undefined,
   });
 
+  // ── Closing your own entry from the timesheet, same rule as the clock ────
+  //
+  // The clock approves an entry it closes when the closer could approve it
+  // anyway (lib/timeclock/closeApproval.js). This screen closes entries too —
+  // the "Clock out" button on an open row — and if only one of the two doors
+  // approved, the figure would depend on which door was used, which is the
+  // kind of difference nobody discovers until a job costs the wrong amount.
+  //
+  // Not when a status was asked for (that answer wins), and not on a reopen
+  // (the point of a reopen is that the figure changed and needs looking at).
+  const editorApproval =
+    clockOut !== undefined && status === undefined && !reopen
+      ? closeApproval({
+          full,
+          userId: member.userId,
+          workerUserId: existing.worker?.userId,
+        })
+      : {};
+
   const updated = await db.timeEntry.update({
     where: { id: _params.id },
     data: {
+      ...editorApproval,
       ...(clockOut !== undefined && {
         clockOut: resolvedClockOut,
         hours,
@@ -293,6 +314,22 @@ export async function PATCH(request, { params }) {
         ...(reopen && { previousStatus: existing.status, reopened: true }),
       },
     });
+    // An approval that rode along with the clock-out is still an approval, and
+    // it goes in the trail under the name the reviewer searches for.
+    if (didSelfApprove(editorApproval)) {
+      await recordActivity(member, {
+        action: "timeEntry.selfApproved",
+        entityType: "timeEntry",
+        entityId: updated.id,
+        summary: `Approved their own hours — ${updated.hours ?? "?"}h`,
+        metadata: {
+          hours: updated.hours ?? null,
+          status: "approved",
+          selfApproved: true,
+          onClockOut: true,
+        },
+      });
+    }
   }
 
   return NextResponse.json(updated);

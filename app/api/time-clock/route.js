@@ -36,6 +36,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { closeApproval, didSelfApprove } from "@/lib/timeclock/closeApproval";
 import { clockJobOptions, clockableJobWhere, dayBoundsInZone } from "@/lib/timeclock/jobChoices";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 import { recordStampIfPresent } from "@/lib/location/stamps";
@@ -89,6 +90,28 @@ function logPunch(member, action, { worker, entry, job, hours, kind } = {}) {
       // of Driving and of Office, and this is what tells them apart.
       ...(entry?.activity ? { activity: entry.activity } : {}),
       at: new Date().toISOString(),
+    },
+  });
+}
+
+// A clock-out that approves itself is still an approval, and the Activity Log
+// promises approvals appear there. Recorded under the SAME action the timesheet
+// editor records (timeEntry.selfApproved), so one query answers "who approved
+// these hours" however they were approved — a second action name would have
+// made the automatic ones invisible to the review that already exists.
+function logSelfApproval(member, entry) {
+  return recordActivity(member, {
+    action: "timeEntry.selfApproved",
+    entityType: "timeEntry",
+    entityId: entry?.id || null,
+    summary: `Approved their own hours — ${entry?.hours ?? "?"}h`,
+    metadata: {
+      hours: entry?.hours ?? null,
+      status: "approved",
+      selfApproved: true,
+      // What distinguishes these from a tap in the timesheet, for anyone
+      // auditing: nobody opened a screen, the clock-out carried the approval.
+      onClockOut: true,
     },
   });
 }
@@ -487,6 +510,13 @@ export async function POST(request) {
       running && b.id === running.id ? { ...b, end: clockOut } : b,
     );
     const hours = entryHours(open.clockIn, clockOut, breaks, { paid: open.paid });
+    // Hours this person could approve in one click anyway are approved here,
+    // with the same stamp and the same trail — lib/timeclock/closeApproval.js.
+    const approval = closeApproval({
+      full: await loadEnforceableMember(db, member.id),
+      userId: member.userId,
+      workerUserId: worker.userId,
+    });
     const ops = [];
     if (running) {
       ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: clockOut } }));
@@ -494,7 +524,7 @@ export async function POST(request) {
     ops.push(
       db.timeEntry.update({
         where: { id: open.id },
-        data: { clockOut, hours },
+        data: { clockOut, hours, ...approval },
         select: { id: true, clockIn: true, clockOut: true, hours: true, jobId: true },
       }),
     );
@@ -510,6 +540,7 @@ export async function POST(request) {
     });
     await ledger(entry.id);
     await logPunch(member, "out", { worker, entry, job: open.job, hours });
+    if (didSelfApprove(approval)) await logSelfApproval(member, entry);
     return NextResponse.json({ ok: true, entry });
   }
 
@@ -572,6 +603,11 @@ export async function POST(request) {
       running && b.id === running.id ? { ...b, end: at } : b,
     );
     const hours = entryHours(open.clockIn, at, closedBreaks, { paid: open.paid });
+    const switchApproval = closeApproval({
+      full,
+      userId: member.userId,
+      workerUserId: worker.userId,
+    });
     // One transaction: a close without its reopen leaves somebody off the clock
     // who believes they are on it, and an open without its close is two open
     // entries — the state every other path in this file refuses.
@@ -582,7 +618,8 @@ export async function POST(request) {
     ops.push(
       db.timeEntry.update({
         where: { id: open.id },
-        data: { clockOut: at, hours },
+        // A switch closes this entry, so it closes it the same way "out" does.
+        data: { clockOut: at, hours, ...switchApproval },
       }),
       db.timeEntry.create({
         data: {
@@ -623,6 +660,8 @@ export async function POST(request) {
     }
     await ledger(entry.id);
     await logPunch(member, "switch", { worker, entry, job: entry.job, hours });
+    // The entry this punch CLOSED, not the one it opened.
+    if (didSelfApprove(switchApproval)) await logSelfApproval(member, { id: open.id, hours });
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }
 
@@ -782,12 +821,18 @@ export async function POST(request) {
       running && b.id === running.id ? { ...b, end: now } : b,
     );
     const hours = entryHours(open.clockIn, now, closedBreaks, { paid: open.paid });
+    // A segment change closes this entry too — same rule, same helper.
+    const segmentApproval = closeApproval({
+      full,
+      userId: member.userId,
+      workerUserId: worker.userId,
+    });
     const ops = [];
     if (running) {
       ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: now } }));
     }
     ops.push(
-      db.timeEntry.update({ where: { id: open.id }, data: { clockOut: now, hours } }),
+      db.timeEntry.update({ where: { id: open.id }, data: { clockOut: now, hours, ...segmentApproval } }),
       db.timeEntry.create({ data: fresh, select: OPEN_SELECT }),
     );
     const entry = (await db.$transaction(ops)).at(-1);
@@ -815,6 +860,8 @@ export async function POST(request) {
     }
     await ledger(entry.id);
     await logPunch(member, "switch", { worker, entry, job: entry.job, hours });
+    // The entry this punch CLOSED, not the one it opened.
+    if (didSelfApprove(segmentApproval)) await logSelfApproval(member, { id: open.id, hours });
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }
 
