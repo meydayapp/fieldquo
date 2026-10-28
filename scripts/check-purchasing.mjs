@@ -46,6 +46,7 @@ import { toCents, centsToText, centsToAmount } from "@/lib/receipts/money";
 import { reconcileReceipt, suggestedCostCents } from "@/lib/receipts/reconcile";
 import { prefillMaterial, refuseOverwrites, isConfirmed } from "@/lib/receipts/prefill";
 import { receiptFilesOrRefusal, REFUSAL } from "@/lib/receipts/media";
+import { stockUseAmount } from "@/lib/purchasing/useFromStock";
 import { simulatedExtraction, simulatedReceiptScan } from "@/lib/receipts/demoReceipt";
 import { RECEIPT_SCHEMA, normaliseExtraction } from "@/lib/receipts/extract";
 import { assertStrictSchema } from "@/lib/ai/jsonSchema";
@@ -482,6 +483,53 @@ ok("the page follows the address, not just the first paint", /useSearchParams\(\
 ok("...behind the Suspense boundary useSearchParams needs", (purchasingPage || "").includes("<Suspense"));
 // Absence of ?tab is not a request for Orders.
 ok("a cleared query does not yank you back to Orders", /if \(wanted && TAB_KEYS\.has\(wanted\)\) setTab\(wanted\);/.test(purchasingPage || ""));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9c. Taking a material off the shelf instead of buying it again");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner, 2026-10-28: "if there are items in the inventory (shelf) i
+// should be able to pick from those instead of asking me how many did i buy".
+
+const fromStockSrc = read("app/api/jobs/[id]/materials/from-stock/route.js");
+const matPanelSrc = read("app/components/jobs/JobMaterials.js");
+const movementsSrc = read("app/api/stock/movements/route.js");
+const reconcileSrc = read("lib/receipts/reconcileJobPurchases.js");
+
+// A route nothing calls is the failure this repo keeps finding.
+ok("the route exists", fromStockSrc !== null);
+ok("...and the materials panel calls it", /materials\/from-stock/.test(matPanelSrc || ""));
+ok("...from a button the panel actually renders", /onTakeFromStock/.test(matPanelSrc || ""));
+ok("...offered only when there is some on the shelf", /Number\(m\.onHand\) > 0 &&/.test(matPanelSrc || ""));
+
+// The double-count this is one slip away from.
+ok("the line is marked bought", /purchasedAt: new Date\(\)/.test(fromStockSrc || ""));
+ok("...and its actualCost is NOT set — reconcile books from that", !/actualCost:/.test((fromStockSrc || "").split("tx.jobMaterial.update")[1] || ""));
+ok("...a line that already has a cost is refused", (fromStockSrc || "").includes("already_costed"));
+ok("a stock withdrawal is not mistaken for a line awaiting its cost", (reconcileSrc || "").includes("STOCK_USE_PREFIX"));
+
+// One writer for the money, two doors.
+ok("the money comes from the shared writer", /bookStockUse\(/.test(fromStockSrc || "") && /bookStockUse\(/.test(movementsSrc || ""));
+ok("...and the stock tab no longer writes its own expense", !/db\.expense\.create/.test(movementsSrc || ""));
+ok("movement, expense and tick are one transaction", /db\.\$transaction\(async \(tx\)/.test(fromStockSrc || ""));
+
+// A shelf cannot go negative by somebody taking from it.
+ok("the level is re-read on the server", /stockMovement\.findMany/.test(fromStockSrc || "") && /stockLevels\(\[material\]/.test(fromStockSrc || ""));
+ok("...and taking more than there is, is refused", (fromStockSrc || "").includes('code: "short"'));
+
+// Pricing, executed.
+ok("3 at 6.50 is 19.50", stockUseAmount({ unitCost: 6.5, quantity: 3 }).amount === 19.5);
+ok("a string rate and quantity still price", stockUseAmount({ unitCost: "6.50", quantity: "2" }).amount === 13);
+ok("no price history books nothing, rather than zero", stockUseAmount({ unitCost: null, quantity: 3 }).reason === "no_unit_cost");
+ok("a zero rate books nothing", stockUseAmount({ unitCost: 0, quantity: 3 }).reason === "no_unit_cost");
+ok("a rate that rounds to nothing books nothing", stockUseAmount({ unitCost: 0.001, quantity: 1 }).ok === false);
+ok("a negative quantity prices as what was taken", stockUseAmount({ unitCost: 2, quantity: -4 }).amount === 8);
+
+// Said out loud rather than left to be noticed.
+ok("the panel names the unpriced case", /fromStockNoPrice/.test(matPanelSrc || ""));
+for (const k of ["takeFromStock", "fromStockFailed", "fromStockNoPrice"]) {
+  ok(`"${k}" exists in all nine catalogues`, (messages.match(new RegExp(`"app\\.jobMaterials\\.${k}":`, "g")) || []).length === 9);
+}
 
 // The route refuses before anything is spent.
 // The quota/budget check is meterFor("receipt_scan").check() since the

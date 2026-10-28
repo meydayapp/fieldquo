@@ -279,6 +279,48 @@ export default function JobMaterials({ jobId }) {
     }
   }
 
+  // ── Take it off the shelf instead of buying it again ────────────────────
+  //
+  // Offered only where the line is matched to a stock row that HAS some, so
+  // the button never appears for a shelf it cannot draw from. The server
+  // re-reads the level anyway — what the browser was last shown is not what
+  // is there now — and answers `short` with the real number if somebody beat
+  // them to it.
+  //
+  // `reason` comes back when the material has no price history: the shelf is
+  // still right and the line is still ticked, but nothing could be costed,
+  // and saying so beats leaving somebody to notice the job's total did not
+  // move.
+  async function takeFromStock(m) {
+    setBusyId(m.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/materials/from-stock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ materialId: m.id, quantity: Math.min(Number(m.qty), Number(m.onHand)) }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, setError, t("app.jobMaterials.fromStockFailed", "That didn't come off the shelf. Try again."));
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      if (data?.reason === "no_unit_cost") {
+        setError(
+          t(
+            "app.jobMaterials.fromStockNoPrice",
+            "Taken off the shelf, but nothing has ever been recorded for what {name} costs, so the job's cost hasn't moved.",
+            { name: m.name },
+          ),
+        );
+      }
+      setExpanded(null);
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   // Recording the used quantity on a line that is already bought. A PATCH
   // without `purchased` leaves the receipt fields alone — see the route.
   async function saveUsed(m) {
@@ -456,6 +498,7 @@ export default function JobMaterials({ jobId }) {
                       setScanning={setScanning}
                       onOpen={() => open(m)}
                       onToggle={() => toggle(m)}
+                      onTakeFromStock={() => takeFromStock(m)}
                       onCancel={() => {
                         setExpanded(null);
                         setScanning(null);
@@ -651,7 +694,7 @@ function StatusPill({ m, t }) {
 
 function MaterialRow({
   m, t, money, canEdit, ownTickMode = false, onOwnTick, canOrder, busy, isOpen, draft, setDraft, usedEdit, setUsedEdit,
-  qtyEdit, setQtyEdit, scanning, setScanning, onOpen, onToggle, onCancel, onSaveUsed,
+  qtyEdit, setQtyEdit, scanning, setScanning, onOpen, onToggle, onTakeFromStock, onCancel, onSaveUsed,
   onSaveQty, onRemove, onShop, ordering,
 }) {
   const bought = Boolean(m.purchasedAt);
@@ -908,6 +951,24 @@ function MaterialRow({
                     className={`${inputClass} mt-0.5 w-40`}
                   />
                 </label>
+                {/* The list already knew this was on the shelf — it has
+                    printed "{n} on hand" beside the line since the stock
+                    match existed. The only thing it could offer was a tick
+                    that asks what you paid, which is the wrong question for
+                    tape bought three weeks ago. Shown before "Bought"
+                    because, when there IS some, it is the likelier answer. */}
+                {Number(m.onHand) > 0 && (
+                  <button
+                    type="button"
+                    onClick={onTakeFromStock}
+                    disabled={busy}
+                    className="rounded border border-emerald-600 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                  >
+                    {t("app.jobMaterials.takeFromStock", "Take {n} from stock", {
+                      n: Math.min(Number(m.qty), Number(m.onHand)),
+                    })}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onToggle}

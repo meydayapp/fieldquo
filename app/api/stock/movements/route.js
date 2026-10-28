@@ -24,6 +24,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseMovement, MOVEMENT_KINDS } from "@/lib/purchasing/stock";
+import { bookStockUse } from "@/lib/purchasing/useFromStock";
 import {
   PURCHASING_CATEGORY,
   PURCHASING_LEVEL,
@@ -166,32 +167,21 @@ export async function POST(request) {
   // externalId carries the movement id under @@unique([companyId,
   // externalId]), so a retried request cannot book the cost twice and the
   // row stays findable if the movement is ever reversed.
+  // Priced and booked by lib/purchasing/useFromStock.js — the same writer the
+  // job's own materials list calls when a line is taken from stock, so the
+  // same tape cannot cost two different amounts depending on which screen
+  // somebody was standing on.
   let costed = null;
   if (normalised.kind === "used" && jobId) {
-    const unitCost = Number(material.currentAvgCost);
-    const used = Math.abs(Number(normalised.quantity));
-    const amount = Math.round(used * unitCost * 100) / 100;
-    if (Number.isFinite(unitCost) && unitCost > 0 && amount > 0) {
-      const expense = await db.expense.create({
-        data: {
-          companyId: member.companyId,
-          projectId: jobId,
-          materialId: material.id,
-          category: "Materials",
-          amount,
-          isOverhead: false,
-          notes: `${used}${material.unit ? ` ${material.unit}` : ""} of ${material.name} from stock`,
-          externalId: `stock_use:${movement.id}`,
-          createdById: member.userId || null,
-        },
-        select: { id: true, amount: true },
-      });
-      costed = { expenseId: expense.id, amount: Number(expense.amount) };
-    } else {
-      // Said out loud so the screen can say it too, rather than leaving
-      // somebody to notice the job's cost did not move.
-      costed = { expenseId: null, amount: null, reason: "no_unit_cost" };
-    }
+    costed = await bookStockUse({
+      prisma: db,
+      companyId: member.companyId,
+      material,
+      jobId,
+      movementId: movement.id,
+      quantity: normalised.quantity,
+      userId: member.userId || null,
+    });
   }
 
   await recordActivity(member, {
