@@ -94,10 +94,21 @@ export default function GlobalSearch() {
     const nav = filterGroups(navGroups, q, label).flatMap((g) =>
       g.items.map((i) => ({ kind: "page", href: i.href, key: i.labelKey || i.key, group: g.key, icon: i.icon })),
     );
+    // A tabbed page is several destinations wearing one nav label. Matched on
+    // the extra's own words, not the group's, so "Work" matching does not drag
+    // every tab of every page in behind it.
+    const needle = q.toLowerCase();
+    const extras = navGroups.flatMap((g) =>
+      g.items.flatMap((i) =>
+        (i.searchExtras || [])
+          .filter((e) => label(e.key).toLowerCase().includes(needle))
+          .map((e) => ({ kind: "page", href: e.href, key: e.key, group: g.key, icon: i.icon })),
+      ),
+    );
     const settings = filterGroups(settingsGroups, q, label).flatMap((g) =>
       g.items.map((i) => ({ kind: "settings", href: i.href, key: i.key, group: g.key, icon: i.icon })),
     );
-    return [...nav, ...settings].slice(0, PAGE_CAP);
+    return [...nav, ...extras, ...settings].slice(0, PAGE_CAP);
     // `label` is a fresh closure every render but reads only `t`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, navGroups, settingsGroups, t]);

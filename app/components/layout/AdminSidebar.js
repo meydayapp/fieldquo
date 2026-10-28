@@ -303,7 +303,30 @@ export const MORE_GROUPS = [
     key: "app.nav.group.moreMoney",
     items: [
       { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet, helpArticle: "expenses" },
-      { key: "app.nav.purchasing", href: "/app/purchasing", icon: ShoppingCart, helpArticle: "purchasing" },
+      {
+        key: "app.nav.purchasing",
+        href: "/app/purchasing",
+        icon: ShoppingCart,
+        helpArticle: "purchasing",
+        // ── Four destinations behind one word ────────────────────────────
+        //
+        // The owner asked "where do I put the inventory, it is not inside
+        // purchasing" — and it is: the Stock tab, second of four. Search
+        // could not say so, because the only string it had to match was this
+        // row's own label, "Purchasing". Typing "stock" or "inventory" found
+        // nothing, and the app says "inventory" nowhere else either.
+        //
+        // searchExtras are found, never rendered: the sidebar, the rail and
+        // the More sheet all read `items` and ignore this, so the nav keeps
+        // one Purchasing row. Only GlobalSearch expands them, and each one's
+        // ?tab= lands on that tab (the page reads it on mount).
+        searchExtras: [
+          { key: "app.nav.purchasing.stock", href: "/app/purchasing?tab=stock" },
+          { key: "app.nav.purchasing.orders", href: "/app/purchasing?tab=orders" },
+          { key: "app.nav.purchasing.suppliers", href: "/app/purchasing?tab=suppliers" },
+          { key: "app.nav.purchasing.requests", href: "/app/purchasing?tab=requests" },
+        ],
+      },
       // The contractor's own vans (`Asset`) — deliberately NOT beside Client
       // equipment, which is the customer's furnace.
       { key: "app.nav.fleet", href: "/app/fleet", icon: Truck, helpArticle: "fleet" },

@@ -20,7 +20,8 @@
 // sense at 1200px.
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PackageSearch, Truck, Boxes, Inbox } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -43,22 +44,39 @@ const TABS = [
 const TAB_KEYS = new Set(TABS.map((t) => t.key));
 
 export default function PurchasingPage() {
+  // The boundary useSearchParams asks for, around the whole page rather than
+  // a fragment of it: the fallback renders for one frame on a static paint.
+  return (
+    <Suspense fallback={null}>
+      <Purchasing />
+    </Suspense>
+  );
+}
+
+function Purchasing() {
   const { t } = useTranslation();
   const caller = usePermissions();
   const [tab, setTab] = useState("orders");
+  const params = useSearchParams();
 
-  // ?tab=requests — the destination the "supply requested" notification
-  // links to (lib/notifications/render.js). Read once on mount from the
-  // address rather than through useSearchParams, which would ask for a
-  // Suspense boundary around a page that has none.
+  // ?tab=stock — where the global search's Purchasing entries land, and where
+  // the "supply requested" notification already pointed
+  // (lib/notifications/render.js).
+  //
+  // This was read ONCE on mount, from window.location, to avoid the Suspense
+  // boundary useSearchParams asks for. That was fine while the only way in
+  // was a fresh navigation from a notification. It stopped being fine the
+  // moment search could offer these tabs: a soft navigation from
+  // /app/purchasing?tab=orders to ?tab=stock does not remount this page, so
+  // the address would say stock and the screen would still show orders — a
+  // link that appears to work and doesn't.
+  const wanted = params.get("tab");
   useEffect(() => {
-    try {
-      const wanted = new URLSearchParams(window.location.search).get("tab");
-      if (wanted && TAB_KEYS.has(wanted)) setTab(wanted);
-    } catch {
-      // No window (the harness's first paint), no tab to read.
-    }
-  }, []);
+    if (wanted && TAB_KEYS.has(wanted)) setTab(wanted);
+    // An address with no ?tab is NOT a request for Orders: somebody who
+    // clicked Stock and then cleared the query is still on Stock. Only a
+    // named tab moves the screen.
+  }, [wanted]);
 
   // The sidebar already hides this row for a member without the level (see
   // NAV_REQUIREMENTS), and hiding a row is not access control — every route

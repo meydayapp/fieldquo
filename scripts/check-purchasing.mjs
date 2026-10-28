@@ -453,6 +453,36 @@ ok("the scanner hands it to the uploader, and only once", (() => {
   return (src.match(/app\.receipt\.filesAccepted/g) || []).length === 1 && src.includes("hint={t(");
 })());
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("9b. The four tabs are findable by their own names");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "where do i put the inventory it is not inside purchasing". It
+// is — the Stock tab, second of four. Search could not say so, because the
+// only string it had to match was the row's own label, "Purchasing".
+const navSrc = read("app/components/layout/AdminSidebar.js");
+const searchSrc = read("app/components/layout/GlobalSearch.js");
+const purchasingPage = read("app/app/purchasing/page.js");
+
+ok("the purchasing row declares its tabs as search destinations", /searchExtras:\s*\[/.test(navSrc || ""));
+for (const tab of ["stock", "orders", "suppliers", "requests"]) {
+  ok(`...including ?tab=${tab}`, (navSrc || "").includes(`/app/purchasing?tab=${tab}`));
+  ok(`...named in all nine catalogues (${tab})`, (messages.match(new RegExp(`"app\\.nav\\.purchasing\\.${tab}":`, "g")) || []).length === 9);
+}
+// The word the owner actually typed has to appear in a label, or none of the
+// above helps: the app says "inventory" almost nowhere else.
+ok("the stock entry carries the word people search for", /"app\.nav\.purchasing\.stock":\s*"[^"]*[Ii]nventory/.test(messages));
+ok("global search expands them", (searchSrc || "").includes("searchExtras") && (searchSrc || "").includes("...extras"));
+// A group whose own name matches must not drag four tabs in behind it.
+ok("...matched on their own label, not the group's", /\(i\.searchExtras \|\| \[\]\)\s*\n?\s*\.filter/.test(searchSrc || ""));
+// A destination that changes the address and not the screen is a dead link.
+// The page read ?tab once on mount, so a soft navigation between two tabs of
+// the SAME page would have left the old one showing.
+ok("the page follows the address, not just the first paint", /useSearchParams\(\)/.test(purchasingPage || "") && /\}, \[wanted\]\)/.test(purchasingPage || ""));
+ok("...behind the Suspense boundary useSearchParams needs", (purchasingPage || "").includes("<Suspense"));
+// Absence of ?tab is not a request for Orders.
+ok("a cleared query does not yank you back to Orders", /if \(wanted && TAB_KEYS\.has\(wanted\)\) setTab\(wanted\);/.test(purchasingPage || ""));
+
 // The route refuses before anything is spent.
 // The quota/budget check is meterFor("receipt_scan").check() since the
 // /platform payer switch (lib/ai/featurePayer.js) — it routes to checkAiQuota
