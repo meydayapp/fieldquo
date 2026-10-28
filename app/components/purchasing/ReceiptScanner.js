@@ -2,13 +2,17 @@
 //
 // Photograph a till receipt; fill in what it says.
 //
-// ── Photos only, and it says so before you pick a file ─────────────────────
+// ── Photos or one PDF, and it says which before you pick a file ────────────
 //
-// lib/receipts/media.js carries the two reasons a PDF cannot work on this path
-// and the sentence a person gets when they try one. The hint below is printed
-// UP FRONT, not as a failure message afterwards — a limit stated in advance is
-// just how a feature works; the same limit stated after an upload is a dead
-// control that already wasted a trip to the van.
+// lib/receipts/media.js is the one answer to "can this be read", shared with
+// the receipts book, so the two screens cannot disagree about a file. The hint
+// is printed UP FRONT, not as a failure message afterwards — a limit stated in
+// advance is just how a feature works; the same limit stated after an upload
+// is a dead control that already wasted a trip to the van.
+//
+// It was printed TWICE: once as a paragraph here and again as MediaUploader's
+// own `hint`, so the same sentence appeared above and below the dropzone. One
+// now, inside the control it describes.
 //
 // ── The model reads; this component computes nothing ───────────────────────
 //
@@ -31,7 +35,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { reportResponseError } from "@/lib/clientErrors";
 import MediaUploader from "@/app/components/MediaUploader";
-import { receiptImageOrRefusal } from "@/lib/receipts/media";
+import { receiptFilesOrRefusal } from "@/lib/receipts/media";
 import { prefillMaterial } from "@/lib/receipts/prefill";
 
 export default function ReceiptScanner({ materialId, draft, onApply, onClose }) {
@@ -50,9 +54,9 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
   const [error, setError] = useState("");
 
   const file = files[0] || null;
-  // Checked in the browser too, so a PDF never costs a round trip — and the
-  // sentence is the same one the server would send, from the same module.
-  const usable = file ? receiptImageOrRefusal(file) : null;
+  // Checked in the browser too, so an unreadable file never costs a round
+  // trip — and the sentence is the one the server would send, same module.
+  const usable = file ? receiptFilesOrRefusal([file]) : null;
 
   async function read() {
     if (!usable?.ok || busy) return;
@@ -94,8 +98,6 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
         <p className="text-xs font-medium text-foreground">{t("app.receipt.heading")}</p>
       </div>
 
-      <p className="mt-1 text-xs text-muted-foreground">{t("app.receipt.photosOnly")}</p>
-
       <div className="mt-2">
         <MediaUploader
           uploadUrl="/api/upload" purpose="receipts"
@@ -107,7 +109,7 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
           }}
           max={1}
           label={t("app.receipt.upload")}
-          hint={t("app.receipt.photosOnly")}
+          hint={t("app.receipt.filesAccepted")}
         />
       </div>
 

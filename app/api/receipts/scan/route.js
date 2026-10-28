@@ -54,7 +54,10 @@ import {
 import { requireCost } from "@/app/api/invoices/costingWrite";
 import { meterFor } from "@/lib/ai/featurePayer";
 import { isDemoCompany } from "@/lib/demo/simulatedSpend";
-import { receiptImageOrRefusal } from "@/lib/receipts/media";
+import { receiptFilesOrRefusal } from "@/lib/receipts/media";
+import { fetchReceiptPdf, MAX_PDF_BYTES, PDF_FAILURE_SENTENCE } from "@/lib/receipts/pdf";
+import { fetchTenantFile } from "@/lib/media/fileOpen";
+import { cloudinarySigner } from "@/lib/media/cloudinarySign";
 import { extractReceipt } from "@/lib/receipts/extract";
 import { simulatedReceiptScan } from "@/lib/receipts/demoReceipt";
 import { reconcileReceipt, suggestedCostCents } from "@/lib/receipts/reconcile";
@@ -82,9 +85,13 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
 
   // ── 1. Is this a file we can actually read? ─────────────────────────────
-  const file = receiptImageOrRefusal(body.file);
-  if (!file.ok) {
-    return NextResponse.json({ error: file.error, code: file.code }, { status: 400 });
+  //
+  // The same function the receipts book asks, given this screen's one file.
+  // It answers photos OR one PDF — this scanner used to refuse every PDF, and
+  // a supplier's emailed order is a PDF far more often than it is a photo.
+  const files = receiptFilesOrRefusal(body.file ? [body.file] : []);
+  if (!files.ok) {
+    return NextResponse.json({ error: files.error, code: files.code }, { status: 400 });
   }
 
   // The material this is being read against, if any. Loaded first so the
@@ -108,7 +115,10 @@ export async function POST(request) {
 
   let extraction;
   if (demo) {
-    extraction = await simulatedReceiptScan({ member, imageUrl: file.url });
+    extraction = await simulatedReceiptScan({
+      member,
+      imageUrl: files.photos[0] || files.pdf?.url || null,
+    });
   } else {
     // ── 3. Who pays, and may they — BEFORE the call ──────────────────────
     //
@@ -122,9 +132,36 @@ export async function POST(request) {
       return NextResponse.json({ error: gate.reason }, { status: 429 });
     }
 
+    // ── 3b. A PDF's bytes, from our own storage only ────────────────────
+    //
+    // A photo is read by URL — the vendor fetches it. A PDF cannot be: it
+    // goes inline as base64, so THIS server downloads it, through a signed
+    // link pinned to our own cloud and this company's folders. Same two
+    // calls the receipts book makes, same bounds (MAX_PDF_BYTES, and the
+    // page count that keeps a supplier's statement from arriving as "one
+    // receipt"). Done AFTER the quota check, like the vendor call it feeds.
+    let pdf = null;
+    if (files.pdf) {
+      const sign = cloudinarySigner();
+      const fetched = await fetchReceiptPdf(
+        files.pdf,
+        sign
+          ? { fetchFile: (u) => fetchTenantFile(u, { companyId: member.companyId, sign, maxBytes: MAX_PDF_BYTES }) }
+          : {},
+      );
+      if (!fetched.ok) {
+        return NextResponse.json(
+          { error: PDF_FAILURE_SENTENCE[fetched.reason] || PDF_FAILURE_SENTENCE.fetch_failed, code: fetched.reason },
+          { status: 400 },
+        );
+      }
+      pdf = { filename: fetched.filename, base64: fetched.base64 };
+    }
+
     let usage = null;
     extraction = await extractReceipt({
-      imageUrl: file.url,
+      imageUrls: files.photos,
+      pdf,
       onUsage: (u) => {
         usage = u;
       },

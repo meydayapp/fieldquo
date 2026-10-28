@@ -30,7 +30,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { mayTouchReceipt, receiptScope } from "@/lib/receipts/access";
 import { receiptFilesOrRefusal } from "@/lib/receipts/media";
-import { fetchReceiptPdf, MAX_PDF_BYTES } from "@/lib/receipts/pdf";
+import { fetchReceiptPdf, MAX_PDF_BYTES, PDF_FAILURE_SENTENCE } from "@/lib/receipts/pdf";
 import { fetchTenantFile } from "@/lib/media/fileOpen";
 import { cloudinarySigner } from "@/lib/media/cloudinarySign";
 import { extractReceipt } from "@/lib/receipts/extract";
@@ -45,15 +45,6 @@ import { meterFor } from "@/lib/ai/featurePayer";
 const AI_FEATURE = "receipt_scan";
 
 const READABLE_FROM = new Set(["reading", "unreadable", "needs_review"]);
-
-/** What a person is told for each way a read can fail. No jargon. */
-const FAILED_SENTENCE = {
-  not_ours: "That file isn't one of your uploads. Upload it again.",
-  fetch_failed: "Couldn't open that PDF just now. Try again in a moment.",
-  too_large: "That PDF is too large to read. Upload the receipt pages only.",
-  not_pdf: "That file isn't a readable PDF. Take a photo of the receipt instead.",
-  too_many_pages: "That PDF has too many pages to be one receipt. Upload the receipt pages only.",
-};
 
 const EXPENSE_SELECT = {
   id: true,
@@ -116,7 +107,7 @@ export async function POST(request, { params }) {
       if (!fetched.ok) {
         await db.receipt.update({ where: { id }, data: { status: "unreadable", readError: fetched.reason } });
         return NextResponse.json(
-          { error: FAILED_SENTENCE[fetched.reason] || FAILED_SENTENCE.fetch_failed, code: fetched.reason },
+          { error: PDF_FAILURE_SENTENCE[fetched.reason] || PDF_FAILURE_SENTENCE.fetch_failed, code: fetched.reason },
           { status: 400 },
         );
       }

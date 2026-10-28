@@ -10327,8 +10327,8 @@ const en = {
   // afterwards. See lib/receipts/media.js for the two reasons a PDF cannot be
   // read on this path.
   "app.receipt.heading": "Read it off the receipt",
-  "app.receipt.photosOnly":
-    "A photo of the receipt — JPEG, PNG or straight off your phone. PDFs can't be read yet.",
+  "app.receipt.filesAccepted":
+    "A photo of the receipt — JPEG, PNG or straight off your phone — or the supplier's PDF.",
   "app.receipt.upload": "Add a photo of the receipt",
   "app.receipt.read": "Read this receipt",
   "app.receipt.reading": "Reading…",
@@ -29982,8 +29982,8 @@ const fr = {
   "app.purchasing.stock.kind.adjustment": "Correction après comptage",
 
   "app.receipt.heading": "Lire le reçu",
-  "app.receipt.photosOnly":
-    "Une photo du reçu — JPEG, PNG ou directement de votre téléphone. Les PDF ne peuvent pas encore être lus.",
+  "app.receipt.filesAccepted":
+    "Une photo du reçu — JPEG, PNG ou directement de votre téléphone — ou le PDF du fournisseur.",
   "app.receipt.upload": "Ajouter une photo du reçu",
   "app.receipt.read": "Lire ce reçu",
   "app.receipt.reading": "Lecture…",
@@ -49919,8 +49919,8 @@ const es = {
 
   // ── Lectura de recibos ───────────────────────────────────────────────────
   "app.receipt.heading": "Léelo del recibo",
-  "app.receipt.photosOnly":
-    "Una foto del recibo — JPEG, PNG o directo del teléfono. Todavía no se pueden leer PDF.",
+  "app.receipt.filesAccepted":
+    "Una foto del recibo — JPEG, PNG o directo del teléfono — o el PDF del proveedor.",
   "app.receipt.upload": "Agregar una foto del recibo",
   "app.receipt.read": "Leer este recibo",
   "app.receipt.reading": "Leyendo…",
@@ -70724,7 +70724,7 @@ const uk = {
   "app.purchasing.status.cancelled": "Скасовано",
   "app.receipt.failed": "Не вдалося прочитати цей чек. Спробуйте рівніше і світліше фото, щоб чек було видно повністю.",
   "app.receipt.heading": "Зчитати з чека",
-  "app.receipt.photosOnly": "Фото чека — JPEG, PNG або просто знімок із телефона. PDF поки не читається.",
+  "app.receipt.filesAccepted": "Фото чека — JPEG, PNG або просто знімок із телефона — чи PDF від постачальника.",
   "app.receipt.upload": "Додати фото чека",
   "app.receipt.reading": "Читаємо…",
   "app.receipt.read": "Прочитати цей чек",
@@ -90054,7 +90054,7 @@ const pa = {
   "app.purchasing.status.cancelled": "ਰੱਦ",
   "app.receipt.failed": "ਉਹ ਰਸੀਦ ਪੜ੍ਹੀ ਨਹੀਂ ਜਾ ਸਕੀ। ਪੂਰੀ ਰਸੀਦ ਫਰੇਮ ਵਿੱਚ ਲੈ ਕੇ ਸਿੱਧੀ ਅਤੇ ਵੱਧ ਰੌਸ਼ਨੀ ਵਾਲੀ ਫੋਟੋ ਲਵੋ।",
   "app.receipt.heading": "ਰਸੀਦ ਤੋਂ ਪੜ੍ਹੋ",
-  "app.receipt.photosOnly": "ਰਸੀਦ ਦੀ ਫੋਟੋ — JPEG, PNG ਜਾਂ ਸਿੱਧੀ ਫ਼ੋਨ ਤੋਂ। PDF ਹਾਲੇ ਪੜ੍ਹੀ ਨਹੀਂ ਜਾ ਸਕਦੀ।",
+  "app.receipt.filesAccepted": "ਰਸੀਦ ਦੀ ਫੋਟੋ — JPEG, PNG ਜਾਂ ਸਿੱਧੀ ਫ਼ੋਨ ਤੋਂ — ਜਾਂ ਸਪਲਾਇਰ ਦੀ PDF।",
   "app.receipt.upload": "ਰਸੀਦ ਦੀ ਫੋਟੋ ਜੋੜੋ",
   "app.receipt.reading": "ਪੜ੍ਹਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
   "app.receipt.read": "ਇਹ ਰਸੀਦ ਪੜ੍ਹੋ",
@@ -109392,7 +109392,7 @@ const tl = {
   "app.purchasing.status.cancelled": "Kinansela",
   "app.receipt.failed": "Hindi nabasa ang resibong iyon. Subukan ang mas tuwid at mas maliwanag na larawan na buo ang resibo sa kuha.",
   "app.receipt.heading": "Basahin mula sa resibo",
-  "app.receipt.photosOnly": "Larawan ng resibo — JPEG, PNG o galing mismo sa telepono mo. Hindi pa nababasa ang PDF.",
+  "app.receipt.filesAccepted": "Larawan ng resibo — JPEG, PNG o galing mismo sa telepono mo — o ang PDF ng supplier.",
   "app.receipt.upload": "Magdagdag ng larawan ng resibo",
   "app.receipt.reading": "Binabasa…",
   "app.receipt.read": "Basahin ang resibong ito",
@@ -127159,7 +127159,7 @@ const de = {
   "app.purchasing.stock.kind.wastage": "Verschnitt",
   "app.purchasing.stock.kind.adjustment": "Korrektur nach Zählung",
   "app.receipt.heading": "Vom Beleg ablesen",
-  "app.receipt.photosOnly": "Ein Foto des Belegs — JPEG, PNG oder direkt vom Handy. PDFs können noch nicht gelesen werden.",
+  "app.receipt.filesAccepted": "Ein Foto des Belegs — JPEG, PNG oder direkt vom Handy — oder das PDF des Lieferanten.",
   "app.receipt.upload": "Foto des Belegs hinzufügen",
   "app.receipt.read": "Diesen Beleg auslesen",
   "app.receipt.reading": "Wird gelesen…",
@@ -146427,7 +146427,7 @@ const zh = {
   "app.purchasing.stock.kind.wastage": "损耗",
   "app.purchasing.stock.kind.adjustment": "盘点后更正",
   "app.receipt.heading": "从收据上读",
-  "app.receipt.photosOnly": "收据的照片——JPEG、PNG，或者直接手机拍的。PDF 现在还读不了。",
+  "app.receipt.filesAccepted": "收据的照片——JPEG、PNG，或者直接手机拍的——也可以是供应商的 PDF。",
   "app.receipt.upload": "加一张收据照片",
   "app.receipt.read": "读这张收据",
   "app.receipt.reading": "读取中…",
@@ -165861,8 +165861,8 @@ const it = {
 
   // ── Lettura dello scontrino ─────────────────────────────────────────────
   "app.receipt.heading": "Leggilo dallo scontrino",
-  "app.receipt.photosOnly":
-    "Una foto dello scontrino — JPEG, PNG o scattata direttamente dal telefono. I PDF non sono ancora leggibili.",
+  "app.receipt.filesAccepted":
+    "Una foto dello scontrino — JPEG, PNG o scattata direttamente dal telefono — oppure il PDF del fornitore.",
   "app.receipt.upload": "Aggiungi una foto dello scontrino",
   "app.receipt.read": "Leggi questo scontrino",
   "app.receipt.reading": "Lettura…",

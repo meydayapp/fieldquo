@@ -45,7 +45,7 @@ import { applyDelivery, derivedStatus, outstandingMilli, progressSummary } from 
 import { toCents, centsToText, centsToAmount } from "@/lib/receipts/money";
 import { reconcileReceipt, suggestedCostCents } from "@/lib/receipts/reconcile";
 import { prefillMaterial, refuseOverwrites, isConfirmed } from "@/lib/receipts/prefill";
-import { receiptImageOrRefusal, REFUSAL } from "@/lib/receipts/media";
+import { receiptFilesOrRefusal, REFUSAL } from "@/lib/receipts/media";
 import { simulatedExtraction, simulatedReceiptScan } from "@/lib/receipts/demoReceipt";
 import { RECEIPT_SCHEMA, normaliseExtraction } from "@/lib/receipts/extract";
 import { assertStrictSchema } from "@/lib/ai/jsonSchema";
@@ -405,34 +405,52 @@ ok("the scan route uses prefillMaterial", scanPost !== null && scanPost.includes
 ok("...and never writes to jobMaterial", scanPost !== null && !/jobMaterial\.(update|create|upsert)/.test(scanPost));
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("9. A PDF is refused, with a reason and with what to do instead");
+section("9. One rule for both receipt readers, PDFs included");
 // ═══════════════════════════════════════════════════════════════════════════
 
-const pdfByKind = receiptImageOrRefusal({ url: "https://res.cloudinary.com/x/raw/upload/v1/plan", kind: "document", filename: "receipt.pdf" });
-ok("a PDF is refused", pdfByKind.ok === false);
-ok("...with the pdf reason code", pdfByKind.code === REFUSAL.PDF, pdfByKind.code);
-ok("...naming the format", /pdf/i.test(pdfByKind.error));
-// A refusal that does not say what to do instead is a wall. The whole reason
-// photos-only is acceptable is that photographing it is what people do anyway.
-ok("...and telling them to photograph it", /photo|picture/i.test(pdfByKind.error), pdfByKind.error);
+// The scanner used to refuse every PDF. It no longer does — the owner's
+// supplier emails an order as a PDF, and the receipts book two screens away
+// was already reading exactly that file.
+const one = (f) => receiptFilesOrRefusal([f]);
 
-ok("a .pdf URL is caught even when the kind is wrong", receiptImageOrRefusal({ url: "https://x/y.PDF", kind: "photo" }).code === REFUSAL.PDF);
-ok("an application/pdf mime is caught", receiptImageOrRefusal({ url: "https://x/y", mimeType: "application/pdf" }).code === REFUSAL.PDF);
-ok("a video is refused separately", receiptImageOrRefusal({ url: "https://x/y.mov", kind: "video" }).code === REFUSAL.VIDEO);
-ok("a blob: URL is refused — the vendor fetches this itself", receiptImageOrRefusal({ url: "blob:http://localhost/abc", kind: "photo" }).code === REFUSAL.NOT_HTTP);
-ok("nothing attached is refused", receiptImageOrRefusal({}).code === REFUSAL.MISSING);
-ok("a real photo passes", receiptImageOrRefusal({ url: "https://res.cloudinary.com/x/image/upload/v1/r.jpg", kind: "photo" }).ok === true);
+const pdf = one({ url: "https://res.cloudinary.com/x/raw/upload/v1/o.pdf", kind: "document", filename: "order.pdf" });
+ok("a PDF is accepted", pdf.ok === true, pdf.error);
+ok("...as the pdf, not as a photo", pdf.ok && pdf.pdf !== null && pdf.photos.length === 0);
 
-// Stated BEFORE a file is chosen, in both catalogues — a limit announced up
-// front is how the feature works; the same limit announced afterwards is a
-// dead control.
+// The case that produced two orphaned uploads and two identical refusals:
+// an iPhone hands over "OrderO0316950.PDF" and every check must see a PDF.
+const shouty = one({ url: "https://res.cloudinary.com/x/raw/upload/v1/o.PDF", kind: "document", filename: "OrderO0316950.PDF" });
+ok("an UPPER-CASE .PDF is a PDF", shouty.ok === true && shouty.pdf !== null, shouty.error);
+ok("...and keeps the name it arrived under", shouty.ok && shouty.pdf.filename === "OrderO0316950.PDF");
+
+ok("a .pdf URL is seen as a PDF even when the kind says photo", one({ url: "https://x/y.PDF", kind: "photo" }).pdf !== null);
+ok("an application/pdf mime is seen as a PDF", one({ url: "https://x/y", mimeType: "application/pdf" }).pdf !== null);
+
+// What is still refused, and why each one.
+ok("a video is refused", one({ url: "https://x/y.mov", kind: "video" }).code === REFUSAL.VIDEO);
+ok("a blob: URL is refused — the vendor fetches this itself", one({ url: "blob:http://localhost/abc", kind: "photo" }).code === REFUSAL.NOT_HTTP);
+ok("nothing attached is refused", receiptFilesOrRefusal([]).code === REFUSAL.MISSING);
+ok("a real photo passes", one({ url: "https://res.cloudinary.com/x/image/upload/v1/r.jpg", kind: "photo" }).ok === true);
+// Two purchases read as one total is the failure this prevents.
+ok(
+  "a photo mixed with a PDF is refused",
+  receiptFilesOrRefusal([
+    { url: "https://x/a.jpg", kind: "photo" },
+    { url: "https://x/b.pdf", kind: "document" },
+  ]).code === REFUSAL.MIXED,
+);
+
+// Stated BEFORE a file is chosen — a limit announced up front is how the
+// feature works; the same limit announced afterwards is a dead control.
 const messages = read("app/i18n/appMessages.js");
-ok("the photos-only hint exists in English and French", (messages.match(/"app\.receipt\.photosOnly":/g) || []).length >= 2);
-ok("the scanner prints it before the uploader", (() => {
+ok("the accepted-files hint exists in every catalogue", (messages.match(/"app\.receipt\.filesAccepted":/g) || []).length === 9);
+ok("...and no catalogue still says PDFs can't be read", !/PDFs can't be read yet/.test(messages));
+ok("the scanner hands it to the uploader, and only once", (() => {
   const src = read("app/components/purchasing/ReceiptScanner.js");
-  const hint = src.indexOf("app.receipt.photosOnly");
-  const uploader = src.indexOf("<MediaUploader");
-  return hint !== -1 && uploader !== -1 && hint < uploader;
+  if (src === null) return false;
+  // Printed twice — a paragraph here AND MediaUploader's own `hint` — so the
+  // same sentence sat above and below the dropzone.
+  return (src.match(/app\.receipt\.filesAccepted/g) || []).length === 1 && src.includes("hint={t(");
 })());
 
 // The route refuses before anything is spent.
@@ -443,8 +461,8 @@ ok("the scanner prints it before the uploader", (() => {
 const has = (src, s) => src !== null && src.indexOf(s) !== -1;
 ok("the scan route meters through the payer switch", has(scanPost, 'meterFor(AI_FEATURE') && has(scanPost, "meter.check(") && has(scanPost, "meter.record("));
 ok("...and no longer calls a ledger directly", scanPost !== null && !scanPost.includes("checkAiQuota(") && !scanPost.includes("recordAiUsage("));
-ok("the route checks the file before the quota", has(scanPost, "meter.check(") && scanPost.indexOf("receiptImageOrRefusal(") < scanPost.indexOf("meter.check("));
-ok("...and before the vendor call", scanPost !== null && scanPost.indexOf("receiptImageOrRefusal(") < scanPost.indexOf("extractReceipt("));
+ok("the route checks the file before the quota", has(scanPost, "meter.check(") && scanPost.indexOf("receiptFilesOrRefusal(") < scanPost.indexOf("meter.check("));
+ok("...and before the vendor call", scanPost !== null && scanPost.indexOf("receiptFilesOrRefusal(") < scanPost.indexOf("extractReceipt("));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("10. A demo company never reaches the vendor");

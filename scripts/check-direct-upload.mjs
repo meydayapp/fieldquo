@@ -123,6 +123,23 @@ ok("…inside messaging it is", isOwnPublicId(`fieldquo/companies/${CO}/messagin
 ok("an .html raw id never is", !isOwnPublicId(`fieldquo/companies/${CO}/messaging/${UUID}.html`, member("messaging"), "raw"));
 ok("an unknown resource type is not", !isOwnPublicId(`fieldquo/companies/${CO}/jobs/${UUID}`, jobs, "private"));
 
+// ── The extension's case is Cloudinary's, not ours ──────────────────────────
+//
+// We sign "<uuid>.pdf"; Cloudinary stores a raw asset under the SOURCE file's
+// extension. The owner picked "OrderO0316950.PDF" off an iPhone, the asset
+// came back "<uuid>.PDF", this check said it was not ours, and verify answered
+// "That upload could not be confirmed. Upload the file again." — twice, on a
+// file nothing was ever going to accept. Both copies are still in the bucket.
+ok("an UPPER-CASE .PDF raw id is ours", isOwnPublicId(`fieldquo/companies/${CO}/receipts/${UUID}.PDF`, member("receipts"), "raw"));
+ok("…and a mixed-case .PdF is too", isOwnPublicId(`fieldquo/companies/${CO}/receipts/${UUID}.PdF`, member("receipts"), "raw"));
+ok("…in every raw-taking scope", isOwnPublicId(`fieldquo/companies/${CO}/messaging/${UUID}.DOCX`, member("messaging"), "raw"));
+// Case is forgiven on the EXTENSION only. A Cloudinary path is case-sensitive,
+// so ".../Receipts/" is a DIFFERENT folder and must not pass as ours.
+ok("a differently-cased FOLDER is still not ours", !isOwnPublicId(`fieldquo/companies/${CO}/Receipts/${UUID}.pdf`, member("receipts"), "raw"));
+ok("an upper-case uuid is still not ours", !isOwnPublicId(`fieldquo/companies/${CO}/receipts/${UUID.toUpperCase()}.pdf`, member("receipts"), "raw"));
+ok("a disallowed extension is still not, whatever its case", !isOwnPublicId(`fieldquo/companies/${CO}/receipts/${UUID}.HTML`, member("receipts"), "raw"));
+ok("…and .docx stays out of a non-messaging scope in upper case too", !isOwnPublicId(`fieldquo/companies/${CO}/receipts/${UUID}.DOCX`, member("receipts"), "raw"));
+
 console.log("\n   readClaim");
 ok("a complete claim reads", readClaim({ ...claimOk, resourceType: "image" }).ok);
 ok("missing signature → refused", !readClaim({ publicId: "x", version: 1, resourceType: "image" }).ok);
