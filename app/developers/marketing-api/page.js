@@ -62,6 +62,8 @@ export default function MarketingApiDocs() {
             {" · "}
             <a href="#zapier" className="underline font-medium">Zapier</a>
             {" · "}
+            <a href="#matching" className="underline font-medium">Matching your own leads</a>
+            {" · "}
             <a href="#privacy" className="underline font-medium">What is private</a>
           </p>
         </header>
@@ -170,6 +172,34 @@ export default function MarketingApiDocs() {
           </div>
           <p className="text-sm">
             <code>GET {BASE}/hooks/samples/{"{event}"}</code> returns recent real payloads of an event, built the same way.
+          </p>
+        </Section>
+
+        <Section id="matching" title="Matching an event to your own lead">
+          <p className="text-sm">
+            Match on <code>ref</code>. It is the lead&apos;s permanent reference, it is on every lead row and inside every
+            webhook payload (<code>lead.ref</code>), and <code>POST /marketing/leads</code> returns it in the answer that
+            confirms the lead — so storing that one string on your own record is all the matching you ever need.
+          </p>
+          <Code>{`curl -X POST ${BASE}/marketing/leads \\\n  -H "Authorization: Bearer fqa_…" -H "Content-Type: application/json" \\\n  -d '{"name":"…","email":"…","phone":"…"}'\n# → { "created": true, "lead": { "ref": "lr_AVJFB63HCCKWJFNH", "displayRef": "L-AVJF", … } }\n#   Keep lead.ref. Every later appointment.booked / quote.accepted carries it.`}</Code>
+          <p className="text-sm">
+            For a lead you created before you started keeping the reference, or one that reached the company by some other
+            route, look it up by the identifier you already hold — and keep the reference from the answer:
+          </p>
+          <Code>{`curl "${BASE}/marketing/leads/search?email=…" \\\n  -H "Authorization: Bearer fqa_…"     # or ?phone=…  (needs marketing:write_leads)`}</Code>
+          <p className="text-sm">
+            <strong>Do not build the matching on <code>email</code> or <code>phone</code> in the payload.</strong> Two
+            separate things make those unreliable as a key, and neither is a setting you can wait out. They are{" "}
+            <code>null</code> unless the company has switched on <em>Share contact details</em> (see{" "}
+            <a href="#privacy" className="underline">what is private</a>) — and a great many leads have no email or phone
+            recorded <em>at all</em>, because a homeowner who messages an ad on Facebook or Instagram arrives as a name and a
+            conversation; Meta does not hand over their email address. Requiring one would not conjure it, it would only
+            throw the lead away. The reference exists for exactly this reason: it identifies the lead whether or not anyone
+            ever learns how to phone them.
+          </p>
+          <p className="text-sm">
+            <code>displayRef</code> (<code>L-AVJF</code>) is the same reference shortened for a human to read in a report or
+            a subject line. Match on <code>ref</code>, show <code>displayRef</code>.
           </p>
         </Section>
 
