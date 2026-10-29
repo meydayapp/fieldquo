@@ -35,6 +35,16 @@ export default function AgencyAccessPage() {
   return <AgencyAccess />;
 }
 
+// "Off unless you turn it on" is a statement about the DEFAULT, and it was
+// printed under the switch whatever the switch said — so an owner who had just
+// turned sharing on still read that it was off, and went looking for a control
+// that was already in front of him. The sentence is kept, and now shown only
+// while it is true.
+function offNote(hint, note, on) {
+  if (on) return hint;
+  return note ? `${hint} ${note}` : hint;
+}
+
 function Toggle({ checked, disabled, onChange, label, hint, busy }) {
   return (
     <label className={`flex items-start gap-3 py-3 ${disabled ? "opacity-70" : "cursor-pointer"}`}>
@@ -181,7 +191,7 @@ function AgencyAccess() {
                 busy={busy === "sharing"}
                 onChange={(v) => setSharing({ contactDetails: v })}
                 label={t("app.agencyAccess.shareContacts")}
-                hint={t("app.agencyAccess.shareContactsHint")}
+                hint={offNote(t("app.agencyAccess.shareContactsHint"), t("app.agencyAccess.shareContactsOffNote"), data.sharing.contactDetails)}
               />
               <Toggle
                 checked={data.sharing.jobValues}
@@ -189,7 +199,7 @@ function AgencyAccess() {
                 busy={busy === "sharing"}
                 onChange={(v) => setSharing({ jobValues: v })}
                 label={t("app.agencyAccess.shareMoney")}
-                hint={t("app.agencyAccess.shareMoneyHint")}
+                hint={offNote(t("app.agencyAccess.shareMoneyHint"), t("app.agencyAccess.shareMoneyOffNote"), data.sharing.jobValues)}
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">{t("app.agencyAccess.sharingLogged")}</p>
@@ -311,22 +321,38 @@ function AgencyAccess() {
             {data.recentCalls.length === 0 ? (
               <p className="px-5 py-4 text-sm text-muted-foreground">{t("app.agencyAccess.noCalls")}</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <tbody className="divide-y divide-border">
-                    {data.recentCalls.map((c, i) => (
-                      <tr key={i}>
-                        <td className="px-5 py-2 text-muted-foreground whitespace-nowrap">{formatDateTime(c.at)}</td>
-                        <td className="px-2 py-2 text-foreground whitespace-nowrap">{c.keyName}</td>
-                        <td className="px-2 py-2 text-foreground font-mono break-all">
-                          {c.method} {c.path}
-                        </td>
-                        <td className={`px-5 py-2 whitespace-nowrap font-medium ${c.status >= 400 ? "text-foreground underline" : "text-muted-foreground"}`}>{c.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              /* Deliberately not a table. Four columns, three of them
+                 whitespace-nowrap, inside a horizontal scroller pushed the
+                 STATUS CODE — the one column anybody scans a call log for —
+                 off the right edge of a phone, and side-scrolling inside a
+                 vertically scrolling page reads as broken. A grid places the
+                 same four values explicitly at both sizes, so each value is
+                 still written once: stacked under 640px, one line above it. */
+              <ul className="divide-y divide-border">
+                {data.recentCalls.map((c, i) => (
+                  <li
+                    key={i}
+                    className="grid items-baseline gap-x-3 gap-y-0.5 px-5 py-2.5 text-xs grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]"
+                  >
+                    <span className="row-start-1 col-start-1 text-muted-foreground whitespace-nowrap">
+                      {formatDateTime(c.at)}
+                    </span>
+                    <span
+                      className={`row-start-1 col-start-2 justify-self-end font-medium whitespace-nowrap sm:col-start-4 ${
+                        c.status >= 400 ? "text-foreground underline" : "text-muted-foreground"
+                      }`}
+                    >
+                      {c.status}
+                    </span>
+                    <span className="row-start-2 col-start-1 col-span-2 text-muted-foreground sm:row-start-1 sm:col-start-2 sm:col-span-1 sm:whitespace-nowrap">
+                      {c.keyName}
+                    </span>
+                    <span className="row-start-3 col-start-1 col-span-2 font-mono text-foreground break-all sm:row-start-1 sm:col-start-3 sm:col-span-1">
+                      {c.method} {c.path}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         </>
