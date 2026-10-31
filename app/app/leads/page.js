@@ -2070,6 +2070,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
               onConvert={convert}
               onOpenPicker={(markWon) => setPicker({ markWon })}
               onUnlinked={applyLinked}
+              onLinked={applyLinked}
               t={t}
             />
             )}

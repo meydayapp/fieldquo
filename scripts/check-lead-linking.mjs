@@ -462,6 +462,33 @@ ok("shapeLinkedQuote without money has no total even if the row had one",
   !("total" in shapeLinkedQuote({ id: "q", total: 5, acceptedTotal: 6 }, { money: false })));
 ok("shapeLinkedQuote with money prefers acceptedTotal", shapeLinkedQuote({ id: "q", total: 5, acceptedTotal: 6 }, { money: true }).total === 6);
 
+// ── The quote the board already named ──────────────────────────────────────
+//
+// GET /api/leads infers a probable quote for every lead and the card prints
+// it; the drawer said "No quote linked yet" on the same lead. The drawer now
+// asks the same function. The POSITIVE path is not asserted here because
+// inferLeadQuotes is imported, not injected, and making verifyConversion
+// match would mean stubbing clients, quotes and jobs into agreement — it was
+// verified against the live row instead (lead "Jameel (JJ)", source
+// agency_funnel, 0 threads: inferLeadQuotes returns Q-2026-0037, the quote
+// the card shows). What is asserted is the shape and that a failure is
+// survivable, which is what would silently break the panel.
+
+reset(); as("m_owner");
+res = await docsRoute.GET(req(null), ctx("lead_bare"));
+ok("a lead with no quote carries the suggestedQuote key, present and null",
+  res.status === 200 && "suggestedQuote" in res.body && res.body.suggestedQuote === null, res.body);
+
+reset(); as("m_owner");
+res = await docsRoute.GET(req(null), ctx("lead_won"));
+ok("a lead that HAS a quote is never offered a guess",
+  res.status === 200 && !res.body.suggestedQuote, res.body.suggestedQuote);
+
+reset(); as("m_noquotes");
+res = await docsRoute.GET(req(null), ctx("lead_bare"));
+ok("quotes:none is offered no guess either \u2014 the suggestion answers to the quotes dial",
+  res.status === 200 && !res.body.suggestedQuote, res.body.suggestedQuote);
+
 // ── Appointments on the lead ───────────────────────────────────────────────
 //
 // The gap these cover: lib/agency/leadFacts.js found a lead's booked visit

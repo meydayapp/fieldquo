@@ -121,6 +121,7 @@ export function LinkedDocuments({
   onConvert,
   onOpenPicker,
   onUnlinked,
+  onLinked,
   t,
 }) {
   const money = useCompanyMoney();
@@ -129,6 +130,7 @@ export function LinkedDocuments({
   const [failed, setFailed] = useState(false);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
+  const [linkingSuggested, setLinkingSuggested] = useState(false);
 
   const load = useCallback(async () => {
     setFailed(false);
@@ -165,6 +167,29 @@ export function LinkedDocuments({
     }
   }
 
+  // Accepting the board's guess. The same POST the search picker uses, so
+  // there is one way a quote gets linked; markWon is deliberately NOT sent —
+  // confirming whose quote it is says nothing about whether the lead won.
+  async function linkSuggested(quoteId) {
+    setLinkingSuggested(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/quote-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteId }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.leads.picker.error", "Couldn't link that quote."));
+        return;
+      }
+      const d = await res.json();
+      onLinked?.(d.lead);
+      await load();
+    } finally {
+      setLinkingSuggested(false);
+    }
+  }
+
   const quote = docs?.quote || null;
   const hasQuote = Boolean(lead?.quote?.id || quote);
 
@@ -193,9 +218,43 @@ export function LinkedDocuments({
               {t("app.leads.docs.quote", "Quote")}
             </div>
             {!quote ? (
-              <p className="text-xs text-muted-foreground">
-                {t("app.leads.docs.noQuote", "No quote linked yet.")}
-              </p>
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {t("app.leads.docs.noQuote", "No quote linked yet.")}
+                </p>
+                {/* The quote the LEADS BOARD already names on this lead's card
+                    ("probably theirs"). Showing "no quote" next to a card that
+                    names one is two answers to one question; the board's own
+                    rule (inferLeadQuotes) decides, and the link is one tap
+                    instead of a search. Still a suggestion: nothing is
+                    written until this is pressed. */}
+                {docs.suggestedQuote && (
+                  <div className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-foreground">
+                      <FileText size={11} aria-hidden="true" />
+                      <span className="font-semibold">{docs.suggestedQuote.quoteNumber}</span>
+                      {docs.suggestedQuote.status && <span>· {docs.suggestedQuote.status}</span>}
+                      {typeof docs.suggestedQuote.total === "number" && docs.suggestedQuote.total > 0 && (
+                        <span>· {money(docs.suggestedQuote.total)}</span>
+                      )}
+                      <span className="text-muted-foreground">· {t("app.leads.quote.probably")}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => linkSuggested(docs.suggestedQuote.id)}
+                      disabled={linkingSuggested}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                    >
+                      {linkingSuggested ? (
+                        <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Link2 size={12} aria-hidden="true" />
+                      )}
+                      {t("app.leads.docs.linkThisQuote", "Link this quote")}
+                    </button>
+                  </div>
+                )}
+              </>
             ) : quote.restricted ? (
               <p className="text-xs text-muted-foreground">
                 {quote.quoteNumber} · {quoteStatusLabel(quote.status, t)} ·{" "}
