@@ -257,7 +257,11 @@ export default function BeforeAfter({
           // control — dragging anywhere works, which is what people try first.
           // `appearance-none` plus a transparent thumb keeps the native
           // behaviour and hides the native chrome.
-          className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize appearance-none bg-transparent"
+          // ba-range (app/globals.css) sizes the native thumb to 1px and sets
+          // touch-action. Without it the browser's default thumb insets the
+          // travel by half its width at each end, so the drawn grip lags the
+          // pointer and neither edge of the photo can be reached.
+          className="ba-range absolute inset-0 w-full h-full opacity-0 cursor-ew-resize appearance-none bg-transparent"
         />
       </div>
 

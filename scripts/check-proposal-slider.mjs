@@ -70,10 +70,19 @@ section("1. The website's slider: one component, the site's own language");
   // (a) The component with NO document props is unchanged: md5s of
   // renderToStaticMarkup taken from app/site/[subdomain]/BeforeAfter.js at
   // 9cc84fb72, before the move.
+  //
+  // Re-pinned 2026-10-31, and ONLY for the ba-range class on the range
+  // input. The pin's job is to catch markup that moves when nobody meant it
+  // to, so when it legitimately moves the reason is recorded here rather
+  // than the number quietly swapped: the native thumb was unsized, which
+  // insets a range input's travel by half a thumb-width at each end (16px
+  // measured in Chrome) and leaves the drawn grip lagging the pointer and
+  // both edges of the photo unreachable. The class sizes the thumb to 1px
+  // and sets touch-action. Nothing else about the output changed.
   const theme = { ink: "#111111", paper: "#fefefe", accentWash: "#eeeeff", inkMuted: "#555555" };
   const CASES = [
-    [{ before: "https://x/b.jpg", after: "https://x/a.jpg" }, "d66ce81b5c463218c16a03a21bf7a159"],
-    [{ before: "https://x/b.jpg", after: "https://x/a.jpg", caption: "Maple St", radius: "rounded-xl", theme }, "747f13c715cff7611d28ebe500919919"],
+    [{ before: "https://x/b.jpg", after: "https://x/a.jpg" }, "cba6f292b1d7bb2e88466a0bfa60e6bd"],
+    [{ before: "https://x/b.jpg", after: "https://x/a.jpg", caption: "Maple St", radius: "rounded-xl", theme }, "e78c166acdc039f9b4788337f00c92e1"],
     [{ before: "https://x/b.jpg", after: null }, "d41d8cd98f00b204e9800998ecf8427e"],
   ];
   CASES.forEach(([props, pinned], i) => {
@@ -109,7 +118,7 @@ section("1. The website's slider: one component, the site's own language");
   };
   const en = site("en");
   // Was 35037d4052d0c89f564dc418012b18e5 (the same block without the props).
-  const SITE_EN_PINNED = "b676d44fb9db7936f49316c8355c73ab";
+  const SITE_EN_PINNED = "0e767e1c5981665acd857ec6d94ed122";
   ok("website (en): the block's slider renders the re-pinned markup", md5(en) === SITE_EN_PINNED, md5(en));
   ok("website (en): …with the three intended differences", /alt="After — Maple St"/.test(en) && /alt="Before — Maple St"/.test(en) && />Maple St — Drag the handle to compare\.<\/label>/.test(en) && !/aria-hidden="true" class="absolute/.test(en));
   ok("website (en): …and the site's look kept (paper grip, inline grow, 4:3 box, no brand handle)", /shadow-lg/.test(en) && /transition:scale 120ms ease-out/.test(en) && /aspect-\[4\/3\]/.test(en) && !/motion-reduce/.test(en));
@@ -210,6 +219,21 @@ const count = (html, re) => (html.match(re) || []).length;
   ok("only half pairs: no 'drag to compare' hint over nothing to drag", !/Drag the handle/.test(onlyHalf) && /alt="After"/.test(onlyHalf));
 
   const src = read("app/components/public/proposal/ProposalSections.js");
+  // ── The drag surface, and the CSS it depends on ─────────────────────────
+  //
+  // `ba-range` is a class on the range input whose whole effect lives in
+  // app/globals.css. A class with no rule behind it is a dead control: the
+  // slider would look identical and drag badly again, silently. So the two
+  // are held to each other here.
+  const css = read("app/globals.css");
+  const slider = read("app/components/public/BeforeAfter.js");
+  ok("the range input carries ba-range", /className="ba-range /.test(slider));
+  ok("…and globals.css sizes the webkit thumb to 1px, so the pointer maps to the drawn grip",
+    /\.ba-range::-webkit-slider-thumb\s*\{[^}]*width:\s*1px/.test(css));
+  ok("…and the Firefox thumb too", /\.ba-range::-moz-range-thumb\s*\{[^}]*width:\s*1px/.test(css));
+  ok("…and a vertical swipe still scrolls the page on a phone",
+    /\.ba-range\s*\{[^}]*touch-action:\s*pan-y/.test(css));
+
   ok("the proposal uses the shared slider, not its own", /import BeforeAfter from "@\/app\/components\/public\/BeforeAfter"/.test(src) && !/type="range"/.test(src));
   ok("the slider follows the photo's shape on the proposal (fitToPhoto)", /fitToPhoto\b/.test(src));
 }

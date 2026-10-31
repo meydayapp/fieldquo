@@ -632,3 +632,43 @@ input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [ty
 [data-view-only] [data-view-only-hide] {
   display: none !important;
 }
+
+/* ── The before/after slider's control surface (2026-10-31) ──────────────
+ * app/components/public/BeforeAfter.js lays an invisible <input type="range">
+ * over the whole photo and draws its own grip at left:<value>%. A native
+ * range does NOT map a pointer to a value that way: it reserves half a
+ * thumb-width at each end, so value = (x - thumbW/2) / (trackW - thumbW).
+ * Unsized, the thumb keeps the browser default — measured at 16px in Chrome,
+ * which insets the travel 8px at each end of the track and compresses the
+ * mapping to 96%. The drawn grip therefore drifts from the finger by up to
+ * half a thumb, worst at the two ends, and the last 8px of the photo cannot
+ * be reached at all. The owner's words: "I always struggle to slide it to
+ * the sides."
+ *
+ * A 1px thumb makes the native mapping linear across the full width, so the
+ * grip sits exactly under the pointer and 0% and 100% are reachable. The
+ * thumb stays invisible: the visible handle is the component's own div.
+ *
+ * touch-action: pan-y keeps a vertical swipe scrolling the page (a client
+ * reads the quote on a phone) while claiming the horizontal drag, which the
+ * browser would otherwise be free to interpret as the start of a scroll. */
+.ba-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+}
+.ba-range::-moz-range-thumb {
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+}
+.ba-range::-moz-range-track {
+  background: transparent;
+}
+.ba-range {
+  touch-action: pan-y;
+}
