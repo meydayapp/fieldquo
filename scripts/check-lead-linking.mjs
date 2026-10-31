@@ -167,6 +167,31 @@ function makeDb() {
         return R().invoice.filter((i) => i.quoteId === where.quoteId && i.companyId === where.companyId);
       },
     },
+    // Appointments reach a lead two ways, so the stub has to honour both:
+    // Booking.leadRequestId (a visit booked before any quote existed) and
+    // Appointment.quoteId (the same road jobs and invoices travel).
+    booking: {
+      async findMany({ where }) {
+        return (R().booking || []).filter(
+          (b) => b.leadRequestId === where.leadRequestId && b.appointmentId,
+        );
+      },
+    },
+    appointment: {
+      async findMany({ where }) {
+        globalThis.__FQ_LAST_APPOINTMENT_WHERE = where;
+        const ids = new Set(
+          (where.OR || []).flatMap((c) => (c.id?.in ? c.id.in : [])),
+        );
+        const quoteIds = new Set(
+          (where.OR || []).flatMap((c) => (c.quoteId ? [c.quoteId] : [])),
+        );
+        return (R().appointment || [])
+          .filter((a) => a.companyId === where.companyId)
+          .filter((a) => ids.has(a.id) || quoteIds.has(a.quoteId))
+          .sort((a, b) => new Date(b.scheduledAt || 0) - new Date(a.scheduledAt || 0));
+      },
+    },
     user: { async findUnique() { return { name: "Tester" }; } },
     activityLog: {
       async create({ data }) {
@@ -208,6 +233,7 @@ register(`data:text/javascript,${encodeURIComponent(HOOKS)}`);
 
 const linkRoute = await import("@/app/api/leads/[id]/quote-link/route.js");
 const docsRoute = await import("@/app/api/leads/[id]/documents/route.js");
+const { shapeLinkedAppointment } = await import("@/lib/leads/linkedDocuments.js");
 
 let current;
 function reset() {
@@ -222,6 +248,8 @@ function reset() {
         permissions: { requests: "view_only", quotes: "view_only" } },
       { id: "m_noquotes", userId: "u_nq", role: "employee", companyId: COMPANY,
         permissions: { requests: "view_create_edit", quotes: "none" } },
+      { id: "m_nosched", userId: "u_ns", role: "employee", companyId: COMPANY,
+        permissions: { requests: "view_only", quotes: "view_only", schedule: "none" } },
       { id: "m_nomoney", userId: "u_nm", role: "employee", companyId: COMPANY,
         permissions: { requests: "view_only", quotes: "view_only", jobs: "view_only", invoices: "none", showPricing: false } },
     ],
@@ -245,6 +273,18 @@ function reset() {
     ],
     invoice: [
       { id: "i1", companyId: COMPANY, quoteId: "q_acc", invoiceNumber: "INV-1", status: "sent", total: 5200, amountDue: 2600, versions: [] },
+    ],
+    // lead_bare has NO quote and a visit booked straight against it — the
+    // live case that started this: an Instagram conversation that agreed a
+    // Saturday estimate before anybody wrote a quote.
+    booking: [
+      { id: "bk1", leadRequestId: "lead_bare", appointmentId: "ap_bare", mode: "visit" },
+    ],
+    appointment: [
+      { id: "ap_bare", companyId: COMPANY, quoteId: null, scheduledAt: "2026-10-31T14:00:00.000Z", status: "scheduled", aboutKind: "estimate" },
+      { id: "ap_quote", companyId: COMPANY, quoteId: "q_acc", scheduledAt: "2026-10-20T14:00:00.000Z", status: "completed", aboutKind: "estimate" },
+      { id: "ap_quote2", companyId: COMPANY, quoteId: "q_acc", scheduledAt: "2026-10-28T14:00:00.000Z", status: "cancelled", aboutKind: "estimate" },
+      { id: "ap_foreign", companyId: OTHER, quoteId: "q_acc", scheduledAt: "2026-10-29T14:00:00.000Z", status: "scheduled", aboutKind: "estimate" },
     ],
   };
 }
@@ -421,6 +461,50 @@ ok("shapeLinkedInvoice shows the LATEST version of a family",
 ok("shapeLinkedQuote without money has no total even if the row had one",
   !("total" in shapeLinkedQuote({ id: "q", total: 5, acceptedTotal: 6 }, { money: false })));
 ok("shapeLinkedQuote with money prefers acceptedTotal", shapeLinkedQuote({ id: "q", total: 5, acceptedTotal: 6 }, { money: true }).total === 6);
+
+// ── Appointments on the lead ───────────────────────────────────────────────
+//
+// The gap these cover: lib/agency/leadFacts.js found a lead's booked visit
+// and told the marketing agency about it, while the owner's own lead drawer
+// showed quotes, jobs and invoices and no visit at all.
+
+ok("shapeLinkedAppointment(null) → null", shapeLinkedAppointment(null) === null);
+ok("shapeLinkedAppointment without an id → null", shapeLinkedAppointment({ scheduledAt: "x" }) === null);
+ok("shapeLinkedAppointment takes mode from the booking",
+  shapeLinkedAppointment({ id: "a", booking: { mode: "phone" } }).mode === "phone");
+ok("shapeLinkedAppointment never carries an address",
+  !("location" in shapeLinkedAppointment({ id: "a", location: "59 rue de l'Acropole" })));
+
+reset(); as("m_owner");
+res = await docsRoute.GET(req(null), ctx("lead_bare"));
+ok("a lead with NO quote still shows the visit booked against it",
+  res.status === 200 && Array.isArray(res.body.appointments) && res.body.appointments.length === 1
+    && res.body.appointments[0].id === "ap_bare", res.body);
+
+reset(); as("m_owner");
+res = await docsRoute.GET(req(null), ctx("lead_won"));
+ok("a lead whose quote has none shows none", res.status === 200 && res.body.appointments.length === 0, res.body);
+
+reset(); as("m_owner");
+leadRow("lead_bare").quoteId = "q_acc";
+res = await docsRoute.GET(req(null), ctx("lead_bare"));
+const ids = res.body.appointments.map((a) => a.id);
+ok("both links are taken: the lead's own booking AND its quote's appointments",
+  ids.includes("ap_bare") && ids.includes("ap_quote") && ids.includes("ap_quote2"), ids);
+ok("…newest first, so a rebooked visit reads as the current one",
+  ids[0] === "ap_bare" && ids[1] === "ap_quote2" && ids[2] === "ap_quote", ids);
+ok("…and another company's appointment on the same quote id is never returned",
+  !ids.includes("ap_foreign"), ids);
+
+reset(); as("m_edit");
+res = await docsRoute.GET(req(null), ctx("lead_bare"));
+ok("a member whose grid omits `schedule` still sees visits — absence is not denial",
+  Array.isArray(res.body.appointments) && res.body.appointments.length === 1, res.body.appointments);
+
+reset(); as("m_nosched");
+res = await docsRoute.GET(req(null), ctx("lead_bare"));
+ok("a schedule value the editor cannot produce is denied, not silently allowed",
+  res.body.appointments?.restricted === true, res.body.appointments);
 
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

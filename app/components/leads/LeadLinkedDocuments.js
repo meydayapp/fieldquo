@@ -37,12 +37,14 @@ import {
   X,
   ArrowRight,
   CheckCircle2,
+  CalendarDays,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import { invoiceStatusClasses, invoiceStatusPresentation } from "@/lib/invoices/statusPresentation";
-import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { appointmentStatusLabel, appointmentStatusClasses } from "@/lib/appointments/statusLabels";
+import { useCompanyMoney, useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { ReviewVerdict, IdentityLinks } from "./IdentityReview";
 
 const WON_CODES = new Set(["no_quote", "quote_declined", "quote_not_approved", "quote_unverified"]);
@@ -122,6 +124,7 @@ export function LinkedDocuments({
   t,
 }) {
   const money = useCompanyMoney();
+  const { formatDateTime } = useCompanyPreferences();
   const [docs, setDocs] = useState(null);
   const [failed, setFailed] = useState(false);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
@@ -217,6 +220,46 @@ export function LinkedDocuments({
             )}
             {quote && !quote.restricted && quote.client?.name && (
               <p className="text-[11px] text-muted-foreground mt-0.5">{quote.client.name}</p>
+            )}
+          </section>
+
+          {/* Appointments — NOT behind `quote`, unlike every section below.
+              A visit is the thing that usually happens BEFORE a quote
+              exists, so hiding it until one does would hide exactly the
+              case the owner went looking for. */}
+          <section>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+              {t("app.leads.docs.appointments", "Appointments")}
+            </div>
+            {docs.appointments?.restricted ? (
+              <p className="text-xs text-muted-foreground italic">{t("app.access.restricted", "Hidden by your access level")}</p>
+            ) : !docs.appointments?.length ? (
+              <p className="text-xs text-muted-foreground">
+                {t("app.leads.docs.noAppointments", "No visit booked yet.")}
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {docs.appointments.map((a) => (
+                  <li key={a.id} className="flex items-center gap-2 min-w-0">
+                    <Link
+                      href={`/app/schedule?appointment=${encodeURIComponent(a.id)}`}
+                      className="inline-flex items-center gap-1.5 text-sm text-foreground underline underline-offset-2 min-w-0"
+                    >
+                      <CalendarDays size={13} className="shrink-0" aria-hidden="true" />
+                      <span className="truncate">
+                        {a.scheduledAt
+                          ? formatDateTime(a.scheduledAt)
+                          : t("app.leads.docs.appointmentNoDate", "Visit")}
+                      </span>
+                    </Link>
+                    {a.status && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${appointmentStatusClasses(a.status)}`}>
+                        {appointmentStatusLabel(a.status, t)}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 
