@@ -46,6 +46,7 @@ import { invoiceStatusClasses, invoiceStatusPresentation } from "@/lib/invoices/
 import { appointmentStatusLabel, appointmentStatusClasses } from "@/lib/appointments/statusLabels";
 import { useCompanyMoney, useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { ReviewVerdict, IdentityLinks } from "./IdentityReview";
+import BookVisitPanel from "./BookVisitPanel";
 
 const WON_CODES = new Set(["no_quote", "quote_declined", "quote_not_approved", "quote_unverified"]);
 
@@ -321,6 +322,17 @@ export function LinkedDocuments({
               </ul>
             )}
           </section>
+
+          <BookVisitPanel
+            leadId={leadId}
+            lead={lead}
+            canBook={Boolean(canEdit && canCreateQuotes)}
+            onBooked={(d) => {
+              onLinked?.({ ...(lead || {}), quoteId: d?.quoteId });
+              load();
+            }}
+            t={t}
+          />
 
           {/* Jobs */}
           {quote && (

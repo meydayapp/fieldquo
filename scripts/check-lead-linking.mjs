@@ -234,6 +234,7 @@ register(`data:text/javascript,${encodeURIComponent(HOOKS)}`);
 const linkRoute = await import("@/app/api/leads/[id]/quote-link/route.js");
 const docsRoute = await import("@/app/api/leads/[id]/documents/route.js");
 const { shapeLinkedAppointment } = await import("@/lib/leads/linkedDocuments.js");
+const { planGapFill } = await import("@/lib/leads/leadGaps.js");
 
 let current;
 function reset() {
@@ -461,6 +462,36 @@ ok("shapeLinkedInvoice shows the LATEST version of a family",
 ok("shapeLinkedQuote without money has no total even if the row had one",
   !("total" in shapeLinkedQuote({ id: "q", total: 5, acceptedTotal: 6 }, { money: false })));
 ok("shapeLinkedQuote with money prefers acceptedTotal", shapeLinkedQuote({ id: "q", total: 5, acceptedTotal: 6 }, { money: true }).total === 6);
+
+// ── What the phone call taught you, onto the gaps ──────────────────────────
+//
+// planGapFill backs "Book a visit", which converts the lead first (the visit
+// hangs off Appointment.quoteId) and may carry what the contractor learned
+// on the call. Pure, so it runs here against hostile input.
+
+{
+  const lead = { name: "Ana", phone: null, email: null, intake: { address: null } };
+  const p1 = planGapFill({ lead, contact: { phone: " 613-555-0142 ", email: " A@B.CA ", address: " 59 rue de l'Acropole " } });
+  ok("an empty column takes what was typed, trimmed",
+    p1.data.phone === "613-555-0142" && p1.intake.address === "59 rue de l'Acropole", p1);
+  ok("…the email goes through the app's own cleanEmail, not a second opinion",
+    typeof p1.data.email === "string" && p1.data.email.toLowerCase() === p1.data.email, p1.data.email);
+  ok("…and every filled field is named back", p1.written.sort().join(",") === "address,email,phone", p1.written);
+
+  const held = { name: "Ana", phone: "+16138520950", email: "real@example.com", intake: { address: "1 Elm St" } };
+  const p2 = planGapFill({ lead: held, contact: { phone: "613-000-0000", email: "new@example.com", address: "2 Oak Ave" } });
+  ok("a column a person already filled is NEVER overwritten", Object.keys(p2.data).length === 0 && p2.intake === null, p2);
+  ok("…and what was refused is reported, not dropped", p2.skipped.length === 3, p2.skipped);
+
+  const same = planGapFill({ lead: held, contact: { phone: "+16138520950" } });
+  ok("offering the value already there is not a conflict", same.written.length === 0 && same.skipped.length === 0, same);
+
+  ok("no contact at all writes nothing", planGapFill({ lead }).written.length === 0);
+  ok("a contact of junk writes nothing", planGapFill({ lead, contact: { phone: "   ", email: "", address: null } }).written.length === 0);
+  ok("a null lead is survivable", planGapFill({ lead: null, contact: { phone: "x" } }).written.length === 0);
+  ok("an array intake is not treated as an object",
+    planGapFill({ lead: { name: "A", intake: [] }, contact: { address: "9 Pine" } }).intake?.address === "9 Pine");
+}
 
 // ── The quote the board already named ──────────────────────────────────────
 //
