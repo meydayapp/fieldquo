@@ -5,6 +5,7 @@ import {
 } from "@/lib/sms/renderTemplate";
 import { SMS_COPY, SMS_LANGUAGES, formatWhen } from "@/lib/sms/templates";
 import { documentTextNoteKey, documentTextOn, clientFirstName, DOCUMENT_TEXT_TYPE } from "@/lib/sms/documentTextRules";
+import { SMS_PURPOSES, normalisePurpose } from "@/lib/sms/deliveryStatus";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
@@ -264,6 +265,22 @@ ok("an invoice text MAY use {amount}", validateTemplate("invoice_sent", "{compan
 ok("every catalogue language has the two change texts", SMS_LANGUAGES.every((l) => ["moved", "cancelled"].every((k) => typeof SMS_COPY[l][k] === "function")));
 console.log(`     → "${renderMessage({ type: "booking_moved", templates: null, language: "en", values: { company: "TrueFinish Cabinets", when: formatWhen(D, { language: "en", timezone: "America/Toronto" }), where: "On-site visit at 12 Elm St", link: "https://app.fieldquo.com/visit/abc" } })}"`);
 console.log(`     → "${renderMessage({ type: "booking_cancelled", templates: null, language: "en", values: { company: "TrueFinish Cabinets", when: formatWhen(D, { language: "en", timezone: "America/Toronto" }), where: "On-site visit at 12 Elm St", phone: "819-555-0100" } })}"`);
+
+console.log("\nEvery message type is a REGISTERED delivery purpose with a label");
+// SMS_PURPOSES is a closed list and normalisePurpose quietly collapses
+// anything else to "other". That is the right default — an unregistered send
+// path must still be TRACKED — but it means a new type silently loses its
+// identity on the platform's SMS health page, which exists precisely to say
+// which KIND of text a carrier is dropping. The document texts are two of
+// the longest FieldQuo sends; they were landing in "other" until this.
+const healthSrc = readFileSync(new URL("../app/platform/sms-health/page.js", import.meta.url), "utf8");
+for (const key of Object.keys(SMS_TEMPLATE_TYPES).filter((k) => SMS_TEMPLATE_TYPES[k].editable)) {
+  ok(`${key.padEnd(22)} is a registered SMS purpose`, SMS_PURPOSES.includes(key), normalisePurpose(key));
+  ok(`${key.padEnd(22)} survives normalisePurpose (does not fall into "other")`, normalisePurpose(key) === key);
+  ok(`${key.padEnd(22)} has a label on the SMS health page`, new RegExp(`\\n  ${key}: "`).test(healthSrc));
+}
+// And the sender files the text under its own type, not a hand-typed string.
+ok("documentText files the delivery under the message type itself", /purpose: type,/.test(docSrc));
 
 console.log("\nWhat the screen says about the text, against every outcome");
 // Executed rather than read: this function decides whether a rep is told the

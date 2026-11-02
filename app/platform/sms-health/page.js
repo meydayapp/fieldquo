@@ -32,6 +32,8 @@ const PURPOSE_LABELS = {
   sales_signup_link: "Sales: signup link",
   sales_reply: "Sales: rep reply",
   staff_alert: "Staff alert (client opened/approved)",
+  quote_sent: "Quote link",
+  invoice_sent: "Invoice link",
   other: "Other",
 };
 
