@@ -90,6 +90,7 @@ import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import CostPanel from "./CostPanel";
 import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
+import { documentTextNoteKey } from "@/lib/sms/documentTextRules";
 import { receiptStatus } from "@/lib/payments/receiptState";
 import { recipientsForBody } from "@/lib/clients/recipients";
 import { autoMessageHold, AUTO_MESSAGE_HOLD } from "@/lib/clients/autoMessages";
@@ -223,6 +224,10 @@ export default function InvoiceDetailPage() {
   // See the same pair on the quote page: a demo's send writes every field a
   // real one does, so this flag is the only thing that keeps the banner honest.
   const [justSentDemoNote, setJustSentDemoNote] = useState(null);
+  // What happened to the text carrying the same link — see the twin of this
+  // on the quote page, and lib/sms/documentTextRules.js for which outcomes are
+  // worth a sentence.
+  const [justSentText, setJustSentText] = useState(null);
   const [creditingId, setCreditingId] = useState("");
   // Which JobPanel form a banner asked to open. A counter is appended so
   // pressing the same banner twice re-opens it after the user closed it —
@@ -393,6 +398,7 @@ export default function InvoiceDetailPage() {
       setJustSent(data.to);
       setJustSentAsk(data.ask || null);
       setJustSentDemoNote(demoSendNoteKey(data));
+      setJustSentText(documentTextNoteKey(data?.sms));
       setTimeout(() => setJustSent(""), 6000);
       await refresh();
     } catch (err) {
@@ -726,6 +732,7 @@ export default function InvoiceDetailPage() {
             <span className="font-medium">{justSent}</span>.
             {justSentAsk?.stage ? <> {t("app.invoiceDetail.sentAskedFor", { label: justSentAsk.stage.label, amount: money(justSentAsk.requested) })}</> : null}
             {justSentDemoNote && <> {t(justSentDemoNote)}</>}
+            {justSentText && <> {t(justSentText)}</>}
           </span>
         </div>
       )}

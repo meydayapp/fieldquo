@@ -53,6 +53,7 @@ import { buildHowToPay, onlineOptions } from "@/lib/payments/offlineMethods";
 import { PAY_OVER_TIME_COMPANY_SELECT, payOverTimeGuideUrl } from "@/lib/payments/payOverTimeGuide";
 import { getAppOrigin } from "@/lib/appUrl";
 import { resolveSendRecipients, recipientText } from "@/lib/clients/recipients";
+import { sendDocumentLinkText } from "@/lib/sms/documentText";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -140,6 +141,11 @@ export async function POST(request, { params }) {
       defaultLanguage: true,
       stripeAccountId: true,
       stripeChargesEnabled: true,
+      // The text that carries this invoice's link, sent after the email
+      // below — lib/sms/documentText.js, the same path the quote send uses.
+      documentSmsOn: true,
+      smsTemplates: true,
+      smsFromNumber: true,
       // For the tax gate below.
       taxRate: true,
       autoApplyLocalTax: true,
@@ -293,17 +299,23 @@ export async function POST(request, { params }) {
           offlineDiscount: Number(invoice.offlineDiscountAmount || 0) > 0,
         });
 
+  // Deep-link to the invoice itself (the page with the Pay button), not the
+  // portal home — one click to pay instead of hunting through a list. With
+  // `?stage=<id>` when a stage is asked for, so the portal's Pay button takes
+  // THAT amount (app/api/portal/[token]/pay/route.js re-derives it from the
+  // row and requires the row to be `requested`, which the write below makes
+  // it).
+  //
+  // Held in a variable since 2026-11-02 because the TEXT sent after the email
+  // carries it too. Two expressions building "the same" url is how one of
+  // them quietly loses the stage and asks a client for the whole balance.
+  const emailedUrl = plainInvoiceUrl + (ask.stage ? `?stage=${ask.stage.id}` : "");
+
   const { subject, html, text } = buildInvoiceEmail({
     invoice: { ...invoice, customFields },
     client: invoice.client,
     company: companyText || {},
-    // Deep-link to the invoice itself (the page with the Pay button), not the
-    // portal home — one click to pay instead of hunting through a list. With
-    // `?stage=<id>` when a stage is asked for, so the portal's Pay button
-    // takes THAT amount (app/api/portal/[token]/pay/route.js re-derives it
-    // from the row and requires the row to be `requested`, which the write
-    // below makes it).
-    url: plainInvoiceUrl + (ask.stage ? `?stage=${ask.stage.id}` : ""),
+    url: emailedUrl,
     canTakeCard,
     howToPay,
     requestAmount: ask.requestCents / 100,
@@ -367,6 +379,27 @@ export async function POST(request, { params }) {
       ...(!invoice.howToPay && howToPay ? { howToPay } : {}),
     },
     select: { status: true, sentAt: true, sentToEmail: true },
+  });
+
+  // ── And the link goes by text as well ────────────────────────────────────
+  //
+  // "The invoice should be the same" (owner, 2026-11-02, having asked for the
+  // quote link by text). Same helper, same switch, same rule: after the email
+  // was accepted, the url the email's own button carries, the invoice's own
+  // language, and the figure THIS send asked for behind the {amount} token so
+  // a customised wording can never name a number the letter did not.
+  //
+  // Never a reason the send fails; always reported back as `sms`.
+  const sms = await sendDocumentLinkText({
+    kind: "invoice",
+    companyId: member.companyId,
+    company,
+    client: invoice.client,
+    url: emailedUrl,
+    number: invoice.invoiceNumber,
+    amount: ask.requestCents / 100,
+    language: invoiceLanguage,
+    ref: { type: "invoice", id: invoice.id },
   });
 
   // The stage asked for is marked requested, exactly as the cron marks it
@@ -452,6 +485,10 @@ export async function POST(request, { params }) {
     simulated: result?.simulated === true,
     simulatedReason: result?.simulatedReason || null,
     demoLive: result?.demoLive === true,
+    // Whether the client's phone was texted the link, and when it wasn't,
+    // why — "no_phone", "switched_off", "opted_out", "phone_unverified"
+    // (a trial yet to verify a mobile) or "failed".
+    sms,
     // What was asked for, so the screen can say "asked for Deposit: $1,500"
     // rather than "sent".
     ask: { kind: ask.kind, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, remaining: ask.remainingCents / 100, stage: ask.stage ? { label: ask.stage.label, index: ask.stage.index, count: ask.stage.count } : null },

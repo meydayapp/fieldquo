@@ -240,11 +240,19 @@ function MessageEditor({ type, onSaved }) {
   //
   // The booking confirmation is ON until the company turns it off
   // (lib/booking/bookingText.js — off-by-default meant no booking ever
-  // texted), and the same switch governs the moved and cancelled texts. It
-  // sits here, beside the wording it governs, so nobody edits a message that
-  // isn't going out without seeing that it isn't. Optimistic, then reconciled from
-  // the server's answer; a refused save puts the pill back and says why.
+  // texted), and the same switch governs the moved and cancelled texts. The
+  // quote-sent text carries the second switch (lib/sms/documentText.js) and
+  // the invoice follows it. Either way it sits here, beside the wording it
+  // governs, so nobody edits a message that isn't going out without seeing
+  // that it isn't. Optimistic, then reconciled from the server's answer; a
+  // refused save puts the pill back and says why.
+  //
+  // The sentences come WITH the switch (`switchCopy`), not from a constant
+  // here: "every client who books gets a text" describes the booking toggle
+  // and would be a lie beside the document one. The old hardcoded booking
+  // keys are kept as the fallback so a stale response can't render blank.
   const hasSwitch = typeof type.enabled === "boolean";
+  const sc = type.switchCopy || {};
   const [enabled, setEnabled] = useState(Boolean(type.enabled));
   const [switching, setSwitching] = useState(false);
   async function toggle() {
@@ -303,10 +311,12 @@ function MessageEditor({ type, onSaved }) {
           </button>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">
-              {enabled ? t("app.setMessages.bookingSmsOn") : t("app.setMessages.bookingSmsOff")}
+              {enabled
+                ? t(sc.on || "app.setMessages.bookingSmsOn")
+                : t(sc.off || "app.setMessages.bookingSmsOff")}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {t("app.setMessages.bookingSmsHint")}
+              {t(sc.hint || "app.setMessages.bookingSmsHint")}
             </p>
           </div>
         </div>
@@ -314,7 +324,9 @@ function MessageEditor({ type, onSaved }) {
 
       {type.followsSwitch && (
         <p className="mt-2 text-xs text-muted-foreground">
-          {type.switchOn ? t("app.setMessages.changeSmsOn") : t("app.setMessages.changeSmsOff")}
+          {type.switchOn
+            ? t(sc.followsOn || "app.setMessages.changeSmsOn")
+            : t(sc.followsOff || "app.setMessages.changeSmsOff")}
         </p>
       )}
 

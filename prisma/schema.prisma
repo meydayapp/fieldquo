@@ -2380,6 +2380,21 @@ model Company {
   /// stops it. Read through lib/booking/bookingText.js, never directly.
   bookingSmsChosenAt     DateTime?
 
+  /// Whether the client is TEXTED the link when a quote or an invoice is
+  /// emailed to them (the owner, 2026-11-02: "it sends only an email but it
+  /// should also send the quote link via text... the invoice should be the
+  /// same"). ONE switch for both documents — the quote carries it on
+  /// Settings › Messages and the invoice follows it — so a company cannot end
+  /// up paying for one of the pair without knowing.
+  ///
+  /// Defaults TRUE, unlike bookingSmsConfirmation above, because that column
+  /// is what taught us off-by-default means never: no booking in FieldQuo
+  /// ever texted until the stamp beside it was added to rescue it. A company
+  /// that does not want to pay for these turns this off, and the send path
+  /// reads it through lib/sms/documentText.js documentTextOn(), never
+  /// directly — an unselected column must not read as a deliberate "off".
+  documentSmsOn          Boolean @default(true)
+
   // How a client may meet this company: "call", "visit", "video".
   //
   // EventType.location was a free-text string ("Phone or on-site visit"), which

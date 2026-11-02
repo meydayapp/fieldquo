@@ -30523,3 +30523,102 @@ that throws on every access.
 quote, client and invoice screens, where a job-keyed preference is a different
 product question. `SuggestedTasks` is a one-button action card with nothing to
 fold.
+
+---
+
+## The quote and the invoice go by text as well as email (2026-11-02)
+
+The owner, on `/app/quotes/<id>`: "send right now it sends only an email but it
+should also send the quote link via text... something short, like Hi __, here
+is your free quote from ... you can open it via the link... review and approve
+online... in the languages from the client like the emails... the invoice
+should be the same."
+
+Most of the machinery was already here. `lib/sms/templates.js` had carried a
+`quoteReadyText` since the first sweep — English only, below the catalogue,
+with a comment saying nothing called it and that it should move up when a send
+path was built. This is that path.
+
+**What ships**
+
+Two new message types, `quote_sent` and `invoice_sent`, hand-written in the
+catalogue's eight languages and editable on Settings › Messages like the other
+five. `lib/sms/documentText.js` sends them: the switch, the client's phone,
+`maySms`, then `renderMessage` with the company's own wording when it has
+written one (and its draft translation when the client reads another language).
+
+**The rules it holds to**
+
+- **After the email, never before.** Both routes call it only once the email
+  provider has accepted the message. A text saying "your quote is ready"
+  beside a failed email is the half-send AGENTS.md puts first: the homeowner
+  taps a link to a quote the company believes it never sent.
+- **One link per document.** The text carries the *same* url the email's
+  button carries — `/q/<token>` for a quote, the portal invoice deep link
+  with its `?stage=` for an invoice, which is now held in one
+  `emailedUrl` variable the email and the text both read. Two expressions
+  building "the same" url is how one of them loses the stage and asks a
+  client for the whole balance.
+- **Never a reason the send fails, always reported.** The email carries the
+  document, so a failed text does not fail the send — but `sms` rides back in
+  the response and the green banner says which of "the link also went by
+  text", "no phone on file", "they have opted out" or "the email went, the
+  text did not" happened. `lib/sms/documentTextNote.js` maps the outcome to
+  the sentence, shared by both pages so they cannot drift.
+- **No "free", and no money.** The owner's own words were "your free quote",
+  and that stays out of the built-in wording: whether an estimate is free is
+  the company's claim, not FieldQuo's to make on their behalf. It is one edit
+  away, with `{name}`, `{number}` and (on the invoice) `{amount}` offered as
+  tokens. The built-in invoice text names no figure either — a phone is read
+  by whoever holds it, and the amount is one tap behind the link.
+- **A trialling company is not told "it failed".** `sendSms` refuses a tenant
+  text until a card-free trial has verified a mobile, and most companies
+  sending their first quote are on one. That keeps its own reason
+  (`phone_unverified`) and its own sentence naming the screen that fixes it,
+  rather than reading as a breakage.
+- **First send only.** A follow-up sends no text: "your quote is ready" is
+  false a week later, and the follow-up email is the chase that already
+  exists. A follow-up text would need its own wording.
+
+**Where the code sits.** The pure rules — the switch, the greeting, the type
+map, the outcome sentence — are in `lib/sms/documentTextRules.js`; the send is
+in `lib/sms/documentText.js`. The same split `lib/booking/bookingText.js` made
+from `finalizeBooking.js`, and for two concrete reasons: the settings route
+wanted one boolean and was pulling `@/lib/db` and the whole Twilio SDK in
+behind it, and a pure rule can be executed against hostile input by the check
+script — which is how the greeting's "Hi ." hole and the switch's
+unselected-column trap are now held.
+
+**The switch.** `Company.documentSmsOn`, default **on**, applied by hand-written
+SQL (`ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "documentSmsOn" boolean
+NOT NULL DEFAULT true`) rather than `prisma db push`. Default on and not off
+because `bookingSmsConfirmation` is what taught us otherwise: it defaulted
+false for exactly the same billable-SMS reason and the result was that no
+booking in FieldQuo ever texted, because nobody found the switch. One switch
+governs both documents — the quote carries the toggle, the invoice follows it
+— so a company cannot end up paying for one of the pair without knowing.
+`documentTextOn()` throws if the column was not selected: an unselected column
+reading as a deliberate "off" would silence this for every caller that forgot.
+
+The settings route's two switches are now data (`SWITCHES`), with their copy
+keys travelling alongside, because the page had the booking sentences
+hardcoded — "every client who books gets a text" would have described the
+wrong thing the moment a second switch existed.
+
+**Checks.** `check:sms-template` asserts the wording in all eight languages at
+real link length (a 43-character share token is 70 characters of the segment
+budget before a word is written), that the greeting is dropped rather than left
+as "Hi ." for a client with no personal name, that the built-in invoice text
+names no amount, that a quote wording may not use `{amount}`, and that both
+routes text only after `sendEmail` and report the outcome.
+`check:consent-mechanisms` now walks `lib/` as well as `app/` — it never had,
+which is how a `sendSms(` under `lib/` could join the product without passing
+the opt-out audit, and is exactly where these two went. Every lib sender is
+enumerated with its reason, and the match sees a receiver call
+(`deps.sendSms(`) so `lib/aiEmployee/urgentAlerts.js` is no longer invisible
+to it.
+
+**Still email-only, deliberately.** "Request payment" and the payment-schedule
+cron both email an invoice link and do not text it. The by-hand button could
+join this tomorrow; the cron is automatic texting, which is a different consent
+and cost question and nobody has asked for it.

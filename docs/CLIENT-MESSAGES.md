@@ -89,12 +89,14 @@ at the company pressed a button in the same request that sends.
 | Portal login link — `lib/portal/loginLink.js` | The client asks for it on the company's site | Magic link | None | Client-initiated. |
 | Signed waiver copy — `lib/waivers/service.js` | The client signs | Their copy | None | Client-initiated. |
 | "On my way" SMS — `app/api/jobs/[id]/visits/[visitId]/route.js` | Crew taps On my way (human press) | Text | None | Human press. |
+| Quote link by SMS — `app/api/quotes/[id]/send` → `lib/sms/documentText.js` | A person presses Send on a quote (first send only, not a follow-up) | A short text carrying the same `/q/<token>` link the email's button carries, in the quote's language | `Company.documentSmsOn` (default **on**), the client has a phone, and `maySms` | Human press. Sent only after Resend accepted the email; never instead of it. |
+| Invoice link by SMS — `app/api/invoices/[id]/send` → `lib/sms/documentText.js` | A person presses Send on an invoice | The same text for the invoice, carrying the email's own portal deep link (stage query and all) | Same switch, phone and opt-out | Human press. Same ordering. |
 
 ### The quote — never sent without a human press (verified)
 
 | Path | What it does | Sends the quote? |
 |---|---|---|
-| `POST /api/quotes/[id]/send` | The only route that emails a quote (from the quote page and the builder's Send) | Only on a person's press |
+| `POST /api/quotes/[id]/send` | The only route that emails a quote (from the quote page and the builder's Send), and since 2026-11-02 the only one that texts its link | Only on a person's press |
 | Instant-quote form → `createEstimateDraft` | Draft, `needsReview: true`, `createdVia: "instant_quote"` | No (the estimate report above is separate) |
 | Voice call → `lib/voice/autoDraft.js`, `lib/estimate/callEstimate.js` | Draft kept for review | No |
 | AI employee `create_instant_quote` | A range for the reply; no Quote row | No |

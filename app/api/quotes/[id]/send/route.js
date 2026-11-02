@@ -67,6 +67,7 @@ import { withCompanyGallery } from "@/lib/company/gallery";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 import { localisedCompany } from "@/lib/i18n/companyText";
 import { resolveSendRecipients, recipientText } from "@/lib/clients/recipients";
+import { sendDocumentLinkText } from "@/lib/sms/documentText";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -162,6 +163,13 @@ export async function POST(request, { params }) {
       phone: true,
       currency: true,
       defaultLanguage: true,
+      // The text that carries this quote's link, sent after the email below
+      // (lib/sms/documentText.js). The switch is re-read fresh in the verdict
+      // — selected here anyway so the row this route already holds is the one
+      // the wording and the sending line come from.
+      documentSmsOn: true,
+      smsTemplates: true,
+      smsFromNumber: true,
       // Everything the tax gate below needs to work out whether this quote's
       // zero is a decision or a hole. Selected here rather than in a second
       // query because the gate runs on every send.
@@ -459,6 +467,35 @@ export async function POST(request, { params }) {
     },
   });
 
+  // ── And the link goes by text as well ────────────────────────────────────
+  //
+  // The owner, 2026-11-02: "it sends only an email but it should also send
+  // the quote link via text". AFTER the email was accepted and sentAt was
+  // written, pointing at the same /q/<token> url the email's button carries,
+  // in the quote's own language.
+  //
+  // FIRST SEND ONLY, not a follow-up: "Your quote is ready" is false a week
+  // later, and the follow-up EMAIL is the chase that already exists. A
+  // follow-up text would need its own wording, which is a thing to ask for
+  // rather than assume.
+  //
+  // Never a reason the send fails — the email carried the document. Always
+  // reported: `sms` rides back in the response and the screen says whether
+  // the phone was texted, because "Sent to ana@..." over a text that never
+  // left is the half-send AGENTS.md names first.
+  const sms = isFollowUp
+    ? { texted: false, reason: "follow_up" }
+    : await sendDocumentLinkText({
+        kind: "quote",
+        companyId: member.companyId,
+        company,
+        client: quote.client,
+        url,
+        number: quote.quoteNumber,
+        language,
+        ref: { type: "quote", id: quote.id },
+      });
+
   // The homeowner has now actually been reached, so the lead this quote came
   // from is no longer untouched. Only after Resend accepted the message, for the
   // same reason sentAt is written here and not earlier: a lead that says
@@ -545,6 +582,11 @@ export async function POST(request, { params }) {
     // which (lib/demo/liveRecipients.js demoSendNoteKey).
     simulatedReason: result?.simulatedReason || null,
     demoLive: result?.demoLive === true,
+    // Whether the client's phone was texted the link, and when it wasn't,
+    // why — "no_phone", "switched_off", "opted_out", "phone_unverified"
+    // (a trial yet to verify a mobile) or "failed". Reported
+    // rather than inferred for the same reason `simulated` is.
+    sms,
   });
 }
 

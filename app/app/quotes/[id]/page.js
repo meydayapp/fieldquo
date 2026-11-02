@@ -165,6 +165,7 @@ import { planRequiredFrom } from "@/lib/signup/planRequired";
 import QuotePlanOffers from "@/app/components/quotes/QuotePlanOffers";
 import { quoteViewState } from "@/lib/quotes/quoteViews";
 import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
+import { documentTextNoteKey } from "@/lib/sms/documentTextRules";
 import {
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
@@ -346,6 +347,12 @@ export default function QuoteDetailPage() {
   // demo can now send for real to a client created live in the demo, so the
   // banner has three things to say, not one.
   const [justSentDemoNote, setJustSentDemoNote] = useState(null);
+  // What happened to the TEXT that carries the same link (2026-11-02). Beside
+  // the demo note rather than folded into it for the same reason: the rep's
+  // sentence is "Sent to <address>", and whether the phone was texted — or
+  // wasn't, and why — has to reach them in the same breath, not in a banner
+  // further down the page they have already scrolled past.
+  const [justSentText, setJustSentText] = useState(null);
   // ── The Send… menu's own state ──────────────────────────────────────────
   const [shareStaffOpen, setShareStaffOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -589,6 +596,7 @@ export default function QuoteDetailPage() {
       setQuote((q) => ({ ...q, ...data }));
       setJustSent(data.to);
       setJustSentDemoNote(demoSendNoteKey(data));
+      setJustSentText(documentTextNoteKey(data?.sms));
       setTimeout(() => setJustSent(""), 6000);
     } catch (err) {
       setError(err.message);
@@ -1372,6 +1380,7 @@ export default function QuoteDetailPage() {
             {justSentDemoNote && (
               <> {t(justSentDemoNote)}</>
             )}
+            {justSentText && <> {t(justSentText)}</>}
           </span>
         </div>
       )}

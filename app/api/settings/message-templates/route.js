@@ -10,6 +10,7 @@
 export const runtime = "nodejs";
 
 import { bookingTextOn } from "@/lib/booking/bookingText";
+import { documentTextOn } from "@/lib/sms/documentTextRules";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -18,12 +19,58 @@ import { recordActivity } from "@/lib/activity/log";
 import {
   SMS_TEMPLATE_TYPES,
   BOOKING_TEXT_TYPES,
+  DOCUMENT_TEXT_TYPES,
   validateTemplate,
   fillTemplate,
 } from "@/lib/sms/renderTemplate";
 // A custom wording is sent to clients who read OTHER languages too, once its
 // draft lands (renderMessage's translatedTemplates) — drafted after the save.
 import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+
+/**
+ * The on/off switches, and which types answer to each one.
+ *
+ * `owner` is the type that CARRIES the toggle; the others say whose switch
+ * they follow rather than growing a second toggle that could disagree with
+ * it. The copy keys travel with the switch because the sentence beside a
+ * booking toggle ("every client who books gets a text") is not the sentence
+ * beside a document one — the screen used to hardcode the booking wording,
+ * which would have described the wrong thing the moment a second switch
+ * existed.
+ */
+const SWITCHES = [
+  {
+    owner: "booking_confirmation",
+    types: BOOKING_TEXT_TYPES,
+    on: (company) => bookingTextOn(company),
+    copy: {
+      on: "app.setMessages.bookingSmsOn",
+      off: "app.setMessages.bookingSmsOff",
+      hint: "app.setMessages.bookingSmsHint",
+      followsOn: "app.setMessages.changeSmsOn",
+      followsOff: "app.setMessages.changeSmsOff",
+    },
+    write: (enabled) => ({ bookingSmsConfirmation: enabled, bookingSmsChosenAt: new Date() }),
+  },
+  {
+    owner: "quote_sent",
+    types: DOCUMENT_TEXT_TYPES,
+    on: (company) => documentTextOn(company),
+    copy: {
+      on: "app.setMessages.documentSmsOn",
+      off: "app.setMessages.documentSmsOff",
+      hint: "app.setMessages.documentSmsHint",
+      followsOn: "app.setMessages.documentSmsFollowsOn",
+      followsOff: "app.setMessages.documentSmsFollowsOff",
+    },
+    write: (enabled) => ({ documentSmsOn: enabled }),
+  },
+];
+
+/** The switch a type answers to, or null for one with none. */
+function switchFor(key) {
+  return SWITCHES.find((entry) => entry.types.includes(key)) || null;
+}
 
 /** Sample values for a type, from its token metadata — drives the preview. */
 function samplesFor(spec) {
@@ -36,7 +83,7 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true, bookingSmsChosenAt: true },
+    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true, bookingSmsChosenAt: true, documentSmsOn: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? company.smsTemplates
@@ -47,6 +94,7 @@ export async function GET(request) {
   const types = Object.entries(SMS_TEMPLATE_TYPES)
     .filter(([, spec]) => spec.editable)
     .map(([key, spec]) => {
+      const sw = switchFor(key);
       // The company's own name and phone stand in for the samples, so the
       // preview reads as the text their client will get — and a company with
       // no phone on file sees the "call us" tail drop out here rather than
@@ -60,19 +108,17 @@ export async function GET(request) {
       return {
         key,
         label: spec.label,
-        // The switch that governs whether this type sends at all, when it has
-        // one. The booking confirmation carries it; the moved and cancelled
-        // texts follow the SAME switch (one switch for booking texts — see
-        // lib/schedule/changeText.js), so they report its state and say
-        // whose it is rather than growing a second toggle that could
-        // disagree. Same rule as the send path (lib/booking/bookingText.js):
-        // on unless the company turned it off.
-        ...(key === "booking_confirmation" && { enabled: bookingTextOn(company) }),
-        ...(BOOKING_TEXT_TYPES.includes(key) &&
-          key !== "booking_confirmation" && {
-            followsSwitch: "booking_confirmation",
-            switchOn: bookingTextOn(company),
-          }),
+        // The switch that governs whether this type sends at all, when it
+        // has one — see SWITCHES above. The owner of a switch carries the
+        // toggle; the types that follow it report its state and say whose it
+        // is, rather than growing a second toggle that could disagree. Same
+        // rule as the send paths: on unless the company turned it off.
+        ...(sw && sw.owner === key && { enabled: sw.on(company), switchCopy: sw.copy }),
+        ...(sw && sw.owner !== key && {
+          followsSwitch: sw.owner,
+          switchOn: sw.on(company),
+          switchCopy: sw.copy,
+        }),
         // The screen renders the KEY through t(); `label`/`hint` stay as the
         // English fallback for a language missing one.
         labelKey: spec.labelKey,
@@ -113,13 +159,16 @@ export async function PUT(request) {
 
   // ── The on/off switch, separate from the wording ─────────────────────────
   //
-  // `{ type: "booking_confirmation", enabled: true|false }` flips the send
-  // without touching the template. Read by lib/booking/finalizeBooking.js
-  // fresh from the row on every booking.
-  if (type === "booking_confirmation" && typeof body.enabled === "boolean") {
+  // `{ type: "booking_confirmation", enabled: true|false }` flips the booking
+  // texts; `{ type: "quote_sent", enabled }` the two document ones. Only the
+  // type that CARRIES a switch may flip it — posting `enabled` for a follower
+  // falls through to the wording branch below rather than silently writing
+  // somebody else's switch. Each send path re-reads the column fresh.
+  const sw = SWITCHES.find((s2) => s2.owner === type);
+  if (sw && typeof body.enabled === "boolean") {
     await db.company.update({
       where: { id: member.companyId },
-      data: { bookingSmsConfirmation: body.enabled, bookingSmsChosenAt: new Date() },
+      data: sw.write(body.enabled),
     });
     await recordActivity(member, {
       action: "message_template.updated",

@@ -392,27 +392,48 @@ ok(
 console.log("\nAn opted-out number is refused by every client-facing SMS send path");
 
 {
-  // The two currently-wired client-facing send paths (only two — see the
-  // repo-wide sendSms() audit in the task brief: quoteReadyText,
-  // invoiceOverdueText, jobCompleteText, bookingConfirmationText have no
-  // caller yet, so there is no live path for them to leak through).
+  // The currently-wired client-facing send paths. Each is asserted to ask
+  // maySms BEFORE sendSms, inside the same function — a guard sitting in
+  // another function of the same file cannot manufacture a pass.
+  //
+  // (invoiceOverdueText and jobCompleteText still have no caller, so there is
+  // no live path for them to leak through. quoteReadyText DID gain one on
+  // 2026-11-02 — it became quoteLinkText, sent by lib/sms/documentText.js
+  // below, which is why that file is on this list rather than in the
+  // exemptions.)
   const clientFacingPaths = [
     { file: "app/api/jobs/[id]/visits/[visitId]/route.js", fn: "PATCH" },
     { file: "app/api/cron/appointment-reminders/route.js", fn: "GET" },
+    // The quote's and the invoice's link by text, from both document send
+    // routes. The gate is documentTextVerdict, which asks maySms; asserted
+    // here against the SENDER's own function so the two cannot drift apart.
+    { file: "lib/sms/documentText.js", fn: "sendDocumentLinkText", via: "documentTextVerdict" },
+    { file: "lib/sms/documentText.js", fn: "documentTextVerdict" },
   ];
-  for (const { file, fn } of clientFacingPaths) {
+  for (const { file, fn, via = null } of clientFacingPaths) {
     const src = readSrc(file);
     const body = extractFunction(src, fn);
     ok(`${file}: ${fn}() exists and was extracted`, Boolean(body));
     if (!body) continue;
 
-    const guardAt = body.search(/maySms\(/);
     const sendAt = body.search(/sendSms\(/);
-    ok(`${file}: calls maySms(`, guardAt !== -1, guardAt);
-    ok(`${file}: calls sendSms(`, sendAt !== -1, sendAt);
+    if (sendAt === -1) {
+      // A function that only GATES (documentTextVerdict) must still hold the
+      // guard; it is listed so a future edit that moves maySms out of it
+      // fails here rather than silently removing the check from the sender.
+      ok(`${file}: ${fn}() holds the maySms( guard`, /maySms\(/.test(body));
+      continue;
+    }
+    // `via` names the gate helper this sender calls instead of asking maySms
+    // inline. Both are accepted, and both are POSITIONAL: the guard — or the
+    // call to the function that is itself asserted to hold it — must come
+    // first.
+    const guardAt = via ? body.search(new RegExp(`await ${via}\\(`)) : body.search(/maySms\(/);
+    ok(`${file}: ${fn}() calls ${via ? `${via}(` : "maySms("}`, guardAt !== -1, guardAt);
+    ok(`${file}: ${fn}() calls sendSms(`, sendAt !== -1, sendAt);
     ok(
-      `${file}: maySms( is checked BEFORE sendSms( is called, in the same function`,
-      guardAt !== -1 && sendAt !== -1 && guardAt < sendAt,
+      `${file}: the opt-out is checked BEFORE sendSms( is called, in the same function`,
+      guardAt !== -1 && guardAt < sendAt,
       { guardAt, sendAt },
     );
   }
@@ -435,24 +456,62 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
     // Twilio's own Advanced Opt-Out at once.
     "app/api/sms/inbound/route.js",
   ]);
-  const gated = new Set(clientFacingPaths.map((p) => p.file));
+  // ── lib/ is audited too, since 2026-11-02 ──────────────────────────────
+  //
+  // This walked app/ only, so a sendSms( added under lib/ joined the product
+  // without passing this check — which is exactly where the document texts
+  // went. Every lib sender is now accounted for, with the reason it is not
+  // this company's customer where that is the answer.
+  const libExempt = new Set([
+    "lib/sms/twilioClient.js", // sendSms() ITSELF
+    "lib/sales/salesSms.js", // FieldQuo's own prospecting, gated on FieldQuo's do-not-contact list
+    "lib/notifications/staffTexts.js", // this company's own staff, not its client
+    "lib/aiEmployee/urgentAlerts.js", // the on-call person, not the client
+    "lib/messaging/ownSend.js", // a person typing a reply in the inbox, with the thread in front of them
+  ]);
+  // Client-facing lib senders that hold the guard themselves. Positionally
+  // asserted the same way as the list above; enumerated separately because
+  // their entry points are not one named exported function.
+  const libGatedInline = [
+    "lib/booking/finalizeBooking.js", // bookingTextVerdict → maySms
+    "lib/schedule/changeText.js", // the confirmation's own verdict, called not copied
+    "lib/jobs/changeOrderSend.js",
+  ];
+  for (const file of libGatedInline) {
+    const body = readSrc(file);
+    const guardAt = body.search(/maySms\(|bookingTextVerdict\(/);
+    const sendAt = body.search(/await sendSms\(/);
+    ok(`${file}: the opt-out is checked before sendSms(`, guardAt !== -1 && sendAt !== -1 && guardAt < sendAt, { guardAt, sendAt });
+  }
 
-  const files = walk("app")
-    .filter((f) => f !== "lib/sms/twilioClient.js" && /sendSms\(/.test(readSrc(f)))
+  const gated = new Set([...clientFacingPaths.map((p) => p.file), ...libGatedInline]);
+
+  // A call site, not a mention. Comments are stripped first — four files in
+  // lib/sms/ discuss sendSms() in prose and none of them calls it — and the
+  // match deliberately allows a RECEIVER (`deps.sendSms(`), because
+  // lib/aiEmployee/urgentAlerts.js sends through an injected dependency and
+  // an audit that cannot see it is an audit with a hole in the shape of the
+  // next sender somebody writes that way.
+  const callsSendSms = (file) =>
+    /(?:^|[^a-zA-Z0-9_$])sendSms\(/.test(
+      readSrc(file).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1"),
+    );
+  const files = [...walk("app"), ...walk("lib")]
+    .filter(callsSendSms)
     // walk() joins with the platform separator; normalise to "/" so the
     // literal paths above (and grep-style matching everywhere else in this
     // codebase's check scripts) compare correctly on any OS.
     .map((f) => f.split(sep).join("/"));
   ok("found sendSms( call sites to audit", files.length > 0, files.length);
 
+  const accounted = (f) => exempt.has(f) || gated.has(f) || libExempt.has(f);
   for (const file of files) {
-    const known = exempt.has(file) || gated.has(file);
-    ok(`${file}: accounted for (gated or documented-exempt)`, known);
+    ok(`${file}: accounted for (gated or documented-exempt)`, accounted(file));
   }
   ok(
     "no NEW, unaccounted-for sendSms( call site has appeared",
-    files.every((f) => exempt.has(f) || gated.has(f)),
-    files.filter((f) => !exempt.has(f) && !gated.has(f)),
+    files.every(accounted),
+    files.filter((f) => !accounted(f)),
   );
 }
 
