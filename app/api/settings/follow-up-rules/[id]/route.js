@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
-import { SUPPORTED_TRIGGERS } from "@/lib/followUps/triggers";
+import { SUPPORTED_TRIGGERS, FOLLOW_UP_CHANNELS, followUpChannel, triggerMaySms } from "@/lib/followUps/triggers";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { resetBuiltInRule } from "@/lib/followUps/defaults";
 
@@ -34,7 +34,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { name, triggerEvent, delayValue, delayUnit, templateId, active, reset } = body;
+  const { name, triggerEvent, delayValue, delayUnit, templateId, active, reset, channel } = body;
 
   // "Reset to default" and "Restore": FieldQuo's delay, name, wording and
   // switch position, and back from a delete. Only a built-in has a default to
@@ -66,6 +66,41 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // ── The channel, checked against the rule as it WILL be ─────────────────
+  //
+  // Both fields can move in one PATCH, so each is validated against the
+  // other's new value rather than against the stored row: switching an
+  // enquiry text onto the invoice trigger, and switching a rule already on
+  // the invoice trigger to "text", are the same illegal state arrived at from
+  // two directions, and checking one of them against the old row lets the
+  // other through.
+  const nextChannel = channel === undefined ? followUpChannel(existing) : String(channel);
+  const nextTrigger = triggerEvent === undefined ? existing.triggerEvent : triggerEvent;
+  if (!FOLLOW_UP_CHANNELS.includes(nextChannel)) {
+    return NextResponse.json(
+      { error: `Unknown channel — must be one of ${FOLLOW_UP_CHANNELS.join(", ")}` },
+      { status: 400 },
+    );
+  }
+  if (nextChannel === "sms" && !triggerMaySms(nextTrigger)) {
+    return NextResponse.json(
+      { error: "That trigger can't send a text — only an unanswered enquiry or quote can." },
+      { status: 400 },
+    );
+  }
+  // Going back to email needs something to send. A hand-made rule that was
+  // created as a text has no template, and flipping it to email without one
+  // would leave a row the cron counts as skippedNoTemplate for ever — on
+  // screen, an armed-looking automation that sends nothing. A FieldQuo
+  // default is exempt: no template means its own built-in wording.
+  const willHaveTemplate = templateId === undefined ? existing.templateId : templateId;
+  if (nextChannel === "email" && !willHaveTemplate && !existing.builtInKey) {
+    return NextResponse.json(
+      { error: "Pick a template for this rule before switching it to email." },
+      { status: 400 },
+    );
+  }
+
   // Same check the create does: the rule was company-scoped by loadOwned, the
   // template it points at was not. `null` is a legal value for a built-in —
   // it means "FieldQuo's own wording" — and only for a built-in: a hand-made
@@ -87,6 +122,11 @@ export async function PATCH(request, { params }) {
       ...(delayUnit !== undefined && { delayUnit: delayUnit === "hours" ? "hours" : "days" }),
       ...(templateId !== undefined && { templateId }),
       ...(active !== undefined && { active }),
+      ...(channel !== undefined && { channel: nextChannel }),
+      // Switching a rule TO text drops the template it is no longer reading.
+      // Left in place it is a column nothing reads — and worse, the picker
+      // would keep showing a template beside a rule that does not use it.
+      ...(nextChannel === "sms" && existing.templateId && { templateId: null }),
     },
     include: { template: { select: { id: true, name: true, type: true } } },
   });

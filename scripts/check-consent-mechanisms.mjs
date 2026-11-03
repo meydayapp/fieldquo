@@ -400,7 +400,8 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
   // no live path for them to leak through. quoteReadyText DID gain one on
   // 2026-11-02 — it became quoteLinkText, sent by lib/sms/documentText.js
   // below, which is why that file is on this list rather than in the
-  // exemptions.)
+  // exemptions. The same day the follow-up cron gained an SMS channel, and
+  // lib/sms/followUpText.js joined for the same reason.)
   const clientFacingPaths = [
     { file: "app/api/jobs/[id]/visits/[visitId]/route.js", fn: "PATCH" },
     { file: "app/api/cron/appointment-reminders/route.js", fn: "GET" },
@@ -409,6 +410,22 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
     // here against the SENDER's own function so the two cannot drift apart.
     { file: "lib/sms/documentText.js", fn: "sendDocumentLinkText", via: "documentTextVerdict" },
     { file: "lib/sms/documentText.js", fn: "documentTextVerdict" },
+    // ── The follow-up chase by text (2026-11-02) ─────────────────────────
+    //
+    // The follow-up cron gained a channel (FollowUpRule.channel), so the
+    // chase that had only ever gone by email can now go by text. Of every
+    // client-facing sender in this list this is the one the opt-out matters
+    // most for: the others text somebody who just booked, just moved an
+    // appointment, or has just been sent a document they are expecting. This
+    // one texts somebody who has NOT replied, up to three times, because a
+    // cron noticed silence — and a STOP from that person means exactly what
+    // it says.
+    //
+    // Asserted the same two ways as the document sender above: the gate is
+    // followUpTextVerdict, which is itself held to asking maySms, and the
+    // sender is held to calling the gate BEFORE sendSms.
+    { file: "lib/sms/followUpText.js", fn: "sendFollowUpText", via: "followUpTextVerdict" },
+    { file: "lib/sms/followUpText.js", fn: "followUpTextVerdict" },
   ];
   for (const { file, fn, via = null } of clientFacingPaths) {
     const src = readSrc(file);
@@ -485,6 +502,24 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
   }
 
   const gated = new Set([...clientFacingPaths.map((p) => p.file), ...libGatedInline]);
+
+  // ── The follow-up text's extra gate, which no other sender has ──────────
+  //
+  // An automatic text to somebody who has not replied also answers to the
+  // company's own switch (Company.followUpSmsOn), which is OFF until a
+  // company chooses it. maySms is the recipient's consent; this is the
+  // sender's decision to be in this business at all, and the two are
+  // different questions. Positional, like everything else here: the switch is
+  // read before the number is.
+  {
+    const body = readSrc("lib/sms/followUpText.js");
+    const switchAt = body.search(/followUpTextOn\(row\)/);
+    const sendAt = body.search(/await sendSms\(/);
+    ok("lib/sms/followUpText.js: the company's own follow-up-text switch is read before sendSms(",
+      switchAt !== -1 && sendAt !== -1 && switchAt < sendAt, { switchAt, sendAt });
+    ok("…and it defaults OFF, so a company that never chose does not start texting",
+      /followUpSmsOn === true/.test(readSrc("lib/sms/followUpTextRules.js")));
+  }
 
   // A call site, not a mention. Comments are stripped first — four files in
   // lib/sms/ discuss sendSms() in prose and none of them calls it — and the

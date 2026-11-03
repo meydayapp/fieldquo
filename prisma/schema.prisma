@@ -2395,6 +2395,31 @@ model Company {
   /// directly — an unselected column must not read as a deliberate "off".
   documentSmsOn          Boolean @default(true)
 
+  /// Whether this company's FOLLOW-UP rules may send by TEXT as well as email
+  /// (FollowUpRule.channel "sms"), read through followUpTextOn() in
+  /// lib/sms/followUpTextRules.js and never directly.
+  ///
+  /// OFF by default, and deliberately the opposite choice from documentSmsOn
+  /// above. That one is a text the company asked for by pressing Send, about
+  /// a document the homeowner is expecting. This is an automatic text to
+  /// somebody who has not replied — it costs a message every time the cron
+  /// runs, and it is the kind of unasked-for contact a consent complaint is
+  /// made about. A company that has not chosen it must not start sending it,
+  /// so the absence of a decision reads as "no" here rather than as "yes".
+  followUpSmsOn          Boolean @default(false)
+
+  /// The company's PRE-QUOTE video — what a homeowner watches before the
+  /// estimator turns up, linked from the enquiry follow-ups.
+  ///
+  /// Deliberately NOT storyVideoUrl, which is the "About us" film on the
+  /// proposal and the marketing site: that one is for a homeowner reading a
+  /// quote they already have, this one is for one who has not been visited
+  /// yet, and a company that has only made one of the two must not have it
+  /// shown in both places. Stored exactly as the company typed it (an https
+  /// URL — lib/followUps/preQuoteVideo.js validates, and nothing here invents
+  /// an embed); null means the follow-ups simply do not mention a video.
+  preQuoteVideoUrl       String?
+
   // How a client may meet this company: "call", "visit", "video".
   //
   // EventType.location was a free-text string ("Phone or on-site visit"), which
@@ -6154,6 +6179,27 @@ model FollowUpRule {
   templateId   String?
   template     DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   active       Boolean           @default(true)
+
+  /// How this rule's follow-up reaches the client: "email" or "sms".
+  ///
+  /// A plain string for the same reason triggerEvent is one — a channel is
+  /// added here plus a branch in the cron, with no migration — and read only
+  /// through followUpChannel() in lib/followUps/triggers.js, which treats
+  /// anything it does not know as email. An unreadable value must degrade to
+  /// the channel that has always worked, never to silence.
+  ///
+  /// Defaults "email" because that is what every one of the 114 rows that
+  /// existed when this column was added actually did: the cron called
+  /// sendEmail() and nothing else. A default of "sms" would have retroactively
+  /// re-pointed a year of rules at a channel the company never chose and pays
+  /// for by the message.
+  ///
+  /// An "sms" rule carries no templateId: its wording is a message type on
+  /// Settings › Messages (SMS_TEMPLATE_TYPES in lib/sms/renderTemplate.js),
+  /// not a DocumentTemplate — a 160-character text cannot render an email
+  /// template's blocks. It also answers to Company.followUpSmsOn, which is
+  /// OFF until a company switches it on.
+  channel      String            @default("email")
   conditions   Json? // reserved for future rule conditions (min quote total, etc.)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

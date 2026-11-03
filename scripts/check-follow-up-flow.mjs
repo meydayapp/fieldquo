@@ -26,12 +26,19 @@ import { fileURLToPath } from "node:url";
 import {
   SUPPORTED_TRIGGERS,
   TRIGGER_META,
-  FOLLOW_UP_CHANNEL,
+  FOLLOW_UP_CHANNELS,
+  followUpChannel,
+  triggerMaySms,
 } from "../lib/followUps/triggers.js";
 import {
   buildFlows,
   delayMs,
   stopKeysFor,
+  channelKeyFor,
+  channelsIn,
+  CHANNEL_KEYS,
+  CHANNEL_OPTION_KEYS,
+  SKIPPED_KEYS,
   STOP_KEYS,
   ONCE_KEYS,
   TRIGGER_LABEL_KEYS,
@@ -118,15 +125,54 @@ ok(
   /@@unique\(\[ruleId, entityId\]\)/.test(read("prisma/schema.prisma")),
 );
 
-// ── 4. Channel ─────────────────────────────────────────────────────────────
-console.log("\nChannel\n");
+// ── 4. Channels ────────────────────────────────────────────────────────────
+//
+// This block used to assert `FOLLOW_UP_CHANNEL === "email"` and that the cron
+// mentioned no SMS at all, with a note saying the diagram would otherwise be
+// describing a feature that isn't there. On 2026-11-02 the feature arrived, so
+// the assertions moved WITH it rather than being deleted: the constant is a
+// list, and each channel on it must be one the cron genuinely sends by.
+console.log("\nChannels\n");
 
-ok("FOLLOW_UP_CHANNEL is email", FOLLOW_UP_CHANNEL === "email");
-ok("cron sends via sendEmail", /await sendEmail\(/.test(cron));
+ok("FOLLOW_UP_CHANNELS is email and sms", FOLLOW_UP_CHANNELS.join(",") === "email,sms");
+ok("cron sends email via sendEmail", /await sendEmail\(/.test(cron));
+ok("cron sends text via the follow-up sender", /await sendFollowUpText\(\{/.test(cron));
 ok(
-  "cron sends nothing by SMS — the diagram would be describing a feature that isn't there",
-  !/sendSms|twilio/i.test(cron),
+  "cron BRANCHES on the rule's own channel rather than assuming one",
+  /const channel = followUpChannel\(rule\);/.test(cron) && /if \(channel === "sms"\)/.test(cron),
 );
+ok(
+  "every declared channel is one the cron has a branch for",
+  FOLLOW_UP_CHANNELS.every((c) => (c === "email" ? /await sendEmail\(/ : /await sendFollowUpText\(/).test(cron)),
+);
+// The whole point of the constant: a channel nobody recognises must degrade
+// to the one that has always worked, never to silence and never to a text.
+ok("an unknown channel reads as email", followUpChannel({ channel: "whatsapp" }) === "email");
+ok("a row from before the column reads as email", followUpChannel({}) === "email" && followUpChannel(null) === "email");
+ok("case and padding don't make a text", followUpChannel({ channel: " SMS " }) === "sms" && followUpChannel({ channel: "Email" }) === "email");
+// Two of the four triggers can text. triggers.js argues the gap; this pins it,
+// because a third one gaining the channel without wording is a rule the cron
+// loads and skips for ever.
+ok("only the enquiry and quote chases may text",
+  SUPPORTED_TRIGGERS.filter(triggerMaySms).join(",") === "lead_no_response,quote_no_response");
+ok("the cron refuses an sms rule on a trigger with no wording, and counts it",
+  /if \(!FOLLOW_UP_TEXT_TYPE\[rule\.triggerEvent\]\)/.test(cron) && /skippedNoSmsWording/.test(cron));
+
+// ── 4b. The text path's own guards, read in the cron ──────────────────────
+console.log("\nThe text path\n");
+
+ok("an opt-out is asked about BEFORE the claim, so a STOP never spends the chase",
+  cron.indexOf("followUpTextVerdict(") > -1 &&
+    cron.indexOf("followUpTextVerdict(") < cron.indexOf("followUpLog.create"));
+ok("…and its reason is counted, not swallowed", /smsSkip\(verdict\.reason\)/.test(cron));
+ok("every decline the sender can make is counted too", /smsSkip\(outcome\.reason\)/.test(cron));
+ok("the response carries the per-reason counts and the sent count",
+  /smsSkipped,/.test(cron) && /\n    texted,/.test(cron));
+ok("a trial that hasn't verified a mobile gets its claim back, so the lead is chased later",
+  /outcome\.reason === "phone_unverified"[\s\S]{0,200}followUpLog\n?\s*\.deleteMany/.test(cron));
+ok("the lead finder asks for a MOBILE on a text rule, not an email address",
+  /channel === "sms" \? \{ phone: \{ not: null \} \} : \{ email: \{ not: null \} \}/.test(cron));
+ok("…and the channel reaches the finder at all", /finder\.find\(rule, channel\)/.test(cron));
 
 // ── 5. The diagram only draws states the cron actually produces ────────────
 console.log("\nHonesty of the drawn states\n");
@@ -138,22 +184,61 @@ ok(
   /findMany\(\{\s*where: \{ active: true, deletedAt: null \}/.test(cron),
 );
 ok("diagram draws a paused step differently", /border-dashed/.test(diagram));
+// The channel is drawn per STEP, from the row, not from a module constant —
+// the old code was `FOLLOW_UP_CHANNEL === "email" ? t(...) : FOLLOW_UP_CHANNEL`,
+// whose else branch would have printed the bare word "sms" at a contractor.
+ok("diagram reads each step's own channel", /channelKeyFor\(rule\)/.test(diagram));
+// The single-channel constant is gone from the diagram entirely — it is what
+// the raw-value else branch hung off. Comments stripped first: the paragraph
+// at the top of FlowDiagram.js explains the bug by QUOTING the old line, and
+// an assertion that cannot tell prose from code is one somebody "fixes" by
+// deleting the explanation. (Same trick scripts/check-sms-template.mjs uses
+// on lib/sms/documentText.js, for the same reason.)
+const diagramCode = diagram.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+ok("…and never reaches for the old single-channel constant", !/FOLLOW_UP_CHANNEL\b/.test(diagramCode));
+ok("diagram says a text rule's wording lives on the messages screen", /app\.followFlow\.smsWording/.test(diagram));
+ok("diagram draws an sms step as not-sending while the company's switch is off",
+  /smsEnabled === false/.test(diagram) && /app\.followFlow\.smsOffNote/.test(diagram));
+ok("…and treats an absent switch state as unknown, not as off",
+  /smsEnabled === false/.test(diagram) && !/!smsEnabled/.test(diagram));
+ok("diagram does NOT call a text rule broken for having no template",
+  /channel === "sms"\s*\?\s*!triggerMaySms\(rule\.triggerEvent\)/.test(diagram));
+// channelKeyFor / channelsIn executed, not read.
+ok("channelKeyFor is total", channelKeyFor({ channel: "sms" }) === CHANNEL_KEYS.sms
+  && channelKeyFor({}) === CHANNEL_KEYS.email
+  && channelKeyFor({ channel: "pigeon" }) === CHANNEL_KEYS.email);
+ok("channelsIn reports only the channels these rules use",
+  channelsIn(buildFlows([{ id: "a", triggerEvent: "quote_no_response", channel: "sms" }])).join(",") === "sms"
+    && channelsIn(buildFlows([{ id: "a", triggerEvent: "quote_no_response" }])).join(",") === "email"
+    && channelsIn(buildFlows([
+        { id: "a", triggerEvent: "quote_no_response" },
+        { id: "b", triggerEvent: "lead_no_response", channel: "sms" },
+      ])).join(",") === "email,sms");
+ok("channelsIn survives the shapes a failed fetch produces", channelsIn(null).length === 0 && channelsIn(undefined).length === 0);
+ok("every channel has a 'who gets skipped' sentence and a dropdown label",
+  FOLLOW_UP_CHANNELS.every((c) => SKIPPED_KEYS[c] && CHANNEL_KEYS[c] && CHANNEL_OPTION_KEYS[c]));
 ok(
   "cron skips a hand-made rule with no template",
   // A FieldQuo default (builtInKey) with no template sends its built-in
   // wording instead — lib/followUps/defaults.js — so the skip is qualified.
-  /if \(!finder \|\| \(!rule\.template && !builtIn\)\)/.test(cron),
+  // Inside the EMAIL branch since the channel arrived: a text rule has no
+  // template by design, and holding it to this would have skipped every one.
+  /if \(!rule\.template && !builtIn\) \{\n\s*skippedNoTemplate\+\+;/.test(cron),
+);
+ok(
+  "…and an unknown trigger is still skipped whatever the channel",
+  /if \(!finder\) \{\n\s*if \(!rule\.template\) skippedNoTemplate\+\+;/.test(cron),
 );
 ok("diagram draws a template-less step as broken", /noTemplate/.test(diagram));
 ok(
   "diagram does NOT draw a FieldQuo default as broken",
-  /const broken = !rule\.template && !rule\.builtInKey/.test(diagram),
+  /: !rule\.template && !rule\.builtInKey;/.test(diagram),
 );
 ok(
-  "cron skips a client with no email",
-  /const to = entity\.client\?\.email;[\s\S]{0,120}skippedNoEmail/.test(cron),
+  "cron skips a client with no email — on an EMAIL rule, which is the new qualification",
+  /const to = channel === "sms" \? null : entity\.client\?\.email;[\s\S]{0,400}skippedNoEmail/.test(cron),
 );
-ok("diagram says so", /noEmailNote/.test(diagram));
+ok("diagram says so, per channel these rules actually use", /SKIPPED_KEYS\[channel\]/.test(diagram));
 
 // ── 6. The diagram is not the only way to read the configuration ───────────
 console.log("\nAccessibility\n");
@@ -177,6 +262,9 @@ const usedKeys = [
   ...Object.values(STOP_KEYS),
   ...Object.values(ONCE_KEYS),
   ...Object.values(DURATION_UNIT_KEYS),
+  ...Object.values(CHANNEL_KEYS),
+  ...Object.values(CHANNEL_OPTION_KEYS),
+  ...Object.values(SKIPPED_KEYS),
   ...[...diagram.matchAll(/"(app\.followFlow\.[A-Za-z0-9]+)"/g)].map((m) => m[1]),
   ...[...page.matchAll(/"(app\.followFlow\.[A-Za-z0-9]+)"/g)].map((m) => m[1]),
 ];
@@ -205,7 +293,8 @@ ok("it stops the way the metadata says: lead_answered has a stop sentence and a 
   const finder = cron.slice(cron.indexOf("async function findLeadNoResponse"), cron.indexOf("async function findQuoteNoResponse"));
   ok("the finder only takes leads still at status 'new'", /status: "new"/.test(finder));
   ok("…with no quote yet — once converted, quote_no_response owns it", /quoteId: null/.test(finder));
-  ok("…that have an address to send to", /email: \{ not: null \}/.test(finder));
+  ok("…that can be reached on the rule's own channel — an address for email, a mobile for a text",
+    /channel === "sms" \? \{ phone: \{ not: null \} \} : \{ email: \{ not: null \} \}/.test(finder));
   ok("…older than the rule's delay, by createdAt (a lead has no sentAt)", /createdAt: \{ lte: cutoffFor\(rule\) \}/.test(finder));
   ok("…and never the same lead twice for one rule", /notIn: excluded/.test(finder));
   ok("the lead is shaped into the `client` slot the shared send code reads",

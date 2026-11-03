@@ -19,11 +19,22 @@
 //
 // Every box below is derived from a real FollowUpRule row plus TRIGGER_META in
 // lib/followUps/triggers.js, which the cron route implements. Nothing here is
-// hand-drawn: the delay comes from delayValue/delayUnit, the channel from
-// FOLLOW_UP_CHANNEL (the cron calls sendEmail and nothing else), the stop
-// condition from the cron's own `where` clause via `stopsWhen`. A rule with no
-// template is drawn as broken because the cron skips it, and a paused rule is
-// drawn as paused because the cron only loads `active: true`.
+// hand-drawn: the delay comes from delayValue/delayUnit, the channel from the
+// rule's own `channel` column through followUpChannel(), the stop condition
+// from the cron's own `where` clause via `stopsWhen`. A rule with no template
+// is drawn as broken because the cron skips it, and a paused rule is drawn as
+// paused because the cron only loads `active: true`.
+//
+// ── The channel used to be a constant ──────────────────────────────────────
+//
+// This read `FOLLOW_UP_CHANNEL === "email" ? t("…sendEmail") : FOLLOW_UP_CHANNEL`
+// — a conditional whose else branch would have printed the bare word "sms" at
+// a contractor, left behind by the single-channel constant it was written
+// against. Each step now answers for itself, and three states that only exist
+// for a text are drawn because the cron genuinely produces all three: the
+// company's follow-up-text switch being off (nothing sends), a trigger with no
+// SMS wording (nothing sends), and a client with no mobile (that client is
+// skipped).
 //
 // ── Accessibility ─────────────────────────────────────────────────────────
 //
@@ -34,10 +45,13 @@
 "use client";
 
 import { Fragment } from "react";
-import { Zap, Clock, Mail, Ban, AlertTriangle, Pause } from "lucide-react";
-import { FOLLOW_UP_CHANNEL } from "@/lib/followUps/triggers";
+import { Zap, Clock, Mail, MessageSquare, Ban, AlertTriangle, Pause } from "lucide-react";
+import { followUpChannel, triggerMaySms } from "@/lib/followUps/triggers";
 import {
   buildFlows,
+  channelKeyFor,
+  channelsIn,
+  SKIPPED_KEYS,
   TRIGGER_LABEL_KEYS,
   STOP_KEYS,
   ONCE_KEYS,
@@ -65,10 +79,21 @@ function Node({ icon, tone = "neutral", children }) {
   );
 }
 
-export default function FlowDiagram({ rules }) {
+/**
+ * @param smsEnabled  whether Company.followUpSmsOn is on, from the rules API.
+ *                    A boolean, not a truthiness: `undefined` (an older
+ *                    response, or a load that answered without it) must not
+ *                    be drawn as "switched off", which would put an amber
+ *                    warning on a step that is sending perfectly well.
+ */
+export default function FlowDiagram({ rules, smsEnabled }) {
   const { t } = useTranslation();
 
   const flows = buildFlows(rules);
+  // Only the channels these rules use — a company with no text rule is not
+  // told about mobile numbers it does not need.
+  const channels = channelsIn(flows);
+  const smsOff = smsEnabled === false;
   // No rules is not an empty canvas. The page already says so in words above
   // this component; drawing an empty frame would only imply something is
   // configured.
@@ -129,11 +154,26 @@ export default function FlowDiagram({ rules }) {
             </Node>
 
             {flow.steps.map((rule) => {
-              // A FieldQuo default with no template is not broken: the cron
-              // renders its built-in wording in the client's language
-              // (lib/followUps/defaults.js). Only a hand-made rule with
-              // nothing to send is drawn as a warning.
-              const broken = !rule.template && !rule.builtInKey;
+              const channel = followUpChannel(rule);
+              // What "nothing to send" means differs by channel.
+              //
+              // EMAIL: a hand-made rule with no template. A FieldQuo default
+              // with no template is NOT broken — the cron renders its
+              // built-in wording in the client's language.
+              //
+              // SMS: a template is irrelevant (the wording is a message type
+              // on Settings › Messages), so the only broken text rule is one
+              // on a trigger with no SMS wording at all. The save routes
+              // refuse to create that, which is why it is drawn rather than
+              // assumed impossible: a row stored before the refusal existed
+              // would otherwise look armed.
+              const broken =
+                channel === "sms"
+                  ? !triggerMaySms(rule.triggerEvent)
+                  : !rule.template && !rule.builtInKey;
+              // Not broken, but not sending either: the rule is fine and the
+              // company has not switched follow-up texts on.
+              const offForCompany = channel === "sms" && smsOff && !broken;
 
               return (
                 <Fragment key={rule.id}>
@@ -146,13 +186,21 @@ export default function FlowDiagram({ rules }) {
                   </Node>
 
                   <Node
-                    icon={broken ? <AlertTriangle size={12} /> : <Mail size={12} />}
-                    tone={broken ? "warning" : "neutral"}
+                    icon={
+                      broken || offForCompany ? (
+                        <AlertTriangle size={12} />
+                      ) : channel === "sms" ? (
+                        <MessageSquare size={12} />
+                      ) : (
+                        <Mail size={12} />
+                      )
+                    }
+                    tone={broken || offForCompany ? "warning" : "neutral"}
                   >
                     <div
                       className={`rounded-lg border px-3 py-2.5 ${
                         rule.active
-                          ? broken
+                          ? broken || offForCompany
                             ? "border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30"
                             : "border-border bg-background"
                           : // Paused: dashed and faded, because the cron loads
@@ -172,18 +220,25 @@ export default function FlowDiagram({ rules }) {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 break-words">
-                        {FOLLOW_UP_CHANNEL === "email"
-                          ? t("app.followFlow.sendEmail")
-                          : FOLLOW_UP_CHANNEL}
-                        {rule.template
-                          ? ` · ${rule.template.name}`
-                          : rule.builtInKey
-                            ? ` · ${t("app.setFollowUps.builtInWording")}`
-                            : ""}
+                        {t(channelKeyFor(rule))}
+                        {channel === "sms"
+                          ? ` · ${t("app.followFlow.smsWording")}`
+                          : rule.template
+                            ? ` · ${rule.template.name}`
+                            : rule.builtInKey
+                              ? ` · ${t("app.setFollowUps.builtInWording")}`
+                              : ""}
                       </p>
                       {broken && (
                         <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                          {t("app.followFlow.noTemplate")}
+                          {channel === "sms"
+                            ? t("app.followFlow.noSmsWording")
+                            : t("app.followFlow.noTemplate")}
+                        </p>
+                      )}
+                      {offForCompany && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                          {t("app.followFlow.smsOffNote")}
                         </p>
                       )}
                       {!rule.active && (
@@ -213,9 +268,17 @@ export default function FlowDiagram({ rules }) {
         );
       })}
 
-      <p className="text-xs text-muted-foreground border-t border-border pt-3">
-        {t("app.followFlow.noEmailNote")}
-      </p>
+      {/* One line per channel these rules actually use. The email sentence
+          used to be unconditional, which would have told a company whose only
+          rules are texts that clients with no EMAIL are skipped — true of
+          nothing they have configured. */}
+      <div className="border-t border-border pt-3 space-y-1">
+        {channels.map((channel) => (
+          <p key={channel} className="text-xs text-muted-foreground">
+            {t(SKIPPED_KEYS[channel])}
+          </p>
+        ))}
+      </div>
     </section>
   );
 }

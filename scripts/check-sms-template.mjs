@@ -78,10 +78,13 @@ for (const [key, spec] of Object.entries(SMS_TEMPLATE_TYPES)) {
   ok(`${key.padEnd(22)} fallback produces text`, typeof out === "string" && out.length > 5, out?.slice(0, 40));
 }
 
-console.log("\nEditable = wired to send. All seven send today.");
+console.log("\nEditable = wired to send. All nine send today.");
 const editable = Object.entries(SMS_TEMPLATE_TYPES).filter(([, s]) => s.editable).map(([k]) => k).sort();
-ok("the five booking/visit texts and the two document texts are editable, and nothing else",
-  editable.join(",") === "appointment_reminder,booking_cancelled,booking_confirmation,booking_moved,invoice_sent,on_my_way,quote_sent", editable);
+ok("the five booking/visit texts, the two document texts and the two follow-up texts are editable, and nothing else",
+  editable.join(",") === "appointment_reminder,booking_cancelled,booking_confirmation,booking_moved,invoice_sent,lead_follow_up,on_my_way,quote_follow_up,quote_sent", editable);
+// "Editable" is a promise that it sends. These two are sent by the follow-up
+// cron through lib/sms/followUpText.js, for a FollowUpRule whose channel is
+// "sms" — scripts/check-follow-up-sms.mjs asserts that whole chain.
 // The two change texts send from lib/schedule/changeText.js, which every
 // move/cancel path calls — scripts/check-booking-modes.mjs executes them.
 const changeSrc = readFileSync(new URL("../lib/schedule/changeText.js", import.meta.url), "utf8");

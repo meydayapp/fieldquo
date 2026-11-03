@@ -1,7 +1,14 @@
 // scripts/check-follow-up-defaults.mjs
 //
-// FieldQuo's three default follow-ups — 1, 7 and 14 days after a quote is
-// sent — and everything that makes them safe to switch on for every company.
+// FieldQuo's built-in follow-ups — three quote chases at 1, 7 and 14 days
+// (ON) and three enquiry chases at 1, 3 and 7 days (OFF) — and everything
+// that makes each set safe to seed for every company.
+//
+// The quote chases are on because they write to somebody who asked this
+// company for a price and is holding it. The enquiry chases are off because
+// they write to somebody who filled in a form, from the contractor's own
+// address, and that is not a default FieldQuo gets to set. Several assertions
+// below exist for nothing but that distinction.
 //
 //   npm run check:follow-up-defaults
 //
@@ -33,8 +40,16 @@ import {
   BUILT_IN_KEYS,
   BUILT_IN_TRIGGER,
   BUILT_IN_LANGUAGES,
+  LEAD_FOLLOW_UPS,
+  LEAD_KEYS,
+  LEAD_TRIGGER,
+  ALL_BUILT_IN_FOLLOW_UPS,
+  ALL_BUILT_IN_KEYS,
+  builtInEntityType,
+  builtInTrigger,
   builtInWording,
   buildBuiltInFollowUpEmail,
+  buildBuiltInLeadEmail,
   ensureDefaultFollowUps,
   resetBuiltInRule,
 } from "../lib/followUps/defaults.js";
@@ -82,12 +97,47 @@ function fakeDb(rows = []) {
 
 console.log("\nThe three defaults\n");
 
-ok("exactly three built-ins", BUILT_IN_FOLLOW_UPS.length === 3 && BUILT_IN_KEYS.length === 3);
+ok("exactly three quote chases", BUILT_IN_FOLLOW_UPS.length === 3 && BUILT_IN_KEYS.length === 3);
 ok(
   "at 1, 7 and 14 days",
   BUILT_IN_FOLLOW_UPS.map((r) => `${r.delayValue}${r.delayUnit}`).join(",") === "1days,7days,14days",
 );
 ok("on the quote trigger the cron supports", SUPPORTED_TRIGGERS.includes(BUILT_IN_TRIGGER) && BUILT_IN_TRIGGER === "quote_no_response");
+ok("all three arrive ON — they write to somebody holding a price", BUILT_IN_FOLLOW_UPS.every((r) => r.active !== false));
+
+// ── The three enquiry chases (2026-11-02) ──────────────────────────────────
+//
+// FollowUpRule held 114 rows across 38 companies and not one was on
+// lead_no_response, a trigger that had existed for weeks — so an enquiry that
+// never became a quote was chased by nothing at all. These are the rules that
+// make that trigger real, and every assertion below is about the one thing
+// that makes them safe to seed for every company: they are OFF.
+console.log("\nThe three enquiry chases\n");
+
+ok("exactly three enquiry chases", LEAD_FOLLOW_UPS.length === 3 && LEAD_KEYS.length === 3);
+ok(
+  "at 1, 3 and 7 days — tighter than the quote chase, because the person is comparing contractors now",
+  LEAD_FOLLOW_UPS.map((r) => `${r.delayValue}${r.delayUnit}`).join(",") === "1days,3days,7days",
+);
+ok("on the enquiry trigger the cron supports", SUPPORTED_TRIGGERS.includes(LEAD_TRIGGER) && LEAD_TRIGGER === "lead_no_response");
+ok(
+  "every one of them is seeded OFF — three emails nobody chose, to a stranger, under the contractor's name is not a default FieldQuo sets",
+  LEAD_FOLLOW_UPS.every((r) => r.active === false),
+);
+ok(
+  "…and on the EMAIL channel, because the follow-up-text switch is off until a company chooses it",
+  LEAD_FOLLOW_UPS.every((r) => r.channel === "email"),
+);
+ok("six built-ins in all, quote chases first", ALL_BUILT_IN_FOLLOW_UPS.length === 6 && ALL_BUILT_IN_KEYS.length === 6
+  && ALL_BUILT_IN_KEYS.slice(0, 3).join(",") === BUILT_IN_KEYS.join(","));
+ok("each key knows which trigger it rides", LEAD_KEYS.every((k) => builtInTrigger(k) === LEAD_TRIGGER)
+  && BUILT_IN_KEYS.every((k) => builtInTrigger(k) === BUILT_IN_TRIGGER));
+// The cron asks this before rendering. It used to be a bare
+// `finder.entityType !== "quote"`, which would have refused every enquiry
+// default the day they were seeded.
+ok("each key knows which entity its wording is written for",
+  LEAD_KEYS.every((k) => builtInEntityType(k) === "lead") && BUILT_IN_KEYS.every((k) => builtInEntityType(k) === "quote"));
+ok("a key nobody defined has no entity to guess at", builtInEntityType("made_up") === null);
 
 console.log("\nSeeding\n");
 
@@ -95,10 +145,22 @@ console.log("\nSeeding\n");
   const db = fakeDb();
   const first = await ensureDefaultFollowUps(db, "c1");
   const second = await ensureDefaultFollowUps(db, "c1");
-  ok("first run creates three", first === 3 && db.rows.length === 3, `created ${first}`);
-  ok("second run creates none (idempotent)", second === 0 && db.rows.length === 3, `created ${second}`);
-  ok("all three active with no template (built-in wording)", db.rows.every((r) => r.active && r.templateId === null));
-  ok("dry run counts without writing", (await ensureDefaultFollowUps(fakeDb(), "c9", { dryRun: true })) === 3);
+  ok("first run creates six", first === 6 && db.rows.length === 6, `created ${first}`);
+  ok("second run creates none (idempotent)", second === 0 && db.rows.length === 6, `created ${second}`);
+  ok("none of them points at a template (built-in wording)", db.rows.every((r) => r.templateId === null));
+  ok("the three quote chases arrive on",
+    db.rows.filter((r) => BUILT_IN_KEYS.includes(r.builtInKey)).every((r) => r.active === true));
+  // The one assertion this whole block exists for. A seeding bug that made
+  // these active would start three emails a week at every enquiry in 38
+  // companies' pipelines, from the contractor's own address, the first time
+  // anybody opened the Follow-ups page.
+  ok("the three enquiry chases arrive OFF",
+    db.rows.filter((r) => LEAD_KEYS.includes(r.builtInKey)).every((r) => r.active === false));
+  ok("each is seeded on its OWN trigger, not all on the quote one",
+    db.rows.every((r) => r.triggerEvent === builtInTrigger(r.builtInKey))
+      && db.rows.filter((r) => r.triggerEvent === LEAD_TRIGGER).length === 3);
+  ok("each is seeded on the email channel", db.rows.every((r) => r.channel === "email"));
+  ok("dry run counts without writing", (await ensureDefaultFollowUps(fakeDb(), "c9", { dryRun: true })) === 6);
 }
 {
   // A company that deleted the day-7 default keeps it deleted.
@@ -107,7 +169,7 @@ console.log("\nSeeding\n");
     { id: "b", companyId: "c2", builtInKey: "quote_sent_d7", active: false, templateId: null, deletedAt: new Date() },
   ]);
   const created = await ensureDefaultFollowUps(db, "c2");
-  ok("a deleted default is not re-created; only the genuinely missing one is", created === 1 && db.rows.length === 3);
+  ok("a deleted default is not re-created; only the genuinely missing ones are", created === 4 && db.rows.length === 6);
   ok("the tombstone is untouched", db.rows.find((r) => r.id === "b").deletedAt instanceof Date);
 }
 
@@ -123,6 +185,62 @@ console.log("\nReset and restore\n");
     back.delayValue === 14 && back.delayUnit === "days" && back.templateId === null && back.active === true && back.deletedAt === null,
   );
   ok("reset refuses a hand-made rule", (await resetBuiltInRule(db, { id: "y", builtInKey: null })) === null);
+}
+{
+  // "Reset to default" on an ENQUIRY chase the company switched on must put
+  // it back OFF. Resetting it to active would make Reset the one control on
+  // that page that starts sending — and it would do it under the word
+  // "default", which is the opposite of what the button promises.
+  const db = fakeDb([
+    { id: "l", companyId: "c4", builtInKey: "lead_new_d3", name: "Mine", delayValue: 30, delayUnit: "hours", templateId: "tpl", channel: "sms", active: true, deletedAt: null },
+  ]);
+  const back = await resetBuiltInRule(db, db.rows[0]);
+  ok("reset puts an enquiry chase back to OFF, not to on",
+    back.active === false && back.delayValue === 3 && back.delayUnit === "days" && back.templateId === null);
+  ok("…on its own trigger and back on the email channel",
+    back.triggerEvent === "lead_no_response" && back.channel === "email");
+}
+
+console.log("\nThe enquiry chase's email\n");
+
+{
+  const company = { name: "TrueFinish Cabinets", phone: "819-555-0100", brandColor: "#ffd400" };
+  const client = { name: "Maureen Clarke" };
+  for (const [lang, marker] of [["en", "your enquiry"], ["fr", "votre demande"], ["es", "su solicitud"]]) {
+    const email = buildBuiltInLeadEmail({ key: "lead_new_d1", client, company, service: "cabinet refinishing", language: lang });
+    ok(`${lang}: subject in the language the homeowner filled the form in`, email.subject.includes(marker) || !email.generic, email.subject);
+    ok(`${lang}: it names the service they asked about`, email.html.includes("cabinet refinishing") && email.text.includes("cabinet refinishing"));
+    ok(`${lang}: nothing says FieldQuo`, !/fieldquo/i.test(email.html) && !/fieldquo/i.test(email.text));
+    ok(`${lang}: the company's name is on it`, email.html.includes("TrueFinish Cabinets"));
+    // Nobody has looked at the job yet, so there is no figure to quote and a
+    // number here would be a guess sent under the contractor's name.
+    ok(`${lang}: no price, no figure, no currency`, !/\$|CAD|USD|€/.test(email.text));
+  }
+  // The service is the one token that can legitimately be absent, and the
+  // sentence has to read without it rather than being padded with an invented
+  // "your project" that the homeowner never said.
+  const noService = buildBuiltInLeadEmail({ key: "lead_new_d1", client, company, service: null, language: "en" });
+  ok("a lead that named no service still reads as a sentence",
+    !/undefined|null|\s{2,}|\s[,.]/.test(noService.text), noService.text.slice(0, 160));
+  // The video: a button when there is one, nothing at all when there is not.
+  const withVideo = buildBuiltInLeadEmail({ key: "lead_new_d1", client, company, service: "cabinets", videoUrl: "https://youtu.be/abc123", language: "en" });
+  ok("the pre-quote video is a button and a pasteable link when set",
+    withVideo.html.includes("https://youtu.be/abc123") && withVideo.text.includes("https://youtu.be/abc123"));
+  ok("…and the email mentions no video at all when there isn't one — no placeholder",
+    !/video|vidéo/i.test(noService.html) && !/href=""/.test(noService.html) && !/<a [^>]*href="?[\s>]/.test(noService.html));
+  // The day-7 one says it is the last. A chase with no stated end is the kind
+  // a homeowner reports as spam.
+  const d7 = buildBuiltInLeadEmail({ key: "lead_new_d7", client, company, service: "cabinets", language: "en" });
+  ok("day 7 says it is the last one", /last/i.test(d7.text));
+  // A language the enquiry copy is not written in gets the generic ENQUIRY
+  // line in that language — never the generic QUOTE line, which names a quote
+  // number this person does not have.
+  for (const lang of SUPPORTED_EMAIL_LANGUAGES.filter((l) => !BUILT_IN_LANGUAGES.includes(l))) {
+    const w = builtInWording("lead_new_d1", lang, { companyName: "Acme" });
+    const en = builtInWording("lead_new_d1", "en", { companyName: "Acme" });
+    ok(`${lang}: falls back to the generic ENQUIRY line in ${lang}`, w.generic && w.subject !== en.subject);
+    ok(`${lang}: …and that line never mentions a quote number`, !/Q-|\{number\}/.test(w.subject + w.paragraphs.join(" ")));
+  }
 }
 
 console.log("\nStop conditions (executed)\n");
@@ -251,7 +369,16 @@ ok("each rule's template is a picker; a built-in offers FieldQuo's wording", /ap
 ok("built-ins have Reset to default", /reset: true/.test(page) && /app\.setFollowUps\.resetToDefault/.test(page));
 ok("deleted built-ins are listed with Restore", /deletedBuiltIns\.map/.test(page) && /app\.setFollowUps\.restore/.test(page));
 ok("the stop conditions are explained in one line", /app\.setFollowUps\.stopExplainer/.test(page));
-ok("a built-in shows what it says", /BUILT_IN_COPY\[lang\]/.test(page));
+// Reads the SAME table the cron renders from, picked by key rather than
+// guessed: the two tables take different arguments (the quote chase's subject
+// wants a quote number, the enquiry chase's wants only the company), so a
+// component that guessed would print "Q-1042" where a service name belongs.
+ok("a built-in shows what it says, from the table its key belongs to",
+  /builtInCopyTable\(ruleKey\)/.test(page) && /table\[lang\]\?\.\[ruleKey\]/.test(page));
+ok("…and an enquiry default's wording is called with the service, not a quote number",
+  /w\.body\(company, t\("app\.setFollowUps\.sampleService"\)\)/.test(page));
+ok("a TEXT rule shows no email wording panel — its words are a message type",
+  /channel !== "sms" && \(\n?\s*<BuiltInWording/.test(page) || /!rule\.templateId && channel !== "sms"/.test(page));
 ok("the quote's trail prints automated chases from FollowUpLog", /automatedFollowUps/.test(read("app/app/quotes/[id]/page.js")) && /followUpLog\.findMany/.test(read("app/api/quotes/[id]/route.js")));
 
 console.log("\nNine languages\n");
