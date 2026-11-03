@@ -3067,6 +3067,9 @@ model User {
   designsApproved       MarketingDesign[]      @relation("MarketingDesignApprover")
   pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
   leadsAssigned         LeadRequest[]          @relation("LeadAssignee")
+  /// Leads this person marked as reached (LeadRequest.reachedById) — the
+  /// attribution on a statement somebody made, not a workload.
+  leadsReached          LeadRequest[]          @relation("LeadReachedBy")
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
   funnelsCreated        Funnel[]               @relation("FunnelCreatedBy")
   devices               AccountDevice[]
@@ -8437,6 +8440,31 @@ model LeadRequest {
   // quotes list and points back here. Unique — one lead becomes at most one quote.
   assignedToId  String?
   assignedTo    User?            @relation("LeadAssignee", fields: [assignedToId], references: [id])
+
+  /// ── "I have spoken to them" — a statement a person made ────────────────
+  ///
+  /// The owner, 2026-11-03: "it might be manually because the system isn't
+  /// able to see if they answered the call. or reply back to a text from the
+  /// company's number so it should be able to be set in the leads page".
+  ///
+  /// The automatic signal the enquiry chase already has is an inbound message
+  /// on a thread tied to this lead (lib/followUps/leadChaseFacts.js). It can
+  /// only see what came THROUGH FieldQuo, which means it cannot see the two
+  /// ordinary cases for a small contractor: a call the homeowner answered on
+  /// the contractor's own mobile, and a text reply to a message sent from the
+  /// company's own number. In both the lead has been reached while FieldQuo
+  /// believes it has heard nothing, and chasing them after that is exactly
+  /// the embarrassment the stop condition exists to prevent.
+  ///
+  /// NOT a LeadStatus. `status` means a position in the pipeline (new →
+  /// contacted → qualified → converted / lost) and a person can have been
+  /// reached at any of them; overloading it is how two meanings end up
+  /// disagreeing about one row. A nullable timestamp plus who said it is the
+  /// honest shape, and clearing it puts the lead back in the chase — a wrong
+  /// mark has to be reversible or the whole sequence is off for that lead.
+  reachedAt     DateTime?
+  reachedById   String?
+  reachedBy     User?            @relation("LeadReachedBy", fields: [reachedById], references: [id])
   quoteId       String?          @unique
   quote         Quote?           @relation("LeadQuote", fields: [quoteId], references: [id])
   notes         LeadNote[]

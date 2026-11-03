@@ -69,6 +69,9 @@ const diagram = read("app/app/settings/follow-ups/FlowDiagram.js");
 const rulesRoute = code(read("app/api/settings/follow-up-rules/route.js"));
 const ruleRoute = code(read("app/api/settings/follow-up-rules/[id]/route.js"));
 const booking = code(read("lib/booking/bookableMembers.js"));
+const leadRoute = code(read("app/api/leads/[id]/route.js"));
+const leadsPage = read("app/app/leads/page.js");
+const schema = read("prisma/schema.prisma");
 
 // ══ 1. leadChaseBlocker, executed ══════════════════════════════════════════
 console.log("\nWhen an enquiry must be left alone");
@@ -95,9 +98,12 @@ ok("an INFERRED quote (same client, after the lead) → quoted",
 // why "job" is checked before "quoted" — otherwise "job" could never fire.
 ok("a quote AND a job → job, so neither reason is unreachable",
   leadChaseBlocker({ lead: lead({ quoteId: "q1" }), rule, facts: { hasQuote: true, hasJob: true }, now }) === "job");
+// Every reason the function can return, and nothing it cannot. The list is
+// frozen and the settings page's sentence has to name each one, so a reason
+// added without a way to reach it — or without an explanation — fails here.
 ok("every declared reason is one the function can actually return",
-  ["answered", "appointment", "job", "quoted", "replied", "before_rule"].every((r) => LEAD_STOP_REASONS.includes(r))
-    && LEAD_STOP_REASONS.length === 6);
+  ["answered", "appointment", "job", "quoted", "replied", "reached", "before_rule"].every((r) => LEAD_STOP_REASONS.includes(r))
+    && LEAD_STOP_REASONS.length === 7);
 
 // An appointment beats a quote, because the chase ASKS them to book: telling
 // somebody who booked on Tuesday that nobody can reach them is the worst of
@@ -115,6 +121,74 @@ ok("a message at exactly the lead's own timestamp is not a reply",
   leadChaseBlocker({ lead: lead(), rule, facts: { repliedAt: new Date(now - 2 * DAY) }, now }) === null);
 ok("no reply at all does not stop it",
   leadChaseBlocker({ lead: lead(), rule, facts: { repliedAt: null }, now }) === null);
+
+// ══ The manual half — the one FieldQuo cannot see ═════════════════════════
+//
+// The owner, correcting the automatic reply rule: "it might be manually
+// because the system isn't able to see if they answered the call. or reply
+// back to a text from the company's number."
+//
+// Both paths matter and they are different: the automatic one needs the reply
+// to be shown to have come AFTER the enquiry (an inbound message can be the
+// one that created the lead), and the manual one cannot — the control does
+// not exist until the lead does.
+console.log("\nSomebody said they had spoken to them");
+
+ok("marked reached → reached",
+  leadChaseBlocker({ lead: lead(), rule, facts: { reachedAt: new Date(now - 1 * DAY) }, now }) === "reached");
+ok("…and it is its own reason, not folded into \"replied\" — the two are different evidence",
+  LEAD_STOP_REASONS.includes("reached") && LEAD_STOP_REASONS.includes("replied"));
+// The asymmetry with the reply rule, stated as a test rather than a comment:
+// a mark dated before the lead is still a true statement, because the button
+// did not exist before the lead did. A floor would only discard the truth.
+ok("a mark is not subject to the reply rule's date floor",
+  leadChaseBlocker({ lead: lead(), rule, facts: { reachedAt: new Date(now - 5 * DAY) }, now }) === "reached");
+// Reversible. This is the assertion that keeps a wrong mark from switching a
+// lead off for ever.
+ok("undone → chased again", leadChaseBlocker({ lead: lead(), rule, facts: { reachedAt: null }, now }) === null);
+ok("…and an empty value is not a mark",
+  leadChaseBlocker({ lead: lead(), rule, facts: { reachedAt: "" }, now }) === null
+    && leadChaseBlocker({ lead: lead(), rule, facts: { reachedAt: undefined }, now }) === null);
+// An OUTBOUND attempt must never read as contact. Only an inbound reply or a
+// human's mark stops the chase; a call nobody answered is still unanswered.
+ok("the blocker has no notion of an attempt at all — it reads only the two kinds of evidence",
+  !/attempt/i.test(pureStops));
+
+console.log("\nThe mark is stored, attributed and reversible");
+
+ok("two additive nullable columns, not a status", /reachedAt\s+DateTime\?/.test(schema) && /reachedById\s+String\?/.test(schema));
+ok("…and LeadStatus is untouched", !/reached/.test((schema.match(/enum LeadStatus \{[\s\S]*?\}/) || [""])[0]));
+ok("the PATCH takes a boolean, so nobody can post a date in the past or the future",
+  /typeof body\.reached !== "boolean"/.test(leadRoute));
+ok("…stamping who and when together", /data\.reachedAt = body\.reached \? new Date\(\) : null;/.test(leadRoute)
+  && /data\.reachedById = body\.reached \? member\.userId \|\| null : null;/.test(leadRoute));
+ok("…and clearing BOTH on undo, so no statement is left with nobody behind it",
+  /reachedById = body\.reached \? member\.userId \|\| null : null/.test(leadRoute));
+ok("the change is logged like the other things a person asserts about a lead",
+  /lead\.marked_reached/.test(leadRoute) && /lead\.marked_not_reached/.test(leadRoute));
+ok("…only on a real change, so re-pressing is not recorded as news",
+  /Boolean\(existing\.reachedAt\) !== Boolean\(data\.reachedAt\)/.test(leadRoute));
+ok("the drawer reads who marked it", /reachedBy: \{ select: \{ id: true, name: true \} \}/.test(leadRoute));
+ok("the cron carries the lead's own column through as a fact", /reachedAt: lead\.reachedAt \|\| null/.test(stops));
+
+console.log("\nThe control says what it DOES");
+
+ok("the lead drawer has the mark and the undo", /app\.leads\.reached\.mark/.test(leadsPage) && /app\.leads\.reached\.undo/.test(leadsPage));
+ok("…behind the same edit permission as the rest of the lead", /patch\(\{ reached: true \}\)/.test(leadsPage) && /canEditLead/.test(leadsPage));
+ok("…and it prints who marked it and when", /reachedBy\?\.name/.test(leadsPage) && /app\.leads\.reached\.onNote/.test(leadsPage));
+// The label is the test. "Reached ☑" names a column; this has to read as an
+// instruction a contractor can act on.
+{
+  const label = APP_MESSAGES.en["app.leads.reached.mark"] || "";
+  const hint = APP_MESSAGES.en["app.leads.reached.hint"] || "";
+  ok("the button says what happens, not what is stored", /stop/i.test(label) && /follow-?up/i.test(label), label);
+  ok("the hint names the cases FieldQuo cannot see", /mobile/i.test(hint) && /Facebook|Instagram/i.test(hint), hint);
+  ok("the undo says the follow-ups come back", /again|start/i.test(APP_MESSAGES.en["app.leads.reached.undo"] || ""));
+}
+for (const key of ["app.leads.reached.title", "app.leads.reached.mark", "app.leads.reached.hint", "app.leads.reached.onNote", "app.leads.reached.someone", "app.leads.reached.undo"]) {
+  const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);
+  ok(`${key} in all nine languages`, missing.length === 0, missing.join(","));
+}
 
 console.log("\nSomebody picked it up");
 
@@ -158,7 +232,7 @@ ok("an untouched switch stamps nothing", Object.keys(activationStamp({ active: t
 ok("the PATCH route stamps it", /activationStamp\(existing, active\)/.test(ruleRoute));
 ok("a reset that switches a paused rule back on stamps it too",
   /activationStamp\(rule, def\.active !== false\)/.test(code(read("lib/followUps/defaults.js"))));
-ok("the column exists and is nullable", /activatedAt\s+DateTime\?/.test(read("prisma/schema.prisma")));
+ok("the column exists and is nullable", /activatedAt\s+DateTime\?/.test(schema));
 
 // ══ 3. The cron asks, once, with the matchers that already exist ═══════════
 console.log("\nThe cron");
@@ -357,6 +431,7 @@ console.log("\nEvery reason is explained");
     quoted: /quote/i,
     replied: /repl/i,
     answered: /New|status/i,
+    reached: /reached|spoken/i,
     before_rule: null, // not a stop the company configured — it is the floor
   };
   for (const reason of LEAD_STOP_REASONS) {

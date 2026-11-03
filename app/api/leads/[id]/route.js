@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { recordActivity } from "@/lib/activity/log";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { rescoreLead } from "@/lib/leads/createLead";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
@@ -45,6 +46,10 @@ export async function GET(request, { params }) {
     include: {
       category: { select: { label: true } },
       assignedTo: { select: { id: true, name: true } },
+      // Who said they had spoken to this lead. The drawer prints the name
+      // beside the mark, because "reached" with nobody's name on it is a
+      // claim the company cannot check back on.
+      reachedBy: { select: { id: true, name: true } },
       // The Won rule's evidence (lib/leads/pipeline.js), so the drawer's
       // status control can say WHY Won is refused before anyone clicks it.
       quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
@@ -130,6 +135,10 @@ export async function PATCH(request, { params }) {
       timeline: true,
       quoteId: true,
       lostReason: true,
+      // `name` for the activity summary below, `reachedAt` so pressing the
+      // mark twice is not recorded twice as news.
+      name: true,
+      reachedAt: true,
       quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
     },
   });
@@ -161,6 +170,23 @@ export async function PATCH(request, { params }) {
     // after the fact (a lead reopened and later re-lost for a DIFFERENT
     // reason must not keep showing the first one).
     data.lostReason = body.status === "lost" ? (body.lostReason ?? existing.lostReason) : null;
+  }
+
+  // ── "I've spoken to them" / undo ─────────────────────────────────────────
+  //
+  // `{ reached: true }` stamps it with who and when; `{ reached: false }`
+  // clears both and the lead goes back into the chase.
+  //
+  // A boolean from the client, not a timestamp: a date posted by hand could
+  // put the mark in the past or the future, and the only honest meaning of
+  // this control is "now, by me". The two columns always move together — a
+  // reachedAt with no reachedById is a statement with nobody behind it.
+  if (body.reached !== undefined) {
+    if (typeof body.reached !== "boolean") {
+      return NextResponse.json({ error: "Say whether you reached them." }, { status: 400 });
+    }
+    data.reachedAt = body.reached ? new Date() : null;
+    data.reachedById = body.reached ? member.userId || null : null;
   }
 
   if (body.assignedToId !== undefined) {
@@ -197,6 +223,26 @@ export async function PATCH(request, { params }) {
 
   await db.leadRequest.update({ where: { id }, data });
 
+  // ── The mark is a statement, so it goes in the log ──────────────────────
+  //
+  // Same shape as the other things a person asserts about a lead
+  // (lead.identity_unlinked, the quote link), because this one has the same
+  // weight: it switches off an automated sequence, and six weeks later
+  // somebody will want to know who decided that. Only on a real change —
+  // re-pressing a mark that is already on is not news, and a log that
+  // records non-events is one people stop reading.
+  if (body.reached !== undefined && Boolean(existing.reachedAt) !== Boolean(data.reachedAt)) {
+    await recordActivity(member, {
+      action: data.reachedAt ? "lead.marked_reached" : "lead.marked_not_reached",
+      entityType: "lead",
+      entityId: id,
+      summary: data.reachedAt
+        ? `Marked lead "${existing.name}" as reached — automatic follow-ups stop`
+        : `Put lead "${existing.name}" back in the follow-up sequence`,
+      metadata: { leadId: id, reached: Boolean(data.reachedAt) },
+    });
+  }
+
   // Re-triage after a qualifier edit so score/temperature reflect the new inputs.
   if (qualifiersChanged) await rescoreLead(id);
   // lead.stage_changed for the marketing agency (rescoreLead nudges its own).
@@ -207,6 +253,10 @@ export async function PATCH(request, { params }) {
     include: {
       category: { select: { label: true } },
       assignedTo: { select: { id: true, name: true } },
+      // Who said they had spoken to this lead. The drawer prints the name
+      // beside the mark, because "reached" with nobody's name on it is a
+      // claim the company cannot check back on.
+      reachedBy: { select: { id: true, name: true } },
       quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
     },
   });
