@@ -2117,6 +2117,37 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
               )}
             </div>
 
+            {/* ── Dismissed from the dashboard's request list ────────────
+                Shown here and undoable here, because dismissing is triage on
+                one screen and not a verdict on the lead: the Leads board goes
+                on showing it either way. The note says plainly that the
+                follow-ups are unaffected, so nobody reads this as having
+                switched the sequence off — that is the control above. */}
+            {lead.dismissedAt && (
+              <div className="p-3 border border-dashed border-border rounded-lg text-xs space-y-2">
+                <p className="text-muted-foreground">
+                  {t("app.leads.dismissed.note", {
+                    who: lead.dismissedBy?.name || t("app.leads.reached.someone"),
+                    when: new Date(lead.dismissedAt).toLocaleDateString(language || undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    }),
+                  })}
+                </p>
+                {canEditLead && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => patch({ dismissed: false })}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+                  >
+                    {t("app.leads.dismissed.undo")}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* What this lead became — the quote, its jobs, its invoices —
                 and the ways to put a quote on it: create one (the existing
                 convert path) or link one that already exists. */}

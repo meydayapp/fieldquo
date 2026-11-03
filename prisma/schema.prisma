@@ -3070,6 +3070,9 @@ model User {
   /// Leads this person marked as reached (LeadRequest.reachedById) — the
   /// attribution on a statement somebody made, not a workload.
   leadsReached          LeadRequest[]          @relation("LeadReachedBy")
+  /// Leads this person dismissed from the dashboard's Requests list
+  /// (LeadRequest.dismissedById) — triage, not a verdict on the lead.
+  leadsDismissed        LeadRequest[]          @relation("LeadDismissedBy")
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
   funnelsCreated        Funnel[]               @relation("FunnelCreatedBy")
   devices               AccountDevice[]
@@ -8465,6 +8468,48 @@ model LeadRequest {
   reachedAt     DateTime?
   reachedById   String?
   reachedBy     User?            @relation("LeadReachedBy", fields: [reachedById], references: [id])
+
+  /// ── "Not on my dashboard list" — triage, and nothing else ──────────────
+  ///
+  /// The owner, on the dashboard's Requests list: "that should update and
+  /// maybe even have an option to manually dismiss."
+  ///
+  /// ── Why this is NOT `status: "lost"` ───────────────────────────────────
+  ///
+  /// Measured on the live tenant before deciding. TrueFinish's lead statuses:
+  /// contacted 50, new 39, lost 8, converted 2 — and every one of the 8 lost
+  /// leads carries a reason a person chose (price_too_high ×5,
+  /// not_real_inquiry ×2, other ×1), which is what the closed `lostReason`
+  /// vocabulary is for. Three reasons conflating them would be wrong:
+  ///
+  ///   1. It destroys a real dataset. 8 deliberate verdicts would be buried
+  ///      under ~37 dismissals of backfilled rows: 8 meaningful rows in 45.
+  ///   2. It forces a reason nobody gave. Either FieldQuo picks a lostReason
+  ///      on the user's behalf — inventing a commercial judgement — or it
+  ///      writes `lost` with a null reason and breaks the invariant that
+  ///      column's own comment states.
+  ///   3. It is false about specific people. Harman Marzara was quoted in May
+  ///      and may still buy; Elaine Cecile declined in June and genuinely is
+  ///      lost. Dismissing both as `lost` records the same verdict for two
+  ///      opposite situations.
+  ///
+  /// ── Blast radius, deliberately tiny ───────────────────────────────────
+  ///
+  /// ONLY the dashboard's Requests list reads this, through
+  /// lib/dashboard/requests.js, which is the one module that knows the word.
+  /// It does NOT stop the follow-up chase — that is reachedAt's job, and a
+  /// lead dismissed from a list is not a lead somebody spoke to. It does NOT
+  /// feed the funnel, the agency metrics or any conversion figure: the moment
+  /// a triage action reaches a report it has become a shadow `lost`. The Leads
+  /// board still shows the lead, with the dismissal visible and undoable.
+  ///
+  /// It is also the FALLBACK, not the mechanism. The list now drops a row
+  /// whose person already has a quote, an appointment or a job by contact
+  /// match; this button is for what that rule cannot see. If the rule is
+  /// working the button is rarely needed, and that is the design succeeding.
+  dismissedAt   DateTime?
+  dismissedById String?
+  dismissedBy   User?            @relation("LeadDismissedBy", fields: [dismissedById], references: [id])
   quoteId       String?          @unique
   quote         Quote?           @relation("LeadQuote", fields: [quoteId], references: [id])
   notes         LeadNote[]

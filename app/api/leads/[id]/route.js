@@ -50,6 +50,9 @@ export async function GET(request, { params }) {
       // beside the mark, because "reached" with nobody's name on it is a
       // claim the company cannot check back on.
       reachedBy: { select: { id: true, name: true } },
+      // Who dismissed it from the dashboard's Requests list. Triage, not a
+      // verdict — the Leads board shows the mark so it can be undone here.
+      dismissedBy: { select: { id: true, name: true } },
       // The Won rule's evidence (lib/leads/pipeline.js), so the drawer's
       // status control can say WHY Won is refused before anyone clicks it.
       quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
@@ -139,6 +142,7 @@ export async function PATCH(request, { params }) {
       // mark twice is not recorded twice as news.
       name: true,
       reachedAt: true,
+      dismissedAt: true,
       quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
     },
   });
@@ -189,6 +193,22 @@ export async function PATCH(request, { params }) {
     data.reachedById = body.reached ? member.userId || null : null;
   }
 
+  // ── Dismiss from the dashboard's Requests list / undo ───────────────────
+  //
+  // Same shape as `reached` above, and deliberately a DIFFERENT column. This
+  // one means "not on my dashboard list" and nothing more: it does not stop
+  // the follow-up chase, it does not touch the status, and it never reaches a
+  // report. prisma/schema.prisma spells out, with the live numbers, why it is
+  // not `status: "lost"` — chiefly that 8 deliberate lost verdicts with real
+  // reasons would be buried under ~37 dismissals of backfilled rows.
+  if (body.dismissed !== undefined) {
+    if (typeof body.dismissed !== "boolean") {
+      return NextResponse.json({ error: "Say whether to dismiss it." }, { status: 400 });
+    }
+    data.dismissedAt = body.dismissed ? new Date() : null;
+    data.dismissedById = body.dismissed ? member.userId || null : null;
+  }
+
   if (body.assignedToId !== undefined) {
     if (body.assignedToId === null || body.assignedToId === "") {
       data.assignedToId = null;
@@ -231,6 +251,18 @@ export async function PATCH(request, { params }) {
   // somebody will want to know who decided that. Only on a real change —
   // re-pressing a mark that is already on is not news, and a log that
   // records non-events is one people stop reading.
+  if (body.dismissed !== undefined && Boolean(existing.dismissedAt) !== Boolean(data.dismissedAt)) {
+    await recordActivity(member, {
+      action: data.dismissedAt ? "lead.dismissed" : "lead.undismissed",
+      entityType: "lead",
+      entityId: id,
+      summary: data.dismissedAt
+        ? `Dismissed lead "${existing.name}" from the dashboard's request list — follow-ups are unaffected`
+        : `Put lead "${existing.name}" back on the dashboard's request list`,
+      metadata: { leadId: id, dismissed: Boolean(data.dismissedAt) },
+    });
+  }
+
   if (body.reached !== undefined && Boolean(existing.reachedAt) !== Boolean(data.reachedAt)) {
     await recordActivity(member, {
       action: data.reachedAt ? "lead.marked_reached" : "lead.marked_not_reached",
@@ -257,6 +289,9 @@ export async function PATCH(request, { params }) {
       // beside the mark, because "reached" with nobody's name on it is a
       // claim the company cannot check back on.
       reachedBy: { select: { id: true, name: true } },
+      // Who dismissed it from the dashboard's Requests list. Triage, not a
+      // verdict — the Leads board shows the mark so it can be undone here.
+      dismissedBy: { select: { id: true, name: true } },
       quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
     },
   });
