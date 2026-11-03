@@ -30627,3 +30627,70 @@ to it.
 cron both email an invoice link and do not text it. The by-hand button could
 join this tomorrow; the cron is automatic texting, which is a different consent
 and cost question and nobody has asked for it.
+
+## A new enquiry texts somebody, and lands on the person whose job it is (2026-11-03)
+
+The owner: "is there a way to create a text notification to the company owner
+for when a lead arrives and their collected information — Name, Email, phone,
+Intent etc. We can then in the settings assign it to a different employee
+(future appointment setter) from the list of employees so they get notified."
+The agency's coaching behind it is a call inside 60 seconds, 2–3× a day. A lead
+arriving at FieldQuo rang a bell in a browser tab and did nothing else, which
+is no use to somebody in a van.
+
+**`lead.created` is now the fifth alert event** in `lib/notifications/
+clientAlerts.js`, alongside the four client ones. Its company switch is the
+`new_lead` NotificationRule — no row means ON, so the bell every company has
+today keeps ringing — and OFF silences every channel, the bell included,
+because `notifyEvent` already puts any event in that table through the
+company switch before it writes a row.
+
+**The text carries what somebody needs to make the call**: the name, the
+phone, the email, what they want and a link that opens that lead's own drawer
+(`hrefFor` now returns `/app/leads?lead=<id>`, which is what the leads screen
+reads and what the kitchen-request email already linked to). Those details are
+NOT catalog params: `lib/notifications/alertFacts.js` reads the `LeadRequest`
+fresh at send time, once per send, so the text cannot carry a name corrected
+five minutes ago — and a homeowner's phone number never lands on a feed row
+that every member who can see Requests renders. What they want is the service
+category's translated name, else the intake's service answer, else the opening
+of what they typed, else *nothing*: a text reading "Wants: General enquiry"
+would be FieldQuo inventing the one fact the reader is about to ring up and
+ask about.
+
+**The event has no email channel at all** (`emailVia: null`). Nothing emailed
+about a new enquiry before, a nine-language template is not what was asked
+for, and the settings grid now draws that one box as a dash with a reason
+rather than as a tick that saves a preference no sender reads. `channelOn`
+refuses the channel whatever is stored, and the settings PUT refuses it by
+name.
+
+**"New enquiries go to <employee>"** — `Company.leadOwnerId`, a Member id with
+no foreign key, set from Settings › Notifications by an owner or admin
+(`/api/settings/lead-owner`). Two real effects: `createScoredLead` assigns the
+lead to that person, so the board, the follow-up task and the enquiry-chase
+text to the homeowner all name them; and the `lead.created` fan-out includes
+them. It only ever adds — the check proves the recipient list with the setting
+is a superset of the list without it — and it never adds the actor, so a setter
+who types a lead in by hand is not texted about their own keystrokes. The
+picker offers only members the alert can already reach, which is the catalog's
+own resolver asked directly, because assigning somebody a lead they cannot
+open and then not telling them is a dead control wearing two hats.
+
+Not applied to a history import (a hundred July enquiries are not today's
+work), not to a lead made from a booking (`notify: false` — the booking
+already has an owner), and never over a caller that already stated one.
+A setter who leaves, is deactivated, or loses Requests access degrades to
+"nobody" because `leadOwnerMember` re-reads them as active on every use —
+there is deliberately no cleanup job, since the stale weekend in between is
+exactly the window that matters.
+
+**Checks.** `check:client-alerts` went from 230 assertions to 397 (428 with
+its 31 mutations). It executes the real `createScoredLead` for every case, so
+all eight inbound channels are covered by the one hook: the five bell
+recipients and no crew, the text's every line, the company switch silencing
+everything while the lead is still captured, a lead holding nothing but a name
+producing a text with no holes, another company's lead enriching nothing, the
+enricher against a 300-character name and an email with no "@", the
+superset property, the actor exclusion, and the degrade-to-nobody. Measured
+cost of a realistic enquiry text: 211 characters, 2 segments in English.

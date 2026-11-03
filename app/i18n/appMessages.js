@@ -20243,8 +20243,8 @@ const en = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} opened quote ${V.quoteNumber} (${timesOrdinal("en", V.count)})` : `${V.clientName} opened quote ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "{clientName} approved change order {label}",
-  "app.clientAlerts.title": "Client activity alerts",
-  "app.clientAlerts.desc": "Know the moment a client opens a quote, approves one, signs a change order or sends a request. You choose how you hear about each.",
+  "app.clientAlerts.title": "Lead and client alerts",
+  "app.clientAlerts.desc": "Know the moment a new enquiry arrives, or a client opens a quote, approves one, signs a change order or sends a request. You choose how you hear about each.",
   "app.clientAlerts.event.quote.viewed": "A client opens a quote",
   "app.clientAlerts.event.quote.accepted": "A client approves a quote",
   "app.clientAlerts.event.changeOrder.approved": "A client approves a change order",
@@ -20265,6 +20265,13 @@ const en = {
   "app.clientAlerts.companyTitle": "For the whole company",
   "app.clientAlerts.companyDesc": "Owners and admins only. Switch an alert off here and nobody in the company gets it — no bell, push, email or text.",
   "app.clientAlerts.loadError": "Couldn't load your alert settings. Refresh to try again.",
+  "app.clientAlerts.event.lead.created": "A new enquiry arrives",
+  "app.clientAlerts.hint.lead.created": "Every inbound channel — your request form, booking page, phone assistant and ads.",
+  "app.clientAlerts.noChannel": "Not available for this alert",
+  "app.clientAlerts.leadOwnerLabel": "New enquiries go to",
+  "app.clientAlerts.leadOwnerDesc": "That person is assigned every new enquiry and gets its alert, on top of everyone who already does. Only people who can see Requests are listed.",
+  "app.clientAlerts.leadOwnerNobody": "Nobody — leave them unassigned",
+  "app.clientAlerts.leadOwnerNone": "Nobody on your team can see Requests yet, so there is nobody to assign enquiries to.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -39943,8 +39950,8 @@ const fr = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} a ouvert la soumission ${V.quoteNumber} (${timesOrdinal("fr", V.count)})` : `${V.clientName} a ouvert la soumission ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "{clientName} a approuvé l’avenant {label}",
-  "app.clientAlerts.title": "Alertes sur l’activité des clients",
-  "app.clientAlerts.desc": "Sachez dès qu’un client ouvre une soumission, l’approuve, signe un avenant ou envoie une demande. Vous choisissez comment être averti pour chacun.",
+  "app.clientAlerts.title": "Alertes sur les demandes et les clients",
+  "app.clientAlerts.desc": "Sachez dès qu’une nouvelle demande arrive, ou qu’un client ouvre une soumission, l’approuve, signe un avenant ou envoie une demande. Vous choisissez comment être averti pour chacun.",
   "app.clientAlerts.event.quote.viewed": "Un client ouvre une soumission",
   "app.clientAlerts.event.quote.accepted": "Un client approuve une soumission",
   "app.clientAlerts.event.changeOrder.approved": "Un client approuve un avenant",
@@ -39965,6 +39972,13 @@ const fr = {
   "app.clientAlerts.companyTitle": "Pour toute l’entreprise",
   "app.clientAlerts.companyDesc": "Propriétaires et administrateurs seulement. Désactivez une alerte ici et personne dans l’entreprise ne la reçoit — ni cloche, ni notification, ni courriel, ni texto.",
   "app.clientAlerts.loadError": "Impossible de charger vos réglages d’alertes. Actualisez pour réessayer.",
+  "app.clientAlerts.event.lead.created": "Une nouvelle demande arrive",
+  "app.clientAlerts.hint.lead.created": "Tous les canaux entrants — votre formulaire, la page de réservation, l’assistant téléphonique et les publicités.",
+  "app.clientAlerts.noChannel": "Non offert pour cette alerte",
+  "app.clientAlerts.leadOwnerLabel": "Les nouvelles demandes vont à",
+  "app.clientAlerts.leadOwnerDesc": "Cette personne se voit assigner chaque nouvelle demande et en reçoit l’alerte, en plus de tous ceux qui la reçoivent déjà. Seules les personnes qui voient les Demandes sont listées.",
+  "app.clientAlerts.leadOwnerNobody": "Personne — laisser non assignée",
+  "app.clientAlerts.leadOwnerNone": "Personne dans votre équipe ne voit encore les Demandes : il n’y a personne à qui les assigner.",
 };
 
 
@@ -59993,8 +60007,8 @@ const es = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} abrió el presupuesto ${V.quoteNumber} (${timesOrdinal("es", V.count)})` : `${V.clientName} abrió el presupuesto ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "{clientName} aprobó la orden de cambio {label}",
-  "app.clientAlerts.title": "Alertas de actividad de clientes",
-  "app.clientAlerts.desc": "Entérese en cuanto un cliente abra un presupuesto, lo apruebe, firme una orden de cambio o envíe una solicitud. Usted elige cómo enterarse de cada una.",
+  "app.clientAlerts.title": "Alertas de consultas y clientes",
+  "app.clientAlerts.desc": "Entérese en cuanto llegue una nueva consulta, o un cliente abra un presupuesto, lo apruebe, firme una orden de cambio o envíe una solicitud. Usted elige cómo enterarse de cada una.",
   "app.clientAlerts.event.quote.viewed": "Un cliente abre un presupuesto",
   "app.clientAlerts.event.quote.accepted": "Un cliente aprueba un presupuesto",
   "app.clientAlerts.event.changeOrder.approved": "Un cliente aprueba una orden de cambio",
@@ -60015,6 +60029,13 @@ const es = {
   "app.clientAlerts.companyTitle": "Para toda la empresa",
   "app.clientAlerts.companyDesc": "Solo propietarios y administradores. Si desactiva una alerta aquí, nadie en la empresa la recibe: ni campana, ni aviso, ni correo, ni mensaje.",
   "app.clientAlerts.loadError": "No se pudo cargar su configuración de alertas. Actualice para intentarlo de nuevo.",
+  "app.clientAlerts.event.lead.created": "Llega una nueva consulta",
+  "app.clientAlerts.hint.lead.created": "Todos los canales de entrada: su formulario, la página de reservas, el asistente telefónico y los anuncios.",
+  "app.clientAlerts.noChannel": "No disponible para esta alerta",
+  "app.clientAlerts.leadOwnerLabel": "Las nuevas consultas van a",
+  "app.clientAlerts.leadOwnerDesc": "A esa persona se le asigna cada nueva consulta y recibe su alerta, además de todos los que ya la reciben. Solo se listan las personas que pueden ver Solicitudes.",
+  "app.clientAlerts.leadOwnerNobody": "Nadie — dejarlas sin asignar",
+  "app.clientAlerts.leadOwnerNone": "Todavía nadie de su equipo puede ver Solicitudes, así que no hay a quién asignarlas.",
 };
 
 const uk = {
@@ -79526,8 +79547,8 @@ const uk = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} відкрив(ла) кошторис ${V.quoteNumber} (${timesOrdinal("uk", V.count)})` : `${V.clientName} відкрив(ла) кошторис ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "{clientName} погодив(ла) зміну замовлення {label}",
-  "app.clientAlerts.title": "Сповіщення про дії клієнтів",
-  "app.clientAlerts.desc": "Дізнавайтеся одразу, коли клієнт відкриває кошторис, схвалює його, підписує зміну замовлення або надсилає запит. Ви самі обираєте, як отримувати кожне сповіщення.",
+  "app.clientAlerts.title": "Сповіщення про запити та клієнтів",
+  "app.clientAlerts.desc": "Дізнавайтеся одразу, коли надходить новий запит або коли клієнт відкриває кошторис, схвалює його, підписує зміну замовлення або надсилає запит. Ви самі обираєте, як отримувати кожне сповіщення.",
   "app.clientAlerts.event.quote.viewed": "Клієнт відкриває кошторис",
   "app.clientAlerts.event.quote.accepted": "Клієнт схвалює кошторис",
   "app.clientAlerts.event.changeOrder.approved": "Клієнт погоджує зміну замовлення",
@@ -79548,6 +79569,13 @@ const uk = {
   "app.clientAlerts.companyTitle": "Для всієї компанії",
   "app.clientAlerts.companyDesc": "Лише для власників і адміністраторів. Якщо вимкнути сповіщення тут, його не отримає ніхто в компанії — ні дзвіночок, ні push, ні email, ні SMS.",
   "app.clientAlerts.loadError": "Не вдалося завантажити налаштування сповіщень. Оновіть сторінку, щоб спробувати ще раз.",
+  "app.clientAlerts.event.lead.created": "Надходить новий запит",
+  "app.clientAlerts.hint.lead.created": "Усі вхідні канали — ваша форма запиту, сторінка бронювання, телефонний асистент і реклама.",
+  "app.clientAlerts.noChannel": "Недоступно для цього сповіщення",
+  "app.clientAlerts.leadOwnerLabel": "Нові запити отримує",
+  "app.clientAlerts.leadOwnerDesc": "Ця особа отримує кожен новий запит і його сповіщення — додатково до всіх, хто вже його отримує. У списку лише ті, хто бачить Запити.",
+  "app.clientAlerts.leadOwnerNobody": "Нікому — залишати без призначення",
+  "app.clientAlerts.leadOwnerNone": "Ніхто у вашій команді ще не бачить Запити, тож призначати нікому.",
 };
 
 const pa = {
@@ -98987,8 +99015,8 @@ const pa = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} ਨੇ ਕੋਟ ${V.quoteNumber} ਖੋਲ੍ਹਿਆ (${timesOrdinal("pa", V.count)})` : `${V.clientName} ਨੇ ਕੋਟ ${V.quoteNumber} ਖੋਲ੍ਹਿਆ`),
   "app.notif.type.changeOrder.approved": "{clientName} ਨੇ ਤਬਦੀਲੀ ਆਰਡਰ {label} ਮਨਜ਼ੂਰ ਕੀਤਾ",
-  "app.clientAlerts.title": "ਗਾਹਕਾਂ ਦੀ ਗਤੀਵਿਧੀ ਦੀਆਂ ਚੇਤਾਵਨੀਆਂ",
-  "app.clientAlerts.desc": "ਜਿਵੇਂ ਹੀ ਕੋਈ ਗਾਹਕ ਕੋਟ ਖੋਲ੍ਹੇ, ਮਨਜ਼ੂਰ ਕਰੇ, ਤਬਦੀਲੀ ਆਰਡਰ 'ਤੇ ਦਸਤਖਤ ਕਰੇ ਜਾਂ ਬੇਨਤੀ ਭੇਜੇ, ਤੁਹਾਨੂੰ ਪਤਾ ਲੱਗ ਜਾਵੇ। ਹਰ ਇੱਕ ਲਈ ਤੁਸੀਂ ਚੁਣੋ ਕਿ ਕਿਵੇਂ ਦੱਸਿਆ ਜਾਵੇ।",
+  "app.clientAlerts.title": "ਪੁੱਛਗਿੱਛਾਂ ਅਤੇ ਗਾਹਕਾਂ ਦੀਆਂ ਸੂਚਨਾਂ",
+  "app.clientAlerts.desc": "ਜਾਣੋ ਉਸੇ ਵੇਲੇ ਜਦੋਂ ਨਵੀਂ ਪੁੱਛਗਿੱਛ ਆਉਂਦੀ ਹੈ, ਜਾਂ ਕੋਈ ਗਾਹਕ ਕੋਟ ਖੋਲ੍ਹਦਾ, ਮਨਜ਼ੂਰ ਕਰਦਾ, ਤਬਦੀਲੀ ਆਰਡਰ ਤੇ ਦਸਤਖਤ ਕਰਦਾ ਜਾਂ ਬੇਨਤੀ ਭੇਜਦਾ ਹੈ। ਹਰ ਇੱਕ ਲਈ ਤੁਸੀਂ ਚੁਣਦੇ ਹੋ ਕਿ ਕਿਵੇਂ ਪਤਾ ਲੱਗੇ।",
   "app.clientAlerts.event.quote.viewed": "ਗਾਹਕ ਕੋਟ ਖੋਲ੍ਹਦਾ ਹੈ",
   "app.clientAlerts.event.quote.accepted": "ਗਾਹਕ ਕੋਟ ਮਨਜ਼ੂਰ ਕਰਦਾ ਹੈ",
   "app.clientAlerts.event.changeOrder.approved": "ਗਾਹਕ ਤਬਦੀਲੀ ਆਰਡਰ ਮਨਜ਼ੂਰ ਕਰਦਾ ਹੈ",
@@ -99009,6 +99037,13 @@ const pa = {
   "app.clientAlerts.companyTitle": "ਪੂਰੀ ਕੰਪਨੀ ਲਈ",
   "app.clientAlerts.companyDesc": "ਸਿਰਫ਼ ਮਾਲਕ ਅਤੇ ਐਡਮਿਨ। ਇੱਥੇ ਕੋਈ ਚੇਤਾਵਨੀ ਬੰਦ ਕਰੋ ਤਾਂ ਕੰਪਨੀ ਵਿੱਚ ਕਿਸੇ ਨੂੰ ਨਹੀਂ ਮਿਲੇਗੀ — ਨਾ ਘੰਟੀ, ਨਾ ਪੁਸ਼, ਨਾ ਈਮੇਲ, ਨਾ ਟੈਕਸਟ।",
   "app.clientAlerts.loadError": "ਤੁਹਾਡੀਆਂ ਚੇਤਾਵਨੀ ਸੈਟਿੰਗਾਂ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀਆਂ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰਨ ਲਈ ਰਿਫ੍ਰੈਸ਼ ਕਰੋ।",
+  "app.clientAlerts.event.lead.created": "ਨਵੀਂ ਪੁੱਛਗਿੱਛ ਆਉਂਦੀ ਹੈ",
+  "app.clientAlerts.hint.lead.created": "ਹਰ ਆਉਣ ਵਾਲਾ ਜ਼ਰੀਆ — ਤੁਹਾਡਾ ਬੇਨਤੀ ਫਾਰਮ, ਬੁਕਿੰਗ ਪੰਨਾ, ਫ਼ੋਨ ਸਹਾਇਕ ਅਤੇ ਇਸ਼ਤਿਹਾਰ।",
+  "app.clientAlerts.noChannel": "ਇਸ ਸੂਚਨਾ ਲਈ ਉਪਲਬਧ ਨਹੀਂ",
+  "app.clientAlerts.leadOwnerLabel": "ਨਵੀਆਂ ਪੁੱਛਗਿੱਛਾਂ ਕਿਸ ਨੂੰ ਜਾਣ",
+  "app.clientAlerts.leadOwnerDesc": "ਉਸ ਵਿਅਕਤੀ ਨੂੰ ਹਰ ਨਵੀਂ ਪੁੱਛਗਿੱਛ ਸੌਂਪੀ ਜਾਂਦੀ ਹੈ ਅਤੇ ਉਸ ਦੀ ਸੂਚਨਾ ਮਿਲਦੀ ਹੈ — ਜਿਨ੍ਹਾਂ ਨੂੰ ਪਹਿਲਾਂ ਹੀ ਮਿਲਦੀ ਹੈ ਉਨ੍ਹਾਂ ਤੋਂ ਇਲਾਵਾ। ਸਿਰਫ਼ ਉਹ ਲੋਕ ਸੂਚੀਬੱਧ ਹਨ ਜੋ ਬੇਨਤੀਆਂ ਦੇਖ ਸਕਦੇ ਹਨ।",
+  "app.clientAlerts.leadOwnerNobody": "ਕੋਈ ਨਹੀਂ — ਬਿਨਾਂ ਸੌਂਪੇ ਛੱਡੋ",
+  "app.clientAlerts.leadOwnerNone": "ਤੁਹਾਡੀ ਟੀਮ ਵਿੱਚ ਹਾਲੇ ਕੋਈ ਵੀ ਬੇਨਤੀਆਂ ਨਹੀਂ ਦੇਖ ਸਕਦਾ, ਇਸ ਲਈ ਸੌਂਪਣ ਲਈ ਕੋਈ ਨਹੀਂ ਹੈ।",
 };
 
 const tl = {
@@ -118458,8 +118493,8 @@ const tl = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `Binuksan ni ${V.clientName} ang quote ${V.quoteNumber} (${timesOrdinal("tl", V.count)})` : `Binuksan ni ${V.clientName} ang quote ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "Inaprubahan ni {clientName} ang change order {label}",
-  "app.clientAlerts.title": "Mga alerto sa aktibidad ng kliyente",
-  "app.clientAlerts.desc": "Malaman agad kapag binuksan ng kliyente ang quote, inaprubahan ito, pinirmahan ang change order, o nagpadala ng request. Ikaw ang pipili kung paano ka aabisuhan sa bawat isa.",
+  "app.clientAlerts.title": "Mga alerto sa tanong at kliyente",
+  "app.clientAlerts.desc": "Malaman agad kapag may dumating na bagong tanong, o kapag binuksan ng kliyente ang quote, inaprubahan ito, pinirmahan ang change order o nagpadala ng request. Pinipili ninyo kung paano malalaman ang bawat isa.",
   "app.clientAlerts.event.quote.viewed": "Binubuksan ng kliyente ang quote",
   "app.clientAlerts.event.quote.accepted": "Inaaprubahan ng kliyente ang quote",
   "app.clientAlerts.event.changeOrder.approved": "Inaaprubahan ng kliyente ang change order",
@@ -118480,6 +118515,13 @@ const tl = {
   "app.clientAlerts.companyTitle": "Para sa buong kumpanya",
   "app.clientAlerts.companyDesc": "Para lang sa mga may-ari at admin. Kapag in-off mo ang alerto rito, walang sinuman sa kumpanya ang makakatanggap nito — walang bell, push, email o text.",
   "app.clientAlerts.loadError": "Hindi ma-load ang mga setting ng alerto mo. I-refresh para subukan ulit.",
+  "app.clientAlerts.event.lead.created": "May dumating na bagong tanong",
+  "app.clientAlerts.hint.lead.created": "Lahat ng papasok na daan — ang inyong request form, booking page, phone assistant at mga ad.",
+  "app.clientAlerts.noChannel": "Hindi available sa alertong ito",
+  "app.clientAlerts.leadOwnerLabel": "Ang mga bagong tanong ay mapupunta kay",
+  "app.clientAlerts.leadOwnerDesc": "Siya ang maaasignahan ng bawat bagong tanong at makakatanggap ng alerto nito, bukod sa lahat ng nakakatanggap na. Tanging ang mga nakakakita ng Requests ang nakalista.",
+  "app.clientAlerts.leadOwnerNobody": "Wala — iwang walang assign",
+  "app.clientAlerts.leadOwnerNone": "Wala pa sa inyong team ang nakakakita ng Requests, kaya walang maaasignahan.",
 };
 
 const de = {
@@ -137815,8 +137857,8 @@ const de = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} hat Angebot ${V.quoteNumber} geöffnet (${timesOrdinal("de", V.count)})` : `${V.clientName} hat Angebot ${V.quoteNumber} geöffnet`),
   "app.notif.type.changeOrder.approved": "{clientName} hat Nachtrag {label} freigegeben",
-  "app.clientAlerts.title": "Benachrichtigungen zu Kundenaktivität",
-  "app.clientAlerts.desc": "Erfahren Sie sofort, wenn ein Kunde ein Angebot öffnet oder annimmt, einen Nachtrag unterschreibt oder eine Anfrage sendet. Wie Sie jeweils benachrichtigt werden, entscheiden Sie selbst.",
+  "app.clientAlerts.title": "Benachrichtigungen zu Anfragen und Kunden",
+  "app.clientAlerts.desc": "Erfahren Sie sofort, wenn eine neue Anfrage eingeht oder ein Kunde ein Angebot öffnet, annimmt, einen Nachtrag freigibt oder eine Anfrage sendet. Sie entscheiden, wie Sie von jedem erfahren.",
   "app.clientAlerts.event.quote.viewed": "Ein Kunde öffnet ein Angebot",
   "app.clientAlerts.event.quote.accepted": "Ein Kunde nimmt ein Angebot an",
   "app.clientAlerts.event.changeOrder.approved": "Ein Kunde gibt einen Nachtrag frei",
@@ -137837,6 +137879,13 @@ const de = {
   "app.clientAlerts.companyTitle": "Für das ganze Unternehmen",
   "app.clientAlerts.companyDesc": "Nur Inhaber und Administratoren. Wird eine Benachrichtigung hier ausgeschaltet, erhält sie niemand im Unternehmen — keine Glocke, kein Push, keine E-Mail, keine SMS.",
   "app.clientAlerts.loadError": "Ihre Benachrichtigungseinstellungen konnten nicht geladen werden. Laden Sie die Seite neu, um es erneut zu versuchen.",
+  "app.clientAlerts.event.lead.created": "Eine neue Anfrage kommt herein",
+  "app.clientAlerts.hint.lead.created": "Jeder Eingangskanal — Ihr Anfrageformular, die Buchungsseite, der Telefonassistent und Anzeigen.",
+  "app.clientAlerts.noChannel": "Für diese Benachrichtigung nicht verfügbar",
+  "app.clientAlerts.leadOwnerLabel": "Neue Anfragen gehen an",
+  "app.clientAlerts.leadOwnerDesc": "Diese Person wird jeder neuen Anfrage zugewiesen und erhält deren Benachrichtigung — zusätzlich zu allen, die sie schon bekommen. Aufgeführt sind nur Personen, die Anfragen sehen können.",
+  "app.clientAlerts.leadOwnerNobody": "Niemand — nicht zuweisen",
+  "app.clientAlerts.leadOwnerNone": "Niemand in Ihrem Team kann bisher Anfragen sehen, also gibt es niemanden zum Zuweisen.",
 };
 
 const zh = {
@@ -157163,8 +157212,8 @@ const zh = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} 打开了报价单 ${V.quoteNumber}（${timesOrdinal("zh", V.count)}）` : `${V.clientName} 打开了报价单 ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "{clientName} 批准了变更单 {label}",
-  "app.clientAlerts.title": "客户动态提醒",
-  "app.clientAlerts.desc": "客户打开报价单、批准报价单、签署变更单或发来请求时，第一时间通知你。每一项都由你决定通知方式。",
+  "app.clientAlerts.title": "询价与客户提醒",
+  "app.clientAlerts.desc": "新询价到达，或客户打开报价单、批准报价单、签署变更单或发来请求时，立即知晓。每一项的通知方式由您选择。",
   "app.clientAlerts.event.quote.viewed": "客户打开报价单",
   "app.clientAlerts.event.quote.accepted": "客户批准报价单",
   "app.clientAlerts.event.changeOrder.approved": "客户批准变更单",
@@ -157185,6 +157234,13 @@ const zh = {
   "app.clientAlerts.companyTitle": "整个公司",
   "app.clientAlerts.companyDesc": "仅限所有者和管理员。在这里关闭某项提醒后，公司里任何人都不会收到——没有铃铛、推送、邮件或短信。",
   "app.clientAlerts.loadError": "无法加载你的提醒设置。请刷新后重试。",
+  "app.clientAlerts.event.lead.created": "有新询价到达",
+  "app.clientAlerts.hint.lead.created": "所有进线渠道——您的询价表单、预约页面、电话助手和广告。",
+  "app.clientAlerts.noChannel": "此提醒不支持该方式",
+  "app.clientAlerts.leadOwnerLabel": "新询价指派给",
+  "app.clientAlerts.leadOwnerDesc": "该成员会被指派每一条新询价并收到提醒，原本收到提醒的人照旧。列表只包含能查看“请求”的成员。",
+  "app.clientAlerts.leadOwnerNobody": "无人——保持未指派",
+  "app.clientAlerts.leadOwnerNone": "团队中还没有人能查看“请求”，因此没有可指派的人。",
 };
 
 const it = {
@@ -176813,8 +176869,8 @@ const it = {
   // ── Client activity alerts (2026-10-14) — lib/notifications/clientAlerts.js ──
   "app.notif.type.quote.viewed": (V) => (Number(V.count) > 1 ? `${V.clientName} ha aperto il preventivo ${V.quoteNumber} (${timesOrdinal("it", V.count)})` : `${V.clientName} ha aperto il preventivo ${V.quoteNumber}`),
   "app.notif.type.changeOrder.approved": "{clientName} ha approvato la variante {label}",
-  "app.clientAlerts.title": "Avvisi sull'attività dei clienti",
-  "app.clientAlerts.desc": "Sappi subito quando un cliente apre un preventivo, lo approva, firma una variante o invia una richiesta. Scegli tu come ricevere ciascun avviso.",
+  "app.clientAlerts.title": "Avvisi su richieste e clienti",
+  "app.clientAlerts.desc": "Sappiate subito quando arriva una nuova richiesta, o quando un cliente apre un preventivo, lo approva, firma una variante o invia una richiesta. Scegliete voi come esserne informati.",
   "app.clientAlerts.event.quote.viewed": "Un cliente apre un preventivo",
   "app.clientAlerts.event.quote.accepted": "Un cliente approva un preventivo",
   "app.clientAlerts.event.changeOrder.approved": "Un cliente approva una variante",
@@ -176835,6 +176891,13 @@ const it = {
   "app.clientAlerts.companyTitle": "Per tutta l'azienda",
   "app.clientAlerts.companyDesc": "Solo titolari e amministratori. Se disattivi un avviso qui, nessuno in azienda lo riceve — né campanella, né push, né email, né SMS.",
   "app.clientAlerts.loadError": "Impossibile caricare le impostazioni degli avvisi. Aggiorna la pagina per riprovare.",
+  "app.clientAlerts.event.lead.created": "Arriva una nuova richiesta",
+  "app.clientAlerts.hint.lead.created": "Tutti i canali in entrata — il vostro modulo, la pagina di prenotazione, l’assistente telefonico e gli annunci.",
+  "app.clientAlerts.noChannel": "Non disponibile per questo avviso",
+  "app.clientAlerts.leadOwnerLabel": "Le nuove richieste vanno a",
+  "app.clientAlerts.leadOwnerDesc": "Quella persona riceve in assegnazione ogni nuova richiesta e il relativo avviso, in aggiunta a tutti quelli che lo ricevono già. Sono elencate solo le persone che possono vedere le Richieste.",
+  "app.clientAlerts.leadOwnerNobody": "Nessuno — lasciarle non assegnate",
+  "app.clientAlerts.leadOwnerNone": "Nessuno nel vostro team può ancora vedere le Richieste, quindi non c’è a chi assegnarle.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

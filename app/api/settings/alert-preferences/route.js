@@ -3,8 +3,9 @@
 // The signed-in person's OWN client-activity alerts — Settings ›
 // Notifications, "Client activity alerts" (the owner, 2026-10-14: "send me a
 // text when the client has opened / approved a quote / change order /
-// request"). Which of the four events reach them by bell + push, email and
-// text, and the mobile number the texts go to.
+// request"). Which of the five events — the four client ones and a new
+// enquiry arriving — reach them by bell + push, email and text, and the
+// mobile number the texts go to.
 //
 // Per member, and only ever the caller's own row: an owner cannot switch a
 // text on for somebody else's phone. The company-wide switch per event is a
@@ -32,6 +33,7 @@ import {
   CLIENT_ALERTS,
   CLIENT_ALERT_EVENTS,
   STAFF_TEXT_DAILY_CAP,
+  channelAvailable,
   channelOn,
   companyAlertOn,
   validateAlertPatch,
@@ -87,6 +89,15 @@ async function state(member) {
           inApp: channelOn(pref, event, "inApp", enforceable || {}),
           email: channelOn(pref, event, "email", enforceable || {}),
           sms: channelOn(pref, event, "sms", enforceable || {}),
+        },
+        // Which channels this event HAS a sender for. A new enquiry has no
+        // email (CLIENT_ALERTS emailVia null), so the screen draws that one
+        // box disabled with the reason rather than offering a tick that
+        // saves a preference nothing would ever read.
+        available: {
+          inApp: channelAvailable(event, "inApp"),
+          email: channelAvailable(event, "email"),
+          sms: channelAvailable(event, "sms"),
         },
       };
     }),

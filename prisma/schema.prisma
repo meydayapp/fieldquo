@@ -2427,6 +2427,27 @@ model Company {
   /// company that finds it nagging must be able to do.
   leadCallsPerDay        Int     @default(2)
 
+  /// Who new enquiries go to — the owner, 2026-11-03: "We can then in the
+  /// settings assign it to a different employee (future appointment setter)
+  /// from the list of employees so they get notified."
+  ///
+  /// A MEMBER id, not a User id, even though LeadRequest.assignedToId is a
+  /// User id and this is read to fill it. A Member row is company-scoped, so
+  /// an id left here can only ever name somebody in THIS company; a stale
+  /// User id could name a person who is now only in another tenant, and the
+  /// read would have to re-prove membership anyway.
+  ///
+  /// Deliberately NOT a relation. A foreign key would make leaving the
+  /// company either refuse or cascade, and the behaviour the owner needs is
+  /// neither: a named setter who leaves or is deactivated degrades to
+  /// "nobody", which lib/notifications/leadOwner.js does by re-reading the
+  /// member as active on every use. Nothing is cleaned up on a schedule —
+  /// a cleanup job is a second place the rule could disagree with itself.
+  ///
+  /// Null means what it has always meant: no default assignee, and a new
+  /// enquiry lands on the board unassigned.
+  leadOwnerId            String?
+
   /// The company's PRE-QUOTE video — what a homeowner watches before the
   /// estimator turns up, linked from the enquiry follow-ups.
   ///

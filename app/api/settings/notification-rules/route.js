@@ -59,6 +59,14 @@ export const RULE_TYPES = {
     needsThreshold: false,
     description: "Alert the team when a client sends a request from their portal.",
   },
+  // The COMPANY switch for a new enquiry (2026-11-03). Default ON, like the
+  // four above: the bell for lead.created already rings today, and a company
+  // that has never opened this screen must keep it.
+  new_lead: {
+    label: "New enquiry arrived",
+    needsThreshold: false,
+    description: "Alert the team when a new enquiry arrives from any channel.",
+  },
 };
 
 // Coarse role check on purpose. The granular grid (PERMISSION_CATEGORIES) has

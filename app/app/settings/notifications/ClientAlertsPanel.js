@@ -12,7 +12,10 @@
 //     and text, and the mobile number the texts go to.
 //   · For the whole company — owners and admins only: one switch per event
 //     (NotificationRule, /api/settings/notification-rules). Off means nobody
-//     in the company gets that alert on any channel.
+//     in the company gets that alert on any channel. Plus "New enquiries go
+//     to" (/api/settings/lead-owner): the appointment setter every new lead
+//     is assigned to and alerted about, offered only from the members the
+//     alert can actually reach.
 //
 // Every switch auto-saves and rolls back on a refusal, the shape the page's
 // other toggles use. A switch is never drawn live for an alert that cannot
@@ -35,6 +38,9 @@ export default function ClientAlertsPanel({ readOnly = false }) {
   const [busy, setBusy] = useState(null);
   const [phone, setPhone] = useState("");
   const [phoneSaved, setPhoneSaved] = useState(false);
+  // Who new enquiries go to — a COMPANY setting, so its own route and only
+  // loaded for somebody who may change it (the GET refuses anybody else).
+  const [leadOwner, setLeadOwner] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -42,6 +48,16 @@ export default function ClientAlertsPanel({ readOnly = false }) {
       const d = await fetchJson("/api/settings/alert-preferences");
       setData(d);
       setPhone(d?.phone || "");
+      if (d?.canManageCompany) {
+        // Its own try: a company that cannot read this still gets the rest of
+        // the panel, and the error names which half failed rather than
+        // blanking the screen.
+        try {
+          setLeadOwner(await fetchJson("/api/settings/lead-owner"));
+        } catch (err) {
+          setError(err?.message || t("app.clientAlerts.loadError"));
+        }
+      }
     } catch (err) {
       setError(err?.message || t("app.clientAlerts.loadError"));
     }
@@ -108,6 +124,21 @@ export default function ClientAlertsPanel({ readOnly = false }) {
     }
   }
 
+  async function setLeadOwnerMember(memberId) {
+    setBusy("leadOwner");
+    setError("");
+    const previous = leadOwner;
+    setLeadOwner((d) => ({ ...d, memberId: memberId || null }));
+    try {
+      setLeadOwner(await fetchJson("/api/settings/lead-owner", { method: "PUT", body: { memberId: memberId || null } }));
+    } catch (err) {
+      setLeadOwner(previous);
+      setError(err?.message || t("app.setNotifications.saveError"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (!data && !error) return <div className="animate-pulse h-48 bg-accent rounded-xl" />;
 
   const smsReady = Boolean(data?.phoneValid) && !data?.smsOptedOut;
@@ -148,6 +179,7 @@ export default function ClientAlertsPanel({ readOnly = false }) {
                       : [
                           e.event === "quote.viewed" ? t("app.clientAlerts.hint.quote.viewed") : null,
                           e.event === "client_ticket.opened" ? t("app.clientAlerts.hint.client_ticket.opened") : null,
+                          e.event === "lead.created" ? t("app.clientAlerts.hint.lead.created") : null,
                           e.ownOnly ? t("app.clientAlerts.ownOnly") : null,
                         ]
                           .filter(Boolean)
@@ -160,19 +192,34 @@ export default function ClientAlertsPanel({ readOnly = false }) {
                       </td>
                       {CHANNELS.map((c) => {
                         const key = `${e.event}:${c}`;
+                        // A channel this event has no sender for at all (a
+                        // new enquiry's email). `available` comes from the
+                        // server's own table; an older response without it
+                        // means every channel, which is what it meant then.
+                        const noChannel = e.available ? e.available[c] === false : false;
                         // A text needs a number that is not opted out — but
                         // an existing "on" stays visible and can be switched
                         // OFF whatever the phone's state.
-                        const disabled = off || busy === key || (c === "sms" && !smsReady && !e.channels.sms);
+                        const disabled = off || noChannel || busy === key || (c === "sms" && !smsReady && !e.channels.sms);
                         return (
                           <td key={c} className="px-2 py-3 text-center">
-                            <input
-                              type="checkbox"
-                              aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}`}
-                              checked={!off && Boolean(e.channels[c])}
-                              disabled={readOnly || disabled}
-                              onChange={(ev) => setChannel(e.event, c, ev.target.checked)}
-                            />
+                            {noChannel ? (
+                              <span
+                                className="text-xs text-muted-foreground"
+                                title={t("app.clientAlerts.noChannel")}
+                                aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}: ${t("app.clientAlerts.noChannel")}`}
+                              >
+                                —
+                              </span>
+                            ) : (
+                              <input
+                                type="checkbox"
+                                aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}`}
+                                checked={!off && Boolean(e.channels[c])}
+                                disabled={readOnly || disabled}
+                                onChange={(ev) => setChannel(e.event, c, ev.target.checked)}
+                              />
+                            )}
                           </td>
                         );
                       })}
@@ -236,6 +283,37 @@ export default function ClientAlertsPanel({ readOnly = false }) {
                   </label>
                 ))}
               </div>
+
+              {/* Who new enquiries go to. Only drawn when the server sent the
+                  options; the list holds exactly the members a new-enquiry
+                  alert can reach, so nobody can be picked who would be
+                  assigned the lead and never told about it. */}
+              {leadOwner && (
+                <div className="border-t border-border pt-4 mt-4 space-y-2">
+                  <label className="block text-sm font-semibold text-foreground" htmlFor="lead-owner">
+                    {t("app.clientAlerts.leadOwnerLabel")}
+                  </label>
+                  <p className="text-xs text-muted-foreground">{t("app.clientAlerts.leadOwnerDesc")}</p>
+                  <div className="flex items-center gap-2">
+                    <select
+                      id="lead-owner"
+                      value={leadOwner.memberId || ""}
+                      disabled={readOnly || busy === "leadOwner" || !leadOwner.options?.length}
+                      onChange={(ev) => setLeadOwnerMember(ev.target.value)}
+                      className="w-64 max-w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                    >
+                      <option value="">{t("app.clientAlerts.leadOwnerNobody")}</option>
+                      {(leadOwner.options || []).map((o) => (
+                        <option key={o.memberId} value={o.memberId}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                    {busy === "leadOwner" && <Loader2 size={14} className="animate-spin" />}
+                  </div>
+                  {!leadOwner.options?.length && <p className="text-xs text-muted-foreground">{t("app.clientAlerts.leadOwnerNone")}</p>}
+                </div>
+              )}
             </div>
           )}
         </>
