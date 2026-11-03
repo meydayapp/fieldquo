@@ -254,6 +254,33 @@ export default function WorkPanel({ work, currency = null, readOnly = false, onC
                       {reasonLine(item, t, language, now)}
                       {item.title && item.title !== item.name ? ` · ${item.title}` : ""}
                     </FigureText>
+                    {/* ── How many times somebody has tried today ─────────
+                        The nudge, on the row that was already here. Printed
+                        only when the server reported a standing: absent means
+                        "not known", and a "0 of 2" invented from nothing
+                        would be the panel asserting that nobody has called.
+
+                        `owed > 0` is what makes it stand out, and a target of
+                        0 — the company switching the nudge off — yields owed
+                        0 for every lead, so nothing is emphasised and the
+                        count still reads. */}
+                    {item.standing && item.standing.target > 0 && (
+                      <p
+                        className={`mt-0.5 truncate text-xs ${
+                          item.standing.owed > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
+                        }`}
+                      >
+                        {item.standing.owed > 0
+                          ? t("app.dash.work.attemptsOwed", {
+                              done: item.standing.today,
+                              target: item.standing.target,
+                            })
+                          : t("app.dash.work.attemptsDone", {
+                              done: item.standing.today,
+                              target: item.standing.target,
+                            })}
+                      </p>
+                    )}
                     {result?.note && (
                       <p role="status" className="mt-1 text-xs text-muted-foreground">
                         {result.note}

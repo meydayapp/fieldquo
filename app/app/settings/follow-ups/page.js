@@ -150,6 +150,11 @@ export default function FollowUpsPage() {
   // slug (lib/booking/bookableMembers.js). Undefined until the load answers,
   // so an unanswered load is never drawn as "you have no booking page".
   const [canSelfBook, setCanSelfBook] = useState(undefined);
+  // The daily call target. A draft written on blur, like the delay inputs on
+  // the rows below — one PUT per edit, not one per keystroke.
+  const [cadenceDraft, setCadenceDraft] = useState("");
+  const [cadenceBusy, setCadenceBusy] = useState(false);
+  const [cadenceError, setCadenceError] = useState("");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   // A refused load used to leave both lists at [] and then render three
@@ -197,6 +202,9 @@ export default function FollowUpsPage() {
       setSmsEnabled(typeof rulesData?.smsEnabled === "boolean" ? rulesData.smsEnabled : undefined);
       setHasVideo(rulesData?.hasPreQuoteVideo === true);
       setCanSelfBook(typeof rulesData?.canSelfBook === "boolean" ? rulesData.canSelfBook : undefined);
+      setCadenceDraft(
+        Number.isFinite(Number(rulesData?.leadCallsPerDay)) ? String(rulesData.leadCallsPerDay) : "",
+      );
       setTemplates(Array.isArray(templatesData) ? templatesData : []);
       setDelayDraft({});
       setLoadError("");
@@ -299,6 +307,35 @@ export default function FollowUpsPage() {
       return;
     }
     patchRule(rule, { delayValue: value });
+  }
+
+  // Written on blur, and only when it actually changed — the same shape the
+  // rows' delay inputs use. A refused save says why and puts the server's
+  // value back, rather than leaving a number on screen that was never stored.
+  async function commitCadence() {
+    const next = Number(cadenceDraft);
+    if (!Number.isInteger(next) || next < 0 || next > 10) {
+      setCadenceError(t("app.setFollowUps.cadenceRange"));
+      return;
+    }
+    setCadenceError("");
+    setCadenceBusy(true);
+    try {
+      const res = await fetch("/api/settings/lead-cadence", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callsPerDay: next }),
+      });
+      if (!res.ok) {
+        const msg = await reportResponseError(res, t("app.setFollowUps.cadenceError"));
+        setCadenceError(msg);
+        return;
+      }
+      const d = await res.json().catch(() => null);
+      if (Number.isFinite(Number(d?.callsPerDay))) setCadenceDraft(String(d.callsPerDay));
+    } finally {
+      setCadenceBusy(false);
+    }
   }
 
   async function handleDelete(id) {
@@ -421,6 +458,34 @@ export default function FollowUpsPage() {
               ? t("app.setFollowUps.preQuoteVideoSet")
               : t("app.setFollowUps.preQuoteVideoNone")}
           </p>
+          {/* ── The human cadence, beside the automated one ───────────────
+              "FFM say to call 2 to 3x per day." Two to three is the agency's
+              playbook, not a FieldQuo fact, which is why it is a number a
+              company sets rather than a constant. It drives the count on the
+              dashboard's request rows and nothing else — it sends nothing,
+              so there is no cost to raising it beyond the calls somebody
+              then has to make. 0 switches that count off. */}
+          <label className="text-muted-foreground inline-flex flex-wrap items-center gap-1.5">
+            {t("app.setFollowUps.cadencePre")}
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={cadenceDraft}
+              disabled={cadenceBusy}
+              onChange={(e) => setCadenceDraft(e.target.value)}
+              onBlur={commitCadence}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              className={`${smallInput} w-16`}
+              aria-label={t("app.setFollowUps.cadenceAria")}
+            />
+            {t("app.setFollowUps.cadencePost")}
+          </label>
+          {cadenceError && (
+            <p className="text-red-700 dark:text-red-300">{cadenceError}</p>
+          )}
         </div>
       )}
 

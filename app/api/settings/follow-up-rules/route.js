@@ -43,7 +43,7 @@ export async function GET(request) {
     }),
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { followUpSmsOn: true, preQuoteVideoUrl: true },
+      select: { followUpSmsOn: true, preQuoteVideoUrl: true, leadCallsPerDay: true },
     }),
     hasBookableMember(member.companyId).catch(() => ({ ok: false, reason: "unknown" })),
   ]);
@@ -73,6 +73,10 @@ export async function GET(request) {
     // A failed lookup answers `false` with reason "unknown" rather than
     // throwing the page away — and the page distinguishes the two, so a
     // transient error is never drawn as "you have no booking page".
+    // The human cadence the dashboard measures recorded attempts against —
+    // on this page because this is where chasing a lead is configured, and
+    // the automated sequence and the manual one are the same job.
+    leadCallsPerDay: company?.leadCallsPerDay ?? null,
     canSelfBook: booking?.ok === true,
     bookingReason: booking?.reason || null,
   });

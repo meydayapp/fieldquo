@@ -58,6 +58,10 @@ import {
 // stopConditions.js: that one is in the browser bundle (the dashboard's work
 // panel imports quoteChaseBlocker from it), and this reaches pg.
 import { gatherLeadChaseFacts } from "@/lib/followUps/leadChaseFacts";
+// The attempt log. The cron writes a row for a send it ACTUALLY made, which
+// is the only kind of row FieldQuo may claim for itself — a call and a
+// voicemail can only ever come from a person (lib/leads/attempts.js).
+import { kindMayBeSystem } from "@/lib/leads/attempts";
 import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
 import { templateBody } from "@/lib/email/templateBody";
 import { localizeTemplate } from "@/lib/email/templateTranslation";
@@ -258,6 +262,28 @@ export async function GET(request) {
   const smsSkipped = {};
   const smsSkip = (reason) => {
     smsSkipped[reason] = (smsSkipped[reason] || 0) + 1;
+  };
+
+  /**
+   * Record that FieldQuo tried to reach this LEAD, as itself.
+   *
+   * Only for an enquiry, only after the send was accepted, and only for the
+   * two kinds FieldQuo can honestly claim — an email and a text it sent.
+   * `kindMayBeSystem` is the gate rather than a comment, so a future edit
+   * cannot log a "call" from a cron.
+   *
+   * Never throws and never blocks the run: the send is the thing that
+   * mattered, and a lost log row must not cost the next ninety follow-ups.
+   * It also writes nothing on the lead — an attempt is outbound, and the one
+   * thing that must never happen is an unanswered send reading as contact.
+   */
+  const noteAttempt = async ({ entityType, companyId, leadId, kind }) => {
+    if (entityType !== "lead" || !companyId || !leadId || !kindMayBeSystem(kind)) return;
+    await db.leadContactAttempt
+      .create({ data: { companyId, leadId, kind, source: "system", byId: null } })
+      .catch((err) => {
+        console.error("[follow-ups] attempt not logged:", err?.message);
+      });
   };
   // Per stop reason, so the response says WHY nothing went out rather than
   // just that it didn't. Keys are lib/followUps/stopConditions.js's reasons
@@ -508,6 +534,16 @@ export async function GET(request) {
         });
         if (outcome.texted) {
           texted++;
+          // A text FieldQuo sent, logged as FieldQuo's own attempt. After the
+          // success branch, so a refused send logs nothing: a row saying
+          // "texted" for a text that never left is the half-truth this
+          // codebase keeps pulling out.
+          await noteAttempt({
+            entityType: finder.entityType,
+            companyId: entity.companyId,
+            leadId: entity.id,
+            kind: "text",
+          });
           continue;
         }
         smsSkip(outcome.reason);
@@ -671,6 +707,13 @@ export async function GET(request) {
       const outcome = sendOutcome(result);
       if (outcome.ok) {
         sent++;
+        // Same rule as the text above: only a send the provider accepted.
+        await noteAttempt({
+          entityType: finder.entityType,
+          companyId: entity.companyId,
+          leadId: entity.id,
+          kind: "email",
+        });
         // The chase as it went, for the History tab on the client and job
         // pages (lib/email/sentEmailHistory.js). Automatic: nobody sent it.
         // A lead's chase has no client page to keep it on, so it is not kept.

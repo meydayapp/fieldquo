@@ -2146,6 +2146,9 @@ model Company {
   satisfactionResponses SatisfactionResponse[]
   jobChecklistTemplates JobChecklistTemplate[]
   leadRequests          LeadRequest[]
+  /// Recorded attempts to reach this company's leads — see
+  /// LeadContactAttempt. Tenant-scoped like everything else on the lead.
+  leadAttempts          LeadContactAttempt[]
   materials             Material[]
   notificationRules     NotificationRule[]
   notificationEvents    NotificationEvent[]
@@ -2407,6 +2410,22 @@ model Company {
   /// made about. A company that has not chosen it must not start sending it,
   /// so the absence of a decision reads as "no" here rather than as "yes".
   followUpSmsOn          Boolean @default(false)
+
+  /// How many times a day somebody should try to reach an unanswered
+  /// enquiry — the cadence the dashboard measures recorded attempts against
+  /// (lib/leads/attempts.js, LeadContactAttempt).
+  ///
+  /// The owner: "in the home we should have a reminder so it doesn't fall
+  /// through the cracks FFM say to call 2 to 3x per day". Forward Media is
+  /// TrueFinish's marketing agency, so 2-3 is THEIR playbook and not a
+  /// FieldQuo fact — which is exactly why this is a company column and not a
+  /// constant. A cabinet refinisher chasing kitchens and a plumber chasing
+  /// emergencies do not want the same number.
+  ///
+  /// Defaults to 2: the conservative end of the one cadence anybody has
+  /// actually told us about. 0 switches the nudge off entirely, which a
+  /// company that finds it nagging must be able to do.
+  leadCallsPerDay        Int     @default(2)
 
   /// The company's PRE-QUOTE video — what a homeowner watches before the
   /// estimator turns up, linked from the enquiry follow-ups.
@@ -3073,6 +3092,8 @@ model User {
   /// Leads this person dismissed from the dashboard's Requests list
   /// (LeadRequest.dismissedById) — triage, not a verdict on the lead.
   leadsDismissed        LeadRequest[]          @relation("LeadDismissedBy")
+  /// Attempts this person recorded (LeadContactAttempt.byId).
+  leadAttempts          LeadContactAttempt[]   @relation("LeadAttemptBy")
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
   funnelsCreated        Funnel[]               @relation("FunnelCreatedBy")
   devices               AccountDevice[]
@@ -8513,6 +8534,8 @@ model LeadRequest {
   quoteId       String?          @unique
   quote         Quote?           @relation("LeadQuote", fields: [quoteId], references: [id])
   notes         LeadNote[]
+  /// Every recorded attempt to reach them — see LeadContactAttempt.
+  attempts      LeadContactAttempt[]
   updatedAt     DateTime         @default(now()) @updatedAt
 
   // ── Meta lead ads (lib/meta/leadsImport.js) ─────────────────────────────
@@ -8793,6 +8816,60 @@ model MetaLeadForm {
 // separate from the lead's own `message` (which is the homeowner's words) so a
 // rep's "left a voicemail, trying again Tue" can't be confused with what the
 // client actually asked for.
+/// One recorded ATTEMPT to reach a lead — a call, a voicemail, a text, an
+/// email. Several per lead, each with its kind, its time and who made it.
+///
+/// ── Why a log and not a status ─────────────────────────────────────────────
+///
+/// The owner: "for contacted. we should probably also note if we left
+/// voicemail, texted or emailed or called". `LeadStatus.contacted` is one
+/// undifferentiated state that says somebody did something once; the agency's
+/// playbook is two to three CALLS a day, which is a cadence and cannot be
+/// stored in an enum. So this is a log: rows accumulate, and the dashboard
+/// reads how many went out today against the company's target.
+///
+/// ── An attempt is OUTBOUND, and that is load-bearing ──────────────────────
+///
+/// A call nobody answered and a voicemail nobody returned are attempts. They
+/// are emphatically NOT contact, and they must never switch the follow-up
+/// chase off — only an inbound reply (MessageThread) or a human's explicit
+/// mark (LeadRequest.reachedAt) does that. Conflating them would stop chasing
+/// a lead precisely because nobody had reached them, which is the opposite of
+/// what the sequence is for. lib/followUps/stopConditions.js has no notion of
+/// an attempt, and scripts/check-lead-attempts.mjs asserts it cannot grow one.
+///
+/// ── Nothing here is invented ──────────────────────────────────────────────
+///
+/// `source` says who recorded it. FieldQuo writes "system" rows for sends it
+/// genuinely made itself — the follow-up cron's own email and text — and
+/// nothing else. A call and a voicemail are only ever "manual", because
+/// FieldQuo cannot see a phone call and must not claim one happened.
+model LeadContactAttempt {
+  id        String      @id @default(cuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leadId    String
+  lead      LeadRequest @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  /// call | voicemail | text | email — lib/leads/attempts.js ATTEMPT_KINDS,
+  /// a plain string so a kind can be added there plus a branch, with no
+  /// migration. An unknown value reads as "other" and is still counted.
+  kind      String
+  /// manual | system. See the note above: "system" is only ever a send
+  /// FieldQuo made.
+  source    String      @default("manual")
+  /// Who made it. Null for a system row — a cron is nobody.
+  byId      String?
+  by        User?       @relation("LeadAttemptBy", fields: [byId], references: [id])
+  /// Free text, for "rang twice, no answer". Optional and never required:
+  /// a log that demands a sentence is a log people stop writing.
+  note      String?
+  at        DateTime    @default(now())
+
+  /// The dashboard asks "how many attempts on these leads since midnight",
+  /// for up to READ_CAP leads at once, which is this index.
+  @@index([companyId, leadId, at])
+}
+
 model LeadNote {
   id        String      @id @default(cuid())
   leadId    String
