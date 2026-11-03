@@ -31,6 +31,20 @@
 //   7. The save route refuses a reference the builder never offered.
 //   8. The wiring.
 //
+// ── And the third, reported the next day ───────────────────────────────────
+//
+// "the add-ons also seems to have double hinges." Q-2026-0029 offered "New
+// Hinges, $540" beside "Soft-Close Hinges (31 × door), $1,085". Two halves,
+// and they are not the same KIND of fix:
+//
+//   9.  the structural half — a catalogue product already offered on this
+//       quote covers the category it is linked to, so the same upgrade is not
+//       also offered at a median. A rule, checked server-side.
+//  10.  the free-text half — "New Hinges" is neither a ServiceCategory nor a
+//       Product, so NOTHING in the schema says it means the hinges. That one
+//       is a warning the estimator resolves, and the assertions here are
+//       mostly about what it must NOT flag.
+//
 // Run: npm run check:offered-add-ons
 
 import { readFileSync } from "node:fs";
@@ -38,8 +52,9 @@ import {
   STANDARD_ADDONS,
   standardAddOnUnitScope,
 } from "@/app/data/standardAddOns";
-import { catalogueAddOnsFor } from "@/lib/quotes/offeredAddOns";
-import { builderOfferRows } from "@/lib/quotes/builderOffers";
+import { catalogueAddOnsFor, catalogueRowName } from "@/lib/quotes/offeredAddOns";
+import { builderOfferRows, offeredProductCategories } from "@/lib/quotes/builderOffers";
+import { duplicateAddOnPairs, upgradeWords } from "@/lib/quotes/addOnDuplicates";
 import { EXCLUSIVE_TRADES, tradeExcludedBy } from "@/lib/trades/catalog";
 import {
   getSuggestedAddOns,
@@ -71,6 +86,7 @@ const CAB = "cat_cab";
 const REFACE = "cat_reface";
 const FLOOR = "cat_floor";
 const GUTTER = "cat_gutter";
+const COUNTER = "cat_counter";
 
 /** TrueFinish's seeded refinishing catalogue, plus one row it wrote itself. */
 const PRODUCTS = [
@@ -245,6 +261,7 @@ section("5. …so the co-occurrence stops concluding it, however true the count"
 // the same quote, for the same client, so the homeowner could compare
 // recoating with replacing. The count is true. The conclusion was not.
 const CATEGORIES = [
+  { id: COUNTER, key: "countertop", label: "Countertop Installation", labelTranslations: null, companyId: null },
   { id: CAB, key: "cabinet_refinishing", label: "Cabinet Refinishing", labelTranslations: null, companyId: null },
   { id: REFACE, key: "cabinet_refacing", label: "Cabinet Refacing", labelTranslations: null, companyId: null },
   { id: FLOOR, key: "flooring", label: "Flooring", labelTranslations: null, companyId: null },
@@ -353,7 +370,12 @@ function fakePrisma({ addOns = [], products = [], categories = [] } = {}) {
     },
     product: {
       findMany: async ({ where }) =>
-        products.filter((p) => p.companyId === where.companyId && p.active === where.active && where.id.in.includes(p.id)),
+        products.filter(
+          (p) =>
+            p.companyId === where.companyId &&
+            p.active === where.active &&
+            (where.id ? where.id.in.includes(p.id) : where.name.in.includes(p.name)),
+        ),
     },
     serviceCategory: {
       findMany: async ({ where }) =>
@@ -419,6 +441,254 @@ section("8. The wiring");
   for (const f of ["lib/quotes/offeredAddOns.js", "lib/quotes/suggestedAddOns.js", "lib/ai/quoteSuggestions.js"]) {
     ok(`${f} never updates an existing QuoteAddOn`, !/quoteAddOn\.(update|updateMany|deleteMany|delete)\b/.test(read(f)));
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("9. One upgrade, one row — the structural half");
+// ───────────────────────────────────────────────────────────────────────────
+
+// Not the owner's own row — see section 10 for that one. This is the version
+// of the same defect that the company's catalogue CAN settle: a product
+// linked to two categories, offered on a quote carrying one of them, beside a
+// history suggestion naming the other.
+
+{
+  eq(
+    "a catalogue row's text is parsed back to the product name it was built from",
+    ["Soft-Close Hinges (31 × door)", "Glass Inserts (2 × door)", "Two-Tone Finish", "New Handles — supply & install"].map(catalogueRowName),
+    ["Soft-Close Hinges", "Glass Inserts", "Two-Tone Finish", "New Handles — supply & install"],
+  );
+  eq(
+    "a row this code did not write is left alone — no suffix invented, no bracket eaten",
+    ["Fix the (broken) drawer", "Hinges (many × door)", "Repair (per visit)", "", null, 42].map(catalogueRowName),
+    ["Fix the (broken) drawer", "Hinges (many × door)", "Repair (per visit)", "", "", "42"],
+  );
+
+  // The structural join: a product the quote already offers, linked to the
+  // category being suggested. Not a resemblance between two labels.
+  const CROSS = [
+    { id: "p_counter", name: "Countertop Supply & Installation", unit: "flat", unitPrice: 2400, active: true, categories: [{ id: CAB }, { id: COUNTER }] },
+    ...PRODUCTS,
+  ];
+  eq(
+    "the categories a quote's catalogue extras belong to",
+    [...offeredProductCategories({ products: CROSS, descriptions: ["Countertop Supply & Installation", "Soft-Close Hinges (29 × door)"] })].sort(),
+    [CAB, COUNTER].sort(),
+  );
+  eq(
+    "nothing claimed for a row that matches no product, or for junk",
+    [
+      offeredProductCategories({ products: CROSS, descriptions: ["Dust barrier — by hand"] }).size,
+      offeredProductCategories({ products: null, descriptions: null }).size,
+      offeredProductCategories({ products: CROSS, descriptions: [null, 7, ""] }).size,
+    ],
+    [0, 0, 0],
+  );
+
+  const history = {
+    [CAB]: [
+      { categoryId: COUNTER, label: "Countertop Installation", share: 50, amount: 2400 },
+      { categoryId: GUTTER, label: "Gutter Cleaning", share: 30, amount: 320 },
+    ],
+  };
+  const create = builderOfferRows({ groups: kitchen(29, 14), products: CROSS, history, isEdit: false });
+  ok(
+    "create: the countertop service is not suggested — a product on this quote is linked to it",
+    !JSON.stringify(create.byGroup.t1).includes("Countertop Installation"),
+  );
+  eq("create: a suggestion the catalogue does NOT cover is still offered", create.byGroup.t1.offers.map((o) => o.description), ["Gutter Cleaning"]);
+
+  const saved = [{ description: "Countertop Supply & Installation", amount: 2400, source: "catalog" }];
+  const edit = builderOfferRows({ groups: kitchen(29, 14), products: CROSS, history, existing: saved, isEdit: true });
+  ok(
+    "edit: a catalogue row ALREADY saved covers it too — which is the shape Q-2026-0029 was in",
+    !JSON.stringify(edit.byGroup.t1).includes("Countertop Installation"),
+  );
+  const pend = builderOfferRows({ groups: kitchen(29, 14), products: CROSS, history, existing: [], pending: [{ kind: "catalog", productId: "p_counter", categoryId: CAB }], isEdit: true });
+  ok("edit: so does one clicked this session", !JSON.stringify(pend.byGroup.t1).includes("Countertop Installation"));
+
+  // The thing a substring rule would have broken.
+  const TWO_HINGES = [
+    { id: "p_soft", name: "Soft-Close Hinges", unit: "door", unitPrice: 35, active: true, categories: [{ id: CAB }] },
+    { id: "p_rep", name: "Hinge Repair — per door", unit: "flat", unitPrice: 60, active: true, categories: [{ id: CAB }] },
+  ];
+  eq(
+    "two genuinely different hinge products are both still offered",
+    builderOfferRows({ groups: kitchen(29, 14), products: TWO_HINGES, history: {}, existing: [], isEdit: true }).byGroup.t1.offers.map((o) => o.description),
+    ["Soft-Close Hinges (29 × door)", "Hinge Repair — per door"],
+  );
+}
+
+
+{
+  const prisma = fakePrisma({
+    products: [
+      { id: "p_counter", name: "Countertop Supply & Installation", companyId: "co_1", description: null, unit: "flat", unitPrice: 2400, active: true, categories: [{ id: CAB }, { id: COUNTER }] },
+      ...PRODUCTS.map((p) => ({ ...p, companyId: "co_1", description: null })),
+    ],
+    categories: CATEGORIES,
+    // The quote is in Q-2026-0029's state: the catalogue hinges already offered.
+    addOns: [{ quoteId: "q_9", description: "Countertop Supply & Installation", source: "catalog" }],
+  });
+  const medians = async (_c, ids) => Object.fromEntries(ids.map((id) => [id, { amount: id === COUNTER ? 2400 : 320, sampleSize: 4 }]));
+  const r = await createOfferedAddOns(prisma, {
+    companyId: "co_1",
+    quoteId: "q_9",
+    refs: [
+      { kind: "history", categoryId: COUNTER },
+      { kind: "history", categoryId: GUTTER },
+    ],
+    scopeGroups: [{ categoryId: CAB, intakeValues: { doorCount: 31 }, lineItems: [] }],
+    priceHistory: medians,
+  });
+  eq("only the one the catalogue does not already cover is written", prisma.writes.map((w) => [w.description, w.amount]), [["Gutter Cleaning", 320]]);
+  eq(
+    "…and the covered one is refused, with the reason named",
+    r.skipped.map((x) => `${x.ref.categoryId}:${x.reason}`),
+    [`${COUNTER}:alreadyOffered`],
+  );
+}
+
+{
+  // A clicked catalogue reference that prices to nothing covers nothing: the
+  // catalogue is offering no row for the history row to duplicate.
+  const prisma = fakePrisma({
+    products: [{ id: "p_counter_lf", name: "Countertop Supply & Installation", companyId: "co_1", description: null, unit: "linear ft", unitPrice: 120, active: true, categories: [{ id: CAB }, { id: COUNTER }] }],
+    categories: CATEGORIES,
+  });
+  const medians = async (_c, ids) => Object.fromEntries(ids.map((id) => [id, { amount: 2400, sampleSize: 4 }]));
+  const r = await createOfferedAddOns(prisma, {
+    companyId: "co_1",
+    quoteId: "q_10",
+    refs: [
+      { kind: "history", categoryId: COUNTER },
+      { kind: "catalog", productId: "p_counter_lf", categoryId: CAB },
+    ],
+    scopeGroups: [{ categoryId: CAB, intakeValues: { doorCount: 31 }, lineItems: [] }],
+    priceHistory: medians,
+  });
+  eq("an unpriceable catalogue click does not suppress the history row", prisma.writes.map((w) => w.description), ["Countertop Installation"]);
+  eq("…and the click is still reported as unpriced", r.skipped.map((x) => x.reason), ["unpriced"]);
+
+  // The same two references the other way round must decide the same way.
+  const other = fakePrisma({
+    products: [{ id: "p_counter", name: "Countertop Supply & Installation", companyId: "co_1", description: null, unit: "flat", unitPrice: 2400, active: true, categories: [{ id: CAB }, { id: COUNTER }] }],
+    categories: CATEGORIES,
+  });
+  const r2 = await createOfferedAddOns(other, {
+    companyId: "co_1",
+    quoteId: "q_11",
+    refs: [
+      { kind: "history", categoryId: COUNTER },
+      { kind: "catalog", productId: "p_counter", categoryId: CAB },
+    ],
+    scopeGroups: [{ categoryId: CAB, intakeValues: { doorCount: 31 }, lineItems: [] }],
+    priceHistory: medians,
+  });
+  eq("a priceable one suppresses it whichever order the body listed them in", other.writes.map((w) => w.description), ["Countertop Supply & Installation"]);
+  eq("…with the history row named as already offered", r2.skipped.map((x) => x.reason), ["alreadyOffered"]);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("10. …and the free-text half, which is a warning, not a rule");
+// ───────────────────────────────────────────────────────────────────────────
+
+// Every distinct `source: "history"` description on this company's live
+// quotes, read from the database, plus the seeded catalogue rows that sit
+// beside them. "New Hinges" matches no ServiceCategory and no Product row of
+// any company, so there is nothing to join on — the words are all there is.
+const LIVE_ROWS = [
+  "Soft-Close Hinges (31 × door)",
+  "New Hinges",
+  "New handles",
+  "New Handles — supply & install",
+  "New Handles holes",
+  "Soft-Close Drawer Slides (14 × drawer)",
+  "Glass Inserts (2 × door)",
+  "Two-Tone Finish",
+  "Cabinet Refacing",
+  "Interior cabinet  Refinishing",
+  "Stairs",
+  "Countertop Supply & Installation",
+  "Crown Moulding",
+];
+const flagged = (descriptions, extra = {}) =>
+  duplicateAddOnPairs(descriptions.map((description) => ({ description, source: "manual", ...extra }))).map(
+    (p) => `${descriptions[p.a]} ~ ${descriptions[p.b]} (${p.shared})`,
+  );
+
+{
+  eq(
+    "an upgrade is named by its LAST word, with the quantity suffix and the how-words gone",
+    ["Soft-Close Hinges (31 × door)", "New Hinges", "New Handles — supply & install", "Interior cabinet  Refinishing"].map((d) => upgradeWords(d).head),
+    ["hinge", "hinge", "handle", "refinishing"],
+  );
+  eq(
+    "…and a row with nothing but how-words names nothing, so it is never paired",
+    [upgradeWords("supply & install").head, upgradeWords("").head, upgradeWords(null).head, upgradeWords("a (1 × each)").head],
+    [null, null, null, null],
+  );
+
+  eq(
+    "the owner's two rows, and the handle rows behind them — every pair in the live data",
+    flagged(LIVE_ROWS),
+    [
+      "Soft-Close Hinges (31 × door) ~ New Hinges (hinge)",
+      "New handles ~ New Handles — supply & install (handle)",
+      "New handles ~ New Handles holes (handle)",
+      "New Handles — supply & install ~ New Handles holes (handle)",
+    ],
+  );
+
+  // The ones it must leave alone are the whole reason this is a head-noun
+  // rule and not "shares a word": hinges and drawer slides share TWO words
+  // and sit together on nearly every cabinet quote.
+  ok("hinges and drawer slides are not the same upgrade", !flagged(["Soft-Close Hinges (31 × door)", "Soft-Close Drawer Slides (14 × drawer)"]).length);
+  ok("nor refacing and refinishing, which share 'cabinet'", !flagged(["Cabinet Refacing", "Interior cabinet  Refinishing"]).length);
+  ok("nor glass inserts and a two-tone finish", !flagged(["Glass Inserts (2 × door)", "Two-Tone Finish"]).length);
+  ok("nor a countertop and a crown moulding", !flagged(["Countertop Supply & Installation", "Crown Moulding"]).length);
+  eq("one row alone is never a pair", flagged(["New Hinges"]), []);
+  eq(
+    "two rows with the SAME text are flagged — the plainest case of all",
+    flagged(["New Hinges", "New Hinges"]).length,
+    1,
+  );
+
+  // A takeoff row is regenerated from the scope group on every save, so it is
+  // not the estimator's to merge with anything.
+  eq(
+    "a takeoff row is left out",
+    duplicateAddOnPairs([
+      { description: "Living room — Ceiling", source: "takeoff" },
+      { description: "Ceiling refresh", source: "manual" },
+    ]),
+    [],
+  );
+  eq(
+    "junk in, no pairs out",
+    [duplicateAddOnPairs(null).length, duplicateAddOnPairs("nope").length, duplicateAddOnPairs([null, 7, {}, { description: "   " }]).length],
+    [0, 0, 0],
+  );
+
+  // It is a sentence. Nothing in the module can remove, reprice or refuse.
+  const src = read("lib/quotes/addOnDuplicates.js");
+  // Comments out first: the JSDoc has to name `amount` to document the shape
+  // it is handed, and a check that read a comment as code would be the kind
+  // of guard this repo gets swept for.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  eq(
+    "the module decides nothing — it never touches an amount, never removes a row, and only reports pairs",
+    ["amount", "splice", "setAddOns", "delete ", "save("].filter((w) => code.includes(w)),
+    [],
+  );
+  const panel = read("app/components/quotes/SuggestAddOns.js");
+  ok("the panel only says it", /duplicatePairs\.map/.test(panel) && /app\.quoteReview\.sameUpgrade/.test(panel));
+  ok("…recomputed from the live list, so removing a row clears the warning", /const duplicatePairs = duplicateAddOnPairs\(addOns\)/.test(panel));
+  ok("…and the save path is untouched by it", !/duplicatePairs/.test(panel.slice(panel.indexOf("async function save("), panel.indexOf("function addBlank("))));
+  const msgs = read("app/i18n/appMessages.js");
+  eq("the sentence exists in all nine languages", (msgs.match(/"app\.quoteReview\.sameUpgrade"/g) || []).length, 9);
+  const en = msgs.match(/"app\.quoteReview\.sameUpgrade": "([^"]+)"/)[1];
+  ok("…naming both rows", en.includes("{first}") && en.includes("{second}"));
 }
 
 console.log(`\n${fail ? "✗" : "✓"} offered add-ons: ${pass} passed, ${fail} failed\n`);

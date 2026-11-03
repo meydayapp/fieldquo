@@ -39,6 +39,7 @@ import {
   AiCreditTopupDialog,
   useAiCreditTopup,
 } from "@/app/components/ai/AiCreditTopupDialog";
+import { duplicateAddOnPairs } from "@/lib/quotes/addOnDuplicates";
 import { resolveParams } from "@/lib/quotes/reviewSentence";
 import { runAfterSave } from "@/lib/quotes/reviewGate";
 import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
@@ -155,6 +156,9 @@ export default function SuggestAddOns({
   }
   const [appliedToDraft, setAppliedToDraft] = useState(false);
   const [addOns, setAddOns] = useState([]);
+  // Recomputed from the list as it is edited, so a warning clears the moment
+  // the estimator removes or retitles one of the two rows.
+  const duplicatePairs = duplicateAddOnPairs(addOns);
   const [review, setReview] = useState(null);
   const [reviewedAt, setReviewedAt] = useState(null);
 
@@ -1153,6 +1157,29 @@ export default function SuggestAddOns({
         <p className="text-xs text-muted-foreground mt-1">
           {t("app.quoteReview.offeredIntro")}
         </p>
+
+        {/* "the add-ons also seems to have double hinges" — $540 of "New
+            Hinges" sat under $1,085 of "Soft-Close Hinges (31 × door)" on a
+            quote the client read. Neither row resolves to the other through
+            anything in the schema (lib/quotes/addOnDuplicates.js says why),
+            so this is a sentence and not a rule: nothing is removed, nothing
+            is blocked, and the estimator — who knows whether this kitchen is
+            getting two different hinge jobs — decides. */}
+        {duplicatePairs.map((pair) => (
+          <p
+            key={`${pair.a}-${pair.b}`}
+            className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5"
+            data-duplicate-warning
+          >
+            <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+            <span>
+              {t("app.quoteReview.sameUpgrade", {
+                first: String(addOns[pair.a]?.description || "").trim(),
+                second: String(addOns[pair.b]?.description || "").trim(),
+              })}
+            </span>
+          </p>
+        ))}
 
         {addOns.length === 0 ? (
           <p className="text-xs text-muted-foreground mt-2">
