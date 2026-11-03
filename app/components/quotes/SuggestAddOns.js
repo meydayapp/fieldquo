@@ -1113,7 +1113,9 @@ export default function SuggestAddOns({
                     {" · "}
                     {s.amount
                       ? t("app.quoteReview.usuallyCharge", { amount: money(s.amount) })
-                      : t("app.quoteReview.noPriceHistory")}
+                      : s.pricedByTheUnit
+                        ? t("app.quoteReview.pricedByTheDoor")
+                        : t("app.quoteReview.noPriceHistory")}
                   </p>
                 </div>
                 <button
