@@ -271,10 +271,16 @@ export default function SuggestAddOns({
   // the same time, and the ref makes it once-per-mount: React's development
   // double-invoke would otherwise buy two.
   const autoRan = useRef(false);
+  const panelRef = useRef(null);
   useEffect(() => {
     if (!autoReview || loading || readOnly || !quoteId) return;
     if (autoRan.current) return;
     autoRan.current = true;
+    // Put the panel under the thumb. On a phone the review sits well below
+    // the fold, and arriving here with it running off-screen is why the
+    // owner's route to the deep read was Edit → scroll → hunt. Next paint,
+    // so the panel it scrolls to is the one that has started loading.
+    setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     // `saveFirst: false` — this arrival IS the save. "Save & review" on the
     // builder saved the draft and routed here; saving again would be a second
     // write for one click, and there is nothing unsaved on a page that has
@@ -507,7 +513,7 @@ export default function SuggestAddOns({
   const dirty = edited;
 
   return (
-    <Panel>
+    <Panel panelRef={panelRef}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-semibold text-foreground flex items-center gap-2">
@@ -1281,8 +1287,8 @@ export default function SuggestAddOns({
   );
 }
 
-function Panel({ children }) {
+function Panel({ children, panelRef = null }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-5">{children}</div>
+    <div ref={panelRef} className="bg-card border border-border rounded-xl p-5">{children}</div>
   );
 }

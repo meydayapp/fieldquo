@@ -81,6 +81,7 @@ import {
   RefreshCw,
   Pencil,
   Ruler,
+  Sparkles,
   Link2,
   Mail,
   Loader2,
@@ -1187,6 +1188,25 @@ export default function QuoteDetailPage() {
               className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold"
             >
               <Ruler size={14} /> {t("app.quoteDetail.kitchenDesigner")}
+            </Link>
+          )}
+          {/* The AI review lives on the EDIT screen, because it reads — and
+              re-reads — a quote you are still allowed to change. Getting to
+              it used to be Edit, then scroll, then find the panel; the owner
+              described that walk on 2026-11-02 and it is the reason the deep
+              photo read went unused. This pill is the walk, in one tap: the
+              edit route with the flag that runs the review on arrival and
+              scrolls the panel under the thumb.
+
+              Not offered on a decided quote: the panel is read-only there and
+              the arrival flag deliberately runs nothing, so the pill would be
+              a control that looks like it works. */}
+          {["draft", "sent"].includes(quote.status) && (
+            <Link
+              href={`/app/quotes/${id}/edit?review=1`}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold"
+            >
+              <Sparkles size={14} /> {t("app.quoteDetail.aiReview")}
             </Link>
           )}
           <Link

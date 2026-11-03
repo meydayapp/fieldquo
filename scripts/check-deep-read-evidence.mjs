@@ -122,13 +122,21 @@ section("1. Each trade's schema");
 const FAMILY_FIELDS = {
   junk: ["pickupBedsLow", "pickupBedsHigh", "volumeBasis", "items", "confidence"],
   roofing: ["pitch", "pitchBasis", "layers", "layersBasis", "damage", "confidence"],
-  painting: ["condition", "peeling", "currentColour", "colourChange", "confidence"],
+  painting: ["condition", "peeling", "defects", "currentColour", "colourChange", "confidence"],
+  exteriorPainting: [
+    "sidingType", "storeys", "elevationsSeen", "scaleBasis",
+    "sidingSqftLow", "sidingSqftHigh", "sidingBasis",
+    "eaveRunFtLow", "eaveRunFtHigh", "eaveBasis",
+    "trimRunFtLow", "trimRunFtHigh", "trimBasis",
+    "garageDoorsSeen", "entryDoorsSeen", "windowsSeen", "shutterPairsSeen",
+    "condition", "peeling", "defects", "currentColour", "colourChange", "confidence",
+  ],
   cabinets: ["doorsSeen", "drawersSeen", "countBasis", "doorStyle", "finish", "condition", "confidence"],
   flooring: ["currentMaterial", "transitionsSeen", "transitionsBasis", "condition", "confidence"],
   stairs: ["treadsSeen", "risersSeen", "countBasis", "shape", "confidence"],
   gutters: ["runFtLow", "runFtHigh", "lengthBasis", "downspoutsSeen", "storeys", "issues", "confidence"],
 };
-ok(JSON.stringify(Object.keys(FAMILY_FIELDS)) === JSON.stringify(E.FAMILY_KEYS), "the seven families the owner named, no more and no fewer", E.FAMILY_KEYS);
+ok(JSON.stringify(Object.keys(FAMILY_FIELDS)) === JSON.stringify(E.FAMILY_KEYS), "the eight families the owner named, no more and no fewer", E.FAMILY_KEYS);
 for (const [f, fields] of Object.entries(FAMILY_FIELDS)) {
   const s = E.deepReadSchema([f]);
   ok(assertStrictSchema(s).ok, `${f}: its schema passes the strict-subset lint`, assertStrictSchema(s).errors);
@@ -145,7 +153,7 @@ for (let a = 0; a < fams.length; a++)
       const r = assertStrictSchema(E.deepReadSchema([fams[a], fams[b], fams[c]]));
       if (!r.ok) ok(false, `combination ${fams[a]}+${fams[b]}+${fams[c]} lints`, r.errors);
     }
-ok(combos === 35, "all 35 three-family combinations lint (any failure is printed above)");
+ok(combos === 56, "all 56 three-family combinations lint (any failure is printed above)", combos);
 ok(assertStrictSchema(E.deepReadSchema([])).ok && !E.deepReadSchema([]).properties.evidence, "a quote with no evidence family asks for notes + photos only");
 const MONEY = /(price|total|amount|cost|subtotal|deposit|dollars|cents|margin|\$)/i;
 ok(!MONEY.test(JSON.stringify(E.deepReadSchema(E.FAMILY_KEYS))), "no schema field or description names money — the model never prices anything", JSON.stringify(E.deepReadSchema(E.FAMILY_KEYS)).match(MONEY)?.[0]);
@@ -153,7 +161,19 @@ ok(E.deepReadSchema([]).properties.photos.items.properties.trades.items.enum.len
 
 // Which families a quote asks for.
 ok(JSON.stringify(E.familiesForTrades(["stairs"])) === '["stairs"]', "stairs → stairs");
-ok(JSON.stringify(E.familiesForTrades(["interior_painting", "exterior_painting"])) === '["painting"]', "interior + exterior painting share one painting family");
+// Split 2026-11-02: the document already says which it is, and an interior
+// quote asked for a siding area would answer one.
+ok(JSON.stringify(E.familiesForTrades(["interior_painting"])) === '["painting"]', "interior painting → painting, with no exterior fields in the call");
+ok(JSON.stringify(E.familiesForTrades(["exterior_painting"])) === '["exteriorPainting"]', "exterior painting → exteriorPainting", E.familiesForTrades(["exterior_painting"]));
+ok(
+  JSON.stringify(E.familiesForTrades(["interior_painting", "exterior_painting"])) === '["painting","exteriorPainting"]',
+  "a quote carrying both asks for both — one call, two field sets",
+  E.familiesForTrades(["interior_painting", "exterior_painting"]),
+);
+ok(
+  !JSON.stringify(E.deepReadSchema(["painting"]).properties.evidence.properties.painting).includes("siding"),
+  "an INTERIOR painting quote is never asked about cladding",
+);
 ok(JSON.stringify(E.familiesForTrades(["plumbing", "electrical"])) === "[]", "trades with no family ask for none");
 ok(E.familiesForTrades(["junk_removal", "roofing_service", "stairs", "gutter_services", "flooring"]).length === E.MAX_FAMILIES, "capped at MAX_FAMILIES — five trades still one bounded call");
 ok(JSON.stringify(E.familiesForTrades(null)) === "[]" && JSON.stringify(E.familiesForTrades("stairs")) === "[]", "hostile input → no families, no throw");
@@ -236,12 +256,89 @@ const reqSchema = (req) => req?.response_format?.json_schema?.schema;
   ok(r.pitchBasis === "Can't be walked from the photo angle." && r.layersBasis === "Doubled edge at the rake.", "roofing: each judgement keeps how it was made");
 }
 {
-  const { out } = await deepRead(["exterior_painting"], {
-    painting: { condition: "worn", peeling: "widespread", currentColour: "  dark   navy  ", colourChange: "extra_coat_or_primer_likely", confidence: "medium" },
+  const { out } = await deepRead(["interior_painting"], {
+    painting: {
+      condition: "worn", peeling: "widespread",
+      defects: ["none_visible", "hairline_cracks", "water_staining", "hairline_cracks"],
+      currentColour: "  dark   navy  ", colourChange: "extra_coat_or_primer_likely", confidence: "medium",
+    },
   });
   const p = out.evidence.painting;
   ok(p.condition === "worn" && p.peeling === "widespread" && p.colourChange === "extra_coat_or_primer_likely", "painting: condition, peeling, colour change kept");
   ok(p.currentColour === "dark navy", "painting: the colour words are trimmed", p.currentColour);
+  ok(JSON.stringify(p.defects) === '["hairline_cracks","water_staining"]', "painting: a defect list de-duplicates and drops 'none visible' beside a real finding", p.defects);
+}
+// ── Exterior painting: the owner's front-of-house photo (2026-11-02) ───────
+{
+  const { out, req } = await deepRead(["exterior_painting"], {
+    exteriorPainting: {
+      sidingType: "vinyl", storeys: "two", elevationsSeen: 1,
+      scaleBasis: "  Two   single garage doors, read as 9 ft each.  ",
+      sidingSqftLow: 1180, sidingSqftHigh: 1460, sidingBasis: "38 ft of frontage, two storeys at about 9 ft.",
+      eaveRunFtLow: 52, eaveRunFtHigh: 48, eaveBasis: "Front eave plus both rakes.",
+      trimRunFtLow: 120, trimRunFtHigh: 140, trimBasis: "Corner boards and window casings.",
+      garageDoorsSeen: 2, entryDoorsSeen: 1, windowsSeen: 7, shutterPairsSeen: 0,
+      condition: "worn", peeling: "isolated_spots",
+      defects: ["hairline_cracks", "caulk_failure"],
+      currentColour: "pale grey", colourChange: "no_concern", confidence: "medium",
+    },
+  });
+  const x = out.evidence.exteriorPainting;
+  ok(JSON.stringify(Object.keys(reqSchema(req).properties.evidence.properties)) === '["exteriorPainting"]', "exterior: the request asked for the exterior family only");
+  ok(x.siding.sqft.low === 1175 && x.siding.sqft.high === 1450, "exterior: cladding sqft rounded to 25 in code", x.siding.sqft);
+  ok(x.siding.squareMetres.low === 110 && x.siding.squareMetres.high === 135, "exterior: square metres converted in code (1180–1460 sqft → 110–135 m²)", x.siding.squareMetres);
+  ok(x.eave.feet.low === 50 && x.eave.feet.high === 50, "exterior: a low/high given backwards is ordered, then rounded to 5 ft", x.eave.feet);
+  ok(x.eave.metres.low === 15 && x.eave.metres.high === 16, "exterior: the eave run in metres is computed, not asked for", x.eave.metres);
+  ok(x.trim.feet.low === 120 && x.trim.feet.high === 140 && x.trim.estimate === true, "exterior: the trim run is kept and labelled an estimate", x.trim);
+  ok(x.scaleBasis === "Two single garage doors, read as 9 ft each.", "exterior: the scale reference is kept, whitespace collapsed", x.scaleBasis);
+  ok(x.garageDoorsSeen === 2 && x.entryDoorsSeen === 1 && x.windowsSeen === 7 && x.shutterPairsSeen === 0, "exterior: the counts the owner's photo shows — and 0 shutters is a real count", x);
+  ok(x.elevationsSeen === 1, "exterior: one front-of-house photo is ONE side, recorded as such", x.elevationsSeen);
+  ok(JSON.stringify(x.defects) === '["hairline_cracks","caulk_failure"]', "exterior: hairline cracks come back as a tickable finding, not prose", x.defects);
+  ok(x.sidingType === "vinyl" && x.storeys === "two", "exterior: cladding type and storeys kept");
+}
+{
+  // No scale reference → no size. The whole argument for the field.
+  const { out } = await deepRead(["exterior_painting"], {
+    exteriorPainting: {
+      sidingType: "stucco", storeys: "unclear", elevationsSeen: 0, scaleBasis: "   ",
+      sidingSqftLow: 2000, sidingSqftHigh: 2400, sidingBasis: "Looks like a big house.",
+      eaveRunFtLow: 90, eaveRunFtHigh: 120, eaveBasis: null,
+      trimRunFtLow: 1e9, trimRunFtHigh: null, trimBasis: null,
+      garageDoorsSeen: -1, entryDoorsSeen: 50, windowsSeen: 400, shutterPairsSeen: null,
+      condition: "unclear", peeling: "unclear", defects: [],
+      currentColour: null, colourChange: "unclear", confidence: "low",
+    },
+  });
+  const x = out.evidence.exteriorPainting;
+  ok(x.siding === null && x.eave === null && x.trim === null, "exterior: with nothing to measure against, every size is dropped — a guess is not an estimate", x);
+  ok(x.elevationsSeen === null, "exterior: 0 sides visible is not an answer, it is a non-answer");
+  ok(x.garageDoorsSeen === null && x.entryDoorsSeen === null && x.windowsSeen === null, "exterior: a negative count and two implausible ones are dropped, not clamped", x);
+}
+{
+  // Values outside the vocabulary never reach sanitise through the shipped
+  // path — the strict schema refuses the whole reply, which is the stronger
+  // guarantee and is asserted elsewhere. These drive sanitise DIRECTLY, so
+  // the fallbacks are proven rather than assumed to be unreachable.
+  const x = E.sanitiseEvidence(
+    {
+      exteriorPainting: {
+        sidingType: "gold_leaf", storeys: 7, elevationsSeen: 99, scaleBasis: 42,
+        sidingSqftLow: "1200", sidingSqftHigh: Infinity, sidingBasis: null,
+        eaveRunFtLow: NaN, eaveRunFtHigh: null, eaveBasis: null,
+        trimRunFtLow: null, trimRunFtHigh: null, trimBasis: null,
+        garageDoorsSeen: "2", entryDoorsSeen: 1.5, windowsSeen: null, shutterPairsSeen: null,
+        condition: "nonsense", peeling: { not: "a string" }, defects: ["not_a_defect", "hairline_cracks"],
+        currentColour: "x".repeat(400), colourChange: null, confidence: "certain",
+      },
+    },
+    ["exteriorPainting"],
+  ).exteriorPainting;
+  ok(x.sidingType === "unclear" && x.storeys === "unclear" && x.condition === "unclear" && x.peeling === "unclear", "exterior: anything outside the vocabulary reads as 'unclear', never as a finding", x);
+  ok(x.confidence === "low", "exterior: an unrecognised confidence reads as low, never high", x.confidence);
+  ok(JSON.stringify(x.defects) === '["hairline_cracks"]', "exterior: an invented defect is dropped and the real one survives", x.defects);
+  ok(x.scaleBasis === null && x.siding === null, "exterior: a non-string scale reference is no scale reference, so the area goes with it", x);
+  ok(x.elevationsSeen === null && x.garageDoorsSeen === null && x.entryDoorsSeen === null, "exterior: 99 sides, a numeric string and half a door are all refused", x);
+  ok(x.currentColour.length === 60 && x.currentColour.endsWith("…"), "exterior: a runaway colour string is clipped", x.currentColour.length);
 }
 {
   const { out } = await deepRead(["cabinet_refinishing"], {
@@ -398,6 +495,52 @@ section("4. No overwrite of a measured quantity");
   const rows = E.measuredBeside({ evidence: { cabinets: { doorsSeen: 18, drawersSeen: 4 } }, scopeGroups: groups });
   ok(rows.length === 1 && rows[0].field === "doors" && rows[0].measured.value === 22, "intake counts are read as measured; a measured 0 drawers is no measurement, so no row is invented", rows);
 }
+{
+  // The owner's case: a front-of-house photo against a real paint takeoff,
+  // substrate by substrate, in each substrate's own unit.
+  const groups = deepFreeze([
+    {
+      category: { key: "exterior_painting" },
+      takeoff: {
+        model: "area_substrate",
+        areas: [
+          {
+            measurement: "surface",
+            surfaceSqft: 1600,
+            linearFt: 130,
+            substrates: [
+              { key: "siding_trim" },
+              { key: "soffit_fascia", quantity: 160 },
+              { key: "ext_trim" },
+              { key: "garage_door", quantity: 2 },
+              { key: "ext_window_frame", quantity: 9 },
+              { key: "ext_door", quantity: 2 },
+            ],
+          },
+        ],
+      },
+      intakeValues: null,
+    },
+  ]);
+  const evidence = deepFreeze({
+    exteriorPainting: {
+      siding: { sqft: { low: 1175, high: 1450 }, squareMetres: { low: 110, high: 135 }, basis: null, estimate: true },
+      eave: { feet: { low: 50, high: 50 }, metres: { low: 15, high: 15 }, basis: null, estimate: true },
+      trim: { feet: { low: 120, high: 140 }, metres: { low: 37, high: 43 }, basis: null, estimate: true },
+      garageDoorsSeen: 2, entryDoorsSeen: 1, windowsSeen: 12, shutterPairsSeen: null,
+    },
+  });
+  const rows = E.measuredBeside({ evidence, scopeGroups: groups });
+  const by = (f) => rows.find((r) => r.field === f);
+  ok(by("sidingSqft").measured.value === 1600, "the takeoff's 1,600 sqft of cladding is read off the area's own geometry and comes back unchanged", by("sidingSqft")?.measured);
+  ok(by("sidingSqft").differs === false, "1,600 measured against a 1,175–1,450 photo estimate is within a photograph's resolution — not flagged");
+  ok(by("eaveRun").measured.value === 160 && by("eaveRun").differs === true, "160 ft of soffit and fascia against a 50 ft estimate IS flagged — the photo saw one elevation", by("eaveRun"));
+  ok(by("trimRun").measured.value === 130 && by("trimRun").differs === false, "the trim run falls back to the area's linear feet, the same driver that prices it", by("trimRun")?.measured);
+  ok(by("windows").differs === true, "12 windows in the photos against 9 on the takeoff is the finding — seeing MORE than was counted");
+  ok(by("garageDoors").differs === false, "2 garage doors seen, 2 on the takeoff — silent");
+  ok(!rows.some((r) => r.field === "entryDoors"), "entry doors are NOT compared: the takeoff counts sides and a photograph counts doors", rows.map((r) => r.field));
+  ok(groups[0].takeoff.areas[0].substrates[0].key === "siding_trim", "the takeoff is untouched (deep-frozen; a write would have thrown above)");
+}
 ok(E.measuredBeside({ evidence: null, scopeGroups: null }).length === 0, "no evidence, no groups → no rows, no throw");
 
 // The route, read in its own POST body: one write, to aiVisionPasses only.
@@ -461,16 +604,16 @@ const LANGS = ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"];
 const ui = read("app/components/ai/DeepReadFindings.js");
 const literalKeys = [...new Set([...ui.matchAll(/"(app\.deepRead\.[\w.]+)"/g)].map((m) => m[1]))];
 const needed = new Set(literalKeys);
-const groups = { junk: E.JUNK_ITEMS, fee: [...new Set(Object.values(E.JUNK_SURCHARGE_FOR))], pitch: E.ROOF_PITCH, layers: E.ROOF_LAYERS, roofDamage: E.ROOF_DAMAGE, condition: E.CONDITION, peeling: E.PEELING, colour: E.COLOUR_CHANGE, doorStyle: E.DOOR_STYLE, finish: E.CABINET_FINISH, floor: E.FLOOR_MATERIAL, shape: E.STAIR_SHAPE, storeys: E.STOREYS, gutter: E.GUTTER_ISSUES };
+const groups = { junk: E.JUNK_ITEMS, fee: [...new Set(Object.values(E.JUNK_SURCHARGE_FOR))], pitch: E.ROOF_PITCH, layers: E.ROOF_LAYERS, roofDamage: E.ROOF_DAMAGE, condition: E.CONDITION, peeling: E.PEELING, colour: E.COLOUR_CHANGE, doorStyle: E.DOOR_STYLE, finish: E.CABINET_FINISH, floor: E.FLOOR_MATERIAL, shape: E.STAIR_SHAPE, storeys: E.STOREYS, gutter: E.GUTTER_ISSUES, paintDefect: E.PAINT_DEFECTS, siding: E.SIDING_TYPE };
 for (const [g, values] of Object.entries(groups)) for (const v of values) if (v !== "unclear") needed.add(`app.deepRead.v.${g}.${v}`);
 for (const f of E.FAMILY_KEYS) needed.add(`app.deepRead.family.${f}`);
 for (const c of E.CONFIDENCE) needed.add(`app.deepRead.confidence.${c}`);
 for (const m of ui.matchAll(/`app\.deepRead\.f\.\$\{r(?:ow)?\.field\}`/g)) void m;
-for (const f of ["volume", "items", "fees", "pitch", "layers", "damage", "condition", "peeling", "currentColour", "colourChange", "doors", "drawers", "doorStyle", "finish", "material", "transitions", "treads", "risers", "shape", "length", "downspouts", "storeys", "issues"]) needed.add(`app.deepRead.f.${f}`);
+for (const f of ["volume", "items", "fees", "pitch", "layers", "damage", "condition", "peeling", "currentColour", "colourChange", "doors", "drawers", "doorStyle", "finish", "material", "transitions", "treads", "risers", "shape", "length", "downspouts", "storeys", "issues", "defects", "scale", "elevations", "siding", "sidingSqft", "eaveRun", "trimRun", "garageDoors", "entryDoors", "windows", "shutterPairs"]) needed.add(`app.deepRead.f.${f}`);
 // Every field name the component passes to add() must be one of those.
 for (const m of ui.matchAll(/add\(\s*"(\w+)"/g)) ok(needed.has(`app.deepRead.f.${m[1]}`), `field "${m[1]}" has a label key`);
 // …and every field measuredBeside can emit.
-for (const f of ["treads", "risers", "doors", "drawers", "length", "downspouts", "pitch", "layers"]) ok(needed.has(`app.deepRead.f.${f}`), `measured row "${f}" has a label key`);
+for (const f of ["treads", "risers", "doors", "drawers", "length", "downspouts", "pitch", "layers", "sidingSqft", "eaveRun", "trimRun", "garageDoors", "windows", "shutterPairs"]) ok(needed.has(`app.deepRead.f.${f}`), `measured row "${f}" has a label key`);
 // …and every group the component looks values up in is a vocabulary checked above.
 for (const m of ui.matchAll(/enum[VL]\("(\w+)"/g)) ok(Object.hasOwn(groups, m[1]), `the component's "${m[1]}" group is a known vocabulary`);
 const missing = [];

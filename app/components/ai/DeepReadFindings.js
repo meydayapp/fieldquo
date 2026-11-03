@@ -140,6 +140,47 @@ function familyRows(family, ev, t, fmt) {
     case "painting":
       add("condition", enumV("condition", ev.condition));
       add("peeling", enumV("peeling", ev.peeling));
+      add("defects", enumL("paintDefect", ev.defects));
+      add("currentColour", ev.currentColour);
+      add("colourChange", enumV("colour", ev.colourChange));
+      break;
+    case "exteriorPainting":
+      // The scale reference first: every size under it is a length judgement
+      // multiplied by another, and an estimator who rejects the premise can
+      // stop reading. Shown as a basis line of its own rather than hung off
+      // one measurement, because all three share it.
+      add("scale", ev.scaleBasis);
+      add("elevations", Number.isInteger(ev.elevationsSeen) ? fmt(ev.elevationsSeen) : null);
+      add("siding", enumV("siding", ev.sidingType));
+      add("storeys", enumV("storeys", ev.storeys));
+      if (ev.siding) {
+        add(
+          "sidingSqft",
+          `${t("app.deepRead.v.sqft", { value: span(ev.siding.sqft, fmt) })} · ${t("app.deepRead.v.m2", { value: span(ev.siding.squareMetres, fmt) })}`,
+          { estimate: true, basis: ev.siding.basis },
+        );
+      }
+      if (ev.eave) {
+        add(
+          "eaveRun",
+          `${t("app.deepRead.v.ft", { value: span(ev.eave.feet, fmt) })} · ${t("app.deepRead.v.m", { value: span(ev.eave.metres, fmt) })}`,
+          { estimate: true, basis: ev.eave.basis },
+        );
+      }
+      if (ev.trim) {
+        add(
+          "trimRun",
+          `${t("app.deepRead.v.ft", { value: span(ev.trim.feet, fmt) })} · ${t("app.deepRead.v.m", { value: span(ev.trim.metres, fmt) })}`,
+          { estimate: true, basis: ev.trim.basis },
+        );
+      }
+      add("garageDoors", seen(ev.garageDoorsSeen), { estimate: true });
+      add("entryDoors", seen(ev.entryDoorsSeen), { estimate: true });
+      add("windows", seen(ev.windowsSeen), { estimate: true });
+      add("shutterPairs", seen(ev.shutterPairsSeen), { estimate: true });
+      add("condition", enumV("condition", ev.condition));
+      add("peeling", enumV("peeling", ev.peeling));
+      add("defects", enumL("paintDefect", ev.defects));
       add("currentColour", ev.currentColour);
       add("colourChange", enumV("colour", ev.colourChange));
       break;
@@ -188,8 +229,15 @@ function measuredWords(row, t, fmt) {
   if (row.field === "layers") {
     return { measured: fmt(m), estimate: t(`app.deepRead.v.layers.${e.band}`) };
   }
-  if (row.field === "length") {
+  // By UNIT, not by field: the gutter run, the soffit-and-fascia run and the
+  // trim run are three fields that say the same thing in the same feet, and
+  // a third `field ===` branch per measurement is how this grows a copy that
+  // rots. `length` still lands here — its unit is "ft".
+  if (row.unit === "ft") {
     return { measured: t("app.deepRead.v.ft", { value: fmt(m) }), estimate: t("app.deepRead.v.ft", { value: span(e, fmt) }) };
+  }
+  if (row.unit === "sqft") {
+    return { measured: t("app.deepRead.v.sqft", { value: fmt(m) }), estimate: t("app.deepRead.v.sqft", { value: span(e, fmt) }) };
   }
   return { measured: fmt(m), estimate: t("app.deepRead.v.seen", { value: fmt(e.low) }) };
 }
