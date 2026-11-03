@@ -13,6 +13,11 @@ import { ensureDefaultFollowUps, ALL_BUILT_IN_KEYS } from "@/lib/followUps/defau
 // control this codebase keeps being swept for; the page cannot warn about it
 // without being told.
 import { followUpTextOn } from "@/lib/sms/followUpTextRules";
+// Whether the company's /book/<slug> page actually resolves — three
+// conditions, not just a slug (lib/booking/bookableMembers.js). An enquiry
+// chase by TEXT has no action in it without one, so the page has to be able
+// to say that rather than let somebody arm a rule that sends nothing.
+import { hasBookableMember } from "@/lib/booking/bookableMembers";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -30,7 +35,7 @@ export async function GET(request) {
     console.error("[follow-up-rules] default seeding failed:", err?.message);
   }
 
-  const [rules, company] = await Promise.all([
+  const [rules, company, booking] = await Promise.all([
     db.followUpRule.findMany({
       where: { companyId: member.companyId },
       include: { template: { select: { id: true, name: true, type: true } } },
@@ -40,6 +45,7 @@ export async function GET(request) {
       where: { id: member.companyId },
       select: { followUpSmsOn: true, preQuoteVideoUrl: true },
     }),
+    hasBookableMember(member.companyId).catch(() => ({ ok: false, reason: "unknown" })),
   ]);
 
   // Tombstoned defaults are reported separately, not hidden: the page offers
@@ -64,6 +70,11 @@ export async function GET(request) {
     // to "text" and watch nothing happen.
     smsEnabled: followUpTextOn(company),
     hasPreQuoteVideo: Boolean(company?.preQuoteVideoUrl),
+    // A failed lookup answers `false` with reason "unknown" rather than
+    // throwing the page away — and the page distinguishes the two, so a
+    // transient error is never drawn as "you have no booking page".
+    canSelfBook: booking?.ok === true,
+    bookingReason: booking?.reason || null,
   });
 }
 

@@ -146,6 +146,10 @@ export default function FollowUpsPage() {
   // answered yet must not draw a warning saying texts are off.
   const [smsEnabled, setSmsEnabled] = useState(undefined);
   const [hasVideo, setHasVideo] = useState(false);
+  // Whether /book/<slug> actually resolves — three conditions, not just a
+  // slug (lib/booking/bookableMembers.js). Undefined until the load answers,
+  // so an unanswered load is never drawn as "you have no booking page".
+  const [canSelfBook, setCanSelfBook] = useState(undefined);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   // A refused load used to leave both lists at [] and then render three
@@ -192,6 +196,7 @@ export default function FollowUpsPage() {
       setDeletedBuiltIns(Array.isArray(rulesData?.deletedBuiltIns) ? rulesData.deletedBuiltIns : []);
       setSmsEnabled(typeof rulesData?.smsEnabled === "boolean" ? rulesData.smsEnabled : undefined);
       setHasVideo(rulesData?.hasPreQuoteVideo === true);
+      setCanSelfBook(typeof rulesData?.canSelfBook === "boolean" ? rulesData.canSelfBook : undefined);
       setTemplates(Array.isArray(templatesData) ? templatesData : []);
       setDelayDraft({});
       setLoadError("");
@@ -394,6 +399,16 @@ export default function FollowUpsPage() {
               {t("app.setFollowUps.smsOffWarning")}
             </p>
           )}
+          {/* An enquiry chase by TEXT has no action in it without a booking
+              page, so it is refused rather than sent short
+              (lib/booking/selfBookingLink.js argues that). Said here, where
+              the channel is chosen, instead of discovered as a run that sent
+              nothing. `=== false` so an unanswered load says nothing. */}
+          {canSelfBook === false && (
+            <p className="text-amber-700 dark:text-amber-300">
+              {t("app.setFollowUps.smsNeedsBooking")}
+            </p>
+          )}
           <p className="text-muted-foreground">
             {t("app.setFollowUps.smsWordingPre")}{" "}
             <Link href="/app/settings/messages" className="underline font-semibold text-foreground">
@@ -412,7 +427,7 @@ export default function FollowUpsPage() {
       {/* Read-only, derived from the rules below — see FlowDiagram.js for why
           it is a view and not an editor. Renders nothing when there are no
           rules, so the plain empty sentence below is what a new company sees. */}
-      <FlowDiagram rules={rules} smsEnabled={smsEnabled} />
+      <FlowDiagram rules={rules} smsEnabled={smsEnabled} canSelfBook={canSelfBook} />
 
       {loadError ? null : rules.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("app.setFollowUps.empty")}</p>
@@ -540,7 +555,9 @@ export default function FollowUpsPage() {
 
                   {channel === "sms" ? (
                     <span className="text-xs text-muted-foreground">
-                      {t("app.setFollowUps.smsWordingHint")}
+                      {canSelfBook === false && rule.triggerEvent === "lead_no_response"
+                        ? t("app.setFollowUps.smsNeedsBooking")
+                        : t("app.setFollowUps.smsWordingHint")}
                     </span>
                   ) : (
                     <label className="text-xs text-muted-foreground inline-flex items-center gap-1.5 min-w-0">
@@ -720,7 +737,9 @@ export default function FollowUpsPage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       {smsEnabled === false
                         ? t("app.setFollowUps.smsOffWarning")
-                        : t("app.setFollowUps.smsWordingHint")}
+                        : canSelfBook === false && form.triggerEvent === "lead_no_response"
+                          ? t("app.setFollowUps.smsNeedsBooking")
+                          : t("app.setFollowUps.smsWordingHint")}
                     </p>
                   )}
                 </div>

@@ -165,7 +165,7 @@ ok(
 ok("it re-reads the switch FRESH from the row", /followUpSmsOn: true/.test(sender) && /followUpTextOn\(row\)/.test(sender));
 ok(
   "a company row that isn't there is not a company that said no",
-  /if \(!row\) return \{ send: false, reason: "no_company", to: null \};/.test(sender),
+  /if \(!row\) return \{ send: false, reason: "no_company", to: null, bookingUrl: null \};/.test(sender),
 );
 ok("it sends from the company's own line or the system number", /clientSmsFrom\(company\)/.test(sender));
 ok("it files the delivery under the message type itself", /purpose: type,/.test(sender));
@@ -178,10 +178,15 @@ ok("a quote chase with no share token sends nothing rather than a dangling sente
   /quote_follow_up" && !quoteUrl\) return \{ texted: false, reason: "no_link" \}/.test(sender));
 ok("the trial phone gate keeps its own reason, not \"failed\"", /PHONE_REQUIRED_CODE/.test(sender) && /reason: "phone_unverified"/.test(sender));
 ok("it never throws — one unreachable number must not end the run", /catch \(err\) \{[\s\S]{0,400}reason: "failed"/.test(sender));
-ok("the video is read through preQuoteVideoFor, never off the column", /preQuoteVideoFor\(company\)/.test(sender) && !/company\?\.preQuoteVideoUrl/.test(sender));
-ok("…and only the ENQUIRY chase carries one", /type === "lead_follow_up" \? preQuoteVideoFor\(company\) : null/.test(sender));
-ok("every reason it can return is declared", FOLLOW_UP_TEXT_REASONS.length === 9
-  && ["no_phone", "opted_out", "switched_off", "phone_unverified", "failed"].every((r) => FOLLOW_UP_TEXT_REASONS.includes(r)));
+// The pre-quote video left the TEXT on 2026-11-03, when the enquiry chase
+// gained the booking link: a text has one thing to tap. It is the button on
+// the enquiry EMAIL (scripts/check-follow-up-defaults.mjs asserts that) and a
+// token here. What this file still has to pin is that the sender never reads
+// the column itself — the email's builder does, through preQuoteVideoFor.
+ok("the sender reaches for no video column at all", !/preQuoteVideoUrl/.test(sender));
+ok("the enquiry chase carries the BOOKING link instead", /trigger === "lead_no_response"/.test(sender) && /bookingUrl/.test(sender));
+ok("every reason it can return is declared", FOLLOW_UP_TEXT_REASONS.length === 10
+  && ["no_phone", "opted_out", "switched_off", "no_booking", "phone_unverified", "failed"].every((r) => FOLLOW_UP_TEXT_REASONS.includes(r)));
 // Every reason string the sender actually returns must be one of the declared
 // ones. A reason the cron counts under a name nobody listed is a counter
 // nobody reads.
@@ -373,33 +378,16 @@ const QUOTE_URL = "https://www.fieldquo.com/q/" + "x".repeat(43);
 ok("every catalogue language has both follow-up texts",
   SMS_LANGUAGES.every((l) => ["leadFollowUp", "quoteFollowUp"].every((k) => typeof SMS_COPY[l][k] === "function")));
 
+// ── The enquiry wording lives in scripts/check-lead-chase.mjs ────────────
+//
+// It was asserted here until 2026-11-03, when the owner moved the booking
+// link to the front of it and added the assigned person. The wording now has
+// an ordering to prove (link before phone), three absences that must each
+// read as a sentence, a booking page it depends on, and a per-language
+// segment cost to measure — enough that it is its own check rather than a
+// loop in this one. This file keeps the CHANNEL: the switch, the triggers,
+// the purposes, the cron's branch.
 for (const lang of SMS_LANGUAGES) {
-  const lead = renderMessage({
-    type: "lead_follow_up",
-    templates: null,
-    language: lang,
-    values: { company: "TrueFinish Cabinets", name: "Maureen", service: "kitchen cabinet refinishing", video: VIDEO, phone: "819-555-0100" },
-  });
-  ok(`${lang}: the enquiry text is personalised — company, first name, service`,
-    lead.includes("TrueFinish Cabinets") && lead.includes("Maureen") && lead.includes("kitchen cabinet refinishing"), lead);
-  ok(`${lang}: …and carries the pre-quote video`, lead.includes(VIDEO), lead);
-  ok(`${lang}: …and the number to call, because a reply here is read by nobody`, lead.includes("819-555-0100"), lead);
-  ok(`${lang}: keeps the STOP keyword the inbound handler listens for`, /\bSTOP\b/.test(lead), lead);
-  ok(`${lang}: fits in two segments' worth even with the video link`, lead.length <= 320, lead.length);
-  ok(`${lang}: is not the English sentence`, lang === "en" || !/haven't been able to reach you/.test(lead), lead);
-  // The three tokens that can legitimately be absent, each on its own: a lead
-  // with no name, a form with no service picked, a company with no video and
-  // no phone. Every one must read as a sentence rather than leaving a hole.
-  const bare = renderMessage({
-    type: "lead_follow_up",
-    templates: null,
-    language: lang,
-    values: { company: "TrueFinish Cabinets", name: null, service: null, video: null, phone: null },
-  });
-  ok(`${lang}: no name, no service, no video, no phone → still a sentence`,
-    !/undefined|null|\(\)|\s{2,}|\s[,.;।]/.test(bare) && /\bSTOP\b/.test(bare), bare);
-  ok(`${lang}: …and it mentions no video when there is none`, !bare.includes("http"), bare);
-
   const quote = renderMessage({
     type: "quote_follow_up",
     templates: null,
@@ -412,7 +400,11 @@ for (const lang of SMS_LANGUAGES) {
   ok(`${lang}: is not the English sentence`, lang === "en" || !/is still open/.test(quote), quote);
   // No money in either built-in wording: a phone is read by whoever holds it,
   // and a chase that re-states a figure reads as a bill.
-  ok(`${lang}: neither built-in names a figure`, !/\$|€|CAD|USD/.test(lead + quote), [lead, quote]);
+  // The quote chase names no figure — a phone is read by whoever holds it,
+  // and the amount is one tap behind the link. (The enquiry chase's own
+  // no-money assertion is in check-lead-chase.mjs with the rest of its
+  // wording.)
+  ok(`${lang}: the quote chase names no figure`, !/\$|€|CAD|USD/.test(quote), quote);
   const noNumber = renderMessage({
     type: "quote_follow_up",
     templates: null,
@@ -436,7 +428,9 @@ const custom = renderMessage({
 });
 ok("a custom enquiry text fills every token", custom === `TrueFinish: Hi Maureen, still keen to quote your cabinets? Watch ${VIDEO} then call 819-555-0100.`, custom);
 ok("an enquiry text may NOT use {amount} — nobody has looked at the job yet", !validateTemplate("lead_follow_up", "{company}: that'll be {amount}").ok);
-ok("an enquiry text may NOT use {link} — there is no quote to link to", !validateTemplate("lead_follow_up", "{company}: {link}").ok);
+// {link} became LEGAL on an enquiry text on 2026-11-03 — it is the booking
+// page, and the whole point of the message. check-lead-chase.mjs asserts it.
+ok("an enquiry text may use {link} — the booking page", validateTemplate("lead_follow_up", "{company}: {link}").ok);
 ok("a quote chase may NOT use {video} — the video is for before the visit", !validateTemplate("quote_follow_up", "{company}: {video}").ok);
 ok("a quote chase MAY use {number} and {link}", validateTemplate("quote_follow_up", "{company}: quote {number} — {link}").ok);
 // A Spanish-reading homeowner must not get the company's English wording.
@@ -449,7 +443,7 @@ ok("a quote chase MAY use {number} and {link}", validateTemplate("quote_follow_u
     values: { company: "TrueFinish", name: "Maureen", service: "cabinets" },
   });
   ok("a Spanish client gets the built-in Spanish, not the English custom text",
-    /No hemos logrado/.test(esReader) && !/still want/.test(esReader), esReader);
+    /Seguimos interesados/.test(esReader) && !/still want/.test(esReader), esReader);
 }
 
 // ══ 8. Registered purposes, and the health page's labels ═══════════════════

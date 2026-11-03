@@ -6200,6 +6200,30 @@ model FollowUpRule {
   /// template's blocks. It also answers to Company.followUpSmsOn, which is
   /// OFF until a company switches it on.
   channel      String            @default("email")
+
+  /// When this rule was last switched ON, or null if it has never been off.
+  ///
+  /// ── Why createdAt is not enough ────────────────────────────────────────
+  ///
+  /// quoteChaseBlocker's `before_rule` guard stops a FieldQuo default chasing
+  /// a document that predates the rule, because the three quote defaults were
+  /// seeded onto every company at once over quotes that had been sitting at
+  /// "sent" for months — without it the first run sent day-1, day-7 AND
+  /// day-14 in the same minute, each saying "the quote we sent yesterday".
+  ///
+  /// The three ENQUIRY defaults are seeded OFF, which breaks that guard: the
+  /// row is created the first time anybody opens the Follow-ups page and may
+  /// be switched on a month later, so `createdAt` is a month before the
+  /// decision and every lead that arrived in between is "after the rule". A
+  /// company with 28 unanswered leads would have texted all 28 in one run,
+  /// the minute they tried the feature.
+  ///
+  /// So the floor is the ACTIVATION, stamped by the PATCH route when `active`
+  /// goes false → true. NOT updatedAt: renaming a rule or re-timing it must
+  /// not reset the clock, which is the mistake job_completed's own column was
+  /// added to fix. Null means never switched off, so the floor falls back to
+  /// createdAt and the three quote defaults behave exactly as before.
+  activatedAt  DateTime?
   conditions   Json? // reserved for future rule conditions (min quote total, etc.)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

@@ -7,7 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { SUPPORTED_TRIGGERS, FOLLOW_UP_CHANNELS, followUpChannel, triggerMaySms } from "@/lib/followUps/triggers";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
-import { resetBuiltInRule } from "@/lib/followUps/defaults";
+import { resetBuiltInRule, activationStamp } from "@/lib/followUps/defaults";
 
 async function loadOwned(id, companyId) {
   const rule = await db.followUpRule.findUnique({ where: { id } });
@@ -122,6 +122,14 @@ export async function PATCH(request, { params }) {
       ...(delayUnit !== undefined && { delayUnit: delayUnit === "hours" ? "hours" : "days" }),
       ...(templateId !== undefined && { templateId }),
       ...(active !== undefined && { active }),
+      // ── Switching a rule ON starts its clock ──────────────────────────
+      //
+      // The enquiry defaults are seeded OFF and may be switched on months
+      // after the row was created, so `createdAt` is not when the rule
+      // started chasing — without this stamp, the first run after the switch
+      // would chase every lead that had been sitting at "new" since the page
+      // was first opened. Measured on one live tenant: 28 of them.
+      ...activationStamp(existing, active),
       ...(channel !== undefined && { channel: nextChannel }),
       // Switching a rule TO text drops the template it is no longer reading.
       // Left in place it is a column nothing reads — and worse, the picker

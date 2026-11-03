@@ -512,7 +512,13 @@ ok("the phone agent books a call at the company's call length", /bookingDuration
 const msgs = read("app/app/settings/messages/page.js");
 ok("Settings → Messages has the switch beside the booking text", /role="switch"/.test(msgs) && /bookingSmsOn/.test(msgs));
 const tplRoute = read("app/api/settings/message-templates/route.js");
-ok("…saved to bookingSmsConfirmation with the choice stamp", /bookingSmsConfirmation: body\.enabled, bookingSmsChosenAt: new Date\(\)/.test(tplRoute));
+// Was `bookingSmsConfirmation: body.enabled`. The route grew a SWITCHES table
+// when a second toggle arrived, so the write is a `write: (enabled) =>` entry
+// per switch and the parameter is no longer named `body.enabled` — the
+// assertion had been failing on main, which is the reassuring-lie state this
+// whole directory exists to prevent. Matched on the two columns it writes,
+// which is what the claim actually is.
+ok("…saved to bookingSmsConfirmation with the choice stamp", /bookingSmsConfirmation: enabled, bookingSmsChosenAt: new Date\(\)/.test(tplRoute));
 
 // ───────────────────────────────────────────────────────────────────────────
 console.log("\n7. The calendar invite — one UID, a rising SEQUENCE, CANCEL on cancel, the mode in the SUMMARY");

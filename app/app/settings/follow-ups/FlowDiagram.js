@@ -86,7 +86,7 @@ function Node({ icon, tone = "neutral", children }) {
  *                    be drawn as "switched off", which would put an amber
  *                    warning on a step that is sending perfectly well.
  */
-export default function FlowDiagram({ rules, smsEnabled }) {
+export default function FlowDiagram({ rules, smsEnabled, canSelfBook }) {
   const { t } = useTranslation();
 
   const flows = buildFlows(rules);
@@ -94,6 +94,11 @@ export default function FlowDiagram({ rules, smsEnabled }) {
   // told about mobile numbers it does not need.
   const channels = channelsIn(flows);
   const smsOff = smsEnabled === false;
+  // An enquiry chase by text with no booking page to point at sends nothing
+  // (the verdict refuses it as "no_booking"), so it is drawn as not sending —
+  // a step that looks armed and isn't is the control this codebase keeps
+  // being swept for. `=== false`, so an unanswered load draws nothing.
+  const noBooking = canSelfBook === false;
   // No rules is not an empty canvas. The page already says so in words above
   // this component; drawing an empty frame would only imply something is
   // configured.
@@ -174,6 +179,8 @@ export default function FlowDiagram({ rules, smsEnabled }) {
               // Not broken, but not sending either: the rule is fine and the
               // company has not switched follow-up texts on.
               const offForCompany = channel === "sms" && smsOff && !broken;
+              const needsBooking =
+                channel === "sms" && noBooking && !broken && !offForCompany && rule.triggerEvent === "lead_no_response";
 
               return (
                 <Fragment key={rule.id}>
@@ -187,7 +194,7 @@ export default function FlowDiagram({ rules, smsEnabled }) {
 
                   <Node
                     icon={
-                      broken || offForCompany ? (
+                      broken || offForCompany || needsBooking ? (
                         <AlertTriangle size={12} />
                       ) : channel === "sms" ? (
                         <MessageSquare size={12} />
@@ -195,12 +202,12 @@ export default function FlowDiagram({ rules, smsEnabled }) {
                         <Mail size={12} />
                       )
                     }
-                    tone={broken || offForCompany ? "warning" : "neutral"}
+                    tone={broken || offForCompany || needsBooking ? "warning" : "neutral"}
                   >
                     <div
                       className={`rounded-lg border px-3 py-2.5 ${
                         rule.active
-                          ? broken || offForCompany
+                          ? broken || offForCompany || needsBooking
                             ? "border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30"
                             : "border-border bg-background"
                           : // Paused: dashed and faded, because the cron loads
@@ -239,6 +246,11 @@ export default function FlowDiagram({ rules, smsEnabled }) {
                       {offForCompany && (
                         <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
                           {t("app.followFlow.smsOffNote")}
+                        </p>
+                      )}
+                      {needsBooking && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                          {t("app.followFlow.smsNeedsBookingNote")}
                         </p>
                       )}
                       {!rule.active && (

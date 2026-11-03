@@ -236,7 +236,10 @@ ok(
 );
 ok(
   "cron skips a client with no email — on an EMAIL rule, which is the new qualification",
-  /const to = channel === "sms" \? null : entity\.client\?\.email;[\s\S]{0,400}skippedNoEmail/.test(cron),
+  // The window grew when the verdict gained the trigger and the origin for
+  // the booking link. Anchored on the two lines that matter instead of a
+  // character count, so the next line added between them does not break it.
+  /const to = channel === "sms" \? null : entity\.client\?\.email;[\s\S]*?\} else if \(!to\) \{\n\s*skippedNoEmail\+\+;/.test(cron),
 );
 ok("diagram says so, per channel these rules actually use", /SKIPPED_KEYS\[channel\]/.test(diagram));
 

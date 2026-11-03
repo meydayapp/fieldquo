@@ -49,7 +49,15 @@ import {
 // this route genuinely gained a channel; these three imports are that.
 import { sendFollowUpText, followUpTextVerdict, FOLLOW_UP_TEXT_TYPE } from "@/lib/sms/followUpText";
 import { preQuoteVideoFor } from "@/lib/followUps/preQuoteVideo";
-import { quoteChaseBlocker, gatherQuoteChaseFacts } from "@/lib/followUps/stopConditions";
+import {
+  quoteChaseBlocker,
+  gatherQuoteChaseFacts,
+  leadChaseBlocker,
+} from "@/lib/followUps/stopConditions";
+// The enquiry chase's I/O is a module of its own, and deliberately not in
+// stopConditions.js: that one is in the browser bundle (the dashboard's work
+// panel imports quoteChaseBlocker from it), and this reaches pg.
+import { gatherLeadChaseFacts } from "@/lib/followUps/leadChaseFacts";
 import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
 import { templateBody } from "@/lib/email/templateBody";
 import { localizeTemplate } from "@/lib/email/templateTranslation";
@@ -121,7 +129,10 @@ async function findLeadNoResponse(rule, channel = "email") {
       createdAt: { lte: cutoffFor(rule) },
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
-    include: { company: true, category: { select: { label: true } } },
+    // The assignee's NAME, because the chase says who will be in touch —
+    // and only when there is one. assignedToId alone would have the sender
+    // promising a call from an id.
+    include: { company: true, category: { select: { label: true } }, assignedTo: { select: { name: true } } },
   });
   return leads.map((lead) => ({
     ...lead,
@@ -312,6 +323,21 @@ export async function GET(request) {
     // lead row carries its own email and phone, and asking for an address on
     // a rule that texts would drop exactly the people worth texting.
     const entities = await finder.find(rule, channel);
+
+    // ── The enquiry chase's stop conditions ─────────────────────────────
+    //
+    // The owner, 2026-11-03: chase a lead "only if they don't have an
+    // appointment set up. and they also don't have a quote. or job."
+    //
+    // Gathered ONCE per rule for every candidate, because the matching reads
+    // the company's client book (lib/followUps/stopConditions.js
+    // gatherLeadChaseFacts says why, and why it must not be called per lead).
+    // Skipped entirely on the usual run, where the finder returned nothing.
+    const leadFacts =
+      finder.entityType === "lead" && entities.length
+        ? await gatherLeadChaseFacts(db, { companyId: rule.companyId, leads: entities })
+        : null;
+
     for (const entity of entities) {
       // ── Can this client be reached on THIS rule's channel? ───────────────
       //
@@ -331,6 +357,12 @@ export async function GET(request) {
         const verdict = await followUpTextVerdict({
           companyId: entity.companyId,
           phone: entity.client?.phone,
+          // The trigger, so the enquiry chase is also asked whether this
+          // company has a booking page to send anybody to — before the claim,
+          // so a company that finishes setting one up next week still gets
+          // its leads chased then.
+          trigger: rule.triggerEvent,
+          origin: getAppOrigin(request),
         });
         if (!verdict.send) {
           smsSkip(verdict.reason);
@@ -354,6 +386,21 @@ export async function GET(request) {
           quote: entity,
           rule,
           facts: await gatherQuoteChaseFacts(db, entity),
+        });
+        if (blocker) {
+          stop(blocker);
+          continue;
+        }
+      }
+
+      // The enquiry equivalent, on the same footing: decided before the
+      // claim, counted by reason, and every reason is in the one sentence
+      // the settings page prints for this trigger.
+      if (finder.entityType === "lead") {
+        const blocker = leadChaseBlocker({
+          lead: entity,
+          rule,
+          facts: leadFacts?.get(entity.id) || {},
         });
         if (blocker) {
           stop(blocker);
@@ -442,8 +489,18 @@ export async function GET(request) {
           // lead's own category label — null when the form captured none,
           // and the wording drops the clause rather than inventing one.
           service: finder.entityType === "lead" ? entity.category?.label || null : null,
+          // The assignee's first name, or nothing. 28 of 99 leads on the live
+          // tenant have no assignee, and "someone will be in touch" on one of
+          // those is a promise nothing in the software keeps.
+          assignedTo:
+            finder.entityType === "lead"
+              ? String(entity.assignedTo?.name || "").trim().split(/\s+/)[0] || null
+              : null,
           number: finder.entityType === "quote" ? entity.quoteNumber || null : null,
           quoteUrl: merge.quoteUrl || null,
+          // The booking link's host, resolved once by the one helper that
+          // knows it — never guessed inside the sender.
+          origin: getAppOrigin(request),
           ref: { type: finder.entityType, id: entity.id },
           // A lead has no Client row yet — the cron shapes the lead itself
           // into the `client` slot, and it carries no id.
