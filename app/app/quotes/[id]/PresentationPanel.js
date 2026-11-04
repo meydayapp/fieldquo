@@ -8,6 +8,23 @@
 // nothing behind it is greyed here and never rendered.
 //
 // "Your project" is the quote itself and has no switch.
+//
+// ── Two modes, one panel ────────────────────────────────────────────────────
+//
+// With a `quoteId` it reads and PATCHes its own row, which is what the quote
+// page and the builder's Presentation tab on a SAVED quote do.
+//
+// Without one — the builder on /app/quotes/new — the overrides have nowhere
+// to be saved yet, so they live in builder state and arrive as `value` with
+// an `onChange`; the create POST writes them with the rest of the quote.
+// Everything the panel SHOWS is company-level either way and comes from
+// /api/quotes/new/presentation, so the tab opens on the company's defaults
+// rather than on a grey "set once the quote is saved" box, which is what it
+// used to be (the unfinished gate in DocumentBuilder, commit 9d38a77a5).
+//
+// The day plan and the waivers are the two pieces a save is genuinely needed
+// for — see lib/proposal/panel.js — and in create mode they are replaced by
+// one line saying so, not by disabled controls.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -16,6 +33,7 @@ import { Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import WaiversCard from "@/app/components/waivers/WaiversCard";
+import { readPresentationInput, resolveProposalSections, sanitisePresentation } from "@/lib/proposal/sections";
 
 const SETTINGS_HREF = "/app/settings/presentation";
 
@@ -35,25 +53,57 @@ function Toggle({ on, disabled, onChange, label }) {
   );
 }
 
-export default function PresentationPanel({ quoteId, editable = true }) {
+export default function PresentationPanel({
+  quoteId,
+  editable = true,
+  // ── Create mode (no quoteId) ──────────────────────────────────────────
+  // `value` is Quote.presentation as the builder holds it — null until the
+  // estimator touches something — and `onChange` receives the merged value.
+  // `language` is what the builder is composing in, so the document titles
+  // on the panel are the ones this quote will carry.
+  value = null,
+  onChange = null,
+  language = null,
+}) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const createMode = !quoteId;
 
   const load = useCallback(async () => {
     try {
-      setData(await fetchJson(`/api/quotes/${quoteId}/presentation`));
+      setData(
+        await fetchJson(
+          quoteId
+            ? `/api/quotes/${quoteId}/presentation`
+            : `/api/quotes/new/presentation${language ? `?language=${encodeURIComponent(language)}` : ""}`,
+        ),
+      );
     } catch (err) {
       setError(err.message);
     }
-  }, [quoteId]);
+  }, [quoteId, language]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   async function patch(body, key) {
+    // Create mode: the same body, merged into builder state instead of into
+    // a row that does not exist. Through the SERVER's own reader, so the
+    // screen cannot hold a value the save would refuse, and merged rather
+    // than replaced so one switch does not reset the others.
+    if (createMode) {
+      const { error: invalid, value: merged } = readPresentationInput(body, value);
+      if (invalid) {
+        setError(invalid);
+        return;
+      }
+      setError("");
+      onChange?.(merged);
+      return;
+    }
     setBusy(key);
     setError("");
     try {
@@ -83,7 +133,32 @@ export default function PresentationPanel({ quoteId, editable = true }) {
             ? t("app.proposal.count.services", "{n} services", { n: data.counts.services })
             : "";
 
-  const includedIds = data.documents.filter((d) => d.included).map((d) => d.id);
+  // ── Create mode resolves the three-state here ─────────────────────────
+  //
+  // The overrides are still in builder state, so the server has never seen
+  // them: it answered for the company's defaults alone. They are resolved
+  // against those defaults by resolveProposalSections — the SAME function
+  // the client page and the saved-quote route decide with, so the tab cannot
+  // show one answer while the document the homeowner opens shows another.
+  const held = createMode ? sanitisePresentation(value) : null;
+  const resolved = createMode
+    ? resolveProposalSections({
+        company: { proposalSections: Object.fromEntries(data.sections.map((s) => [s.key, s.companyDefault])) },
+        quote: { presentation: value },
+        content: Object.fromEntries(data.sections.map((s) => [s.key, s.hasContent])),
+      })
+    : null;
+  const sections = createMode
+    ? data.sections.map((s) => ({ ...s, ...resolved[s.key], override: held.sections[s.key] }))
+    : data.sections;
+  const documents = createMode
+    ? data.documents.map((d) => ({
+        ...d,
+        included: d.visibleToClients && (held.documentIds === null || held.documentIds.includes(d.id)),
+      }))
+    : data.documents;
+
+  const includedIds = documents.filter((d) => d.included).map((d) => d.id);
 
   return (
     <div className="space-y-4">
@@ -103,7 +178,7 @@ export default function PresentationPanel({ quoteId, editable = true }) {
           </div>
         </div>
 
-        {data.sections.map((s) => (
+        {sections.map((s) => (
           <div key={s.key} className={`flex items-start gap-3 py-2.5 ${s.hasContent ? "" : "opacity-60"}`}>
             <Toggle
               on={s.on}
@@ -142,7 +217,7 @@ export default function PresentationPanel({ quoteId, editable = true }) {
 
               {s.key === "documents" && s.hasContent && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
-                  {data.documents
+                  {documents
                     .filter((d) => d.visibleToClients)
                     .map((d) => (
                       <label key={d.id} className="flex items-center gap-1.5 text-xs text-foreground">
@@ -154,7 +229,7 @@ export default function PresentationPanel({ quoteId, editable = true }) {
                             const next = e.target.checked ? [...includedIds, d.id] : includedIds.filter((x) => x !== d.id);
                             // Every visible document ticked = back to "all", so a
                             // document added to the library later joins this quote too.
-                            const visible = data.documents.filter((x) => x.visibleToClients).map((x) => x.id);
+                            const visible = documents.filter((x) => x.visibleToClients).map((x) => x.id);
                             const all = visible.every((id) => next.includes(id));
                             patch({ documentIds: all ? null : next }, "documentIds");
                           }}
@@ -163,9 +238,9 @@ export default function PresentationPanel({ quoteId, editable = true }) {
                         {d.title}
                       </label>
                     ))}
-                  {data.documents.some((d) => d.expired) && (
+                  {documents.some((d) => d.expired) && (
                     <span className="text-xs text-amber-700 dark:text-amber-400">
-                      {t("app.proposal.expiredHidden", "{n} expired — hidden", { n: data.documents.filter((d) => d.expired).length })}
+                      {t("app.proposal.expiredHidden", "{n} expired — hidden", { n: documents.filter((d) => d.expired).length })}
                     </span>
                   )}
                 </div>
@@ -176,6 +251,17 @@ export default function PresentationPanel({ quoteId, editable = true }) {
         ))}
       </div>
 
+      {/* ── The two pieces a saved quote is genuinely needed for ────────────
+          The plan divides THIS quote's takeoff hours (server-derived from the
+          saved scopeGroups), and a waiver signature carries a quoteId — so
+          before the first save they are absent and said so in one line,
+          rather than drawn as controls that could not work. */}
+      {createMode ? (
+        <p className="bg-muted border border-border rounded-xl px-4 py-3 text-xs text-muted-foreground">
+          {t("app.docBuilder.presentationAfterSave", "The day-by-day plan and the waivers to sign arrive once the quote is saved — the plan divides this quote's own takeoff hours, and a waiver attaches to a saved quote.")}
+        </p>
+      ) : (
+      <>
       {/* ── The day plan's crew size ─────────────────────────────────────── */}
       <div className="rounded-lg border border-border px-3 py-2.5 text-sm">
         <div className="font-medium text-foreground">{t("app.proposal.plan.title", "How the work runs — day by day")}</div>
@@ -219,6 +305,8 @@ export default function PresentationPanel({ quoteId, editable = true }) {
           {t("app.waivers.blocksAccept", "While an attached waiver is unsigned, the client's Accept button stays disabled with the reason printed.")}
         </p>
       </div>
+      </>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

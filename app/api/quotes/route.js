@@ -39,6 +39,7 @@ import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { attachDefaultWaivers } from "@/lib/waivers/service";
 import { readClientPoInput } from "@/lib/documents/clientPo";
+import { readPresentationInput, hasPresentationOverride } from "@/lib/proposal/sections";
 // "What happens next" is copied onto the quote in the QUOTE's language: the
 // company's reviewed or auto-drafted translation when one exists for the
 // current wording, the source text otherwise (lib/i18n/companyText.js).
@@ -149,6 +150,14 @@ export async function POST(request) {
     // before the first save instead of only afterwards on the edit route, which
     // is where the two screens had drifted apart.
     processNotes,
+    // The proposal's own sections, per quote — Quote.presentation, the three
+    // nullable JSON fields in lib/proposal/sections.js. Here for exactly the
+    // reason processNotes above is: the builder's Presentation tab opens on
+    // the company's defaults, and until now could only be CHANGED afterwards
+    // on the saved quote, which is where the two screens had drifted apart.
+    // Validated below by the same reader the PATCH route uses, so a value
+    // this accepts is a value that screen accepts.
+    presentation,
     validUntil,
     language,
     // Where the work is. Prefilled from a homeowner's address by the builder,
@@ -397,6 +406,24 @@ export async function POST(request) {
         })
       : null;
 
+  // The per-quote proposal overrides, read by the SAME function the panel's
+  // PATCH route reads them with (lib/proposal/sections.js). Refused rather
+  // than coerced — a crew of "3" is a type nobody intended — and a request
+  // that says nothing about the proposal leaves the column null, which is
+  // the three-state rule the schema documents: null means "follow the
+  // company's defaults", for the sections AND for the whole object.
+  const presentationInput = readPresentationInput(presentation, null);
+  if (presentationInput.error) {
+    return NextResponse.json({ error: presentationInput.error }, { status: 400 });
+  }
+  // An object whose every value is null says exactly what no object says, so
+  // it is not written: an estimator who toggled a section and then clicked
+  // "follow the default" must leave the quote following the company, not
+  // holding a frozen copy of today's answer.
+  const presentationValue = hasPresentationOverride(presentationInput.value)
+    ? presentationInput.value
+    : null;
+
   const quote = await db.quote.create({
     data: {
       // ── The client's link, minted here rather than at Send ──────────────
@@ -461,6 +488,10 @@ export async function POST(request) {
           ? processNotes || null
           : companyText?.defaultProcessNotes || null,
       validUntil: validUntil ? new Date(validUntil) : null,
+      // Omitted rather than set null when the estimator stated nothing, so a
+      // create that never opened the Presentation tab writes exactly the row
+      // it wrote before this existed.
+      ...(presentationValue ? { presentation: presentationValue } : {}),
       language: language || "en",
       siteAddress: siteAddressValue,
       // The client's PO, when the builder sent one (lib/documents/clientPo.js).
