@@ -1154,6 +1154,15 @@ export function QuoteBuilderForm({
     // having the box here at all.
     start.processNotes ?? boot.defaultProcessNotes ?? "",
   );
+  // Quote.presentation — which proposal sections the homeowner sees, which
+  // library documents, the crew behind the day plan (lib/proposal/sections.js).
+  //
+  // NULL means the estimator has said nothing, and then the create POST sends
+  // no key at all and the column stays null: "follow the company's defaults",
+  // which is the three-state rule the schema documents. Only ever read on a
+  // CREATE — on an edit the panel saves itself through
+  // /api/quotes/[id]/presentation, so there is never a second writer.
+  const [presentation, setPresentation] = useState(null);
   const [clientPhotos, setClientPhotos] = useState(start.clientPhotos || []);
   // Who's working this quote. "" means unset — on a create that resolves to
   // the person saving it (POST /api/quotes defaults assignedToId to the
@@ -2618,6 +2627,9 @@ export function QuoteBuilderForm({
       sourcePlanReadId: !isEdit ? initial?.planReadId || null : null,
       clientPoNumber: (clientPoTouched || start.clientPoNumber) && !clientPoLocked ? clientPoNumber : undefined,
       changedClientId: clientRepointable ? changedClientId : null,
+      // Create only — on an edit the Presentation panel has already PATCHed
+      // its own route, and this stays null.
+      presentation: !isEdit ? presentation : null,
     });
 
     let quote = null;
@@ -3809,6 +3821,9 @@ export function QuoteBuilderForm({
           scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, servicePicker, removeScopeGroup, updateLineItem, removeLineItem,
           groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
           notes, setNotes, reviewNotes, setReviewNotes, reviewNotesRef, processNotes, setProcessNotes,
+          // The Presentation tab's three JSON fields, before the first save.
+          // Only this layout has that tab — see the note on it there.
+          presentation, setPresentation,
           assignedToId, setAssignedToId, setAssignedToTouched,
           discount, setDiscount, appliedDiscount, taxableBase, taxEnabled, setTaxEnabled, taxRate, setTaxRate,
           setTaxRateTouched, taxNote, taxCaution, taxAssumed, taxSchemeNote, taxDetail, vatWorkType, setVatWorkType,

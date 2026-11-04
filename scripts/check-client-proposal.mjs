@@ -16,6 +16,10 @@
 //      across hostile brand colours (white, black, yellow, mid grey…).
 //   6. Nothing client-facing says "FieldQuo".
 //   7. The gallery is one: every reader goes through lib/company/gallery.js.
+//   8. The builder's Presentation tab works BEFORE the first save, on the
+//      company's defaults, through the same input reader the saved quote
+//      uses — and a create that never opened it leaves the column null and
+//      renders identically to one created before that was possible.
 //
 // By EXECUTING the pure modules against fixtures (lib/proposal/sections.js,
 // lib/company/documents.js, lib/waivers/signing.js, lib/company/gallery.js's
@@ -25,12 +29,15 @@
 // Run: node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-client-proposal.mjs
 
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   PROPOSAL_SECTION_KEYS,
   resolveProposalSections,
   renderedSectionKeys,
   sanitisePresentation,
   sanitiseCompanySections,
+  readPresentationInput,
+  hasPresentationOverride,
   dayPlan,
   paintSpec,
 } from "@/lib/proposal/sections";
@@ -47,7 +54,7 @@ import { documentTheme, fillPair, washPair, ruleColor } from "@/lib/documents/th
 import { contrastRatio } from "@/lib/brand/colour";
 import { CLIENT_DOC_COPY } from "@/lib/i18n/clientDocCopy";
 import { SETUP_STEPS } from "@/lib/setupSteps";
-import { workFromGroups } from "@/lib/proposal/load";
+import { workFromGroups, projectProposal } from "@/lib/proposal/load";
 
 let pass = 0;
 const fails = [];
@@ -55,6 +62,7 @@ const ok = (label, cond, detail) =>
   cond ? (pass++, console.log(`  ok   ${label}`)) : fails.push(`${label}${detail !== undefined ? ` — ${detail}` : ""}`);
 const section = (title) => console.log(`\n${title}\n`);
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+const md5 = (o) => createHash("md5").update(JSON.stringify(o)).digest("hex");
 const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'])\/\/.*$/gm, "$1").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -319,7 +327,10 @@ section("8. Wiring the fixtures cannot execute");
   const settings = strip(read("app/app/settings/presentation/page.js"));
   ok("Settings › Presentation renders the same three editors under the anchors the rows link to", /id="story"/.test(settings) && /id="gallery"/.test(settings) && /id="documents"/.test(settings) && /<StoryEditor \/>/.test(settings) && /<GalleryEditor \/>/.test(settings) && /<CompanyDocumentsEditor \/>/.test(settings));
   const pres = strip(read("app/api/quotes/[id]/presentation/route.js"));
-  ok("the quote's Presentation API accepts true/false/null per section and refuses anything else", /v !== true && v !== false && v !== null/.test(pres));
+  // The per-section refusal moved into lib/proposal/sections.js when the
+  // create POST needed the same rules — ONE reader, three callers. The route
+  // is held to calling it rather than to restating it.
+  ok("the quote's Presentation API accepts true/false/null per section and refuses anything else", /v !== true && v !== false && v !== null/.test(strip(read("lib/proposal/sections.js"))) && /readPresentationInput\(body, quote\.presentation\)/.test(pres));
   ok("the quote's presentation column is written AND read", /presentation: saved/.test(pres) && /quote\.presentation/.test(route));
   const pkg = JSON.parse(read("package.json"));
   ok("check:client-proposal is wired into check:all", typeof pkg.scripts["check:client-proposal"] === "string" && pkg.scripts["check:all"].includes("check:client-proposal"));
@@ -328,6 +339,135 @@ section("8. Wiring the fixtures cannot execute");
   // Cloudinary PDF URL answers 401 from this account (lib/media/fileOpen.js),
   // so the old `urlById.get(...)` link looked like it worked and didn't.
   ok("the portal lists signed waivers with a link to the filed copy and pending ones with the sign link", /signToken: r\.status === "signed" \? null : r\.token/.test(portal) && /clientFileHref\(\{ scope: "portal", token: _params\.token, kind: "waiver", id: r\.jobDocumentId \}\)/.test(portal) && !/urlById/.test(portal));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. The Presentation tab BEFORE the first save");
+//
+// The owner's complaint: "Why can I just edit the presentation after I save
+// it and not while creating a quote". The tab was a grey box in create mode —
+// the unfinished half of a paused port, not a designed constraint. Nothing in
+// Quote.presentation needs a saved row: three nullable JSON fields, no
+// foreign keys, and every piece of CONTENT behind them is company-level.
+//
+// What this section holds:
+//   a. the ONE input reader refuses hostile values rather than coercing them,
+//      and it is the same reader on all three callers;
+//   b. silence stays silence — a create that never opened the tab leaves the
+//      column null, and a quote that ended up all-null renders IDENTICALLY
+//      to one created before any of this existed (two md5s);
+//   c. the two pieces that genuinely need a saved quote — the day plan's
+//      server-derived hours and a waiver's quoteId — are ABSENT in create
+//      mode and explained in words, never drawn as dead controls.
+{
+  // ── a. the reader, against hostile input ────────────────────────────────
+  const bad = (label, raw) => ok(`refused: ${label}`, Boolean(readPresentationInput(raw, null).error), JSON.stringify(readPresentationInput(raw, null)));
+  const good = (label, raw) => readPresentationInput(raw, null);
+
+  bad("sections.about = \"false\" (a string is not a switch)", { sections: { about: "false" } });
+  bad("sections.about = 0", { sections: { about: 0 } });
+  bad("sections.about = 1", { sections: { about: 1 } });
+  bad("sections.services = {} ", { sections: { services: {} } });
+  bad("documentIds = \"d1\" (not an array)", { documentIds: "d1" });
+  bad("documentIds = {} ", { documentIds: {} });
+  bad("crewSize = 0", { crewSize: 0 });
+  bad("crewSize = 21", { crewSize: 21 });
+  bad("crewSize = 1.5", { crewSize: 1.5 });
+  bad("crewSize = \"3\"", { crewSize: "3" });
+  bad("crewSize = NaN", { crewSize: NaN });
+  bad("crewSize = Infinity", { crewSize: Infinity });
+
+  for (const [label, raw] of [["null", null], ["undefined", undefined], ["{}", {}], ["a string", "x"], ["a number", 7], ["an array", []]]) {
+    const r = readPresentationInput(raw, null);
+    ok(`${label} says nothing: no error, nothing changed, all null`, !r.error && r.changed.length === 0 && PROPOSAL_SECTION_KEYS.every((k) => r.value.sections[k] === null) && r.value.documentIds === null && r.value.crewSize === null);
+  }
+  {
+    const r = good("", { sections: { about: false, bogus: true, documents: null }, documentIds: ["d1", "d1", 7, " d2 ", ""], crewSize: 20 });
+    ok("an unknown section key is ignored, not an error", !r.error && !("bogus" in r.value.sections));
+    ok("…true/false/null all accepted, and `changed` names only what was stated", r.value.sections.about === false && r.value.sections.documents === null && r.changed.join() === "sections.about,sections.documents,documentIds,crewSize");
+    ok("…non-string ids dropped, the rest trimmed and deduped", JSON.stringify(r.value.documentIds) === JSON.stringify(["d1", "d2"]));
+    ok("…crewSize 20 is the top of the range", r.value.crewSize === 20);
+  }
+  {
+    // The merge is what makes one switch safe to flip: the panel sends one
+    // key and the other four must survive it.
+    const stored = { sections: { about: false, services: true }, documentIds: ["d1"], crewSize: 3 };
+    const r = readPresentationInput({ sections: { documents: true } }, stored);
+    ok("a one-key change keeps the other sections, the document list and the crew", r.value.sections.about === false && r.value.sections.services === true && r.value.sections.documents === true && JSON.stringify(r.value.documentIds) === JSON.stringify(["d1"]) && r.value.crewSize === 3);
+    ok("…and a refusal changes NOTHING (error, no value)", readPresentationInput({ sections: { documents: "yes" } }, stored).value === undefined);
+    ok("…an explicit null clears an override back to the company default", readPresentationInput({ sections: { about: null } }, stored).value.sections.about === null);
+    ok("…documentIds: null means every document again", readPresentationInput({ documentIds: null }, stored).value.documentIds === null);
+    ok("…crewSize: null means no crew override", readPresentationInput({ crewSize: null }, stored).value.crewSize === null);
+  }
+  ok("hasPresentationOverride: all-null says nothing", !hasPresentationOverride(null) && !hasPresentationOverride({}) && !hasPresentationOverride(sanitisePresentation(null)) && !hasPresentationOverride({ sections: { about: null }, documentIds: null, crewSize: null }));
+  ok("…one switch, one document list or one crew size says something", hasPresentationOverride({ sections: { about: false } }) && hasPresentationOverride({ documentIds: [] }) && hasPresentationOverride({ crewSize: 2 }));
+  ok("…and a value the reader would REFUSE does not count as a statement", !hasPresentationOverride({ crewSize: "3", sections: { about: "false" } }));
+
+  // ── b. silence renders identically ──────────────────────────────────────
+  //
+  // The client-facing payload, built exactly as app/api/public/quotes/[token]
+  // builds it, for a quote created before any of this existed (presentation
+  // null) and for one an estimator opened the tab on and left following the
+  // company throughout. The two md5s must match, or the three-state rule
+  // leaked a stored decision into a quote nobody decided anything about.
+  {
+    const docs = [
+      { id: "d1", type: "insurance", title: "COI", fileUrl: "https://res.cloudinary.com/x/a.pdf", showOnQuotes: true, expiresAt: null },
+      { id: "d2", type: "licence", title: "Licence", fileUrl: "https://res.cloudinary.com/x/b.pdf", showOnQuotes: true, expiresAt: null },
+    ];
+    const company = { proposalSections: { testimonials: false }, story: "We have painted Laval for 20 years.", storyHeadline: "About us" };
+    const payloadFor = (presentation) => {
+      const p = sanitisePresentation(presentation);
+      const content = {
+        about: { headline: company.storyHeadline, story: company.story, videoUrl: null, teamPhotoUrl: null },
+        gallery: [{ before: "https://a/1.jpg", after: "https://a/2.jpg", caption: "" }],
+        documents: clientVisibleDocuments(docs, { ids: p.documentIds }).map((d) => presentDocument(d)),
+        testimonials: [{ name: "L. Angelos", text: "Spotless." }],
+        services: [{ key: "interior_painting", label: "Interior painting" }],
+      };
+      const sections = resolveProposalSections({
+        company,
+        quote: { presentation },
+        content: { about: true, beforeAfter: content.gallery.length, documents: content.documents.length, testimonials: content.testimonials.length, services: content.services.length },
+      });
+      return projectProposal({ content, sections });
+    };
+    const before = md5(payloadFor(null));
+    // What the builder leaves behind when the estimator switches a section off
+    // and then clicks "follow the default": every value back to null.
+    const touchedAndUndone = readPresentationInput({ sections: { about: null } }, readPresentationInput({ sections: { about: false } }, null).value).value;
+    const after = md5(payloadFor(touchedAndUndone));
+    ok("a create-mode quote the estimator left alone renders IDENTICALLY to one created before this change", before === after, `null ${before} vs all-null ${after}`);
+    console.log(`  md5  client payload, presentation null      : ${before}`);
+    console.log(`  md5  client payload, every override null    : ${after}`);
+    ok("…and the all-null object is never WRITTEN in the first place", !hasPresentationOverride(touchedAndUndone));
+    // And the opposite, so the hash above is not matching because nothing is
+    // read: switching a section off must change the payload.
+    ok("…while a real override DOES change the payload", md5(payloadFor({ sections: { beforeAfter: false } })) !== before);
+    ok("…a document selection narrows the client's list", payloadFor({ documentIds: ["d2"] }).documents.length === 1);
+  }
+
+  // ── c. the wiring ───────────────────────────────────────────────────────
+  const panel = strip(read("app/app/quotes/[id]/PresentationPanel.js"));
+  const builder = strip(read("app/components/quotes/builder/DocumentBuilder.js"));
+  const request = strip(read("lib/quotes/builderRequest.js"));
+  const post = strip(read("app/api/quotes/route.js"));
+  const newRoute = strip(read("app/api/quotes/new/presentation/route.js"));
+
+  ok("the Presentation tab is no longer gated on a saved quote", !/presentationAfterSave/.test(builder) && /<PresentationPanel\s+value=\{b\.presentation\}/.test(builder) && /onChange=\{b\.setPresentation\}/.test(builder));
+  ok("…and the saved-quote mount is unchanged beside it", /<PresentationPanel quoteId=\{quoteId\} editable=\{b\.OPEN_STATUSES\.includes\(start\.status\)\} \/>/.test(builder));
+  ok("the panel loads the company's defaults when there is no quote yet", /\/api\/quotes\/new\/presentation/.test(panel) && /quoteId\s*\n?\s*\? `\/api\/quotes\/\$\{quoteId\}\/presentation`/.test(panel));
+  ok("…and that route is READ-only — no PATCH, no POST, no write", /export async function GET/.test(newRoute) && !/export async function (PATCH|POST|PUT|DELETE)/.test(newRoute) && !/db\.(quote|company)\.(update|create)/.test(newRoute));
+  ok("…a create-mode toggle goes through the server's own reader, merged not replaced", /readPresentationInput\(body, value\)/.test(panel) && /onChange\?\.\(merged\)/.test(panel));
+  ok("…and resolves the switches with resolveProposalSections, not a second rule", /resolveProposalSections\(\{/.test(panel) && /companyDefault/.test(panel));
+  ok("the day plan and the waivers are absent in create mode, and said so in words", /createMode \?/.test(panel) && panel.indexOf("app.docBuilder.presentationAfterSave") < panel.indexOf("app.proposal.plan.title") && panel.indexOf("app.docBuilder.presentationAfterSave") < panel.indexOf("<WaiversCard"));
+  ok("…and nothing renders a WaiversCard without a quoteId", /<WaiversCard target=\{\{ quoteId \}\}/.test(panel));
+  ok("the builder posts `presentation` on a create only, and omits the key when nothing was stated", /presentation: !isEdit \? presentation : null/.test(strip(read("app/components/quotes/builder/QuoteBuilder.js"))) && /\.\.\.\(presentation \? \{ presentation \} : \{\}\)/.test(request) && !/presentation/.test(request.split("if (isEdit) {")[1].split("return {")[1].split("}")[0]));
+  ok("POST /api/quotes validates it with the SHARED reader and writes it", /readPresentationInput\(presentation, null\)/.test(post) && /presentation: presentationValue/.test(post));
+  ok("…and refuses rather than saving a quote with a bad presentation", post.indexOf("presentationInput.error") < post.indexOf("db.quote.create("));
+  ok("…and writes nothing when every override is null", /hasPresentationOverride\(presentationInput\.value\)/.test(post));
+  const savedRoute = strip(read("app/api/quotes/[id]/presentation/route.js"));
+  ok("one presenter for both screens — the saved quote and the one being created", /presentProposalPanel/.test(savedRoute) && /presentProposalPanel/.test(newRoute) && /quote \? loadWorkPlan/.test(strip(read("lib/proposal/panel.js"))));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

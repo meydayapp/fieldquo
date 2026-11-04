@@ -1834,15 +1834,32 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
 
       {tab === "presentation" && (
         <div className="space-y-4" data-tab-panel="presentation">
-          {isEdit && quoteId ? (
-            <div className="bg-card border border-border rounded-xl p-5">
+          {/* ── Before the first save, too ─────────────────────────────────
+              This used to be a grey "set once the quote is saved" box, which
+              was not a decision — it was the unfinished half of the port
+              (9d38a77a5, "WIP document builder — paused"). Nothing in the
+              per-quote override needs a saved row: it is three nullable JSON
+              fields with no foreign keys (Quote.presentation), and all the
+              CONTENT behind the sections is company-level and edited in
+              Settings. So the panel opens on the company's defaults and the
+              switches go in with the create POST.
+
+              ASYMMETRY TO KNOW ABOUT: this tab exists in the `document`
+              layout only. QuoteBuilder.js's `classic` markup — still the
+              default for most companies — has no PresentationPanel at all, so
+              there the proposal is still set on the saved quote page. Adding
+              it there is a separate piece of work, not an oversight here. */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            {isEdit && quoteId ? (
               <PresentationPanel quoteId={quoteId} editable={b.OPEN_STATUSES.includes(start.status)} />
-            </div>
-          ) : (
-            <div className="bg-muted border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground">
-              {t("app.docBuilder.presentationAfterSave", "The proposal's sections — your story, before & after photos, documents — are set once the quote is saved.")}
-            </div>
-          )}
+            ) : (
+              <PresentationPanel
+                value={b.presentation}
+                onChange={b.setPresentation}
+                language={b.quoteLanguage || b.companyLanguage}
+              />
+            )}
+          </div>
           {/* "What happens next" and the site-visit photos used to live here.
               They moved to the Estimate tab — into the document and beside it
               — because that is where they are written and where the review
