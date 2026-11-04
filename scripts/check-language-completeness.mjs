@@ -47,6 +47,7 @@ import { EMAIL_COPY } from "@/lib/i18n/emailCopy";
 import { RECEIPT_EMAIL_COPY } from "@/lib/i18n/receiptEmailCopy";
 import { TEAM_NOTICE_COPY } from "@/lib/i18n/teamNoticeCopy";
 import { CLIENT_ALERT_COPY } from "@/lib/i18n/clientAlertCopy";
+import { SURVEY_COPY } from "@/lib/reviews/satisfaction";
 import { SITE_COPY } from "@/lib/site/siteCopy";
 
 let pass = 0;
@@ -173,6 +174,13 @@ const TABLES = [
   // The client-activity alert TEXT a company's own staff get (2026-10-14).
   // Staff again, so all nine app languages.
   ["lib/i18n/clientAlertCopy.js", "the text a team member gets when a client opens or approves something", CLIENT_ALERT_COPY],
+  // The satisfaction survey (2026-11-04). It carried six of the eight offered
+  // languages and nothing said so: surveyCopy() falls back to English per
+  // LANGUAGE, so a German homeowner opening /survey/<token> got an entirely
+  // English page and every check in the repo stayed green. The same five tap
+  // links are embedded in the review-request email, so the gap reached a
+  // client twice. This row is why it cannot happen to the ninth language.
+  ["lib/reviews/satisfaction.js", "the one-question satisfaction survey a client answers", SURVEY_COPY],
   ["lib/site/siteCopy.js", "the chrome around a contractor's public website", SITE_COPY],
 ];
 
