@@ -76,6 +76,21 @@ function describe(permissions) {
     .join(", ");
 }
 
+// The same wording, cut at its first qualifier — everything up to the first
+// ", " / " — " / " (" — so a list of a dozen of them reads as a list.
+//
+// There is no second vocabulary to keep in step: these are PERMISSION_WORDS,
+// shortened. A full-prose "Cannot" sentence was tried first and ran to
+// fourteen clauses, each carrying its own commas and em-dashes; it was
+// complete and unreadable, which is worse than the incomplete hand-written
+// sentence it replaced, because nobody finishes reading it.
+function shortly(permission) {
+  const words = PERMISSION_WORDS[permission];
+  if (!words) return `${permission} (no description written yet)`;
+  const cut = [", ", " — ", " ("].map((d) => words.indexOf(d)).filter((i) => i > 0);
+  return cut.length ? words.slice(0, Math.min(...cut)) : words;
+}
+
 function roleDescription(role) {
   const held = PLATFORM_PERMISSIONS[role] || [];
   if (held.includes("*")) {
@@ -88,10 +103,19 @@ function roleDescription(role) {
       SUPERADMIN_ONLY_PERMISSIONS,
     )}.`;
   }
-  const missing = SUPERADMIN_ONLY_PERMISSIONS.length
-    ? " Cannot extend trials, price or run a data migration, or add staff."
+  // Derived, like the sentence above it. This was hand-written — "Cannot
+  // extend trials, price or run a data migration, or add staff." — and had
+  // drifted exactly the way this file's header warns: it named three of the
+  // superadmin-only powers and silently omitted the rest (data deletion, the
+  // escalation queue, the chat audit, the storage test, unlock, mark-test,
+  // porting, and from 2026-11-04 impersonation and the two attribution
+  // powers). A role description that understates what a role CANNOT do is
+  // the same hazard as one that understates what it can.
+  const missing = SUPERADMIN_ONLY_PERMISSIONS.filter((p) => !held.includes(p));
+  const cannot = missing.length
+    ? ` Cannot ${missing.map(shortly).join(", ")}, or add staff.`
     : "";
-  return `Can ${describe(held)}.${missing}`;
+  return `Can ${describe(held)}.${cannot}`;
 }
 
 const ROLE_STYLES = {

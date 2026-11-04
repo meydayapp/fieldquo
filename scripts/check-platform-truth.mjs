@@ -56,6 +56,7 @@ import { fetchJson } from "../lib/fetchJson.js";
 import {
   PLATFORM_PERMISSIONS,
   SUPERADMIN_ONLY_PERMISSIONS,
+  canPlatform,
 } from "../lib/platform/permissions.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -771,6 +772,62 @@ for (const p of granted) {
 ok("the superadmin description names the tenant-write power",
   worded.has("migration:write") &&
     /migration:write[\s\S]{0,200}sanctioned exception/.test(team));
+
+// ── The grid must agree with the layer that enforces it (2026-11-04) ──────
+//
+// "impersonate" sat in admin and support for months while NOTHING checked it:
+// there is no requirePlatformPermission(role, "impersonate") call anywhere.
+// The real gate is inside lib/platform/impersonate.js's startImpersonation
+// (`admin.role !== "superadmin"` -> 403), deliberately there rather than at
+// the route so no route can forget it. So non-negotiable #2 held — but this
+// screen, which builds its sentences from the grid, told the owner a support
+// account could impersonate a company read-only. It could not. A grid entry
+// no code reads is not a permission, it is a false statement on the screen
+// where a role is chosen.
+//
+// Asserted from both ends, because either alone can pass while they disagree.
+ok("impersonate is superadmin-only in the grid",
+  !PLATFORM_PERMISSIONS.admin.includes("impersonate") &&
+    !PLATFORM_PERMISSIONS.support.includes("impersonate") &&
+    SUPERADMIN_ONLY_PERMISSIONS.includes("impersonate"));
+ok("…and canPlatform agrees for every role",
+  canPlatform("superadmin", "impersonate") === true &&
+    canPlatform("admin", "impersonate") === false &&
+    canPlatform("support", "impersonate") === false);
+{
+  const imp = stripComments(read("lib/platform/impersonate.js"));
+  ok("…and startImpersonation still enforces it, which is where it actually bites",
+    /admin\.role !== "superadmin"/.test(imp) && /status = 403/.test(imp));
+}
+{
+  const detail = stripComments(read("app/platform/companies/[id]/CompanyDetail.js"));
+  ok("the View account button is gated on the permission, not drawn for everyone",
+    /can\("impersonate"\)/.test(detail) && /canImpersonate &&[\s\S]{0,300}onClick=\{impersonate\}/.test(detail));
+}
+
+// Superadmin-only by construction is not the same as discoverable: canPlatform
+// refuses any permission absent from a role's list, so these two were already
+// safe — but they were missing from the list this screen prints as "the
+// superadmin-only powers", so they were invisible where it counts.
+ok("both sales-attribution powers are listed as superadmin-only",
+  SUPERADMIN_ONLY_PERMISSIONS.includes("sales_attribution:manage") &&
+    SUPERADMIN_ONLY_PERMISSIONS.includes("sales_attribution:correct"));
+ok("…and no other role holds them",
+  ["admin", "support"].every((r) =>
+    !canPlatform(r, "sales_attribution:manage") && !canPlatform(r, "sales_attribution:correct")));
+
+// The "Cannot" half is derived too. It was a hand-typed sentence naming three
+// of the superadmin-only powers; the full-prose derivation that replaced it
+// ran to fourteen clauses and was unreadable, so it is rendered from the
+// SHORT form. Assert the derivation, not the prose: a reintroduced literal
+// is the failure mode.
+ok("the Cannot half is derived from SUPERADMIN_ONLY_PERMISSIONS",
+  /SUPERADMIN_ONLY_PERMISSIONS\.filter\(\(p\) => !held\.includes\(p\)\)/.test(team) &&
+    /missing\.map\(shortly\)/.test(team));
+ok("…and no hand-typed Cannot sentence remains",
+  !/Cannot extend trials, price or run a data migration/.test(team));
+ok("shortly() cuts the long wording rather than carrying a second vocabulary",
+  /function shortly\(permission\)/.test(team) && /PERMISSION_WORDS\[permission\]/.test(team));
 
 console.log("\n── 7. The audit log names what the product writes ─────────────");
 

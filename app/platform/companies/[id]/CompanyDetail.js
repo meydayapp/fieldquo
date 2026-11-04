@@ -92,10 +92,20 @@ export default function CompanyDetail({ companyId }) {
   // "churned" or "suspended" (see the `needed` ternary in
   // app/api/platform/companies/[id]/route.js). Admin and superadmin hold it;
   // support does not — and support is the role that lives on this screen, so
-  // this was the console's most reachable button that 403s. Impersonation is
-  // NOT gated here: support holds "impersonate", and that button works.
+  // this was the console's most reachable button that 403s.
+  //
+  // "View account" was the SECOND, and this comment used to assert the
+  // opposite: "Impersonation is NOT gated here: support holds 'impersonate',
+  // and that button works." It did not. lib/platform/impersonate.js refuses
+  // any role but superadmin (`admin.role !== "superadmin"` -> 403, "Only
+  // superadmins can view a company's account"), and the grid entry the
+  // comment relied on was never checked by anything. Since 2026-11-04
+  // "impersonate" is superadmin-only in lib/platform/permissions.js, matching
+  // the enforcement it always had, so `can` is finally the right question to
+  // ask here.
   const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
   const canSuspend = can("company:suspend");
+  const canImpersonate = can("impersonate");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -278,6 +288,7 @@ export default function CompanyDetail({ companyId }) {
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          {canImpersonate && (
           <button
             onClick={impersonate}
             disabled={busy}
@@ -290,6 +301,7 @@ export default function CompanyDetail({ companyId }) {
             )}
             View account
           </button>
+          )}
 
           {canSuspend && (
           <button
