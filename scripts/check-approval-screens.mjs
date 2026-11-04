@@ -47,7 +47,7 @@
 // AGENTS.md's instruction, and a hand-written list is how a fifth member ends
 // up in a grey chip with no colour.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   approvedEstimateMoney,
@@ -57,6 +57,11 @@ import {
   PRICE_ADJUSTMENT_LABEL,
 } from "@/lib/estimate/approveEstimate";
 import { leadSourceLabel, leadSourceLabelKey, LEAD_SOURCE_LABEL_KEY, UNKNOWN_LEAD_SOURCE_KEY } from "@/lib/leads/sourceLabel";
+// The two in-repo enumerations of lead-source words. Section 6 builds the
+// family from these rather than from a list typed into this file — see the
+// comment there for what the typed list cost.
+import { NOT_ASKED_BY_SOURCE, ASKED_BY_SOURCE } from "@/lib/leads/qualifiers";
+import { SOURCE_FOR_PLATFORM } from "@/lib/messaging/platforms";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 // Executed under scripts/route-stub-loader.mjs: `@/lib/db` is the shared
 // scripted db (scripts/fixtures/dbStub.mjs) and `@/lib/apiMember` signs in
@@ -552,10 +557,123 @@ section("6. Names, not keys: the lead's source and the option picked");
     for (const l of langs) if (!APP_MESSAGES[l]?.[key]) missing.push(`${l}:${key}`);
   }
   ok(`every lead-source and approve-caption label exists in all ${langs.length} app languages`, missing.length === 0, missing.join(", "));
-  // Every source a lead is written with today, from the creators themselves.
-  const written = ["instant_quote", "self_quote", "self_quote_kitchen", "client_portal", "embed_form", "phone_agent", "phone_agent_recovered", "manual", "imported", "funnel", "funnel:facebook", "meta_lead_form", "ai_employee", "web_chat", "sms_chat", "meta_messenger", "meta_instagram", "meta_whatsapp", "email"];
-  const unnamed = written.filter((s) => leadSourceLabelKey(s) === UNKNOWN_LEAD_SOURCE_KEY);
-  ok("every source FieldQuo writes on a lead has a label", unnamed.length === 0, unnamed.join(", "));
+
+  // ══ The family, DERIVED — not a list typed into this check ════════════════
+  //
+  // This used to be nineteen words in an array literal, and it went stale the
+  // way a hand-written list always does: `booking_page`, `agency_funnel`,
+  // `gc_request`, `sms`, `referral` and `phone_assistant` were all being
+  // written on real leads while this assertion passed on the nineteen it knew.
+  // Two of them were found in the live database — 34 `referral` rows and 34
+  // `phone_assistant` rows across the ten seeded demo tenants, every one of
+  // them rendering as "A source this version doesn't know" on the drawer a
+  // salesperson opens in front of a prospect.
+  //
+  // LeadRequest.source is a free-form String, deliberately — there is no
+  // Prisma enum to read, because the embed form (app/api/leads/public) passes
+  // a `source` straight through from the contractor's own HTML and new
+  // channels must not need a migration. So the family is assembled from the
+  // places that DO enumerate the word, and the few writers no scan can reach
+  // are recorded once, with the file that produces them re-checked below.
+
+  // 1. The two real enumerations: what the scorer may and may not hold against
+  //    a lead from a channel is keyed by the source word itself.
+  const fromQualifiers = [...Object.keys(NOT_ASKED_BY_SOURCE), ...Object.keys(ASKED_BY_SOURCE)];
+  // 2. The messaging channels — one map, shared with attribution.
+  const fromPlatforms = Object.values(SOURCE_FOR_PLATFORM);
+
+  // 3. Every literal at a createScoredLead call site, found by walking the
+  //    tree the way scripts/check-lead-intake.mjs finds the same callers.
+  //    Brace-balanced rather than a fixed character window, so a `source:` on
+  //    an unrelated recordConsent() call a few lines below is not collected.
+  const walk = (dir, out = []) => {
+    for (const name of readdirSync(dir)) {
+      if (name === "node_modules" || name === ".next" || name.startsWith(".")) continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full, out);
+      else if (name.endsWith(".js")) out.push(full.slice(ROOT.length + 1));
+    }
+    return out;
+  };
+  const objectAt = (src, at) => {
+    let depth = 0;
+    for (let i = at; i < src.length; i += 1) {
+      if (src[i] === "{") depth += 1;
+      else if (src[i] === "}") {
+        depth -= 1;
+        if (depth === 0) return src.slice(at, i + 1);
+      }
+    }
+    return src.slice(at);
+  };
+  // `source: "x"` and the embed form's `source: source || "embed_form"`.
+  const SOURCE_LITERAL = /\bsource:\s*(?:[A-Za-z_$][\w$.?]*\s*\|\|\s*)?"([a-z_]+)"/g;
+  const creators = [];
+  const fromCalls = [];
+  for (const rel of [...walk(join(ROOT, "app")), ...walk(join(ROOT, "lib"))]) {
+    if (rel === "lib/leads/createLead.js") continue; // the definition, not a call
+    const src = code(rel);
+    if (!/import\s*\{[^}]*\bcreateScoredLead\b[^}]*\}\s*from\s*"@\/lib\/leads\/createLead"/.test(src)) continue;
+    creators.push(rel);
+    const CALL = /create(?:Scored)?Lead\(\s*\{/g;
+    let m;
+    while ((m = CALL.exec(src)) !== null) {
+      const block = objectAt(src, src.indexOf("{", m.index));
+      for (const hit of block.matchAll(SOURCE_LITERAL)) fromCalls.push(hit[1]);
+    }
+  }
+
+  // 4. The demo seed's own lead specs. Not a test fixture — `npm run seed`
+  //    writes these rows into the ten demo tenants a salesperson shows a
+  //    prospect, and `referral` exists nowhere else in the repo.
+  const seedSrc = code("lib/demo/seedContent.js");
+  const specsAt = seedSrc.indexOf("const specs = [");
+  const specs = specsAt < 0 ? "" : seedSrc.slice(specsAt, seedSrc.indexOf("];", specsAt));
+  const fromSeed = [...specs.matchAll(/\{\s*source:\s*"([a-z_]+)"/g)].map((h) => h[1]);
+
+  // 5. The writers no scan above can see, each with the file that produces it.
+  //    An entry is a claim, and the claim is re-checked: the named file must
+  //    still contain that word, so deleting a writer cannot leave a label here
+  //    asserting it is still reachable.
+  const NAMED_WRITERS = {
+    // A template literal, `funnel${channel}` — not a string the scan can read.
+    // leadSourceLabelKey() folds "funnel:facebook" back onto "funnel".
+    funnel: "lib/funnels/ingest.js",
+    // POST /api/v1/marketing/leads, whose creator is injected rather than
+    // imported, so the file never names createScoredLead.
+    agency_funnel: "lib/agency/api.js",
+    // The BOOKING word, which no current path writes onto a lead —
+    // bookingLeadSource() maps it to "phone_agent" — but which live rows
+    // written before that mapping still hold. Recorded here so the label is
+    // accounted for rather than looking like a word somebody invented; the
+    // mapping that stops it recurring is asserted below.
+    phone_assistant: "lib/booking/bookingLead.js",
+  };
+
+  const family = [...new Set([...fromQualifiers, ...fromPlatforms, ...fromCalls, ...fromSeed, ...Object.keys(NAMED_WRITERS)])].sort();
+
+  // A derivation that quietly found nothing would pass every assertion under
+  // it. Each contributor has to have contributed.
+  ok("the createScoredLead callers were found by walking, not listed", creators.length >= 11, creators.length);
+  ok("every derivation contributed at least one source word",
+    fromQualifiers.length >= 10 && fromPlatforms.length === 6 && fromCalls.length >= 8 && fromSeed.length >= 3,
+    JSON.stringify({ fromQualifiers: fromQualifiers.length, fromPlatforms: fromPlatforms.length, fromCalls: fromCalls.length, fromSeed: fromSeed.length }));
+  ok("the demo seed's lead specs were located and parsed", fromSeed.includes("referral"), specs.slice(0, 80));
+  for (const [word, file] of Object.entries(NAMED_WRITERS)) {
+    ok(`the recorded writer for "${word}" still names it: ${file}`, read(file).includes(word));
+  }
+  ok("a booking taken by the receptionist is still written onto a lead as phone_agent, not phone_assistant",
+    /booking\?\.source === "phone_assistant"\) return "phone_agent"/.test(code("lib/booking/bookingLead.js")));
+
+  // ── The assertion itself, both directions ────────────────────────────────
+  const unnamed = family.filter((s) => leadSourceLabelKey(s) === UNKNOWN_LEAD_SOURCE_KEY);
+  ok(`every one of the ${family.length} lead sources in the family has a label`, unnamed.length === 0, unnamed.join(", "));
+  // "funnel:facebook" is the one source that arrives suffixed; it folds.
+  ok("a channel-suffixed funnel source folds onto the funnel label", leadSourceLabelKey("funnel:facebook") === LEAD_SOURCE_LABEL_KEY.funnel);
+  // The reverse: a label for a word nothing produces any more is a decision
+  // somebody has to make, not something to leave sitting here.
+  const orphans = Object.keys(LEAD_SOURCE_LABEL_KEY).filter((s) => !family.includes(s));
+  ok("no label in the map is for a source the family does not contain", orphans.length === 0, orphans.join(", "));
   ok("instant_quote reads as the traffic report's 'Instant estimate'", leadSourceLabelKey("instant_quote") === "app.traffic.instantEstimate");
   const tt = (k) => `T(${k})`;
   ok(
