@@ -633,25 +633,29 @@ input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [ty
   display: none !important;
 }
 
-/* ── The before/after slider's control surface (2026-10-31) ──────────────
- * app/components/public/BeforeAfter.js lays an invisible <input type="range">
- * over the whole photo and draws its own grip at left:<value>%. A native
- * range does NOT map a pointer to a value that way: it reserves half a
- * thumb-width at each end, so value = (x - thumbW/2) / (trackW - thumbW).
- * Unsized, the thumb keeps the browser default — measured at 16px in Chrome,
- * which insets the travel 8px at each end of the track and compresses the
- * mapping to 96%. The drawn grip therefore drifts from the finger by up to
- * half a thumb, worst at the two ends, and the last 8px of the photo cannot
- * be reached at all. The owner's words: "I always struggle to slide it to
- * the sides."
+/* ── The before/after slider's range input (2026-11-03) ──────────────────
+ * app/components/public/BeforeAfter.js draws its own grip and, since
+ * 2026-11-03, drives the position from pointer events on the photo itself.
+ * The <input type="range"> underneath is pointer-events-none: it is the
+ * keyboard control and the screen-reader semantics, never the drag surface.
  *
- * A 1px thumb makes the native mapping linear across the full width, so the
- * grip sits exactly under the pointer and 0% and 100% are reachable. The
- * thumb stays invisible: the visible handle is the component's own div.
+ * These rules exist only to stop the native thumb and track being painted
+ * over the photo. appearance-none is not enough on its own — Firefox still
+ * draws ::-moz-range-thumb — and the input is only opacity-0, so anything
+ * the browser draws would reappear the moment that changed.
  *
- * touch-action: pan-y keeps a vertical swipe scrolling the page (a client
- * reads the quote on a phone) while claiming the horizontal drag, which the
- * browser would otherwise be free to interpret as the start of a scroll. */
+ * What this block used to say, kept because it explains the shape of the
+ * code: on 2026-10-31 the thumb was sized to 1px to fix the DESKTOP mapping,
+ * because a native range reserves half a thumb-width at each end
+ * (value = (x - thumbW/2) / (trackW - thumbW)) and the browser default of
+ * 16px left the drawn grip drifting up to 8px from the mouse and the two
+ * edges of the photo unreachable — "I always struggle to slide it to the
+ * sides". That was real and it was fixed. But it also left iOS Safari, which
+ * drags a range only from the thumb itself, with a one-pixel target: the
+ * slider became effectively immovable on a phone. The mapping is no longer
+ * the browser's to get wrong, so the 1px is now just the smallest invisible
+ * thumb. touch-action moved to the photo, which is the element a touch now
+ * actually lands on (touch-pan-y in BeforeAfter.js). */
 .ba-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -668,7 +672,4 @@ input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [ty
 }
 .ba-range::-moz-range-track {
   background: transparent;
-}
-.ba-range {
-  touch-action: pan-y;
 }

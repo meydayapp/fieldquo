@@ -37,7 +37,7 @@ import { createHash } from "node:crypto";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import SiteBeforeAfter from "../app/site/[subdomain]/BeforeAfter.js";
-import SharedBeforeAfter from "../app/components/public/BeforeAfter.js";
+import SharedBeforeAfter, { positionFromX } from "../app/components/public/BeforeAfter.js";
 import SiteBlocks from "../app/site/[subdomain]/SiteBlocks.js";
 import { siteCopy } from "../lib/site/siteCopy.js";
 import { CompanySections, ProposalGallery, PROPOSAL_GALLERY_GRID } from "../app/components/public/proposal/ProposalSections.js";
@@ -79,10 +79,24 @@ section("1. The website's slider: one component, the site's own language");
   // measured in Chrome) and leaves the drawn grip lagging the pointer and
   // both edges of the photo unreachable. The class sizes the thumb to 1px
   // and sets touch-action. Nothing else about the output changed.
+  //
+  // Re-pinned again 2026-11-03, for the touch drag. Was
+  // cba6f292b1d7bb2e88466a0bfa60e6bd / e78c166acdc039f9b4788337f00c92e1. The
+  // owner, second report: "that slider button is still very hard to shift …
+  // people try to press and hold or try other things like double tapping."
+  // The 1px thumb above fixed the desktop mapping and made iOS Safari worse,
+  // because Safari drags a range ONLY from the thumb — a one-pixel target on
+  // the phone a homeowner reads a quote on. The position is now driven by
+  // pointer events on the photo, and the range input is the keyboard only.
+  // The rendered diff is exactly two attributes, nothing else:
+  //   box:   + touch-pan-y cursor-ew-resize [-webkit-touch-callout:none]
+  //   input: cursor-ew-resize → pointer-events-none
+  // Both are asserted on their own below, so a future re-pin cannot quietly
+  // drop them.
   const theme = { ink: "#111111", paper: "#fefefe", accentWash: "#eeeeff", inkMuted: "#555555" };
   const CASES = [
-    [{ before: "https://x/b.jpg", after: "https://x/a.jpg" }, "cba6f292b1d7bb2e88466a0bfa60e6bd"],
-    [{ before: "https://x/b.jpg", after: "https://x/a.jpg", caption: "Maple St", radius: "rounded-xl", theme }, "e78c166acdc039f9b4788337f00c92e1"],
+    [{ before: "https://x/b.jpg", after: "https://x/a.jpg" }, "691d62cc6aeb2285ced2fe491b4a6735"],
+    [{ before: "https://x/b.jpg", after: "https://x/a.jpg", caption: "Maple St", radius: "rounded-xl", theme }, "7bbe3570516b10e62c5e9780fbebe75b"],
     [{ before: "https://x/b.jpg", after: null }, "d41d8cd98f00b204e9800998ecf8427e"],
   ];
   CASES.forEach(([props, pinned], i) => {
@@ -118,7 +132,11 @@ section("1. The website's slider: one component, the site's own language");
   };
   const en = site("en");
   // Was 35037d4052d0c89f564dc418012b18e5 (the same block without the props).
-  const SITE_EN_PINNED = "0e767e1c5981665acd857ec6d94ed122";
+  // Re-pinned 2026-11-03 with the two drag attributes above; was
+  // 0e767e1c5981665acd857ec6d94ed122. The website's slider had the same
+  // one-pixel touch target as the proposal's, so the contractor's own
+  // visitors could not work it either.
+  const SITE_EN_PINNED = "231259b2d0d28beaad42f67086bfdb4a";
   ok("website (en): the block's slider renders the re-pinned markup", md5(en) === SITE_EN_PINNED, md5(en));
   ok("website (en): …with the three intended differences", /alt="After — Maple St"/.test(en) && /alt="Before — Maple St"/.test(en) && />Maple St — Drag the handle to compare\.<\/label>/.test(en) && !/aria-hidden="true" class="absolute/.test(en));
   ok("website (en): …and the site's look kept (paper grip, inline grow, 4:3 box, no brand handle)", /shadow-lg/.test(en) && /transition:scale 120ms ease-out/.test(en) && /aspect-\[4\/3\]/.test(en) && !/motion-reduce/.test(en));
@@ -228,11 +246,52 @@ const count = (html, re) => (html.match(re) || []).length;
   const css = read("app/globals.css");
   const slider = read("app/components/public/BeforeAfter.js");
   ok("the range input carries ba-range", /className="ba-range /.test(slider));
-  ok("…and globals.css sizes the webkit thumb to 1px, so the pointer maps to the drawn grip",
+  ok("…and globals.css keeps the native webkit thumb from being painted over the photo",
     /\.ba-range::-webkit-slider-thumb\s*\{[^}]*width:\s*1px/.test(css));
   ok("…and the Firefox thumb too", /\.ba-range::-moz-range-thumb\s*\{[^}]*width:\s*1px/.test(css));
-  ok("…and a vertical swipe still scrolls the page on a phone",
-    /\.ba-range\s*\{[^}]*touch-action:\s*pan-y/.test(css));
+
+  // ── The drag surface is the PHOTO, not the range input (2026-11-03) ─────
+  //
+  // Reported twice by the owner. A native range does not drag from its track:
+  // on iOS Safari a touch anywhere but the thumb does nothing, and the thumb
+  // is 1px wide (above). So the photo owns the pointer and the input owns the
+  // keyboard. Asserted on the RENDERED markup, because the whole previous
+  // failure was a comment in this component claiming "dragging anywhere
+  // works, which is what people try first" while it did not.
+  const bare = renderToStaticMarkup(h(SharedBeforeAfter, { before: "https://x/b.jpg", after: "https://x/a.jpg" }));
+  const boxClass = (bare.match(/<div class="(relative overflow-hidden[^"]*)"/) || [])[1] || "";
+  const inputTag = (bare.match(/<input [^>]*>/) || [""])[0];
+  ok("the photo box claims the horizontal drag and hands back the vertical scroll", /(^| )touch-pan-y( |$)/.test(boxClass), boxClass);
+  ok("…shows a drag cursor on a desktop", /(^| )cursor-ew-resize( |$)/.test(boxClass), boxClass);
+  ok("…and suppresses the long-press 'Save Image' sheet a homeowner was getting instead", boxClass.includes("[-webkit-touch-callout:none]"), boxClass);
+  ok("the range input no longer takes the pointer", /pointer-events-none/.test(inputTag) && !/cursor-ew-resize/.test(inputTag), inputTag);
+  ok("…but is still there for arrow keys and screen readers", /type="range"/.test(inputTag) && /min="0"/.test(inputTag) && /max="100"/.test(inputTag));
+  ok("the box drives the position from pointer events, with capture so a drag can leave the photo",
+    /onPointerDown=\{startDrag\}/.test(slider) && /onPointerMove=\{moveDrag\}/.test(slider) && /setPointerCapture/.test(slider));
+  ok("…and pointercancel ends the drag, so a vertical swipe scrolls instead of tracking",
+    /onPointerCancel=\{endDrag\}/.test(slider) && /onLostPointerCapture=\{endDrag\}/.test(slider));
+  ok("…from a ref, not state, so the first move after the press is not dropped", /draggingRef/.test(slider));
+  ok("the input's value is rounded, so a float drag does not fight the step",
+    /value=\{Math\.round\(pos\)\}/.test(slider));
+  ok("the invisible input gets a drawn focus ring, since its own is invisible",
+    /onFocus=\{\(\) => setFocused\(true\)\}/.test(slider) && /focused \?/.test(slider));
+
+  // Executed, not read: the clamp a captured drag depends on.
+  const rect = { left: 100, width: 400 };
+  ok("clamp: the middle of the photo is 50%", positionFromX(300, rect) === 50, positionFromX(300, rect));
+  ok("clamp: the left edge is 0%", positionFromX(100, rect) === 0, positionFromX(100, rect));
+  ok("clamp: the right edge is 100%", positionFromX(500, rect) === 100, positionFromX(500, rect));
+  ok("clamp: dragged off the left, it pins to 0 rather than inverting", positionFromX(-9999, rect) === 0, positionFromX(-9999, rect));
+  ok("clamp: dragged off the right, it pins to 100", positionFromX(99999, rect) === 100, positionFromX(99999, rect));
+  ok("clamp: a quarter in is 25%", positionFromX(200, rect) === 25, positionFromX(200, rect));
+  ok("clamp: an unmeasured box gives nothing, never NaN", [
+    positionFromX(300, { left: 0, width: 0 }),
+    positionFromX(300, null),
+    positionFromX(300, undefined),
+    positionFromX(300, { left: 0, width: NaN }),
+    positionFromX(NaN, rect),
+    positionFromX(300, { left: NaN, width: 400 }),
+  ].every((v) => v === null));
 
   ok("the proposal uses the shared slider, not its own", /import BeforeAfter from "@\/app\/components\/public\/BeforeAfter"/.test(src) && !/type="range"/.test(src));
   ok("the slider follows the photo's shape on the proposal (fitToPhoto)", /fitToPhoto\b/.test(src));

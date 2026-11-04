@@ -23,12 +23,35 @@
 // (This said "the before image is layered on only once mounted" until
 // 2026-10-10; it never was, and the static split is the better no-JS answer.)
 //
-// ── Keyboard and touch, not just mouse ─────────────────────────────────────
+// ── The drag is ours; the range input is the keyboard ──────────────────────
 //
-// The handle is a real <input type="range">, invisible but present: that gets
-// arrow keys, touch dragging, screen-reader semantics and a focus ring for free,
-// and all of it is behaviour a hand-rolled pointer-event divider gets wrong. The
-// visible handle is decoration drawn at the input's value.
+// This read "the handle is a real <input type=\"range\"> … that gets arrow keys,
+// touch dragging and a focus ring for free" until 2026-11-03. Three of those
+// four were true. Touch dragging was not, and the owner reported it twice:
+// homeowners press and hold, double tap, and give up.
+//
+// A native range does not treat its track as a drag surface. Chrome and Firefox
+// on a desktop jump the thumb to a click and then follow the mouse, so the thing
+// always worked on the machine it was built on. On iOS Safari a touch that lands
+// anywhere but the THUMB does nothing at all — no jump, no drag — and the thumb
+// here is one pixel wide, because 2026-10-31 shrank it to 1px to fix the
+// desktop mapping (app/globals.css, and it did fix that). So the fix for the
+// desktop drift left iPhone visitors a one-pixel target, which is the phone a
+// quote is read on in a driveway. Press-and-hold then hits Safari's image sheet
+// and double-tap hits zoom, which is exactly what the owner watched people do.
+//
+// So the position is driven by pointer events on the photo itself — one code
+// path for mouse, touch and pen, on every browser, with setPointerCapture so a
+// drag that leaves the box keeps tracking. touch-pan-y hands a VERTICAL swipe
+// back to the page (a client scrolling the quote must still scroll) and claims
+// the horizontal one; -webkit-touch-callout:none stops the long-press "Save
+// Image" sheet that a homeowner was getting instead of a slider.
+//
+// The <input type="range"> stays, pointer-events-none: it is no longer the drag
+// surface, only the keyboard control and the screen-reader semantics (role,
+// value, localised name), which a hand-rolled divider does get wrong. It is
+// invisible, so the focus ring it "got for free" was never drawn either — the
+// drawn grip now shows one while the input has focus.
 //
 // ── The document props (2026-10-10) ────────────────────────────────────────
 //
@@ -59,7 +82,7 @@
 // (prefers-reduced-motion): the label fade and the grip's grow are instant.
 "use client";
 
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { resizedUrl } from "@/lib/media/cloudinaryUrl";
 
 // The shapes a photo's box may take with fitToPhoto: 3:4 portrait to 16:9.
@@ -69,6 +92,27 @@ const MAX_RATIO = 16 / 9;
 // The grip's two rings — see "handle" above. Ink is documentTheme's ink.
 const RING_LIGHT = "#ffffff";
 const RING_DARK = "#20242b";
+
+/**
+ * Where a pointer at `clientX` puts the divider, 0–100, given the photo's box.
+ *
+ * Exported so the clamp is EXECUTED rather than eyeballed
+ * (scripts/check-proposal-slider.mjs). Two cases are not obvious:
+ *
+ *   • A drag that leaves the photo keeps sending moves, because the box holds
+ *     pointer capture — so a finger dragged off the left edge must pin to 0,
+ *     not carry on negative and invert the clip-path.
+ *   • A box with no width (a photo that 404'd, a section mid-layout) must give
+ *     nothing at all. Dividing by zero yields NaN, `inset(0 NaN% 0 0)` is an
+ *     invalid clip-path, and an invalid clip-path clips NOTHING — the before
+ *     photo would cover the after one full-frame and the slider would look
+ *     stuck rather than unmeasured.
+ */
+export function positionFromX(clientX, rect) {
+  if (!rect || !Number.isFinite(rect.width) || rect.width <= 0) return null;
+  if (!Number.isFinite(clientX) || !Number.isFinite(rect.left)) return null;
+  return Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+}
 
 export default function BeforeAfter({
   before,
@@ -83,8 +127,57 @@ export default function BeforeAfter({
 }) {
   const [pos, setPos] = useState(50);
   const [dragging, setDragging] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [ratio, setRatio] = useState(null);
   const id = useId();
+  const boxRef = useRef(null);
+  // Not the `dragging` state: the first pointermove can arrive before React has
+  // re-rendered, so a handler reading state would drop it and the drag would
+  // feel like it needed a second nudge to start.
+  const draggingRef = useRef(false);
+
+  const posFromClientX = useCallback(
+    (clientX) => positionFromX(clientX, boxRef.current?.getBoundingClientRect()),
+    [],
+  );
+
+  // A press anywhere on the photo moves the divider there and starts a drag —
+  // what people try first, and what the old comment claimed already happened.
+  const startDrag = useCallback(
+    (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      const next = posFromClientX(e.clientX);
+      if (next === null) return;
+      setPos(next);
+      setDragging(true);
+      draggingRef.current = true;
+      // Keeps the drag alive past the edge of the photo, and past the moment a
+      // finger strays onto the caption below.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Capture is best-effort; the move handler works without it.
+      }
+    },
+    [posFromClientX],
+  );
+
+  const moveDrag = useCallback(
+    (e) => {
+      if (!draggingRef.current) return;
+      const next = posFromClientX(e.clientX);
+      if (next !== null) setPos(next);
+    },
+    [posFromClientX],
+  );
+
+  // pointercancel fires when the browser decides the gesture was a vertical
+  // scroll after all. Ending the drag there is the point: the page scrolls and
+  // the divider stays where the finger left it, rather than tracking a scroll.
+  const endDrag = useCallback(() => {
+    draggingRef.current = false;
+    setDragging(false);
+  }, []);
 
   // An image that finished loading before hydration fires no onLoad React can
   // see, so the ref reads `complete` too.
@@ -131,7 +224,16 @@ export default function BeforeAfter({
         // without it the figure collapses to zero and the caption floats in
         // the middle of a blank section, which reads as a broken page rather
         // than a missing photo.
-        className={`relative overflow-hidden aspect-[4/3] ${radius} select-none`}
+        ref={boxRef}
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
+        // touch-pan-y: a vertical swipe still scrolls the quote, a horizontal
+        // one is the slider. cursor-ew-resize has to live here now that the
+        // range input on top no longer takes the pointer.
+        className={`relative overflow-hidden aspect-[4/3] ${radius} select-none touch-pan-y cursor-ew-resize [-webkit-touch-callout:none]`}
         style={boxStyle}
       >
         {/* AFTER — the base layer, and the no-JS answer. Absolute so both images
@@ -204,7 +306,10 @@ export default function BeforeAfter({
                 width: 44,
                 height: 44,
                 backgroundColor: handle.bg,
-                boxShadow: `0 0 0 2px ${RING_LIGHT}, 0 0 0 3.5px ${RING_DARK}, 0 4px 12px rgba(0,0,0,0.25)`,
+                // The focus ring repeats the ink/white pair the rings already
+                // prove ≥3:1 against any photo colour, so a keyboard visitor
+                // can see where they are on a photo of any colour.
+                boxShadow: `0 0 0 2px ${RING_LIGHT}, 0 0 0 3.5px ${RING_DARK}, 0 4px 12px rgba(0,0,0,0.25)${focused ? `, 0 0 0 6px ${RING_DARK}, 0 0 0 8px ${RING_LIGHT}` : ""}`,
                 scale: dragging ? "1.08" : "1",
               }}
             >
@@ -225,6 +330,8 @@ export default function BeforeAfter({
                 // first-time visitor the thing is draggable at all.
                 scale: dragging ? "1.08" : "1",
                 transition: "scale 120ms ease-out",
+                // Only while focused, so shadow-lg is untouched otherwise.
+                ...(focused ? { boxShadow: `0 0 0 3px ${paper}, 0 0 0 5px ${ink}` } : {}),
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ink} strokeWidth="2.5" strokeLinecap="round">
@@ -247,21 +354,20 @@ export default function BeforeAfter({
           type="range"
           min={0}
           max={100}
-          value={pos}
+          // Rounded, because the drag is a float: the input's step is 1, and a
+          // value React renders as 37.42 would be normalised by the browser to
+          // 37 and fought over on every move. The float drives the picture; the
+          // integer drives the input, so an arrow key is a clean 1%.
+          value={Math.round(pos)}
           onChange={(e) => setPos(Number(e.target.value))}
-          onPointerDown={() => setDragging(true)}
-          onPointerUp={() => setDragging(false)}
-          onPointerCancel={() => setDragging(false)}
-          onBlur={() => setDragging(false)}
-          // Fills the image and is invisible, so the whole picture is the
-          // control — dragging anywhere works, which is what people try first.
-          // `appearance-none` plus a transparent thumb keeps the native
-          // behaviour and hides the native chrome.
-          // ba-range (app/globals.css) sizes the native thumb to 1px and sets
-          // touch-action. Without it the browser's default thumb insets the
-          // travel by half its width at each end, so the drawn grip lags the
-          // pointer and neither edge of the photo can be reached.
-          className="ba-range absolute inset-0 w-full h-full opacity-0 cursor-ew-resize appearance-none bg-transparent"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          // pointer-events-none: the photo above owns the pointer (see "The
+          // drag is ours" at the top). This input is the keyboard and the
+          // screen reader — arrow keys, role, value, and the localised name in
+          // the <label>. `appearance-none` and ba-range (app/globals.css) keep
+          // the native thumb and track from ever being drawn over the photo.
+          className="ba-range absolute inset-0 w-full h-full opacity-0 pointer-events-none appearance-none bg-transparent"
         />
       </div>
 
