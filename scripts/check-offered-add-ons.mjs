@@ -48,6 +48,11 @@
 // Run: npm run check:offered-add-ons
 
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
+import { dirname, join, resolve as resolvePath } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   STANDARD_ADDONS,
   standardAddOnUnitScope,
@@ -62,6 +67,8 @@ import {
   typicalPriceByCategory,
 } from "@/lib/ai/quoteSuggestions";
 import { createOfferedAddOns } from "@/lib/quotes/suggestedAddOns";
+import { autoAddFromReview } from "@/lib/quotes/addOnAutoAdd";
+import { addOnCandidates } from "@/lib/ai/quoteReview";
 import { rows, resetDbStub } from "./fixtures/dbStub.mjs";
 
 let fail = 0;
@@ -75,6 +82,8 @@ const eq = (name, got, want) =>
   ok(name, JSON.stringify(got) === JSON.stringify(want), `got=${JSON.stringify(got)} want=${JSON.stringify(want)}`);
 const section = (s) => console.log(`\n${s}\n`);
 const read = (p) => readFileSync(p, "utf8");
+const md5 = (s) => createHash("md5").update(s).digest("hex");
+const ROOT = resolvePath(dirname(new URL(import.meta.url).pathname), "..");
 
 // The units lib/quotes/offeredAddOns.js can count off a scope group's intake.
 // Spelled out rather than imported because the point of section 1 is that the
@@ -347,7 +356,14 @@ section("6. Defect A, the figure — no median for a trade sold by the door");
   // refacing jobs, so "no price history yet" would be a false sentence.
   const panel = read("app/components/quotes/SuggestAddOns.js");
   ok("the panel says 'priced by the door' rather than 'no price history'", /s\.pricedByTheUnit[\s\S]{0,120}app\.quoteReview\.pricedByTheDoor/.test(panel));
-  ok("…and still refuses to offer it without a number the estimator typed", /Number\(s\.amount\) > 0/.test(panel) && /amount: s\.amount \?\? ""/.test(panel));
+  // The "needs a number" half moved to lib/quotes/addOnAutoAdd.js with the
+  // rest of the auto-add decision (section 11 executes it). The panel keeps
+  // the other half: an Add on a suggestion with no history arrives blank
+  // rather than guessed.
+  ok(
+    "…and still refuses to offer it without a number the estimator typed",
+    /Number\(s\?\.amount\) > 0/.test(read("lib/quotes/addOnAutoAdd.js")) && /amount: s\.amount \?\? ""/.test(panel),
+  );
   const msgs = read("app/i18n/appMessages.js");
   eq("the sentence exists in all nine languages", (msgs.match(/"app\.quoteReview\.pricedByTheDoor"/g) || []).length, 9);
 }
@@ -689,6 +705,204 @@ const flagged = (descriptions, extra = {}) =>
   eq("the sentence exists in all nine languages", (msgs.match(/"app\.quoteReview\.sameUpgrade"/g) || []).length, 9);
   const en = msgs.match(/"app\.quoteReview\.sameUpgrade": "([^"]+)"/)[1];
   ok("…naming both rows", en.includes("{first}") && en.includes("{second}"));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("11. Offering NOTHING is a decision the estimator is allowed to make");
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Owner, 2026-11-04: "if I delete all addons I cannot save it so then when
+// the quote is created or saved they all appear again I would assume that if
+// I delete all of the add-ons and save the quote they will not appear. It
+// forces me to at least have one."
+//
+// Two separate faults behind one sentence:
+//
+//   A  the Save button lived inside the else branch of the row ternary, so
+//      deleting the last row unmounted the only control that could persist
+//      the deletion. The server has always accepted an empty list.
+//   B  the review's priced recommendations filtered against the list ON
+//      SCREEN, which after a delete-all was empty — so every one of them
+//      passed, was appended, and was SAVED. The removal was reversed and
+//      written to the database.
+//
+// Both are executed here, not read: (a) renders the real component at zero
+// rows, (b) runs the real decision function, (c) runs the real candidate
+// query against a quote that already offers one of the candidates.
+
+{
+  // (a) The control, rendered. The panel it lives in cannot be rendered —
+  // it opens in a loading state and fills itself from two GETs — which is
+  // precisely how the bar sat in the wrong branch unnoticed, so the list and
+  // its Save button are their own component (app/components/quotes/
+  // OfferedExtras.js) and the npm script bundles that one file for this.
+  const require_ = createRequire(join(ROOT, "scripts", "x.js"));
+  const { OfferedExtras } = require_(join(ROOT, ".offered-extras.cjs"));
+  const render = (props) =>
+    renderToStaticMarkup(
+      createElement(OfferedExtras, {
+        addOns: [],
+        readOnly: false,
+        t: (k) => k,
+        update: () => {},
+        remove: () => {},
+        save: () => {},
+        saving: false,
+        dirty: false,
+        savedAt: null,
+        ...props,
+      }),
+    );
+
+  const empty = render({});
+  ok(
+    "the Save button is on screen with ZERO rows — the one state it was missing from",
+    empty.includes("app.quoteReview.saveExtras"),
+    empty,
+  );
+  ok("…beside the empty-state sentence, not instead of it", empty.includes("app.quoteReview.nothingOffered"));
+  ok(
+    "…and the sentence says what pressing it with an empty list means, so the button is not a mystery",
+    /Saving it empty is a choice too/.test(
+      read("app/i18n/appMessages.js").match(/"app\.quoteReview\.nothingOffered": "([^"]+)"/)[1],
+    ),
+  );
+  eq("the empty state's markup, pinned", md5(empty), "e9d8c2e696afbacf9d9eb6ad8546325e");
+
+  const oneRow = render({
+    addOns: [{ id: "a1", description: "Soft-Close Hinges", detail: "", amount: 875, taxable: true, source: "catalog" }],
+  });
+  ok("one row: the same button, unmoved", oneRow.includes("app.quoteReview.saveExtras"));
+  ok("…with the row's own remove control", oneRow.includes("app.action.remove"));
+  eq("one row's markup, pinned", md5(oneRow), "a1783651a1048cc9219efd77ba539d69");
+
+  // Read-only is the one case where there is no Save button, and that is not
+  // the bug — the client has decided and the extras are a record.
+  const locked = render({ readOnly: true, addOns: [{ id: "a1", description: "Soft-Close Hinges", amount: 875 }] });
+  ok("a decided quote still has no Save button", !locked.includes("app.quoteReview.saveExtras"));
+  ok("…and no remove control either", !locked.includes("app.action.remove"));
+
+  // The unsaved badge and the saved tick travel WITH the button, so they are
+  // reachable at zero rows too — otherwise "Unsaved" could never be shown
+  // about a deletion.
+  ok("the unsaved badge is reachable at zero rows", render({ dirty: true }).includes("app.quoteReview.unsaved"));
+  ok("…so is the saved tick", render({ savedAt: 1 }).includes("app.action.saved"));
+}
+
+{
+  // (b) The decision, executed. `curatedAt` is Quote.addOnsCuratedAt.
+  const review = [
+    { description: "Gutter Cleaning", detail: "Often sold with this", amount: 320, source: "history" },
+    { description: "Priced by the door", detail: null, amount: null, source: "history" },
+  ];
+
+  const fresh = autoAddFromReview({ reviewAddOns: review, addOns: [], curatedAt: null });
+  eq(
+    "a quote nobody has curated still gets the priced recommendation appended, as designed",
+    [fresh.next.map((a) => a.description), fresh.added.length],
+    [["Gutter Cleaning"], 1],
+  );
+  ok("…and never the unpriced one, which has no number to tick", fresh.next.length === 1);
+
+  eq(
+    "the SAME review, on a list a human has saved, appends and saves nothing",
+    autoAddFromReview({ reviewAddOns: review, addOns: [], curatedAt: "2026-11-04T12:00:00.000Z" }),
+    null,
+  );
+  eq(
+    "…including when the curated list is empty, which is the owner's case exactly",
+    autoAddFromReview({ reviewAddOns: review, addOns: [], curatedAt: new Date("2026-11-04") }),
+    null,
+  );
+  eq(
+    "a curated list with rows on it is equally not topped up",
+    autoAddFromReview({
+      reviewAddOns: review,
+      addOns: [{ description: "Soft-Close Hinges", amount: 875 }],
+      curatedAt: new Date("2026-11-04"),
+    }),
+    null,
+  );
+  eq("read-only never auto-adds, curated or not", autoAddFromReview({ reviewAddOns: review, addOns: [], readOnly: true }), null);
+  eq(
+    "an already-offered recommendation is not duplicated, whitespace and case aside",
+    autoAddFromReview({ reviewAddOns: review, addOns: [{ description: "  gutter CLEANING " }], curatedAt: null }),
+    null,
+  );
+  eq("junk in, nothing out", [autoAddFromReview({}), autoAddFromReview({ reviewAddOns: null, addOns: null })], [null, null]);
+  eq(
+    "the editor's cap still holds — eight offered rows, never nine",
+    autoAddFromReview({
+      reviewAddOns: [1, 2, 3].map((n) => ({ description: `Extra ${n}`, amount: 100 + n })),
+      addOns: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ description: `Row ${n}`, amount: n })),
+      curatedAt: null,
+    }).next.length,
+    8,
+  );
+
+  // One copy of the rule, and the panel is its only caller.
+  const panel = read("app/components/quotes/SuggestAddOns.js");
+  ok("the panel calls the helper rather than carrying its own copy", /autoAddFromReview\(\{/.test(panel));
+  ok("…and no longer filters the review against the on-screen list itself", !/Number\(s\.amount\) > 0 &&/.test(panel));
+  ok("the marker comes down with the list the panel already fetches", /setCuratedAt\(saved\?\.addOnsCuratedAt \|\| null\)/.test(panel));
+
+  // The write, and the one transaction it belongs in.
+  const route = read("app/api/quotes/[id]/add-ons/route.js");
+  ok("the PUT sets the marker", /addOnsCuratedAt: curatedAt/.test(route));
+  ok(
+    "…inside the SAME transaction as the rows, not after it",
+    /\$transaction\(\[[\s\S]*?db\.quote\.update\(\{[\s\S]*?addOnsCuratedAt: curatedAt[\s\S]*?\]\)/.test(route),
+  );
+  ok("…and an empty list is still a delete-all with nothing inserted", /rows\.length \? \[db\.quoteAddOn\.createMany\(\{ data: rows \}\)\] : \[\]/.test(route));
+  ok("nothing anywhere refuses an empty list", !/addOns.*\.min\(1\)/.test(route) && !/at least one add-on/i.test(route));
+
+  // The hardening: the catalogue seed asked the row count, which cannot tell
+  // an empty list from an un-seeded one. Create-only today, so this is the
+  // invariant being enforced rather than a live bug.
+  const seed = read("lib/quotes/offeredAddOns.js");
+  ok("the catalogue seed asks the marker before the row count", seed.indexOf("addOnsCuratedAt: true") < seed.indexOf("quoteAddOn.count"));
+  ok("…and still refuses to top up a list that already has rows", /if \(existing > 0\) return 0;/.test(seed));
+}
+
+{
+  // (c) The candidates themselves. They came off the scope groups' categories
+  // and the company's history and never read quote.addOns, so every re-run
+  // proposed the identical list — which is why one press of Review could
+  // undo a deletion made before it.
+  seedHistory();
+  rows.quoteScopeGroup.push(
+    { categoryId: GUTTER, subtotal: 340, quote: { companyId: "co_1", status: "accepted" } },
+    { categoryId: GUTTER, subtotal: 300, quote: { companyId: "co_1", status: "accepted" } },
+  );
+  const quoteWith = (addOns) => ({ scopeGroups: [{ categoryId: CAB }], addOns });
+
+  const virgin = await addOnCandidates(quoteWith([]), "co_1");
+  eq(
+    "a quote offering nothing is told about the gutter cleaning it usually sells alongside",
+    virgin.map((s) => [s.description, s.amount]),
+    [["Gutter Cleaning", 320]],
+  );
+
+  eq(
+    "a quote that ALREADY offers it is not told about it again",
+    await addOnCandidates(quoteWith([{ description: "Gutter Cleaning" }]), "co_1"),
+    [],
+  );
+  eq(
+    "…matched the way the panel matches: trimmed and case-insensitive",
+    await addOnCandidates(quoteWith([{ description: "  gutter cleaning  " }]), "co_1"),
+    [],
+  );
+  eq(
+    "a row that is something else entirely leaves the recommendation standing",
+    (await addOnCandidates(quoteWith([{ description: "Soft-Close Hinges" }]), "co_1")).map((s) => s.description),
+    ["Gutter Cleaning"],
+  );
+  eq(
+    "a junk row is not read as a match for anything",
+    (await addOnCandidates(quoteWith([{ description: null }, {}, null]), "co_1")).map((s) => s.description),
+    ["Gutter Cleaning"],
+  );
 }
 
 console.log(`\n${fail ? "✗" : "✓"} offered add-ons: ${pass} passed, ${fail} failed\n`);

@@ -19,7 +19,6 @@ import {
   Sparkles,
   Loader2,
   Plus,
-  Trash2,
   AlertTriangle,
   AlertCircle,
   Info,
@@ -42,7 +41,9 @@ import {
 import { duplicateAddOnPairs } from "@/lib/quotes/addOnDuplicates";
 import { resolveParams } from "@/lib/quotes/reviewSentence";
 import { runAfterSave } from "@/lib/quotes/reviewGate";
+import { autoAddFromReview } from "@/lib/quotes/addOnAutoAdd";
 import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
+import { OfferedExtras } from "@/app/components/quotes/OfferedExtras";
 
 // Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
 // which printed "CA$1,200" for an American company and "1 200 $CA" for
@@ -156,6 +157,14 @@ export default function SuggestAddOns({
   }
   const [appliedToDraft, setAppliedToDraft] = useState(false);
   const [addOns, setAddOns] = useState([]);
+  // Quote.addOnsCuratedAt — when a human last saved this list, null if never.
+  //
+  // The one thing that tells an EMPTY offered list apart from an un-seeded
+  // one, which is why the review below stops appending to it once it is set.
+  // Comes down with the list itself (GET /api/quotes/[id]/add-ons) and is
+  // refreshed from the PUT's own answer, so it is the server's timestamp and
+  // never a guess made here.
+  const [curatedAt, setCuratedAt] = useState(null);
   // Recomputed from the list as it is edited, so a warning clears the moment
   // the estimator removes or retitles one of the two rows.
   const duplicatePairs = duplicateAddOnPairs(addOns);
@@ -241,7 +250,8 @@ export default function SuggestAddOns({
       ]);
       setReview(existing?.review || null);
       setReviewedAt(existing?.reviewedAt || null);
-      setAddOns(saved || []);
+      setAddOns(saved?.addOns || []);
+      setCuratedAt(saved?.addOnsCuratedAt || null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -335,33 +345,21 @@ export default function SuggestAddOns({
       setDismissed([]);
       // ── The review's PRICED recommendations join the offered list ──────
       //
-      // The estimator pressed Review to be told what to offer; making them
-      // press Add on each answer was a second ask for the same thing. A
-      // recommendation with a price — the median this company's own accepted
-      // quotes carried for it (lib/ai/quoteReview.js), never a model's guess
-      // — lands in the list with the review's one-line benefit as its detail
-      // and is saved at once, so it is offered even if nobody scrolls down.
-      // One without a price stays a suggestion with an Add button: an offer
-      // needs a number, and the estimator is the one who has it.
-      const priced = (data.review?.addOns || []).filter(
-        (s) =>
-          Number(s.amount) > 0 &&
-          !addOns.some((a) => a.description.trim().toLowerCase() === s.description.trim().toLowerCase()),
-      );
-      if (priced.length && !readOnly) {
-        const next = [
-          ...addOns,
-          ...priced.map((s) => ({
-            description: s.description,
-            detail: s.detail || "",
-            amount: s.amount,
-            taxable: true,
-            source: s.source === "history" ? "history" : "ai",
-          })),
-        ].slice(0, 8);
-        setAddOns(next);
-        setDismissed(priced.map((s) => s.description));
-        await save(next);
+      // The whole rule — including the one case where it must NOT fire, a
+      // list a human has already curated — is lib/quotes/addOnAutoAdd.js,
+      // which says at length why both halves exist. It lives in lib/ so a
+      // check can execute the decision instead of reading it; this is the
+      // one caller.
+      const auto = autoAddFromReview({
+        reviewAddOns: data.review?.addOns,
+        addOns,
+        readOnly,
+        curatedAt,
+      });
+      if (auto) {
+        setAddOns(auto.next);
+        setDismissed(auto.added.map((s) => s.description));
+        await save(auto.next);
       }
     } catch (err) {
       setError(err.message);
@@ -426,7 +424,11 @@ export default function SuggestAddOns({
         headers: { "Content-Type": "application/json" },
         body: jsonBody({ addOns: next }, "add-on list"),
       });
-      setAddOns(saved);
+      setAddOns(saved?.addOns || []);
+      // This press IS the curation, and the route says so in its answer. Set
+      // from the response rather than assumed, so a save that somehow left
+      // the marker alone does not leave the panel believing it is protected.
+      setCuratedAt(saved?.addOnsCuratedAt || null);
       setSavedAt(Date.now());
       setEdited(false);
     } catch (err) {
@@ -1181,131 +1183,23 @@ export default function SuggestAddOns({
           </p>
         ))}
 
-        {addOns.length === 0 ? (
-          <p className="text-xs text-muted-foreground mt-2">
-            {t("app.quoteReview.nothingOffered")}
-          </p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            {addOns.map((a, i) => {
-              // An extra the takeoff owns. It is regenerated from the scope
-              // group every time the quote is saved, so the fields are shown
-              // and not offered: accepting an edit here and discarding it on
-              // the next save is exactly the control-that-doesn't-work this
-              // codebase gets swept for. Change the room, not this row.
-              const fromTakeoff = a.source === "takeoff";
-              const locked = readOnly || fromTakeoff;
-              return (
-              <div
-                key={a.id || i}
-                className="border border-border rounded-lg p-3 space-y-2"
-              >
-                <div className="flex gap-2">
-                  <input
-                    value={a.description}
-                    onChange={(e) => update(i, { description: e.target.value })}
-                    disabled={locked}
-                    placeholder={t("app.quoteReview.extraPlaceholder")}
-                    className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
-                  />
-                  <div className="relative w-28 shrink-0">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      $
-                    </span>
-                    <input
-                      value={a.amount}
-                      onChange={(e) => update(i, { amount: e.target.value })}
-                      disabled={locked}
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      className="w-full border border-border rounded-lg pl-6 pr-3 py-2 text-sm bg-card tabular-nums disabled:opacity-70"
-                    />
-                  </div>
-                  {!locked && (
-                    <button
-                      type="button"
-                      onClick={() => remove(i)}
-                      className="shrink-0 text-muted-foreground hover:text-red-600 p-2"
-                      aria-label={t("app.action.remove")}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </div>
-
-                <input
-                  value={a.detail || ""}
-                  onChange={(e) => update(i, { detail: e.target.value })}
-                  disabled={locked}
-                  placeholder={t("app.quoteReview.detailPlaceholder")}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
-                />
-
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={a.taxable !== false}
-                    onChange={(e) => update(i, { taxable: e.target.checked })}
-                    disabled={locked}
-                  />
-                  {t("app.quoteReview.taxable")}
-                </label>
-
-                {fromTakeoff && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("app.quoteReview.fromTakeoff")}
-                  </p>
-                )}
-                {/* Where a pre-filled row came from, so "why is this here"
-                    has an answer on the row itself. Removable like any other. */}
-                {a.source === "catalog" && (
-                  <p className="text-xs text-muted-foreground" data-add-on-source="catalog">
-                    {t("app.quoteReview.fromCatalogue")}
-                  </p>
-                )}
-                {(a.source === "history" || a.source === "ai") && (
-                  <p className="text-xs text-muted-foreground" data-add-on-source="review">
-                    {t("app.quoteReview.fromReview")}
-                  </p>
-                )}
-
-                {a.selected && (
-                  <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
-                    <Check size={12} /> {t("app.quoteReview.clientAdded")}
-                  </p>
-                )}
-              </div>
-              );
-            })}
-
-            {!readOnly && (
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => save(addOns)}
-                  disabled={saving}
-                  className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full disabled:opacity-60"
-                >
-                  {saving && <Loader2 size={13} className="animate-spin" />}
-                  {t("app.quoteReview.saveExtras")}
-                </button>
-                {/* Saved separately from the quote, so there has to be some
-                    signal that pressing the quote's own Save didn't cover
-                    this. */}
-                {dirty && (
-                  <span className="text-xs text-amber-600 dark:text-amber-400">
-                    {t("app.quoteReview.unsaved")}
-                  </span>
-                )}
-                {savedAt && !dirty && (
-                  <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                    <Check size={12} /> {t("app.action.saved")}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {/* The list and the control that persists it, in one component
+            so a check can render them (scripts/check-offered-add-ons.mjs
+            pins the markup at zero rows). Extracted for exactly that
+            reason: the panel itself cannot be rendered past its loading
+            state without a database, which is how the save bar sat in
+            the wrong branch of the ternary unnoticed. */}
+        <OfferedExtras
+          addOns={addOns}
+          readOnly={readOnly}
+          t={t}
+          update={update}
+          remove={remove}
+          save={save}
+          saving={saving}
+          dirty={dirty}
+          savedAt={savedAt}
+        />
       </div>
       {/* Mounted outside the deep-read block on purpose: that block is hidden
           on a read-only quote with no passes, and the trip back from Stripe

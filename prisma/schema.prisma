@@ -3803,6 +3803,25 @@ model Quote {
   // ── Optional extras the client can add at approval time ────────────────
   addOns QuoteAddOn[]
 
+  // Set the moment a human saves the offered-extras list (PUT /api/quotes/
+  // [id]/add-ons — the only route behind the "Save extras" button).
+  //
+  // It exists because zero rows and never-seeded are the same thing in the
+  // QuoteAddOn table, and everything that fills the list used "are there any
+  // rows?" as its "has anyone decided yet?" test. So an estimator who deleted
+  // every extra and saved got them all back: the review's priced
+  // recommendations re-added themselves against an empty in-memory list, and
+  // the catalogue seed's count() > 0 guard would have done the same on the
+  // next create path. The owner's words: "I would assume that if I delete all
+  // of the add-ons and save the quote they will not appear. It forces me to
+  // at least have one."
+  //
+  // A boolean was the obvious alternative and was rejected: the timestamp
+  // costs the same and says WHEN the list was last curated, which is what a
+  // support question about a resurrected row actually needs. Null means
+  // nobody has ever pressed Save on this list — not that the list is empty.
+  addOnsCuratedAt DateTime?
+
   // A maintenance plan attached to this quote — included in the deal, or
   // offered for the client to tick. See QuotePlanOffer.
   planOffers QuotePlanOffer[]
