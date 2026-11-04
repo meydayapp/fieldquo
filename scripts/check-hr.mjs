@@ -38,7 +38,7 @@ import { parseCloudinaryFileUrl, hrFileLocation, authenticatedUrlFor, OPEN_LINK_
 import { openHrDocument } from "@/lib/hr/documentOpen";
 import { uploadScope, planUpload, judgeUploadedAsset, judgeOnSignature } from "@/lib/media/directUpload";
 import { v2 as cloudinarySdk } from "cloudinary";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fakeDb } from "./hrFakeDb.mjs";
 
 let pass = 0;
@@ -382,8 +382,41 @@ section("8. The seams other code reads: notifications, More links, starters, cat
   ok("a manager's row opens the person's file", hrefFor({ entityType: "hr_worker", entityId: "w1" }) === "/app/settings/team/people/w1");
   ok("noteKind renders through the secondary line", noteKeysFor({ params: { noteKind: "write_up" } }).includes("app.notif.noteKind.write_up") && noteKeysFor({ params: { noteKind: "note" } }).length === 0);
 
-  ok("HR_MORE_LINKS is three rows with hrefs the pages exist for", HR_MORE_LINKS.length === 3 && HR_MORE_LINKS.every((l) => l.href.startsWith("/app/me/") && typeof l.labelKey === "string" && typeof l.icon === "string"));
+  ok("HR_MORE_LINKS is four rows with hrefs the pages exist for", HR_MORE_LINKS.length === 4 && HR_MORE_LINKS.every((l) => l.href.startsWith("/app/me/") && typeof l.labelKey === "string" && typeof l.icon === "string"));
   ok("every More-link label key exists in English", HR_MORE_LINKS.every((l) => typeof APP_MESSAGES.en[l.labelKey] === "string"));
+  ok("every More-link label key exists in all nine languages", HR_MORE_LINKS.every((l) => Object.values(APP_MESSAGES).every((d) => typeof d[l.labelKey] === "string")));
+  // Notes was the row the list was missing until 2026-11-04: the page's only
+  // way in was its notification, so an employee who missed it could not reach
+  // the write-ups they are asked to acknowledge.
+  ok("notes is one of the rows — the page has a menu entry, not just a notification",
+    HR_MORE_LINKS.some((l) => l.href === "/app/me/notes" && l.badge === "notesPending"));
+  // Each row's page must exist on disk. The hrefs are strings in a frozen
+  // array; nothing else proves they still name a route, and a row to a 404 is
+  // worse than no row.
+  {
+    const missing = HR_MORE_LINKS.filter((l) => !existsSync(new URL(`../app/app${l.href.replace(/^\/app/, "")}/page.js`, import.meta.url)));
+    ok("every More-link href has a page.js behind it", missing.length === 0, missing.map((l) => l.href).join(", "));
+  }
+  // The silent-fallback guard the icon map's comment promises: a row whose
+  // icon name is absent from HR_ICONS draws ClipboardList instead of failing,
+  // so the map is asserted to cover the list rather than trusted to.
+  {
+    const moreSrc = readFileSync(new URL("../app/app/me/more/page.js", import.meta.url), "utf8");
+    const mapped = (moreSrc.match(/const HR_ICONS = \{([^}]*)\}/) || [, ""])[1];
+    const unmapped = HR_MORE_LINKS.filter((l) => !mapped.includes(l.icon));
+    ok("HR_ICONS in app/app/me/more/page.js covers every icon HR_MORE_LINKS names",
+      unmapped.length === 0, unmapped.map((l) => `${l.href} wants ${l.icon}`).join(", "));
+  }
+  // The badges are field names in the /api/hr/me/summary payload, read off it
+  // by string. A badge naming a field the route never returns renders 0 for
+  // ever — read-but-never-written, the mirror of the bug that left
+  // notesPending written-but-never-read.
+  {
+    const summarySrc = readFileSync(new URL("../app/api/hr/me/summary/route.js", import.meta.url), "utf8");
+    const orphan = HR_MORE_LINKS.filter((l) => l.badge && !summarySrc.includes(l.badge));
+    ok("every More-link badge names a count /api/hr/me/summary actually returns",
+      orphan.length === 0, orphan.map((l) => l.badge).join(", "));
+  }
 
   ok("four starter policies in three languages, same keys", POLICY_TEMPLATE_KEYS.length === 4 && ["en", "fr", "es"].every((l) => policyTemplates(l).map((p) => p.key).join() === POLICY_TEMPLATE_KEYS.join()));
   ok("starters are plain: every body has a heading and a bullet, none longer than 2000 chars", ["en", "fr", "es"].every((l) => policyTemplates(l).every((p) => /^## /m.test(p.body) && /^- /m.test(p.body) && p.body.length < 2000)));

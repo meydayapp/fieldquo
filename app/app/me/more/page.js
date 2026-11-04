@@ -13,7 +13,7 @@
 // the row shows what is on file and says who can change it, rather than
 // offering fields that would not save.
 import { useRouter } from "next/navigation";
-import { Briefcase, CalendarClock, ClipboardCheck, ClipboardList, Clock, FileBadge, Inbox, LifeBuoy, LogOut, PackagePlus, ScrollText, Settings, User, Users, Bell, Calendar, Wallet } from "lucide-react";
+import { Briefcase, CalendarClock, ClipboardCheck, ClipboardList, Clock, FileBadge, Inbox, LifeBuoy, LogOut, MessageSquareWarning, PackagePlus, ScrollText, Settings, User, Users, Bell, Calendar, Wallet } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { signOut } from "@/lib/auth-client";
@@ -104,7 +104,12 @@ export default function MeMorePage() {
   // the rows are not drawn at all rather than drawn to pages that 404.
   const hr = useMeData("/api/hr/me/summary");
   const helpLang = HELP_LANGS.has(language) ? language : "en";
-  const HR_ICONS = { ClipboardCheck, ScrollText, FileBadge };
+  // Every icon name HR_MORE_LINKS can carry. A name missing here falls back to
+  // ClipboardList silently — the row still draws, with the wrong icon, which
+  // is the kind of nothing-happened that survives review. scripts/check-hr.mjs
+  // asserts this map covers the list, so adding a row without its icon fails
+  // there rather than shipping quietly.
+  const HR_ICONS = { ClipboardCheck, ScrollText, FileBadge, MessageSquareWarning };
 
   async function logout() {
     await signOut({

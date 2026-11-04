@@ -86,6 +86,9 @@ import {
   materialCostsVisibleCategories,
   canUseMaterialCostsCategory,
   canUseMaterialCostsSettings,
+  EQUIPMENT_ACCESS_CATEGORY_KEYS,
+  equipmentAccessEnabledPure,
+  canUseEquipmentAccessSettings,
   companyTradeGate,
 } from "@/lib/settings/tradeGate";
 import {
@@ -95,6 +98,7 @@ import {
 } from "@/lib/settings/tradeGateNav";
 import { MATERIAL_RECIPES } from "@/app/data/materialRecipes";
 import { KITCHEN_GRANTING_TRADE_KEYS } from "@/lib/kitchen/key";
+import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -144,7 +148,7 @@ function sliceArray(src, decl) {
   throw new Error(`unterminated ${decl}`);
 }
 
-console.log("Trade gate — Cabinet Rates and Material Costs, executed\n");
+console.log("Trade gate — Cabinet Rates, Material Costs and Equipment & access, executed\n");
 
 // ── 1. Pure functions against hostile input ─────────────────────────────
 
@@ -198,6 +202,29 @@ ok("materialCostsVisibleCategoriesPure only ever names catalogue keys",
 ok("MATERIAL_COSTS_CATEGORY_KEYS is read off MATERIAL_RECIPES, not hand-typed",
   MATERIAL_COSTS_CATEGORY_KEYS.length === Object.keys(MATERIAL_RECIPES).length &&
     MATERIAL_COSTS_CATEGORY_KEYS.every((k) => k in MATERIAL_RECIPES));
+
+// Equipment & access. The row is an anchor into the Services page, and the
+// section behind it renders only on an ENABLED painting category — so this
+// gate has no existing-data carve-out, unlike the two above. These assertions
+// pin that difference down, because "be consistent with the sibling" is
+// exactly the instinct that would reintroduce the dead link.
+ok("equipmentAccessEnabledPure([]) is false", equipmentAccessEnabledPure([]) === false);
+ok("equipmentAccessEnabledPure(null) is false", equipmentAccessEnabledPure(null) === false);
+ok("equipmentAccessEnabledPure(undefined) is false", equipmentAccessEnabledPure(undefined) === false);
+ok("equipmentAccessEnabledPure('interior_painting') (a string, not an array) is false",
+  equipmentAccessEnabledPure("interior_painting") === false);
+ok("equipmentAccessEnabledPure(['interior_painting']) is true",
+  equipmentAccessEnabledPure(["interior_painting"]) === true);
+ok("equipmentAccessEnabledPure(['exterior_painting']) is true",
+  equipmentAccessEnabledPure(["exterior_painting"]) === true);
+ok("equipmentAccessEnabledPure(['roofing','gutters','plumbing']) is false — the owner's non-painting case",
+  equipmentAccessEnabledPure(["roofing", "gutters", "plumbing"]) === false);
+ok("equipmentAccessEnabledPure(['cabinet_refinishing']) is false — TrueFinish's own trade has no access line",
+  equipmentAccessEnabledPure(["cabinet_refinishing"]) === false);
+ok("equipmentAccessEnabledPure(['roofing','interior_painting']) is true (one is enough)",
+  equipmentAccessEnabledPure(["roofing", "interior_painting"]) === true);
+ok("EQUIPMENT_ACCESS_CATEGORY_KEYS is the renderer's own list, not a restated copy",
+  EQUIPMENT_ACCESS_CATEGORY_KEYS === PAINT_TAKEOFF_CATEGORIES);
 
 ok("tradeGateAllowsRow(null, cabinetRates key) fails OPEN (unresolved -> shown)",
   tradeGateAllowsRow(null, "app.settings.cabinetRates") === true);
@@ -365,11 +392,49 @@ setCompanyCategories(["exterior_painting"]);
     (await canUseMaterialCostsSettings(COMPANY)) === true);
 }
 
+// Scenario I — Equipment & access, the owner's 2026-11-04 report. A company
+// with no painting trade was shown a Settings row whose href is an anchor the
+// page never renders.
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null }];
+setCompanyCategories(["cabinet_refinishing", "countertop"]);
+ok("scenario I (TrueFinish's own trades, no painting): Equipment & access refused",
+  (await canUseEquipmentAccessSettings(COMPANY)) === false);
+
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null }];
+setCompanyCategories(["roofing", "gutters"]);
+ok("scenario I (a roofer): Equipment & access refused",
+  (await canUseEquipmentAccessSettings(COMPANY)) === false);
+
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null }];
+setCompanyCategories(["interior_painting"]);
+ok("scenario I (a painter): Equipment & access allowed",
+  (await canUseEquipmentAccessSettings(COMPANY)) === true);
+
+// Scenario J — the asymmetry, executed. A company that saved takeoff overrides
+// and then switched painting OFF must NOT keep the row: the section renders on
+// the first ENABLED painting category, so there would be no anchor to land on.
+// This is the one place the existing-data rule deliberately does not apply,
+// and the assertion exists so a later "make it consistent with the other two"
+// edit fails here instead of shipping the dead link again.
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null }];
+rows.companyServiceCategory = [
+  { companyId: COMPANY, enabled: false, category: { key: "interior_painting" },
+    rates: { takeoff: { accessRates: { boomLift: 420 } } } },
+];
+ok("scenario J (saved access rates, painting switched OFF): Equipment & access STILL refused",
+  (await canUseEquipmentAccessSettings(COMPANY)) === false);
+
 // Scenario H — companyId missing entirely; must refuse rather than throw.
 ok("canUseCabinetRatesSettings(null) refuses without throwing",
   (await canUseCabinetRatesSettings(null)) === false);
 ok("canUseMaterialCostsSettings(undefined) refuses without throwing",
   (await canUseMaterialCostsSettings(undefined)) === false);
+ok("canUseEquipmentAccessSettings(null) refuses without throwing",
+  (await canUseEquipmentAccessSettings(null)) === false);
 ok("companyTradeGate(null) resolves to null (unresolved, not a crash)",
   (await companyTradeGate(null)) === null);
 
@@ -396,11 +461,36 @@ const settingsKeys = new Set(settingsItems.map((i) => i.key));
 }
 ok("app.settings.cabinetRates is exactly one of the two gated rows",
   "app.settings.cabinetRates" in SETTINGS_ROW_TRADE_GATE);
-ok("app.settings.materialCosts is exactly one of the two gated rows",
+ok("app.settings.materialCosts is one of the gated rows",
   "app.settings.materialCosts" in SETTINGS_ROW_TRADE_GATE);
+ok("app.settings.equipmentAccess is one of the gated rows (added 2026-11-04)",
+  "app.settings.equipmentAccess" in SETTINGS_ROW_TRADE_GATE);
 ok("no OTHER row is trade-gated — the mechanism stays narrow, per lib/settings/tradeGate.js's header",
-  Object.keys(SETTINGS_ROW_TRADE_GATE).length === 2,
+  Object.keys(SETTINGS_ROW_TRADE_GATE).length === 3,
   Object.keys(SETTINGS_ROW_TRADE_GATE).join(", "));
+
+// ── The anchor, and the section behind it ───────────────────────────────
+//
+// This row is the only nav row in the app whose href is an anchor, which is
+// why it was missed: the gate is correct only as long as the section behind
+// the anchor is still conditional, and still conditional on the SAME thing.
+// Two ways this could rot — the section becomes unconditional (then the gate
+// hides a row that would have worked), or it starts keying off a different
+// list (then the gate and the renderer disagree). Both are caught here.
+{
+  const editor = stripComments(read("app/app/settings/services/ServicesEditor.js"));
+  ok("Equipment & access is still the only anchor-href row in the settings sidebar",
+    settingsItems.filter((i) => i.href.includes("#")).map((i) => i.key).join(",") ===
+      "app.settings.equipmentAccess",
+    settingsItems.filter((i) => i.href.includes("#")).map((i) => i.href).join(", "));
+  ok("the section is still rendered conditionally, on firstPaintingId",
+    /c\.id === firstPaintingId[\s\S]{0,400}<PaintHeightPrepSettings/.test(editor));
+  ok("firstPaintingId is still computed from an ENABLED category in PAINT_TAKEOFF_CATEGORIES",
+    /firstPaintingId =[\s\S]{0,200}c\.enabled && PAINT_TAKEOFF_CATEGORIES\.includes\(c\.key\)/.test(editor));
+  ok("the section still carries the id the row's href points at",
+    stripComments(read("app/app/settings/services/PaintHeightPrepSettings.js"))
+      .includes('id="equipment-access"'));
+}
 
 // ── 4. The routes are actually wired to the lib, not just described ──────
 

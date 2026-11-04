@@ -332,9 +332,20 @@ ok("no AI, scheduling, dispatch, money or people row is in the trade-gate table"
   NEVER_GATED.every((k) => !(k in ROW_TRADE_GATE)), NEVER_GATED.filter((k) => k in ROW_TRADE_GATE).join(", "));
 ok("every trade-gated key is a real row somewhere",
   Object.keys(ROW_TRADE_GATE).every((k) => [...railRows, ...moreRows, ...settingsRows].some((r) => r.key === k)));
-const NO_TRADES = { cabinetRates: false, materialCosts: false };
-const ALL_TRADES = { cabinetRates: true, materialCosts: true };
+// Built from ROW_TRADE_GATE's own values rather than hand-typed. They WERE
+// hand-typed — { cabinetRates, materialCosts } — and on 2026-11-04 a third
+// gated row (app.settings.equipmentAccess) made ALL_TRADES a lie: the new
+// field was absent, so "sells every gated trade" still hid a row and this
+// assertion failed for a reason that had nothing to do with the thing it
+// tests. NO_TRADES survived only by luck, an absent field being as falsy as
+// a false one. Derive both and a fourth row needs no edit here.
+const GATE_FIELDS = [...new Set(Object.values(ROW_TRADE_GATE))];
+const NO_TRADES = Object.fromEntries(GATE_FIELDS.map((f) => [f, false]));
+const ALL_TRADES = Object.fromEntries(GATE_FIELDS.map((f) => [f, true]));
 const railNoTrades = filterNavGroupsByTrade([{ key: "h", items: [HOME] }, ...NAV, ...MORE], NO_TRADES).flatMap((g) => g.items);
+ok("the gate fixtures are derived from the table and cover every field in it",
+  GATE_FIELDS.length === new Set(Object.values(ROW_TRADE_GATE)).size && GATE_FIELDS.length > 0,
+  GATE_FIELDS.join(", "));
 ok("a company selling no gated trade keeps every rail and More row",
   railNoTrades.length === railRows.length + moreRows.length && Object.keys(NAV_ROW_TRADE_GATE).length === 0,
   `${railNoTrades.length}/${railRows.length + moreRows.length}; NAV_ROW_TRADE_GATE = ${JSON.stringify(NAV_ROW_TRADE_GATE)}`);
