@@ -116,6 +116,43 @@ export default function WorkPanel({ work, currency = null, readOnly = false, onC
   if (!tabs.length) return null;
   const current = tabs.find((tab) => tab.key === active) || tabs.find((tab) => tab.key === firstTabWithWork(tabs)) || tabs[0];
 
+  /**
+   * Dismiss one enquiry from THIS list.
+   *
+   * PATCHes the lead rather than posting to a dashboard endpoint, because the
+   * fact lives on the lead (LeadRequest.dismissedAt) and the Leads board has
+   * to be able to show and undo it. A failure is reported on the row the same
+   * way a failed chase is — `if (res.ok)` with no else is the second failure
+   * class AGENTS.md lists, and a row that silently stayed put would read as a
+   * button that does nothing.
+   */
+  async function dismiss(item) {
+    if (readOnly || !item.dismiss) return;
+    setBusy(item.id);
+    setResults((prev) => ({ ...prev, [item.id]: null }));
+    try {
+      const res = await fetch(item.dismiss, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dismissed: true }),
+      });
+      if (!res.ok) {
+        await reportResponseError(
+          res,
+          (message) => setResults((prev) => ({ ...prev, [item.id]: { error: message } })),
+          t("app.leads.updateError"),
+        );
+        return;
+      }
+      // The row goes when the panel re-reads; the note covers the moment
+      // between, and says what dismissing did NOT do.
+      setResults((prev) => ({ ...prev, [item.id]: { note: t("app.dash.work.dismissed") } }));
+      onChanged?.();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function chase(item) {
     if (readOnly || !item.action?.post) return;
     setBusy(item.id);
@@ -191,17 +228,59 @@ export default function WorkPanel({ work, currency = null, readOnly = false, onC
               const isChase = item.action?.type === "chase";
               return (
                 <li key={`${item.kind}:${item.id}`} className="flex items-center gap-3 px-4 sm:px-5 py-3">
+                  {/* ── The whole row opens the thing ────────────────────────
+                      The owner: "it's also non clickable so if i click on
+                      harman marzara i'm not able to see what i can do.. only
+                      in reply". The name LOOKED like a link and was plain
+                      text; the only way in was the button on the right. Same
+                      href the button already uses, so there is one
+                      destination per row and no second thing to keep working.
+
+                      A Link around the text only, not the <li>: the row also
+                      holds a Dismiss button and a Chase button, and nesting
+                      those inside an anchor is invalid HTML that swallows
+                      their clicks. */}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-foreground">
+                    <Link
+                      href={item.action?.href || LIST_HREF[current.key]}
+                      className="block truncate text-sm font-semibold text-foreground hover:underline"
+                    >
                       {item.name || t("app.invoiceLifecycle.thisClient", "this client")}
                       {item.number ? <span className="font-normal text-muted-foreground"> · {item.number}</span> : null}
-                    </div>
+                    </Link>
                     <FigureText
                       className={`truncate text-xs ${item.reason === "overdue" || item.reason === "expiring" ? "font-semibold text-destructive" : "text-muted-foreground"}`}
                     >
                       {reasonLine(item, t, language, now)}
                       {item.title && item.title !== item.name ? ` · ${item.title}` : ""}
                     </FigureText>
+                    {/* ── How many times somebody has tried today ─────────
+                        The nudge, on the row that was already here. Printed
+                        only when the server reported a standing: absent means
+                        "not known", and a "0 of 2" invented from nothing
+                        would be the panel asserting that nobody has called.
+
+                        `owed > 0` is what makes it stand out, and a target of
+                        0 — the company switching the nudge off — yields owed
+                        0 for every lead, so nothing is emphasised and the
+                        count still reads. */}
+                    {item.standing && item.standing.target > 0 && (
+                      <p
+                        className={`mt-0.5 truncate text-xs ${
+                          item.standing.owed > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
+                        }`}
+                      >
+                        {item.standing.owed > 0
+                          ? t("app.dash.work.attemptsOwed", {
+                              done: item.standing.today,
+                              target: item.standing.target,
+                            })
+                          : t("app.dash.work.attemptsDone", {
+                              done: item.standing.today,
+                              target: item.standing.target,
+                            })}
+                      </p>
+                    )}
                     {result?.note && (
                       <p role="status" className="mt-1 text-xs text-muted-foreground">
                         {result.note}
@@ -217,6 +296,25 @@ export default function WorkPanel({ work, currency = null, readOnly = false, onC
                     <Figure className="hidden sm:block shrink-0 text-sm font-semibold text-foreground">
                       {formatMoney(item.amount, currency)}
                     </Figure>
+                  )}
+                  {/* ── Dismiss, on an enquiry row only ──────────────────
+                      "that should update and maybe even have an option to
+                      manually dismiss." The list already drops a row whose
+                      person has a quote, an appointment or a job by contact
+                      match; this is the fallback for what that rule cannot
+                      see. It affects THIS LIST only — the lead stays on the
+                      Leads board with the mark visible and undoable there,
+                      and the follow-up sequence is untouched. */}
+                  {item.kind === "lead" && item.dismiss && (
+                    <button
+                      type="button"
+                      onClick={() => dismiss(item)}
+                      disabled={readOnly || busy === item.id}
+                      title={readOnly ? t("app.dash.readOnly", "Read-only support session") : t("app.dash.work.dismissHint")}
+                      className="shrink-0 min-h-10 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
+                    >
+                      {t("app.dash.work.dismiss")}
+                    </button>
                   )}
                   {isChase ? (
                     <button

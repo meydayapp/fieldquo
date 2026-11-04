@@ -26,7 +26,17 @@
 //      with no number, and a support session;
 //   8. a STOP from a staff phone is recorded for that company;
 //   9. every word is in all nine app languages;
-//  10. mutations of the shipped code are caught.
+//  10. a new enquiry (2026-11-03) texts the person who asked for one with the
+//      name, phone, email, what they want and a link to THAT lead — read
+//      fresh at send time, never stored on the feed row; the company switch
+//      silences every channel; a lead holding nothing but a name produces a
+//      text with no holes in it; and the enricher survives a 300-character
+//      name, an email with no "@" and null everything;
+//  11. the company's named enquiry owner is assigned every new lead and
+//      alerted about it, adds a recipient and removes none, is offered only
+//      from people the alert can reach, and degrades to nobody when they
+//      leave — with no history import and no booking-made lead assigned;
+//  12. mutations of the shipped code are caught.
 //
 //   node --import ./scripts/alias-loader.mjs scripts/check-client-alerts.mjs
 
@@ -313,11 +323,17 @@ const {
   CLIENT_ALERT_EVENTS,
   STAFF_TEXT_DAILY_CAP,
   VIEW_ALERT_GAP_HOURS,
+  channelAvailable,
   channelOn,
   viewAlertDue,
   amountForReader,
   validateAlertPatch,
 } = await import("@/lib/notifications/clientAlerts.js");
+const leadOwnerRoute = await import("@/app/api/settings/lead-owner/route.js");
+const { createScoredLead } = await import("@/lib/leads/createLead.js");
+const { leadOwnerMember, leadOwnerCandidates, withLeadOwner, mayOwnLeads } = await import("@/lib/notifications/leadOwner.js");
+const { factsForReader, leadWant, leadPhoneLine, leadEmailLine } = await import("@/lib/notifications/alertFacts.js");
+const { hrefFor } = await import("@/lib/notifications/render.js");
 const { CLIENT_ALERT_COPY, staffAlertSms, smsSegments } = await import("@/lib/i18n/clientAlertCopy.js");
 const { timesOrdinal, TIMES_ORDINAL_LANGUAGES } = await import("@/lib/i18n/timesOrdinal.js");
 const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
@@ -423,13 +439,25 @@ const view = (headers) => viewedRoute.POST(viewRequest(headers), { params: Promi
 section("1. The tables are sound");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok(CLIENT_ALERT_EVENTS.join(",") === "quote.viewed,quote.accepted,changeOrder.approved,client_ticket.opened", "the four events the owner named", CLIENT_ALERT_EVENTS);
+ok(
+  CLIENT_ALERT_EVENTS.join(",") === "quote.viewed,quote.accepted,changeOrder.approved,client_ticket.opened,lead.created",
+  "the five events: the four the owner named, and a new enquiry arriving",
+  CLIENT_ALERT_EVENTS,
+);
 for (const e of CLIENT_ALERT_EVENTS) {
   ok(Boolean(NOTIFICATION_TYPES[e]), `${e} is a catalog type (the bell renders it)`);
   ok(Boolean(RULE_TYPES[CLIENT_ALERTS[e].rule]), `${e}'s company switch "${CLIENT_ALERTS[e].rule}" is a type the rules route accepts`);
   ok(channelOn(null, e, "inApp", { role: "employee" }) === true, `${e}: bell + push default ON`);
   ok(channelOn(null, e, "sms", { role: "owner" }) === false, `${e}: text default OFF, even for an owner`);
+  ok(channelAvailable(e, "inApp") && channelAvailable(e, "sms"), `${e}: the bell and the text both exist`);
+  // An email channel is offered only where something sends one. A tick box
+  // for a message nobody sends is this repo's first failure class.
+  ok(channelAvailable(e, "email") === Boolean(CLIENT_ALERTS[e].emailVia), `${e}: an email channel exactly when it has a sender`, CLIENT_ALERTS[e].emailVia);
 }
+ok(channelAvailable("lead.created", "email") === false, "a new enquiry has no email channel (nothing emails about one)");
+ok(channelOn({ email: true }, "lead.created", "email", { role: "owner" }) === false, "…and a stored true cannot switch on a channel that does not exist");
+ok(!validateAlertPatch({ event: "lead.created", channel: "email", on: true }).ok, "…the settings PUT refuses it by name", validateAlertPatch({ event: "lead.created", channel: "email", on: true }));
+ok(validateAlertPatch({ event: "lead.created", channel: "sms", on: true }).ok, "…while the text it DOES have validates");
 ok(channelOn(null, "quote.viewed", "email", { role: "owner" }) === false, "opened: email default OFF (noise)");
 ok(channelOn(null, "quote.accepted", "email", { role: "owner" }) === true && channelOn(null, "quote.accepted", "email", { role: "admin" }) === true, "approved: email default ON for owners and admins — the email that already went");
 ok(channelOn(null, "quote.accepted", "email", { role: "employee" }) === false, "…and OFF for anybody it never went to");
@@ -941,6 +969,368 @@ section("11. Wiring that only reading can show");
   ok(/\{companyCards && \(/.test(page), "…while the company-wide cards are drawn only for owners and admins");
   const panel = read("app/app/settings/notifications/ClientAlertsPanel.js");
   ok(panel.includes("/api/settings/alert-preferences") && panel.includes("/api/settings/notification-rules"), "the panel calls both routes");
+  ok(panel.includes("/api/settings/lead-owner"), "…and the enquiry-owner route, so the picker is not a control with no wire");
+  ok(/available\[c\] === false/.test(panel), "a channel with no sender is drawn as a dash, never as a live box");
+  // ONE creator, every inbound channel: the alert and the assignment both
+  // hang off createScoredLead rather than off the eight routes that call it.
+  const creator = read("lib/leads/createLead.js");
+  ok(/leadOwnerMember\(db, input\.companyId\)/.test(creator), "the default assignee is read in the one creator");
+  ok(creator.indexOf("const assignedToId") < creator.indexOf("await db.leadRequest.create({"), "…before the lead is written, so it lands assigned rather than being updated after");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. A new enquiry arrives — the real creator, every inbound channel");
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * createScoredLead fires notifyEvent fire-and-forget (the lead is captured
+ * whatever happens next), so the check waits for the effect rather than for a
+ * fixed sleep — and waits a BOUNDED time, never open-endedly.
+ */
+async function drain(done, ms = 1000) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if (done()) return true;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  return done();
+}
+
+/** The leads board, with this lead's own drawer open. */
+const leadLink = (id) => `https://app.fieldquo.test/app/leads?lead=${id}`;
+
+reset();
+await optIns();
+{
+  const lead = await createScoredLead({
+    companyId: A,
+    name: "Jonathan Vandermeer",
+    email: "jon@vandermeer.test",
+    phone: "613 555 0188",
+    message: "Kitchen cabinets need refinishing before Christmas",
+    source: "self_quote",
+    intake: { address: "12 Elm St", serviceType: "Cabinet refinishing" },
+  });
+  ok(Boolean(lead?.id), "the lead is created");
+  await drain(() => globalThis.__SMS.length > 0 && deliveriesFor("lead.created").length >= 5);
+
+  const to = deliveriesFor("lead.created").map((d) => d.memberId).sort();
+  ok(JSON.stringify(to) === JSON.stringify(["m_adam", "m_esme", "m_mia", "m_ned", "m_olivia"]), "the bell rings for everybody who can see Requests, the manager included", to);
+  ok(!to.includes("m_carl"), "…and never for crew with Requests off");
+  ok(globalThis.__PUSHES.length === 1, "…one push batch, same people", globalThis.__PUSHES.length);
+
+  const text = textsTo(PEOPLE.olivia)[0];
+  ok(Boolean(text), "the owner who asked for a text gets one");
+  ok(text && /Jonathan Vandermeer/.test(text.body), "…with their name", text?.body);
+  ok(text && /613 555 0188/.test(text.body), "…their phone — the whole point of a text to somebody in a van");
+  ok(text && /jon@vandermeer\.test/.test(text.body), "…their email");
+  ok(text && /Cabinet refinishing/.test(text.body), "…what they want, from the intake");
+  ok(text && text.body.includes(leadLink(lead.id)), "…and a link that opens THAT lead, not the bare board", text?.body);
+  ok(hrefFor({ entityType: "lead", entityId: lead.id }) === `/app/leads?lead=${lead.id}`, "the bell row opens the same place");
+  ok(!textsTo(PEOPLE.bob).length, "company B's owner, with every text switched on, hears nothing about company A's lead");
+  // The homeowner's phone and email are in the TEXT and nowhere near the
+  // stored feed row — see lib/notifications/alertFacts.js's header.
+  const row = table("notificationEvent").find((e) => e.type === "lead.created");
+  ok(row && JSON.stringify(Object.keys(row.params || {}).sort()) === JSON.stringify(["leadName", "temperature"]), "the stored feed row still carries only leadName and temperature", row?.params);
+  ok(!JSON.stringify(row?.params || {}).includes("613 555 0188"), "…no homeowner phone number is stored on a row every member can read");
+}
+
+reset();
+await optIns();
+table("notificationRule").push({ id: "rl", companyId: A, type: "new_lead", active: false });
+{
+  const lead = await createScoredLead({ companyId: A, name: "Switched Off", phone: "613 555 0001", source: "funnel" });
+  await drain(() => table("notificationEvent").length > 0, 150);
+  ok(Boolean(lead?.id) && table("leadRequest").length === 1, "company switch OFF: the lead is still captured (the switch is about alerts, not facts)");
+  ok(table("notificationEvent").length === 0, "…no bell");
+  ok(globalThis.__PUSHES.length === 0, "…no push");
+  ok(globalThis.__SMS.length === 0, "…no text");
+  ok(table("notificationDelivery").length === 0, "…and no delivery row for anybody");
+}
+
+reset();
+await optIns();
+{
+  // A lead holding nothing but a name: no phone, no email, no category, no
+  // intake, no message. The text must read as a sentence, not as a form with
+  // blanks in it.
+  const lead = await createScoredLead({ companyId: A, name: "Just A Name", source: "phone_agent" });
+  await drain(() => globalThis.__SMS.length > 0);
+  const body = textsTo(PEOPLE.olivia)[0]?.body || "";
+  ok(/Just A Name/.test(body), "a bare lead still texts the name", body);
+  ok(!/Tel:/.test(body) && !/Email:/.test(body) && !/Wants:/.test(body), "…and omits the lines it has nothing for, rather than printing a placeholder", body);
+  ok(!/undefined|null|NaN|: *$/m.test(body), "…with no holes in it", body);
+  ok(body.includes(leadLink(lead.id)) && body.includes("STOP"), "…and still carries the link and the opt-out");
+}
+
+reset();
+await optIns();
+{
+  // The service CATEGORY wins over the intake — a trade name in the reader's
+  // own language. Pushed directly because createScoredLead stores categoryId,
+  // not the joined row.
+  table("leadRequest").push({
+    id: "ld_cat",
+    companyId: A,
+    name: "Priya Raman",
+    phone: "613 555 0150",
+    email: "priya@home.test",
+    temperature: "hot",
+    message: "Anything you can do",
+    intake: { serviceType: "Something else" },
+    category: { label: "Cabinet refinishing", labelTranslations: { fr: "Vernissage d'armoires" } },
+  });
+  const out = await sendStaffTexts({
+    prisma: globalThis.__DB,
+    companyId: A,
+    type: "lead.created",
+    entityId: "ld_cat",
+    params: { leadName: "Stale Name", temperature: "cold" },
+    members: [{ id: "m_olivia" }, { id: "m_adam" }],
+    company: table("company")[0],
+  });
+  const olivia = out.find((x) => x.memberId === "m_olivia");
+  const adam = out.find((x) => x.memberId === "m_adam");
+  ok(olivia && /Cabinet refinishing/.test(olivia.body), "the category beats the intake answer", olivia?.body);
+  ok(olivia && /Priya Raman/.test(olivia.body) && !/Stale Name/.test(olivia.body), "the FRESH name beats the one stored on the feed row", olivia?.body);
+  ok(olivia && /\(Hot\)/.test(olivia.body) && !/cold/i.test(olivia.body), "…and the fresh temperature too", olivia?.body);
+  // Adam has no phone in this fixture, so his text is refused — the French
+  // wording is checked against the builder directly below.
+  ok(adam && !adam.sent && adam.reason === "no_phone", "a reader with no number is recorded, not sent", adam);
+  const fr = staffAlertSms({
+    event: "lead.created",
+    language: "fr",
+    params: { leadName: "Priya Raman", leadWant: "Vernissage d'armoires", temperature: "hot" },
+    link: "https://x.test/app/leads?lead=ld_cat",
+  });
+  ok(/Nouvelle demande/.test(fr) && /Vernissage d'armoires/.test(fr) && /chaude/.test(fr), "a French reader gets the French trade name and the French wording", fr);
+}
+
+reset();
+{
+  // Company B's lead, named in a company-A send. The enricher must read
+  // nothing: the entityId is passed in by the caller, and a wrong one must
+  // not become a window into another tenant's homeowner.
+  table("leadRequest").push({
+    id: "ld_b",
+    companyId: B,
+    name: "Bob's Homeowner",
+    phone: "416 555 0333",
+    email: "theirs@otherco.test",
+    temperature: "hot",
+  });
+  const out = await sendStaffTexts({
+    prisma: globalThis.__DB,
+    companyId: A,
+    type: "lead.created",
+    entityId: "ld_b",
+    params: { leadName: "Only What A Stored", temperature: "cold" },
+    members: [{ id: "m_olivia" }],
+    company: table("company")[0],
+  });
+  const body = out[0]?.body || "";
+  ok(/Only What A Stored/.test(body), "a lead from another company enriches nothing — the feed row's own params stand", body);
+  ok(!/416 555 0333/.test(body) && !/theirs@otherco\.test/.test(body) && !/Homeowner/.test(body), "…and not one detail of theirs reaches company A's text", body);
+}
+
+// ── The enricher, executed against hostile input ──────────────────────────
+{
+  const hostile = factsForReader(
+    { event: "lead.created", lead: { name: "x".repeat(300), email: "not-an-email", phone: "----", message: null, temperature: null, intake: null, category: null } },
+    "en",
+  );
+  ok(hostile.leadName.length === 40, "a 300-character name is clipped to 40", hostile.leadName.length);
+  ok(!("leadEmail" in hostile), "an address with no @ is omitted, not printed as a typo", hostile);
+  ok(!("leadPhone" in hostile), "a phone with no digits in it is omitted");
+  ok(!("leadWant" in hostile) && !("temperature" in hostile), "nothing is invented for what the lead does not hold", hostile);
+  const bodyFromHostile = staffAlertSms({ event: "lead.created", language: "en", params: hostile, link: "https://x.test/app/leads?lead=x" });
+  ok(!/undefined|null|NaN/.test(bodyFromHostile), "…and the text built from it has no holes", bodyFromHostile);
+
+  ok(factsForReader(null) === null && factsForReader({ event: "quote.viewed" }) === null, "no facts, or another event's facts, enrich nothing");
+  ok(factsForReader({ event: "lead.created", lead: {} }, "en") && Object.keys(factsForReader({ event: "lead.created", lead: {} }, "en")).length === 0, "an empty lead adds no params at all");
+  ok(leadWant({ category: null, intake: null, message: "  " }, "en") === null, "whitespace is not a statement");
+  ok(leadWant({ intake: { workType: "Repaint" } }, "en") === "Repaint", "workType is read");
+  ok(leadWant({ intake: { "What service do you need?": "Deck staining" } }, "en") === "Deck staining", "…and so is a funnel's own question, keyed by its words");
+  ok(leadWant({ intake: { address: "12 Elm St", city: "Ottawa" } }, "en") === null, "the address is never mistaken for what they want");
+  ok(leadWant({ intake: { scope: { doors: 37 } }, message: "37 doors" }, "en") === "37 doors", "a nested answer with a panel of its own is not printed as an object");
+  ok(leadWant({ message: "y".repeat(400) }, "en").length === 60, "a long message is clipped");
+  ok(leadPhoneLine({ phone: null }) === null && leadEmailLine({ email: undefined }) === null, "null everything is null, not a crash");
+  ok(leadEmailLine({ email: " Bob@Example.com " }) === "Bob@Example.com", "a real address survives, trimmed");
+}
+
+// ── The segment count the owner is billed for ─────────────────────────────
+{
+  // A realistic lead: a 20-character name, a 10-digit phone, a 25-character
+  // email, a 20-character service.
+  const realistic = {
+    leadName: "Jonathan Vandermee",
+    leadPhone: "6135550188",
+    leadEmail: "jonathan@vandermeer.ca",
+    leadWant: "Cabinet refinishing",
+    temperature: "hot",
+  };
+  const link = "https://fieldquo.com/app/leads?lead=cmg1abcdefghijklmnopqrstu";
+  const en = staffAlertSms({ event: "lead.created", language: "en", params: realistic, link });
+  ok(smsSegments(en) <= 2, "an English new-enquiry text is at most two segments", { chars: en.length, segments: smsSegments(en) });
+  for (const l of Object.keys(CLIENT_ALERT_COPY)) {
+    const s = staffAlertSms({ event: "lead.created", language: l, params: realistic, link });
+    console.log(`  [cost] ${l} 'new enquiry' text: ${s.length} chars, ${smsSegments(s)} segment(s)`);
+  }
+}
+
+// ── Every language the copy file itself carries ───────────────────────────
+{
+  // Iterated from the file's own table, never from a list typed here: a
+  // closed list folds an unknown language into English with no error, which
+  // is a failure this repo has already been bitten by.
+  for (const l of Object.keys(CLIENT_ALERT_COPY)) {
+    const body = staffAlertSms({
+      event: "lead.created",
+      language: l,
+      params: { leadName: "Ann", leadPhone: "613 555 0100", leadEmail: "ann@home.test", leadWant: "Repaint", temperature: "warm" },
+      link: "https://x.test/app/leads?lead=l1",
+    });
+    ok(body && body.startsWith("FieldQuo: ") && body.includes("Ann") && body.includes("613 555 0100") && body.includes("ann@home.test") && body.includes("Repaint") && body.includes("https://x.test/app/leads?lead=l1") && body.includes("STOP"), `${l}: the new-enquiry text carries every fact`, body);
+    ok(body && !/undefined|NaN/.test(body), `${l}: …and no holes`, body);
+    const c = CLIENT_ALERT_COPY[l];
+    ok(c.temp && c.temp.hot && c.temp.warm && c.temp.cold, `${l}: hot / warm / cold are written`, c.temp);
+    ok(body.includes(c.temp.warm), `${l}: …and the lead's own band is the one printed`);
+    if (l !== "en") {
+      const enBody = staffAlertSms({
+        event: "lead.created",
+        language: "en",
+        params: { leadName: "Ann", leadPhone: "613 555 0100", leadEmail: "ann@home.test", leadWant: "Repaint", temperature: "warm" },
+        link: "https://x.test/app/leads?lead=l1",
+      });
+      ok(body !== enBody, `${l}: the new-enquiry text is not the English`);
+    }
+  }
+  // The copy table holds the same languages the app does — asserted from
+  // both files' own lists.
+  ok(JSON.stringify(Object.keys(CLIENT_ALERT_COPY).sort()) === JSON.stringify(Object.keys(APP_MESSAGES).sort()), "the copy file carries exactly the app's languages");
+  for (const l of Object.keys(APP_MESSAGES)) {
+    const missing = ["app.clientAlerts.event.lead.created", "app.clientAlerts.hint.lead.created", "app.clientAlerts.noChannel", "app.clientAlerts.leadOwnerLabel", "app.clientAlerts.leadOwnerDesc", "app.clientAlerts.leadOwnerNobody", "app.clientAlerts.leadOwnerNone"].filter((k) => APP_MESSAGES[l][k] === undefined);
+    ok(missing.length === 0, `${l}: the new-enquiry screen keys`, missing);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. Who new enquiries go to");
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Set the company's enquiry owner the way an owner would — the real route. */
+async function pickOwner(actor, memberId) {
+  globalThis.__SESSION = { id: actor.id, userId: actor.userId, companyId: actor.companyId, role: actor.role };
+  const res = await leadOwnerRoute.PUT(jsonRequest({ memberId }));
+  globalThis.__SESSION = null;
+  return res;
+}
+
+reset();
+{
+  globalThis.__SESSION = { id: PEOPLE.esme.id, userId: PEOPLE.esme.userId, companyId: A, role: "employee" };
+  const denied = await leadOwnerRoute.GET(jsonRequest(null));
+  globalThis.__SESSION = null;
+  ok(denied.status === 403, "an estimator cannot read who enquiries go to — it is a company setting", denied.status);
+
+  globalThis.__SESSION = { id: PEOPLE.olivia.id, userId: PEOPLE.olivia.userId, companyId: A, role: "owner" };
+  const list = await leadOwnerRoute.GET(jsonRequest(null));
+  globalThis.__SESSION = null;
+  const offered = list.body.options.map((o) => o.memberId).sort();
+  ok(JSON.stringify(offered) === JSON.stringify(["m_adam", "m_esme", "m_mia", "m_ned", "m_olivia"]), "the picker offers exactly the people the alert can reach", offered);
+  ok(!offered.includes("m_carl"), "…never crew with Requests off: assigning them a lead they cannot open is the dead control");
+  ok(list.body.memberId === null, "…and nobody is chosen until somebody chooses");
+
+  const no = await pickOwner(PEOPLE.olivia, "m_carl");
+  ok(no.status === 400 && no.body.code === "not_eligible", "choosing somebody the alert cannot reach is refused by name", no.body);
+  const cross = await pickOwner(PEOPLE.olivia, "m_bob");
+  ok(cross.status === 400, "…and so is another company's member", cross.status);
+
+  globalThis.__SESSION = { id: PEOPLE.olivia.id, userId: PEOPLE.olivia.userId, companyId: A, role: "owner", impersonation: { by: "support" } };
+  const imp = await leadOwnerRoute.PUT(jsonRequest({ memberId: "m_mia" }));
+  globalThis.__SESSION = null;
+  ok(imp.status === 403, "a support session cannot choose one (non-negotiable #2)", imp.status);
+
+  const yes = await pickOwner(PEOPLE.olivia, "m_mia");
+  ok(yes.status === 200 && yes.body.memberId === "m_mia", "the owner picks the appointment setter", yes.body);
+  ok(table("company").find((c) => c.id === A).leadOwnerId === "m_mia", "…stored on the company");
+  ok(table("company").find((c) => c.id === B).leadOwnerId === undefined, "…and company B is untouched");
+}
+
+reset();
+await optIns();
+{
+  // The recipients WITHOUT the setting, then WITH it: the list may only grow.
+  const before = await createScoredLead({ companyId: A, name: "Before Setting", source: "funnel" });
+  await drain(() => deliveriesFor("lead.created").length >= 5);
+  const baseline = new Set(deliveriesFor("lead.created").map((d) => d.memberId));
+  ok(before.assignedToId == null, "with no setting a lead arrives unassigned, exactly as before this existed", before.assignedToId);
+
+  await pickOwner(PEOPLE.olivia, "m_mia");
+  const after = await createScoredLead({ companyId: A, name: "After Setting", phone: "613 555 0199", source: "self_quote" });
+  await drain(() => table("notificationEvent").filter((e) => e.type === "lead.created").length >= 2);
+  const second = table("notificationEvent").filter((e) => e.type === "lead.created").slice(-1)[0];
+  const now = new Set(table("notificationDelivery").filter((d) => d.eventId === second.id).map((d) => d.memberId));
+  ok([...baseline].every((id) => now.has(id)), "naming a setter removes nobody — everybody who got the bell still gets it", { baseline: [...baseline], now: [...now] });
+  ok(after.assignedToId === PEOPLE.mia.userId, "…and the lead is assigned to them, so the board and the follow-up task are theirs", after.assignedToId);
+}
+
+reset();
+await optIns();
+await pickOwner(PEOPLE.olivia, "m_mia");
+{
+  const imported = await createScoredLead({ companyId: A, name: "July Enquiry", source: "meta_lead_ads", importedAt: new Date("2026-07-02T10:00:00Z") });
+  const booked = await createScoredLead({ companyId: A, name: "From A Booking", source: "booking", notify: false });
+  const stated = await createScoredLead({ companyId: A, name: "Already Owned", source: "manual", assignedToId: PEOPLE.esme.userId });
+  await drain(() => table("notificationEvent").length > 0, 150);
+  ok(imported.assignedToId == null, "a history backfill is assigned to nobody — a hundred July leads are not today's work", imported.assignedToId);
+  ok(booked.assignedToId == null, "a lead made from a booking keeps the booking's own answer", booked.assignedToId);
+  ok(stated.assignedToId === PEOPLE.esme.userId, "a caller that already decided is never overwritten by the default", stated.assignedToId);
+  ok(table("notificationEvent").filter((e) => e.type === "lead.created").length === 1, "…and only the one that notifies alerted anybody", table("notificationEvent").length);
+}
+
+reset();
+await optIns();
+await pickOwner(PEOPLE.olivia, "m_mia");
+{
+  // The setter leaves on a Friday. Monday's enquiry must land on nobody, not
+  // on a dead account — decided where it is READ, with no cleanup job.
+  table("member").find((m) => m.id === "m_mia").active = false;
+  ok((await leadOwnerMember(globalThis.__DB, A)) === null, "a deactivated setter reads as nobody");
+  const lead = await createScoredLead({ companyId: A, name: "Monday Morning", source: "self_quote" });
+  await drain(() => deliveriesFor("lead.created").length > 0);
+  ok(lead.assignedToId == null, "…so the lead arrives unassigned rather than on a dead account", lead.assignedToId);
+  ok(deliveriesFor("lead.created").length === 4, "…and the remaining four are still told", deliveriesFor("lead.created").length);
+}
+
+reset();
+{
+  // Access narrowed after the choice: still nobody, same reasoning.
+  table("company").find((c) => c.id === A).leadOwnerId = "m_esme";
+  table("member").find((m) => m.id === "m_esme").permissions = { ...NO_PRICES, requests: "none" };
+  ok((await leadOwnerMember(globalThis.__DB, A)) === null, "a setter whose Requests access was taken away reads as nobody");
+  ok(mayOwnLeads(PEOPLE.carl) === false && mayOwnLeads(PEOPLE.mia) === true, "mayOwnLeads is the catalog's own answer, not a second rule");
+  ok((await leadOwnerCandidates(globalThis.__DB, A)).every((m) => m.companyId === A), "the candidates are this company's own members");
+
+  // A company-B setting naming a company-A member: tenant-scoped, so nobody.
+  table("company").find((c) => c.id === B).leadOwnerId = "m_olivia";
+  ok((await leadOwnerMember(globalThis.__DB, B)) === null, "a member id from another company reads as nobody");
+}
+
+reset();
+await optIns();
+await pickOwner(PEOPLE.olivia, "m_olivia");
+{
+  // The setter types the lead in herself. The feed never tells somebody what
+  // they just did, and naming them the enquiry owner must not undo that.
+  const typed = await createScoredLead({ companyId: A, name: "Walk In", phone: "613 555 0123", source: "manual", actorUserId: PEOPLE.olivia.userId });
+  await drain(() => deliveriesFor("lead.created").length > 0);
+  const to = deliveriesFor("lead.created").map((d) => d.memberId);
+  ok(!to.includes("m_olivia"), "the setter is not told about the lead she just typed in", to);
+  ok(!textsTo(PEOPLE.olivia).length, "…and is not texted about her own keystrokes");
+  ok(typed.assignedToId === PEOPLE.olivia.userId, "…but it is still hers on the board");
+  const withOwner = await withLeadOwner({ prisma: globalThis.__DB, companyId: A, type: "quote.viewed", actorUserId: null, recipients: [{ id: "m_adam" }] });
+  ok(withOwner.length === 1 && withOwner[0].id === "m_adam", "every other event is handed back untouched");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -966,10 +1356,89 @@ const MUTATIONS = [
   { file: "app/api/sms/inbound/route.js", label: "staff STOP not recorded", from: "        if (keyword === \"opt_out\") await recordSmsOptOut({ companyId: staff.id, phone: from, body });", to: "        if (keyword === \"opt_out\") void 0;" },
   { file: "lib/i18n/clientAlertCopy.js", label: "the amount dropped from every text", from: '  const money = amountText ? ` (${amountText})` : "";', to: '  const money = "";' },
   { file: "lib/i18n/timesOrdinal.js", label: "French ordinal falls back to English", from: '  fr: (n) => (n === 1 ? "1re fois" : `${n}e fois`),\n', to: "" },
+  // ── The new enquiry ─────────────────────────────────────────────────────
+  {
+    file: "lib/notifications/clientAlerts.js",
+    label: "a new enquiry is not an alert event at all",
+    from: '  "lead.created": Object.freeze({ rule: "new_lead", email: "off", emailVia: null, peopleScoped: false }),\n',
+    to: "",
+  },
+  {
+    file: "lib/notifications/clientAlerts.js",
+    label: "a channel with no sender can be switched on",
+    from: "  if (!channelAvailable(type, channel)) return false;\n  const stored = pref ? pref[channel] : null;",
+    to: "  const stored = pref ? pref[channel] : null;",
+  },
+  {
+    file: "lib/notifications/render.js",
+    label: "the enquiry link opens the bare board",
+    from: "      return `/app/leads?lead=${encodeURIComponent(entityId)}`;",
+    to: "      return `/app/leads`;",
+  },
+  {
+    file: "lib/notifications/alertFacts.js",
+    label: "a malformed email is printed anyway",
+    from: "  return /^[^\\s@]+@[^\\s@]+$/.test(email) ? email : null;",
+    to: "  return email || null;",
+  },
+  {
+    file: "lib/notifications/alertFacts.js",
+    label: "the enquiry's details are not read fresh",
+    from: '  "lead.created": async (prisma, companyId, entityId) => {',
+    to: '  "lead.created.disabled": async (prisma, companyId, entityId) => {',
+  },
+  {
+    file: "lib/notifications/alertFacts.js",
+    label: "a lead is read without its company",
+    from: 'const lead = await prisma.leadRequest.findFirst({ where: { id: entityId, companyId }, select: LEAD_SELECT });',
+    to: 'const lead = await prisma.leadRequest.findFirst({ where: { id: entityId }, select: LEAD_SELECT });',
+  },
+  {
+    file: "lib/i18n/clientAlertCopy.js",
+    label: "the phone line is printed even when there is none",
+    from: "        params.leadPhone ? `${c.tel}: ${clip(params.leadPhone, 24)}` : null,",
+    to: "        `${c.tel}: ${clip(params.leadPhone, 24)}`,",
+  },
+  {
+    file: "lib/notifications/leadOwner.js",
+    label: "a setter who left still collects leads",
+    from: "    if (!member || !mayOwnLeads(member)) return null;",
+    to: "    if (!member) return null;",
+  },
+  {
+    file: "lib/notifications/leadOwner.js",
+    label: "the setter is told about the lead they typed in themselves",
+    from: "  if (actorUserId && owner.userId === actorUserId) return list;\n",
+    to: "",
+  },
+  {
+    file: "lib/notifications/leadOwner.js",
+    label: "the setting is read across companies",
+    from: "    const member = await prisma.member.findFirst({ where: { id, companyId, active: true }, select: MEMBER_SELECT });",
+    to: "    const member = await prisma.member.findFirst({ where: { id, active: true }, select: MEMBER_SELECT });",
+  },
+  {
+    file: "lib/leads/createLead.js",
+    label: "a history import is assigned to the enquiry owner",
+    from: "  const wantsDefaultOwner = !stated && !importedAt && input.notify !== false;",
+    to: "  const wantsDefaultOwner = !stated;",
+  },
+  {
+    file: "lib/leads/createLead.js",
+    label: "the enquiry owner is never assigned the lead",
+    from: "      ...(assignedToId ? { assignedToId } : {}),\n",
+    to: "",
+  },
+  {
+    file: "app/api/settings/lead-owner/route.js",
+    label: "anybody can be named the enquiry owner",
+    from: "    if (!candidates.some((m) => m.id === memberId)) {",
+    to: "    if (false) {",
+  },
 ];
 
 if (!process.argv.includes("--no-mutate")) {
-  section("12. Mutations");
+  section("14. Mutations");
   const dir = mkdtempSync(join(tmpdir(), "fq-client-alerts-mut-"));
   for (const [i, m] of MUTATIONS.entries()) {
     const path = new URL(`../${m.file}`, import.meta.url);

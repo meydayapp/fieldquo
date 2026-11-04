@@ -1480,6 +1480,13 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
   const [docsKey, setDocsKey] = useState(0);
   const [converting, setConverting] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The attempt log (model LeadContactAttempt). Loaded with the drawer and
+  // re-read from the POST's own answer, so the standing a contractor sees
+  // after logging a call is the server's arithmetic and not the browser's.
+  const [attempts, setAttempts] = useState([]);
+  const [attemptStand, setAttemptStand] = useState(null);
+  const [loggingAttempt, setLoggingAttempt] = useState(false);
+  const [attemptError, setAttemptError] = useState("");
   // Same reason-before-move shape as the board's drag prompt above — a click
   // on "Lost" pauses here instead of patching straight through, unless the
   // lead already carries a valid reason (re-clicking the button it's already
@@ -1509,6 +1516,57 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // The attempt log, loaded beside the lead. A refused read leaves the list
+  // empty and says so on the panel rather than rendering as "nothing has been
+  // tried", which on this screen would be a claim about the team.
+  const loadAttempts = useCallback(async () => {
+    if (sample) return;
+    try {
+      const res = await fetch(`/api/leads/${leadId}/attempts`);
+      if (!res.ok) return reportResponseError(res, setAttemptError, t("app.leads.attempt.loadError"));
+      const d = await res.json();
+      setAttempts(Array.isArray(d?.attempts) ? d.attempts : []);
+      setAttemptStand(d?.standing || null);
+      setAttemptError("");
+    } catch {
+      setAttemptError(t("app.leads.attempt.loadError"));
+    }
+  }, [leadId, sample, t]);
+
+  useEffect(() => {
+    loadAttempts();
+  }, [loadAttempts]);
+
+  /**
+   * Record one attempt. The server answers with the row AND the new standing,
+   * so "1 of 2 today" is its arithmetic rather than something counted here —
+   * two counters would disagree the first time somebody logged a call in
+   * another tab.
+   *
+   * Note that this touches nothing on the lead: an attempt is outbound, and
+   * it must not read as having reached anybody.
+   */
+  async function logAttempt(kind) {
+    if (sample) return;
+    setLoggingAttempt(true);
+    setAttemptError("");
+    try {
+      const res = await fetch(`/api/leads/${leadId}/attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind }),
+      });
+      if (!res.ok) return reportResponseError(res, setAttemptError, t("app.leads.attempt.saveError"));
+      const d = await res.json();
+      if (d?.attempt) setAttempts((prev) => [d.attempt, ...prev]);
+      if (d?.standing) setAttemptStand(d.standing);
+    } catch {
+      setAttemptError(t("app.leads.attempt.saveError"));
+    } finally {
+      setLoggingAttempt(false);
+    }
+  }
 
   async function patch(body) {
     // A sample's owner and status change here and on the sample's card, the
@@ -2052,6 +2110,177 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null, o
                 </div>
               )}
             </div>
+
+            {/* ── What has been tried ───────────────────────────────────
+                The owner: "for contacted. we should probably also note if we
+                left voicemail, texted or emailed or called."
+
+                Only the two kinds a PERSON can claim are buttons here. A text
+                and an email appear in the list when FieldQuo sent one itself
+                (the follow-up cron logs its own sends), and there is no
+                button for them, because a button would let somebody record a
+                send that never happened.
+
+                Logging an attempt does NOT stop the follow-ups — an
+                unanswered call is evidence somebody tried, not evidence the
+                homeowner was reached. The control that stops them is below
+                this one, and the hint says so. */}
+            {!sample && (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1.5">
+                  {t("app.leads.attempt.title")}
+                  {attemptStand?.target > 0 ? (
+                    <span className="ml-1 text-foreground">
+                      {t("app.leads.attempt.standing", {
+                        done: attemptStand.today,
+                        target: attemptStand.target,
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+                {canWriteNotes && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {["call", "voicemail"].map((kind) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        disabled={loggingAttempt}
+                        onClick={() => logAttempt(kind)}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+                      >
+                        {t(`app.leads.attempt.log.${kind}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {t("app.leads.attempt.hint")}
+                </p>
+                {attempts.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {attempts.slice(0, 6).map((a) => (
+                      <li key={a.id} className="text-xs text-muted-foreground">
+                        {t(`app.leads.attempt.kind.${a.kind}`)}
+                        {" · "}
+                        {new Date(a.at).toLocaleString(language || undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                        {/* "FieldQuo" is never printed at a client, but this
+                            is the contractor's own back office and they need
+                            to know which rows the software wrote. */}
+                        {a.source === "system"
+                          ? ` · ${t("app.leads.attempt.automatic")}`
+                          : a.by?.name
+                            ? ` · ${a.by.name}`
+                            : ""}
+                        {a.note ? ` · ${a.note}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {attemptError && (
+                  <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{attemptError}</p>
+                )}
+              </div>
+            )}
+
+            {/* ── Have you spoken to them? ──────────────────────────────
+                The owner, 2026-11-03: "it might be manually because the
+                system isn't able to see if they answered the call. or reply
+                back to a text from the company's number so it should be able
+                to be set in the leads page".
+
+                Labelled by what it DOES, not by the column it writes. A
+                contractor reads "Stop the follow-ups" and knows what will
+                happen; "Reached: ☑" names a field and tells them nothing,
+                which is the dead-control failure AGENTS.md puts first.
+
+                Deliberately NOT one of the status buttons above. Status is a
+                position in the pipeline and a person can have been reached at
+                any of them — overloading it is how two meanings end up
+                disagreeing about one row (see the column's comment in
+                prisma/schema.prisma).
+
+                Reversible, and the undo says so: a lead marked by mistake has
+                to be able to go back into the sequence, or it is off for that
+                lead for ever. */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1.5">
+                {t("app.leads.reached.title")}
+              </div>
+              {lead.reachedAt ? (
+                <div className="p-3 border border-border rounded-lg bg-muted/40 space-y-2">
+                  <p className="text-xs text-foreground">
+                    {t("app.leads.reached.onNote", {
+                      who: lead.reachedBy?.name || t("app.leads.reached.someone"),
+                      when: new Date(lead.reachedAt).toLocaleDateString(language || undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      }),
+                    })}
+                  </p>
+                  {canEditLead && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => patch({ reached: false })}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    >
+                      {t("app.leads.reached.undo")}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    disabled={busy || !canEditLead}
+                    onClick={() => patch({ reached: true })}
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+                  >
+                    {t("app.leads.reached.mark")}
+                  </button>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("app.leads.reached.hint")}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Dismissed from the dashboard's request list ────────────
+                Shown here and undoable here, because dismissing is triage on
+                one screen and not a verdict on the lead: the Leads board goes
+                on showing it either way. The note says plainly that the
+                follow-ups are unaffected, so nobody reads this as having
+                switched the sequence off — that is the control above. */}
+            {lead.dismissedAt && (
+              <div className="p-3 border border-dashed border-border rounded-lg text-xs space-y-2">
+                <p className="text-muted-foreground">
+                  {t("app.leads.dismissed.note", {
+                    who: lead.dismissedBy?.name || t("app.leads.reached.someone"),
+                    when: new Date(lead.dismissedAt).toLocaleDateString(language || undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    }),
+                  })}
+                </p>
+                {canEditLead && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => patch({ dismissed: false })}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+                  >
+                    {t("app.leads.dismissed.undo")}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* What this lead became — the quote, its jobs, its invoices —
                 and the ways to put a quote on it: create one (the existing

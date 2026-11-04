@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 
 import { bookingTextOn } from "@/lib/booking/bookingText";
 import { documentTextOn } from "@/lib/sms/documentTextRules";
+import { followUpTextOn } from "@/lib/sms/followUpTextRules";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -20,6 +21,7 @@ import {
   SMS_TEMPLATE_TYPES,
   BOOKING_TEXT_TYPES,
   DOCUMENT_TEXT_TYPES,
+  FOLLOW_UP_TEXT_TYPES,
   validateTemplate,
   fillTemplate,
 } from "@/lib/sms/renderTemplate";
@@ -65,6 +67,32 @@ const SWITCHES = [
     },
     write: (enabled) => ({ documentSmsOn: enabled }),
   },
+  {
+    // ── The follow-up texts (2026-11-02) ──────────────────────────────────
+    //
+    // The automatic chase on an enquiry or a quote nobody answered, for a
+    // FollowUpRule whose channel is "sms" (lib/sms/followUpText.js). The
+    // enquiry chase carries the switch and the quote chase follows it, the
+    // arrangement the two above already have.
+    //
+    // The one difference, and it is the whole reason this switch exists:
+    // followUpTextOn defaults OFF. The other two default on. A document text
+    // goes out because somebody pressed Send; this one goes out because a
+    // cron noticed silence, to a person who has not replied, at a message's
+    // cost each time — so the copy says plainly that it is off until the
+    // company turns it on, and what turning it on means.
+    owner: "lead_follow_up",
+    types: FOLLOW_UP_TEXT_TYPES,
+    on: (company) => followUpTextOn(company),
+    copy: {
+      on: "app.setMessages.followUpSmsOn",
+      off: "app.setMessages.followUpSmsOff",
+      hint: "app.setMessages.followUpSmsHint",
+      followsOn: "app.setMessages.followUpSmsFollowsOn",
+      followsOff: "app.setMessages.followUpSmsFollowsOff",
+    },
+    write: (enabled) => ({ followUpSmsOn: enabled }),
+  },
 ];
 
 /** The switch a type answers to, or null for one with none. */
@@ -83,7 +111,7 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true, bookingSmsChosenAt: true, documentSmsOn: true },
+    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true, bookingSmsChosenAt: true, documentSmsOn: true, followUpSmsOn: true, preQuoteVideoUrl: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? company.smsTemplates
@@ -103,6 +131,11 @@ export async function GET(request) {
         ...samplesFor(spec),
         ...(company?.name && { company: company.name }),
         ...("phone" in spec.tokens && { phone: company?.phone || null }),
+        // The company's OWN pre-quote video, or null — so a company that has
+        // not set one sees the sentence drop out of the preview here rather
+        // than discovering on a homeowner's phone that it was never there.
+        // The sample url would have promised a link the send cannot make.
+        ...("video" in spec.tokens && { video: company?.preQuoteVideoUrl || null }),
       };
       const custom = typeof stored[key] === "string" ? stored[key] : null;
       return {
@@ -160,7 +193,8 @@ export async function PUT(request) {
   // ── The on/off switch, separate from the wording ─────────────────────────
   //
   // `{ type: "booking_confirmation", enabled: true|false }` flips the booking
-  // texts; `{ type: "quote_sent", enabled }` the two document ones. Only the
+  // texts; `{ type: "quote_sent", enabled }` the two document ones;
+  // `{ type: "lead_follow_up", enabled }` the two follow-up ones. Only the
   // type that CARRIES a switch may flip it — posting `enabled` for a follower
   // falls through to the wording branch below rather than silently writing
   // somebody else's switch. Each send path re-reads the column fresh.
@@ -186,7 +220,7 @@ export async function PUT(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true, name: true, phone: true, defaultLanguage: true },
+    select: { smsTemplates: true, name: true, phone: true, defaultLanguage: true, preQuoteVideoUrl: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? { ...company.smsTemplates }
@@ -228,6 +262,7 @@ export async function PUT(request) {
     ...samplesFor(spec),
     ...(company?.name && { company: company.name }),
     ...("phone" in spec.tokens && { phone: company?.phone || null }),
+    ...("video" in spec.tokens && { video: company?.preQuoteVideoUrl || null }),
   };
   const autoTranslate = text
     ? scheduleAutoTranslate({

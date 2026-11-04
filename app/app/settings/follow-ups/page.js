@@ -7,13 +7,30 @@
 //
 // ── FieldQuo's defaults ────────────────────────────────────────────────────
 //
-// Three rules arrive switched on for every company — 1, 7 and 14 days after
-// a quote is sent, in the client's language (lib/followUps/defaults.js).
-// They are listed first, labelled "FieldQuo default", and every one of them
-// is a real row the company may pause, re-time, re-point at its own template,
-// reset, or delete. A deleted default is listed at the bottom with "Restore"
-// rather than hidden, because a company that deleted the day-7 one should be
-// able to see that it did.
+// Six rules arrive for every company (lib/followUps/defaults.js), in the
+// client's language:
+//
+//   · three QUOTE chases, switched ON — 1, 7 and 14 days after a quote is
+//     sent, to somebody who asked this company for a price and is holding it.
+//   · three ENQUIRY chases, switched OFF — 1, 3 and 7 days after an enquiry
+//     arrives that nobody has answered. Off because they write to somebody
+//     who filled in a form, under the contractor's own name, which is not a
+//     default FieldQuo gets to set.
+//
+// They are listed first, labelled "FieldQuo default", and every one is a real
+// row the company may pause, re-time, re-point at its own template, send by
+// TEXT instead of email, reset, or delete. A deleted default is listed at the
+// bottom with "Restore" rather than hidden, because a company that deleted
+// the day-7 one should be able to see that it did.
+//
+// ── The channel ────────────────────────────────────────────────────────────
+//
+// Each rule sends by email or by text (FollowUpRule.channel). A text's
+// wording is not a template — it is a message type on Settings › Client
+// messages — and it answers to that page's follow-up-text switch, which is
+// off until a company turns it on. Both facts are said on this page rather
+// than discovered: a rule set to "text" while the switch is off is drawn as
+// not sending, which is what it is.
 //
 // Every control on a row writes to the API on change. There is no "Save"
 // button for the list: a switch that waits for a save elsewhere is the kind
@@ -24,12 +41,12 @@ import Link from "next/link";
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2, X, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
-import { TRIGGER_META } from "@/lib/followUps/triggers";
+import { TRIGGER_META, FOLLOW_UP_CHANNELS, followUpChannel, triggerMaySms } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
-import { BUILT_IN_COPY, BUILT_IN_LANGUAGES } from "@/lib/followUps/defaultCopy";
+import { BUILT_IN_LANGUAGES, builtInCopyTable } from "@/lib/followUps/defaultCopy";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { stopKeysFor, TRIGGER_LABEL_KEYS, TRIGGER_DESCRIPTION_KEYS } from "@/lib/followUps/flow";
+import { stopKeysFor, TRIGGER_LABEL_KEYS, TRIGGER_DESCRIPTION_KEYS, CHANNEL_OPTION_KEYS } from "@/lib/followUps/flow";
 import { formatDuration } from "@/lib/i18n/duration";
 import FlowDiagram from "./FlowDiagram";
 
@@ -67,12 +84,21 @@ function Switch({ checked, onChange, disabled, label }) {
 // What a built-in says, in the three languages it is written in. Read from
 // the same table the cron renders from, so this cannot describe an email
 // other than the one that goes out.
+//
+// Two tables now (lib/followUps/defaultCopy.js): the quote chase's subject
+// takes a quote number, the enquiry chase's takes only the company and its
+// body takes the service. builtInCopyTable picks by key rather than this
+// component guessing, because guessing wrong would print "Q-1042" where a
+// service name belongs.
 function BuiltInWording({ ruleKey, language }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const table = builtInCopyTable(ruleKey);
+  const lead = ruleKey?.startsWith("lead_");
   const langs = [language, ...BUILT_IN_LANGUAGES.filter((l) => l !== language)].filter((l) =>
     BUILT_IN_LANGUAGES.includes(l),
   );
+  if (!table) return null;
   return (
     <div className="mt-2">
       <button
@@ -86,13 +112,16 @@ function BuiltInWording({ ruleKey, language }) {
       {open && (
         <div className="mt-2 space-y-3">
           {langs.map((lang) => {
-            const w = BUILT_IN_COPY[lang]?.[ruleKey];
+            const w = table[lang]?.[ruleKey];
             if (!w) return null;
+            const company = t("app.setFollowUps.sampleCompany");
             return (
               <div key={lang} className="text-xs bg-muted/60 rounded-lg px-3 py-2">
                 <div className="font-semibold text-foreground uppercase tracking-wide">{lang}</div>
-                <div className="text-foreground mt-1">{w.subject(t("app.setFollowUps.sampleCompany"), "Q-1042")}</div>
-                {w.body().map((p, i) => (
+                <div className="text-foreground mt-1">
+                  {lead ? w.subject(company) : w.subject(company, "Q-1042")}
+                </div>
+                {(lead ? w.body(company, t("app.setFollowUps.sampleService")) : w.body(company)).map((p, i) => (
                   <p key={i} className="text-muted-foreground mt-1">
                     {p}
                   </p>
@@ -111,6 +140,21 @@ export default function FollowUpsPage() {
   const { t, language } = useTranslation();
   const [rules, setRules] = useState([]);
   const [deletedBuiltIns, setDeletedBuiltIns] = useState([]);
+  // Two facts about the COMPANY the rule rows cannot carry, because each is
+  // about every rule at once (app/api/settings/follow-up-rules GET).
+  // `smsEnabled` starts undefined rather than false: a load that has not
+  // answered yet must not draw a warning saying texts are off.
+  const [smsEnabled, setSmsEnabled] = useState(undefined);
+  const [hasVideo, setHasVideo] = useState(false);
+  // Whether /book/<slug> actually resolves — three conditions, not just a
+  // slug (lib/booking/bookableMembers.js). Undefined until the load answers,
+  // so an unanswered load is never drawn as "you have no booking page".
+  const [canSelfBook, setCanSelfBook] = useState(undefined);
+  // The daily call target. A draft written on blur, like the delay inputs on
+  // the rows below — one PUT per edit, not one per keystroke.
+  const [cadenceDraft, setCadenceDraft] = useState("");
+  const [cadenceBusy, setCadenceBusy] = useState(false);
+  const [cadenceError, setCadenceError] = useState("");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   // A refused load used to leave both lists at [] and then render three
@@ -131,6 +175,7 @@ export default function FollowUpsPage() {
     delayValue: 3,
     delayUnit: "days",
     templateId: "",
+    channel: "email",
   });
 
   async function load() {
@@ -154,6 +199,12 @@ export default function FollowUpsPage() {
       const templatesData = await templatesRes.json();
       setRules(Array.isArray(rulesData?.rules) ? rulesData.rules : []);
       setDeletedBuiltIns(Array.isArray(rulesData?.deletedBuiltIns) ? rulesData.deletedBuiltIns : []);
+      setSmsEnabled(typeof rulesData?.smsEnabled === "boolean" ? rulesData.smsEnabled : undefined);
+      setHasVideo(rulesData?.hasPreQuoteVideo === true);
+      setCanSelfBook(typeof rulesData?.canSelfBook === "boolean" ? rulesData.canSelfBook : undefined);
+      setCadenceDraft(
+        Number.isFinite(Number(rulesData?.leadCallsPerDay)) ? String(rulesData.leadCallsPerDay) : "",
+      );
       setTemplates(Array.isArray(templatesData) ? templatesData : []);
       setDelayDraft({});
       setLoadError("");
@@ -183,6 +234,7 @@ export default function FollowUpsPage() {
       delayValue: meta.defaultDelay.value,
       delayUnit: meta.defaultDelay.unit,
       templateId: eligibleTemplates[0]?.id || "",
+      channel: "email",
     });
     setShowNew(true);
   }
@@ -194,6 +246,12 @@ export default function FollowUpsPage() {
       triggerEvent,
       delayValue: meta.defaultDelay.value,
       delayUnit: meta.defaultDelay.unit,
+      // Two of the four triggers can text (lib/followUps/triggers.js says why
+      // the other two cannot). Moving to one that cannot drops the channel
+      // back to email rather than leaving "Text message" selected and letting
+      // the server refuse the save — the refusal would be correct and the
+      // dialog would have led them into it.
+      channel: triggerMaySms(triggerEvent) ? f.channel : "email",
     }));
   }
 
@@ -206,6 +264,11 @@ export default function FollowUpsPage() {
       body: JSON.stringify({
         ...form,
         name: form.name.trim() || TRIGGER_META[form.triggerEvent].label,
+        // A text rule has no template to point at — its wording is a message
+        // type on Settings › Messages. Sent as null rather than left as
+        // whatever the picker happened to be showing, so the stored row has
+        // no column that nothing reads.
+        templateId: form.channel === "sms" ? null : form.templateId,
       }),
     });
     setSaving(false);
@@ -244,6 +307,35 @@ export default function FollowUpsPage() {
       return;
     }
     patchRule(rule, { delayValue: value });
+  }
+
+  // Written on blur, and only when it actually changed — the same shape the
+  // rows' delay inputs use. A refused save says why and puts the server's
+  // value back, rather than leaving a number on screen that was never stored.
+  async function commitCadence() {
+    const next = Number(cadenceDraft);
+    if (!Number.isInteger(next) || next < 0 || next > 10) {
+      setCadenceError(t("app.setFollowUps.cadenceRange"));
+      return;
+    }
+    setCadenceError("");
+    setCadenceBusy(true);
+    try {
+      const res = await fetch("/api/settings/lead-cadence", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callsPerDay: next }),
+      });
+      if (!res.ok) {
+        const msg = await reportResponseError(res, t("app.setFollowUps.cadenceError"));
+        setCadenceError(msg);
+        return;
+      }
+      const d = await res.json().catch(() => null);
+      if (Number.isFinite(Number(d?.callsPerDay))) setCadenceDraft(String(d.callsPerDay));
+    } finally {
+      setCadenceBusy(false);
+    }
   }
 
   async function handleDelete(id) {
@@ -285,9 +377,14 @@ export default function FollowUpsPage() {
             <span className="text-muted-foreground">— {t("app.callbacks.followUpsLinkHint")}</span>
           </p>
         </div>
+        {/* No longer disabled for a company with no email template: a TEXT
+            rule needs none (its wording is a message type on Settings ›
+            Messages), so a blanket disable would have hidden the one kind of
+            rule such a company can actually make. The dialog's own Create
+            button is what refuses an email rule with no template. */}
         <button
           onClick={openNew}
-          disabled={loadError ? true : eligibleTemplates.length === 0}
+          disabled={Boolean(loadError)}
           title={
             eligibleTemplates.length === 0
               ? t("app.setFollowUps.needTemplateTooltip")
@@ -325,10 +422,77 @@ export default function FollowUpsPage() {
         </p>
       )}
 
+      {/* ── The two things a rule depends on that live elsewhere ───────────
+          The wording of a TEXT and the pre-quote video are both edited on
+          Settings › Client messages, because both are client-facing message
+          content and that page owns it. Said here, where the rules are, so
+          nobody sets a rule to "text" and then hunts for where to write it.
+          `smsEnabled === false` rather than `!smsEnabled`: a load that has
+          not answered must not claim the switch is off. */}
+      {!loadError && (
+        <div className="text-sm bg-card border border-border rounded-lg px-4 py-3 space-y-1">
+          {smsEnabled === false && (
+            <p className="text-amber-700 dark:text-amber-300">
+              {t("app.setFollowUps.smsOffWarning")}
+            </p>
+          )}
+          {/* An enquiry chase by TEXT has no action in it without a booking
+              page, so it is refused rather than sent short
+              (lib/booking/selfBookingLink.js argues that). Said here, where
+              the channel is chosen, instead of discovered as a run that sent
+              nothing. `=== false` so an unanswered load says nothing. */}
+          {canSelfBook === false && (
+            <p className="text-amber-700 dark:text-amber-300">
+              {t("app.setFollowUps.smsNeedsBooking")}
+            </p>
+          )}
+          <p className="text-muted-foreground">
+            {t("app.setFollowUps.smsWordingPre")}{" "}
+            <Link href="/app/settings/messages" className="underline font-semibold text-foreground">
+              {t("app.settings.messages")}
+            </Link>{" "}
+            {t("app.setFollowUps.smsWordingPost")}
+          </p>
+          <p className="text-muted-foreground">
+            {hasVideo
+              ? t("app.setFollowUps.preQuoteVideoSet")
+              : t("app.setFollowUps.preQuoteVideoNone")}
+          </p>
+          {/* ── The human cadence, beside the automated one ───────────────
+              "FFM say to call 2 to 3x per day." Two to three is the agency's
+              playbook, not a FieldQuo fact, which is why it is a number a
+              company sets rather than a constant. It drives the count on the
+              dashboard's request rows and nothing else — it sends nothing,
+              so there is no cost to raising it beyond the calls somebody
+              then has to make. 0 switches that count off. */}
+          <label className="text-muted-foreground inline-flex flex-wrap items-center gap-1.5">
+            {t("app.setFollowUps.cadencePre")}
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={cadenceDraft}
+              disabled={cadenceBusy}
+              onChange={(e) => setCadenceDraft(e.target.value)}
+              onBlur={commitCadence}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              className={`${smallInput} w-16`}
+              aria-label={t("app.setFollowUps.cadenceAria")}
+            />
+            {t("app.setFollowUps.cadencePost")}
+          </label>
+          {cadenceError && (
+            <p className="text-red-700 dark:text-red-300">{cadenceError}</p>
+          )}
+        </div>
+      )}
+
       {/* Read-only, derived from the rules below — see FlowDiagram.js for why
           it is a view and not an editor. Renders nothing when there are no
           rules, so the plain empty sentence below is what a new company sees. */}
-      <FlowDiagram rules={rules} />
+      <FlowDiagram rules={rules} smsEnabled={smsEnabled} canSelfBook={canSelfBook} />
 
       {loadError ? null : rules.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("app.setFollowUps.empty")}</p>
@@ -342,6 +506,8 @@ export default function FollowUpsPage() {
             const builtIn = Boolean(rule.builtInKey);
             const busy = busyId === rule.id;
             const delayValue = delayDraft[rule.id] ?? rule.delayValue;
+            const channel = followUpChannel(rule);
+            const maySms = triggerMaySms(rule.triggerEvent);
 
             return (
               <div key={rule.id} className="p-4 space-y-3">
@@ -426,30 +592,64 @@ export default function FollowUpsPage() {
                     <option value="hours">{t("app.time.hours")}</option>
                     <option value="days">{t("app.time.days")}</option>
                   </select>
-                  <label className="text-xs text-muted-foreground inline-flex items-center gap-1.5 min-w-0">
-                    {t("app.setFollowUps.templateToSend")}
-                    <select
-                      value={rule.templateId || ""}
-                      disabled={busy}
-                      onChange={(e) =>
-                        patchRule(rule, { templateId: e.target.value === "" ? null : e.target.value })
-                      }
-                      className={`${smallInput} max-w-[240px]`}
-                    >
-                      {builtIn ? (
-                        <option value="">{t("app.setFollowUps.builtInWording")}</option>
-                      ) : (
-                        <option value="" disabled>
-                          {rule.template ? t("app.setFollowUps.chooseTemplate") : t("app.setFollowUps.templateDeleted")}
-                        </option>
-                      )}
-                      {eligibleTemplates.map((tpl) => (
-                        <option key={tpl.id} value={tpl.id}>
-                          {tpl.name} ({TEMPLATE_TYPE_META[tpl.type]?.label})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+
+                  {/* ── Email or text ──────────────────────────────────────
+                      Offered only on the two triggers that have SMS wording;
+                      on the other two it is not a choice, so there is no
+                      control for it rather than one the server refuses.
+                      Switching to text clears the template server-side — the
+                      rule stops reading it — so the picker disappears with
+                      it. */}
+                  {maySms ? (
+                    <label className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+                      {t("app.setFollowUps.channel")}
+                      <select
+                        value={channel}
+                        disabled={busy}
+                        onChange={(e) => patchRule(rule, { channel: e.target.value })}
+                        className={smallInput}
+                      >
+                        {FOLLOW_UP_CHANNELS.map((c) => (
+                          <option key={c} value={c}>
+                            {t(CHANNEL_OPTION_KEYS[c])}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+
+                  {channel === "sms" ? (
+                    <span className="text-xs text-muted-foreground">
+                      {canSelfBook === false && rule.triggerEvent === "lead_no_response"
+                        ? t("app.setFollowUps.smsNeedsBooking")
+                        : t("app.setFollowUps.smsWordingHint")}
+                    </span>
+                  ) : (
+                    <label className="text-xs text-muted-foreground inline-flex items-center gap-1.5 min-w-0">
+                      {t("app.setFollowUps.templateToSend")}
+                      <select
+                        value={rule.templateId || ""}
+                        disabled={busy}
+                        onChange={(e) =>
+                          patchRule(rule, { templateId: e.target.value === "" ? null : e.target.value })
+                        }
+                        className={`${smallInput} max-w-[240px]`}
+                      >
+                        {builtIn ? (
+                          <option value="">{t("app.setFollowUps.builtInWording")}</option>
+                        ) : (
+                          <option value="" disabled>
+                            {rule.template ? t("app.setFollowUps.chooseTemplate") : t("app.setFollowUps.templateDeleted")}
+                          </option>
+                        )}
+                        {eligibleTemplates.map((tpl) => (
+                          <option key={tpl.id} value={tpl.id}>
+                            {tpl.name} ({TEMPLATE_TYPE_META[tpl.type]?.label})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   {builtIn && (
                     <button
                       type="button"
@@ -462,7 +662,7 @@ export default function FollowUpsPage() {
                   )}
                 </div>
 
-                {builtIn && !rule.templateId && (
+                {builtIn && !rule.templateId && channel !== "sms" && (
                   <BuiltInWording ruleKey={rule.builtInKey} language={language} />
                 )}
               </div>
@@ -579,30 +779,66 @@ export default function FollowUpsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">
-                  {t("app.setFollowUps.templateToSend")}
-                </label>
-                <select
-                  required
-                  value={form.templateId}
-                  onChange={(e) => setForm({ ...form, templateId: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="" disabled>
-                    {t("app.setFollowUps.chooseTemplate")}
-                  </option>
-                  {eligibleTemplates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>
-                      {tpl.name} ({TEMPLATE_TYPE_META[tpl.type]?.label})
+              {/* Email or text. Offered only where the server will accept it
+                  — the two triggers with SMS wording — so the dialog cannot
+                  lead somebody into a refusal it could have predicted. */}
+              {triggerMaySms(form.triggerEvent) && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    {t("app.setFollowUps.channel")}
+                  </label>
+                  <select
+                    value={form.channel}
+                    onChange={(e) => setForm({ ...form, channel: e.target.value })}
+                    className={inputClass}
+                  >
+                    {FOLLOW_UP_CHANNELS.map((c) => (
+                      <option key={c} value={c}>
+                        {t(CHANNEL_OPTION_KEYS[c])}
+                      </option>
+                    ))}
+                  </select>
+                  {form.channel === "sms" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {smsEnabled === false
+                        ? t("app.setFollowUps.smsOffWarning")
+                        : canSelfBook === false && form.triggerEvent === "lead_no_response"
+                          ? t("app.setFollowUps.smsNeedsBooking")
+                          : t("app.setFollowUps.smsWordingHint")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* A text rule has no template: its wording is a message type
+                  on Settings › Client messages. So the picker is not shown —
+                  and the Create button below stops requiring one. */}
+              {form.channel !== "sms" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    {t("app.setFollowUps.templateToSend")}
+                  </label>
+                  <select
+                    required
+                    value={form.templateId}
+                    onChange={(e) => setForm({ ...form, templateId: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="" disabled>
+                      {t("app.setFollowUps.chooseTemplate")}
                     </option>
-                  ))}
-                </select>
-              </div>
+                    {eligibleTemplates.map((tpl) => (
+                      <option key={tpl.id} value={tpl.id}>
+                        {tpl.name} ({TEMPLATE_TYPE_META[tpl.type]?.label})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <button
                 type="submit"
-                disabled={saving || !form.templateId}
+                disabled={saving || (form.channel !== "sms" && !form.templateId)}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {saving ? t("app.setFollowUps.creating") : t("app.setFollowUps.createRule")}

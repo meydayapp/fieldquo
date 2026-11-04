@@ -734,18 +734,35 @@ ok(
 const cron = readFileSync("app/api/cron/follow-ups/route.js", "utf8");
 // Since c5c4d0e0 the cron also sends a template-less rule when it is a
 // FieldQuo built-in (builtInKey), in the built-in wording. That does not
-// reach this panel: every built-in rides BUILT_IN_TRIGGER, a quote trigger,
-// and the settings screen never PATCHes a rule's trigger — so a template-less
-// invoice_overdue rule is still skipped, and "no template, no chase" is still
-// what the cron does for the rules this panel reads.
+// reach this panel, and the reason changed on 2026-11-03: built-ins used to
+// ride one trigger (quote_no_response) and now ride two, because three
+// ENQUIRY defaults were added on lead_no_response. Neither is invoice_overdue,
+// which is the trigger this panel's row is about — so a template-less invoice
+// rule is still skipped, and "no template, no chase" is still what the cron
+// does for the rules this panel reads. The settings screen also never PATCHes
+// a rule onto a trigger with no wording for it.
+//
+// The guards themselves were one condition and are now two, because an SMS
+// rule carries no template by design and holding it to the template checks
+// would have skipped every one of them. Matched on the email branch's own
+// guard rather than the old combined line.
 ok(
   "...which is what the cron actually does",
   /const builtIn = Boolean\(rule\.builtInKey\) && !rule\.template;/.test(cron) &&
-    /if \(!finder \|\| \(!rule\.template && !builtIn\)\)/.test(cron),
+    /if \(!rule\.template && !builtIn\) \{\n\s*skippedNoTemplate\+\+;/.test(cron),
 );
 ok(
   "...and no built-in rides invoice_overdue, so none chases an invoice template-less",
-  /export const BUILT_IN_TRIGGER = "quote_no_response";/.test(readFileSync("lib/followUps/defaults.js", "utf8")),
+  (() => {
+    const defaults = readFileSync("lib/followUps/defaults.js", "utf8");
+    // Asserted over BOTH triggers built-ins ride, so adding a third set on
+    // invoice_overdue fails here instead of quietly contradicting the row.
+    return (
+      /export const BUILT_IN_TRIGGER = "quote_no_response";/.test(defaults) &&
+      /export const LEAD_TRIGGER = "lead_no_response";/.test(defaults) &&
+      !/invoice_overdue/.test(defaults)
+    );
+  })(),
 );
 globalThis.__FQ_ROWS.followUpRule = [];
 

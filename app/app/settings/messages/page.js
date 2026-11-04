@@ -6,8 +6,9 @@
 //
 // ── Only messages that actually send are here ──────────────────────────────
 //
-// Today that's five: "on my way", the appointment reminder, the booking
-// confirmation, and the moved / cancelled texts. The API returns only editable types,
+// Today that's nine: "on my way", the appointment reminder, the booking
+// confirmation, the moved / cancelled texts, the two document-link texts, and
+// the two follow-up chases. The API returns only editable types,
 // so this page can't grow an editor for a message that never goes out — the
 // dead control this codebase keeps deleting. When another message gets a real
 // send path, it appears here automatically.
@@ -24,7 +25,9 @@
 // too — so nobody ever texts a customer a raw "{price}".
 
 import { useCallback, useEffect, useState } from "react";
-import { MessageSquare, Loader2, Check, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { MessageSquare, Loader2, Check, RotateCcw, Video, ExternalLink } from "lucide-react";
+import { normalisePreQuoteVideoUrl } from "@/lib/followUps/preQuoteVideo";
 import { reportResponseError } from "@/lib/clientErrors";
 import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -88,6 +91,14 @@ export default function ClientMessagesPage() {
       )}
 
       <ConversationLinking />
+
+      {/* Above the wording that uses it: the enquiry follow-up's {video}
+          token and the enquiry follow-up EMAIL both read this one field, so
+          a company setting it sees, immediately below, the texts it appears
+          in. `onSaved` reloads the editors because their previews stand in
+          the company's real video — a saved link changes what the preview of
+          the enquiry text says. */}
+      <PreQuoteVideo onSaved={load} />
 
       {(types || []).map((type) => (
         <MessageEditor key={type.key} type={type} onSaved={load} />
@@ -189,6 +200,176 @@ function ConversationLinking() {
         </div>
       ) : null}
       {error ? <p className="text-xs text-red-600 dark:text-red-400 mt-2">{error}</p> : null}
+    </section>
+  );
+}
+
+/**
+ * The company's PRE-QUOTE video — Company.preQuoteVideoUrl, the film a
+ * homeowner watches before the estimator arrives.
+ *
+ * ── What this field is NOT ───────────────────────────────────────────────
+ *
+ * Not the "About us" video on the client proposal (Company.storyVideoUrl).
+ * lib/followUps/preQuoteVideo.js spends a paragraph on why they are two
+ * columns; the short version is that they have two different audiences and a
+ * company that has filmed one must not have it shown as the other.
+ *
+ * ── Why there is an "open it and check it plays" link ────────────────────
+ *
+ * Because the follow-ups send the homeowner to this exact url and nothing
+ * else — no embed, no wrapper page (that decision is argued in
+ * preQuoteVideo.js). So the only thing that can go wrong is the address, and
+ * the one honest way to check an address is to open it. The same reasoning as
+ * the review link on Settings › Reviews, which carries the same affordance
+ * for the same reason.
+ *
+ * The field validates through the SAME function the server and the send path
+ * use, so what saves is what sends.
+ */
+function PreQuoteVideo({ onSaved }) {
+  const { t } = useTranslation();
+  const [url, setUrl] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  // A refused LOAD is not an empty field. Left as "" the screen would have
+  // told a company that has a video that it has none, and the next save
+  // would have been made against a value nobody read.
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/settings/pre-quote-video")
+      .then(async (res) => {
+        if (!res.ok) {
+          const msg = await reportResponseError(res, t("app.setMessages.video.loadError"));
+          if (live) setLoadError(msg);
+          return;
+        }
+        const d = await res.json();
+        if (!live) return;
+        setUrl(d?.url || "");
+        setDraft(d?.url || "");
+      })
+      .catch(() => live && setLoadError(t("app.setMessages.video.loadError")));
+    return () => {
+      live = false;
+    };
+  }, [t]);
+
+  // The client-side half of the check, so a typo is named before a round
+  // trip. The server runs the same function and is the one that decides —
+  // this is the friendly half, exactly as the message templates' unknown-token
+  // warning is.
+  const trimmed = draft.trim();
+  const check = normalisePreQuoteVideoUrl(trimmed);
+  const dirty = trimmed !== (url || "");
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/pre-quote-video", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        setError(d?.error || t("app.setMessages.video.saveError"));
+        return;
+      }
+      const d = await res.json().catch(() => null);
+      setUrl(d?.url || "");
+      setDraft(d?.url || "");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSaved?.();
+    } catch {
+      setError(t("app.setMessages.video.saveError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+        <Video size={16} /> {t("app.setMessages.video.title")}
+      </h2>
+      <p className="text-xs text-muted-foreground mt-1">{t("app.setMessages.video.hint")}</p>
+
+      {loadError ? (
+        <p className="text-xs text-red-600 dark:text-red-400 mt-3">{loadError}</p>
+      ) : url === null ? (
+        <div className="mt-3 h-9 w-full max-w-sm rounded bg-accent animate-pulse" />
+      ) : (
+        <>
+          <label className="block mt-3">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("app.setMessages.video.label")}
+            </span>
+            <input
+              type="url"
+              inputMode="url"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="https://"
+              className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
+            />
+          </label>
+
+          {/* Only once they have typed something that isn't yet a usable
+              address — an empty field is a legal state (no video), not an
+              error, so it says nothing. */}
+          {trimmed && !check.ok && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+              {t("app.setMessages.video.invalid")}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <button
+              type="button"
+              disabled={saving || !dirty || (Boolean(trimmed) && !check.ok)}
+              onClick={save}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-40"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{" "}
+              {t("app.action.save")}
+            </button>
+            {url ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                <ExternalLink size={12} /> {t("app.setMessages.video.open")}
+              </a>
+            ) : (
+              <span className="text-xs text-muted-foreground">{t("app.setMessages.video.none")}</span>
+            )}
+            {saved && (
+              <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <Check size={14} /> {t("app.action.saved")}
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-3">
+            {t("app.setMessages.video.rulesPre")}{" "}
+            <Link href="/app/settings/follow-ups" className="underline">
+              {t("app.settings.followUps")}
+            </Link>{" "}
+            {t("app.setMessages.video.rulesPost")}
+          </p>
+        </>
+      )}
+
+      {error && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{error}</p>}
     </section>
   );
 }
@@ -427,6 +608,13 @@ function sampleFor(token) {
       previous: "Mon, Aug 11 at 9:00 AM",
       link: "https://app.fieldquo.com/visit/…",
       phone: "555-0100",
+      // No stand-in for `video`: the server's preview fills it with the
+      // company's OWN pre-quote video or leaves it empty, and a sample url
+      // here would show a company with no video a sentence their clients
+      // will never receive. "" makes the clause vanish while typing, exactly
+      // as it will on the phone. The server's render, shown after save, is
+      // canonical.
+      video: "",
     }[token] ?? ""
   );
 }

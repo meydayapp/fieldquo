@@ -42,7 +42,7 @@ import { phraseFields, phraseLookup, isPhraseKey, loadPhrases, loadPhraseTransla
 import { resolveServiceContent } from "../lib/documents/serviceContent.js";
 import { resolveTextBlockText } from "../lib/quotes/textBlocks.js";
 import { resolveProductText } from "../lib/i18n/translateContent.js";
-import { renderMessage } from "../lib/sms/renderTemplate.js";
+import { renderMessage, SMS_TEMPLATE_TYPES } from "../lib/sms/renderTemplate.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -567,10 +567,30 @@ console.log("\nThe readers\n");
   const gone = localiseCompanyText({ ...company, paymentTerms: "" }, { paymentTerms: { text: "Net 30 jours", sourceHash: h } });
   ok("a cleared source prints nothing, whatever rows remain", gone.paymentTerms === "");
   ok("companyTextFields lists only the non-empty keys", JSON.stringify(Object.keys(companyTextFields(company))) === JSON.stringify(["paymentTerms", "defaultProcessNotes", "smsTemplates.on_my_way"]));
-  // Nine since 2026-09-25: the moved and cancelled texts (lib/schedule/
-  // changeText.js) are editable, so a custom wording of either is drafted
-  // into the client's language like the other three.
-  ok("COMPANY_TEXT_KEYS covers the nine texts", COMPANY_TEXT_KEYS.length === 9 && ["booking_confirmation", "booking_moved", "booking_cancelled"].every((t) => COMPANY_TEXT_KEYS.some((k) => k.key === `smsTemplates.${t}`)));
+  // ── Derived, not counted ────────────────────────────────────────────────
+  //
+  // This asserted `COMPANY_TEXT_KEYS.length === 9`, a number that was correct
+  // on 2026-09-25 and became a maintenance tax: SMS_KEYS in
+  // lib/i18n/companyText.js is DERIVED from the editable message types, so
+  // every new editable text joins automatically and the only thing the number
+  // measured was how recently somebody had updated it. (It went to eleven when
+  // the two follow-up texts arrived on 2026-11-02.) Asserted against the
+  // source of truth instead: every editable type is drafted, and nothing that
+  // cannot be edited is.
+  {
+    const editableTypes = Object.entries(SMS_TEMPLATE_TYPES).filter(([, spec]) => spec.editable).map(([t]) => t);
+    const smsKeys = COMPANY_TEXT_KEYS.filter((k) => k.key.startsWith("smsTemplates."));
+    ok("every editable text's wording is drafted into the client's languages",
+      editableTypes.every((t) => smsKeys.some((k) => k.key === `smsTemplates.${t}`)), editableTypes);
+    ok("…and nothing that cannot be edited is drafted",
+      smsKeys.length === editableTypes.length, { smsKeys: smsKeys.length, editableTypes: editableTypes.length });
+    // The two newest, named: a company that rewrites its enquiry chase in
+    // French must have that wording reach its English-reading leads, or
+    // renderMessage falls back to the built-in and the company's own words
+    // are only ever sent to half their clients.
+    ok("…including the two follow-up chases",
+      ["lead_follow_up", "quote_follow_up"].every((t) => smsKeys.some((k) => k.key === `smsTemplates.${t}`)));
+  }
 
   const sh = sourceHash(company.smsTemplates.on_my_way);
   const map = smsTemplateTranslations(company, { "smsTemplates.on_my_way": { text: "Bonjour {name}, {worker} de {company} arrive.", sourceHash: sh } });
