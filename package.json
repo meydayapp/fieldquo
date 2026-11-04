@@ -745,7 +745,7 @@
     "check:hourly-floor": "node --import ./scripts/alias-loader.mjs scripts/check-hourly-floor.mjs",
     "check:custom-factors": "node --import ./scripts/alias-loader.mjs scripts/check-custom-factors.mjs",
     "check:builder-offers": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-builder-offers.mjs",
-    "check:offered-add-ons": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-offered-add-ons.mjs",
+    "check:offered-add-ons": "npx esbuild app/components/quotes/OfferedExtras.js --bundle --platform=node --format=cjs --jsx=automatic --loader:.js=jsx --external:react --external:react/jsx-runtime --alias:@=. --log-level=error --outfile=.offered-extras.cjs && node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-offered-add-ons.mjs; code=$?; rm -f .offered-extras.cjs; exit $code",
     "check:phrases-labels": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-labels.mjs",
     "check:phrases-booking": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-booking.mjs",
     "check:phrases-catalogue": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-catalogue.mjs",

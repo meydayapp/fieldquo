@@ -39,7 +39,7 @@ export async function GET(request, { params }) {
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },
-    select: { id: true },
+    select: { id: true, addOnsCuratedAt: true },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -52,13 +52,21 @@ export async function GET(request, { params }) {
   // row. GET /api/quotes/[id] strips it (stripDocumentMoney) for a reader
   // without showPricing; this list handed it straight back.
   const mayPrice = canSeeMoney(full);
-  return NextResponse.json(
-    addOns.map((a) => {
+  return NextResponse.json({
+    addOns: addOns.map((a) => {
       if (mayPrice) return { ...a, amount: Number(a.amount) };
       const { amount: _a, ...rest } = a;
       return { ...rest, pricingHidden: true };
     }),
-  );
+    // Threaded through the list the panel already fetches, rather than a
+    // second request for one timestamp — the panel needs both in the same
+    // breath to know whether a review may append to this list. Shape changed
+    // from a bare array to an object for this: there is exactly one caller
+    // (app/components/quotes/SuggestAddOns.js), and a wrapper it has to
+    // unwrap is better than a timestamp smuggled as a property on an array,
+    // which JSON.stringify silently drops.
+    addOnsCuratedAt: quote.addOnsCuratedAt,
+  });
 }
 
 export async function PUT(request, { params }) {
@@ -152,11 +160,24 @@ export async function PUT(request, { params }) {
 
   // Wholesale replace in a transaction, so a failure halfway can't leave the
   // quote showing no extras at all.
+  //
+  // The curation marker is written in the SAME transaction, not after it.
+  // This handler is the only thing behind the "Save extras" button, so
+  // reaching here means a human decided what this quote offers — including
+  // deciding it offers nothing. A marker written outside the transaction
+  // could be lost while the rows landed, and a saved empty list that still
+  // looks un-curated is the exact bug this column exists to close
+  // (Quote.addOnsCuratedAt says why at length).
+  const curatedAt = new Date();
   await db.$transaction([
     db.quoteAddOn.deleteMany({
       where: { quoteId: _params.id, source: { not: TAKEOFF_ADD_ON_SOURCE } },
     }),
     ...(rows.length ? [db.quoteAddOn.createMany({ data: rows })] : []),
+    db.quote.update({
+      where: { id: _params.id },
+      data: { addOnsCuratedAt: curatedAt },
+    }),
   ]);
 
   const saved = await db.quoteAddOn.findMany({
@@ -164,7 +185,8 @@ export async function PUT(request, { params }) {
     orderBy: { sortOrder: "asc" },
   });
 
-  return NextResponse.json(
-    saved.map((a) => ({ ...a, amount: Number(a.amount) })),
-  );
+  return NextResponse.json({
+    addOns: saved.map((a) => ({ ...a, amount: Number(a.amount) })),
+    addOnsCuratedAt: curatedAt,
+  });
 }

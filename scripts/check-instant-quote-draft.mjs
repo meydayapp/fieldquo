@@ -653,8 +653,17 @@ const UNPRICED = { id: "p_free", name: "Colour consult", unit: "flat", unitPrice
   ok("PUT /api/quotes/[id]/add-ons keeps the catalogue source on a re-save", /\["manual", "history", "ai", CATALOGUE_ADD_ON_SOURCE\]\.includes\(a\.source\)/.test(put));
   const panel = fs.readFileSync("app/components/quotes/SuggestAddOns.js", "utf8");
   ok("the panel says in one line what the list is and who ticks it", /app\.quoteReview\.offeredIntro/.test(panel));
-  ok("…labels a catalogue row and a review row on the row itself", /data-add-on-source="catalog"/.test(panel) && /data-add-on-source="review"/.test(panel));
-  ok("…and a priced review recommendation joins the list and is saved, an unpriced one stays a suggestion", /Number\(s\.amount\) > 0 &&/.test(panel) && /await save\(next\);/.test(panel));
+  // The list itself, and the decision about what may join it, moved out of
+  // the panel so a check could RENDER the one and EXECUTE the other — see
+  // scripts/check-offered-add-ons.mjs section 11. Same two claims, read off
+  // the files that now hold them.
+  const list = fs.readFileSync("app/components/quotes/OfferedExtras.js", "utf8");
+  ok("…labels a catalogue row and a review row on the row itself", /data-add-on-source="catalog"/.test(list) && /data-add-on-source="review"/.test(list));
+  const autoAdd = fs.readFileSync("lib/quotes/addOnAutoAdd.js", "utf8");
+  ok(
+    "…and a priced review recommendation joins the list and is saved, an unpriced one stays a suggestion",
+    /Number\(s\?\.amount\) > 0/.test(autoAdd) && /await save\(auto\.next\);/.test(panel),
+  );
   const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
   for (const key of ["app.quoteReview.offeredIntro", "app.quoteReview.fromCatalogue", "app.quoteReview.fromReview"]) {
     const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);

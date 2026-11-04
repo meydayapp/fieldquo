@@ -44,6 +44,10 @@ next-env.d.ts
 # `npm run check:takeoff-render`, never committed.
 .takeoff-render.cjs
 
+# Same again for app/components/quotes/OfferedExtras.js, bundled so
+# `npm run check:offered-add-ons` can RENDER the save button at zero rows.
+.offered-extras.cjs
+
 # Installed skill payloads (npx skills add). skills-lock.json is committed and
 # is the reproducible record; this directory is 6.7 MB of vendored third-party
 # content that `npx skills install` restores — the node_modules pattern.
