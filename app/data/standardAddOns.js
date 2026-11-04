@@ -11,6 +11,40 @@
 // $600 flat, etc.); other lines use reasonable round starting numbers a
 // company will tune. `unit` is free text that shows on the quote line;
 // `type` is "service" (labour) or "product" (goods).
+//
+// ── `spans`: how many of the job's units the add-on actually covers ────────
+//
+// A unit price alone does not say how many units a job buys, and the two
+// answers are nothing like each other. Soft-close hinges go on every door in
+// the kitchen; glass inserts go in the two or three feature doors beside the
+// hood, never all of them. Both are "per door, $35 / $85", and
+// lib/quotes/offeredAddOns.js multiplied both by the door count off the
+// intake — so a twenty-nine-door kitchen was offered "Glass Inserts (29 ×
+// door) = $2,465", a figure the contractor would never have written and the
+// homeowner could tick.
+//
+// The difference is known HERE and nowhere else, so it is stated here:
+//
+//   spans: "every"               one per unit the job has — hinges, slides,
+//                                new door fronts. Priced across the intake
+//                                count, exactly as before.
+//   spans: "some", typicalUnits  a feature upgrade on a few units. Offered at
+//                                `typicalUnits` (capped by what the job
+//                                actually has), with the count in the row's
+//                                description so the document says what is
+//                                being offered, and the estimator retypes it
+//                                in the add-ons panel like any other row.
+//
+// `typicalUnits` is a seeded default of the same kind as `unitPrice` — a
+// starting number the company tunes — and it errs low on purpose: an
+// estimator raising two doors to four is a correction, a homeowner charged
+// for twenty-nine is a refund. Required on every entry whose unit is one the
+// quote can count (door, drawer — COUNT_BY_UNIT); an entry priced per linear
+// foot or per hole needs none, because no count exists to multiply and such
+// an add-on is not offered at all.
+// scripts/check-offered-add-ons.mjs fails the build on a countable-unit entry
+// that declares nothing, so the next per-door add-on cannot be added without
+// someone deciding which of the two it is.
 
 export const STANDARD_ADDONS = {
   // ── Cabinet refinishing (recoat existing doors/boxes) ──
@@ -27,6 +61,7 @@ export const STANDARD_ADDONS = {
       unit: "door",
       unitPrice: 35,
       type: "service",
+      spans: "every",
       description: "Install soft-close hinges, per door.",
     },
     {
@@ -34,6 +69,7 @@ export const STANDARD_ADDONS = {
       unit: "drawer",
       unitPrice: 45,
       type: "service",
+      spans: "every",
       description: "Install soft-close full-extension drawer slides, per drawer.",
     },
     {
@@ -49,6 +85,11 @@ export const STANDARD_ADDONS = {
       unit: "door",
       unitPrice: 85,
       type: "service",
+      // Feature doors either side of a hood or a glass-front display run.
+      // Nobody glazes a whole kitchen, and the owner's report was this row
+      // counting every door and drawer as a window.
+      spans: "some",
+      typicalUnits: 2,
       description:
         "Prep doors for glass inserts, per door (glass supplied separately).",
     },
@@ -57,10 +98,13 @@ export const STANDARD_ADDONS = {
   // ── Cabinet refacing (new doors/fronts + resurface visible boxes) ──
   cabinet_refacing: [
     {
+      // Refacing replaces every front; a kitchen with some new doors and some
+      // old ones is not a reface.
       name: "New Painted MDF Doors",
       unit: "door",
       unitPrice: 95,
       type: "product",
+      spans: "every",
       description: "New paint-grade MDF doors, per door.",
     },
     {
@@ -68,6 +112,7 @@ export const STANDARD_ADDONS = {
       unit: "door",
       unitPrice: 85,
       type: "product",
+      spans: "every",
       description: "New thermofoil / vinyl-wrapped MDF doors, per door.",
     },
     {
@@ -82,6 +127,7 @@ export const STANDARD_ADDONS = {
       unit: "door",
       unitPrice: 35,
       type: "service",
+      spans: "every",
       description: "Install soft-close hinges, per door.",
     },
     {
@@ -89,6 +135,7 @@ export const STANDARD_ADDONS = {
       unit: "drawer",
       unitPrice: 45,
       type: "service",
+      spans: "every",
       description: "Install soft-close full-extension drawer slides, per drawer.",
     },
     {
@@ -110,6 +157,8 @@ export const STANDARD_ADDONS = {
       unit: "door",
       unitPrice: 85,
       type: "service",
+      spans: "some",
+      typicalUnits: 2,
       description: "Prep doors for glass inserts, per door.",
     },
     {
@@ -252,4 +301,48 @@ export function getStandardAddOns(categoryKey) {
 
 export function hasStandardAddOns(categoryKey) {
   return (STANDARD_ADDONS[categoryKey] || []).length > 0;
+}
+
+/**
+ * What a seeded add-on's unit price covers, found by NAME, or null when the
+ * name is not one of ours.
+ *
+ * Found by name for the reason standardAddOnDescription() and
+ * standardAddOnTranslations() are: the English name is how a seeded Product
+ * row is identified again (lib/products/seedStandardAddOns.js writes it, and
+ * the translations live in Product.translations rather than replacing it).
+ *
+ * ── Why this is not a Product column ───────────────────────────────────────
+ *
+ * A column would have to be written by the seeder and backfilled onto every
+ * live row, and nothing in Settings > Products & Services could ever set it,
+ * so for a product the company wrote itself it would read null forever —
+ * exactly what this returns. It would buy one thing: surviving a rename. It
+ * would cost a second home for a fact this file owns, and the second copy is
+ * the one that rots (AGENTS.md). A renamed row falls to the same answer as a
+ * company-written one, which is the right answer: we no longer know what it
+ * covers.
+ *
+ * null is the SAFE answer, not a shrug. The caller does not offer a per-unit
+ * add-on it cannot count — the same path a product priced per hole or per
+ * square foot has always taken — because multiplying a company's own
+ * per-door row by every door in the kitchen is a guess about scope printed on
+ * a document the homeowner signs. The estimator adds it by hand, priced by
+ * hand, which is what "Add another" is for.
+ *
+ * @returns {{ spans: "every" } | { spans: "some", typicalUnits: number } | null}
+ */
+export function standardAddOnUnitScope(name) {
+  const wanted = String(name || "").trim().toLowerCase();
+  if (!wanted) return null;
+  for (const list of Object.values(STANDARD_ADDONS)) {
+    for (const a of list) {
+      if (String(a.name || "").trim().toLowerCase() !== wanted) continue;
+      if (a.spans === "every") return { spans: "every" };
+      const units = Math.floor(Number(a.typicalUnits));
+      if (a.spans === "some" && units > 0) return { spans: "some", typicalUnits: units };
+      return null;
+    }
+  }
+  return null;
 }
