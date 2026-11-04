@@ -309,9 +309,14 @@ const newRows = [...ownerRailRows, ...moreRows, ...BOTTOM].filter((r) => !OLD_RA
 //   /app/subcontractors/quotes — every price a GC's subs sent (2026-10-10)
 //   /app/tenders — government and public tenders, More › Work, hidden until
 //                  FieldQuo turns the `tenders` feature on (2026-10-13)
-const NEW_DESTINATIONS = ["/app/more", "/app/tickets", "/app/subcontractors/quotes", "/app/tenders"];
+//   /app/quotes/drawings — the list of past drawing reads (2026-10-25,
+//                  6b38f0085, "Past drawing reads were saved, listed by the
+//                  API, and shown nowhere"). Its row is the fix for this
+//                  very bug class, and it tripped this guard for 10 days.
+const NEW_DESTINATIONS = ["/app/more", "/app/tickets", "/app/subcontractors/quotes", "/app/tenders", "/app/quotes/drawings"];
 ok("no rail/More/account row points somewhere that was not a destination before (the change adds rows for nothing new)",
-  newRows.every((r) => NEW_DESTINATIONS.includes(r.href)), newRows.map((r) => r.href).join(", "));
+  newRows.every((r) => NEW_DESTINATIONS.includes(r.href)),
+  newRows.filter((r) => !NEW_DESTINATIONS.includes(r.href)).map((r) => r.href).join(", "));
 
 // ── 4. The trade gate hides only trade rows ────────────────────────────────
 section("4. The trade gate hides only rows tied to a trade");

@@ -467,6 +467,16 @@ for (const dir of API_DIRS) {
         // The assertion below reads that file, so this exemption cannot
         // outlive the gate; scripts/check-job-selections.mjs executes it.
         /selectionsAccess\(/.test(body) ||
+        // jobs/[id]/materials/from-stock books a stock item's money against
+        // the job, so its gate is the jobCosting TOGGLE rather than a ladder:
+        // requireCost (app/api/invoices/costingWrite.js) throws the same
+        // 403-shaped error requireToggle does, and neither Crew nor Estimator
+        // holds the toggle. The route scopes by companyId + assignedJobWhere
+        // besides. Listed here from 2026-11-04: it was the one red in 438 and
+        // the route was correct all along, so the check was calling a gated
+        // route ungated. scripts/check-cost-basis.mjs executes the toggle, so
+        // this exemption cannot outlive the gate it stands for.
+        /requireCost\(/.test(body) ||
         gridHelpers.some((h) => new RegExp(`\\b${h}\\(`).test(body));
       ok(`${label} asks the grid`, asks);
     }

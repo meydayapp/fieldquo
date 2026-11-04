@@ -313,7 +313,15 @@ ok(/data-view-only=\{settingsShell\.access\?\.viewOnly \? "1" : undefined\}/.tes
 ok(/<ViewOnlyProvider viewOnly=\{Boolean\(settingsShell\.access\?\.viewOnly\)\}>/.test(layout) && /<PersonalPageGate>\{children\}<\/PersonalPageGate>/.test(layout), "the shell provides the context and gates the page");
 
 const css = read("app/globals.css");
-const voBlock = css.slice(css.indexOf("/* ── \"View as company\": write controls drawn off"));
+const voStart = css.indexOf("/* ── \"View as company\": write controls drawn off");
+// End the slice at the next section banner rather than at end of file. This
+// read to EOF until 2026-11-04, so any rule appended below the block was held
+// to the [data-view-only] prefix and failed — the before/after slider's thumb
+// rules (2026-11-03) did exactly that. Holding unrelated rules to this
+// assertion makes the guard permanently red, which is worse than not having
+// it: a real view-only leak would have scrolled past in the same noise.
+const voNext = css.indexOf("/* ── ", voStart + 1);
+const voBlock = css.slice(voStart, voNext === -1 ? undefined : voNext);
 const selectors = [...voBlock.matchAll(/([^{}]+)\{[^{}]*\}/g)].map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, "").trim()).filter(Boolean);
 ok(selectors.length >= 3 && selectors.every((sel) => sel.split(/,\s*\n/).every((part) => part.trim().startsWith("[data-view-only]"))), `every view-only CSS rule is under [data-view-only] (${selectors.length} rules) — inert for a real member`);
 const cssList = 'button[type="submit"], input[type="submit"], input[type="file"], [role="switch"], [contenteditable="true"], [data-write], form input:not([type="hidden"]), form textarea, form select';
