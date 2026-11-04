@@ -1,7 +1,7 @@
 // content/help/en/settings-2.js
 //
 // Part 2 of the “settings” category in en. Slugs assigned to this part
-// (lib/help/tree.js): settings-work-areas, settings-products, settings-services, settings-material-costs, settings-cabinet-rates, settings-overhead, settings-custom-fields, settings-quote-email, settings-email-templates, settings-pdf-templates, settings-translations, settings-checklists.
+// (lib/help/tree.js): settings-work-areas, settings-products, settings-services, settings-material-costs, settings-cabinet-rates, settings-overhead, settings-custom-fields, settings-quote-email, settings-presentation, settings-email-templates, settings-pdf-templates, settings-translations, settings-checklists.
 //
 // One article per Settings row, written from the row's page module under
 // app/app/settings/<row>/page.js, the API it calls, and the access rules in
@@ -533,6 +533,73 @@ export const ARTICLES = {
     faq: [
       { q: "Can I edit the rest of the quote email here?", a: "No. The scope, inclusions and steps come from the quote and the per-trade wording on Services & Pricing; the layout comes from Email Templates only for follow-ups and campaigns. This screen owns the two optional sections." },
       { q: "I ticked Include on every new quote — will old quotes get it?", a: "No. It is the default for new quotes. An existing quote keeps whatever its own Email sections panel says." },
+    ],
+  },
+
+  "settings-presentation": {
+    title: "Client proposal",
+    summary:
+      "The company half of what a quote link opens: your story, one before-and-after gallery, your insurance and licence documents with the waivers a client signs, and which of those sections a new quote starts with.",
+    updated: "2026-11-04",
+    intro: [
+      "A quote link does not open a price on its own. It opens a short page about your company — who you are, work you have finished, the papers that show you are insured — with the quote in the middle of it. **Settings → Documents & templates → Client proposal** is where that company half is written, once.",
+      "Nothing on this screen belongs to one quote. It decides what EXISTS and what a new quote starts with; each quote can switch a section off for itself from its own **Presentation** panel.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "Four cards, top to bottom: **Add your company story**, **Upload before & after photos**, **Upload your insurance, licence and documents**, and **Sections on a new quote**. The same editors are reached from **Settings → Quote Email**, from a quote's own **Presentation** panel, and from the set-up steps on the home page, which open them in a dialog — so a change made in either place is the same change." },
+          { note: "Testimonials are the one proposal section not edited here. They come from **Settings → Reviews**: the Google reviews you switch on, and the testimonials you have approved." },
+        ],
+      },
+      {
+        id: "story-and-photos",
+        heading: "Your story, and your work",
+        blocks: [
+          { p: "**Your company story** is a **Headline** and a body — “Two brothers, one van, eleven years”, then who you are, how long you have been at it and what a client can expect on the day. It prints under **About us** in the words you type. A team photo and an intro video link are optional. Leave it empty and the section is left out." },
+          { p: "**Before & after** is one gallery, shared rather than copied: the pairs you add here appear on your website's Before & after section, in your quote emails (the first four) and under **Before & after** on the proposal. Both halves of a pair are required — half a before-and-after is the same picture twice — and the caption is optional." },
+        ],
+      },
+      {
+        id: "documents",
+        heading: "Insurance, licences and waivers",
+        blocks: [
+          { p: "The library holds two kinds of thing and both print under **Important documents**: a file you upload — a certificate of insurance, a licence, a warranty — with a title and a one-line summary the client reads, and a **waiver**, which is text the client reads, ticks and signs." },
+          { bullets: [
+            "**Show on quotes** is the switch that puts one in front of clients. Off, it stays in your library and nowhere else.",
+            "**Expires** is for you. The date is never shown to a client, and an expired document is hidden from them rather than printed out of date.",
+            "A waiver carries sections — a heading and its text — and one to five acknowledgement lines, every one of which has to be ticked before the client can sign.",
+          ] },
+          { warning: "A client meets a waiver as a **Project acknowledgement**. A softer title is fine, but the sections should still say plainly what the client is agreeing to: a release that hides what it is is harder to enforce." },
+        ],
+      },
+      {
+        id: "section-defaults",
+        heading: "Sections on a new quote",
+        blocks: [
+          { p: "A tick per section — **About us**, **Before & after**, **Important documents**, **Testimonials** and **Services**. The quote itself is always on the page and has no switch." },
+          { steps: [
+            "Fill at least one of them in: a story, a photo pair, a document marked Show on quotes, an approved testimonial, a service you sell.",
+            "Tick the sections a new quote should start with. Quotes already written keep what they had.",
+            "On a quote where one does not belong, open that quote's **Presentation** panel and switch it off for that quote alone.",
+          ] },
+          { note: "A section with nothing behind it is never shown and never listed in the page's contents, whatever the tick says — the row tells you so, “nothing behind it yet, so it won't show”. A heading over an empty space is worse than a shorter page." },
+        ],
+      },
+      {
+        id: "who-can-change-it",
+        heading: "Who can change it",
+        blocks: [
+          { p: "Changing this screen needs **user:manage** — owners, administrators and supervisors (the Dispatcher and Manager levels). Anyone else can open it and read what is there. Every save is refused by the server as well as disabled on the screen, so the two cannot disagree." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Does any of this print on the quote PDF?", a: "No. The PDF is the document itself; these sections are the page the quote link opens. See [[the-quote-approval-page|The quote approval page]]." },
+      { q: "Can one quote carry its own photos or documents?", a: "The gallery is the company's one gallery. Which documents go with a quote, and which sections it carries at all, is chosen on that quote's own Presentation panel." },
+      { q: "I ticked a section and the client never saw it.", a: "It had nothing behind it. A section is shown only when there is content for it, the company default is on, and that quote has not switched it off." },
     ],
   },
 

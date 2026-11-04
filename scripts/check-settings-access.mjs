@@ -353,6 +353,15 @@ const SERVER_ENFORCEMENT = [
   ["app/api/settings/leave-policies/route.js", "isLeaveAdmin(member.role)", "leave policies"],
   ["app/api/settings/document-templates/route.js", 'requirePermission(member.role, "user:manage")', "email + PDF templates (writes)"],
   ["app/api/settings/follow-up-rules/route.js", 'requirePermission(member.role, "user:manage")', "follow-up rules (writes)"],
+  // The client proposal, a row since 2026-11-04. Three routes rather than one
+  // because the screen's four cards write to three: the story and the section
+  // defaults, the gallery, and the document library (waivers included). All
+  // three leave the read open and gate every write on the same permission, so
+  // all three are listed — a row hidden on the strength of one of them while
+  // another was open would be the pairing this section exists to deny.
+  ["app/api/settings/presentation/route.js", 'requirePermission(member.role, "user:manage")', "client proposal — story + section defaults (writes)"],
+  ["app/api/settings/gallery/route.js", 'requirePermission(member.role, "user:manage")', "client proposal — before/after gallery (writes)"],
+  ["app/api/settings/company-documents/route.js", 'requirePermission(member.role, "user:manage")', "client proposal — document library (writes)"],
 ];
 
 for (const [file, expr, label] of SERVER_ENFORCEMENT) {

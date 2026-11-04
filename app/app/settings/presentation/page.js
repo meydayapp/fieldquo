@@ -7,10 +7,15 @@
 // quote; a quote's own Presentation panel can switch a section off for that
 // quote alone.
 //
-// Not a sidebar row: reached from Settings › Quote Email, from a quote's
-// Presentation panel and from the home page's set-up steps (each of which
-// opens the SAME editors below in a dialog — stepPanels.js). The anchors
-// (#story, #gallery, #documents, #sections) are what those links land on.
+// A settings row since 2026-11-04 (Documents & templates, under Quote Email).
+// It had none until then, deliberately — it is set up once and then reached
+// from the quote it decorates — and the owner overturned that: "Presentation
+// is not in the menu list". The other six ways in are unchanged: Settings ›
+// Quote Email, Settings › Website (#gallery), the waivers card (#documents),
+// a quote's own Presentation panel, the home page's set-up steps and a
+// proposal section's "fill this in" link (each of the set-up steps opens the
+// SAME editors below in a dialog — stepPanels.js). The anchors (#story,
+// #gallery, #documents, #sections) are what those links land on.
 "use client";
 
 import { useEffect, useState } from "react";

@@ -1,7 +1,7 @@
 // content/help/fr/settings-2.js
 //
 // Partie 2 de la catégorie « settings » en français. Slugs de cette partie
-// (lib/help/tree.js) : settings-work-areas, settings-products, settings-services, settings-material-costs, settings-cabinet-rates, settings-overhead, settings-custom-fields, settings-quote-email, settings-email-templates, settings-pdf-templates, settings-translations, settings-checklists.
+// (lib/help/tree.js) : settings-work-areas, settings-products, settings-services, settings-material-costs, settings-cabinet-rates, settings-overhead, settings-custom-fields, settings-quote-email, settings-presentation, settings-email-templates, settings-pdf-templates, settings-translations, settings-checklists.
 //
 // Même structure que l'anglais, article par article : mêmes slugs, mêmes
 // sections dans le même ordre, mêmes blocs, mêmes figures —
@@ -535,6 +535,73 @@ export const ARTICLES = {
     faq: [
       { q: "Puis-je modifier le reste du courriel de soumission ici?", a: "Non. L'étendue, les inclusions et les étapes viennent de la soumission et du texte par métier de Services et tarifs; la mise en page vient des Modèles de courriel seulement pour les relances et les campagnes. Cet écran possède les deux sections facultatives." },
       { q: "J'ai coché Inclure dans chaque nouvelle soumission — les anciennes soumissions l'auront-elles?", a: "Non. C'est la valeur par défaut des nouvelles soumissions. Une soumission existante garde ce que dit son propre panneau Sections du courriel." },
+    ],
+  },
+
+  "settings-presentation": {
+    title: "Proposition client",
+    summary:
+      "La moitié « entreprise » de ce qu'ouvre un lien de soumission : votre histoire, une seule galerie avant / après, vos assurances et licences avec les décharges que le client signe, et les sections qu'une nouvelle soumission comporte au départ.",
+    updated: "2026-11-04",
+    intro: [
+      "Un lien de soumission n'ouvre pas qu'un prix. Il ouvre une courte page sur votre entreprise — qui vous êtes, des chantiers terminés, les papiers qui montrent que vous êtes assuré — avec la soumission au milieu. **Paramètres → Documents et modèles → Proposition client**, c'est là que cette moitié s'écrit, une seule fois.",
+      "Rien sur cet écran n'appartient à une soumission en particulier. L'écran décide de ce qui EXISTE et de ce qu'une nouvelle soumission comporte au départ ; chaque soumission peut ensuite désactiver une section pour elle seule, depuis son propre panneau **Présentation**.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "Quatre cartes, de haut en bas : **Ajoutez l'histoire de votre entreprise**, **Téléversez des photos avant / après**, **Téléversez vos assurances, licence et documents** et **Sections d'une nouvelle soumission**. On rejoint les mêmes éditeurs depuis **Paramètres → Courriel de soumission**, depuis le panneau **Présentation** d'une soumission et depuis les étapes de configuration de la page d'accueil, qui les ouvrent dans une fenêtre — une modification faite d'un côté ou de l'autre est la même modification." },
+          { note: "Les témoignages sont la seule section de la proposition qui ne se modifie pas ici : ils viennent de **Paramètres → Avis** — les avis Google que vous activez et les témoignages que vous avez approuvés." },
+        ],
+      },
+      {
+        id: "story-and-photos",
+        heading: "Votre histoire, et votre travail",
+        blocks: [
+          { p: "**L'histoire de votre entreprise**, c'est un **Titre** et un texte — « Deux frères, une camionnette, onze ans », puis qui vous êtes, depuis combien de temps vous faites ce métier et à quoi le client peut s'attendre le jour des travaux. Tout cela s'imprime sous **À propos de nous**, dans vos mots. La photo d'équipe et le lien vers une vidéo de présentation sont facultatifs. Laissez le champ vide et la section est simplement omise." },
+          { p: "**Avant / après**, c'est une seule galerie, partagée plutôt que recopiée : les paires ajoutées ici apparaissent dans la section Avant / après de votre site web, dans vos courriels de soumission (les quatre premières) et sous **Avant / après** dans la proposition. Les deux moitiés d'une paire sont obligatoires — une demi-paire, c'est deux fois la même photo — et la légende est facultative." },
+        ],
+      },
+      {
+        id: "documents",
+        heading: "Assurances, licences et décharges",
+        blocks: [
+          { p: "La bibliothèque contient deux choses, et les deux s'impriment sous **Documents importants** : un fichier que vous téléversez — certificat d'assurance, licence, garantie — avec un titre et un résumé d'une ligne que le client lit, et une **décharge**, soit un texte que le client lit, coche et signe." },
+          { bullets: [
+            "**Afficher sur les soumissions** est l'interrupteur qui met un document devant le client. Désactivé, il reste dans votre bibliothèque et nulle part ailleurs.",
+            "**Expire** est pour vous. La date n'est jamais montrée au client, et un document échu lui est caché plutôt qu'imprimé périmé.",
+            "Une décharge contient des sections — un intertitre et son texte — et de une à cinq lignes de reconnaissance, qui doivent toutes être cochées avant que le client puisse signer.",
+          ] },
+          { warning: "Le client rencontre une décharge sous le nom **Prise de connaissance du projet**. Un titre plus doux ne pose pas de problème, mais les sections doivent quand même dire clairement ce que le client accepte : une décharge qui cache ce qu'elle est devient plus difficile à faire valoir." },
+        ],
+      },
+      {
+        id: "section-defaults",
+        heading: "Sections d'une nouvelle soumission",
+        blocks: [
+          { p: "Une case par section — **À propos de nous**, **Avant / après**, **Documents importants**, **Témoignages** et **Services**. La soumission elle-même est toujours sur la page et n'a aucun interrupteur." },
+          { steps: [
+            "Remplissez au moins l'une d'elles : une histoire, une paire de photos, un document marqué Afficher sur les soumissions, un témoignage approuvé, un service que vous vendez.",
+            "Cochez les sections qu'une nouvelle soumission doit comporter au départ. Les soumissions déjà écrites gardent ce qu'elles avaient.",
+            "Sur une soumission où l'une d'elles n'a pas sa place, ouvrez le panneau **Présentation** de cette soumission et désactivez-la pour elle seule.",
+          ] },
+          { note: "Une section sans rien derrière n'est jamais affichée ni inscrite au sommaire de la page, peu importe la case — la ligne vous le dit : « rien derrière pour l'instant, donc pas affichée ». Un titre au-dessus du vide est pire qu'une page plus courte." },
+        ],
+      },
+      {
+        id: "who-can-change-it",
+        heading: "Qui peut la modifier",
+        blocks: [
+          { p: "Modifier cet écran exige **user:manage** — les propriétaires, les administrateurs et les superviseurs (les niveaux Répartiteur et Gestionnaire). Les autres peuvent l'ouvrir et lire ce qui s'y trouve. Chaque enregistrement est refusé par le serveur en plus d'être désactivé à l'écran, pour que les deux ne puissent pas se contredire." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Est-ce que tout cela s'imprime sur le PDF de la soumission ?", a: "Non. Le PDF est le document lui-même ; ces sections forment la page qu'ouvre le lien de la soumission. Voir [[the-quote-approval-page|La page d'approbation de la soumission]]." },
+      { q: "Une soumission peut-elle porter ses propres photos ou documents ?", a: "La galerie est l'unique galerie de l'entreprise. Les documents qui accompagnent une soumission, et les sections qu'elle comporte, se choisissent dans le panneau Présentation de cette soumission." },
+      { q: "J'ai coché une section et le client ne l'a jamais vue.", a: "Il n'y avait rien derrière. Une section n'est affichée que s'il y a du contenu, que le réglage de l'entreprise est activé et que la soumission ne l'a pas désactivée." },
     ],
   },
 

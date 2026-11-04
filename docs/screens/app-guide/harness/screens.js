@@ -497,9 +497,14 @@ export const SCREENS = [
   // into a chip bar under the sticky header. Appended, never inserted — NN
   // is the row's index.
   { slug: "client-quote-approval-mobile", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", width: 375, height: 5600, chapter: "help" },
-  // Settings › Presentation (client mockup §2) — not a sidebar row; reached
-  // from Quote Email, a quote's Presentation panel and the set-up steps.
-  { slug: "settings-presentation", href: "/app/settings/presentation", page: "app/app/settings/presentation/page.js", chapter: "help", height: 2600 },
+  // Settings › Presentation (client mockup §2). It was photographed here
+  // BECAUSE it was not a sidebar row; the owner made it one on 2026-11-04, so
+  // it now carries `nav` — same shape as client-tickets-queue below, a row
+  // whose only capture lives inside a chapter. The capture stays chaptered
+  // rather than moving into the numbered "Every screen" walk: the frames in
+  // this block are appended so NN never shifts, and moving one would renumber
+  // every PNG after it (docs/ROADMAP.md names 165-settings-presentation.png).
+  { slug: "settings-presentation", nav: "app.settings.presentation", href: "/app/settings/presentation", page: "app/app/settings/presentation/page.js", chapter: "help", height: 2600 },
   // The quote page with its Presentation tab open — per-quote on/off, the
   // documents to include, the crew size behind the day plan, the waiver.
   { slug: "quote-detail-presentation", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, scene: "quote-presentation", chapter: "help", height: 1600 },

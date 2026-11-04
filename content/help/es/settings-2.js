@@ -1,7 +1,7 @@
 // content/help/es/settings-2.js
 //
 // Parte 2 de la categoría «settings» en español. Slugs de esta parte
-// (lib/help/tree.js): settings-work-areas, settings-products, settings-services, settings-material-costs, settings-cabinet-rates, settings-overhead, settings-custom-fields, settings-quote-email, settings-email-templates, settings-pdf-templates, settings-translations, settings-checklists.
+// (lib/help/tree.js): settings-work-areas, settings-products, settings-services, settings-material-costs, settings-cabinet-rates, settings-overhead, settings-custom-fields, settings-quote-email, settings-presentation, settings-email-templates, settings-pdf-templates, settings-translations, settings-checklists.
 //
 // Misma estructura que el inglés, artículo por artículo: mismos slugs, mismas
 // secciones en el mismo orden, mismos bloques, mismas figuras —
@@ -535,6 +535,73 @@ export const ARTICLES = {
     faq: [
       { q: "¿Puedo editar el resto del correo del presupuesto aquí?", a: "No. El alcance, lo incluido y los pasos salen del presupuesto y del texto por oficio de Servicios y precios; el diseño sale de Plantillas de correo solo para seguimientos y campañas. Esta pantalla es dueña de las dos secciones opcionales." },
       { q: "Marqué Incluir en cada presupuesto nuevo — ¿lo tendrán los presupuestos antiguos?", a: "No. Es el valor por defecto de los presupuestos nuevos. Un presupuesto existente conserva lo que diga su propio panel Secciones del correo." },
+    ],
+  },
+
+  "settings-presentation": {
+    title: "Propuesta al cliente",
+    summary:
+      "La mitad «empresa» de lo que abre un enlace de presupuesto: su historia, una sola galería de antes y después, sus seguros y licencias con las conformidades que el cliente firma, y qué secciones lleva un presupuesto nuevo al empezar.",
+    updated: "2026-11-04",
+    intro: [
+      "Un enlace de presupuesto no abre solo un precio. Abre una página corta sobre su empresa — quién es, trabajos ya terminados, los papeles que demuestran que está asegurado — con el presupuesto en el medio. **Configuración → Documentos y plantillas → Propuesta al cliente** es donde se escribe esa mitad, una sola vez.",
+      "Nada de esta pantalla pertenece a un presupuesto concreto. Decide qué EXISTE y qué lleva un presupuesto nuevo al empezar; luego cada presupuesto puede apagar una sección solo para él, desde su propio panel **Presentación**.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "Cuatro tarjetas, de arriba abajo: **Añada la historia de su empresa**, **Suba fotos de antes y después**, **Suba su seguro, licencia y documentos** y **Secciones de un presupuesto nuevo**. A los mismos editores se llega desde **Configuración → Correo de presupuesto**, desde el panel **Presentación** de un presupuesto y desde los pasos de configuración de la página de inicio, que los abren en una ventana: un cambio hecho en cualquiera de esos sitios es el mismo cambio." },
+          { note: "Los testimonios son la única sección de la propuesta que no se edita aquí: vienen de **Configuración → Reseñas** — las reseñas de Google que usted activa y los testimonios que ha aprobado." },
+        ],
+      },
+      {
+        id: "story-and-photos",
+        heading: "Su historia y su trabajo",
+        blocks: [
+          { p: "**La historia de su empresa** son un **Titular** y un texto: «Dos hermanos, una furgoneta, once años», y después quién es usted, cuánto tiempo lleva en el oficio y qué puede esperar un cliente el día de la obra. Todo se imprime bajo **Sobre nosotros**, con sus palabras. La foto del equipo y el enlace a un vídeo de presentación son opcionales. Deje el campo vacío y la sección se omite." },
+          { p: "**Antes y después** es una sola galería, compartida en lugar de copiada: los pares que añada aquí salen en la sección Antes y después de su sitio web, en sus correos de presupuesto (los cuatro primeros) y bajo **Antes y después** en la propuesta. Hacen falta las dos mitades de cada par — media pareja es dos veces la misma foto — y el pie de foto es opcional." },
+        ],
+      },
+      {
+        id: "documents",
+        heading: "Seguros, licencias y conformidades",
+        blocks: [
+          { p: "La biblioteca guarda dos cosas y las dos se imprimen bajo **Documentos importantes**: un archivo que usted sube — certificado de seguro, licencia, garantía — con un título y un resumen de una línea que el cliente lee, y una **conformidad**, que es un texto que el cliente lee, marca y firma." },
+          { bullets: [
+            "**Mostrar en presupuestos** es el interruptor que pone un documento delante del cliente. Apagado, se queda en su biblioteca y en ningún otro sitio.",
+            "**Vence** es para usted. La fecha nunca se le muestra al cliente, y un documento caducado se le oculta en lugar de imprimirse fuera de plazo.",
+            "Una conformidad lleva secciones — un encabezado y su texto — y de una a cinco líneas de reconocimiento, que han de marcarse todas antes de que el cliente pueda firmar.",
+          ] },
+          { warning: "El cliente se encuentra la conformidad con el nombre **Conformidad del proyecto**. Un título más suave no es problema, pero las secciones han de decir con claridad qué acepta el cliente: una exención que esconde lo que es resulta más difícil de hacer valer." },
+        ],
+      },
+      {
+        id: "section-defaults",
+        heading: "Secciones de un presupuesto nuevo",
+        blocks: [
+          { p: "Una casilla por sección: **Sobre nosotros**, **Antes y después**, **Documentos importantes**, **Testimonios** y **Servicios**. El presupuesto mismo está siempre en la página y no tiene interruptor." },
+          { steps: [
+            "Rellene al menos una de ellas: una historia, un par de fotos, un documento marcado como Mostrar en presupuestos, un testimonio aprobado, un servicio que venda.",
+            "Marque las secciones que debe llevar un presupuesto nuevo al empezar. Los presupuestos ya escritos conservan lo que tenían.",
+            "En un presupuesto donde una de ellas no encaje, abra el panel **Presentación** de ese presupuesto y apáguela solo para él.",
+          ] },
+          { note: "Una sección sin nada detrás no se muestra nunca ni aparece en el índice de la página, diga lo que diga la casilla; la propia fila lo avisa: «todavía no hay nada detrás, así que no se mostrará». Un encabezado sobre un hueco vacío es peor que una página más corta." },
+        ],
+      },
+      {
+        id: "who-can-change-it",
+        heading: "Quién puede cambiarlo",
+        blocks: [
+          { p: "Cambiar esta pantalla necesita **user:manage** — propietarios, administradores y supervisores (los niveles Despachador y Gerente). Los demás pueden abrirla y leer lo que hay. Cada guardado se rechaza en el servidor además de estar desactivado en la pantalla, así que los dos no pueden contradecirse." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Algo de esto se imprime en el PDF del presupuesto?", a: "No. El PDF es el documento en sí; estas secciones son la página que abre el enlace del presupuesto. Ver [[the-quote-approval-page|La página de aprobación del presupuesto]]." },
+      { q: "¿Puede un presupuesto llevar sus propias fotos o documentos?", a: "La galería es la única galería de la empresa. Qué documentos acompañan a un presupuesto, y qué secciones lleva, se elige en el panel Presentación de ese presupuesto." },
+      { q: "Marqué una sección y el cliente no la vio.", a: "No tenía nada detrás. Una sección se muestra solo cuando hay contenido, el ajuste de la empresa está activado y ese presupuesto no la ha apagado." },
     ],
   },
 
