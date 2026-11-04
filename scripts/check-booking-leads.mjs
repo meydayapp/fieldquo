@@ -40,6 +40,7 @@ const { tradeAnswerLines, whenNeededFromNotes, cleanTradeAnswers } = await impor
 const { scoreLead } = await import("@/lib/leads/score");
 const { APP_MESSAGES } = await import("@/app/i18n/appMessages");
 const { db } = await import("@/lib/db");
+const { createScoredLead } = await import("@/lib/leads/createLead");
 
 let pass = 0;
 const fails = [];
@@ -143,6 +144,42 @@ ok("nothing to reach them on → no lead (no email, no phone, nothing anyone can
 const broken = { client: { findFirst: async () => null }, leadRequest: { findMany: async () => { throw new Error("db down"); } }, booking: { update: async () => ({}) } };
 const r7 = await ensureBookingLead({ booking: { id: "bk_x", clientEmail: "a@b.test" }, companyId: CO, now: NOW, deps: { db: broken } }).catch(() => "THREW");
 ok("a database failure is logged and returned, never thrown into the booking", r7 !== "THREW" && r7.action === "failed");
+
+// ── Was the "no New enquiry alert" assertion capable of failing? ──────────
+//
+// No, and that is why this check was red. The mutation pass below removes
+// `notify: false,` from lib/booking/bookingLead.js and expects a failure;
+// "the alert sent" was the one mutant of nine never caught. check:booking-leads
+// is step 667 of the 695-step check:all chain, so its failure also kept the
+// last 28 steps from running.
+//
+// The cause is vacuity, not an absent assertion. notifyEvent resolves its
+// audience from the company's members and their notification preferences
+// (lib/notifications/notify.js); this fixture seeds none, so it returns
+// `no_recipients` and writes no NotificationEvent whether or not
+// `notify: false` was passed. The assertion above checks for the absence of a
+// row that is absent either way — it reads as proof and is not. It is kept,
+// because it would still catch a write that somehow arrived.
+//
+// The producer is asserted instead, through the `deps.createLead` seam
+// ensureBookingLead already exposes: wrap the real createScoredLead so the
+// real intake still runs, then read what it was handed. It sits at the END of
+// this section on purpose: it creates a real lead, and the two `length ===`
+// counts earlier in the section would move if it ran before them.
+// The vacuity guard matters as much as the assertion — a spy that never ran
+// would make these pass for exactly the same empty reason as the line above.
+{
+  let handed = null;
+  const spy = async (input) => { handed = input; return createScoredLead(input); };
+  const bkN = await booking("bk_notify", { clientName: "Nils Notify", clientEmail: "nils@x.test", clientPhone: null });
+  const rN = await ensureBookingLead({ booking: bkN, companyId: CO, now: NOW, deps: { createLead: spy } });
+  ok("the lead really is created through createScoredLead — the spy ran (guards the two below)",
+    handed !== null && rN.action === "created", rN);
+  ok("…and it is handed notify: false, so no second \"New enquiry\" bell is ever requested",
+    handed?.notify === false, handed?.notify);
+  ok("…with the rest of the intake intact (company and source still right)",
+    handed?.companyId === CO && handed?.source === "booking_page", [handed?.companyId, handed?.source]);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("3. The three ways a booking is confirmed");
