@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-11-03 — 364 articles in the tree; written: en 364, fr 364, es 364; “Only in FieldQuo”: 34._
+_Generated 2026-11-04 — 365 articles in the tree; written: en 365, fr 365, es 365; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -409,7 +409,7 @@ _Generated 2026-11-03 — 364 articles in the tree; written: en 364, fr 364, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (52)
+### settings (53)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -435,6 +435,7 @@ _Generated 2026-11-03 — 364 articles in the tree; written: en 364, fr 364, es 
 | `settings-overhead` — Overhead | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 | `settings-custom-fields` — Custom Fields | ✓ | ✓ | ✓ | settings-custom-fields |  |  |
 | `settings-quote-email` — Quote Email | ✓ | ✓ | ✓ | settings-quote-email | quote_email_wording |  |
+| `settings-presentation` — Client proposal | ✓ | ✓ | ✓ | settings-presentation | online_approval |  |
 | `settings-email-templates` — Email Templates | ✓ | ✓ | ✓ | settings-email-templates | quote_email_wording |  |
 | `settings-pdf-templates` — PDF Templates | ✓ | ✓ | ✓ | settings-pdf-templates | document_layouts |  |
 | `settings-translations` — Translations | ✓ | ✓ | ✓ | settings-translations | languages |  |

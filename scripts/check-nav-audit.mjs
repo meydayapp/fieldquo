@@ -286,7 +286,24 @@ const DRILL_INS = {
   "/app/quotes/[id]/edit": "opened from the quote detail page's own Edit button",
   "/app/quotes/[id]/kitchen": "kitchen designer — opened from the quote detail page",
   "/app/settings/email-templates/[id]": "opened from the Email Templates list",
-  "/app/settings/presentation": "the client proposal's company content (story, one gallery, document library, waivers, section defaults) — opened from Settings › Quote Email, from a quote's own Presentation panel and from the home page's set-up steps (which open the same editors in a dialog). Deliberately not a nav row: it is set up once and then reached from the quote it decorates, and a fourth Documents row would compete with Quote Email for the same reader",
+  // /app/settings/presentation was HERE, and the reason it was here is worth
+  // keeping: "the client proposal's company content (story, one gallery,
+  // document library, waivers, section defaults) — opened from Settings ›
+  // Quote Email, from a quote's own Presentation panel and from the home
+  // page's set-up steps (which open the same editors in a dialog).
+  // Deliberately not a nav row: it is set up once and then reached from the
+  // quote it decorates, and a fourth Documents row would compete with Quote
+  // Email for the same reader."
+  //
+  // That was a deliberate choice, and the owner overturned it on 2026-11-04
+  // ("Presentation is not in the menu list"). Seven ways in, none of them a
+  // menu, turned out to mean nobody could find it when they went looking.
+  // It is now a row in SettingsSidebar's Documents & templates group, under
+  // Quote Email, so it has no business in an allow-list of pages the nav
+  // does not reach — leaving the entry here would be a live exception for a
+  // linked route, which is the stale-allow-list failure the section below
+  // this map exists to catch in the other direction.
+
   "/app/settings/product-updates/[slug]": "opened from the Product Updates list",
   "/app/settings/team/new": "opened from the Manage Team page's own Invite button",
   "/app/settings/team/payroll": "a Manage Team tab — per-employee pay rates, not the company-wide payroll config at /app/settings/payroll",
@@ -342,6 +359,39 @@ ok("every app/app route is either a direct nav href or a named DRILL_IN",
 const goneDrillIns = Object.keys(DRILL_INS).filter((r) => !allAppRoutes.includes(r));
 ok("every DRILL_INS entry still names a real route", goneDrillIns.length === 0,
   goneDrillIns.join(", "));
+
+// And the THIRD way an exception goes stale: the route gained a nav row, so
+// the entry now excuses something nobody needs excused. Written when
+// /app/settings/presentation became a row on 2026-11-04 — the entry above it
+// would have stayed, unread, describing a decision that had been reversed, and
+// `unexplained` can never notice, because a linked route never reaches the
+// `in DRILL_INS` test at all. A row every member is offered is the strongest
+// possible answer to "how do you get here"; it does not need a paragraph too.
+//
+// Two kinds of href in `linkedRoutes` are NOT that answer, and both are
+// excluded by name rather than by guess:
+//
+//   Quick Add    QUICK_ADD_ITEMS is a create menu — "new client", "new job".
+//                An action, not a destination, and three entries above
+//                deliberately name it alongside the list the page opens from.
+//   agency rows  AGENCY_ONLY_NAV_ROWS is drawn for a marketing-agency member
+//                and for nobody else (lib/permissions/nav.js refuses it to
+//                everyone else before any other rule). Every other member
+//                reaches /app/marketing/results from the Marketing hub, which
+//                is exactly what its entry says, so the entry is still true.
+const { AGENCY_ONLY_NAV_ROWS } = await import("../lib/permissions/marketingAgency.js");
+const quickAddHrefs = new Set(
+  leafItems(sliceArray(adminSrc, "const QUICK_ADD_ITEMS = [")).map((i) => i.href.split("?")[0]),
+);
+const destinationRoutes = new Set(
+  [...adminItems, ...settingsItems, ...meTabItems]
+    .filter((i) => !AGENCY_ONLY_NAV_ROWS.includes(i.key))
+    .map((i) => i.href.split("?")[0])
+    .filter((h) => !quickAddHrefs.has(h)),
+);
+const linkedDrillIns = Object.keys(DRILL_INS).filter((r) => destinationRoutes.has(r));
+ok("no DRILL_INS entry excuses a route that now HAS a nav row of its own",
+  linkedDrillIns.length === 0, linkedDrillIns.join(", "));
 
 // ── 6. Every app/platform page, same walk ───────────────────────────────
 //

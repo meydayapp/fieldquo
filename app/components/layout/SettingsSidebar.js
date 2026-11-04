@@ -78,6 +78,7 @@ import {
   Bell,
   ListChecks,
   Languages,
+  BookOpen,
   MailOpen,
   Zap,
   Sparkles,
@@ -169,14 +170,25 @@ export const GROUPS = [
   // owner's own rule flags ("nine is usually two"). Split by what the row
   // IS rather than by a headcount: a template sits still until someone opens
   // it (this group); a rule below fires on its own schedule or configures
-  // where a message comes FROM (the next group). Quote Email, Email
-  // Templates, PDF Templates and Translations are all "what a document says";
-  // Checklists is the same kind of thing for a job visit — a template filled
-  // in on site rather than mailed out.
+  // where a message comes FROM (the next group). Quote Email, Client proposal,
+  // Email Templates, PDF Templates and Translations are all "what a document
+  // says"; Checklists is the same kind of thing for a job visit — a template
+  // filled in on site rather than mailed out.
   {
     key: "app.settings.group.documents",
     items: [
       { key: "app.settings.quoteEmail", href: "/app/settings/quote-email", icon: MailOpen, helpArticle: "settings-quote-email" },
+      // The client proposal — the story, the one gallery, the document library
+      // and which sections a new quote starts with. It had NO row until
+      // 2026-11-04 and that was a decision, not an oversight: it is set up
+      // once and then reached from the quote it decorates, and a fourth
+      // "documents" row was judged to compete with Quote Email for the same
+      // reader. The owner overturned it ("Presentation is not in the menu
+      // list") — a screen reachable from seven other places and from no menu
+      // is a screen nobody finds when they go looking. Directly under Quote
+      // Email because the two are read together: that one writes the covering
+      // email, this one writes what the link opens.
+      { key: "app.settings.presentation", href: "/app/settings/presentation", icon: BookOpen, helpArticle: "settings-presentation" },
       { key: "app.settings.emailTemplates", href: "/app/settings/email-templates", icon: Mail, helpArticle: "settings-email-templates" },
       { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText, helpArticle: "settings-pdf-templates" },
       { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe, helpArticle: "settings-translations" },
