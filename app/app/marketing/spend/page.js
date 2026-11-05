@@ -165,6 +165,16 @@ function CampaignsSection({ id, campaigns, error, loading, currency, onRetry, t 
                           {t("app.marketingSpend.campaigns.period", { first: formatDateOnly(c.firstDate), last: formatDateOnly(c.lastDate), days: c.days })}
                         </div>
                       )}
+                      {/* How many of this row's leads reached it by campaign
+                          NAME rather than by Meta's own campaign id — weaker
+                          evidence (lib/analytics/campaignAliases.js), so the
+                          owner can see which rows rest on it instead of
+                          reading every lead as Meta-resolved. */}
+                      {c.nameMatchedLeads > 0 && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {t("app.marketingSpend.campaigns.nameMatchedRow", { count: c.nameMatchedLeads })}
+                        </div>
+                      )}
                       {/* The pinned rate refused this campaign's currency: its
                           money is "—" above and this says what is missing. */}
                       {c.spendExcluded && (
@@ -204,6 +214,15 @@ function CampaignsSection({ id, campaigns, error, loading, currency, onRetry, t 
             {campaigns.totals?.inferredQuotes > 0 && (
               <p className="text-[11px] text-muted-foreground">
                 {t("app.marketingSpend.campaigns.inferredNote", { count: campaigns.totals.inferredQuotes })}
+              </p>
+            )}
+            {/* Said whenever it applies: some of the leads above are joined to
+                their campaign by name, which is the agency's word corroborated
+                by one of the company's own spend rows — not Meta resolving the
+                ad. The rows that carry them are marked individually above. */}
+            {campaigns.totals?.nameMatchedLeads > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                {t("app.marketingSpend.campaigns.nameMatchedNote")}
               </p>
             )}
             <p className="text-[11px] text-muted-foreground">

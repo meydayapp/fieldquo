@@ -296,17 +296,115 @@ ok("an unknown source is refused", !parseFilters({ source: "tv" }).ok);
   ok("…so the loader counts both new visits beside the first lead's, and the no-show", res2.metrics.appointments.value === 3 && res2.metrics.noShows.value === 1 && near(res2.metrics.noShowRate.value, 0.3333), [res2.metrics.appointments.value, res2.metrics.noShows.value, res2.metrics.noShowRate.value]);
 }
 
+// ── 4b. The agency's own funnel: a campaign NAME and no campaign id ────────
+//
+// TrueFinish's ads run through Forward Media, whose ad drives to the AGENCY's
+// landing page; the agency then POSTs the lead to /api/v1/marketing/leads with
+// the campaign name it typed into Ads Manager and no id. campaignKeyOf keyed
+// the spend row "id:120…" and the lead "name:tfc / fmm / …", so the same
+// campaign sat in the per-campaign split twice: one row with all the money and
+// no leads, one with all the leads and no money. Resolved through the ONE
+// shared resolver (lib/analytics/campaignAliases.js), executed here all the
+// way through the real loader.
+if (!MUTANT) console.log("\nThe agency's funnel: a campaign name resolved onto its id");
+{
+  const AGENCY_ID = "120249142978690135";
+  const AGENCY_NAME = "TFC / FMM / DA / PKG 1 / LEADS / 20.10.2026";
+  const spend = (campaignId, campaignName, amount, currency = null) =>
+    db.marketingSpend.create({ data: { companyId: CO, platform: "facebook", amount, currency, date: d("2026-09-12T00:00:00Z"), source: "meta_api", campaignId, campaignName } });
+  await spend(AGENCY_ID, AGENCY_NAME, 2248.36);
+  // One name, two ids in the same period: ambiguous, so it must resolve to
+  // nothing rather than to whichever row came first.
+  await spend("120200000000000011", "Spring promo", 10);
+  await spend("120200000000000012", "spring promo", 11);
+  // A campaign billed in a currency nothing can price (there is no GBP→CAD
+  // rate, so spendCurrency.js refuses the row with reasonCode "no_rate"): its
+  // money cannot be shown, but the pairing its row proves still stands —
+  // losing the money must not also lose the campaign's identity.
+  await spend("120200000000000013", "Winter cabinets", 500, "GBP");
+  const agencyLead = (i, name, over = {}) =>
+    db.leadRequest.create({
+      data: {
+        companyId: CO,
+        name,
+        email: `agency${i}@example.com`,
+        source: "agency_funnel",
+        temperature: "warm",
+        createdAt: d(`2026-09-${String(20 + i).padStart(2, "0")}T10:00:00Z`),
+        updatedAt: d(`2026-09-${String(20 + i).padStart(2, "0")}T10:00:00Z`),
+        ...over,
+      },
+    });
+  const ad = (cn) => ({ ad: { cn, us: "FMM" }, source: "agency_funnel", landedAt: "2026-09-20T10:00:00.000Z", utmSource: "FMM" });
+  await agencyLead(1, "Pat Agency", { attribution: ad(AGENCY_NAME) });
+  // Re-cased and padded: the fold is trim + lower-case, so this is the same
+  // campaign — the owner's agency does not retype the name identically.
+  await agencyLead(2, "Rae Agency", { attribution: ad(`  ${AGENCY_NAME.toUpperCase()}  `) });
+  await agencyLead(3, "Sam Ambiguous", { attribution: ad("Spring promo") });
+  await agencyLead(4, "Tam Unknown", { attribution: ad("A campaign nobody bought") });
+  await agencyLead(6, "Vic Winter", { attribution: ad("winter cabinets") });
+  // A lead-form lead with Meta's own campaign id: the strong evidence, and the
+  // control for "every campaign that counted right before still does".
+  await agencyLead(5, "Uma Metaform", { source: "meta_lead_form", metaLeadId: "ml-u", metaCampaignId: "120200000000000001", metaCampaignName: "Fall kitchens", attribution: null });
+
+  const res3 = await loadMarketingResults({ db, companyId: CO, range, filters: parseFilters({}), now: NOW, deps });
+  const row = (id) => res3.byCampaign.find((c) => c.campaignId === id);
+  const agency = row(AGENCY_ID);
+  // If this fails, the agency's campaign is two rows again — money on one,
+  // leads on the other — and its cost per lead is blank beside real spend.
+  ok("the agency's spend and its name-posted leads are ONE row", Boolean(agency) && agency.leads === 2 && agency.spend === 2248.36, agency);
+  // If this fails, a reader cannot tell a lead the agency merely named from
+  // one Meta resolved itself.
+  ok("…and the row says both of them got there by campaign name", agency.nameMatchedLeads === 2, agency.nameMatchedLeads);
+  ok("…so cost per lead is spend ÷ those leads, not blank", agency.costPerLead === 1124.18, agency.costPerLead);
+  // If this fails the split still carries a second, money-less row for the
+  // same campaign and the table double-counts the campaign.
+  ok("no name-keyed row survives for a name that resolved to an id", !res3.byCampaign.some((c) => c.campaignKey === `name:${AGENCY_NAME.toLowerCase()}`), res3.byCampaign.map((c) => c.campaignKey));
+  // If this fails a name two campaigns share is credited to one of them.
+  ok("an ambiguous name resolves to nothing: both Spring promo campaigns stay at 0 leads", row("120200000000000011").leads === 0 && row("120200000000000012").leads === 0, [row("120200000000000011"), row("120200000000000012")]);
+  ok("…and the ambiguous lead keeps its own name-keyed row, with no spend", (() => {
+    const r = res3.byCampaign.find((c) => c.campaignKey === "name:spring promo");
+    return Boolean(r) && r.leads === 1 && r.spend === null && r.nameMatchedLeads === 0;
+  })(), res3.byCampaign.find((c) => c.campaignKey === "name:spring promo"));
+  // If this fails the split invents a campaign from a lead's own words —
+  // AGENTS.md failure class 5.
+  ok("a name no spend row claims gets no campaign id and no money", (() => {
+    const r = res3.byCampaign.find((c) => c.campaignKey === "name:a campaign nobody bought");
+    return Boolean(r) && r.campaignId === null && r.spend === null && r.nameMatchedLeads === 0;
+  })(), res3.byCampaign.map((c) => [c.campaignKey, c.campaignId]));
+  // If this fails, landing the name match moved a number on a campaign that
+  // was already counting correctly.
+  ok("the id-matched campaign counts exactly its one id-matched lead, none by name", row("120200000000000001").leads === 1 && row("120200000000000001").nameMatchedLeads === 0 && row("120200000000000001").spend === 600, row("120200000000000001"));
+  // If this fails, a row keyed "id:120…" claims it has no campaign id, because
+  // it was seeded from the lead's own (absent) id instead of the resolved one.
+  ok("a campaign whose currency has no rate still claims its name-matched lead, with null money and its real id", (() => {
+    const r = res3.byCampaign.find((c) => c.campaignKey === "id:120200000000000013");
+    return Boolean(r) && r.campaignId === "120200000000000013" && r.leads === 1 && r.nameMatchedLeads === 1 && r.spend === null && r.costPerLead === null;
+  })(), res3.byCampaign.find((c) => c.campaignKey === "id:120200000000000013"));
+  ok("every row carries a nameMatchedLeads count, never undefined", res3.byCampaign.every((c) => Number.isInteger(c.nameMatchedLeads)), res3.byCampaign.map((c) => c.nameMatchedLeads));
+  ok("the Marketing results page renders it", /c\.nameMatchedLeads > 0/.test(readFileSync(join(ROOT, "app/app/marketing/results/page.js"), "utf8")));
+}
+
 // ── 5. Mutations (cp backups only — never git checkout) ────────────────────
 // A mutation pass over a check that already fails proves nothing — every
 // mutant would "fail" for the baseline's reason.
 if (!MUTANT && fails.length) console.log("\nMutation pass skipped: the baseline fails.");
 if (!MUTANT && !fails.length) {
-  console.log("\nMutation pass — each change to lib/agency/metrics.js must fail this check");
+  console.log("\nMutation pass — each change to lib/agency/metrics.js (or the loader that wires the campaign aliases) must fail this check");
   const LIB = join(ROOT, "lib/agency/metrics.js");
+  // The loader is the second target: it is where the alias map is BUILT, and a
+  // resolver nobody hands the map to is the dead wiring AGENTS.md warns about.
+  const DATA = join(ROOT, "lib/agency/metricsData.js");
   const backupDir = join(ROOT, ".mutation-backup-marketing-metrics");
   mkdirSync(backupDir, { recursive: true });
   copyFileSync(LIB, join(backupDir, "metrics.js"));
+  copyFileSync(DATA, join(backupDir, "metricsData.js"));
   const ORIGINAL = readFileSync(LIB, "utf8");
+  const SOURCES = new Map([
+    [LIB, ORIGINAL],
+    [DATA, readFileSync(DATA, "utf8")],
+  ]);
+  // [label, from, to, file] — `file` defaults to lib/agency/metrics.js.
   const MUTATIONS = [
     ["close rate over all closes", "closeRate: ratio(closesWithVisit, appointments, round4)", "closeRate: ratio(closes, appointments, round4)"],
     ["adjusted close rate keeps upcoming", "adjustedCloseRate: ratio(closesWithVisit, occurred, round4)", "adjustedCloseRate: ratio(closesWithVisit, appointments, round4)"],
@@ -318,16 +416,24 @@ if (!MUTANT && !fails.length) {
     ["no-show counted as happened", 'else if (outcome === "no_show") noShows++;', ""],
     ["rescheduled counted as happened", 'else if (outcome === "rescheduled") rescheduled++;', ""],
     ["no-show rate over every appointment", "noShowRate: ratio(noShows, held + noShows, round4)", "noShowRate: ratio(noShows, appointments, round4)"],
+    // ── The campaign name → id join ──────────────────────────────────────────
+    ["the split ignores the alias map (the agency's campaign splits in two again)", "campaignGroupOf(f.attribution, aliases)", "campaignGroupOf(f.attribution)"],
+    ["a name-matched lead is folded into `leads` with nothing saying so", 'if (matchedBy === "name") r.nameMatchedLeads++;', ""],
+    ["a name-matched row is seeded with the lead's own (absent) campaign id", "const r = row(key, { campaignId: campaignId || null,", "const r = row(key, { campaignId: f.attribution.campaignId || null,"],
+    ["the loader never builds the alias map", "const aliases = buildCampaignAliases(inRange);", "const aliases = null;", DATA],
+    ["the loader builds the map but never hands it to the split", "splitByCampaign(curFacts, curSpend.byCampaign, { includeMoney, aliases: curSpend.aliases })", "splitByCampaign(curFacts, curSpend.byCampaign, { includeMoney })", DATA],
+    ["the alias map is built from the priced rows, losing a refused currency's campaign", "const aliases = buildCampaignAliases(inRange);", "const aliases = buildCampaignAliases(inRange.filter((r) => !r.currency || r.currency === companyCurrency));", DATA],
   ];
   const escaped = [];
   let caught = 0;
   try {
-    for (const [label, from, to] of MUTATIONS) {
-      if (!ORIGINAL.includes(from)) {
+    for (const [label, from, to, file = LIB] of MUTATIONS) {
+      const original = SOURCES.get(file);
+      if (!original.includes(from)) {
         escaped.push(`${label} — mutation target not found`);
         continue;
       }
-      writeFileSync(LIB, ORIGINAL.replace(from, to));
+      writeFileSync(file, original.replace(from, to));
       let survived = false;
       try {
         execFileSync(process.execPath, ["--import", "./scripts/alias-loader.mjs", "--import", "./scripts/db-stub-loader.mjs", "scripts/check-marketing-metrics.mjs", "--mutant"], { cwd: ROOT, stdio: "pipe" });
@@ -335,7 +441,7 @@ if (!MUTANT && !fails.length) {
       } catch {
         survived = false;
       }
-      writeFileSync(LIB, ORIGINAL);
+      writeFileSync(file, original);
       if (survived) escaped.push(`${label} — NOT caught`);
       else {
         caught++;
@@ -343,7 +449,7 @@ if (!MUTANT && !fails.length) {
       }
     }
   } finally {
-    writeFileSync(LIB, ORIGINAL);
+    for (const [file, original] of SOURCES) writeFileSync(file, original);
     rmSync(backupDir, { recursive: true, force: true });
   }
   ok(`all ${MUTATIONS.length} mutants caught`, escaped.length === 0, escaped.join(" | "));

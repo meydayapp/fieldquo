@@ -389,7 +389,18 @@ function Results({ agency = false }) {
                   <tbody className="divide-y divide-border">
                     {campaigns.map((c) => (
                       <tr key={c.campaignKey}>
-                        <td className="px-5 py-2 text-foreground break-words max-w-[16rem]">{c.campaignName || c.campaignId}</td>
+                        <td className="px-5 py-2 text-foreground break-words max-w-[16rem]">
+                          {c.campaignName || c.campaignId}
+                          {/* Leads joined to this campaign by its NAME, not by
+                              Meta's campaign id — the agency's own funnel posts
+                              the name only (lib/analytics/campaignAliases.js).
+                              Weaker evidence, so it is shown, not folded in. */}
+                          {c.nameMatchedLeads > 0 && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {t("app.marketingSpend.campaigns.nameMatchedRow", { count: c.nameMatchedLeads })}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">{fmt("money", c.spend)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{fmt("count", c.leads)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{fmt("money", c.costPerLead)}</td>
@@ -401,6 +412,11 @@ function Results({ agency = false }) {
                   </tbody>
                 </table>
               </div>
+            )}
+            {campaigns.some((c) => c.nameMatchedLeads > 0) && (
+              <p className="px-5 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+                {t("app.marketingSpend.campaigns.nameMatchedNote")}
+              </p>
             )}
           </section>
 
