@@ -58,6 +58,18 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const asked = searchParams.get("areaCode");
+  // ── A typed city, because an area code is not a place ──────────────────
+  //
+  // 819 runs from Gatineau to Rouyn-Noranda, a five-hour drive apart, and a
+  // contractor handed "the right area code" from the far end of it gets taken
+  // for a spammer by his own neighbours. The picker already PRINTS each
+  // number's city, but with only an area code to search on there was no way to
+  // ask for one: you got six of whatever 819 inventory was free and hoped.
+  //
+  // Capped rather than validated against a list of cities. Twilio's inventory
+  // is the authority on what it will match, and a table of ours would be the
+  // city→area-code guess lib/voice/numberSearch.js refuses to keep.
+  const askedCity = String(searchParams.get("city") || "").trim().slice(0, 60);
 
   // A typed area code that isn't one is refused rather than quietly ignored.
   // Dropping it would search the company's city instead and return numbers in a
@@ -82,7 +94,15 @@ export async function GET(request) {
   });
 
   const fallback = defaultAreaCode(company);
-  const areaCode = asked ? String(asked).replace(/[^\d]/g, "") : fallback.areaCode;
+  // The city WINS, and the area code is dropped rather than ANDed with it.
+  // searchLocalNumbers explains why (a Gatineau search should return its 873
+  // numbers too, which an AND would hide) — and here it is also the point: the
+  // area code is the thing the contractor is trying to get away from.
+  const areaCode = askedCity
+    ? null
+    : asked
+      ? String(asked).replace(/[^\d]/g, "")
+      : fallback.areaCode;
 
   try {
     const result = await searchLocalNumbers({
@@ -91,7 +111,9 @@ export async function GET(request) {
       // Only consulted when there is no area code at all — a company with no
       // phone on file. The area codes then come back from real inventory near
       // their city rather than from a guess of ours.
-      locality: company?.city || null,
+      // The typed city when there is one, else the company's own — the
+      // latter still only consulted when no area code was derived either.
+      locality: askedCity || company?.city || null,
       region: company?.province || null,
     });
 

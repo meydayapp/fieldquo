@@ -3348,6 +3348,7 @@ function CallbackReport({ report, windowDays, t }) {
  */
 function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
   const [areaCode, setAreaCode] = useState(choice?.areaCode || "");
+  const [city, setCity] = useState("");
   const [results, setResults] = useState(null);
   const [searched, setSearched] = useState(null);
   const [searching, setSearching] = useState(false);
@@ -3367,7 +3368,12 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
     setSearching(true);
     setResults(null);
     try {
-      const qs = areaCode.trim() ? `?areaCode=${encodeURIComponent(areaCode.trim())}` : "";
+      // A city and an area code are alternatives, not filters that stack —
+      // the server drops the code when a city is given, so only one is sent.
+      const params = new URLSearchParams();
+      if (city.trim()) params.set("city", city.trim());
+      else if (areaCode.trim()) params.set("areaCode", areaCode.trim());
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/settings/voice/numbers/search${qs}`);
       if (!res.ok) {
         // A failed LOOK, which is not an empty result. Handled by the same
@@ -3386,7 +3392,11 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
       setSearched(payload.searched || null);
       // The server may have fallen back to the company's city. Reflecting the
       // area code it actually used keeps the box honest about what was asked.
-      if (!areaCode.trim() && payload.numbers?.[0]?.areaCode) {
+      // Never after a CITY search. Writing the first Gatineau result's area
+      // code into the box would turn the NEXT search back into an area-code
+      // search and silently drop the city — reintroducing the far-away number
+      // the contractor came here to avoid.
+      if (!city.trim() && !areaCode.trim() && payload.numbers?.[0]?.areaCode) {
         setAreaCode(payload.numbers[0].areaCode);
       }
     } catch (err) {
@@ -3441,6 +3451,16 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
           placeholder=""
           className="w-20 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
         />
+        <label className="text-xs text-muted-foreground" htmlFor="voice-city">
+          {t("app.setVoice.pick.cityLabel", "City")}
+        </label>
+        <input
+          id="voice-city"
+          value={city}
+          onChange={(e) => setCity(e.target.value.slice(0, 60))}
+          placeholder=""
+          className="w-40 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+        />
         <button
           type="button"
           onClick={search}
@@ -3462,6 +3482,9 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
           {t("app.setVoice.pick.fromPhone", "{code} is the area code of the number on your company profile. Change it if you'd rather have a different one.", { code: choice.areaCode })}
         </p>
       )}
+      <p className="text-xs text-muted-foreground">
+        {t("app.setVoice.pick.cityHint", "Type a city and we'll show only numbers in that city — useful when your area code also covers somewhere hours away.")}
+      </p>
       {!choice.areaCode && (
         <p className="text-xs text-muted-foreground">
           {/* Absence of a statement is not a statement — AGENTS.md. There is no
@@ -3484,7 +3507,9 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
           contractor chasing a problem that isn't theirs. */}
       {!searching && results?.length === 0 && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          {searched?.areaCode
+          {searched?.locality
+            ? t("app.setVoice.pick.noneInCity", "Nothing free in {city} right now. Try a nearby city, or search by area code.", { city: searched.locality })
+            : searched?.areaCode
             ? t("app.setVoice.pick.noneInAreaCode", "Nothing free in {code} right now — it's a busy area code. Try one next to it, or take the button above and we'll get the closest we can.", { code: searched.areaCode })
             : t("app.setVoice.pick.noneNearby", "We couldn't find a free number near you. Try typing an area code, or take the button above and we'll get the closest we can.")}
         </p>
