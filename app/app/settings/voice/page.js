@@ -3507,7 +3507,12 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
           contractor chasing a problem that isn't theirs. */}
       {!searching && results?.length === 0 && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          {searched?.locality
+          {searched?.near
+            ? t("app.setVoice.pick.noneNearPlace", "Nothing free within {km} km of {place}. Try a bigger town nearby, or search by area code.", {
+                km: Math.round((searched.near.distanceMiles || 25) * 1.609),
+                place: searched.near.place || "",
+              })
+            : searched?.locality
             ? t("app.setVoice.pick.noneInCity", "Nothing free in {city} right now. Try a nearby city, or search by area code.", { city: searched.locality })
             : searched?.areaCode
             ? t("app.setVoice.pick.noneInAreaCode", "Nothing free in {code} right now — it's a busy area code. Try one next to it, or take the button above and we'll get the closest we can.", { code: searched.areaCode })
@@ -3517,11 +3522,22 @@ function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
 
       {!searching && results?.length > 0 && (
         <div className="space-y-2">
-          {searched?.locality && (
+          {/* The place GOOGLE matched, not the text that was typed. "Kanata"
+              can geocode to "Ontario, Canada", and a list headed by the
+              typed word would hide that we searched the middle of the
+              province. Naming the match makes a bad one visible. */}
+          {searched?.near ? (
+            <p className="text-xs text-muted-foreground">
+              {t("app.setVoice.pick.nearPlace", "Free numbers within {km} km of {place}.", {
+                km: Math.round((searched.near.distanceMiles || 25) * 1.609),
+                place: searched.near.place || "",
+              })}
+            </p>
+          ) : searched?.locality ? (
             <p className="text-xs text-muted-foreground">
               {t("app.setVoice.pick.nearCity", "Free numbers near {city}.", { city: searched.locality })}
             </p>
-          )}
+          ) : null}
           <div className="flex flex-col gap-2">
             {results.map((n) => (
               <button

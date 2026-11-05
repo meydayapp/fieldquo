@@ -34,6 +34,7 @@ import {
   defaultAreaCode,
   isUsableAreaCode,
 } from "@/lib/voice/numberSearch";
+import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 
 export async function GET(request) {
   const { member, refusal } = await memberOrRefusalPlain(request);
@@ -104,8 +105,40 @@ export async function GET(request) {
       ? String(asked).replace(/[^\d]/g, "")
       : fallback.areaCode;
 
+  // ── A typed city becomes a POINT, not a name ──────────────────────────
+  //
+  // Twilio matches localities exactly against its own rate-centre vocabulary,
+  // and "Ottawa" is not in it — the rate centre is "Ottawahull", so the city
+  // this most needs to serve returns nothing for its own name. Geocoding the
+  // text asks the question the contractor is actually asking. Null on any
+  // failure (no key, no match), and the exact-name search below still runs,
+  // so a geocoding outage degrades to today's behaviour instead of breaking.
+  //
+  // The province is appended as a hint, never as a filter: "Gatineau" alone
+  // is ambiguous enough that Google has put it in France before now.
+  let near = null;
+  if (askedCity) {
+    const hint = [askedCity, company?.province, company?.country || "CA"].filter(Boolean).join(", ");
+    const point = await geocodeAddress(hint).catch(() => null);
+    if (point) near = { lat: point.lat, lng: point.lng, place: point.formattedAddress || askedCity };
+  }
+
   try {
-    const result = await searchLocalNumbers({
+    // 25 miles is Twilio's own default and covers a metro. A city with
+    // nothing free inside it widens ONCE rather than reporting an empty
+    // inventory that isn't empty — and the radius that answered is returned,
+    // so the screen states it rather than implying everything is next door.
+    let result = null;
+    if (near) {
+      for (const distanceMiles of [25, 60]) {
+        result = await searchLocalNumbers({
+          country: company?.country || "CA",
+          near: { ...near, distanceMiles },
+        });
+        if (result.numbers?.length) break;
+      }
+    }
+    if (!result) result = await searchLocalNumbers({
       country: company?.country || "CA",
       areaCode,
       // Only consulted when there is no area code at all — a company with no
