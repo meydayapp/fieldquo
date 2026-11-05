@@ -692,6 +692,15 @@ section("9. Static: the credential never leaves the server");
   const imapSrc = read("lib/mailbox/providers/imap.js").replace(/\/\/.*$/gm, "");
   ok("the IMAP provider calls no write method", !/messageDelete|messageMove|messageCopy|messageFlagsAdd|messageFlagsSet|mailboxDelete|mailboxCreate|\.append\(|expunge/i.test(imapSrc));
   ok("the IMAP provider disables imapflow's logger (it logs LOGIN)", /logger:\s*false/.test(imapSrc));
+  // A socket still armed when a Vercel instance freezes fires its
+  // socketTimeout seconds into the NEXT invocation on the warm instance.
+  // logout() is imapflow's run('LOGOUT') and leaves teardown to the server's
+  // close event, which the function does not stay alive to process — so
+  // close() must be called unconditionally, and an 'error' listener must
+  // exist for the orphan that gets through. Same pair in
+  // lib/sales/mailbox/imap.js, where its absence crashed the sales cron.
+  ok("withImap attaches an 'error' listener (an unhandled emit kills the function)", /\.on\?\?\.?\(|\.on\?\.\("error"|\.on\("error"/.test(imapSrc));
+  ok("withImap closes the socket unconditionally, not only when logout() throws", /await client\.logout\(\)\.catch\(\(\) => \{\}\);\s*client\.close/.test(imapSrc));
   const docs = read("docs/VERCEL.md");
   for (const v of ["MAIL_CREDENTIALS_KEY", "MICROSOFT_OAUTH_CLIENT_ID", "MICROSOFT_OAUTH_CLIENT_SECRET", "MICROSOFT_OAUTH_TENANT"]) ok(`${v} is documented in docs/VERCEL.md`, docs.includes(v));
   ok("the cron is scheduled", read("vercel.json").includes("/api/cron/mailbox-sync"));

@@ -244,6 +244,46 @@ section("3. The password at rest, and what the code can never do");
   ok("lib/sales/mailbox never deletes, moves, expunges or clears a flag on the server", offenders.length === 0, offenders);
   const imapSrc = read("lib/sales/mailbox/imap.js");
   ok("imapflow is constructed with logger: false (no LOGIN line in a log)", /logger:\s*false/.test(imapSrc));
+
+  // ── The session ends, and an async error is never fatal ─────────────────
+  //
+  // Both halves of the crash that ran /api/cron/sales-mailbox-sync into exit
+  // status 129 on every invocation: a socket left armed when the Vercel
+  // instance froze, and an 'error' emitted on an EventEmitter with no
+  // listener. Executed rather than grepped, because what matters is the
+  // behaviour, not the presence of a line.
+  {
+    const { withImap } = await import("../lib/sales/mailbox/imap.js");
+    const { EventEmitter } = await import("node:events");
+    const log = [];
+    let made = null;
+    class FakeImap extends EventEmitter {
+      constructor() { super(); made = this; this.armed = false; }
+      async connect() { this.armed = true; }
+      async logout() { log.push("logout"); }   // imapflow's run('LOGOUT'): no teardown
+      close() { this.armed = false; log.push("close"); }
+    }
+    const mb = { address: "r@fieldquo.com", imapHost: "h", imapPort: 993 };
+    const got = await withImap(mb, "pw", async () => "done", { Client: FakeImap });
+    ok("withImap returns the body's value", got === "done", got);
+    ok("withImap closes the socket even when logout() RESOLVED — a frozen Vercel instance never processes the server's close event, and the armed socketTimeout fires into the NEXT invocation", log.includes("close"), log);
+    ok("logout is still sent before the close", log.indexOf("logout") < log.indexOf("close"), log);
+    ok("the socket is disarmed, so no orphan timer survives the freeze", made.armed === false);
+
+    let uncaught = false;
+    const onU = () => { uncaught = true; };
+    process.once("uncaughtException", onU);
+    const survived = await withImap(mb, "pw", async () => {
+      // What imapflow does from Socket._onTimeout: emit on the client from
+      // outside any promise chain. Unhandled, this throws and kills the
+      // function, taking every other mailbox's sync with it.
+      made.emit("error", Object.assign(new Error("Socket timeout"), { code: "ETIMEOUT" }));
+      return "survived";
+    }, { Client: FakeImap }).catch((e) => `rejected:${e?.message}`);
+    process.removeListener("uncaughtException", onU);
+    ok("an 'error' emitted on the client mid-session does not throw", survived === "survived", survived);
+    ok("and nothing reaches uncaughtException", uncaught === false);
+  }
   const storeSrc = read("lib/sales/mailbox/store.js");
   ok("the public select has no secret", !/secret:\s*true/.test(storeSrc.slice(storeSrc.indexOf("MAILBOX_PUBLIC_SELECT"), storeSrc.indexOf("function cleanHost"))));
 }
