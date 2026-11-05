@@ -242,6 +242,130 @@ const BARE_ROW = {
   ok("the plan never writes MarketingSpend.leads", !("leads" in full) && !("leads" in bare));
 }
 
+// ── Meta's `lead` is a ROLL-UP, and must be counted once ───────────────────
+//
+// The sync stored 70 conversions for TrueFinish Cabinets' campaign
+// 120249142978690135 when the real lead count was 35, because it summed
+// `lead` together with the two types `lead` is the total of. $2,248.36 of
+// spend therefore read as $32.12 per lead instead of $64.24 — the campaign
+// looked exactly twice as efficient as it was, and nothing displayed or
+// checked the number, so it went unnoticed for 17 days.
+//
+// LIVE_ROW below is the real stored `actionsRaw` of one of those days
+// (2026-11-04), verbatim including Meta's own key order and string values —
+// not a hand-made fixture that happens to agree with the fix. The day totals
+// `lead: 2` = `lead_grouped: 1` + `fb_pixel_lead: 1`, and the campaign's 17
+// days total `lead: 35` = 18 + 17; both are asserted, because the whole
+// decision rests on that arithmetic.
+const LIVE_ROW_ACTIONS = [
+  { value: "1", action_type: "offsite_complete_registration_add_meta_leads" },
+  { value: "40", action_type: "link_click" },
+  { value: "1", action_type: "offsite_search_add_meta_leads" },
+  { value: "1", action_type: "offsite_conversion.fb_pixel_custom" },
+  { value: "1", action_type: "post_reaction" },
+  { value: "1", action_type: "landing_page_view" },
+  { value: "1", action_type: "onsite_web_lead" },
+  { value: "1", action_type: "omni_landing_page_view" },
+  { value: "1", action_type: "onsite_conversion.messaging_block" },
+  { value: "697", action_type: "post_engagement" },
+  { value: "2", action_type: "post_interaction_gross" },
+  { value: "1", action_type: "comment" },
+  { value: "697", action_type: "page_engagement" },
+  { value: "2", action_type: "post_interaction_net" },
+  { value: "1", action_type: "onsite_conversion.post_net_comment" },
+  { value: "1", action_type: "onsite_conversion.post_net_like" },
+  { value: "2", action_type: "lead" },
+  { value: "1", action_type: "offsite_content_view_add_meta_leads" },
+  { value: "1", action_type: "onsite_conversion.lead_grouped" },
+  { value: "655", action_type: "video_view" },
+  { value: "1", action_type: "offsite_conversion.fb_pixel_lead" },
+  { value: "1", action_type: "offsite_lead_add_20_s_calls" },
+];
+const leadsOf = (actions) =>
+  parseInsightsRow({
+    campaign_id: "120249142978690135", spend: "121.81",
+    date_start: "2026-11-04", date_stop: "2026-11-04", actions,
+  }).metaConversions;
+
+{
+  ok("the real 2026-11-04 row counts 2 leads, not the 4 the old rule stored (lead=2 is the total of lead_grouped=1 + fb_pixel_lead=1, not a sibling of them)",
+    leadsOf(LIVE_ROW_ACTIONS) === 2, leadsOf(LIVE_ROW_ACTIONS));
+
+  // The campaign-scale number, as the live rows total it. 35, never 70.
+  const campaign = [
+    { action_type: "lead", value: "35" },
+    { action_type: "onsite_conversion.lead_grouped", value: "18" },
+    { action_type: "offsite_conversion.fb_pixel_lead", value: "17" },
+  ];
+  ok("35 / 18 / 17 yields 35, not 70 — the arithmetic the whole decision rests on (18 + 17 = 35)",
+    leadsOf(campaign) === 35, leadsOf(campaign));
+  // The old rule, written out as a reference implementation, so the 70 this
+  // commit exists to kill is pinned to a number rather than to a memory of
+  // one — and so the gap between the two rules is asserted, not asserted-at.
+  const oldRule = (actions) =>
+    actions
+      .filter((a) => ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"].includes(a.action_type))
+      .reduce((t, a) => t + Number(a.value), 0);
+  ok("the rule this replaced really did read 70 on that same input — the double is the roll-up counted twice",
+    oldRule(campaign) === 70 && oldRule(campaign) === 2 * leadsOf(campaign),
+    { old: oldRule(campaign), shipped: leadsOf(campaign) });
+  ok("…and on the real 2026-11-04 row it read 4 where the shipped rule reads 2",
+    oldRule(LIVE_ROW_ACTIONS) === 4 && leadsOf(LIVE_ROW_ACTIONS) === 2,
+    { old: oldRule(LIVE_ROW_ACTIONS), shipped: leadsOf(LIVE_ROW_ACTIONS) });
+
+  // Each lead-shaped type that lives in the real rows, added on its own. The
+  // count must not budge: every one of these was placed as a component or a
+  // re-label of something already counted, and onsite_web_lead is out because
+  // it could not be placed at all.
+  //
+  // Asserted BOTH ways round on purpose. With the roll-up present the count is
+  // Meta's own `lead` and the component set is never read, so that case alone
+  // would pass no matter which types the set holds — a guard that reports
+  // green either way. The second case, with no `lead` on the row, is the one
+  // where set membership decides the answer.
+  const COMPONENTS_ONLY = [
+    { action_type: "onsite_conversion.lead_grouped", value: "18" },
+    { action_type: "offsite_conversion.fb_pixel_lead", value: "17" },
+  ];
+  for (const [type, value] of [
+    ["onsite_conversion.lead", "2"],
+    ["onsite_web_lead", "19"],
+    ["offsite_complete_registration_add_meta_leads", "18"],
+    ["offsite_search_add_meta_leads", "18"],
+    ["offsite_content_view_add_meta_leads", "18"],
+    ["offsite_lead_add_20_s_calls", "17"],
+  ]) {
+    ok(`${type} beside the roll-up changes nothing — Meta's own \`lead\` is the count`,
+      leadsOf([...campaign, { action_type: type, value }]) === 35,
+      leadsOf([...campaign, { action_type: type, value }]));
+    ok(`${type} is NOT in the counted set — on a row with no roll-up it adds no lead`,
+      leadsOf([...COMPONENTS_ONLY, { action_type: type, value }]) === 35,
+      leadsOf([...COMPONENTS_ONLY, { action_type: type, value }]));
+  }
+
+  // The fallback. No live row reports a component without the roll-up (0 of
+  // 39), so this is the case the data CANNOT confirm — which is exactly why
+  // it is asserted rather than assumed away. A pixel-only row must not report
+  // zero leads just because Meta omitted its own total.
+  ok("a row with a component but NO `lead` roll-up still counts the component — never silently 0",
+    leadsOf([{ action_type: "offsite_conversion.fb_pixel_lead", value: "4" }]) === 4,
+    leadsOf([{ action_type: "offsite_conversion.fb_pixel_lead", value: "4" }]));
+  ok("…and both components are summed when the roll-up is absent",
+    leadsOf([
+      { action_type: "onsite_conversion.lead_grouped", value: "3" },
+      { action_type: "offsite_conversion.fb_pixel_lead", value: "4" },
+    ]) === 7);
+  ok("an UNREADABLE roll-up falls through to the components rather than reporting 0",
+    leadsOf([
+      { action_type: "lead", value: "many" },
+      { action_type: "onsite_conversion.lead_grouped", value: "5" },
+    ]) === 5);
+  ok("a row with no lead-shaped action at all is 0, not null — conversions keeps meaning 'Meta's own count'",
+    leadsOf([{ action_type: "link_click", value: "40" }]) === 0);
+  ok("a `lead` roll-up on its own is taken at face value",
+    leadsOf([{ action_type: "lead", value: "9" }]) === 9);
+}
+
 // ── The field list Meta is asked for ───────────────────────────────────────
 //
 // Meta rejects the whole request for one unrecognised field name, so a typo
@@ -388,6 +512,38 @@ const MUTATIONS = [
     INSIGHTS_LIB,
     "drops the conversations-started column from the write plan",
     (s) => s.replace("      messagingConversations: parsed.messagingConversations,\n", ""),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    // The original bug, reinstated exactly. BOTH halves are needed: putting
+    // `lead` back in the set alone changes nothing, because the roll-up is
+    // returned before the summing loop is ever reached. Re-adding `lead` to
+    // the set AND removing that early return is what restores "add up every
+    // lead-shaped type" — 70 where the truth is 35. This is the mutant the
+    // 35-not-70 assertion exists for, and the first version of it escaped.
+    "sums Meta's `lead` roll-up TOGETHER with its components again (the original double-count)",
+    (s) =>
+      s
+        .replace(
+          'const LEAD_COMPONENT_TYPES = new Set([\n  "onsite_conversion.lead_grouped",',
+          'const LEAD_COMPONENT_TYPES = new Set([\n  "lead",\n  "onsite_conversion.lead_grouped",',
+        )
+        .replace("    if (Number.isFinite(n)) return n;\n", ""),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "drops the no-roll-up fallback, so a row reporting only a pixel lead counts zero leads",
+    (s) => s.replace("  const rollup = actions.find((a) => a && a.action_type === META_LEAD_ROLLUP);",
+      "  const rollup = actions.find((a) => a && a.action_type === META_LEAD_ROLLUP) ?? { value: 0 };"),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "widens the set to onsite_web_lead — the type that could not be placed against any live row",
+    (s) => s.replace('  "offsite_conversion.fb_pixel_lead",\n]);',
+      '  "offsite_conversion.fb_pixel_lead",\n  "onsite_web_lead",\n]);'),
   ],
   [
     "insightsImport.js",

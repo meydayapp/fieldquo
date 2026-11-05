@@ -203,11 +203,18 @@ Pure transform, no db, no fetch (same discipline as
     fabricated number in a file that exists to refuse those.
 - **Meta's own reported leads never touch `MarketingSpend.leads`** — that
   column is the hand-typed, contractor-entered figure `kpis.js` already
-  distrusts. Meta's lead-shaped `actions` (action_type `lead`,
-  `onsite_conversion.lead_grouped`, `offsite_conversion.fb_pixel_lead`) are
-  summed into `.conversions` instead — a column that already means "the
-  platform's own count of an outcome," labelled as Meta's own number in the
-  UI, never merged with FieldQuo's real `LeadRequest` count.
+  distrusts. Meta's own reported lead count goes into `.conversions` instead —
+  a column that already means "the platform's own count of an outcome,"
+  labelled as Meta's own number in the UI, never merged with FieldQuo's real
+  `LeadRequest` count. It is counted ONCE per day-row: action_type `lead` is
+  Meta's ROLL-UP of `onsite_conversion.lead_grouped` +
+  `offsite_conversion.fb_pixel_lead`, not a sibling of them, so the specific
+  types are summed only as a fallback for a row that carries no roll-up.
+  Summing all three — which this did until 2026-11-05 — counted every lead
+  twice; see the decision comment on `countLeadActions()` in
+  `lib/meta/insightsImport.js` for the live arithmetic, and
+  `scripts/backfill-meta-lead-double-count.mjs` for the repair of the rows
+  already stored wrong.
   `docs/META-ADS-INTEGRATION.md` Part 2's rule — "refuse to compute or
   display cost-per-*FieldQuo*-lead... exactly as `NOT_TRACKED` already
   refuses `costPerLead`" — is why there is no per-Meta-campaign cost-per-lead
