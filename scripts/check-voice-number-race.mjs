@@ -249,7 +249,20 @@ const SOURCES = {
   "fq:search":
     "export const isStillAvailable = async () => null;\n" +
     "export const numberChoiceAvailable = () => false;\n" +
-    "export const searchLocalNumbers = async () => ({ configured: false, numbers: [] });",
+    "export const searchLocalNumbers = async () => ({ configured: false, numbers: [] });\n" +
+    // The buy route derives which national inventory to check from the chosen
+    // number's own area code, so these two are part of its contract now.
+    // areaCodeOf parses (the race fixtures use real-shaped E.164);
+    // countryForAreaCode declines, which puts the route back on the company's
+    // country — the behaviour every assertion below was written against.
+    "export const areaCodeOf = (p) => {\n" +
+    "  const d = String(p || '').replace(/[^\\d]/g, '');\n" +
+    "  const t = d.length === 10 ? d : d.length === 11 && d.startsWith('1') ? d.slice(1) : null;\n" +
+    "  if (!t) return null;\n" +
+    "  const c = t.slice(0, 3);\n" +
+    "  return /^[2-9]\\d\\d$/.test(c) && !/^\\d11$/.test(c) ? c : null;\n" +
+    "};\n" +
+    "export const countryForAreaCode = () => null;",
   "fq:diagnose":
     "export const diagnoseNumber = async () => ({ verdict: 'provider_unreachable' });\n" +
     "export const diagnoseAndHeal = async () => ({ verdict: 'provider_unreachable' });\n" +

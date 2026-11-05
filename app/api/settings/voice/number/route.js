@@ -36,7 +36,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { buyNumber, voiceConfigured, RetellError } from "@/lib/voice/retell";
 import { toE164, isSharedTestNumber, isTollFreeNumber, heldNumber } from "@/lib/voice/numbers";
-import { isStillAvailable } from "@/lib/voice/numberSearch";
+import { isStillAvailable, areaCodeOf, countryForAreaCode } from "@/lib/voice/numberSearch";
 import { recordError } from "@/lib/platform/errorLog";
 import { monthlyCentsFor, NUMBER_TYPES, grantFreeTrial } from "@/lib/voice/credits";
 import {
@@ -405,7 +405,18 @@ export async function POST(request) {
     where: { id: member.companyId },
     select: { country: true },
   });
-  const country = company?.country || "CA";
+  // The company's country is the DEFAULT, not the answer. Once a specific
+  // number has been picked, that number's own area code says which national
+  // inventory holds it — and the picker can now show a city in another
+  // country (a Canadian contractor searching "New York City" gets NY
+  // numbers). Checking a +1845 number against Canadian inventory finds
+  // nothing and reports "taken while you were choosing", which would be a
+  // listed number that can never be bought and a lie about why.
+  //
+  // countryForAreaCode is a NANP fact table (lib/voice/nanp.js), not a
+  // guess; where it has no opinion the company's country still stands.
+  const chosenAreaCode = chosenE164 ? areaCodeOf(chosenE164) : null;
+  const country = (chosenAreaCode && countryForAreaCode(chosenAreaCode)) || company?.country || "CA";
 
   if (chosenE164) {
     const stillFree = await isStillAvailable(chosenE164, { country });

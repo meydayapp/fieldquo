@@ -114,32 +114,79 @@ export async function GET(request) {
   // failure (no key, no match), and the exact-name search below still runs,
   // so a geocoding outage degrades to today's behaviour instead of breaking.
   //
-  // The province is appended as a hint, never as a filter: "Gatineau" alone
-  // is ambiguous enough that Google has put it in France before now.
+  // The city is geocoded on its OWN first. The company's province used to be
+  // appended always, which is wrong the moment the contractor types a city
+  // somewhere else: "New York City, ON, CA" is not a place, and a company in
+  // Ontario asking for Vancouver would be steered to the wrong one. So the
+  // hint is a SECOND attempt, used only when the bare text does not resolve
+  // to a locality — "Kanata" alone comes back as just "Ontario, Canada".
   let near = null;
   if (askedCity) {
-    const hint = [askedCity, company?.province, company?.country || "CA"].filter(Boolean).join(", ");
-    const point = await geocodeAddress(hint).catch(() => null);
-    if (point) near = { lat: point.lat, lng: point.lng, place: point.formattedAddress || askedCity };
+    const attempts = [askedCity, [askedCity, company?.province, company?.country || "CA"].filter(Boolean).join(", ")];
+    for (const hint of attempts) {
+      const point = await geocodeAddress(hint).catch(() => null);
+      if (!point) continue;
+      near = {
+        lat: point.lat,
+        lng: point.lng,
+        place: point.formattedAddress || askedCity,
+        // Google's own answer for which province/state and country this city
+        // is in. Both are load-bearing below; neither is guessed.
+        region: point.region || null,
+        country: point.country || null,
+      };
+      if (point.region) break;
+    }
   }
 
   try {
-    // 25 miles is Twilio's own default and covers a metro. A city with
-    // nothing free inside it widens ONCE rather than reporting an empty
-    // inventory that isn't empty — and the radius that answered is returned,
-    // so the screen states it rather than implying everything is next door.
+    // ── Near the city, and in the city's OWN province ──────────────────
+    //
+    // Two things were wrong here and both were visible from Ottawa.
+    //
+    // The radius loop stopped at the first non-empty answer. Twilio's free
+    // inventory within 25 miles of downtown Ottawa is ENTIRELY Gatineau and
+    // Buckingham — 819 and 873, across the river in Quebec — so the loop
+    // filled up on the very area code the contractor is trying to escape and
+    // never widened. At 60 miles the same search is mostly Ontario 343, the
+    // Ottawa overlay. So the loop now keeps widening until it has numbers
+    // whose REGION matches the city's, and only settles for out-of-region
+    // ones when no radius produced any.
+    //
+    // Region, not area code, is the test. lib/voice/numberSearch.js refuses
+    // to carry a city→area-code table and it is right to: naming 613 here
+    // would be a guess that gets BOUGHT. But Google says which province the
+    // typed city is in and Twilio says which province each number is in, so
+    // matching them is two pieces of real data agreeing, not an invention.
+    // A homeowner reads the area code, and a 343 rate-centred in Hawkesbury
+    // is an Ottawa number to them in a way an 819 in Gatineau is not.
+    //
+    // And the country comes from the CITY, not the company. It was pinned to
+    // the company's, so a Canadian contractor typing "New York City" asked
+    // Twilio for Canadian numbers near Manhattan and was told, accurately
+    // and uselessly, that there were none.
+    const searchCountry = near?.country || company?.country || "CA";
     let result = null;
     if (near) {
-      for (const distanceMiles of [25, 60]) {
-        result = await searchLocalNumbers({
-          country: company?.country || "CA",
-          near: { ...near, distanceMiles },
-        });
-        if (result.numbers?.length) break;
+      let widest = null;
+      for (const distanceMiles of [25, 60, 150]) {
+        const tried = await searchLocalNumbers({ country: searchCountry, near: { ...near, distanceMiles } });
+        if (tried.numbers?.length) widest = tried;
+        const inRegion = near.region
+          ? (tried.numbers || []).filter((n) => n.region && n.region === near.region)
+          : tried.numbers || [];
+        if (inRegion.length) {
+          result = { ...tried, numbers: inRegion };
+          break;
+        }
       }
+      // Nothing in the city's own province at any radius. Better to show the
+      // neighbours than an empty list — the screen names the place and the
+      // radius, so what is on offer is never mistaken for a local number.
+      if (!result) result = widest;
     }
     if (!result) result = await searchLocalNumbers({
-      country: company?.country || "CA",
+      country: searchCountry,
       areaCode,
       // Only consulted when there is no area code at all — a company with no
       // phone on file. The area codes then come back from real inventory near
