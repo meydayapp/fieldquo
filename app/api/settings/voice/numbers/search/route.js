@@ -34,6 +34,7 @@ import {
   defaultAreaCode,
   isUsableAreaCode,
 } from "@/lib/voice/numberSearch";
+import { findNumbersForCity } from "@/lib/voice/cityNumbers";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 
 export async function GET(request) {
@@ -110,22 +111,56 @@ export async function GET(request) {
   // Twilio matches localities exactly against its own rate-centre vocabulary,
   // and "Ottawa" is not in it — the rate centre is "Ottawahull", so the city
   // this most needs to serve returns nothing for its own name. Geocoding the
-  // text asks the question the contractor is actually asking. Null on any
-  // failure (no key, no match), and the exact-name search below still runs,
-  // so a geocoding outage degrades to today's behaviour instead of breaking.
+  // text asks the question the contractor is actually asking, and gives
+  // lib/voice/cityNumbers.js the province and the municipality it needs to
+  // recognise Twilio's spelling when it sees it. Null on any failure (no key,
+  // no match), and the area-code search below still runs, so a geocoding
+  // outage degrades to the older behaviour instead of breaking.
   //
-  // The city is geocoded on its OWN first. The company's province used to be
-  // appended always, which is wrong the moment the contractor types a city
+  // ── Why the company's country is a SECOND attempt and not a prefix ─────
+  //
+  // Appending it always is wrong the moment the contractor types a city
   // somewhere else: "New York City, ON, CA" is not a place, and a company in
-  // Ontario asking for Vancouver would be steered to the wrong one. So the
-  // hint is a SECOND attempt, used only when the bare text does not resolve
-  // to a locality — "Kanata" alone comes back as just "Ontario, Canada".
+  // Ontario asking for Vancouver would be steered to the wrong one.
+  //
+  // Not appending it at all is wrong too, and the owner found that one: an
+  // Ottawa contractor typing "Orleans" — a suburb of his own city — was sent
+  // to Orléans, FRANCE, which Google returns with a perfectly good region and
+  // country and no sign at all that it is absurd.
+  //
+  // Google itself settles which is which. It flags a match where it had to
+  // IGNORE part of the query as a partial one:
+  //
+  //   "Orleans, ON, CA"         → Orléans, Ottawa, ON    partial_match false
+  //   "New York City, ON, CA"   → New York, NY, USA      partial_match TRUE
+  //
+  // The flag alone is not enough, and the case that proves it is Miami: there
+  // is a Miami in MANITOBA, and "Miami, ON, CA" returns it with partial_match
+  // FALSE even though Google quietly dropped the province. Taking that would
+  // send a contractor who meant Florida to a village of 500 people.
+  //
+  // So the hint is tried only when the bare text lands outside the company's
+  // own country (or nowhere at all), and taken only when Google honoured the
+  // WHOLE hint — province included — and said so. A contractor who really
+  // means another country keeps getting it; one who means the next
+  // neighbourhood over stops getting France.
   let near = null;
   if (askedCity) {
-    const attempts = [askedCity, [askedCity, company?.province, company?.country || "CA"].filter(Boolean).join(", ")];
-    for (const hint of attempts) {
-      const point = await geocodeAddress(hint).catch(() => null);
-      if (!point) continue;
+    const homeCountry = String(company?.country || "CA").toUpperCase();
+    const homeRegion = company?.province ? String(company.province).toUpperCase() : null;
+    let point = await geocodeAddress(askedCity).catch(() => null);
+    if (!point?.region || String(point.country || "").toUpperCase() !== homeCountry) {
+      const hint = [askedCity, company?.province, homeCountry].filter(Boolean).join(", ");
+      const hinted = await geocodeAddress(hint).catch(() => null);
+      const honoured =
+        hinted?.region &&
+        !hinted.partialMatch &&
+        String(hinted.country || "").toUpperCase() === homeCountry &&
+        (!homeRegion || String(hinted.region).toUpperCase() === homeRegion);
+      if (honoured) point = hinted;
+      else if (!point) point = hinted;
+    }
+    if (point) {
       near = {
         lat: point.lat,
         lng: point.lng,
@@ -134,56 +169,41 @@ export async function GET(request) {
         // is in. Both are load-bearing below; neither is guessed.
         region: point.region || null,
         country: point.country || null,
+        // And the municipality, which is how a suburb reaches its city's
+        // exchange: "Kanata" geocodes with locality "Ottawa".
+        locality: point.locality || null,
       };
-      if (point.region) break;
     }
   }
 
   try {
-    // ── Near the city, and in the city's OWN province ──────────────────
+    // ── The city by NAME first, and the point only after ───────────────
     //
-    // Two things were wrong here and both were visible from Ottawa.
+    // Three things were wrong here and all three were visible from Ottawa.
     //
-    // The radius loop stopped at the first non-empty answer. Twilio's free
-    // inventory within 25 miles of downtown Ottawa is ENTIRELY Gatineau and
-    // Buckingham — 819 and 873, across the river in Quebec — so the loop
-    // filled up on the very area code the contractor is trying to escape and
-    // never widened. At 60 miles the same search is mostly Ontario 343, the
-    // Ottawa overlay. So the loop now keeps widening until it has numbers
-    // whose REGION matches the city's, and only settles for out-of-region
-    // ones when no radius produced any.
+    // The radius loop stopped at the first non-empty answer, so it filled up
+    // on the Gatineau inventory 25 miles away — Quebec, and the very area code
+    // the contractor is trying to escape. Widening past that got the province
+    // right and the city wrong: Brockville and Hawkesbury 343s, an hour out.
     //
-    // Region, not area code, is the test. lib/voice/numberSearch.js refuses
-    // to carry a city→area-code table and it is right to: naming 613 here
-    // would be a guess that gets BOUGHT. But Google says which province the
-    // typed city is in and Twilio says which province each number is in, so
-    // matching them is two pieces of real data agreeing, not an invention.
-    // A homeowner reads the area code, and a 343 rate-centred in Hawkesbury
-    // is an Ottawa number to them in a way an 819 in Gatineau is not.
+    // And it could never have got Ottawa right, because Twilio holds no
+    // latitude, longitude or postal code for the OTTAWAHULL rate centre that
+    // actually serves the city. A point search is structurally blind to it.
+    // lib/voice/cityNumbers.js has the measurements and the order it searches
+    // in; the province check that used to live here is now its last step but
+    // one, unchanged, so nothing it adds can return less than this did.
     //
-    // And the country comes from the CITY, not the company. It was pinned to
+    // The country still comes from the CITY, not the company. It was pinned to
     // the company's, so a Canadian contractor typing "New York City" asked
-    // Twilio for Canadian numbers near Manhattan and was told, accurately
-    // and uselessly, that there were none.
+    // Twilio for Canadian numbers near Manhattan and was told, accurately and
+    // uselessly, that there were none.
     const searchCountry = near?.country || company?.country || "CA";
     let result = null;
     if (near) {
-      let widest = null;
-      for (const distanceMiles of [25, 60, 150]) {
-        const tried = await searchLocalNumbers({ country: searchCountry, near: { ...near, distanceMiles } });
-        if (tried.numbers?.length) widest = tried;
-        const inRegion = near.region
-          ? (tried.numbers || []).filter((n) => n.region && n.region === near.region)
-          : tried.numbers || [];
-        if (inRegion.length) {
-          result = { ...tried, numbers: inRegion };
-          break;
-        }
-      }
-      // Nothing in the city's own province at any radius. Better to show the
-      // neighbours than an empty list — the screen names the place and the
-      // radius, so what is on offer is never mistaken for a local number.
-      if (!result) result = widest;
+      result = await findNumbersForCity({
+        typed: askedCity,
+        near: { ...near, country: searchCountry },
+      });
     }
     if (!result) result = await searchLocalNumbers({
       country: searchCountry,
