@@ -221,6 +221,13 @@ export async function GET(request) {
       numbers: result.numbers,
       searched: result.searched,
       configured: result.configured,
+      // WHICH COUNTRY these numbers are in. Sent because a caller that goes on
+      // to buy one has to file it under the right country and must not read it
+      // off the dial code: +1 is the United States AND Canada. The search
+      // already knows — it had to pick a country to ask Twilio at all — so
+      // handing the answer back is cheaper and truer than a second guess at
+      // the far end. See lib/businessNumber/store.js's purchaseNumber().
+      country: String(searchCountry || "CA").toUpperCase(),
       // Which area code the box should show, and why. Sent back on every
       // search so a contractor who cleared the box and got city results can see
       // that we fell back rather than ignored them.

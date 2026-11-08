@@ -29,6 +29,8 @@ import {
   Loader2,
   Upload,
   Clock,
+  Search,
+  Trash2,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
@@ -587,6 +589,242 @@ function Forwarding({ number, data, onSaved }) {
   );
 }
 
+// ── Rent a new one ──────────────────────────────────────────────────────────
+//
+// The other half of "which number do my clients see?". Everything above this
+// moves a number the company already has, which is no help to a contractor
+// who has only a personal mobile — their client texts went out from the
+// shared system number, which is how TrueFinish's Ottawa clients came to be
+// texted from a Buffalo 716.
+//
+// ── Why the search is the voice one ────────────────────────────────────────
+//
+// /api/settings/voice/numbers/search is the live Twilio inventory search, and
+// it is the one that was taught on 2026-11-07 to find the city somebody typed
+// rather than a city an hour away. A second search here would be a second
+// place for that bug to come back. It returns what is free RIGHT NOW, so a
+// number can still be gone by the time it is pressed — purchaseNumber()
+// re-checks, and the refusal below says to pick another.
+//
+// ── Why the price is not written here ──────────────────────────────────────
+//
+// It comes from the server (`data.rentCents`). A rental typed into a screen
+// is how the price shown and the price charged come apart.
+function BuyNumber({ data, onBought }) {
+  const { t } = useTranslation();
+  const [city, setCity] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState(null);
+  const [searched, setSearched] = useState(null);
+  // Which country the search ran in, as the SERVER answered it. Not derived
+  // from the digits here: +1 is the US and Canada both.
+  const [country, setCountry] = useState(null);
+  const [error, setError] = useState(null);
+  const [buying, setBuying] = useState(null);
+
+  async function search(e) {
+    e.preventDefault();
+    setSearching(true);
+    setError(null);
+    setResults(null);
+    try {
+      const q = city.trim() ? `?city=${encodeURIComponent(city.trim())}` : "";
+      const r = await fetchJson(`/api/settings/voice/numbers/search${q}`);
+      setResults(r.numbers || []);
+      setSearched(r.searched || null);
+      setCountry(r.country || null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function buy(n) {
+    setBuying(n.e164);
+    setError(null);
+    try {
+      await fetchJson(API, {
+        method: "POST",
+        body: { action: "purchase", number: n.e164, country },
+      });
+      await onBought();
+    } catch (err) {
+      setError(err.message);
+      // The list is stale the moment one of its numbers is taken — by this
+      // company or anyone else on Twilio. Cleared rather than left showing
+      // rows that may no longer be buyable, which is the picker lying.
+      setResults(null);
+    } finally {
+      setBuying(null);
+    }
+  }
+
+  const short = data.balanceCents < (data.rentCents || 0);
+
+  return (
+    <Card>
+      <h2 className="text-sm font-semibold text-foreground">
+        {t("app.bizNumber.buy.title", "Or rent a new number")}
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        {t(
+          "app.bizNumber.buy.why",
+          "A local number your clients are texted from, so a text from you shows a number from their own city. {amount} a month from your phone balance ({balance} now).",
+          { amount: money(data.rentCents || 0), balance: money(data.balanceCents) },
+        )}
+      </p>
+
+      <form onSubmit={search} className="space-y-2">
+        <Field
+          label={t("app.bizNumber.buy.cityLabel", "Which city")}
+          hint={t("app.bizNumber.buy.cityHint", "Leave it blank for your own. An area code can cover somewhere hours away, so the city is what's searched.")}
+        >
+          <div className="flex gap-2">
+            <input
+              className={inputCls}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder={t("app.bizNumber.buy.cityPlaceholder", "Ottawa")}
+            />
+            <button type="submit" disabled={searching} className={quietBtn}>
+              {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              {t("app.bizNumber.buy.search", "Search")}
+            </button>
+          </div>
+        </Field>
+      </form>
+
+      {/* Where the search actually landed, in the server's words. A name
+          search reports the city it matched (`locality`), a point search
+          reports the place it geocoded (`near.place`), and a fallback reports
+          only the province — each is a different answer and the reader is
+          told which they got rather than all three being printed as "near
+          your city". */}
+      {searched && (searched.near?.place || searched.locality || searched.region) && (
+        <p className="text-xs text-muted-foreground">
+          {searched.near?.place || searched.locality
+            ? t("app.bizNumber.buy.searchedIn", "Free numbers in {place}.", {
+                place: searched.near?.place || searched.locality,
+              })
+            : t("app.bizNumber.buy.searchedRegion", "Nothing free in that city, so these are from {region}.", {
+                region: searched.region,
+              })}
+        </p>
+      )}
+
+      {/* Empty and unsearched are different answers and must not look alike:
+          one means "there is nothing free in that city", the other means
+          "you haven't asked yet". */}
+      {results && results.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {t("app.bizNumber.buy.none", "Nothing free there right now. Try a nearby city — this changes through the day.")}
+        </p>
+      )}
+
+      {results && results.length > 0 && (
+        <ul className="space-y-2">
+          {results.map((n) => (
+            <li key={n.e164} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+              <div>
+                <p className="font-mono text-sm text-foreground">{n.display || n.e164}</p>
+                <p className="text-xs text-muted-foreground">
+                  {[n.locality, n.region].filter(Boolean).join(", ") || t("app.bizNumber.buy.noCity", "City not listed")}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={Boolean(buying) || short}
+                onClick={() => buy(n)}
+                className={primaryBtn}
+              >
+                {buying === n.e164 && <Loader2 size={14} className="animate-spin" />}
+                {t("app.bizNumber.buy.take", "Take this one")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {short && (
+        <Warning>
+          {t("app.bizNumber.buy.short", "The first month ({amount}) comes off your phone balance, and {balance} won't cover it. Top up and the numbers above become buyable.", {
+            amount: money(data.rentCents || 0),
+            balance: money(data.balanceCents),
+          })}
+        </Warning>
+      )}
+
+      {results && results.length > 0 && !short && (
+        <p className="text-xs text-muted-foreground">
+          {t("app.bizNumber.buy.immediate", "Taking one buys it straight away and your clients are texted from it from that moment. The first month comes off your balance.")}
+        </p>
+      )}
+
+      <ErrorLine error={error} />
+    </Card>
+  );
+}
+
+/**
+ * Give a rented number back.
+ *
+ * Only for a number FieldQuo rented. A hosted or ported number is the
+ * company's own property and there is nothing here to give back — the server
+ * refuses that case too, and this card is simply not drawn for it.
+ *
+ * Typing the number is the confirmation, and the server checks it as well:
+ * Twilio can resell the line within minutes, so this is the one control on
+ * the screen that cannot be undone by pressing it again.
+ */
+function ReleaseNumber({ number, onReleased }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function release() {
+    setBusy(true);
+    setError(null);
+    try {
+      await fetchJson(API, { method: "POST", body: { action: "release", confirm } });
+      await onReleased();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setOpen(true)}>
+        {t("app.bizNumber.release.open", "Give this number up")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <p className="text-sm text-foreground">
+        {t("app.bizNumber.release.warn", "{number} is released for good and somebody else can take it. The monthly rental stops, and your texts go back to the shared FieldQuo number. Type the number to confirm.", { number: number.e164 })}
+      </p>
+      <div className="flex gap-2">
+        <input className={inputCls} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={number.e164} inputMode="tel" />
+        <button type="button" disabled={busy || !confirm.trim()} onClick={release} className={quietBtn}>
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          {t("app.bizNumber.release.confirm", "Give it up")}
+        </button>
+      </div>
+      <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setOpen(false)}>
+        {t("app.bizNumber.release.keep", "Keep it")}
+      </button>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
 export default function BusinessNumberSettingsPage() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
@@ -702,6 +940,14 @@ export default function BusinessNumberSettingsPage() {
         </Card>
       )}
 
+      {/* Drawn beside "bring yours in", not instead of it: a company with a
+          number on its van still wants that one, and a company without one
+          has nothing to bring. Hidden entirely when buying isn't available
+          rather than drawn and refusing — see `available.buying`. */}
+      {data && data.available.buying && (!number || ["draft", "failed", "cancelled"].includes(status)) && (
+        <BuyNumber data={data} onBought={load} />
+      )}
+
       {data && number && status === "draft" && paths.length > 1 && !choice && (
         <Card>
           <p className="text-sm text-foreground">{t("app.bizNumber.unknownKind", "We couldn't tell what kind of line this is. Which is it?")}</p>
@@ -741,9 +987,19 @@ export default function BusinessNumberSettingsPage() {
             </Warning>
           )}
           <Link href="/app/messages" className="text-sm underline text-foreground">{t("app.bizNumber.openInbox", "Open the inbox")}</Link>
+          {/* Only a RENTED number can be given up here. A hosted or ported
+              one is the company's own property — there is nothing to hand
+              back, and the server refuses it. */}
+          {number.path === "purchased" && <ReleaseNumber number={number} onReleased={load} />}
         </Card>
       )}
-      {data && number && status === "active" && number.path === "port" && <Forwarding number={number} data={data} onSaved={load} />}
+      {/* Forwarding applies wherever the number's CALLS are ours: a port, and
+          a line we rented. Not a hosted number, whose calls stay with its own
+          carrier — setting a ring list there would be a control that changes
+          nothing. */}
+      {data && number && status === "active" && (number.path === "port" || number.path === "purchased") && (
+        <Forwarding number={number} data={data} onSaved={load} />
+      )}
 
       {data && (
         <Card>

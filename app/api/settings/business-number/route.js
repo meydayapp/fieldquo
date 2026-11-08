@@ -35,8 +35,10 @@ import {
   setForwarding,
   cancelRequest,
   loadForCompany,
+  purchaseNumber,
+  releasePurchased,
 } from "@/lib/businessNumber/store";
-import { monthlyEstimate, EXAMPLE_VOLUMES, PORT_FEE_NOTE, BUSINESS_CALL_CENTS_PER_MINUTE } from "@/lib/businessNumber/costs";
+import { monthlyEstimate, EXAMPLE_VOLUMES, PORT_FEE_NOTE, BUSINESS_CALL_CENTS_PER_MINUTE, BROUGHT_NUMBER_MONTHLY_CENTS } from "@/lib/businessNumber/costs";
 import { portSecretsConfigured } from "@/lib/businessNumber/secrets";
 import { TIMELINES } from "@/lib/businessNumber/state";
 import { phoneGateResponse } from "@/lib/trial/phoneGate";
@@ -122,6 +124,13 @@ export async function GET(request) {
       twilio: twilioConfigured() || Boolean(company?.isDemo),
       porting: portSecretsConfigured() || Boolean(company?.isDemo),
       demo: Boolean(company?.isDemo),
+      // Renting a NEW number, as opposed to bringing one in. A demo is
+      // excluded rather than simulated: every other path here has a simulated
+      // twin because a demo must be able to walk the flow, but there is
+      // nothing to walk through here — one press buys a real number for real
+      // money, and purchaseNumber() refuses a demo outright. A live button
+      // that always refuses is the dead control, so it is not drawn.
+      buying: twilioConfigured() && !company?.isDemo,
     },
     costs: {
       hosted: monthlyEstimate({ path: "hosted_sms", ...volumes }),
@@ -131,6 +140,10 @@ export async function GET(request) {
       portFeeNote: PORT_FEE_NOTE,
       callCentsPerMinute: BUSINESS_CALL_CENTS_PER_MINUTE,
     },
+    // The monthly rental, from the one constant that charges it. The buy card
+    // prices from this rather than a figure typed into the screen, which is
+    // how the price shown and the price charged come apart.
+    rentCents: BROUGHT_NUMBER_MONTHLY_CENTS,
     timelines: TIMELINES,
     balanceCents,
     receptionist: {
@@ -180,6 +193,33 @@ export async function POST(request) {
       }
       break;
     }
+    case "purchase": {
+      // Same gate as hosting: a card-free trial verifies a mobile before this
+      // spends FieldQuo's money, and this one spends it the same second.
+      const phoneGate = await phoneGateResponse(member, "business_number");
+      if (phoneGate) return phoneGate;
+      result = await purchaseNumber({ companyId, e164: body.number, country: body.country, origin });
+      if (result.ok) {
+        await recordActivity(member, {
+          action: "business_number.purchased",
+          entityType: "settings",
+          summary: `Bought ${result.number?.e164} as the number clients are texted from`,
+          metadata: { e164: result.number?.e164, country: result.number?.country },
+        });
+      }
+      break;
+    }
+    case "release":
+      result = await releasePurchased({ companyId, confirm: body.confirm });
+      if (result.ok) {
+        await recordActivity(member, {
+          action: "business_number.released",
+          entityType: "settings",
+          summary: `Gave up ${result.number?.e164}`,
+          metadata: { e164: result.number?.e164 },
+        });
+      }
+      break;
     case "verify_call":
       result = await startVerificationCall({ companyId, extension: body.extension || null });
       break;
