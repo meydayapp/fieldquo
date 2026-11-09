@@ -75,10 +75,28 @@ const stripComments = (src) =>
 // claims its document tables are done gets held to that claim below — all four
 // tables, key-for-key with English — so deleting a German block can never leave
 // a comment here quietly asserting it is still there.
+// ── Why this says HAN and not CJK (2026-11-08) ─────────────────────────────
+//
+// It read "no CJK font is registered" until a Korean face went into
+// lib/documents/pdfFont.js. A CJK font is now registered — Noto Sans KR — and
+// that sentence would have read as already satisfied to the next person to
+// look, who would then flip zh on and send a Chinese homeowner a quote full of
+// blank boxes. Noto Sans KR carries Hangul, not Han: the two scripts share the
+// "CJK" label and share no glyphs.
+//
+// Han is held back on size, not safety. It was subsetted and swept the same way
+// Hangul was (all 20,992 ideographs, both weights, zero crashes); it costs
+// 3.2 MB of inline base64 per PDF lambda against Hangul's 2.2 MB.
+// scripts/build-pdf-fonts.mjs carries the measured numbers and the recipe.
+//
+// Note the second blocker, which the font does not clear: zh has no tables in
+// documentLabels.js, clientDocCopy.js, emailCopy.js or receiptEmailCopy.js.
+// Shipping the Han face alone would remove the reason named here and leave the
+// real one unwritten, so both have to land before zh is offered.
 const CATALOGUE_ONLY = {
   zh: {
     tablesComplete: false,
-    why: "no CJK font is registered in lib/documents/pdfFont.js, so a Chinese quote PDF would render as mojibake",
+    why: "no HAN font is registered in lib/documents/pdfFont.js (the Korean face there covers Hangul only), so a Chinese quote PDF would render as blank boxes — and the four document tables are still unwritten",
   },
 };
 

@@ -39,6 +39,11 @@ const LOCAL_ONLY = new Set([
   "NEW_ADMIN_PASSWORD",
   "TMPDIR",
   "PYFTSUBSET",
+  // Same script, same nature as PYFTSUBSET: scripts/build-pdf-fonts.mjs needs
+  // a python with fontTools to pin the Korean variable font to a weight and to
+  // derive the KS X 1001 ranges. It runs on a laptop every year or two when a
+  // Noto release or a new document language lands, never on Vercel.
+  "PYTHON",
 ]);
 
 function walk(dir, out = []) {
