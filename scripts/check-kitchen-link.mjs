@@ -18,6 +18,14 @@
 //   1. the bio-link page (lib/links/candidates.js) — executed here
 //   2. Share your links (app/app/settings/lead-form) — source-checked
 //   3. the self-quote form's kitchen step (SelfQuoteFlow) — source-checked
+//   4. the quote builder's "Save & design" (2026-11-08) — source-checked
+//
+// Surface 4 is the INTERNAL designer, /app/quotes/<id>/kitchen, rather than
+// the public page the first three hand out — but it is the same failure
+// guarded the same way. The owner, 2026-11-07: "if I'm building a quote. I
+// don't have the edit and save that's after a quote is created." The designer
+// needs a quote id, so an unsaved builder cannot link to it and a plain link
+// would 404; the control saves first and then goes.
 //
 // And the slug: the page used to resolve Company.slug alone while every other
 // public link is built from bookingSlug, so the link this hands out would
@@ -30,9 +38,24 @@ import { linkLabels } from "@/lib/links/labels";
 import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
 import { CLIENT_DOC_COPY } from "@/lib/i18n/clientDocCopy";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
+const exists = (p) => fs.existsSync(path.join(ROOT, p));
+
+/**
+ * Source with comments removed.
+ *
+ * Section 4 asserts that the quote builder does NOT re-derive the kitchen
+ * rule — and the builder's own comment explains that it must not, naming
+ * kitchenDesignerOnPure and the granting trades while doing so. Grepping raw
+ * source would read that explanation as the offence it warns against, which
+ * is the false-pass-in-reverse this file's module doc already cautions about
+ * for the other direction.
+ */
+const stripComments = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 let failures = 0;
 let checks = 0;
@@ -115,6 +138,111 @@ ok("the page uses findBookingCompany (bookingSlug first, then slug)", /findBooki
 ok("the page still refuses a company without the service", /companyOffersKitchenDesign\(company\.id\)/.test(page));
 ok("the POST uses the same resolver", /findBookingCompany\(String\(companySlug\)/.test(api));
 ok("…and still refuses through the same gate as the page", /companyOffersKitchenDesign\(company\.id\)/.test(api));
+
+section("The quote builder's \"Save & design\" (the fourth surface)");
+{
+  // Read with comments stripped — see stripComments above.
+  const builder = stripComments(read("app/components/quotes/builder/QuoteBuilder.js"));
+  const docBuilder = stripComments(read("app/components/quotes/builder/DocumentBuilder.js"));
+  const bar = stripComments(read("app/components/quotes/builder/QuoteTotalsBar.js"));
+  const detail = stripComments(read("app/app/quotes/[id]/page.js"));
+
+  // The destination has to be real. A control that saves a quote and then
+  // routes to a page that does not exist is worse than no control: the quote
+  // is created and the person is on a 404.
+  ok("the page it routes to exists", exists("app/app/quotes/[id]/kitchen/page.js"));
+
+  // Same condition the page renders on, asked of the server's one gate.
+  ok(
+    "the builder asks GET /api/settings/kitchen-designer for the gate",
+    /\/api\/settings\/kitchen-designer/.test(builder) && /state\?\.on === true/.test(builder),
+  );
+  ok(
+    "…and does NOT re-derive the rule from the quote's own services",
+    !/kitchenDesignerOnPure/.test(builder) &&
+      !/kitchenGrantingKeys/.test(builder) &&
+      !/KITCHEN_GRANTING_TRADE_KEYS/.test(builder),
+  );
+  ok(
+    "a builder screen never imports lib/kitchen/access (it would drag lib/db into the browser)",
+    !/lib\/kitchen\/access/.test(builder) && !/lib\/kitchen\/access/.test(docBuilder),
+  );
+  ok("the gate starts closed, so the button cannot flicker in", /useState\(false\)/.test(builder));
+
+  // The action saves first, then navigates — the whole reason it is not a link.
+  ok('the "design" action routes to the designer', /if \(action === "design"\) \{/.test(builder));
+  ok(
+    "…at the saved quote's own id",
+    /router\.push\(`\/app\/quotes\/\$\{id\}\/kitchen`\)/.test(builder),
+  );
+  // Deliberately against the RAW source, not the stripped copy: this one
+  // asserts a DOC COMMENT, because handleSave's action is a bare string and
+  // the list of legal actions exists nowhere else. AGENTS.md treats a comment
+  // that has drifted as a defect, and the two places that enumerate the
+  // actions — the saving-state note and handleSave's @param — are what a
+  // reader trusts when adding a fifth one.
+  const builderRaw = read("app/components/quotes/builder/QuoteBuilder.js");
+  ok(
+    "…and both doc comments that list the actions name it",
+    (builderRaw.match(/"draft" \| "sent" \| "review" \| "design"/g) || []).length === 2,
+  );
+
+  // Both builders draw the same dock, so both must pass it.
+  ok(
+    "the classic card passes onSaveAndDesign, gated on the company having it",
+    /onSaveAndDesign=\{kitchenOffered \? \(\) => handleSave\("design"\) : null\}/.test(builder),
+  );
+  ok(
+    "the document-shaped builder passes it too, from the same answer",
+    /onSaveAndDesign=\{b\.kitchenOffered \? \(\) => b\.handleSave\("design"\) : null\}/.test(docBuilder),
+  );
+  ok("…reading it off the bundle the parent hands down", /\bkitchenOffered,/.test(builder));
+
+  // A null handler must render NOTHING, not a disabled button — the dock's
+  // own documented convention for onSaveAndSend and onSaveAndReview.
+  ok("the dock renders the button only behind the handler", /\{onSaveAndDesign && \(/.test(bar));
+  ok(
+    "…and forwards the prop from the card to the dock",
+    /onSaveAndDesign=\{onSaveAndDesign\}/.test(bar),
+  );
+  ok(
+    "the spinner is keyed to this action alone, so the pressed button is the one that spins",
+    /saving === "design"/.test(bar),
+  );
+
+  // The label must not hide what pressing it does. reviewShort can say
+  // "Review" because the card above carries a sentence saying it saves first
+  // (showReviewHint); this has no such sentence, so the save lives in the
+  // label — and a button that silently creates a database record is exactly
+  // what that sentence exists to prevent.
+  ok(
+    "the full sentence is the title and the accessible name",
+    /title=\{t\("app\.quoteNew\.saveAndDesign"\)\}/.test(bar) &&
+      /aria-label=\{t\("app\.quoteNew\.saveAndDesign"\)\}/.test(bar),
+  );
+  ok("the visible label is the short key", /t\("app\.quoteNew\.designShort"\)/.test(bar));
+  const short = APP_MESSAGES.en["app.quoteNew.designShort"];
+  ok(
+    'the English short label still says "Save", because nothing else does',
+    typeof short === "string" && /save/i.test(short),
+    short,
+  );
+  for (const { code } of LANGUAGES) {
+    const table = APP_MESSAGES[code];
+    if (!table) continue; // a language whose app catalogue has not landed yet
+    for (const key of ["app.quoteNew.saveAndDesign", "app.quoteNew.designShort"]) {
+      ok(`${code}: ${key} is translated`, typeof table[key] === "string" && table[key].length > 0);
+    }
+  }
+
+  // The saved quote's own button and this one are one feature. The comment on
+  // that button claimed a per-quote kitchen test that the variable never held,
+  // which would send a reader looking for a rule that does not exist.
+  ok(
+    "the saved quote's button reads the same server-side answer",
+    /quote\.canOpenKitchenDesigner/.test(detail),
+  );
+}
 
 console.log(`\n${checks} checks, ${failures} failure(s).${failures ? "" : " The kitchen designer is reachable, and only where it works."}\n`);
 if (failures) process.exitCode = 1;

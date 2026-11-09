@@ -1920,6 +1920,9 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
         onSaveDraft={() => b.handleSave("draft")}
         onSaveAndSend={sendable ? () => b.handleSave("sent") : null}
         onSaveAndReview={isEdit ? null : () => b.handleSave("review")}
+        // Both modes — see the note beside the classic card's copy in
+        // QuoteBuilder. b.kitchenOffered is the server's gate, read once there.
+        onSaveAndDesign={b.kitchenOffered ? () => b.handleSave("design") : null}
         cancelHref={isEdit ? backHref : null}
       />
 

@@ -66,7 +66,7 @@ import { notify } from "@/lib/notify/browser";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ActionMenu from "@/app/components/mobile/ActionMenu";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
-import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useHasLevel, useSeesOnlyAssignedJobs } from "@/app/providers/PermissionProvider";
 import {
   ChatLayout,
   RoomList,
@@ -112,6 +112,12 @@ import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 import AiHolderBar from "@/app/components/messaging/AiHolderBar";
 import WebMatchBar from "@/app/components/messaging/WebMatchBar";
+// "Link a client" — the one that already exists, found by typing, on every
+// channel. The inbox could CREATE a client from a contact card and could open
+// the one already linked; picking an existing one was the gap (owner,
+// 2026-11-08). The PATCH is this screen's own patchThread, so the refusal
+// sentence and the re-read are the ones every other judgement here uses.
+import ClientLinkControl from "@/app/components/messaging/ClientLinkControl";
 import MessageJobChip from "@/app/components/messaging/MessageJobChip";
 import HandlingTimeline from "@/app/components/messaging/HandlingTimeline";
 // The one table that knows what WhatsApp will accept, and Meta's own size
@@ -225,6 +231,11 @@ function MessagesScreen() {
   const canReadRequests = useHasLevel("requests", "view_only");
   const canReadClients = useHasLevel("clientsProperties", "full_view");
   const canCoach = canReadRequests && canReadClients;
+  // Is this member's client book only the households on their own jobs? The
+  // SERVER's own predicate, not a rule re-derived from two hooks — the same
+  // one assignedClientWhere uses to narrow GET /api/clients. "Link a client"
+  // searches that book, so a member it narrows gets no search box.
+  const onlyAssignedJobs = useSeesOnlyAssignedJobs();
 
   // null, never []. An outage that rendered as "you have no conversations"
   // would tell a contractor their enquiries had vanished.
@@ -945,6 +956,42 @@ function MessagesScreen() {
             >
               <UserRound size={13} aria-hidden="true" /> {t("app.messages.action.details")}
             </button>
+          </div>
+        ) : null}
+        {/* ── Link this conversation to a client who already exists ────────
+            Under the action row rather than in it: that row scrolls sideways
+            on a phone with `[&>*]:shrink-0`, and a search panel inside it
+            would be a dropdown in a horizontal scroller.
+
+            Every platform. A Messenger thread, an Instagram DM, WhatsApp, a
+            website chat, a text and a filed email are one MessageThread with
+            one clientId — unlike the qualification control below, which is
+            Meta-only because Meta is where lead capture runs.
+
+            Two gates, both read off what the routes behind it actually
+            enforce. The PATCH wants `requests: view_create_edit` — canEdit,
+            the same rung as the outcome and the assignee. The search is GET
+            /api/clients, which every member may call, but which narrows the
+            book to the households on a scoped member's own jobs
+            (assignedClientWhere → seesOnlyAssignedJobs): for them a search
+            box is a control that appears to work and mostly finds nothing, so
+            they get none. `clientsProperties` is NOT asked for beyond that —
+            its floor is name_address_only, so every member can read a client
+            NAME, and nothing here edits a client record. Requiring full_edit
+            (the thread route's canEditClients, which gates the two buttons
+            that DO write a client) would be a restriction no route enforces.
+
+            Not on a demo company either — its threads are computed, not
+            stored, and the PATCH says so rather than pretending to save. */}
+        {thread && !isDemo && canEdit && !onlyAssignedJobs ? (
+          <div className="mt-2" data-thread-client-link>
+            <ClientLinkControl
+              thread={thread}
+              busy={busy}
+              triggerClassName={ACTION}
+              onLink={(clientId) => patchThread({ clientId }, "app.messages.linkClient.saveError")}
+              t={t}
+            />
           </div>
         ) : null}
         {/* The message reviewer's verdict on this conversation — genuine

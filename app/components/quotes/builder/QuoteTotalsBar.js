@@ -38,7 +38,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Loader2, Save, Send, Sparkles } from "lucide-react";
+import { Loader2, Ruler, Save, Send, Sparkles } from "lucide-react";
 import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
 import { formatAppMoney } from "@/lib/format/money";
@@ -132,6 +132,14 @@ export default function QuoteTotalsBar({
   // screen once the quote exists.
   onSaveAndSend = null,
   onSaveAndReview = null,
+  // "Save & design" — the Kitchen designer needs a quote id, so the builder
+  // cannot link to it. Null unless the company HAS the designer: asked of
+  // GET /api/settings/kitchen-designer in QuoteBuilder, never re-derived
+  // from the services on the quote (see the warning in
+  // app/app/settings/lead-form/page.js — five trades grant it and a company
+  // override can refuse it, so a second copy of that rule is the copy that
+  // rots).
+  onSaveAndDesign = null,
   // Where "Cancel" goes back to, when there is somewhere to go back to.
   cancelHref = null,
 }) {
@@ -172,6 +180,7 @@ export default function QuoteTotalsBar({
         primaryLabel={primaryLabel}
         primaryLabelShort={primaryLabelShort}
         onSaveDraft={onSaveDraft}
+        onSaveAndDesign={onSaveAndDesign}
         onSaveAndSend={onSaveAndSend}
         onSaveAndReview={onSaveAndReview}
         cancelHref={cancelHref}
@@ -515,6 +524,7 @@ export function QuoteActionsDock({
   onSaveDraft,
   onSaveAndSend = null,
   onSaveAndReview = null,
+  onSaveAndDesign = null,
   cancelHref = null,
   // Rendered before the save buttons — the document builder's "Cost &
   // margin" and "Preview" controls live here on a phone.
@@ -612,6 +622,50 @@ export function QuoteActionsDock({
               )}
               <span className="whitespace-nowrap hidden sm:inline">
                 {t("app.quoteNew.reviewShort")}
+              </span>
+            </button>
+          )}
+
+          {/* "Save & design" — the owner, 2026-11-07: "if I'm building a
+              quote. I don't have the edit and save that's after a quote is
+              created." The Kitchen designer lived on the saved quote only
+              (one link, app/app/quotes/[id]/page.js), so the builder had no
+              way in at all.
+
+              It saves FIRST and then goes, for the same reason "Save &
+              review" does: an unsaved builder has no id, and
+              /app/quotes/<id>/kitchen cannot be linked to before one exists.
+              A plain link would 404, which is the dead control AGENTS.md's
+              first rule forbids — so the label says "Save", because that is
+              what pressing it does.
+
+              Icon-only below sm, like Review: this bar already carries
+              Cancel, Review, Save and Send, and the file's own note says a
+              label that truncates is worse than none.
+
+              Unlike reviewShort ("Review"), the short label KEEPS the word
+              "save" — "Save & design". Review can drop it because the card
+              above carries a sentence saying it saves a draft first
+              (QuoteReadinessBlock's showReviewHint); this has no such
+              sentence, so the label is the only place the save can be
+              stated, and a button that silently creates a database record is
+              what that sentence exists to prevent. */}
+          {onSaveAndDesign && (
+            <button
+              type="button"
+              onClick={onSaveAndDesign}
+              disabled={saving || disabled}
+              title={t("app.quoteNew.saveAndDesign")}
+              aria-label={t("app.quoteNew.saveAndDesign")}
+              className="border border-border px-3 sm:px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
+            >
+              {saving === "design" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Ruler size={14} className="text-brand-accent-text" />
+              )}
+              <span className="whitespace-nowrap hidden sm:inline">
+                {t("app.quoteNew.designShort")}
               </span>
             </button>
           )}

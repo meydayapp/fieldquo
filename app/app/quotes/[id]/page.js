@@ -1179,9 +1179,16 @@ export default function QuoteDetailPage() {
               <RefreshCw size={14} /> {t("app.quoteDetail.convertToInvoice")}
             </button>
           )}
-          {/* Only offered when this quote actually IS a kitchen. Showing it on
-              a fence quote would be a button that opens an empty room and a
-              pricing panel for cabinetry nobody is buying. */}
+          {/* Offered when the COMPANY has the designer, or when this quote
+              already carries a design to protect — canUseKitchenDesigner in
+              lib/kitchen/access.js, answered server-side as
+              quote.canOpenKitchenDesigner. NOT "this quote is a kitchen":
+              that is what this comment claimed until 2026-11-08 and it was
+              never what the variable held, which matters because the quote
+              builder now draws the same control from the same gate
+              (QuoteBuilder's "Save & design") and a reader comparing the two
+              would have gone looking for a per-quote test that does not
+              exist. A company without the designer sees neither. */}
           {isKitchen && (
             <Link
               href={`/app/quotes/${id}/kitchen`}

@@ -1235,11 +1235,44 @@ export function QuoteBuilderForm({
   );
 
   // ── Page state ───────────────────────────────────────────────────────────
-  // "" | "draft" | "sent" | "review" — which action is in flight, not merely
+  // "" | "draft" | "sent" | "review" | "design" — which action is in flight, not merely
   // that one is. The totals bar spins only the button that was pressed.
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
   const errorRef = useRef(null);
+
+  // ── Does this company HAVE the Kitchen designer? ────────────────────────
+  //
+  // Asked of the server's one gate, never re-derived here. The same pattern
+  // and the same reason as app/app/settings/lead-form/page.js, whose comment
+  // is worth repeating: since 2026-09-25 five trades grant the designer and
+  // a company override can refuse it, so a second copy of that rule is the
+  // copy that rots. GET /api/settings/kitchen-designer returns `on`, which
+  // is kitchenDesignerOnPure() — the identical answer
+  // /app/quotes/[id]/kitchen checks before it renders, so the button can
+  // never send somebody to a page that refuses them.
+  //
+  // Starts false, so a company without it never sees the button flicker in.
+  // The catch is silent on purpose, exactly as the lead-form one is: this
+  // decides whether ONE more button is drawn, and a red banner over a
+  // perfectly good quote builder because a settings read failed would be the
+  // worse outcome. The quote still saves; the designer is still reachable
+  // from the saved quote.
+  const [kitchenOffered, setKitchenOffered] = useState(false);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const state = await fetchJson("/api/settings/kitchen-designer");
+        if (live) setKitchenOffered(state?.on === true);
+      } catch {
+        // See above: one button, not the screen.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // ── The stale-write guard's client half ─────────────────────────────────
   //
@@ -2517,7 +2550,7 @@ export function QuoteBuilderForm({
   }
 
   /**
-   * @param {string} action  "draft" | "sent" | "review"
+   * @param {string} action  "draft" | "sent" | "review" | "design"
    * @param {object} [opts]
    * @param {boolean} [opts.confirmed]      the send dialog was answered
    * @param {string}  [opts.againstVersion] deliberately re-apply on top of the
@@ -2774,6 +2807,21 @@ export function QuoteBuilderForm({
     // "Save & review" and the line under it says it creates a draft.
     if (action === "review") {
       router.push(`/app/quotes/${id}/edit?review=1`);
+      return;
+    }
+
+    // "Save & design" lands on the Kitchen designer, for exactly the reason
+    // above: the designer reads a SAVED quote, so there is no designing an
+    // unsaved builder. Until now the only way in was the button on the saved
+    // quote's own page — the owner, 2026-11-07: "if I'm building a quote. I
+    // don't have the edit and save that's after a quote is created."
+    //
+    // Edit mode gets it too, unlike "Save & review". Review is a shortcut to
+    // a panel already on screen once the quote exists; the designer is not on
+    // this screen in either mode, so from the editor the walk was save, leave,
+    // find the button on the detail page.
+    if (action === "design") {
+      router.push(`/app/quotes/${id}/kitchen`);
       return;
     }
 
@@ -3802,6 +3850,9 @@ export function QuoteBuilderForm({
     return (
       <DocumentBuilder
         b={{
+          // Read once above from the server's own gate; the document-shaped
+          // builder draws the same dock and needs the same answer.
+          kitchenOffered,
           t, lang, isEdit, quoteId, start, boot, caller, mayCost, canEditScope,
           // The document layout needs this for the same reason the classic
           // markup below does: to offer "Start from drawings" on a new quote,
@@ -4282,6 +4333,10 @@ export function QuoteBuilderForm({
         // below), so the button that saves-then-goes-there is a create-only
         // shortcut rather than a duplicate.
         onSaveAndReview={isEdit ? null : () => handleSave("review")}
+        // Offered in BOTH modes, unlike Review: the designer is not on this
+        // screen either way. Null when the company does not have it, which
+        // renders no button at all rather than a disabled one.
+        onSaveAndDesign={kitchenOffered ? () => handleSave("design") : null}
         cancelHref={isEdit ? `/app/quotes/${quoteId}` : null}
       />
 
