@@ -337,6 +337,7 @@ const { hrefFor } = await import("@/lib/notifications/render.js");
 const { CLIENT_ALERT_COPY, staffAlertSms, smsSegments } = await import("@/lib/i18n/clientAlertCopy.js");
 const { timesOrdinal, TIMES_ORDINAL_LANGUAGES } = await import("@/lib/i18n/timesOrdinal.js");
 const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+const { LANGUAGE_CODES } = await import("@/app/i18n/languages.js");
 const { TEAM_NOTICE_COPY } = await import("@/lib/i18n/teamNoticeCopy.js");
 const { NOTIFICATION_TYPES } = await import("@/lib/notifications/catalog.js");
 const { RULE_TYPES } = await import("@/app/api/settings/notification-rules/route.js");
@@ -916,14 +917,35 @@ table("platformSmsNumber").push({ id: "psn", e164: "+15550001111", purpose: "sys
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("10. Every word, all nine languages");
+section("10. Every word, every language the picker offers");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
   const langs = Object.keys(APP_MESSAGES);
-  ok(langs.length === 9, "the app catalogue's nine", langs);
-  ok(JSON.stringify(Object.keys(CLIENT_ALERT_COPY).sort()) === JSON.stringify([...langs].sort()), "the text copy has exactly the nine", Object.keys(CLIENT_ALERT_COPY));
-  ok(JSON.stringify([...TIMES_ORDINAL_LANGUAGES].sort()) === JSON.stringify([...langs].sort()), "the ordinal has exactly the nine", TIMES_ORDINAL_LANGUAGES);
+  // ── Stated against the PICKER, not against the app catalogue ───────────
+  //
+  // This read `=== Object.keys(APP_MESSAGES)` until 2026-11-08, which was the
+  // right invariant while the two lists moved together and the wrong one the
+  // moment they stopped. ko/pt/ru were offered on 2026-10-24 and given
+  // client-alert copy; app/i18n/appMessages.js (19,070 keys a language) has
+  // not followed. Equality then failed on the copy being READY — the state
+  // this project wants — while saying nothing about the gap that matters.
+  //
+  // So: every language the picker offers must have alert copy and an
+  // ordinal, and nothing may have copy that the picker does not offer. The
+  // missing app catalogue is asserted where it belongs, by
+  // check:language-completeness, which fails on exactly those three today.
+  const offered = [...LANGUAGE_CODES].sort();
+  const copyLangs = Object.keys(CLIENT_ALERT_COPY).sort();
+  // One direction only. A language may legitimately have copy and a full
+  // catalogue WITHOUT being offered — zh is held back deliberately, because
+  // no CJK face is registered in lib/documents/pdfFont.js and a Mandarin
+  // quote PDF would render as mojibake (CATALOGUE_ONLY in
+  // scripts/check-language-completeness.mjs, which owns that question and
+  // asserts the font claim rather than trusting it). Asserting the reverse
+  // here would make a deliberate hold-back look like a defect.
+  ok(offered.every((l) => copyLangs.includes(l)), "every offered language has client-alert copy", offered.filter((l) => !copyLangs.includes(l)));
+  ok(offered.every((l) => TIMES_ORDINAL_LANGUAGES.includes(l)), "every offered language has an ordinal ('3rd time')", offered.filter((l) => !TIMES_ORDINAL_LANGUAGES.includes(l)));
   const appKeys = Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.clientAlerts.") || k === "app.notif.type.quote.viewed" || k === "app.notif.type.changeOrder.approved");
   ok(appKeys.length >= 24, "the screen and bell keys exist in English", appKeys.length);
   for (const l of langs) {
@@ -1205,9 +1227,9 @@ reset();
       ok(body !== enBody, `${l}: the new-enquiry text is not the English`);
     }
   }
-  // The copy table holds the same languages the app does — asserted from
-  // both files' own lists.
-  ok(JSON.stringify(Object.keys(CLIENT_ALERT_COPY).sort()) === JSON.stringify(Object.keys(APP_MESSAGES).sort()), "the copy file carries exactly the app's languages");
+  // Every offered language can build this text — read off the picker, for
+  // the reason given in section 10.
+  ok([...LANGUAGE_CODES].every((l) => Object.keys(CLIENT_ALERT_COPY).includes(l)), "every offered language can build the new-enquiry text", [...LANGUAGE_CODES].filter((l) => !Object.keys(CLIENT_ALERT_COPY).includes(l)));
   for (const l of Object.keys(APP_MESSAGES)) {
     const missing = ["app.clientAlerts.event.lead.created", "app.clientAlerts.hint.lead.created", "app.clientAlerts.noChannel", "app.clientAlerts.leadOwnerLabel", "app.clientAlerts.leadOwnerDesc", "app.clientAlerts.leadOwnerNobody", "app.clientAlerts.leadOwnerNone"].filter((k) => APP_MESSAGES[l][k] === undefined);
     ok(missing.length === 0, `${l}: the new-enquiry screen keys`, missing);
@@ -1345,7 +1367,7 @@ const MUTATIONS = [
   { file: "lib/notifications/clientAlerts.js", label: "amount shown to everyone", from: "  return canSeeMoney(member || null) ? n : null;", to: "  return n;" },
   { file: "lib/notifications/clientAlerts.js", label: "the company switch ignored", from: "  return !ruleRow || ruleRow.active !== false;", to: "  return true;" },
   { file: "lib/notifications/recipients.js", label: "people scoping dropped", from: "    if (people && !UNRESTRICTED_ROLES.has(member.role) && !(member.userId && people.has(String(member.userId)))) return false;\n", to: "" },
-  { file: "lib/notifications/staffTexts.js", label: "STOP ignored", from: "    const allowed = await maySms({ companyId, phone: e164 }).catch(() => false);", to: "    const allowed = true;" },
+  { file: "lib/notifications/staffTexts.js", label: "STOP ignored", from: "    const allowed = await mayText({ companyId, phone: e164 }).catch(() => false);", to: "    const allowed = true;" },
   { file: "lib/notifications/staffTexts.js", label: "texts not scoped to the company", from: "    where: { companyId, id: { in: ids }, active: true },", to: "    where: { id: { in: ids }, active: true }," },
   { file: "lib/notifications/staffTexts.js", label: "a refused send recorded as sent", from: '    } else if (!result?.success) {\n      status = "refused";', to: '    } else if (!result?.success) {\n      status = "sent";' },
   { file: "lib/notifications/notify.js", label: "the bell ignores a person's switch", from: "    const bell = plan ? plan.inApp : recipients;", to: "    const bell = recipients;" },
@@ -1356,6 +1378,10 @@ const MUTATIONS = [
   { file: "app/api/sms/inbound/route.js", label: "staff STOP not recorded", from: "        if (keyword === \"opt_out\") await recordSmsOptOut({ companyId: staff.id, phone: from, body });", to: "        if (keyword === \"opt_out\") void 0;" },
   { file: "lib/i18n/clientAlertCopy.js", label: "the amount dropped from every text", from: '  const money = amountText ? ` (${amountText})` : "";', to: '  const money = "";' },
   { file: "lib/i18n/timesOrdinal.js", label: "French ordinal falls back to English", from: '  fr: (n) => (n === 1 ? "1re fois" : `${n}e fois`),\n', to: "" },
+  // ── The number it leaves from (owner, 2026-11-08) ───────────────────────
+  { file: "lib/notifications/staffTexts.js", label: "alerts always leave from FieldQuo's line", from: "  const from = clientSmsFrom(company);", to: "  const from = undefined;" },
+  { file: "lib/notifications/staffTexts.js", label: "FieldQuo's cap applied to the company's own spend", from: "    if (fieldquoPays) {", to: "    if (true) {" },
+  { file: "lib/notifications/staffTexts.js", label: "the number FieldQuo already holds ignored", from: "    const { e164, source: phoneSource } = staffPhoneFor(m, verified);", to: "    const { e164, source: phoneSource } = { e164: m.phone ? m.phone.replace(/\\D/g, \"\").slice(-10) && \"+1\" + m.phone.replace(/\\D/g, \"\").slice(-10) : null, source: \"member\" };" },
   // ── The new enquiry ─────────────────────────────────────────────────────
   {
     file: "lib/notifications/clientAlerts.js",
@@ -1437,8 +1463,152 @@ const MUTATIONS = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. The number an alert leaves from, and who pays (owner, 2026-11-08)");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "the notification to the company should leave from the company's
+// text number too." The `from` is not in the return value — it is an argument
+// to sendSms — so these read it off the recorder, which is the reason
+// sendStaffTexts takes an injectable `send` at all.
+
+const { staffPhoneFor, verifiedPhonesFor } = await import("@/lib/notifications/staffPhone.js");
+const { isStaffOnlyPhone } = await import("@/lib/sms/clientLine.js");
+
+const alertOnce = async (member, companyRow) =>
+  sendStaffTexts({
+    prisma: globalThis.__DB,
+    companyId: A,
+    type: "quote.viewed",
+    entityId: "q_1",
+    params: { quoteNumber: "Q-2026-0022", clientName: "Maureen Faulkner", count: 1 },
+    members: [member],
+    company: companyRow,
+  });
+
+const stuffCap = (n) => {
+  for (let i = 0; i < n; i++) {
+    table("staffAlertText").push({ id: `cap${i}`, companyId: A, memberId: "m_olivia", userId: "u_olivia", event: "quote.viewed", status: "sent", createdAt: new Date(Date.now() - 3600e3) });
+  }
+};
+
+// ── (a) Its own number, and no cap on its own spend ───────────────────────
+reset();
+{
+  const co = table("company")[0];
+  co.smsFromNumber = "+16135550100";
+  stuffCap(25); // well past the cap that guards FieldQuo's bill
+  const out = await alertOnce(PEOPLE.olivia, co);
+  const sent = globalThis.__SMS.at(-1);
+  ok(out[0]?.sent === true, "its own number: the 26th text today still sends — the company's balance is the limit, not FieldQuo's cap", out[0]?.reason);
+  ok(sent?.from === "+16135550100", "…and it leaves FROM that number, which is what makes meterOutboundIfBrought bill the company", sent?.from);
+  ok(!table("staffAlertText").some((r) => r.reason === "rate_limited"), "…and nothing was recorded as rate_limited");
+}
+
+// ── (b) No number of its own: FieldQuo's line, FieldQuo's cap ─────────────
+reset();
+{
+  const co = table("company")[0];
+  stuffCap(25);
+  const out = await alertOnce(PEOPLE.olivia, co);
+  ok(out[0]?.sent === false && out[0]?.reason === "rate_limited", "no number of its own: FieldQuo is paying, so the cap still bites", out[0]);
+}
+reset();
+{
+  const co = table("company")[0];
+  await alertOnce(PEOPLE.olivia, co);
+  const sent = globalThis.__SMS.at(-1);
+  ok(sent?.from === undefined, "…and the `from` is left undefined, which is how sendSms falls back to the system number", sent?.from);
+}
+
+// ── (c) The number FieldQuo already holds ─────────────────────────────────
+//
+// "The system should know the employees number and the owners number" — the
+// owner, 2026-11-08. Adam has no Member.phone; a card-free trial verified one
+// by SMS code, which is proof a text reaches it.
+reset();
+{
+  const co = table("company")[0];
+  table("phoneVerification").push({ id: "pv1", companyId: A, userId: "u_adam", e164: "+15145559999", status: "approved", verifiedAt: new Date(Date.now() - 86400e3), lineType: "unknown" });
+  const out = await alertOnce(PEOPLE.adam, co);
+  const sent = globalThis.__SMS.at(-1);
+  ok(out[0]?.sent === true && out[0]?.phoneSource === "verified", "a member with no Member.phone is texted at the number they verified at signup", out[0]);
+  ok(sent?.to === "+15145559999", "…at that number", sent?.to);
+}
+reset();
+{
+  const co = table("company")[0];
+  table("phoneVerification").push({ id: "pv2", companyId: A, userId: "u_adam", e164: "+15145559999", status: "pending", expiresAt: new Date() });
+  const out = await alertOnce(PEOPLE.adam, co);
+  ok(out[0]?.sent === false && out[0]?.reason === "no_phone", "a verification that was never completed is not a number", out[0]);
+}
+reset();
+{
+  const co = table("company")[0];
+  // Olivia's verified phone must never stand in for Adam's.
+  table("phoneVerification").push({ id: "pv3", companyId: A, userId: "u_olivia", e164: "+15145558888", status: "approved", verifiedAt: new Date() });
+  const out = await alertOnce(PEOPLE.adam, co);
+  ok(out[0]?.sent === false && out[0]?.reason === "no_phone", "one person's verified mobile is never used to alert another", out[0]);
+}
+reset();
+{
+  const co = table("company")[0];
+  table("phoneVerification").push({ id: "pv4", companyId: B, userId: "u_adam", e164: "+15145557777", status: "approved", verifiedAt: new Date() });
+  const out = await alertOnce(PEOPLE.adam, co);
+  ok(out[0]?.sent === false && out[0]?.reason === "no_phone", "a number verified at ANOTHER company is not this company's to text", out[0]);
+}
+
+// ── (d) staffPhoneFor, every branch, pure ─────────────────────────────────
+{
+  const v = new Map([["u1", "+15145551111"]]);
+  ok(staffPhoneFor({ userId: "u1", phone: "(514) 555-0101" }, v).source === "member", "a typed phone wins over the verified one");
+  ok(staffPhoneFor({ userId: "u1", phone: "(514) 555-0101" }, v).e164 === "+15145550101", "…normalised");
+  ok(staffPhoneFor({ userId: "u1", phone: null }, v).e164 === "+15145551111", "no typed phone: the verified one");
+  ok(staffPhoneFor({ userId: "u1", phone: "   " }, v).source === "verified", "whitespace is not a phone");
+  ok(staffPhoneFor({ userId: "u1", phone: "nonsense" }, v).source === "verified", "an unparseable phone falls through rather than being sent");
+  ok(staffPhoneFor({ userId: "u2", phone: null }, v).e164 === null, "a user with no verification: nothing");
+  ok(staffPhoneFor({ userId: null, phone: null }, v).e164 === null, "no userId: nothing, and no throw");
+  ok(staffPhoneFor({}, v).e164 === null, "an empty member: nothing, and no throw");
+  ok(staffPhoneFor(null, v).e164 === null, "a null member: nothing, and no throw");
+  ok(staffPhoneFor({ userId: "u1", phone: null }).e164 === null, "no map supplied: nothing, and no throw");
+}
+
+// ── (e) verifiedPhonesFor: newest wins, junk dropped ─────────────────────
+{
+  const stub = (rows) => ({ phoneVerification: { findMany: async () => rows } });
+  const newest = await verifiedPhonesFor(stub([
+    { userId: "u1", e164: "+15145552222", verifiedAt: new Date("2026-11-01") },
+    { userId: "u1", e164: "+15145551111", verifiedAt: new Date("2026-01-01") },
+  ]), { companyId: A, userIds: ["u1"] });
+  ok(newest.get("u1") === "+15145552222", "two verifications: the newest is the one used", newest.get("u1"));
+
+  const junk = await verifiedPhonesFor(stub([
+    { userId: null, e164: "+15145553333", verifiedAt: new Date() },
+    { userId: "u2", e164: "not a phone", verifiedAt: new Date() },
+    { userId: "u3", e164: null, verifiedAt: new Date() },
+  ]), { companyId: A, userIds: ["u2", "u3"] });
+  ok(junk.size === 0, "a row with no user, an unparseable number and a null number are all dropped", [...junk]);
+
+  const none = await verifiedPhonesFor(stub([]), { companyId: A, userIds: [] });
+  ok(none.size === 0, "no userIds: nothing, no throw");
+  const broken = await verifiedPhonesFor({ phoneVerification: { findMany: async () => { throw new Error("db down"); } } }, { companyId: A, userIds: ["u1"] });
+  ok(broken.size === 0, "the database refusing does not throw out of an alert send");
+}
+
+// ── (f) isStaffOnlyPhone: the guard that keeps the owner out of his own pipeline
+{
+  const stub = (staff, client) => ({ $queryRaw: async () => [{ staff, client }] });
+  ok((await isStaffOnlyPhone(A, "514-555-0101", stub(true, false))) === true, "staff and not a client: not a client message");
+  ok((await isStaffOnlyPhone(A, "514-555-0101", stub(true, true))) === false, "an employee who is ALSO a client of their own company: still a client message");
+  ok((await isStaffOnlyPhone(A, "514-555-0101", stub(false, true))) === false, "a plain client: a client message");
+  ok((await isStaffOnlyPhone(A, "514-555-0101", stub(false, false))) === false, "a stranger: a client message, so a real new lead is never dropped");
+  ok((await isStaffOnlyPhone(A, "", stub(true, false))) === false, "no phone: false, and no query");
+  ok((await isStaffOnlyPhone(null, "514-555-0101", stub(true, false))) === false, "no company: false, and no query");
+  ok((await isStaffOnlyPhone(A, "514-555-0101", { $queryRaw: async () => [] })) === false, "an empty result is not a yes");
+}
+
 if (!process.argv.includes("--no-mutate")) {
-  section("14. Mutations");
+  section("15. Mutations");
   const dir = mkdtempSync(join(tmpdir(), "fq-client-alerts-mut-"));
   for (const [i, m] of MUTATIONS.entries()) {
     const path = new URL(`../${m.file}`, import.meta.url);

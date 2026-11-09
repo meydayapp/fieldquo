@@ -40,6 +40,7 @@ import {
 } from "@/lib/notifications/clientAlerts";
 import { toE164 } from "@/lib/sms/twilioClient";
 import { maySms } from "@/lib/sms/optOut";
+import { verifiedPhonesFor, staffPhoneFor } from "@/lib/notifications/staffPhone";
 
 /** Could this member ever receive this event? The resolver, asked directly. */
 function eligibleFor(member, event) {
@@ -63,7 +64,17 @@ async function state(member) {
   const ruleBy = new Map(rules.map((r) => [r.type, r]));
   const prefBy = new Map(prefs.map((p) => [p.event, p]));
   const phone = me?.phone || "";
-  const e164 = toE164(phone);
+  // ── The number FieldQuo already holds (owner, 2026-11-08) ──────────────
+  //
+  // "The system should know the employees number and the owners number."
+  // sendStaffTexts falls back to the mobile this person verified by SMS code
+  // at signup (lib/notifications/staffPhone.js). This screen has to agree
+  // with it: a gate stricter than the sender would refuse to switch on a
+  // text that would have arrived perfectly well, and would make that
+  // fallback unreachable — dead code wearing the look of a feature.
+  const verified = await verifiedPhonesFor(db, { companyId: member.companyId, userIds: [member.userId] });
+  const resolved = staffPhoneFor({ phone, userId: member.userId }, verified);
+  const e164 = resolved.e164;
   const smsOptedOut = e164 ? !(await maySms({ companyId: member.companyId, phone: e164 }).catch(() => true)) : false;
   const unrestricted = UNRESTRICTED_ROLES.has(enforceable?.role);
   return {
@@ -103,6 +114,12 @@ async function state(member) {
     }),
     phone,
     phoneValid: Boolean(e164),
+    // Where a text goes, and whether they chose it. "verified" means they
+    // never typed one and FieldQuo is using the signup mobile — the screen
+    // says so, masked, with the option to use a different number, because a
+    // text arriving at a number nobody entered here is otherwise a mystery.
+    phoneSource: resolved.source,
+    textsGoTo: e164 ? `••• ••• ${e164.slice(-4)}` : null,
     smsOptedOut,
     dailyCap: STAFF_TEXT_DAILY_CAP,
     canManageCompany: unrestricted,
@@ -148,7 +165,9 @@ export async function PUT(request) {
   }
   if (data.channel === "sms" && data.on) {
     const me = await db.member.findFirst({ where: { id: member.id, companyId: member.companyId }, select: { phone: true } });
-    if (!toE164(me?.phone || "")) {
+    // The same resolution the SEND path makes, so the two cannot disagree.
+    const verified = await verifiedPhonesFor(db, { companyId: member.companyId, userIds: [member.userId] });
+    if (!staffPhoneFor({ phone: me?.phone || "", userId: member.userId }, verified).e164) {
       return NextResponse.json({ error: "Add your mobile number first.", code: "phone_needed" }, { status: 400 });
     }
   }

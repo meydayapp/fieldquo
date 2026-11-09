@@ -102,7 +102,7 @@ import { classifyInboundSms } from "@/lib/sms/optOutKeywords";
 import { recordSmsOptOut, recordSmsOptIn } from "@/lib/sms/optOut";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { handleSalesInboundSms } from "@/lib/sales/salesSms";
-import { resolveInboundTenants, companiesHoldingStaffPhone } from "@/lib/sms/clientLine";
+import { resolveInboundTenants, companiesHoldingStaffPhone, isStaffOnlyPhone } from "@/lib/sms/clientLine";
 import { recordError } from "@/lib/platform/errorLog";
 import { handleInboundClientSms } from "@/lib/aiEmployee/smsChannel";
 
@@ -220,6 +220,30 @@ export async function POST(request) {
     // retries must find the MessageSid already filed rather than file it
     // twice. The model call inside is bounded (four rounds) and Twilio's
     // timeout is fifteen seconds.
+    // ── Their own staff replying to an alert text (2026-11-08) ──────────
+    //
+    // Since the owner moved the staff alert texts onto the company's own
+    // number (lib/notifications/staffTexts.js), the obvious thing to do with
+    // one is reply to it — "ok", "I'll ring them now". On a dedicated number
+    // the branch below treats an inbound from a phone it does not know as a
+    // CLIENT: it opens a thread, meters the text, and by the social-leads
+    // rules makes the sender a LEAD. That would put the owner in his own
+    // pipeline and inflate the lead count the agency reports on.
+    //
+    // So a phone that belongs to one of this company's active members and to
+    // none of its clients is not a client message. It is dropped here rather
+    // than filed anywhere: the alert is one-way, its copy invites only STOP
+    // (handled above, before this branch), and inventing an internal SMS
+    // reply channel is not what was asked for. A member who is ALSO a client
+    // of their own company — an employee having work done on their house —
+    // keeps the old behaviour, which is why isStaffOnlyPhone asks both.
+    //
+    // Shared-line texts never reach here as staff: that path resolves no
+    // tenant for a staff phone, and the STOP case above covers it.
+    if (tenants.kind === "dedicated" && (await isStaffOnlyPhone(company.id, from).catch(() => false))) {
+      return twiml();
+    }
+
     await handleInboundClientSms({
       from,
       body,
