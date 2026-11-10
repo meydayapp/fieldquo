@@ -43,7 +43,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { quoteRequestBody } from "../lib/quotes/builderRequest.js";
 import { QUOTE_BUILDER_LAYOUTS, resolveBuilderLayout } from "../lib/quotes/builderLayout.js";
-import { QuoteBuilderForm, initialStateFromQuote } from "../app/components/quotes/builder/QuoteBuilder.js";
+import { QuoteBuilderForm, initialStateFromQuote, isUnpricedDraft } from "../app/components/quotes/builder/QuoteBuilder.js";
 import { LanguageProvider } from "../app/providers/LanguageProvider.js";
 import { PermissionProvider } from "../app/providers/PermissionProvider.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
@@ -463,6 +463,80 @@ for (const [label, mode, id, initial] of CASES) {
     new RegExp(`id="quote-valid-until"[^>]*value="${defaultValidUntil()}"`).test(classicDraftNull) ||
       new RegExp(`value="${defaultValidUntil()}"[^>]*id="quote-valid-until"`).test(classicDraftNull),
   );
+}
+
+// ── A quote nobody has priced carries no rate ───────────────────────────────
+//
+// The owner, 2026-11-10, on the same converted quote as the expiry above: "I
+// had to manually enter the tax. Because it had saved it as no tax." This
+// function recovered the rate from the money — 0 divided by 0 on a quote
+// nobody has priced — and reported 0%, which states "this quote is
+// zero-rated". It is not a statement, it is the absence of one (AGENTS.md
+// failure class 5), and the difference is $682.50 of HST on a $5,250 job.
+//
+// Executed here rather than grepped: these are the functions that decide.
+// The structural half — the resolver's exception, the conversion's tax
+// record and its deliberate absence of a validUntil — is section 14 of
+// scripts/check-quote-builder.mjs, and the conversion's own behaviour is
+// scripts/check-lead-quote-parity.mjs.
+//
+// Mutations that must fail this block: recover 0 instead of null for a quote
+// with no money; let isUnpricedDraft answer true for a quote that HAS money
+// or for one that is no longer a draft; open an unpriced draft's rate box at
+// 0 again.
+{
+  const unpriced = { id: "q9", status: "draft", subtotal: 0, discount: 0, tax: 0, total: 0, validUntil: null, scopeGroups: [] };
+  const s = initialStateFromQuote(unpriced);
+  eq("unpriced: the rate is unknown, not zero", s.taxRate, null);
+  ok("unpriced: …so the predicate the resolver keys on says yes", isUnpricedDraft(s) === true);
+  // Both halves of the converted quote travel together on one load: no rate
+  // of its own, and no expiry of its own but the suggestion offered for it.
+  eq("unpriced: …alongside the expiry suggestion, which is the other half of the same defect",
+    [s.validUntil === defaultValidUntil(), s.validUntilDefaulted], [true, true]);
+
+  // The counter-case, which is the constraint that matters: a quote with real
+  // money keeps the rate recovered from it, and the resolver stays away. If
+  // the company changed its tax setting last month, re-saving this quote must
+  // not reprice it.
+  const priced = { ...unpriced, subtotal: 5000, discount: 500, tax: 585, total: 5085 };
+  eq("priced: the rate recovered from the money is unchanged", initialStateFromQuote(priced).taxRate, 13);
+  ok("priced: …and the predicate refuses it", isUnpricedDraft(initialStateFromQuote(priced)) === false);
+  // A rate the resolver would never produce, to prove it is READ BACK off the
+  // row rather than looked up: 11.4% on 4,500 net.
+  eq("priced: an odd historical rate is recovered to four places",
+    initialStateFromQuote({ ...unpriced, subtotal: 5000, discount: 500, tax: 513 }).taxRate, 11.4);
+  // Tax switched off, money on the row: still an ordinary edit.
+  ok("priced: tax switched off on a priced quote is still an ordinary edit",
+    isUnpricedDraft(initialStateFromQuote({ ...priced, tax: 0, taxEnabled: false })) === false);
+
+  // A quote the client holds keeps the rate it went out with. The status test
+  // is the EXPIRY's — a draft has published nothing — and deliberately not
+  // OPEN_STATUSES, which the seed revival uses to ask whether the API will
+  // still take scopeGroups. A sent quote's lines are editable; its terms are
+  // not, and a rate is a term.
+  for (const status of ["sent", "accepted", "declined", "expired"]) {
+    ok(`unpriced: a ${status} quote is never re-resolved`, isUnpricedDraft(initialStateFromQuote({ ...unpriced, status })) === false);
+  }
+  ok("unpriced: nothing at all answers no", isUnpricedDraft(null) === false);
+
+  // A discount that cancels the subtotal leaves no taxable base either, and
+  // 13% of nothing is nothing — so re-resolving such a draft moves no money.
+  eq("unpriced: a draft discounted to zero also has no recoverable rate",
+    initialStateFromQuote({ ...unpriced, subtotal: 1200, discount: 1200 }).taxRate, null);
+
+  // RENDERED: the rate box an unpriced draft opens with. BOOTSTRAP's company
+  // rate is 13%, and before this the box opened at 0 on any edit — which is
+  // the figure the owner saved. Every other edit still opens where it did.
+  const rateBox = (html) => {
+    const m = html.match(/id="quote-tax-rate"[^>]*?value="([^"]*)"/) || html.match(/value="([^"]*)"[^>]*?id="quote-tax-rate"/);
+    return m ? m[1] : null;
+  };
+  const convertedRow = { ...STORED_QUOTE, language: "en", status: "draft", subtotal: 0, discount: 0, tax: 0, total: 0, validUntil: null, scopeGroups: [] };
+  const convertedHtml = render("classic", "edit", "q1", { ...initialStateFromQuote(convertedRow), quote: convertedRow, costingLoaded: true });
+  eq("unpriced: the rate box opens on the company's rate for the resolver to confirm, not 0", rateBox(convertedHtml), "13");
+  const decidedRow = { ...STORED_QUOTE, language: "en", status: "accepted", subtotal: 1200, discount: 1200, tax: 0, total: 0 };
+  const decidedHtml = render("classic", "edit", "q1", { ...initialStateFromQuote(decidedRow), quote: decidedRow, costingLoaded: true });
+  eq("unpriced: …while a DECIDED quote with no taxable base still opens at 0, as before", rateBox(decidedHtml), "0");
 }
 
 // A stored draft carrying the estimator's own complexity factor (lib/pricing/

@@ -263,7 +263,13 @@ ok("the totals bar no longer keys 'not worked out' on the amount", !/Number\(tax
 ok("…and offers Change beside a settled line", /app\.tax\.line\.change/.test(bar) && /setChanging\(true\)/.test(bar));
 const builder = src("app/components/quotes/builder/QuoteBuilder.js");
 ok("the builder hands the job address to the resolver", /resolveDocumentTax\(\{[\s\S]*?siteAddress,/.test(builder));
-ok("…and re-resolves when it changes", /\[isEdit, boot\.taxConfig, selectedClient, siteAddress,/.test(builder));
+// `unpricedDraft` joined the dependency list on 2026-11-10: the resolver now
+// also runs on the EDIT of a quote nobody has priced, which is how a quote
+// converted from a lead gets a rate at all (QuoteBuilder's isUnpricedDraft,
+// scripts/check-quote-builder.mjs section 14). What this line is pinning is
+// unchanged — that `siteAddress` is a dependency, so typing the job address
+// re-resolves the rate rather than leaving yesterday's province on screen.
+ok("…and re-resolves when it changes", /\[isEdit, unpricedDraft, boot\.taxConfig, selectedClient, siteAddress,/.test(builder));
 ok("the builder carries taxMode in its tax config", /taxMode: businessInfo\?\.taxMode/.test(builder));
 const settings = src("app/app/settings/company/page.js");
 ok("Settings → Tax writes taxMode", /taxMode: form\.taxMode/.test(settings));

@@ -305,8 +305,19 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
   // Recover the rate that was actually applied when the quote was written
   // rather than reading the company's current rate. If the company changed its
   // tax setting last month, re-saving an older quote must not reprice it.
+  //
+  // NULL, not 0, when there is no money to recover a rate from. A quote that
+  // has never been priced — the one convertLeadToQuote writes from a lead —
+  // lands at subtotal 0 / tax 0, and 0/0 is not "this quote is zero-rated".
+  // That reading is the owner's third symptom on Q-2026-0056: the converted
+  // quote opened with no tax, he typed 13% in by hand, and a quote saved
+  // before he noticed would have charged the homeowner 0% on Ontario work.
+  // Absence of a statement is not a statement (AGENTS.md failure class 5), so
+  // the absence is reported as one and isUnpricedDraft below acts on it —
+  // exactly as the expiry below reports "no date of its own" rather than
+  // treating an empty column as a term somebody chose.
   const base = subtotal - discount;
-  const taxRate = base > 0 ? +((num(quote.tax) / base) * 100).toFixed(4) : 0;
+  const taxRate = base > 0 ? +((num(quote.tax) / base) * 100).toFixed(4) : null;
 
   return {
     id: quote.id,
@@ -365,6 +376,51 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     // The client's PO as saved; "" for none (lib/documents/clientPo.js).
     clientPoNumber: quote.clientPoNumber || "",
   };
+}
+
+/**
+ * Has this quote never been priced — so there is no rate to carry, and the
+ * live tax resolver may run on it even in edit mode?
+ *
+ * `taxRate == null` is the whole test for "no money on it": the recovery
+ * above returns null rather than 0 when subtotal − discount is 0, because a
+ * rate read back out of nothing is not a rate. The quote convertLeadToQuote
+ * writes is exactly that shape, and the estimator is about to put the first
+ * prices on it.
+ *
+ * ── Why this is not "repricing an existing quote" ──────────────────────────
+ *
+ * The rule the tax effect defends — re-saving an older quote must not reprice
+ * it when the company's tax setting has moved — is about money a client may
+ * already have seen. There is none here: subtotal, tax and total are all 0,
+ * so no figure can change under anybody. What re-resolving replaces is the
+ * absence of an answer. (The seeded scope group may well derive a price on
+ * screen a moment later — reviveSeedScopeGroup — but that is this session's
+ * own pricing, not a stored figure being overwritten.)
+ *
+ * ── Why the DRAFT test, and not OPEN_STATUSES ──────────────────────────────
+ *
+ * Deliberately the same status test, in the same words, as the expiry
+ * suggestion in initialStateFromQuote above: a draft has published nothing.
+ * A rate is a TERM of the document — re-resolving it on a quote the client
+ * has already been sent would quietly change what they read, which is the
+ * argument that file makes about a null expiry on a sent quote.
+ *
+ * Not OPEN_STATUSES (draft + sent), which the scope-group revival uses for a
+ * different question: whether the API will still accept `scopeGroups`. A sent
+ * quote's lines are still editable; its terms are not. The two tests are
+ * different on purpose and each says why.
+ *
+ * Also NOT gated on the quote having no stored `taxResolution`. convertLead
+ * now records one — resolved from the client at conversion, which could not
+ * know the job address the estimator is about to type — and standing down for
+ * those rows would re-break the thing this fixes. The live resolution is also
+ * what raises the "assumed from your own address" warning: the owner's
+ * company is in Ottawa and a Gatineau job owes 14.975%, not 13%.
+ */
+export function isUnpricedDraft(state) {
+  if (!state || state.taxRate != null) return false;
+  return !state.status || state.status === "draft";
 }
 
 /**
@@ -945,6 +1001,11 @@ export function QuoteBuilderForm({
   const boot = bootstrap || {};
   const settingsAccess = useSettingsAccess();
   const start = initial || initialStateFromQuote(null);
+  // An edit of a quote nobody has priced behaves like a create for the TAX
+  // RATE alone — see isUnpricedDraft. Everything else about such a quote (its
+  // scope, its status, its concurrency guard, which groups revive) is still an
+  // edit. Composed with `isEdit` here, once, so create mode never consults it.
+  const unpricedDraft = isEdit && isUnpricedDraft(start);
   // The company's own extra boxes for a quote (Settings > Custom fields).
   // Saved against the quote's id straight after the quote itself saves —
   // for a new quote, the id the POST just minted. NOT part of `shared`: the
@@ -1226,7 +1287,14 @@ export function QuoteBuilderForm({
   const [discount, setDiscount] = useState(start.discount ?? "");
   const [taxEnabled, setTaxEnabled] = useState(start.taxEnabled !== false);
   const [taxRate, setTaxRate] = useState(
-    start.taxRate ?? num(boot.taxConfig?.taxRate),
+    // A quote with money on it carries the rate recovered from it. A quote
+    // with none has no rate to recover (null, not 0 — see isUnpricedDraft):
+    // on a create, and on an unpriced draft which behaves as one for the rate
+    // alone, the company's default stands in for the instant before the
+    // resolver answers. On any OTHER edit the box opens at 0 exactly as it
+    // did before, so a decided quote whose discount cancels its subtotal is
+    // not handed a rate it never had.
+    start.taxRate ?? (isEdit && !unpricedDraft ? 0 : num(boot.taxConfig?.taxRate)),
   );
   const [taxNote, setTaxNote] = useState("");
   // A caveat about the resolved rate, distinct from the note explaining where
@@ -1384,16 +1452,18 @@ export function QuoteBuilderForm({
 
   // ── Tax ──────────────────────────────────────────────────────────────────
   //
-  // Only re-resolved on a CREATE. An existing quote carries the rate that was
-  // applied when it was written; re-resolving would silently reprice it if the
-  // company changed its tax setting last month.
+  // Only re-resolved on a CREATE — and on the edit of a quote that has never
+  // been priced, which has no rate to carry and nothing to reprice (see
+  // isUnpricedDraft). An existing quote with money on it keeps the rate that
+  // was applied when it was written; re-resolving that would silently reprice
+  // it if the company changed its tax setting last month.
   //
   // Fires only when Settings → Tax has "apply the client's local rate" switched
   // on. The reason is surfaced beside the tax line rather than left implicit —
   // a tax figure that moves on its own with no explanation is worse than one
   // the user picked.
   useEffect(() => {
-    if (isEdit) return;
+    if (isEdit && !unpricedDraft) return;
     // A rate the estimator typed by hand is a decision, and this effect
     // re-runs every time the client changes. Without this guard, picking a
     // client after overriding the rate silently threw the override away — the
@@ -1467,19 +1537,23 @@ export function QuoteBuilderForm({
     // registered". Separate from the note because it qualifies the number
     // rather than explaining where it came from.
     setTaxCaution(result.cautionKey ? t(result.cautionKey) : "");
-  }, [isEdit, boot.taxConfig, selectedClient, siteAddress, taxRateTouched, vatWorkType, lang, t]);
+  }, [isEdit, unpricedDraft, boot.taxConfig, selectedClient, siteAddress, taxRateTouched, vatWorkType, lang, t]);
 
   // ── The tax line, in words ───────────────────────────────────────────────
   //
   // On a create: the live resolution, unless the estimator has typed over it
   // — then the box is the truth and the line says so. On an edit: the record
   // the quote was written with, else the rate recovered from its money.
+  //
+  // An unpriced draft takes the create branch, for the same reason the effect
+  // above does: it has no money, so there is no recovered rate to explain,
+  // and the live resolution is the only thing that can name the jurisdiction.
   const taxLine = (() => {
     const rate = num(taxRate);
     const typed = { source: "manual", rate };
     let basis;
     let recovered = false;
-    if (isEdit) {
+    if (isEdit && !unpricedDraft) {
       const stored = start.taxResolution;
       if (stored && Math.abs(num(stored.rate) - rate) < 0.005) basis = stored;
       else {

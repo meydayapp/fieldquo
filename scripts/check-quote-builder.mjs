@@ -57,6 +57,12 @@ import {
 } from "@/lib/quotes/importQuote";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { taxPlaceOf } from "@/lib/quotes/taxPlace";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
+import {
+  resolutionForDocument,
+  resolutionMatchesAmount,
+} from "@/lib/tax/taxResolution";
+import { taxLineHeadline, taxLineResolved, taxLineSource } from "@/lib/tax/taxLine";
 import { APP_MESSAGES } from "@/app/i18n/appMessages.js";
 
 let fail = 0;
@@ -1124,6 +1130,204 @@ section("13. A scope group can be renamed, and every reader prints the name");
     (l) => !APP_MESSAGES[l]["app.quoteNew.groupNameLabel"] || !/\{name\}/.test(APP_MESSAGES[l]["app.quoteNew.groupNameHint"] || ""),
   );
   eq("13h: the name box's words are in every app language", missing, []);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("14. A quote nobody has priced yet has no tax rate — and says so");
+// ───────────────────────────────────────────────────────────────────────────
+//
+// The owner, 2026-11-10, on a quote he began from the Leads page: "I had to
+// manually enter the tax. Because it had saved it as no tax." One started
+// from the Quotes page got a rate. On the live tenant, Q-2026-0056's stored
+// resolution was `{source:"manual", rate:13}` — the 13% he typed himself.
+//
+// The third symptom of the same conversion defect as Q-2026-0026 (the $0.00
+// scope and the missing expiry: 95c25f357, scripts/check-lead-quote-parity).
+// convertLeadToQuote creates the row at subtotal 0 / total 0, and QuoteBuilder
+// treats any existing row as an edit: it recovered the rate from the money —
+// 0 divided by 0 — and reported 0%, skipped the live resolver outright
+// (`if (isEdit) return`), and fell through to a manual 0% in the tax line. He
+// priced the draft and saved it at 0% tax on Ontario work: $682.50 of HST on
+// a $5,250 job he eats or goes back for.
+//
+// The resolver was never broken. Executed below against that exact client, it
+// returns Ontario HST at 13%. Nothing was asking it.
+//
+// His instruction for the intended behaviour, verbatim: "It should check the
+// clients address that is in the quote and determine the tax rate based on
+// the library."
+//
+// Mutations that must fail this section: recover the rate as 0 rather than
+// null when there is no money; put the bare `if (isEdit) return` back above
+// the resolver; drop the tax record from the conversion; widen the status
+// test from a draft to OPEN_STATUSES.
+{
+  const convert = read("lib/leads/convertLead.js");
+
+  // ── What the conversion records, and what it deliberately does not ───────
+  //
+  // The asymmetry is the point, and it is argued in taxRecordForClient: the
+  // EXPIRY is a term with a visible field, so it is offered on screen (the
+  // 30-day suggestion in initialStateFromQuote, flagged validUntilDefaulted)
+  // and never written behind the estimator. The RATE's provenance has no
+  // field and binds nobody — the rate box is what gets confirmed — and
+  // without it the figure cannot survive the round trip, because the builder
+  // recovers an edited quote's rate from its money.
+  //
+  // scripts/check-lead-quote-parity.mjs owns the executed half of the expiry
+  // rule (it runs the conversion and asserts validUntil is never written).
+  // This is the source-side guard against the write coming back.
+  ok(
+    "14a: the conversion writes NO validUntil — the 30 days are offered on screen",
+    !/validUntil:/.test(convert),
+    "lib/quotes/validUntil.js: a value written on their behalf that they never see",
+  );
+  ok(
+    "14b: …and does not reach for the default either",
+    !/defaultValidUntil\(/.test(convert),
+  );
+  ok(
+    "14c: it resolves the client's jurisdiction through the shared resolver",
+    /resolveDocumentTax\(\{/.test(convert) && /from "@\/lib\/tax\/documentTax"/.test(convert),
+    "the owner's instruction is the client's address → the rate library",
+  );
+  ok(
+    "14d: …and RECORDS it on the quote, so the rate survives a zero total",
+    /taxResolution: taxResolution \?\? Prisma\.DbNull/.test(convert) &&
+      /resolutionForDocument\(\{ resolution, tax: 0, taxableBase: 0, taxEnabled: true \}\)/.test(convert),
+    "the money is 0 at creation; it is the RATE that has to carry",
+  );
+  ok(
+    "14e: the place of supply is the job address when the request carried one",
+    /siteAddress,/.test(convert) && /lead\.source === GC_REQUEST_LEAD_SOURCE \? leadAddressLine/.test(convert),
+  );
+
+  // ── The builder stops reading 0/0 as a rate ──────────────────────────────
+  ok(
+    "14f: a quote with no money recovers NULL, not a 0% rate",
+    /const taxRate = base > 0 \? \+\(\(num\(quote\.tax\) \/ base\) \* 100\)\.toFixed\(4\) : null;/.test(builder),
+    "returning 0 states 'this quote is zero-rated', which is false and is what saved him a 0% quote",
+  );
+  ok(
+    "14g: the unpriced-draft test is one exported predicate, read by both the effect and the tax line",
+    /export function isUnpricedDraft\(state\) \{/.test(builder) &&
+      (builder.match(/!unpricedDraft/g) || []).length >= 3,
+    "two copies of the rule is how the resolver and the sentence end up disagreeing",
+  );
+  // The status test is the EXPIRY's, in the same words — a draft has published
+  // nothing, and a rate is a term of the document. Deliberately not
+  // OPEN_STATUSES, which the seed revival uses to ask a different question
+  // (will the API still accept scopeGroups). Pinned so the two cannot be
+  // quietly merged into one.
+  ok(
+    "14h: …keyed on the absent rate and a DRAFT, the same test the expiry suggestion uses",
+    /if \(!state \|\| state\.taxRate != null\) return false;\s*\n\s*return !state\.status \|\| state\.status === "draft";/.test(builder),
+    "a sent quote's lines are editable; its terms are not",
+  );
+  ok(
+    "14i: …and NOT OPEN_STATUSES, which answers the scope question instead",
+    !/isUnpricedDraft[\s\S]{0,400}OPEN_STATUSES/.test(builder),
+    "re-resolving a sent quote's rate changes a term the client has already read",
+  );
+  ok(
+    "14j: the resolver runs for an unpriced draft",
+    /if \(isEdit && !unpricedDraft\) return;/.test(builder),
+    "`if (isEdit) return` is why the rate was never worked out for a converted lead",
+  );
+  ok(
+    "14k: …and the tax line explains it from the live resolution, not as a typed 0%",
+    /if \(isEdit && !unpricedDraft\) \{/.test(builder),
+  );
+  ok(
+    "14l: a rate the estimator typed still wins",
+    /if \(!taxRateTouched\) setTaxRate\(result\.rate\);/.test(builder),
+    "the override guard is the one thing that must not move",
+  );
+  ok(
+    "14m: every OTHER edit keeps opening its rate box exactly where it did",
+    /start\.taxRate \?\? \(isEdit && !unpricedDraft \? 0 : num\(boot\.taxConfig\?\.taxRate\)\)/.test(builder),
+    "a decided quote whose discount cancels its subtotal must not be handed the company default",
+  );
+
+  // ── EXECUTED: his own company, his own client ────────────────────────────
+  //
+  // TrueFinish Cabinets: country CA, province ON, taxRate 0.000, taxMode
+  // auto, no TaxRate rows. The client on Q-2026-0056 has a free-text address
+  // and null city / province / country — which is most of the live client
+  // list, and the reason the resolver has a company-province fallback at all.
+  const COMPANY = {
+    country: "CA",
+    province: "ON",
+    taxRate: 0,
+    taxMode: "auto",
+    vatRegistered: null,
+    usTaxOverrides: null,
+  };
+  const CLIENT = {
+    id: "c1",
+    name: "Lead enquiry",
+    address: "960 caldermill private",
+    province: null,
+    postalCode: null,
+    country: null,
+    usTaxRate: null,
+  };
+  const resolve = (over = {}) =>
+    resolveDocumentTax({ company: COMPANY, taxRates: [], client: CLIENT, workType: null, lang: "en", ...over });
+
+  const live = resolve();
+  eq("14n: his client resolves to Ontario HST, assumed from the company's address",
+    [live.rate, live.source, live.basis, live.assumed, live.assumedRegion],
+    [13, "jurisdiction_ca", "company_assumed", true, "Ontario"]);
+  // A lead that arrived with a name and nothing else still resolves — the
+  // conversion must not depend on the homeowner having filled an address in.
+  eq("14o: …and so does a client with no fields at all", resolve({ client: { id: "c2", name: "B" } }).rate, 13);
+
+  // The record that goes on the row. A taxable base of 0 cannot contradict
+  // any rate, so the jurisdiction record is KEPT rather than rewritten as a
+  // typed 0% — the one reading that would be a lie about an untyped rate.
+  const stored = resolutionForDocument({ resolution: live, tax: 0, taxableBase: 0, taxEnabled: true });
+  eq("14p: the stored record carries the RATE even though the money is 0",
+    [stored?.source, stored?.rate, stored?.assumed, stored?.placeSource],
+    ["jurisdiction_ca", 13, true, "company"]);
+  ok("14q: …not a manual 0% — nobody typed a rate here", stored?.source !== "manual", JSON.stringify(stored?.source));
+
+  // And it survives the save. PATCH /api/quotes/[id] replaces a stored record
+  // only when the money no longer explains it: once the estimator prices the
+  // seeded scope at the resolved 13%, the jurisdiction record stays, so the
+  // document keeps saying "HST 13% (Ontario)" rather than "typed by hand".
+  ok("14r: pricing the draft at the resolved rate keeps the jurisdiction record",
+    resolutionMatchesAmount(stored, 650, 5000), "");
+  ok("14s: …and saving it at 0% does NOT — the record would be replaced, which is the bug being fixed",
+    !resolutionMatchesAmount(stored, 0, 5000), "");
+
+  // The sentence the estimator reads. `assumed` has to stay visible: the
+  // owner is in Ottawa and quotes Gatineau clients at 14.975%, so a silent
+  // 13% is a real money error, not a cosmetic one.
+  const headline = taxLineHeadline(stored, "en");
+  eq("14t: the line names the tax, the rate and the province",
+    [taxLineResolved(stored), headline?.key, headline?.params?.taxes, headline?.params?.region],
+    [true, "app.tax.headline.region", "HST 13%", "Ontario"]);
+  eq("14u: …and says the province was assumed from the company's own address",
+    taxLineSource(stored)?.key, "app.tax.source.company");
+
+  // The job address still beats the assumption, which is the whole reason the
+  // resolver runs here rather than the stored record being trusted blind.
+  const gatineau = resolve({ siteAddress: "755 Rue Saint-Louis, Gatineau, QC J8T 1A1, Canada" });
+  eq("14v: a Gatineau job for the same client is Quebec's rate, and assumed nothing",
+    [gatineau.rate, gatineau.assumed, gatineau.place?.source],
+    [14.975, false, "site"]);
+
+  // Tax is still charged on subtotal − discount, so a resolved rate on a
+  // quote nobody has priced moves no money until the seed is priced.
+  eq("14w: a resolved rate on a $0 draft still totals to nothing",
+    (() => { const x = quoteTotals({ subtotal: 0, discount: 0, taxRate: live.rate, taxEnabled: true }); return [x.subtotal, x.tax, x.total]; })(),
+    [0, 0, 0]);
+  // …and once the revived seed prices at $3,900 (check-lead-quote-parity's
+  // figure, the owner's 20 doors + 6 drawers), the same rate is $507.00.
+  eq("14x: …and $507.00 once the seeded scope prices at $3,900.00",
+    (() => { const x = quoteTotals({ subtotal: 3900, discount: 0, taxRate: live.rate, taxEnabled: true }); return [x.tax, x.total]; })(),
+    [507, 4407]);
 }
 
 // ───────────────────────────────────────────────────────────────────────────
