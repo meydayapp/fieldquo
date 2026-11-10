@@ -58,6 +58,7 @@ import { scoringOptions } from "../lib/leads/createLead.js";
 import { unaskedForScoring, ASKED_BY_SOURCE } from "../lib/leads/qualifiers.js";
 import { scoreLead } from "../lib/leads/score.js";
 import { convertLeadToQuote } from "../lib/leads/convertLead.js";
+import { planGapFill } from "../lib/leads/leadGaps.js";
 import { rows, writes, resetDbStub } from "./fixtures/dbStub.mjs";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
@@ -449,6 +450,120 @@ async function convertOnce(intake, { email = "homeowner@example.com" } = {}) {
   ok(client.address === "88 Elm Ave", "a phone lead's spoken address converts too");
 }
 
+// ── Booking a visit from the lead page — the tenth writer ─────────────────
+//
+// "Book a visit" on a lead converts it first (the appointment hangs off
+// Appointment.quoteId) and carries what the contractor learned on the phone
+// through lib/leads/leadGaps.js planGapFill. The address box there was a
+// plain text input while every other address field in the app was a Places
+// picker, which the owner reported — and which is the money bug underneath:
+// 103 of 129 live clients have no province, so the resolver falls back to the
+// company's own. An Ottawa contractor's Gatineau client then gets Ontario's
+// 13% instead of Quebec's 14.975%.
+//
+// So this writer gets the same treatment as the other nine: it goes through
+// the shape, and the components it captures have to reach the Client row.
+{
+  const gaps = code("lib/leads/leadGaps.js");
+  ok(
+    /from "@\/lib\/leads\/intakeShape"/.test(gaps),
+    "lib/leads/leadGaps.js writes intake through the shared shape, not by raw key",
+  );
+  ok(
+    /buildLeadIntake\(/.test(gaps) && /LEAD_ADDRESS_KEYS/.test(gaps),
+    "…building the offered jurisdiction with buildLeadIntake and walking the reserved keys",
+    gaps.slice(gaps.indexOf("const offered"), gaps.indexOf("const offered") + 200),
+  );
+
+  const panel = code("app/components/leads/BookVisitPanel.js");
+  ok(
+    /<AddressField|<AddressAutocomplete/.test(panel),
+    "the lead's book-a-visit panel uses the shared address autocomplete, like the other twenty address fields",
+  );
+  ok(
+    /province/.test(panel) && /country/.test(panel),
+    "…and keeps the structured components rather than only the formatted string",
+  );
+  ok(
+    /city:\s*""/.test(panel) && /province:\s*""/.test(panel),
+    "…and clears them when the address is TYPED, so a previous pick's province cannot ride along",
+  );
+
+  // Executed, not read. A Places pick on a Messenger lead that arrived as a
+  // name and nothing else.
+  const bare = { name: "Ana", phone: null, email: null, intake: null };
+  const picked = planGapFill({
+    lead: bare,
+    contact: {
+      address: "137 Rue Principale, Gatineau, QC J8X 3Y4, Canada",
+      city: "Gatineau",
+      province: "QC",
+      country: "CA",
+    },
+  });
+  ok(
+    picked.intake?.province === "QC" && picked.intake?.city === "Gatineau" && picked.intake?.country === "CA",
+    "a Places pick's city, province and country land on the reserved keys",
+    picked.intake,
+  );
+  ok(
+    picked.written.includes("province") && picked.written.includes("country"),
+    "…and are named back, so the screen can say what it saved",
+    picked.written,
+  );
+  ok(
+    Object.keys(picked.intake).every((k) => LEAD_ADDRESS_KEYS.includes(k)),
+    "…and nothing else is invented alongside them",
+    Object.keys(picked.intake),
+  );
+
+  // The honest half, twice over: a TYPED address has no components, and a
+  // Places result that carries no province must not acquire one.
+  const typed = planGapFill({ lead: bare, contact: { address: "12 Main St" } });
+  ok(
+    typed.intake?.address === "12 Main St" && !("province" in typed.intake),
+    "a typed address stores the address and no jurisdiction at all — not even a null",
+    typed.intake,
+  );
+  const noProvince = planGapFill({
+    lead: bare,
+    contact: { address: "5 High St, London, UK", city: "London", province: "", country: "GB" },
+  });
+  ok(
+    !("province" in noProvince.intake) && noProvince.intake.city === "London",
+    "a pick Google gave no province for keeps the city and leaves the province ABSENT",
+    noProvince.intake,
+  );
+
+  // A lead that already holds an address keeps it — and the jurisdiction the
+  // panel offered describes the OTHER house, so it must not be written.
+  const held = { name: "Ana", phone: null, email: null, intake: { address: "1 Elm St, Ottawa, ON, Canada" } };
+  const refused = planGapFill({
+    lead: held,
+    contact: { address: "137 Rue Principale, Gatineau, QC", city: "Gatineau", province: "QC", country: "CA" },
+  });
+  ok(
+    refused.intake === null && refused.skipped.some((s) => s.field === "address"),
+    "an address already on the lead is kept, and no province follows the one that was refused",
+    refused,
+  );
+
+  // END TO END: the panel's pick, through planGapFill, through conversion,
+  // onto the Client row the tax resolver reads.
+  const client = await convertOnce(picked.intake, { email: "gatineau@example.com" });
+  ok(
+    client.province === "QC" && client.country === "CA",
+    "THE MONEY: a visit booked from the lead page produces a client with its real jurisdiction",
+    client,
+  );
+  const typedClient = await convertOnce(typed.intake, { email: "typed@example.com" });
+  ok(
+    typedClient.address === "12 Main St" && typedClient.province === null && typedClient.country === null,
+    "…while a typed one reaches the client row with nothing guessed around it",
+    typedClient,
+  );
+}
+
 // ── The trade answers reach the draft quote ───────────────────────────────
 //
 // The booking page and the instant estimate store "when do you need this"
@@ -688,6 +803,16 @@ if (!process.argv.includes("--no-mutate")) {
       "lib/leads/qualifiers.js",
       "every source claims to have asked everything",
       (s) => s.replace("  self_quote_kitchen: [\"budget\", \"timeline\"],", ""),
+    ],
+    [
+      "lib/leads/leadGaps.js",
+      "booking a visit keeps the address string and drops the jurisdiction",
+      (s) => s.replace('if (out.written.includes("address")) {', "if (false) {"),
+    ],
+    [
+      "lib/leads/leadGaps.js",
+      "a pick with no province is padded with one",
+      (s) => s.replace("province: text(contact.province, 120),", 'province: text(contact.province, 120) || "ON",'),
     ],
   ];
 

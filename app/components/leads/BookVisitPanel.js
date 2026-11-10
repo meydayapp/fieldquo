@@ -29,11 +29,32 @@
 // columns are offered, so this is never a place to quietly rewrite a number
 // the homeowner typed — lib/leads/leadGaps.js refuses that server-side too,
 // and says in `kept` what it refused.
+//
+// ── The address is a Places pick, like everywhere else ─────────────────────
+//
+// It was a plain text box here and an autocomplete on all twenty other
+// address fields in the app, which the owner reported as the inconsistency it
+// is. It is also the money bug underneath: a typed address yields a converted
+// client with no city, province or country, and the tax resolver then has
+// nothing to resolve — an Ottawa company's Gatineau client silently gets
+// Ontario's 13% instead of Quebec's 14.975%. So the structured components
+// travel with the string, through lib/leads/intakeShape.js, all the way to
+// the Client row (lib/leads/convertLead.js findOrCreateClient).
+//
+// AddressField rather than AddressAutocomplete directly: it is the one
+// wrapper in the repo that keeps a TYPED address working in all three ways
+// Google can be missing, including the key that exists with Places disabled,
+// which throws inside an effect and would otherwise blank the lead page. It
+// lives under /book because that is where it was written; importing it beats
+// copying its error boundary into a ninth back-office caller.
 "use client";
 
 import { useState } from "react";
 import { CalendarPlus, Loader2 } from "lucide-react";
+import AddressField from "@/app/book/[companySlug]/AddressField";
 import { reportResponseError } from "@/lib/clientErrors";
+
+const EMPTY_CONTACT = { phone: "", email: "", address: "", city: "", province: "", country: "" };
 
 export default function BookVisitPanel({ leadId, lead, canBook, onBooked, t }) {
   const [open, setOpen] = useState(false);
@@ -41,7 +62,12 @@ export default function BookVisitPanel({ leadId, lead, canBook, onBooked, t }) {
   const [error, setError] = useState("");
   const [when, setWhen] = useState("");
   const [notes, setNotes] = useState("");
-  const [contact, setContact] = useState({ phone: "", email: "", address: "" });
+  // city/province/country are only ever what a Places pick returned. They
+  // stay "" for a typed address, and the server writes a key only when it is
+  // non-empty — an absent province must reach the client row as null, never
+  // as the company's own (AGENTS.md: absence of a statement is not a
+  // statement).
+  const [contact, setContact] = useState(EMPTY_CONTACT);
 
   if (!canBook) return null;
 
@@ -101,7 +127,7 @@ export default function BookVisitPanel({ leadId, lead, canBook, onBooked, t }) {
       setOpen(false);
       setWhen("");
       setNotes("");
-      setContact({ phone: "", email: "", address: "" });
+      setContact(EMPTY_CONTACT);
       onBooked?.(converted);
     } catch {
       setError(t("app.visitNew.scheduleErrorNetwork"));
@@ -141,17 +167,51 @@ export default function BookVisitPanel({ leadId, lead, canBook, onBooked, t }) {
       {gaps.length > 0 && (
         <fieldset className="space-y-2">
           <legend className="text-xs font-medium text-foreground">{t("app.leads.book.missing")}</legend>
-          {gaps.map((f) => (
-            <label key={f.key} className="block">
-              <span className="block text-[11px] text-muted-foreground mb-1">{f.label}</span>
-              <input
-                type={f.type}
-                value={contact[f.key]}
-                onChange={(e) => setContact((c) => ({ ...c, [f.key]: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          ))}
+          {gaps.map((f) =>
+            f.key === "address" ? (
+              <div key={f.key}>
+                <label
+                  htmlFor="lead-book-address"
+                  className="block text-[11px] text-muted-foreground mb-1"
+                >
+                  {f.label}
+                </label>
+                <AddressField
+                  id="lead-book-address"
+                  value={contact.address}
+                  onChange={(v) =>
+                    // A typed character makes it a different, unidentified
+                    // address: the previous pick's city and province describe
+                    // somewhere else, and keeping them would attach a tax
+                    // jurisdiction nobody chose. Same rule, same reason, as
+                    // app/app/leads/new/NewLeadForm.js.
+                    setContact((c) => ({ ...c, address: v, city: "", province: "", country: "" }))
+                  }
+                  onResolved={({ address, city, province, country }) =>
+                    setContact((c) => ({
+                      ...c,
+                      address: address || c.address,
+                      city: city || "",
+                      province: province || "",
+                      country: country || "",
+                    }))
+                  }
+                  placeholder={t("app.clientNew.addressPlaceholder")}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            ) : (
+              <label key={f.key} className="block">
+                <span className="block text-[11px] text-muted-foreground mb-1">{f.label}</span>
+                <input
+                  type={f.type}
+                  value={contact[f.key]}
+                  onChange={(e) => setContact((c) => ({ ...c, [f.key]: e.target.value }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+              </label>
+            ),
+          )}
         </fieldset>
       )}
 

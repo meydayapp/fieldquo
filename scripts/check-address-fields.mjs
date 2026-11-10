@@ -188,6 +188,13 @@ for (const must of [
   "app/quote/[companySlug]/SelfQuoteFlow.js",
   // The signup address moved to the welcome business screen (2026-09-29).
   "app/welcome/WelcomeFlow.js",
+  // "Book a visit" on a lead. It was a plain text input until 2026-11-10 —
+  // the owner's report was about the missing autocomplete, but the cost was
+  // the jurisdiction: booking a visit converts the lead, and a converted
+  // client with no province is one the tax resolver can say nothing about. On
+  // the live tenant that was 103 of 129 clients, in a city where the river is
+  // the border between 13% and 14.975%.
+  "app/components/leads/BookVisitPanel.js",
 ])
   ok(
     `${must} is in the consumer set`,
