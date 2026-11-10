@@ -960,7 +960,7 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
     onTaxToggle: b.setTaxEnabled,
     validUntil: b.validUntil,
     onValidUntilChange: b.setValidUntil,
-    validUntilDefaulted: !isEdit,
+    validUntilDefaulted: b.validUntilDefaulted ?? !isEdit,
     currency: b.companyCurrency,
   };
 
