@@ -1,7 +1,10 @@
 // Executes lib/booking/travel.js against real geography and hostile input.
+import { readFileSync } from "node:fs";
+
 import {
   hasPoint, haversineKm, estimateTravel, travelMinutes, reachable, describeTravel, travelLegs,
 } from "@/lib/booking/travel";
+import { routeLegs, isOnRoute, OFF_ROUTE_STATUSES } from "@/lib/schedule/routeLegs";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
@@ -174,6 +177,184 @@ ok("unknown end time -> shows the drive but passes no verdict",
 
 ok("empty list -> empty", travelLegs([]).length === 0);
 ok("undefined -> empty, not a crash", travelLegs().length === 0);
+
+// ══ The calendar's own chain: who is driving where ═════════════════════════
+//
+// travelLegs above is correct in isolation. What shipped broken was the
+// CHAIN the calendar handed it: every entry for a person, cancelled rows
+// included. A cancelled visit is a row on the calendar and nobody's drive,
+// and counting it as a stop absorbed the warning that belonged to the real
+// visit behind it — see lib/schedule/routeLegs.js.
+//
+// These assertions execute routeLegs, not a copy of its logic, which is the
+// whole reason the chain was moved out of app/app/appointments/page.js.
+console.log("\nThe route chain: cancelled rows are nobody's drive");
+
+const GATINEAU = { lat: 45.395672, lng: -75.841613 };
+const CARLETON_PLACE = { lat: 45.143823, lng: -76.157409 };
+
+/** A calendar entry, shaped the way lib/schedule/jobVisits.js merges them. */
+const entry = (id, { at, endAt = null, status = "scheduled", who = "van-1", point = null, name = null, kind = "appointment" }) => ({
+  kind,
+  id,
+  assignedToId: who,
+  scheduledAt: at,
+  status,
+  client: name ? { name } : null,
+  booking: endAt ? { endTime: endAt } : null,
+  latitude: point?.lat ?? null,
+  longitude: point?.lng ?? null,
+});
+
+// ── The live case, exactly ────────────────────────────────────────────────
+// TrueFinish Cabinets, 2026-11-09, all three on one person:
+//   20:00Z completed  Joel Reardon, Gatineau, ends 21:00Z
+//   22:00Z CANCELLED  Joel Reardon, Carleton Place
+//   22:00Z completed  Peter,        Carleton Place
+// The 1 h 35 drive from Gatineau belongs to PETER's visit. It was printed on
+// the cancelled one, and Peter's read "about 0 min drive" because the
+// cancelled row at the same address was standing in front of it.
+const nov9 = (h, m = 0) => new Date(Date.UTC(2026, 10, 9, h, m)).toISOString();
+const liveDay = [
+  entry("joel-1500", { at: nov9(20), endAt: nov9(21), status: "completed", point: GATINEAU, name: "Joel Reardon" }),
+  entry("joel-CANCELLED-1700", { at: nov9(22), status: "cancelled", point: CARLETON_PLACE, name: "Joel Reardon" }),
+  entry("peter-1700", { at: nov9(22), status: "completed", point: CARLETON_PLACE, name: "Peter" }),
+];
+const live = routeLegs(liveDay);
+ok("the cancelled visit gets NO leg at all", live.get("joel-CANCELLED-1700") === undefined, live.get("joel-CANCELLED-1700"));
+ok("the real visit gets the drive", live.get("peter-1700")?.travel?.minutes > 90, live.get("peter-1700"));
+ok("...and it is the 1 h 35 the cancelled row was wearing",
+  live.get("peter-1700")?.travel?.minutes === 95, live.get("peter-1700"));
+ok("...with the 60 min gap", live.get("peter-1700")?.gapMinutes === 60, live.get("peter-1700"));
+ok("...flagged tight, 35 short", live.get("peter-1700")?.tight === true && live.get("peter-1700")?.shortBy === 35, live.get("peter-1700"));
+ok("the real visit no longer reads 'about 0 min' off the cancelled stop",
+  live.get("peter-1700")?.travel?.minutes !== 0, live.get("peter-1700"));
+ok("the first stop of the day still has no leg", live.get("joel-1500")?.travel === null, live.get("joel-1500"));
+// The second half of the bug: the cancelled row must not be a PREDECESSOR
+// either. Removing it from the map while still chaining through it would hide
+// the warning and look fixed.
+ok("the drive is measured from Gatineau, not from the cancelled stop's address",
+  live.get("peter-1700")?.fromName === "Joel Reardon" && live.get("peter-1700")?.fromEndAt === nov9(21),
+  live.get("peter-1700"));
+
+// ── The whole off-route vocabulary, not just the word in the bug report ───
+ok("OFF_ROUTE_STATUSES holds cancelled", OFF_ROUTE_STATUSES.includes("cancelled"));
+ok("...and the JobVisit 'canceled' spelling, which is really in the table", OFF_ROUTE_STATUSES.includes("canceled"));
+ok("...and rescheduled — its new time is its own row", OFF_ROUTE_STATUSES.includes("rescheduled"));
+for (const off of OFF_ROUTE_STATUSES) {
+  const day = [
+    entry("first", { at: nov9(20), endAt: nov9(21), point: GATINEAU }),
+    entry("off", { at: nov9(22), status: off, point: CARLETON_PLACE }),
+    entry("real", { at: nov9(22), point: CARLETON_PLACE }),
+  ];
+  const legs2 = routeLegs(day);
+  ok(`status "${off}" is not a stop, and not a predecessor`,
+    legs2.get("off") === undefined && legs2.get("real")?.shortBy === 35, { off: legs2.get("off"), real: legs2.get("real") });
+  ok(`status "${off}" answers isOnRoute false`, isOnRoute({ status: off }) === false);
+}
+// The exclusion must not be a blanket "anything that isn't scheduled". Drop
+// too much and the chain breaks the other way: a finished day stops being
+// measurable, and a visit the van DID drive to stops counting as a stop.
+for (const on of ["scheduled", "needs_supervisor", "completed", "no_show", "confirmed", "pending_payment", "on_the_way", "in_progress"]) {
+  ok(`status "${on}" stays on the route`, isOnRoute({ status: on }) === true);
+  const legs3 = routeLegs([
+    entry("first", { at: nov9(20), endAt: nov9(21), point: GATINEAU }),
+    entry("second", { at: nov9(22), status: on, point: CARLETON_PLACE }),
+  ]);
+  ok(`...and "${on}" still gets its drive`, legs3.get("second")?.shortBy === 35, legs3.get("second"));
+}
+ok("a missing status is the default, which is on the route", isOnRoute({ status: null }) === true);
+ok("an unknown status is NOT silently dropped from the chain", isOnRoute({ status: "halfway_there" }) === true);
+ok("a Google busy block is time, not a place", isOnRoute({ kind: "busy", status: null }) === false);
+ok("nothing at all is not a stop", isOnRoute(null) === false && isOnRoute(undefined) === false);
+
+// ── What the warning names ───────────────────────────────────────────────
+const named = routeLegs([
+  entry("a", { at: nov9(20), endAt: nov9(21), point: GATINEAU, name: "Joel Reardon" }),
+  entry("b", { at: nov9(22), point: CARLETON_PLACE, name: "Peter" }),
+]);
+ok("a leg says which visit it leaves from", named.get("b")?.fromName === "Joel Reardon", named.get("b"));
+ok("...and when that visit ends — the moment the drive starts", named.get("b")?.fromEndAt === nov9(21), named.get("b"));
+ok("the first stop of a day names nothing to come from",
+  named.get("a")?.fromName === null && named.get("a")?.fromEndAt === null, named.get("a"));
+// Absence is not a statement (AGENTS.md #5). A predecessor with no name must
+// produce no name, not "Unknown" or the word "client".
+const nameless = routeLegs([
+  entry("a", { at: nov9(20), endAt: nov9(21), point: GATINEAU }),
+  entry("b", { at: nov9(22), point: CARLETON_PLACE }),
+]);
+ok("an unnamed predecessor yields no name, not an invented one", nameless.get("b")?.fromName === null, nameless.get("b"));
+// And a predecessor whose finish is unknown must not have one guessed: that
+// is also the only case with no gap and no verdict.
+const openEnded = routeLegs([
+  entry("a", { at: nov9(20), point: GATINEAU, name: "Joel Reardon" }),
+  entry("b", { at: nov9(22), point: CARLETON_PLACE, name: "Peter" }),
+]);
+ok("unknown finish -> the drive, no end time, no gap, no verdict",
+  openEnded.get("b")?.travel !== null &&
+    openEnded.get("b")?.fromEndAt === null &&
+    openEnded.get("b")?.gapMinutes === null &&
+    openEnded.get("b")?.tight === false,
+  openEnded.get("b"));
+
+// ── One person's day, not the company's ──────────────────────────────────
+const twoPeople = routeLegs([
+  entry("painter-am", { at: nov9(20), endAt: nov9(21), point: GATINEAU, who: "painter" }),
+  entry("plumber-pm", { at: nov9(22), point: CARLETON_PLACE, who: "plumber" }),
+]);
+ok("a plumber is not driving from a painter's last job",
+  twoPeople.get("plumber-pm")?.travel === null, twoPeople.get("plumber-pm"));
+const unassigned = routeLegs([
+  entry("mine", { at: nov9(20), endAt: nov9(21), point: GATINEAU }),
+  { kind: "appointment", id: "nobodys", assignedToId: null, scheduledAt: nov9(22), status: "scheduled", client: null, booking: null, latitude: CARLETON_PLACE.lat, longitude: CARLETON_PLACE.lng },
+]);
+ok("nobody is not a person with a van", unassigned.get("nobodys") === undefined, unassigned.get("nobodys"));
+ok("...and an unassigned row is not a predecessor either", unassigned.size === 1, [...unassigned.keys()]);
+
+// ── Guards ───────────────────────────────────────────────────────────────
+ok("empty list -> empty map", routeLegs([]).size === 0);
+ok("undefined -> empty map, not a crash", routeLegs().size === 0);
+ok("a day of nothing but cancelled rows yields nothing, and does not throw",
+  routeLegs([
+    entry("x", { at: nov9(20), endAt: nov9(21), status: "cancelled", point: GATINEAU }),
+    entry("y", { at: nov9(22), status: "cancelled", point: CARLETON_PLACE }),
+  ]).size === 0);
+// The mutation guard: if the exclusion ever drops EVERY stop, every assertion
+// above about a leg landing somewhere goes with it — so assert the chain
+// still produces one at all.
+ok("a day of real visits still produces legs (the exclusion is not a blanket)",
+  routeLegs(liveDay).size === 2, [...routeLegs(liveDay).keys()]);
+
+// ══ What the calendar does with the leg ════════════════════════════════════
+//
+// The two decisions above this are pure and executed. The two below live in
+// the page's JSX and can only be read, so they are read — a regression here
+// is the same bug coming back with a different shape.
+console.log("\nThe calendar's travel line");
+const page = readFileSync(
+  new URL("../app/app/appointments/page.js", import.meta.url),
+  "utf8",
+);
+ok("the calendar uses the shared chain, not a second copy of it",
+  /from "@\/lib\/schedule\/routeLegs"/.test(page) && /routeLegs\(appointments/.test(page));
+ok("...and no longer keeps a local one that would rot apart from this check",
+  !/function legsByAppointment/.test(page));
+// The warning names the stop it leaves from. Without this the line read "60
+// min gap" on a list whose visual order is not one person's day, and the
+// owner read it as comparing two visits a week apart.
+// The FRAGMENT, not just the field name: `leg.fromName` also appears as the
+// guard on the time clause, so a check for the identifier alone passed with
+// the name itself deleted from the sentence.
+ok("the line names which visit the drive leaves from",
+  /from \$\{leg\.fromName\}/.test(page));
+ok("...and when that visit ends", /leg\.fromEndAt \?/.test(page) && /ends \$\{localeDateTime\(fromEnd/.test(page));
+// A travel warning about a trip that already happened is noise: there is
+// nothing left to rearrange, and an unactionable alarm teaches people to
+// ignore the actionable ones. The grey drive line stays; the amber does not.
+ok("the amber alarm is raised only about a visit still to come",
+  /leg\.tight && upcoming/.test(page) && /startAt\.getTime\(\) >= nowMs/.test(page));
+ok("...and the amber, the icon and the 'short' figure all answer the SAME question",
+  (page.match(/\bwarn\b/g) || []).length >= 4, (page.match(/\bwarn\b/g) || []).length);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

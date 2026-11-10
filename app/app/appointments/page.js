@@ -30,7 +30,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { personOptionLabel } from "@/lib/team/personLabel";
 import { dayKey, monthGrid, localeFormat, localeDateTime, upcomingFirst, byTimeAsc } from "@/lib/calendar/monthGrid";
-import { travelLegs, describeTravel } from "@/lib/booking/travel";
+import { describeTravel } from "@/lib/booking/travel";
+import { routeLegs } from "@/lib/schedule/routeLegs";
 import { bookingModeLabel, bookingModeLine } from "@/lib/booking/bookingModes";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -129,41 +130,12 @@ function carriesContact(entry) {
   return entry?.kind === "appointment";
 }
 
-/**
- * The drive between each appointment and the one before it.
- *
- * Grouped BY ASSIGNEE first. The list is one chronological stream across the
- * whole company, so pairing neighbours blind would show a painter the drive
- * from a plumber's last job — a number that is not merely useless but actively
- * misleading, because it looks exactly like a real one.
- *
- * Unassigned appointments are skipped rather than lumped together: "nobody" is
- * not a person with a van.
- */
-function legsByAppointment(appointments) {
-  const byPerson = new Map();
-  for (const a of appointments) {
-    if (!a.assignedToId) continue;
-    if (!byPerson.has(a.assignedToId)) byPerson.set(a.assignedToId, []);
-    byPerson.get(a.assignedToId).push(a);
-  }
-
-  const out = new Map();
-  for (const list of byPerson.values()) {
-    const stops = list
-      .slice()
-      .sort((x, y) => new Date(x.scheduledAt) - new Date(y.scheduledAt))
-      .map((a) => ({
-        id: a.id,
-        at: a.scheduledAt,
-        endAt: a.booking?.endTime || null,
-        latitude: a.latitude,
-        longitude: a.longitude,
-      }));
-    for (const leg of travelLegs(stops)) out.set(leg.id, leg);
-  }
-  return out;
-}
+// The travel chain — grouped by assignee, and with cancelled and rescheduled
+// stops taken out of it — is lib/schedule/routeLegs.js. It used to be a local
+// `legsByAppointment` here, which counted a cancelled visit as a stop: the
+// warning landed on the row nobody was driving to and vanished from the row
+// that carried the conflict. It moved to lib/ so check:travel can execute the
+// real chain against the live three-stop case rather than a copy of it.
 
 export default function AppointmentsPage() {
   const { t, language } = useTranslation();
@@ -391,7 +363,7 @@ export default function AppointmentsPage() {
     return counts;
   }, [appointments]);
 
-  const legs = useMemo(() => legsByAppointment(appointments || []), [appointments]);
+  const legs = useMemo(() => routeLegs(appointments || []), [appointments]);
 
   const byDay = useMemo(() => {
     const map = new Map();
@@ -467,6 +439,9 @@ export default function AppointmentsPage() {
   );
 
   const todayKey = dayKey(new Date());
+  // Read once per render rather than per row, so every travel line on the
+  // screen answers "has this already happened?" against the same instant.
+  const nowMs = Date.now();
   const shownEntries = selectedDay
     ? filtered.filter((a) => dayKey(new Date(a.scheduledAt)) === selectedDay)
     : filtered;
@@ -936,22 +911,42 @@ export default function AppointmentsPage() {
 
           return (
           <div key={rowKey}>
-          {leg?.travel && (
-            <div
-              className={`flex items-center gap-1.5 text-xs px-1 pb-1.5 ${
-                leg.tight
-                  ? "text-amber-700 dark:text-amber-400 font-medium"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {leg.tight ? <AlertTriangle size={12} /> : <Car size={12} />}
-              <span>
-                {describeTravel(leg.travel)}
-                {leg.gapMinutes != null && ` · ${leg.gapMinutes} min gap`}
-                {leg.tight && ` · ${leg.shortBy} min short`}
-              </span>
-            </div>
-          )}
+          {/* ── The drive in, and WHERE FROM ──────────────────────────────
+              This line sat above its own card and named neither visit it was
+              about: a bare "60 min gap" on a list whose visual order is not
+              one person's chronological order read as a comparison between
+              two visits a week apart. It names the stop the drive leaves
+              from, and when that stop finishes — the moment the clock starts.
+              Omitted, not invented, when the previous row has no name.
+
+              And the alarm is only raised about a trip somebody can still
+              make. A past visit keeps the grey drive line (it is context for
+              a day that ran late) and loses the amber "35 min short": there
+              is nothing left to rearrange, and a warning you cannot act on
+              teaches people to ignore the ones you can. */}
+          {leg?.travel && (() => {
+            const upcoming = !Number.isNaN(startAt.getTime()) && startAt.getTime() >= nowMs;
+            const warn = leg.tight && upcoming;
+            const fromEnd = leg.fromEndAt ? new Date(leg.fromEndAt) : null;
+            return (
+              <div
+                className={`flex items-center gap-1.5 text-xs px-1 pb-1.5 ${
+                  warn ? "text-amber-700 dark:text-amber-400 font-medium" : "text-muted-foreground"
+                }`}
+              >
+                {warn ? <AlertTriangle size={12} /> : <Car size={12} />}
+                <span>
+                  {describeTravel(leg.travel)}
+                  {leg.fromName && ` from ${leg.fromName}`}
+                  {leg.fromName && fromEnd && !Number.isNaN(fromEnd.getTime())
+                    ? `, ends ${localeDateTime(fromEnd, language, { hour: "numeric", minute: "2-digit" })}`
+                    : ""}
+                  {leg.gapMinutes != null && ` · ${leg.gapMinutes} min gap`}
+                  {warn && ` · ${leg.shortBy} min short`}
+                </span>
+              </div>
+            );
+          })()}
           <div className="glass-effect card-hover rounded-lg p-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="min-w-0 flex-1">
