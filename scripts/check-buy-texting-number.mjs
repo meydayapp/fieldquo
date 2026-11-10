@@ -27,7 +27,9 @@
 //
 // Reading the code cannot show any of that. Each failure below is injected
 // and the resulting state inspected.
-import { purchaseNumber, releasePurchased, syncRequest, billRent } from "@/lib/businessNumber/store";
+import { purchaseNumber, releasePurchased, syncRequest, billRent, setForwarding } from "@/lib/businessNumber/store";
+import { bridgeVerdict } from "@/lib/businessNumber/twiml";
+import { ownsVoice } from "@/lib/businessNumber/state";
 import { BROUGHT_NUMBER_MONTHLY_CENTS } from "@/lib/businessNumber/costs";
 
 let fail = 0;
@@ -324,6 +326,43 @@ const liveRow = () => ({
   ok(!r.ok, "a failed release is a failure, not a silent success", r.ok);
   ok(state.company.smsFromNumber === NUM, "and the number keeps working rather than being orphaned", state.company.smsFromNumber);
   ok(state.row.status === "active", "the row still says active, because it is", state.row.status);
+}
+
+section("10. a rented number's CALLS are ours — the gate that said only a port was");
+
+// The bug this pins: activate() wires a rented number's voiceUrl at FieldQuo,
+// so somebody ringing it reaches us — while setForwarding() and bridgeVerdict()
+// both asked `path === "port"` and refused. The line rang, nobody could say
+// where, and the Call button told the company to move a number it had bought.
+// Three sites, one question; ownsVoice() is now the only one that answers it.
+ok(ownsVoice("purchased"), "a rented number's calls are FieldQuo's");
+ok(ownsVoice("port"), "a ported number's calls are FieldQuo's");
+ok(!ownsVoice("hosted_sms"), "a hosted number's calls stay with its carrier");
+
+{
+  const { state, deps } = world({ row: liveRow(), smsFromNumber: NUM });
+  const r = await setForwarding(
+    { companyId: CO, forwardTo: ["819-238-7263", "819-238-7263", NUM, "+16135550199"], ringSeconds: 59, fallback: "voicemail" },
+    deps,
+  );
+  ok(r.ok, "where calls ring SAVES on a rented number", r.reason);
+  ok(JSON.stringify(state.row.forwardTo) === JSON.stringify(["+18192387263", "+16135550199"]),
+    "the same phone twice is one ring, and the business number is never dialled into itself", state.row.forwardTo);
+  ok(state.row.ringSeconds === 59, "the ring length is kept", state.row.ringSeconds);
+  ok(state.row.fallback === "voicemail", "and the no-answer choice is kept", state.row.fallback);
+}
+
+{
+  const { deps } = world({ row: { ...liveRow(), path: "hosted_sms" }, smsFromNumber: NUM });
+  const r = await setForwarding({ companyId: CO, forwardTo: ["+18192387263"], ringSeconds: 20, fallback: "voicemail" }, deps);
+  ok(!r.ok && r.reasonKey === "hosted_calls", "a HOSTED number still refuses — its calls never reach us", r.reasonKey);
+}
+
+{
+  const args = { numberActive: true, memberPhone: "+18192387263", clientPhone: "+16135550199", doNotCall: false, withinHours: true };
+  ok(bridgeVerdict({ ...args, path: "purchased" }).allowed, "the Call button works from a rented number");
+  ok(bridgeVerdict({ ...args, path: "port" }).allowed, "and from a ported one");
+  ok(bridgeVerdict({ ...args, path: "hosted_sms" }).reasonKey === "no_number", "and refuses a hosted one");
 }
 
 console.log(fail ? `\n${fail} failed\n` : "\nAll checks passed\n");
