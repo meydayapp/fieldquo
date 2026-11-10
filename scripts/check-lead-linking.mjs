@@ -131,6 +131,13 @@ function makeDb() {
       async findFirst({ where }) {
         return withQuoteEvidence(R().leadRequest.find((l) => matches(l, where)) || null);
       },
+      async findMany({ where }) {
+        const ids = where?.id?.in;
+        return R().leadRequest
+          .filter((l) => (Array.isArray(ids) ? ids.includes(l.id) : true))
+          .filter((l) => (where?.companyId ? l.companyId === where.companyId : true))
+          .map((l) => ({ id: l.id, createdAt: l.createdAt }));
+      },
       async update({ where, data }) {
         const row = R().leadRequest.find((l) => l.id === where.id);
         writes.push({ model: "leadRequest", where, data });
@@ -152,8 +159,15 @@ function makeDb() {
         globalThis.__FQ_LAST_QUOTE_SELECT = select;
         return out;
       },
-      async findMany() {
-        return [];
+      async findMany({ where } = {}) {
+        // Was an unconditional []. That short-circuited the client arm before
+        // it ran: no quote meant no clientId, so the OR never grew the third
+        // branch and the batch's newest link was never executed here at all.
+        const ids = where?.id?.in;
+        return R().quote
+          .filter((x) => (where?.companyId ? x.companyId === where.companyId : true))
+          .filter((x) => (Array.isArray(ids) ? ids.includes(x.id) : true))
+          .map((x) => ({ id: x.id, clientId: x.clientId ?? null }));
       },
     },
     job: {
@@ -172,24 +186,49 @@ function makeDb() {
     // Appointment.quoteId (the same road jobs and invoices travel).
     booking: {
       async findMany({ where }) {
-        return (R().booking || []).filter(
-          (b) => b.leadRequestId === where.leadRequestId && b.appointmentId,
-        );
+        // The batch asks `leadRequestId: { in: [...] }`. This used to compare
+        // that object to a string, so every booking dropped and the lead's own
+        // visit vanished — the stub silently asserting the opposite of the
+        // behaviour the section below exists to protect.
+        const want = where.leadRequestId;
+        const hit = (b) =>
+          want && typeof want === "object" && Array.isArray(want.in)
+            ? want.in.includes(b.leadRequestId)
+            : b.leadRequestId === want;
+        return (R().booking || []).filter((b) => hit(b) && b.appointmentId);
       },
     },
     appointment: {
       async findMany({ where }) {
         globalThis.__FQ_LAST_APPOINTMENT_WHERE = where;
-        const ids = new Set(
-          (where.OR || []).flatMap((c) => (c.id?.in ? c.id.in : [])),
-        );
-        const quoteIds = new Set(
-          (where.OR || []).flatMap((c) => (c.quoteId ? [c.quoteId] : [])),
-        );
+        // Every arm of the real OR is an `{ in: [...] }`, including quoteId
+        // and the clientId arm added when the lead drawer learned to find a
+        // visit that names only the client. Reading `c.quoteId` as a bare
+        // value put an OBJECT in this set, so the quote arm matched nothing
+        // and two assertions here reported a product failure that was the
+        // stub's own.
+        const idsIn = (c, key) => (Array.isArray(c?.[key]?.in) ? c[key].in : c?.[key] != null ? [c[key]] : []);
+        const ids = new Set((where.OR || []).flatMap((c) => idsIn(c, "id")));
+        const quoteIds = new Set((where.OR || []).flatMap((c) => idsIn(c, "quoteId")));
+        const clientIds = new Set((where.OR || []).flatMap((c) => idsIn(c, "clientId")));
         return (R().appointment || [])
           .filter((a) => a.companyId === where.companyId)
-          .filter((a) => ids.has(a.id) || quoteIds.has(a.quoteId))
+          .filter((a) => ids.has(a.id) || quoteIds.has(a.quoteId) || clientIds.has(a.clientId))
           .sort((a, b) => new Date(b.scheduledAt || 0) - new Date(a.scheduledAt || 0));
+      },
+    },
+    // loadLeadConversion opens on this model. It was absent, so the lead
+    // drawer's own route swallowed a TypeError into its best-effort catch and
+    // four assertions below reported `[]` — a check reporting product
+    // failures that were really its own missing stub.
+    messageThread: {
+      async findFirst({ where }) {
+        return (R().messageThread || []).find((m) => matches(m, where)) || null;
+      },
+    },
+    client: {
+      async findMany({ where }) {
+        return (R().client || []).filter((c) => c.companyId === where.companyId);
       },
     },
     user: { async findUnique() { return { name: "Tester" }; } },
@@ -260,6 +299,11 @@ function reset() {
       { id: "lead_sent", companyId: COMPANY, name: "Sent Lead", status: "contacted", quoteId: "q_sent", lostReason: null },
       { id: "lead_holder", companyId: COMPANY, name: "Holder", status: "new", quoteId: "q_held", lostReason: null },
       { id: "lead_foreign", companyId: OTHER, name: "Foreign", status: "new", quoteId: null, lostReason: null },
+      // The third link's own lead: it has a quote, the quote names a client,
+      // and the visit below names ONLY that client. createdAt is real because
+      // the client arm is refused outright without one.
+      { id: "lead_client", companyId: COMPANY, name: "Client Arm", status: "contacted", quoteId: "q_cli", lostReason: null,
+        createdAt: new Date("2026-10-25T00:00:00.000Z") },
     ],
     quote: [
       { id: "q_acc", companyId: COMPANY, quoteNumber: "Q-1", status: "accepted", total: 5000, acceptedTotal: 5200, client: { id: "c1", name: "Ana" }, _count: { jobs: 1, invoices: 1 } },
@@ -268,6 +312,9 @@ function reset() {
       { id: "q_sent", companyId: COMPANY, quoteNumber: "Q-4", status: "sent", total: 700, client: { id: "c3", name: "Cy" }, _count: { jobs: 0, invoices: 0 } },
       { id: "q_held", companyId: COMPANY, quoteNumber: "Q-5", status: "accepted", total: 1, client: { id: "c4", name: "Di" }, _count: { jobs: 0, invoices: 0 } },
       { id: "q_foreign", companyId: OTHER, quoteNumber: "X-1", status: "accepted", total: 99999, client: { id: "cx", name: "Stranger" }, _count: { jobs: 1, invoices: 1 } },
+      // Carries the SCALAR clientId the batch reads; the nested `client` above
+      // is what the drawer renders and is a different question.
+      { id: "q_cli", companyId: COMPANY, quoteNumber: "Q-6", status: "sent", total: 4500, clientId: "c9", client: { id: "c9", name: "Jan" }, _count: { jobs: 0, invoices: 0 } },
     ],
     job: [
       { id: "j1", companyId: COMPANY, quoteId: "q_acc", title: "Kitchen repaint", status: "scheduled", startDate: null },
@@ -286,6 +333,15 @@ function reset() {
       { id: "ap_quote", companyId: COMPANY, quoteId: "q_acc", scheduledAt: "2026-10-20T14:00:00.000Z", status: "completed", aboutKind: "estimate" },
       { id: "ap_quote2", companyId: COMPANY, quoteId: "q_acc", scheduledAt: "2026-10-28T14:00:00.000Z", status: "cancelled", aboutKind: "estimate" },
       { id: "ap_foreign", companyId: OTHER, quoteId: "q_acc", scheduledAt: "2026-10-29T14:00:00.000Z", status: "scheduled", aboutKind: "estimate" },
+      // The visit an estimator books straight onto the schedule: no Booking
+      // row, no quoteId — the quote is what the visit PRODUCES — so it names
+      // only the client. Dates, not strings: the bound does getTime() on them.
+      { id: "ap_client", companyId: COMPANY, quoteId: null, clientId: "c9",
+        scheduledAt: new Date("2026-10-26T14:00:00.000Z"), status: "completed", aboutKind: "estimate" },
+      // Same client, months before this enquiry existed. A repeat client's old
+      // job is not evidence that THIS enquiry was booked.
+      { id: "ap_client_old", companyId: COMPANY, quoteId: null, clientId: "c9",
+        scheduledAt: new Date("2026-06-01T14:00:00.000Z"), status: "completed", aboutKind: "estimate" },
     ],
   };
 }
@@ -542,6 +598,24 @@ ok("a lead with NO quote still shows the visit booked against it",
 reset(); as("m_owner");
 res = await docsRoute.GET(req(null), ctx("lead_won"));
 ok("a lead whose quote has none shows none", res.status === 200 && res.body.appointments.length === 0, res.body);
+
+// ── The third link: a visit that names only the client ────────────────────
+//
+// Deleting this arm entirely used to leave this file at 0 failures, so the
+// 2026-11-09 fix — the one that stopped the lead drawer saying "No visit
+// booked yet" about a visit already completed — was guarded by nothing.
+reset(); as("m_owner");
+res = await docsRoute.GET(req(null), ctx("lead_client"));
+ok("a visit naming only the client reaches its lead",
+  res.status === 200 && res.body.appointments.some((a) => a.id === "ap_client"), res.body.appointments);
+ok("\u2026and a visit from before the lead existed is NOT attributed to it",
+  res.status === 200 && !res.body.appointments.some((a) => a.id === "ap_client_old"), res.body.appointments);
+
+reset(); as("m_owner");
+leadRow("lead_client").createdAt = null;
+res = await docsRoute.GET(req(null), ctx("lead_client"));
+ok("a lead whose createdAt cannot be read is REFUSED the client match, not waved through",
+  res.status === 200 && !res.body.appointments.some((a) => a.id === "ap_client"), res.body.appointments);
 
 reset(); as("m_owner");
 leadRow("lead_bare").quoteId = "q_acc";
