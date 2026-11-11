@@ -69,6 +69,14 @@ import {
 import { createOfferedAddOns } from "@/lib/quotes/suggestedAddOns";
 import { autoAddFromReview } from "@/lib/quotes/addOnAutoAdd";
 import { addOnCandidates } from "@/lib/ai/quoteReview";
+import { QUOTE_STATUSES } from "@/lib/quotes/statusLabels";
+import {
+  extraInputAttrs,
+  extraRowEditable,
+  extraSelector,
+  extrasReadOnlyFor,
+  openOfferedExtra,
+} from "@/lib/quotes/offeredExtrasEdit";
 import { rows, resetDbStub } from "./fixtures/dbStub.mjs";
 
 let fail = 0;
@@ -774,7 +782,9 @@ section("11. Offering NOTHING is a decision the estimator is allowed to make");
   });
   ok("one row: the same button, unmoved", oneRow.includes("app.quoteReview.saveExtras"));
   ok("…with the row's own remove control", oneRow.includes("app.action.remove"));
-  eq("one row's markup, pinned", md5(oneRow), "a1783651a1048cc9219efd77ba539d69");
+  // Re-pinned 2026-11-11: the description input gained the id-keyed hook the
+  // document's mirror aims at (section 12).
+  eq("one row's markup, pinned", md5(oneRow), "df399e2be5f81eb210a535542e790870");
 
   // Read-only is the one case where there is no Save button, and that is not
   // the bug — the client has decided and the extras are a record.
@@ -903,6 +913,199 @@ section("11. Offering NOTHING is a decision the estimator is allowed to make");
     (await addOnCandidates(quoteWith([{ description: null }, {}, null]), "co_1")).map((s) => s.description),
     ["Gutter Cleaning"],
   );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("12. The document's read-only mirror leads to THIS editor");
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Owner, 2026-11-11, from his phone with two screenshots of one page: "Not
+// sure why when I go back to a quote in edit — Not able to edit the add-ons."
+// He was pressing the little squares in the document's own extras blocks.
+// Those are the boxes the CLIENT ticks on their copy; they had no
+// interaction of any kind, and the real editor was the same page, a long
+// scroll further down. Three claims, all executed here:
+//
+//   a  the editor's row carries an id-keyed hook for the mirror to aim at —
+//      and carries it ONLY when that row may really be edited, so an Edit
+//      affordance can never land on a disabled field;
+//   b  "may this row be edited" is one function, asked by both sides;
+//   c  the press survives the panel still loading, a hostile id, and a page
+//      the panel is not on — without throwing and without pretending.
+//
+// The mirror's own markup is pinned where it is rendered for real, in
+// scripts/check-doc-builder.mjs.
+
+{
+  // (a) The hook, in the rendered editor.
+  const require_ = createRequire(join(ROOT, "scripts", "x.js"));
+  const { OfferedExtras } = require_(join(ROOT, ".offered-extras.cjs"));
+  const render = (props) =>
+    renderToStaticMarkup(
+      createElement(OfferedExtras, {
+        addOns: [],
+        readOnly: false,
+        t: (k) => k,
+        update: () => {},
+        remove: () => {},
+        save: () => {},
+        saving: false,
+        dirty: false,
+        savedAt: null,
+        ...props,
+      }),
+    );
+  const THREE = [
+    { id: "a1", description: "Drill new Handles", amount: 600, source: "catalog" },
+    { id: "a2", description: "Living room — Ceiling", amount: 227.43, source: "takeoff", areaLabel: "Living room" },
+    { description: "Typed just now", amount: "", source: "manual" },
+  ];
+  const open = render({ addOns: THREE });
+  ok('the catalogue row carries data-offered-extra="a1"', open.includes('data-offered-extra="a1"'), open);
+  ok(
+    "the takeoff row carries NO hook — its fields are disabled, so an Edit button would be a lie",
+    !open.includes('data-offered-extra="a2"'),
+  );
+  ok("…and a row the estimator has only just typed has no id to key on", (open.match(/data-offered-extra=/g) || []).length === 1);
+  const decided = render({ addOns: THREE, readOnly: true });
+  ok("on a decided quote NO row carries the hook", !decided.includes("data-offered-extra"));
+}
+
+{
+  // (b) The one predicate, executed against the whole family of statuses and
+  // some hostile rows. `extrasReadOnlyFor` is a port of the list that was
+  // inline in QuoteBuilder, so an unknown status still reads as OPEN exactly
+  // as it did — this file pins that it is a port and not a new policy.
+  eq(
+    "every QuoteStatus, read for read-only-ness",
+    QUOTE_STATUSES.map((s) => [s, extrasReadOnlyFor(s)]),
+    [["draft", false], ["sent", false], ["accepted", true], ["declined", true]],
+  );
+  eq(
+    "and the values that are not statuses — absent, blank, cased, junk — all read as open, as the inline list did",
+    [null, undefined, "", "  ", "Accepted", "expired", 0, {}].map((s) => extrasReadOnlyFor(s)),
+    [false, false, false, false, false, false, false, false],
+  );
+  eq(
+    "a row's own editability: takeoff never, everything else while the quote is open",
+    [
+      extraRowEditable({ source: "catalog" }),
+      extraRowEditable({ source: "ai" }),
+      extraRowEditable({ source: "manual" }),
+      extraRowEditable({ source: "takeoff" }),
+      extraRowEditable({ source: null }),
+      extraRowEditable({}),
+      extraRowEditable({ source: "catalog" }, { readOnly: true }),
+      extraRowEditable({ source: "takeoff" }, { readOnly: true }),
+      extraRowEditable(null),
+      extraRowEditable(undefined),
+      extraRowEditable("catalog"),
+      extraRowEditable([]),
+    ],
+    [true, true, true, false, true, true, false, false, false, false, false, true],
+  );
+  eq(
+    "the hook's attributes come from that same decision",
+    [
+      extraInputAttrs({ id: "a1", source: "catalog" }),
+      extraInputAttrs({ id: "a1", source: "takeoff" }),
+      extraInputAttrs({ id: "a1", source: "catalog" }, { readOnly: true }),
+      extraInputAttrs({ id: "", source: "catalog" }),
+      extraInputAttrs({ id: "  ", source: "catalog" }),
+      extraInputAttrs({ source: "catalog" }),
+      extraInputAttrs(null),
+    ],
+    [{ "data-offered-extra": "a1" }, {}, {}, {}, {}, {}, {}],
+  );
+}
+
+{
+  // (c) The press itself. No DOM here — a fake document is enough, and it is
+  // the only way to execute "the panel is still a loading pulse".
+  const node = () => {
+    const e = { scrolls: 0, focuses: 0 };
+    e.scrollIntoView = () => { e.scrolls += 1; };
+    e.focus = () => { e.focuses += 1; };
+    return e;
+  };
+  const docOf = (map) => ({ querySelector: (sel) => (Object.prototype.hasOwnProperty.call(map, sel) ? map[sel] : null) });
+  const SECTION = "[data-offered-section]";
+  const PANEL = "[data-offered-panel]";
+
+  // A selector built by concatenation is one bad id away from a thrown
+  // SyntaxError, which on a phone looks exactly like the dead button this
+  // change removes. Every escape must leave the string closed.
+  const closed = /^\[data-offered-extra="(?:[^"\\]|\\.)*"\]$/;
+  eq(
+    "no usable id, no selector",
+    [extraSelector(""), extraSelector("   "), extraSelector(null), extraSelector(undefined), extraSelector({}), extraSelector([])],
+    [null, null, null, null, null, null],
+  );
+  ok("a plain cuid", extraSelector("ckz1abc") === '[data-offered-extra="ckz1abc"]');
+  // Exact forms, not just "it looks closed": a lone backslash left raw is a
+  // CSS escape that would quietly match a DIFFERENT value, and a raw newline
+  // in a CSS string is a parse error.
+  eq("an id holding a quote escapes it", extraSelector('a"b'), '[data-offered-extra="a\\"b"]');
+  eq("…a backslash doubles", extraSelector("a\\b"), '[data-offered-extra="a\\\\b"]');
+  eq("…a newline becomes a hex escape", extraSelector("a\nb"), '[data-offered-extra="a\\a b"]');
+  ok("…and every one of them leaves the string closed", [`a"b`, "a\\b", "a\nb", "a]b", "a b"].every((v) => closed.test(extraSelector(v))));
+
+  const row = node();
+  const hit = openOfferedExtra("a1", { doc: docOf({ '[data-offered-extra="a1"]': row }) });
+  eq("the row is there: scrolled to and focused", [hit.kind, hit.focused, row.scrolls, row.focuses], ["row", true, 1, 1]);
+
+  const section_ = node();
+  const noId = openOfferedExtra(null, { doc: docOf({ [SECTION]: section_ }) });
+  eq("no id — the block's own 'Edit extras' — lands on the editor's heading and stops", [noId.kind, noId.waiting, section_.scrolls], ["section", false, 1]);
+
+  // The panel opens as a pulse and fills itself from two GETs, so a press a
+  // second after the page paints finds no rows at all. It scrolls to the card
+  // the rows are about to appear in and keeps looking.
+  const panel = node();
+  const later = node();
+  const map = { [PANEL]: panel };
+  const queue = [];
+  const loading = openOfferedExtra("a1", { doc: docOf(map), schedule: (fn) => queue.push(fn) });
+  eq("still loading: the panel is scrolled to, and the row is still being waited for", [loading.kind, loading.waiting, panel.scrolls, queue.length], ["panel", true, 1, 1]);
+  map['[data-offered-extra="a1"]'] = later;
+  // Called only if there IS one — a missing retry has to report as a failed
+  // assertion, not as a TypeError that takes the rest of the file with it.
+  const retry = queue.pop();
+  if (typeof retry === "function") retry();
+  eq("…and when the GETs land, that retry focuses the row", [later.scrolls, later.focuses, panel.scrolls], [1, 1, 1]);
+
+  // Bounded. A row that never arrives must not leave a timer running.
+  const q2 = [];
+  openOfferedExtra("a1", { doc: docOf({ [PANEL]: node() }), attempts: 3, schedule: (fn) => q2.push(fn) });
+  let drained = 0;
+  while (q2.length && drained < 20) { q2.pop()(); drained += 1; }
+  eq("a row that never arrives stops after `attempts` tries", [drained, q2.length], [2, 0]);
+
+  eq("no document at all: nothing happens, nothing throws", openOfferedExtra("a1", { doc: null }), { kind: null, focused: false, waiting: false });
+  eq("no panel on the page: the same", openOfferedExtra("a1", { doc: docOf({}) }), { kind: null, focused: false, waiting: false });
+  const thrower = { querySelector: () => { throw new Error("bad selector"); } };
+  eq("a querySelector that throws is not allowed to take the handler with it", openOfferedExtra("a1", { doc: thrower }), { kind: null, focused: false, waiting: false });
+  eq("a node that cannot be scrolled or focused is survivable", openOfferedExtra("a1", { doc: docOf({ '[data-offered-extra="a1"]': {} }) }), { kind: "row", focused: true, waiting: false });
+}
+
+{
+  // The wiring. Each side of the page has to be ASKING the shared function,
+  // not carrying its own copy of the rule.
+  const docBuilder = read(join(ROOT, "app/components/quotes/builder/DocumentBuilder.js"));
+  const quoteBuilder = read(join(ROOT, "app/components/quotes/builder/QuoteBuilder.js"));
+  const offered = read(join(ROOT, "app/components/quotes/OfferedExtras.js"));
+  const panelSrc = read(join(ROOT, "app/components/quotes/SuggestAddOns.js"));
+
+  ok("the mirror imports the shared decision", /from "@\/lib\/quotes\/offeredExtrasEdit"/.test(docBuilder));
+  ok("…and presses through it, from the row and from the block header", (docBuilder.match(/openOfferedExtra\(/g) || []).length >= 2, String((docBuilder.match(/openOfferedExtra\(/g) || []).length));
+  ok("…with no status list of its own", !/"accepted"[\s\S]{0,40}"declined"/.test(docBuilder));
+  ok("…and it does ask about the status, rather than assuming the quote is open", /extrasReadOnlyFor\(start\.status\)/.test(docBuilder));
+  ok("the editor's readOnly comes from the same function", /readOnly=\{extrasReadOnlyFor\(start\.status\)\}/.test(quoteBuilder));
+  ok("…so the inline list is gone from the builder", !/\["accepted", "declined"\]\.includes\(start\.status\)/.test(quoteBuilder));
+  ok("the editor's row asks it too, rather than re-deriving `locked`", /extraRowEditable\(a, \{ readOnly \}\)/.test(offered));
+  ok("…and spreads the hook rather than writing the attribute by hand", /extraInputAttrs\(a, \{ readOnly \}\)/.test(offered));
+  ok("the review card is findable while it is still loading", /EXTRAS_PANEL_ATTR/.test(panelSrc) && /function Panel\(/.test(panelSrc));
+  ok("the extras block itself is still findable by name", panelSrc.includes("data-offered-section"));
 }
 
 console.log(`\n${fail ? "✗" : "✓"} offered add-ons: ${pass} passed, ${fail} failed\n`);

@@ -151,6 +151,7 @@ import { jsonBody } from "@/lib/jsonBody";
 import { fetchJson } from "@/lib/fetchJson";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import { defaultSiteAddressFor } from "@/lib/quotes/jobAddress";
+import { extraRowEditable, extrasReadOnlyFor, openOfferedExtra } from "@/lib/quotes/offeredExtrasEdit";
 
 // "services" (2026-09-24, the owner: "a Services tab next to Estimate /
 // Presentation / Work order / Notes") sits beside the Estimate it summarises:
@@ -477,14 +478,18 @@ function PaintRooms({ group, book, money, onOpenArea, t, extras }) {
                     <span className="tabular-nums shrink-0">{money(l.amount)}</span>
                   </div>
                 ))}
+              {/* The same row the stored mirrors draw, and never editable
+                  here: these are derived from the takeoff of a group added
+                  this session, so no QuoteAddOn exists to focus yet. The
+                  room header directly above IS the control for them. */}
               {opts.map((o, i) => (
-                <div key={`o${i}`} className="flex justify-between gap-3 text-sm py-1 text-muted-foreground border-b border-border last:border-0" data-doc-option>
-                  <span className="min-w-0 flex items-center gap-2">
-                    <span className="h-3.5 w-3.5 rounded border border-border shrink-0" aria-hidden="true" />
-                    {t("app.docBuilder.optionPrefix", "Option:")} {o.description.replace(`${area.label} — `, "")}
-                  </span>
-                  <span className="tabular-nums shrink-0">+ {money(o.amount)}</span>
-                </div>
+                <StoredOptionRow
+                  key={`o${i}`}
+                  addOn={o}
+                  label={`${t("app.docBuilder.optionPrefix", "Option:")} ${o.description.replace(`${area.label} — `, "")}`}
+                  money={money}
+                  t={t}
+                />
               ))}
             </div>
           </div>
@@ -493,6 +498,114 @@ function PaintRooms({ group, book, money, onOpenArea, t, extras }) {
       {rooms.length === 0 && (
         <p className="text-xs text-muted-foreground">{t("app.docBuilder.noRooms", "No areas yet — open the takeoff to add one.")}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * One row of the extras the document OFFERS — the picture of what the
+ * homeowner reads, in all three places it is drawn (under a room, under a
+ * service, at the foot).
+ *
+ * ── The square ─────────────────────────────────────────────────────────────
+ *
+ * It is the box the CLIENT ticks on their copy, not a control here, and it
+ * used to be the only thing on the row: the owner pressed it in edit mode and
+ * reported "Not able to edit the add-ons". It keeps its shape — the document
+ * has to look like the document — and the block above it now says whose box
+ * it is, with the hover title saying the same for a pointer.
+ *
+ * ── `editable` ─────────────────────────────────────────────────────────────
+ *
+ * Decided by lib/quotes/offeredExtrasEdit.js, the same function OfferedExtras
+ * asks about the same row, so this never offers an Edit that lands on a
+ * disabled field. A takeoff-sourced row and every row on a decided quote get
+ * no affordance at all rather than a dead one. The press itself scrolls the
+ * real editor into view and focuses THIS extra's description field.
+ */
+function StoredOptionRow({ addOn, label, money, t, editable = false }) {
+  const className =
+    "w-full text-left flex justify-between gap-3 text-sm py-1 text-muted-foreground border-b border-border last:border-0";
+  const body = (
+    <>
+      <span className="min-w-0 flex items-center gap-2">
+        <span
+          className="h-3.5 w-3.5 rounded border border-border shrink-0"
+          aria-hidden="true"
+          title={t("app.docBuilder.optionsClientTick", "The client ticks these boxes on their own copy — they aren't controls here.")}
+        />
+        {label}
+      </span>
+      <span className="tabular-nums shrink-0 flex items-center gap-1.5">
+        + {money(addOn.amount)}
+        {editable && <Pencil size={11} className="opacity-60" aria-hidden="true" />}
+      </span>
+    </>
+  );
+  if (!editable) {
+    return (
+      <div className={className} data-doc-option>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      data-doc-option
+      data-doc-option-edit={addOn.id}
+      onClick={() => openOfferedExtra(addOn.id)}
+    >
+      {/* The verb, for a reader who gets the row read out rather than seeing
+          the pencil. The visible name stays the extra and its price. */}
+      <span className="sr-only">{t("app.docBuilder.editExtra", "Edit this extra")}</span>
+      {body}
+    </button>
+  );
+}
+
+/**
+ * The block those rows sit in, with the one affordance for the general case:
+ * adding an extra or deleting one, which is a trip to the editor and not a
+ * row-level act. Offered whenever the extras are editable at all — a decided
+ * quote gets the picture and no buttons.
+ */
+function StoredOptionsBlock({ rows, heading, labelFor, money, t, readOnly, className, wrapperProps }) {
+  return (
+    <div className={className} {...wrapperProps}>
+      <div className="flex items-center justify-between gap-3 py-1">
+        {heading ? (
+          <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">{heading}</p>
+        ) : (
+          <span />
+        )}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => openOfferedExtra(null)}
+            className="text-[11px] font-semibold text-foreground inline-flex items-center gap-1 shrink-0"
+            data-doc-options-edit
+          >
+            <Pencil size={11} /> {t("app.docBuilder.editExtras", "Edit extras")}
+          </button>
+        )}
+      </div>
+      {/* Whose tick-boxes these are. Without it the squares read as disabled
+          checkboxes, which is what sent the owner tapping them. */}
+      <p className="text-[11px] text-muted-foreground pb-1">
+        {t("app.docBuilder.optionsClientTick", "The client ticks these boxes on their own copy — they aren't controls here.")}
+      </p>
+      {rows.map((a, i) => (
+        <StoredOptionRow
+          key={a.id || i}
+          addOn={a}
+          label={labelFor ? labelFor(a) : a.description}
+          money={money}
+          t={t}
+          editable={extraRowEditable(a, { readOnly })}
+        />
+      ))}
     </div>
   );
 }
@@ -919,6 +1032,24 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
 
   const stored = isEdit && start.quote ? start.quote : null;
   const storedAddOns = Array.isArray(stored?.addOns) ? stored.addOns : [];
+  // The offers with no room of their own, or whose room this quote no longer
+  // has. One expression because the block below needs it twice — "is there
+  // anything to draw" and "draw it" were the same filter written out twice.
+  const footAddOns = storedAddOns.filter(
+    (a) =>
+      a.source !== "takeoff" ||
+      !b.scopeGroups.some((g) => (g.lineItems || []).some((l) => a.areaLabel && String(l.description).startsWith(`${a.areaLabel} —`))),
+  );
+  // ── May the mirror offer a way into the editor? ─────────────────────────
+  //
+  // Only where the editor is actually ON THIS PAGE: a quote being edited,
+  // which is where QuoteBuilder renders SuggestAddOns (and never an invoice,
+  // whose panel is InvoiceReviewPanel and holds no extras list). A button
+  // that scrolls towards something unrendered is the same dead control this
+  // change exists to remove. Beyond that the rule is the editor's own, from
+  // lib/quotes/offeredExtrasEdit.js — never a second status list here.
+  const extrasReadOnly =
+    isInvoice || !isEdit || !quoteId || extrasReadOnlyFor(start.status);
 
   const toggleGroup = (tempId) => setOpenGroup((cur) => (cur === tempId ? null : tempId));
 
@@ -1488,17 +1619,19 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                         />
                       )}
                       {groupAddOns.length > 0 && (
-                        <div className="py-1" data-doc-stored-options>
-                          {groupAddOns.map((a) => (
-                            <div key={a.id} className="flex justify-between gap-3 text-sm py-1 text-muted-foreground border-b border-border last:border-0" data-doc-option>
-                              <span className="min-w-0 flex items-center gap-2">
-                                <span className="h-3.5 w-3.5 rounded border border-border shrink-0" aria-hidden="true" />
-                                {t("app.docBuilder.optionPrefix", "Option:")} {a.description}
-                              </span>
-                              <span className="tabular-nums shrink-0">+ {money(a.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
+                        <StoredOptionsBlock
+                          rows={groupAddOns}
+                          heading={null}
+                          labelFor={(a) => `${t("app.docBuilder.optionPrefix", "Option:")} ${a.description}`}
+                          money={money}
+                          t={t}
+                          // The extras' own rule, not the group's `locked`:
+                          // this list is saved by its own route and stays
+                          // editable on a quote whose lines are frozen.
+                          readOnly={extrasReadOnly}
+                          className="py-1"
+                          wrapperProps={{ "data-doc-stored-options": true }}
+                        />
                       )}
                       {editing?.line?.group === group.tempId && group.lineItems?.[editing.line.i] && (
                         <TextLineEditor
@@ -1558,21 +1691,16 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
               {/* Stored offers that name no room, or a room this quote no
                   longer has: the foot of the document, as the client's
                   page draws them. */}
-              {storedAddOns.filter((a) => a.source !== "takeoff" || !b.scopeGroups.some((g) => (g.lineItems || []).some((l) => a.areaLabel && String(l.description).startsWith(`${a.areaLabel} —`)))).length > 0 && (
-                <div className="rounded-xl border border-border px-4 py-2" data-doc-foot-options>
-                  <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground py-1">{t("app.quoteDetail.optionalExtras", "Optional extras")}</p>
-                  {storedAddOns
-                    .filter((a) => a.source !== "takeoff" || !b.scopeGroups.some((g) => (g.lineItems || []).some((l) => a.areaLabel && String(l.description).startsWith(`${a.areaLabel} —`))))
-                    .map((a) => (
-                      <div key={a.id} className="flex justify-between gap-3 text-sm py-1 text-muted-foreground border-b border-border last:border-0" data-doc-option>
-                        <span className="min-w-0 flex items-center gap-2">
-                          <span className="h-3.5 w-3.5 rounded border border-border shrink-0" aria-hidden="true" />
-                          {a.description}
-                        </span>
-                        <span className="tabular-nums shrink-0">+ {money(a.amount)}</span>
-                      </div>
-                    ))}
-                </div>
+              {footAddOns.length > 0 && (
+                <StoredOptionsBlock
+                  rows={footAddOns}
+                  heading={t("app.quoteDetail.optionalExtras", "Optional extras")}
+                  money={money}
+                  t={t}
+                  readOnly={extrasReadOnly}
+                  className="rounded-xl border border-border px-4 py-2"
+                  wrapperProps={{ "data-doc-foot-options": true }}
+                />
               )}
 
               {/* ── Add another service ─────────────────────────────────────

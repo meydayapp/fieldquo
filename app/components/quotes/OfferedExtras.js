@@ -6,6 +6,7 @@
 "use client";
 
 import { Loader2, Trash2, Check } from "lucide-react";
+import { extraInputAttrs, extraRowEditable } from "@/lib/quotes/offeredExtrasEdit";
 
 /**
  * The offered-extras list and the Save button that persists it.
@@ -48,7 +49,10 @@ export function OfferedExtras({
             // the next save is exactly the control-that-doesn't-work this
             // codebase gets swept for. Change the room, not this row.
             const fromTakeoff = a.source === "takeoff";
-            const locked = readOnly || fromTakeoff;
+            // The same decision the document's mirror makes about this row,
+            // out of lib/quotes/offeredExtrasEdit.js, so the Edit affordance
+            // up there and the disabled input down here can never disagree.
+            const locked = !extraRowEditable(a, { readOnly });
             return (
             <div
               key={a.id || i}
@@ -59,6 +63,10 @@ export function OfferedExtras({
                   value={a.description}
                   onChange={(e) => update(i, { description: e.target.value })}
                   disabled={locked}
+                  // Where "Edit" in the document's mirror lands. Keyed on
+                  // QuoteAddOn.id and absent on a row nothing may edit, so
+                  // the hook itself is the answer to "is this focusable".
+                  {...extraInputAttrs(a, { readOnly })}
                   placeholder={t("app.quoteReview.extraPlaceholder")}
                   className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
                 />

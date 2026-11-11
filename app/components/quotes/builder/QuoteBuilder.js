@@ -154,6 +154,7 @@ import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
 // catalogue's extras, offered while the quote is being built.
 import OftenAddedRow from "./OftenAddedRow";
 import { builderOfferRows, offerKey } from "@/lib/quotes/builderOffers";
+import { extrasReadOnlyFor } from "@/lib/quotes/offeredExtrasEdit";
 import {
   customFactorLines,
   hasCustomFactors,
@@ -3803,7 +3804,11 @@ export function QuoteBuilderForm({
     {isEdit && quoteId && (
       <SuggestAddOns
         quoteId={quoteId}
-        readOnly={["accepted", "declined"].includes(start.status)}
+        // The same function the document's extras mirror asks before it
+        // offers an Edit affordance (lib/quotes/offeredExtrasEdit.js) — the
+        // status list was inline here and the mirror would have needed a
+        // second copy of it.
+        readOnly={extrasReadOnlyFor(start.status)}
         onProcessNotes={setProcessNotes}
         // The actuals finding's "Apply 18% more hours" — arithmetic in
         // lib/quotes/applyActuals.js over THIS component's state, through

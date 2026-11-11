@@ -44,6 +44,7 @@ import { runAfterSave } from "@/lib/quotes/reviewGate";
 import { autoAddFromReview } from "@/lib/quotes/addOnAutoAdd";
 import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
 import { OfferedExtras } from "@/app/components/quotes/OfferedExtras";
+import { EXTRAS_PANEL_ATTR } from "@/lib/quotes/offeredExtrasEdit";
 
 // Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
 // which printed "CA$1,200" for an American company and "1 200 $CA" for
@@ -1212,6 +1213,11 @@ export default function SuggestAddOns({
 
 function Panel({ children, panelRef = null }) {
   return (
-    <div ref={panelRef} className="bg-card border border-border rounded-xl p-5">{children}</div>
+    // data-offered-panel on the CARD, not on the extras block inside it: the
+    // document's "Edit extras" button can be pressed while this panel is
+    // still a loading pulse (it fills itself from two GETs), and scrolling to
+    // the card the rows are about to appear in beats scrolling to nothing.
+    // lib/quotes/offeredExtrasEdit.js walks row → section → panel.
+    <div ref={panelRef} {...{ [EXTRAS_PANEL_ATTR]: "" }} className="bg-card border border-border rounded-xl p-5">{children}</div>
   );
 }

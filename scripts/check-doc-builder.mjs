@@ -418,6 +418,87 @@ for (const [label, mode, id, initial] of CASES) {
   ok("stored: the imported group cannot be edited", /Subcontracted railing[\s\S]*?importedLocked|Subcontracted railing/.test(doc) && !/Subcontracted railing[\s\S]{0,400}data-doc-group-toggle/.test(doc));
 }
 
+// ── The extras mirror is a way INTO the editor ──────────────────────────────
+//
+// Owner, 2026-11-11: "Not sure why when I go back to a quote in edit — Not
+// able to edit the add-ons." He was pressing the squares in these blocks,
+// which are the boxes the CLIENT ticks on their copy and had no interaction
+// at all, while the editor (OfferedExtras, in the review panel) sat on the
+// same page a long scroll below. Each row that MAY be edited is now a control
+// that scrolls that editor into view and focuses the row's own field, keyed
+// on QuoteAddOn.id; each row that may not — takeoff-sourced, or any row on a
+// decided quote — carries nothing, because an Edit that lands on a disabled
+// input is the control-that-doesn't-work this file exists to catch.
+// lib/quotes/offeredExtrasEdit.js makes that decision for both sides, and
+// scripts/check-offered-add-ons.mjs executes it.
+{
+  const foot = (html) => (html.split("data-doc-foot-options")[1] || "").split("data-doc-add-service")[0];
+  const draft = render("document", "edit", "q1", CASES[2][3]);
+  ok(
+    "extras: the catalogue row at the foot is a control, keyed on its id",
+    /<button[^>]*data-doc-option-edit="a2"/.test(foot(draft)),
+    foot(draft).slice(0, 700),
+  );
+  ok(
+    "extras: the takeoff row beside it is not — it is rebuilt from the scope on every save",
+    !/data-doc-option-edit="a1"/.test(draft) && /Living room — Ceiling/.test(foot(draft)),
+  );
+  ok("extras: the block offers the general case — adding one, deleting one", /data-doc-options-edit/.test(foot(draft)));
+  ok(
+    "extras: and says whose tick-boxes those squares are",
+    foot(draft).replace(/<!-- -->/g, "").includes("The client ticks these boxes"),
+  );
+  // The press has somewhere to go: the review card that holds the editor is
+  // on the SAME tab as the document, and is in the markup even before its two
+  // GETs land (it opens as a pulse). A button that scrolls to an unrendered
+  // panel would be the same dead control in a new place.
+  ok(
+    "extras: the editor's own panel is on this screen, loading or not",
+    /data-offered-panel/.test(draft),
+    draft.slice(draft.indexOf("data-doc-foot-options"), draft.indexOf("data-doc-foot-options") + 200),
+  );
+  // A decided quote: the picture, and no buttons on it. SuggestAddOns hides
+  // its own Save in that state, so an Edit affordance here would lead to a
+  // list nothing can write.
+  const accepted = render("document", "edit", "q1", CASES[3][3]);
+  ok("extras: a decided quote still draws the block", /data-doc-foot-options/.test(accepted));
+  ok(
+    "…with no row control and no block control on it",
+    !/data-doc-option-edit/.test(accepted) && !/data-doc-options-edit/.test(accepted),
+  );
+
+  // The per-service mirror: a stored group whose lines name the room a
+  // takeoff offer belongs to, so the offer is drawn under THAT service rather
+  // than at the foot. Every row in it is takeoff-sourced by construction.
+  const roomed = {
+    ...STORED_QUOTE,
+    language: "en",
+    scopeGroups: [
+      {
+        ...STORED_QUOTE.scopeGroups[0],
+        lineItems: [...STORED_QUOTE.scopeGroups[0].lineItems, { description: "Living room — Walls", quantity: 1, amount: 400 }],
+      },
+    ],
+  };
+  const perService = render("document", "edit", "q1", { ...initialStateFromQuote(roomed), quote: roomed, costingLoaded: true });
+  const block = (perService.split("data-doc-stored-options")[1] || "").split("data-doc-group-toggle")[0];
+  ok("extras: the offer that names a room is drawn under that service", /Living room — Ceiling/.test(block), block.slice(0, 500));
+  ok("…with no row control, because every row there is the takeoff's", !/data-doc-option-edit/.test(block));
+  ok("…and the way to the editor anyway, for adding and deleting", /data-doc-options-edit/.test(block));
+
+  // Junk ROWS, not a junk column: QuoteAddOn arrives from a Json column, so a
+  // row with no id, no source and no amount has to draw as something rather
+  // than throw or print NaN at a homeowner.
+  const junk = { ...STORED_QUOTE, language: "en", addOns: [{}, { id: null, description: null, amount: null }, { id: "x", amount: "abc", source: 7 }] };
+  let junkDoc = "";
+  try {
+    junkDoc = render("document", "edit", "q1", { ...initialStateFromQuote(junk), quote: junk, costingLoaded: true });
+  } catch (err) {
+    fails.push(`extras: junk add-on rows threw — ${err.message}`);
+  }
+  ok("extras: junk add-on rows render, with no NaN on the document", junkDoc.length > 200 && !/NaN/.test(junkDoc));
+}
+
 // The expiry row, create vs edit. The owner (2026-09-29): a quote from the
 // instant estimate had no expiry "like when I create a new quote". In the
 // document layout a saved quote with validUntil null dropped the row from the
