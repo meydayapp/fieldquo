@@ -1015,6 +1015,28 @@ export function QuoteBuilderForm({
   const cf = useCustomFields("quote", quoteId);
 
   const categories = Array.isArray(boot.categories) ? boot.categories : [];
+  // ── The extras this quote OFFERS, live ──────────────────────────────────
+  //
+  // Seeded from the row the page was rendered with, then REPLACED by the
+  // answer of PUT /api/quotes/[id]/add-ons every time the extras editor
+  // saves (`onAddOnsSaved`, passed to SuggestAddOns below). State rather
+  // than a read of `start.quote.addOns` because the document now sends
+  // people to that editor: the mirror in DocumentBuilder, the foot block and
+  // the per-service "often added" chips all draw from here, so a price
+  // changed in the editor appears in all of them. Drawing the mirror from
+  // frozen server data made a save that worked look like a save that hadn't
+  // — which is the same dead-control complaint one level up.
+  //
+  // The SERVER's rows, never the array the editor was holding: the PUT
+  // deletes and re-creates every non-takeoff row, so the ids the mirror's
+  // per-row Edit is keyed on only exist in the response. That response is
+  // the whole list — the takeoff-sourced rows are excluded from the delete
+  // but included in the read-back — so it is taken wholesale. On a FAILED
+  // save nothing is called, and the mirror keeps showing what is actually
+  // stored rather than what was attempted.
+  const [offeredAddOns, setOfferedAddOns] = useState(() =>
+    isEdit && Array.isArray(start.quote?.addOns) ? start.quote.addOns : [],
+  );
   // Only what the company still offers: a service removed from its list
   // (Product.active false — lib/products/offered.js) is never offered on a
   // new line, a service card or an add-on. Lines already on a quote carry
@@ -2478,7 +2500,11 @@ export function QuoteBuilderForm({
         groups: scopeGroups,
         products,
         history: offerHistory,
-        existing: isEdit && Array.isArray(start.quote?.addOns) ? start.quote.addOns : [],
+        // The live list, not the row the page loaded with: these chips are
+        // suppressed by what the quote ALREADY offers, and against frozen
+        // data a chip the estimator has just saved from the editor stayed on
+        // offer — the duplicate the review then warns about.
+        existing: offeredAddOns,
         pending: pendingOffers,
         isEdit,
       })
@@ -3809,6 +3835,10 @@ export function QuoteBuilderForm({
         // status list was inline here and the mirror would have needed a
         // second copy of it.
         readOnly={extrasReadOnlyFor(start.status)}
+        // What the save actually wrote, straight from the route's answer, so
+        // the document's mirror of this list stops being a photograph of the
+        // page load. Nothing is called on a failed save.
+        onAddOnsSaved={(rows) => setOfferedAddOns(Array.isArray(rows) ? rows : [])}
         onProcessNotes={setProcessNotes}
         // The actuals finding's "Apply 18% more hours" — arithmetic in
         // lib/quotes/applyActuals.js over THIS component's state, through
@@ -4013,6 +4043,10 @@ export function QuoteBuilderForm({
           taxLine,
           saving, error, errorRef, conflict, conflictRef, runSave, handleSave, pendingSend, setPendingSend,
           cf, readiness, readinessItems, OPEN_STATUSES, TOUR_STEPS, showTour, setShowTour,
+          // The extras the document mirrors, live — see the state above.
+          // The document layout draws its two option blocks from this, which
+          // is why it is here rather than read from `start.quote` there.
+          offeredAddOns,
           renderGroupEditor, renderCostMarginPanel, renderNotesBox, renderReviewNotesBox,
           renderPhotosBox, renderProcessNotes, renderSuggestAddOns, renderSendConfirm,
           calculatorOpenerRef,

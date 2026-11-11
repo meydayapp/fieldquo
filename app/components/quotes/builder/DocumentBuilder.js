@@ -1030,8 +1030,15 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
     },
   ].filter(Boolean);
 
-  const stored = isEdit && start.quote ? start.quote : null;
-  const storedAddOns = Array.isArray(stored?.addOns) ? stored.addOns : [];
+  // The extras as they are NOW, from QuoteBuilder's state — seeded there from
+  // this same row and replaced with the route's answer whenever the editor
+  // below saves. Read from `start.quote.addOns` until 2026-11-11, which was a
+  // photograph of the page load: changing a price in the editor these blocks
+  // now send people to left the blocks saying the old one, and the owner
+  // would have been right to report that as "it didn't save". An invoice's
+  // `b` carries no such list and its panel holds no extras, so this is empty
+  // there exactly as the old read was.
+  const storedAddOns = Array.isArray(b.offeredAddOns) ? b.offeredAddOns : [];
   // The offers with no room of their own, or whose room this quote no longer
   // has. One expression because the block below needs it twice — "is there
   // anything to draw" and "draw it" were the same filter written out twice.

@@ -71,6 +71,8 @@ import { autoAddFromReview } from "@/lib/quotes/addOnAutoAdd";
 import { addOnCandidates } from "@/lib/ai/quoteReview";
 import { QUOTE_STATUSES } from "@/lib/quotes/statusLabels";
 import {
+  applySavedExtras,
+  saveOfferedExtras,
   extraInputAttrs,
   extraRowEditable,
   extraSelector,
@@ -1106,6 +1108,192 @@ section("12. The document's read-only mirror leads to THIS editor");
   ok("…and spreads the hook rather than writing the attribute by hand", /extraInputAttrs\(a, \{ readOnly \}\)/.test(offered));
   ok("the review card is findable while it is still loading", /EXTRAS_PANEL_ATTR/.test(panelSrc) && /function Panel\(/.test(panelSrc));
   ok("the extras block itself is still findable by name", panelSrc.includes("data-offered-section"));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("13. A save that shows nowhere reads as a save that failed");
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Section 12 made the document's extras blocks a way into the editor. That
+// turned a second fault from latent into reachable: the editor saved through
+// PUT /api/quotes/[id]/add-ons and told nobody, while the blocks drew server
+// data frozen at page load. Change a price, press Save extras, scroll back
+// up, read the old price.
+//
+// Two things have to hold, and neither can be clicked in a check — the panel
+// cannot be rendered past its loading state without a database — so the
+// success half of the save is lib/quotes/offeredExtrasEdit.js's
+// `applySavedExtras` and it is executed here:
+//
+//   a  what is handed up is the ROUTE's rows, with the ids the route just
+//      minted. The PUT deletes and re-creates every non-takeoff row, so the
+//      submitted array's ids are dead — and those ids are what the mirror's
+//      per-row Edit aims at;
+//   b  it is handed up at all, every time, and never on a failure.
+
+{
+  // The route's answer, shaped as app/api/quotes/[id]/add-ons/route.js
+  // actually returns it: every row for the quote, read back after the write,
+  // numeric amounts, takeoff rows included because the PUT never deletes
+  // them. The ids are NOT the submitted ones.
+  const submitted = [
+    { id: "old_1", description: "Drill new Handles", amount: "700", taxable: true, source: "catalog" },
+    { id: "old_2", description: "Removal of cabinet box", amount: "500", taxable: true, source: "manual" },
+  ];
+  const response = {
+    addOns: [
+      { id: "tk_1", description: "Living room — Ceiling", amount: 227.43, source: "takeoff", areaLabel: "Living room", sortOrder: 0 },
+      { id: "new_1", description: "Drill new Handles", amount: 700, source: "catalog", sortOrder: 100 },
+      { id: "new_2", description: "Removal of cabinet box", amount: 500, source: "manual", sortOrder: 101 },
+    ],
+    addOnsCuratedAt: "2026-11-11T10:00:00.000Z",
+  };
+  const calls = [];
+  const rec = (name) => (v) => calls.push([name, v]);
+  const applied = applySavedExtras(response, {
+    setAddOns: rec("setAddOns"),
+    setCuratedAt: rec("setCuratedAt"),
+    setSavedAt: rec("setSavedAt"),
+    setEdited: rec("setEdited"),
+    onAddOnsSaved: rec("onAddOnsSaved"),
+    now: () => 1762848000000,
+  });
+  eq(
+    "a successful save sets the panel's own state and tells the parent, in that order",
+    calls.map(([name]) => name),
+    ["setAddOns", "setCuratedAt", "setSavedAt", "setEdited", "onAddOnsSaved"],
+  );
+  const handedUp = calls.find(([name]) => name === "onAddOnsSaved")?.[1];
+  eq(
+    "…and what it hands up carries the ids the ROUTE minted, not the ones that were submitted",
+    (handedUp || []).map((a) => a.id),
+    ["tk_1", "new_1", "new_2"],
+  );
+  ok(
+    "…none of the submitted ids survive the save, which is why the local array must not be handed up",
+    !(handedUp || []).some((a) => submitted.some((s) => s.id === a.id)),
+  );
+  ok("…it is the response's own array, not a copy to keep in step", handedUp === response.addOns);
+  ok("…the takeoff row is in it, because the per-service block draws from the same list", (handedUp || []).some((a) => a.source === "takeoff"));
+  eq("…the panel gets exactly the same rows", calls.find(([n]) => n === "setAddOns")?.[1], handedUp);
+  eq("…the curation marker comes from the answer", calls.find(([n]) => n === "setCuratedAt")?.[1], response.addOnsCuratedAt);
+  eq("…the saved tick is stamped", calls.find(([n]) => n === "setSavedAt")?.[1], 1762848000000);
+  eq("…and the editor is no longer dirty", calls.find(([n]) => n === "setEdited")?.[1], false);
+  eq("…the rows are returned to the caller too", applied, response.addOns);
+
+  // An answer that is not what the route promises must not become "undefined
+  // extras" on the document.
+  for (const [label, body] of [["null", null], ["an empty object", {}], ["addOns as a string", { addOns: "nope" }], ["addOns absent", { addOnsCuratedAt: "x" }]]) {
+    const seen = [];
+    applySavedExtras(body, { setAddOns: (v) => seen.push(["set", v]), onAddOnsSaved: (v) => seen.push(["up", v]) });
+    eq(`a junk answer (${label}) applies an empty list rather than nothing`, seen, [["set", []], ["up", []]]);
+  }
+  // The invoice builder's panel passes no callback at all; its own state must
+  // still be set, and nothing may throw.
+  const alone = [];
+  ok(
+    "a parent that mirrors nothing is not required to pass a callback",
+    (() => {
+      try {
+        applySavedExtras(response, { setAddOns: (v) => alone.push(v.length) });
+        return true;
+      } catch {
+        return false;
+      }
+    })() && alone[0] === 3,
+  );
+  ok(
+    "…and neither are any of the setters",
+    (() => {
+      try {
+        applySavedExtras(response);
+        return true;
+      } catch {
+        return false;
+      }
+    })(),
+  );
+}
+
+{
+  // The whole save, executed. The request is injected, so this runs the real
+  // decision — what is applied is the ANSWER, not the array that was sent —
+  // rather than reading it. The two arrays look alike and differ only in the
+  // ids the route re-minted, which is exactly why reading it is not enough.
+  const submitted = [{ id: "old_1", description: "Drill new Handles", amount: "700", source: "catalog" }];
+  const answer = {
+    addOns: [{ id: "new_1", description: "Drill new Handles", amount: 700, source: "catalog", sortOrder: 100 }],
+    addOnsCuratedAt: "2026-11-11T10:00:00.000Z",
+  };
+  let sent = null;
+  const seen = [];
+  const applied = await saveOfferedExtras({
+    rows: submitted,
+    put: async (rows) => {
+      sent = rows;
+      return answer;
+    },
+    handlers: { setAddOns: (v) => seen.push(["set", v]), onAddOnsSaved: (v) => seen.push(["up", v]) },
+  });
+  eq("the save sends the rows it was given", sent, submitted);
+  eq("…and applies the ids that came BACK, to the panel and to the parent", seen.map(([n, v]) => [n, v.map((a) => a.id)]), [["set", ["new_1"]], ["up", ["new_1"]]]);
+  eq("…returning them to the caller", applied, answer.addOns);
+
+  // A refusal — the route 400s an extra with no price, and 409s a decided
+  // quote. Nothing may be applied and nothing may be told, or the document
+  // would show values the database never took.
+  const afterFail = [];
+  let threw = null;
+  try {
+    await saveOfferedExtras({
+      rows: submitted,
+      put: async () => {
+        throw new Error("Give every optional extra a price before saving: Drill new Handles.");
+      },
+      handlers: { setAddOns: (v) => afterFail.push(["set", v]), onAddOnsSaved: (v) => afterFail.push(["up", v]), setSavedAt: (v) => afterFail.push(["tick", v]) },
+    });
+  } catch (err) {
+    threw = err.message;
+  }
+  eq("a refused save applies nothing and tells nobody", afterFail, []);
+  ok("…and the refusal reaches the panel's own catch unchanged", /Give every optional extra a price/.test(threw || ""), String(threw));
+}
+
+{
+  // The wiring of the live list, read from the source: a failure path that
+  // notified anyway, or a mirror still reading the page-load row, is the same
+  // fault in a new place.
+  const panelSrc = read(join(ROOT, "app/components/quotes/SuggestAddOns.js"));
+  const quoteBuilder = read(join(ROOT, "app/components/quotes/builder/QuoteBuilder.js"));
+  const docBuilder = read(join(ROOT, "app/components/quotes/builder/DocumentBuilder.js"));
+
+  ok("the panel accepts a callback for whoever mirrors the list", /onAddOnsSaved,/.test(panelSrc));
+  ok(
+    "…saves through the shared function, in exactly one place",
+    (panelSrc.match(/saveOfferedExtras\(/g) || []).length === 1,
+    String((panelSrc.match(/saveOfferedExtras\(/g) || []).length),
+  );
+  ok(
+    "…sending the rows that function hands its request, so nothing else can be PUT",
+    /put: \(rows\) =>[\s\S]{0,260}jsonBody\(\{ addOns: rows \}/.test(panelSrc),
+  );
+  ok(
+    "…and applies no part of the save itself, so there is one answer to 'what did the save do'",
+    !/applySavedExtras\(/.test(panelSrc) &&
+      // The GET that fills the panel on open is a different read and keeps
+      // its own setters; what must not come back is a second copy of the
+      // SAVE's application inside `save()`.
+      !/async function save\(next\)[\s\S]*?setAddOns\(/.test(panelSrc.slice(panelSrc.indexOf("async function save(next)"), panelSrc.indexOf("function update(i, patch)"))),
+  );
+  ok("the builder holds the list, seeded from the row the page loaded with", /useState\(\(\) =>\s*\n?\s*isEdit && Array\.isArray\(start\.quote\?\.addOns\)/.test(quoteBuilder));
+  ok("…refreshes it from the save", /onAddOnsSaved=\{\(rows\) => setOfferedAddOns\(/.test(quoteBuilder));
+  ok("…and hands it to the document layout", /^\s*offeredAddOns,$/m.test(quoteBuilder));
+  ok("the per-service offer chips read the live list too", /existing: offeredAddOns,/.test(quoteBuilder));
+  ok("the mirror draws from it", /Array\.isArray\(b\.offeredAddOns\) \? b\.offeredAddOns : \[\]/.test(docBuilder));
+  ok(
+    "…and no longer from the quote the page was rendered with",
+    !/start\.quote\?\.addOns/.test(docBuilder) && !/stored\?\.addOns/.test(docBuilder),
+  );
 }
 
 console.log(`\n${fail ? "✗" : "✓"} offered add-ons: ${pass} passed, ${fail} failed\n`);

@@ -44,7 +44,7 @@ import { runAfterSave } from "@/lib/quotes/reviewGate";
 import { autoAddFromReview } from "@/lib/quotes/addOnAutoAdd";
 import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
 import { OfferedExtras } from "@/app/components/quotes/OfferedExtras";
-import { EXTRAS_PANEL_ATTR } from "@/lib/quotes/offeredExtrasEdit";
+import { EXTRAS_PANEL_ATTR, saveOfferedExtras } from "@/lib/quotes/offeredExtrasEdit";
 
 // Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
 // which printed "CA$1,200" for an American company and "1 200 $CA" for
@@ -88,6 +88,11 @@ const SEVERITY = {
 export default function SuggestAddOns({
   quoteId,
   readOnly = false,
+  // `(addOns) => void`, called with the rows PUT /api/quotes/[id]/add-ons
+  // wrote, every time a save succeeds. For a parent that draws the same list
+  // somewhere else on the page — the document builder's two option blocks,
+  // which are now a way into this editor. Absent where nobody mirrors it.
+  onAddOnsSaved,
   onProcessNotes,
   // Appends text to the quote's INTERNAL "Notes for review" (Quote.reviewNotes
   // — never the client-facing notes). The deep read's findings are for the
@@ -420,18 +425,36 @@ export default function SuggestAddOns({
     setError("");
     setSaving(true);
     try {
-      const saved = await fetchJson(`/api/quotes/${quoteId}/add-ons`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: jsonBody({ addOns: next }, "add-on list"),
+      // ── The write, and what a success means ──────────────────────────────
+      //
+      // The rows, the curation marker, the "Saved" tick, and — since the
+      // document's mirror of this list became a way IN here — telling the
+      // parent that draws it. A save that showed nowhere but this panel read
+      // as a save that had failed.
+      //
+      // Both halves are lib/quotes/offeredExtrasEdit.js because this panel
+      // cannot be rendered past its loading state without a database, so a
+      // check can only EXECUTE them. The request is injected rather than made
+      // there so what gets applied is this call's own answer and can never be
+      // the array that was submitted: the PUT re-mints every non-takeoff id,
+      // and those ids are what the document's per-row Edit aims at. A
+      // rejection comes back out to the catch below with nothing applied.
+      await saveOfferedExtras({
+        rows: next,
+        put: (rows) =>
+          fetchJson(`/api/quotes/${quoteId}/add-ons`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: jsonBody({ addOns: rows }, "add-on list"),
+          }),
+        handlers: {
+          setAddOns,
+          setCuratedAt,
+          setSavedAt,
+          setEdited,
+          onAddOnsSaved,
+        },
       });
-      setAddOns(saved?.addOns || []);
-      // This press IS the curation, and the route says so in its answer. Set
-      // from the response rather than assumed, so a save that somehow left
-      // the marker alone does not leave the panel believing it is protected.
-      setCuratedAt(saved?.addOnsCuratedAt || null);
-      setSavedAt(Date.now());
-      setEdited(false);
     } catch (err) {
       setError(err.message);
     } finally {
