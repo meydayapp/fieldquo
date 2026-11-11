@@ -4410,6 +4410,15 @@ const en = {
   "app.invoiceDetail.recordPaymentError": "Could not record payment",
   "app.invoiceDetail.requestError": "Could not send the request",
   "app.invoiceDetail.notFound": "Invoice not found.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Earlier versions",
+  "app.invoiceDetail.earlierVersionsHint":
+    "This invoice has been amended. You're looking at the version that stands — open an earlier one to see what it said.",
+  "app.invoiceDetail.versionLabel": "Version {version}",
+  "app.invoiceDetail.versionCurrent": "Current",
+  "app.invoiceEdit.supersededRefusal":
+    "That version has already been replaced. Reload and revise the current one.",
   "app.invoiceDetail.backToInvoices": "Back to Invoices",
   "app.invoiceDetail.emailedTo": "Invoice emailed to",
   "app.invoiceDetail.sendAskStage": "Send asks for {label} ({index} of {count}): {amount}. {collected} already collected.",
@@ -24508,6 +24517,15 @@ const fr = {
   "app.invoiceDetail.recordPaymentError": "Impossible d'enregistrer le paiement",
   "app.invoiceDetail.requestError": "Impossible d'envoyer la demande",
   "app.invoiceDetail.notFound": "Facture introuvable.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Versions précédentes",
+  "app.invoiceDetail.earlierVersionsHint":
+    "Cette facture a été modifiée. Vous consultez la version en vigueur — ouvrez-en une plus ancienne pour voir ce qu'elle disait.",
+  "app.invoiceDetail.versionLabel": "Version {version}",
+  "app.invoiceDetail.versionCurrent": "Actuelle",
+  "app.invoiceEdit.supersededRefusal":
+    "Cette version a déjà été remplacée. Rechargez la page et modifiez la version actuelle.",
   "app.invoiceDetail.backToInvoices": "Retour aux factures",
   "app.invoiceDetail.emailedTo": "Facture envoyée par courriel à",
   "app.invoiceDetail.sendAskStage": "Envoyer demande {label} ({index} sur {count}) : {amount}. {collected} déjà encaissé.",
@@ -43868,6 +43886,15 @@ const es = {
   "app.invoiceDetail.recordPaymentError": "No se pudo registrar el pago",
   "app.invoiceDetail.requestError": "No se pudo enviar la solicitud",
   "app.invoiceDetail.notFound": "Factura no encontrada.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Versiones anteriores",
+  "app.invoiceDetail.earlierVersionsHint":
+    "Esta factura se ha modificado. Estás viendo la versión vigente — abre una anterior para ver qué decía.",
+  "app.invoiceDetail.versionLabel": "Versión {version}",
+  "app.invoiceDetail.versionCurrent": "Actual",
+  "app.invoiceEdit.supersededRefusal":
+    "Esa versión ya ha sido reemplazada. Recarga la página y modifica la actual.",
   "app.invoiceDetail.backToInvoices": "Volver a facturas",
   "app.invoiceDetail.emailedTo": "Factura enviada por correo a",
   "app.invoiceDetail.sendAskStage": "Enviar pide {label} ({index} de {count}): {amount}. {collected} ya cobrado.",
@@ -64595,6 +64622,15 @@ const uk = {
   "app.invoiceDetail.recordPaymentError": "Не вдалося зафіксувати платіж",
   "app.invoiceDetail.requestError": "Не вдалося надіслати запит",
   "app.invoiceDetail.notFound": "Рахунок не знайдено.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Попередні версії",
+  "app.invoiceDetail.earlierVersionsHint":
+    "Цей рахунок змінювали. Ви бачите чинну версію — відкрийте давнішу, щоб побачити, що в ній було.",
+  "app.invoiceDetail.versionLabel": "Версія {version}",
+  "app.invoiceDetail.versionCurrent": "Поточна",
+  "app.invoiceEdit.supersededRefusal":
+    "Цю версію вже замінено. Перезавантажте сторінку та змініть поточну.",
   "app.invoiceDetail.backToInvoices": "Назад до рахунків",
   "app.invoiceDetail.emailedTo": "Рахунок надіслано на",
   "app.invoiceDetail.sendAskStage": "Надіслати попросить {label} ({index} з {count}): {amount}. {collected} уже отримано.",
@@ -84137,6 +84173,15 @@ const pa = {
   "app.invoiceDetail.recordPaymentError": "ਭੁਗਤਾਨ ਦਰਜ ਨਹੀਂ ਹੋ ਸਕਿਆ",
   "app.invoiceDetail.requestError": "ਬੇਨਤੀ ਭੇਜੀ ਨਹੀਂ ਜਾ ਸਕੀ",
   "app.invoiceDetail.notFound": "ਇਨਵੌਇਸ ਨਹੀਂ ਮਿਲੀ।",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "ਪਹਿਲੀਆਂ ਵਰਜਨਾਂ",
+  "app.invoiceDetail.earlierVersionsHint":
+    "ਇਸ ਇਨਵੌਇਸ ਵਿੱਚ ਤਬਦੀਲੀ ਕੀਤੀ ਗਈ ਸੀ। ਤੁਸੀਂ ਮੌਜੂਦਾ ਵਰਜਨ ਵੇਖ ਰਹੇ ਹੋ — ਪੁਰਾਣਾ ਵਰਜਨ ਖੋਲ੍ਹ ਕੇ ਵੇਖੋ ਕਿ ਉਸ ਵਿੱਚ ਕੀ ਸੀ।",
+  "app.invoiceDetail.versionLabel": "ਵਰਜਨ {version}",
+  "app.invoiceDetail.versionCurrent": "ਮੌਜੂਦਾ",
+  "app.invoiceEdit.supersededRefusal":
+    "ਇਸ ਵਰਜਨ ਦੀ ਥਾਂ ਪਹਿਲਾਂ ਹੀ ਨਵਾਂ ਵਰਜਨ ਆ ਚੁੱਕਾ ਹੈ। ਪੰਨਾ ਮੁੜ ਲੋਡ ਕਰਕੇ ਮੌਜੂਦਾ ਵਰਜਨ ਵਿੱਚ ਤਬਦੀਲੀ ਕਰੋ।",
   "app.invoiceDetail.backToInvoices": "ਇਨਵੌਇਸਾਂ 'ਤੇ ਵਾਪਸ",
   "app.invoiceDetail.emailedTo": "ਇਨਵੌਇਸ ਈਮੇਲ ਕੀਤੀ ਗਈ",
   "app.invoiceDetail.sendAskStage": "ਭੇਜੋ {label} ({count} ਵਿੱਚੋਂ {index}) ਮੰਗੇਗਾ: {amount}। {collected} ਪਹਿਲਾਂ ਹੀ ਵਸੂਲ ਹੋ ਚੁੱਕਾ।",
@@ -103655,6 +103700,15 @@ const tl = {
   "app.invoiceDetail.recordPaymentError": "Hindi ma-record ang bayad",
   "app.invoiceDetail.requestError": "Hindi maipadala ang kahilingan",
   "app.invoiceDetail.notFound": "Hindi nakita ang invoice.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Mga naunang bersyon",
+  "app.invoiceDetail.earlierVersionsHint":
+    "Binago na ang invoice na ito. Ang nakikita mo ay ang bersyong may bisa — buksan ang mas naunang bersyon para makita ang nakasaad doon.",
+  "app.invoiceDetail.versionLabel": "Bersyon {version}",
+  "app.invoiceDetail.versionCurrent": "Kasalukuyan",
+  "app.invoiceEdit.supersededRefusal":
+    "Napalitan na ang bersyong iyon. I-reload at baguhin ang kasalukuyang bersyon.",
   "app.invoiceDetail.backToInvoices": "Bumalik sa mga invoice",
   "app.invoiceDetail.emailedTo": "Na-email ang invoice kay",
   "app.invoiceDetail.sendAskStage": "Hihingin ng Ipadala ang {label} ({index} sa {count}): {amount}. {collected} na ang nakolekta.",
@@ -122867,6 +122921,15 @@ const de = {
   "app.invoiceDetail.recordPaymentError": "Zahlung konnte nicht erfasst werden",
   "app.invoiceDetail.requestError": "Die Anforderung konnte nicht gesendet werden",
   "app.invoiceDetail.notFound": "Rechnung nicht gefunden.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Frühere Versionen",
+  "app.invoiceDetail.earlierVersionsHint":
+    "Diese Rechnung wurde geändert. Sie sehen die gültige Version — öffnen Sie eine frühere, um zu sehen, was darin stand.",
+  "app.invoiceDetail.versionLabel": "Version {version}",
+  "app.invoiceDetail.versionCurrent": "Aktuell",
+  "app.invoiceEdit.supersededRefusal":
+    "Diese Version wurde bereits ersetzt. Laden Sie neu und bearbeiten Sie die aktuelle.",
   "app.invoiceDetail.backToInvoices": "Zurück zu Rechnungen",
   "app.invoiceDetail.emailedTo": "Rechnung per E-Mail gesendet an",
   "app.invoiceDetail.sendAskStage": "Senden fordert {label} an ({index} von {count}): {amount}. {collected} bereits eingegangen.",
@@ -142318,6 +142381,15 @@ const zh = {
   "app.invoiceDetail.recordPaymentError": "无法记录收款",
   "app.invoiceDetail.requestError": "无法发送请求",
   "app.invoiceDetail.notFound": "找不到这份账单。",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "历史版本",
+  "app.invoiceDetail.earlierVersionsHint":
+    "这份账单改过。你看到的是现行版本——打开早先的版本可以看到它当时写了什么。",
+  "app.invoiceDetail.versionLabel": "第 {version} 版",
+  "app.invoiceDetail.versionCurrent": "当前",
+  "app.invoiceEdit.supersededRefusal":
+    "这个版本已经被替代了。重新加载后改现行的那一版。",
   "app.invoiceDetail.backToInvoices": "返回账单列表",
   "app.invoiceDetail.emailedTo": "账单已邮件发送至",
   "app.invoiceDetail.sendAskStage": "发送将请求 {label}（第 {index}/{count} 期）：{amount}。已收 {collected}。",
@@ -161767,6 +161839,15 @@ const it = {
   "app.invoiceDetail.recordPaymentError": "Non è stato possibile registrare il pagamento",
   "app.invoiceDetail.requestError": "Non è stato possibile inviare la richiesta",
   "app.invoiceDetail.notFound": "Fattura non trovata.",
+  // Where the version that stands sends a reader who wants the one it
+  // replaced — see lib/invoices/currentVersion.js.
+  "app.invoiceDetail.earlierVersions": "Versioni precedenti",
+  "app.invoiceDetail.earlierVersionsHint":
+    "Questa fattura è stata modificata. Sta vedendo la versione in vigore — ne apra una precedente per vedere cosa diceva.",
+  "app.invoiceDetail.versionLabel": "Versione {version}",
+  "app.invoiceDetail.versionCurrent": "Corrente",
+  "app.invoiceEdit.supersededRefusal":
+    "Quella versione è già stata sostituita. Ricarichi la pagina e modifichi quella corrente.",
   "app.invoiceDetail.backToInvoices": "Torna alle fatture",
   "app.invoiceDetail.emailedTo": "Fattura inviata per email a",
   "app.invoiceDetail.sendAskStage": "Invia chiede {label} ({index} di {count}): {amount}. {collected} già incassato.",

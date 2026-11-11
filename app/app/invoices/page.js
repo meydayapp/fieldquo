@@ -14,6 +14,7 @@ import {
   invoiceStatusPresentation,
 } from "@/lib/invoices/statusPresentation";
 import { invoiceRowState, summariseInvoices } from "@/lib/invoices/listSummary";
+import { invoiceHref } from "@/lib/invoices/currentVersion";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
@@ -221,7 +222,13 @@ export default function InvoicesPage() {
             return (
               <Link
                 key={inv.id}
-                href={`/app/invoices/${inv.id}`}
+                // The row is the family ROOT, which after an amendment is the
+                // v1 snapshot — so this used to open the document the client
+                // no longer holds. The detail page resolves it too, for every
+                // other way in; this is the same answer computed early enough
+                // that the href is already right. One rule, called from both
+                // sides: see lib/invoices/currentVersion.js.
+                href={invoiceHref(inv)}
                 className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted"
               >
                 <div className="flex items-stretch gap-3 min-w-0">

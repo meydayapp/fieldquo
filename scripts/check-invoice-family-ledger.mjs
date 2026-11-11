@@ -93,7 +93,12 @@ const SITES = [
   ["app/api/portal/[token]/pay/route.js", "...refusing an unsent amendment rather than charging a superseded bill", /has been updated — please refresh/],
   ["app/api/invoices/[id]/checkout-link/route.js", "checkout-link refreshes the ledger before Stripe sees an amount", /refreshFamilyLedger\(db, invoice\.id\)/],
   ["app/api/invoices/[id]/checkout-link/route.js", "...and charges the current document", /invoice: current,/],
-  ["app/api/invoices/route.js", "the office list presents the latest version's numbers on the family row", /currentVersionId: latest\.id/],
+  // Was `currentVersionId: latest.id`, inline. It is the same answer, now
+  // reached through the one function the grid builds its href with
+  // (lib/invoices/currentVersion.js) — the field and the link cannot
+  // disagree about which version stands if only one of them decides.
+  ["app/api/invoices/route.js", "the office list presents the latest version's numbers on the family row", /currentVersionId: currentVersionId\(root\)/],
+  ["app/api/invoices/route.js", "...through the shared resolve, not a second copy of the rule", /from "@\/lib\/invoices\/currentVersion"/],
   ["app/api/invoices/route.js", "...with the balance re-derived across the family", /payments: familyRows,[\s\S]{0,80}priorStatus: latest\.status/],
   ["app/api/invoices/route.js", "...and the status filter applied to the CURRENT status", /\.filter\(\(inv\) => !status \|\| inv\.status === status\)/],
 ];

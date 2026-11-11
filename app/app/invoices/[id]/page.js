@@ -49,6 +49,7 @@ import {
   Check,
   Building2,
   FileText,
+  History,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -78,6 +79,11 @@ import { documentLabels } from "@/lib/i18n/documentLabels";
 import { clientPoFact } from "@/lib/documents/clientPo";
 import ClientPoRequiredModal from "@/app/components/documents/ClientPoRequiredModal";
 import { documentIssueDate } from "@/lib/documents/issueDate";
+import {
+  askedForVersion,
+  invoiceVersionHref,
+  resolveInvoiceVersionView,
+} from "@/lib/invoices/currentVersion";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { taxLineHeadline, taxLineSource } from "@/lib/tax/taxLine";
@@ -154,6 +160,27 @@ export default function InvoiceDetailPage() {
   const [life, setLife] = useState(null);
   const [savedCosting, setSavedCosting] = useState(null);
   const [creditInfo, setCreditInfo] = useState(null);
+  // ── Which version this URL should actually be showing ───────────────────
+  //
+  // Amending a sent invoice writes a NEW row and leaves this one as the
+  // snapshot the client already holds, but the root's id never changes — so
+  // every link in the office lands on v1 once an invoice has been amended.
+  // The owner saved an amendment and was handed the replaced document back,
+  // with a banner offering to open the one he had just made.
+  //
+  // `family` is GET /api/invoices/[id]/versions — the whole family from any
+  // member, which this row's own `versions` relation is NOT (that holds
+  // CHILDREN, so v2 sitting beside a v3 would read as current). null means it
+  // has not answered yet; [] means it refused or failed, and the resolve then
+  // renders what we loaded rather than leaving a blank page on the screen
+  // that says what a household owes.
+  const [family, setFamily] = useState(null);
+  // Did this URL ask for THIS version on purpose? null until it has been
+  // read, so nothing redirects on a guess. Read off window rather than
+  // through useSearchParams, the same way the sendError banner below does —
+  // this route has never called that hook and adding it would change how the
+  // page is rendered at build for one optional flag.
+  const [askedVersion, setAskedVersion] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
@@ -295,6 +322,18 @@ export default function InvoiceDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    // Cleared first: this page does not remount when the id changes (same
+    // route), and a family left over from the version we came from would
+    // decide where the new one belongs.
+    setFamily(null);
+    // The family — for the resolve below and the Earlier-versions list. This
+    // is that endpoint's first caller; its own header comment said it had
+    // none, which is why nothing had noticed the detail page could not get
+    // back to a replaced version.
+    fetch(`/api/invoices/${id}/versions`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setFamily(Array.isArray(rows) ? rows : []))
+      .catch(() => setFamily([]));
     // Guard res.ok on every one of these: a 404/401 returns { error }, and
     // setting that as the invoice made `if (!invoice)` pass, rendering a $NaN
     // page instead of not-found.
@@ -341,6 +380,30 @@ export default function InvoiceDetailPage() {
       .then(setCreditInfo)
       .catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setAskedVersion(askedForVersion(window.location.search));
+  }, []);
+
+  // Null until both halves are in hand — the page stays on its loading state
+  // until then, so a replaced document is never on screen for a frame before
+  // the redirect.
+  const versionView =
+    askedVersion === null || family === null || !invoice
+      ? null
+      : resolveInvoiceVersionView({
+          invoice,
+          family,
+          askedForThisVersion: askedVersion,
+        });
+
+  // `replace`, not `push`: Back belongs to wherever the reader came from, not
+  // to a version they were never meant to be looking at.
+  const redirectTo = versionView?.redirectTo || null;
+  useEffect(() => {
+    if (redirectTo) router.replace(`/app/invoices/${redirectTo}`);
+  }, [redirectTo, router]);
 
   // Carried over from the new-invoice page when "Save & Send" saved the invoice
   // but the email failed — so the user learns why it's still a draft instead of
@@ -682,6 +745,14 @@ export default function InvoiceDetailPage() {
           <p className="text-muted-foreground">{t("app.invoiceDetail.notFound")}</p>
         )}
       </div>
+    );
+
+  // Not resolved yet, or on its way somewhere else: either way there is
+  // nothing honest to draw. The same skeleton as the load above rather than a
+  // second kind of blank, so a redirect reads as the page still opening.
+  if (!versionView || versionView.redirectTo)
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
 
   const amountPaid = Number(invoice.amountPaid || 0);
@@ -1495,6 +1566,72 @@ export default function InvoiceDetailPage() {
       </article>
 
       {/* ── Below the document: the office's own record ────────────────── */}
+
+      {/* ── Earlier versions ───────────────────────────────────────────────
+          Drawn only on the version that stands, and only when the family has
+          more than one. On a replaced version the banner above already offers
+          the single useful move, and a history list under it would be a
+          second answer to the same question.
+
+          Every row carries the flag that says "I asked for this old one on
+          purpose" — without it the resolve above would send the reader
+          straight back here, which is the bug this change exists to fix.
+
+          `total` is absent for a member the versions route redacts, so the
+          figure is rendered only when it is actually there: a withheld amount
+          printing as $0.00 beside a version number would be a false
+          statement where a missing one belongs. */}
+      {versionView.showHistory && (
+        <section className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+            <History size={14} /> {t("app.invoiceDetail.earlierVersions")}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            {t("app.invoiceDetail.earlierVersionsHint")}
+          </p>
+          <div className="divide-y divide-border">
+            {[...(family || [])]
+              .sort((a, b) => Number(b.version || 0) - Number(a.version || 0))
+              .map((v) => {
+                const isThis = v.id === invoice.id;
+                const row = (
+                  <>
+                    <span className="font-medium text-foreground">
+                      {t("app.invoiceDetail.versionLabel", { version: v.version })}
+                      {isThis && (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {t("app.invoiceDetail.versionCurrent")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-muted-foreground shrink-0">
+                      {v.createdAt ? formatDate(v.createdAt) : ""}
+                      {v.total === null || v.total === undefined
+                        ? ""
+                        : ` · ${money(v.total)}`}
+                    </span>
+                  </>
+                );
+                return isThis ? (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between gap-3 py-2.5 text-sm"
+                  >
+                    {row}
+                  </div>
+                ) : (
+                  <Link
+                    key={v.id}
+                    href={invoiceVersionHref(v.id)}
+                    className="flex items-center justify-between gap-3 py-2.5 text-sm hover:bg-muted -mx-2 px-2 rounded"
+                  >
+                    {row}
+                  </Link>
+                );
+              })}
+          </div>
+        </section>
+      )}
 
       {creditInfo &&
         (creditInfo.eligible?.length > 0 || creditInfo.applied?.length > 0) && (

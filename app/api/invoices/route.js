@@ -9,6 +9,7 @@ import { attachUsTaxRate } from "@/lib/tax/usRates";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { readTaxResolution, resolutionForDocument, resolutionMatchesAmount } from "@/lib/tax/taxResolution";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { currentVersionId } from "@/lib/invoices/currentVersion";
 import { allocateInvoiceNumber } from "@/lib/invoices/invoiceNumber";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
@@ -117,7 +118,12 @@ export async function GET(request) {
       });
       return {
         ...root,
-        currentVersionId: latest.id,
+        // The same function the grid builds its href with — one rule, two
+        // moments. Written twice, the field and the link drift apart the way
+        // the marketing dashboard and the lead page did over "was this lead
+        // visited": two defensible rules for one question, disagreeing on
+        // screen. See lib/invoices/currentVersion.js.
+        currentVersionId: currentVersionId(root),
         total: latest.total,
         subtotal: latest.subtotal,
         tax: latest.tax,

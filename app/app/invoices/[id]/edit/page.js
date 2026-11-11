@@ -230,7 +230,35 @@ export function ClassicEditInvoicePage() {
         }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || t("app.invoiceEdit.saveError"));
+      if (!res.ok) {
+        // ── The version this editor loaded has since been replaced ──────
+        //
+        // PATCH refuses it (409 already_superseded) rather than forking a new
+        // version off a stale document, which is what used to happen: the
+        // save built the new row out of THIS one field by field, so an
+        // amendment made from v1 silently reverted everything v2 changed
+        // while the client was holding v2.
+        //
+        // The edits on screen are kept and the way out is offered rather than
+        // taken — only the person who typed them knows whether they still
+        // apply to the document that stands.
+        if (data?.code === "already_superseded" && data?.currentVersionId) {
+          setError(
+            <span>
+              {t("app.invoiceEdit.supersededRefusal")}{" "}
+              <Link
+                href={`/app/invoices/${data.currentVersionId}`}
+                className="font-semibold underline underline-offset-2"
+              >
+                {t("app.invoiceLifecycle.actionOpenLatest")}
+              </Link>
+            </span>,
+          );
+          setSaving(false);
+          return;
+        }
+        throw new Error(data?.error || t("app.invoiceEdit.saveError"));
+      }
       // Saved against the id we came from; the family root resolves the same
       // whether or not the PATCH minted a new version.
       try {

@@ -11,6 +11,7 @@ import { requestOptions } from "@/lib/invoices/paymentRequest";
 import { loadFamilyAppointments } from "@/lib/schedule/appointmentFamily";
 import { hasLevel as hasLevelFor } from "@/lib/permissions/enforce";
 import { familyPayments, familyMembers } from "@/lib/invoices/family";
+import { currentVersionId } from "@/lib/invoices/currentVersion";
 import { voidRefusal } from "@/lib/payments/voidPayment";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
@@ -262,6 +263,41 @@ export async function PATCH(request, { params }) {
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── A version that has been replaced is not amendable ────────────────────
+  //
+  // `existing` is whatever id was PATCHed, and the versioned path below builds
+  // the new row out of it field by field — `lineItems ?? existing.lineItems`,
+  // `subtotal ?? existing.subtotal`, and so on. Every link in the office
+  // pointed at the family ROOT, which after one amendment is the v1 snapshot,
+  // so the owner landed on v1, pressed Edit and saved — and got a v3 forked
+  // from v1, silently reverting everything v2 changed while the client was
+  // holding v2. Nothing on screen said so.
+  //
+  // The links now resolve to the version that stands
+  // (lib/invoices/currentVersion.js) and this is the floor under them: a
+  // bookmark, a second tab or a back button still arrives here. Re-read from
+  // the database on the press rather than trusted from the page that posted —
+  // the amendment may have happened in the seconds since it loaded.
+  //
+  // Refused rather than silently retargeted at the current version: this save
+  // carries edits made against the OLD document, and applying them to a
+  // document the editor never showed is the same lie in the other direction.
+  // Same refusal, in the same words, as revisionTarget() in
+  // lib/quotes/quoteDocuments.js — the same mistake on the other document.
+  const currentId = currentVersionId(existing, await familyMembers(db, existing.id));
+  if (currentId && currentId !== existing.id)
+    return NextResponse.json(
+      {
+        error:
+          "That version has already been replaced. Reload and revise the current one.",
+        code: "already_superseded",
+        // So the editor can offer to go there instead of leaving the person
+        // on a document they cannot save.
+        currentVersionId: currentId,
+      },
+      { status: 409 },
+    );
 
   const body = await request.json();
   const {

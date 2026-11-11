@@ -22,6 +22,14 @@ import {
   PAID_EPSILON,
   stripBannerMoney,
 } from "@/lib/invoices/lifecycle";
+import {
+  currentVersionId,
+  familySize,
+  invoiceHref,
+  invoiceVersionHref,
+  askedForVersion,
+  resolveInvoiceVersionView,
+} from "@/lib/invoices/currentVersion";
 import { groupInvoiceLineItems } from "@/lib/invoices/documentGroups";
 
 let fail = 0;
@@ -262,6 +270,123 @@ t("the family including itself does not make it its own successor",
     job,
   }),
   []);
+
+// ══ Which version a link opens, and which one the page renders ════════════
+//
+// The banners above are right about a version that has been replaced. What was
+// wrong was being SENT to it: every link in the office points at the family
+// root, and after one amendment the root is the v1 snapshot. The office saved
+// an amendment and kept being handed the document it had just replaced.
+//
+// The href and the page have to agree, so there is ONE rule
+// (lib/invoices/currentVersion.js) and both call it. These drive that rule
+// through the shapes each side actually holds — the list row carries the
+// Prisma `versions` relation, the detail page carries the family from
+// GET /api/invoices/[id]/versions — because a function that is only ever
+// exercised with one of them is a function that works on one screen.
+console.log("\nWhich version a link opens");
+
+// The live shape, 2026-11-11: INV-2026-0052, amended once. The root keeps its
+// id and its v1 total; the client holds v2.
+const root = { id: "r", version: 1, parentInvoiceId: null, versions: [{ id: "v2", version: 2 }] };
+const v2 = { id: "v2", version: 2, parentInvoiceId: "r", versions: [] };
+const family = [
+  { id: "r", version: 1 },
+  { id: "v2", version: 2 },
+];
+
+t("the root of an amended family is not the current version",
+  currentVersionId(root), "v2");
+t("an unamended invoice is its own current version",
+  currentVersionId({ id: "solo", version: 1, versions: [] }), "solo");
+t("a child row resolves through the family, not its empty children relation",
+  currentVersionId(v2, family), "v2");
+t("a middle version resolves to the highest, not to itself",
+  currentVersionId({ id: "v2", version: 2, parentInvoiceId: "r" },
+    [{ id: "r", version: 1 }, { id: "v2", version: 2 }, { id: "v3", version: 3 }]),
+  "v3");
+// Ordered by version NUMBER. A family whose rows were written out of order —
+// an import, a repair — has a latest version that is not its newest id, and
+// "last row wins" would hand the office the wrong document with no banner on
+// it, because the banner rule counts versions too.
+t("the latest is the highest version, not the last id listed",
+  currentVersionId({ id: "a", version: 1 },
+    [{ id: "a", version: 1 }, { id: "zzz", version: 3 }, { id: "bbb", version: 2 }]),
+  "zzz");
+t("a version with no number does not outrank a real one",
+  currentVersionId(root, [{ id: "r", version: 1 }, { id: "v2", version: 2 }, { id: "junk" }]),
+  "v2");
+
+t("the list links the version that stands", invoiceHref(root), "/app/invoices/v2");
+t("...and an unamended one links itself",
+  invoiceHref({ id: "solo", version: 1, versions: [] }), "/app/invoices/solo");
+// GET /api/invoices resolves the same thing with the same function and ships
+// it as `currentVersionId`. The href prefers it — the field had no reader at
+// all until this link used it.
+t("the href uses the id the API already resolved",
+  invoiceHref({ ...root, currentVersionId: "v2" }), "/app/invoices/v2");
+t("...and agrees with computing it from the row",
+  invoiceHref({ ...root, currentVersionId: currentVersionId(root) }), invoiceHref(root));
+
+console.log("\nThe detail page renders the version that stands");
+const view = (invoice, fam, asked) =>
+  resolveInvoiceVersionView({ invoice, family: fam, askedForThisVersion: asked });
+
+t("a replaced version is not rendered — it redirects to the current one",
+  (() => { const v = view(root, family, false); return [v.render, v.redirectTo]; })(),
+  [false, "v2"]);
+t("the current version renders, with no redirect",
+  (() => { const v = view(v2, family, false); return [v.render, v.redirectTo]; })(),
+  [true, null]);
+// Always-redirect would make v1 unreachable, and v1 is a document a household
+// received. The explicit flag is the way back in.
+t("asked for on purpose, the replaced version renders where it is",
+  (() => { const v = view(root, family, true); return [v.render, v.redirectTo]; })(),
+  [true, null]);
+t("...and it is still the superseded banner that greets it",
+  ids({ invoice: { ...base, id: "r", version: 1, versions: [{ id: "v2", version: 2 }] }, job }),
+  ["superseded"]);
+t("an unamended invoice renders without consulting anything",
+  (() => {
+    const v = view({ id: "solo", version: 1, versions: [] }, [{ id: "solo", version: 1 }], false);
+    return [v.render, v.redirectTo];
+  })(),
+  [true, null]);
+// The versions endpoint can refuse or fail. A page that waited for it would
+// never draw; a page that redirected on an empty family would bounce to
+// itself. Neither: it renders what it loaded, and the banner still protects.
+t("no family loaded → render what we have rather than block the page",
+  (() => { const v = view(v2, null, false); return [v.render, v.redirectTo]; })(),
+  [true, null]);
+t("a family that is only this row cannot redirect to itself",
+  (() => { const v = view(v2, [{ id: "v2", version: 2 }], false); return [v.render, v.redirectTo]; })(),
+  [true, null]);
+
+console.log("\nEarlier versions is drawn only where there are any");
+t("one version, no control", view({ id: "solo", version: 1, versions: [] }, [{ id: "solo", version: 1 }], false).showHistory, false);
+t("a family of two, on the current version → the control",
+  view(v2, family, false).showHistory, true);
+t("...and never on a replaced version, which already has the banner",
+  view(root, family, true).showHistory, false);
+t("the family counts itself once, however the rows arrive",
+  [familySize(root), familySize(v2, family), familySize(v2, [{ id: "v2", version: 2 }])],
+  [2, 2, 1]);
+
+console.log("\nThe flag the history list emits is the flag the page honours");
+t("the history list emits it",
+  invoiceVersionHref("r"), "/app/invoices/r?history=1");
+t("...and the page reads it back",
+  askedForVersion(new URL(`https://x.test${invoiceVersionHref("r")}`).search), true);
+t("the banner's Open-the-current-version link carries no flag",
+  [invoiceVersionHref("v2", { history: false }), askedForVersion("")],
+  ["/app/invoices/v2", false]);
+t("a plain office link is not read as asking for history",
+  askedForVersion(new URL(`https://x.test${invoiceHref(root)}`).search), false);
+// `?history=0` is somebody saying no. A truthy-string test would read it as
+// yes and put the replaced document back on screen.
+t("only the flag's own value counts",
+  [askedForVersion("history=0"), askedForVersion("history=yes"), askedForVersion("history=1")],
+  [false, false, true]);
 
 console.log("\nThe link to the work");
 t("no job → offer to create one", ids({ invoice: base, job: null }).includes("noJob"), true);

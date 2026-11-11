@@ -13,6 +13,16 @@
 // Nothing called it, which is why nobody saw it. Moved rather than deleted
 // because the handler is correct — it was only ever in the wrong place, and its
 // own header comment said so from the first commit.
+//
+// ── It has a caller now ────────────────────────────────────────────────────
+//
+// The invoice detail page (app/app/invoices/[id]/page.js). It needs the whole
+// family twice over: to decide whether the id in the URL is still the version
+// that stands — the root is the v1 snapshot after an amendment, and every link
+// in the office points at the root — and to draw the Earlier-versions list
+// that is the way back to a version it redirected away from. The decision
+// itself is lib/invoices/currentVersion.js; this endpoint is where the rows
+// come from, rather than a second query written on the page.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
