@@ -87,6 +87,34 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
     currentContractValue: comparison.revenue,
   };
   const hasChanges = Number(contract.approvedChanges) !== 0;
+  // ── Which document the margin below is measured against ──────────────────
+  //
+  // Defaulted only so an older cached response mid-deploy can't crash the
+  // panel; `basis: null` there means "say nothing extra", which is exactly
+  // what this panel did before the route started answering the question.
+  const revenue = data.revenue || {
+    basis: null,
+    invoicedNet: null,
+    quotedNet: null,
+    taxExcluded: null,
+  };
+  const invoicedBasis = revenue.basis === "invoiced";
+  // Both figures are net of tax, so they are comparable. Worth a sentence only
+  // when they actually differ — on an unamended job they are the same number
+  // and a note saying so is noise. Half a cent, because these are rounded
+  // money and `!==` on floats would fire on dust.
+  const basisDiffers =
+    invoicedBasis &&
+    revenue.quotedNet != null &&
+    revenue.invoicedNet != null &&
+    Math.abs(Number(revenue.invoicedNet) - Number(revenue.quotedNet)) >= 0.005;
+  // Named, not claimed. A contractor can check "$744.63 of that is sales tax"
+  // against his own invoice; "figures exclude tax" he has to take on faith.
+  // Null means the route could not say, and silence is the honest answer.
+  const taxExcluded =
+    revenue.taxExcluded != null && Number(revenue.taxExcluded) >= 0.005
+      ? Number(revenue.taxExcluded)
+      : null;
 
   // ── Why this no longer hides itself when nothing is recorded ────────────
   //
@@ -408,9 +436,14 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
           <div className="mt-4 pt-4 border-t border-border grid sm:grid-cols-3 gap-4">
             <Stat
               label={
-                hasChanges
-                  ? t("app.jobCosting.contractValue", "Contract value now")
-                  : t("app.jobCosting.quoted", "Quoted")
+                // Calling the invoiced figure "Quoted" was the bug reported
+                // from the other end: the panel named one document and showed
+                // another document's number.
+                invoicedBasis
+                  ? t("app.jobCosting.invoiced", "Invoiced")
+                  : hasChanges
+                    ? t("app.jobCosting.contractValue", "Contract value now")
+                    : t("app.jobCosting.quoted", "Quoted")
               }
               value={money(comparison.revenue)}
             />
@@ -428,6 +461,29 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
               />
             )}
           </div>
+        )}
+
+        {/* Where the figure above came from, and what it leaves out. Both
+            sentences exist because a number whose basis is invisible reads as
+            a bug the moment it disagrees with a document the contractor is
+            holding — which is precisely how this was reported. */}
+        {comparison.profit !== null && !data.costsNotRecorded && basisDiffers && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t(
+              "app.jobCosting.basisInvoiced",
+              "Measured against the invoice you sent ({invoiced}), not the quote ({quoted}).",
+              { invoiced: money(revenue.invoicedNet), quoted: money(revenue.quotedNet) },
+            )}
+          </p>
+        )}
+        {comparison.profit !== null && !data.costsNotRecorded && taxExcluded !== null && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t(
+              "app.jobCosting.taxExcludedNote",
+              "{amount} of sales tax is left out — you collect it for the government, so it was never yours to keep.",
+              { amount: money(taxExcluded) },
+            )}
+          </p>
         )}
 
         {/* The total is knowably short. Saying so is the difference between a

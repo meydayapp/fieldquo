@@ -57,7 +57,7 @@ import {
   seesOnlyAssignedJobs,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { invoiceFamilies } from "@/lib/export/accountingExport";
+import { jobRevenue } from "@/lib/costing/jobRevenue";
 import { weeksBetween } from "@/lib/costing/utilisation";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { buildKpis, detectMaterialsBuyListTrap, mergeCallbackReasons } from "@/lib/analytics/kpis";
@@ -291,6 +291,12 @@ export async function GET(request) {
           status: true,
           acceptedTotal: true,
           total: true,
+          // The quote's NET value, for the margin roll-up's fallback when a
+          // job was never invoiced. `total` stays because buildBacklogWeeks
+          // still measures backlog and throughput gross — see the note on
+          // jobContractValue in lib/analytics/kpis.js.
+          subtotal: true,
+          discount: true,
           costing: {
             select: {
               labourHours: true,
@@ -377,7 +383,11 @@ export async function GET(request) {
                 { jobId: null, quoteId: { in: completedQuoteIds.length ? completedQuoteIds : ["__none__"] } },
               ],
             },
-            select: { id: true, parentInvoiceId: true, version: true, status: true, total: true, jobId: true, quoteId: true },
+            // subtotal/discount, because revenue is measured NET of tax —
+            // the tax line is collected for a government, not earned, and
+            // summing `total` put it in the margin. `total` stays so the
+            // helper can say how much tax it left out.
+            select: { id: true, parentInvoiceId: true, version: true, status: true, subtotal: true, discount: true, total: true, jobId: true, quoteId: true },
           }),
           db.timeEntry.groupBy({
             by: ["workerId"],
@@ -428,7 +438,11 @@ export async function GET(request) {
             // sums through. Omitting it would silently read every row as
             // approved (the legacy rule for rows written before the column)
             // and put rejected changes into the KPI's dollar figure.
-            select: { jobId: true, priceDelta: true, status: true },
+            // `invoiceId` because jobRevenue() has to know whether an approved
+            // change is already inside the invoice it reads: billed onto the
+            // job's invoice it is already in that subtotal, and adding it
+            // again would double-count it.
+            select: { jobId: true, priceDelta: true, status: true, invoiceId: true },
           }),
           // Answered surveys for jobs completed in the period — sent, not
           // necessarily answered, are excluded here rather than in
@@ -487,15 +501,44 @@ export async function GET(request) {
   let buyListTotalOnCompletedJobs = 0;
   for (const m of jobMaterials) buyListTotalOnCompletedJobs += Number(m.actualCost) || 0;
 
-  // Revenue per job, off the latest version of every family — draft and
-  // cancelled were already excluded in the query above, so what's left is
-  // real, sendable revenue.
-  const revenueByJob = new Map();
-  for (const family of invoiceFamilies(revenueInvoices)) {
-    const latest = family.latest;
-    const jobId = latest.jobId || quoteIdToJobId.get(latest.quoteId) || null;
+  // ── Revenue per job — the SAME rule the job page uses ───────────────────
+  //
+  // This used to collapse the families here and sum `latest.total`, while
+  // app/api/jobs/[id]/costing/route.js answered the identical question from
+  // the quote. Two modules, one question, two rules: the dashboard said a job
+  // was worth what was invoiced and the job page said it was worth what was
+  // quoted, and nobody could tell which screen was wrong. lib/costing/
+  // jobRevenue.js is now the one rule, and it also drops the sales tax that
+  // summing `total` was counting as margin.
+  //
+  // Rows are grouped by job BEFORE the helper collapses versions: a version
+  // row copies `quoteId` but not `jobId`, so v1 can arrive by the job arm and
+  // its v2 by the quote arm, and both have to land in the same bucket for the
+  // family to be seen whole.
+  const invoicesByJob = new Map();
+  for (const inv of revenueInvoices) {
+    const jobId = inv.jobId || quoteIdToJobId.get(inv.quoteId) || null;
     if (!jobId) continue;
-    revenueByJob.set(jobId, (revenueByJob.get(jobId) || 0) + Number(latest.total || 0));
+    if (!invoicesByJob.has(jobId)) invoicesByJob.set(jobId, []);
+    invoicesByJob.get(jobId).push(inv);
+  }
+  const changeOrdersByJob = new Map();
+  for (const co of changeOrders) {
+    if (!co?.jobId) continue;
+    if (!changeOrdersByJob.has(co.jobId)) changeOrdersByJob.set(co.jobId, []);
+    changeOrdersByJob.get(co.jobId).push(co);
+  }
+  const revenueByJob = new Map();
+  for (const job of completedJobs) {
+    const r = jobRevenue({
+      quote: job.quote || null,
+      invoices: invoicesByJob.get(job.id) || [],
+      changeOrders: changeOrdersByJob.get(job.id) || [],
+    });
+    // Null is absence, and absence must not become a key: buildMarginRollup
+    // excludes a job with no revenue and COUNTS the exclusion, which is the
+    // honest reading. Setting 0 here would price it instead.
+    if (r.revenue !== null) revenueByJob.set(job.id, r.revenue);
   }
 
   const jobHoursById = {};
@@ -567,14 +610,17 @@ export async function GET(request) {
     .filter((job) => !job.originalJobId)
     .map((job) => ({ id: job.id, callbackReasons: [...(callbackReasonsByJob.get(job.id) || [])] }));
 
-  const changeOrdersByJob = new Map();
-  for (const co of changeOrders) {
-    if (!changeOrdersByJob.has(co.jobId)) changeOrdersByJob.set(co.jobId, []);
-    changeOrdersByJob.get(co.jobId).push({ priceDelta: co.priceDelta, status: co.status });
-  }
+  // The same grouping the revenue pass above built — one map, not two, so a
+  // row cannot reach the margin and miss the rate. Narrowed to the two
+  // columns this KPI is about: `invoiceId` would split changeOrderSummary's
+  // billed/unbilled totals, which is a question about what is still OWED and
+  // not one this rate asks.
   const changeOrderJobs = completedJobs.map((job) => ({
     id: job.id,
-    changeOrders: changeOrdersByJob.get(job.id) || [],
+    changeOrders: (changeOrdersByJob.get(job.id) || []).map((co) => ({
+      priceDelta: co.priceDelta,
+      status: co.status,
+    })),
   }));
 
   const weeksInPeriod = weeksBetween(gte, lte);
