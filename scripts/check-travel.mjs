@@ -5,6 +5,8 @@ import {
   hasPoint, haversineKm, estimateTravel, travelMinutes, reachable, describeTravel, travelLegs,
 } from "@/lib/booking/travel";
 import { routeLegs, isOnRoute, OFF_ROUTE_STATUSES } from "@/lib/schedule/routeLegs";
+import { zonedDayKey } from "@/lib/booking/travel";
+import { dayKey } from "@/lib/calendar/monthGrid";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
@@ -355,6 +357,94 @@ ok("the amber alarm is raised only about a visit still to come",
   /leg\.tight && upcoming/.test(page) && /startAt\.getTime\(\) >= nowMs/.test(page));
 ok("...and the amber, the icon and the 'short' figure all answer the SAME question",
   (page.match(/\bwarn\b/g) || []).length >= 4, (page.match(/\bwarn\b/g) || []).length);
+
+// ── Whose day is it ────────────────────────────────────────────────────────
+//
+// The reported bug: "about 25 min drive from Julie Retar" printed under a
+// Wednesday appointment, for a visit made on the Tuesday evening. The day was
+// being read in UTC while the schedule prints and buckets in the reader's own
+// zone, so every stop after 7pm Eastern had already become tomorrow.
+//
+// The fixtures below are pinned to named zones rather than built with
+// Date.UTC, because the UTC-built ones above pass under the bug: a check that
+// agrees with the code's own assumption proves nothing. Each case here fails
+// if the day is read in UTC, from a machine in ANY zone — including the
+// UTC one a build runs on.
+console.log("\nThe day boundary is the reader's, not UTC's");
+
+const stop = (id, iso, point) => ({ id, at: iso, latitude: point.lat, longitude: point.lng });
+
+// 2026-11-10 19:00 and 2026-11-11 09:00 in Toronto. One UTC day (the 11th),
+// two Eastern days — the owner's exact case.
+const torontoOvernight = travelLegs(
+  [
+    stop("tue-eve", "2026-11-11T00:00:00.000Z", MTL_DOWNTOWN),
+    stop("wed-morning", "2026-11-11T14:00:00.000Z", MTL_WEST),
+  ],
+  { timeZone: "America/Toronto" },
+);
+ok("Tuesday 7pm -> Wednesday 9am Eastern is not a drive, though it is one UTC day",
+  torontoOvernight[1].travel === null, torontoOvernight[1]);
+
+// The same failure east of Greenwich, where it bites in the morning instead:
+// 23:00 and 09:00 next day in Sydney, both inside UTC's 11th.
+const sydneyOvernight = travelLegs(
+  [
+    stop("wed-night", "2026-11-11T12:00:00.000Z", MTL_DOWNTOWN),
+    stop("thu-morning", "2026-11-11T22:00:00.000Z", MTL_WEST),
+  ],
+  { timeZone: "Australia/Sydney" },
+);
+ok("23:00 -> 09:00 next morning in Sydney is not a drive either",
+  sydneyOvernight[1].travel === null, sydneyOvernight[1]);
+
+// And the other direction, which the UTC rule got wrong by SILENCE: two stops
+// two hours apart on one Eastern evening, straddling UTC midnight.
+const sameEvening = travelLegs(
+  [
+    stop("six", "2026-11-10T23:00:00.000Z", MTL_DOWNTOWN),
+    stop("eight", "2026-11-11T01:00:00.000Z", MTL_WEST),
+  ],
+  { timeZone: "America/Toronto" },
+);
+ok("6pm -> 8pm on one Eastern evening IS a drive, though UTC midnight falls between",
+  sameEvening[1].travel?.minutes > 0, sameEvening[1]);
+
+// Called the way the schedule calls it — no zone — the day is the machine's
+// own, which is the day on the reader's screen. Built with local parts so the
+// pair is an evening and the next morning wherever this runs.
+const localPair = travelLegs([
+  { id: "eve", at: new Date(2026, 10, 10, 19, 0).toISOString(), latitude: MTL_DOWNTOWN.lat, longitude: MTL_DOWNTOWN.lng },
+  { id: "morn", at: new Date(2026, 10, 11, 9, 0).toISOString(), latitude: MTL_WEST.lat, longitude: MTL_WEST.lng },
+]);
+ok("with no zone named, the runtime's own evening -> next morning is not a drive",
+  localPair[1].travel === null, localPair[1]);
+
+// The two spellings of "which day is this" must not drift apart: zonedDayKey
+// in the runtime's zone has to be dayKey, instant for instant.
+const runtimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+let keysAgree = true;
+for (let h = 0; h < 24 * 400; h += 7) {
+  const d = new Date(Date.UTC(2026, 0, 1) + h * 3600_000);
+  if (zonedDayKey(d, runtimeZone) !== dayKey(d)) { keysAgree = false; break; }
+}
+ok(`zonedDayKey in ${runtimeZone} is dayKey, across 400 days of instants`, keysAgree);
+
+// Absence stays absence: a date nothing can read earns no claim, and two of
+// them must not compare equal to each other.
+const unreadable = travelLegs([
+  stop("bad-1", "not a date", MTL_DOWNTOWN),
+  stop("bad-2", "also not a date", MTL_WEST),
+]);
+ok("unreadable dates -> no drive, not a drive between two NaNs",
+  unreadable[1].travel === null, unreadable[1]);
+
+const unknownZone = travelLegs(
+  [stop("a", "2026-11-11T14:00:00.000Z", MTL_DOWNTOWN), stop("b", "2026-11-11T15:00:00.000Z", MTL_WEST)],
+  { timeZone: "Mars/Olympus_Mons" },
+);
+ok("a zone nothing recognises -> no drive, rather than one read in the wrong day",
+  unknownZone[1].travel === null, unknownZone[1]);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
