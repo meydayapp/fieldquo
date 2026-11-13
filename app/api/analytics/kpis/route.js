@@ -538,7 +538,21 @@ export async function GET(request) {
     // Null is absence, and absence must not become a key: buildMarginRollup
     // excludes a job with no revenue and COUNTS the exclusion, which is the
     // honest reading. Setting 0 here would price it instead.
-    if (r.revenue !== null) revenueByJob.set(job.id, r.revenue);
+    //
+    // ── And a job that was never billed is absent here too ─────────────────
+    //
+    // jobRevenue() falls back to the quote when nothing has been invoiced,
+    // which is right on the job page: the panel has always shown the estimator
+    // what the work was sold for, invoiced or not. It is NOT right here. This
+    // roll-up's documented population is jobs that produced revenue — the
+    // comment on buildMarginRollup's `revenue` has said so since it was
+    // written — and a completed job with no issued invoice has produced none.
+    // Pricing it at its quote would put money nobody has billed into a margin,
+    // and the quoted basis is exactly the half of the old disagreement that
+    // was wrong. So the amount comes from the one shared rule and the
+    // population stays this screen's own; the exclusion is still counted and
+    // still said out loud.
+    if (r.revenue !== null && r.basis === "invoiced") revenueByJob.set(job.id, r.revenue);
   }
 
   const jobHoursById = {};
