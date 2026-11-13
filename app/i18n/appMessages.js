@@ -2930,6 +2930,11 @@ const en = {
   "app.jobCosting.quotedTotal": "Quoted",
   "app.jobCosting.approvedChanges": "Approved changes",
   "app.jobCosting.contractValue": "Contract value now",
+  "app.jobCosting.invoiced": "Invoiced",
+  "app.jobCosting.basisInvoiced":
+    "Measured against the invoice you sent ({invoiced}), not the quote ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "{amount} of sales tax is left out — you collect it for the government, so it was never yours to keep.",
   "app.jobCosting.noQuote": "No quote",
   "app.jobCosting.noQuoteNote": "This job has no quote behind it, so there's no contract value to add these changes to. The changes themselves are still owed.",
   "app.jobCosting.profit": "Left after costs",
@@ -23158,6 +23163,11 @@ const fr = {
   "app.jobCosting.quotedTotal": "Soumissionné",
   "app.jobCosting.approvedChanges": "Avenants acceptés",
   "app.jobCosting.contractValue": "Valeur du contrat",
+  "app.jobCosting.invoiced": "Facturé",
+  "app.jobCosting.basisInvoiced":
+    "Calculé sur la facture envoyée ({invoiced}), pas sur la soumission ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "{amount} de taxes est exclu — vous le percevez pour le gouvernement, cet argent ne vous a jamais appartenu.",
   "app.jobCosting.noQuote": "Aucune soumission",
   "app.jobCosting.noQuoteNote": "Ce chantier n'a aucune soumission, il n'y a donc pas de valeur de contrat à laquelle ajouter ces avenants. Ces montants restent dus.",
   "app.jobCosting.profit": "Reste après les coûts",
@@ -50555,6 +50565,11 @@ const es = {
   "app.jobCosting.quotedTotal": "Presupuestado",
   "app.jobCosting.approvedChanges": "Cambios aprobados",
   "app.jobCosting.contractValue": "Valor contratado actual",
+  "app.jobCosting.invoiced": "Facturado",
+  "app.jobCosting.basisInvoiced":
+    "Calculado sobre la factura que enviaste ({invoiced}), no sobre el presupuesto ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "Se excluyen {amount} de impuestos — los cobras para el gobierno, ese dinero nunca fue tuyo.",
   "app.jobCosting.noQuote": "Sin presupuesto",
   "app.jobCosting.noQuoteNote":
     "Este trabajo no tiene un presupuesto detrás, así que no hay valor contratado al que sumar estos cambios. Los cambios en sí se siguen debiendo.",
@@ -63156,6 +63171,11 @@ const uk = {
   "app.jobCosting.quotedTotal": "За кошторисом",
   "app.jobCosting.approvedChanges": "Затверджені зміни",
   "app.jobCosting.contractValue": "Сума договору зараз",
+  "app.jobCosting.invoiced": "Виставлено рахунок",
+  "app.jobCosting.basisInvoiced":
+    "Розраховано за надісланим рахунком ({invoiced}), а не за кошторисом ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "{amount} податку не враховано — ви збираєте його для держави, ці гроші ніколи не були вашими.",
   "app.jobCosting.noQuote": "Немає кошторису",
   "app.jobCosting.noQuoteNote": "За цією роботою немає кошторису, тож немає суми договору, до якої додати ці зміни. Самі зміни все одно мають бути оплачені.",
   "app.jobCosting.profit": "Залишок після витрат",
@@ -82747,6 +82767,11 @@ const pa = {
   "app.jobCosting.quotedTotal": "ਕੋਟ ਕੀਤਾ",
   "app.jobCosting.approvedChanges": "ਮਨਜ਼ੂਰ ਤਬਦੀਲੀਆਂ",
   "app.jobCosting.contractValue": "ਠੇਕੇ ਦੀ ਮੌਜੂਦਾ ਕੀਮਤ",
+  "app.jobCosting.invoiced": "ਬਿਲ ਕੀਤਾ",
+  "app.jobCosting.basisInvoiced":
+    "ਇਹ ਤੁਹਾਡੇ ਭੇਜੇ ਬਿੱਲ ({invoiced}) ਤੋਂ ਮਾਪਿਆ ਗਿਆ ਹੈ, ਕੋਟ ({quoted}) ਤੋਂ ਨਹੀਂ।",
+  "app.jobCosting.taxExcludedNote":
+    "{amount} ਟੈਕਸ ਛੱਡ ਦਿੱਤਾ ਗਿਆ ਹੈ — ਤੁਸੀਂ ਇਹ ਸਰਕਾਰ ਲਈ ਇਕੱਠਾ ਕਰਦੇ ਹੋ, ਇਹ ਪੈਸਾ ਕਦੇ ਤੁਹਾਡਾ ਨਹੀਂ ਸੀ।",
   "app.jobCosting.noQuote": "ਕੋਈ ਕੋਟ ਨਹੀਂ",
   "app.jobCosting.noQuoteNote": "ਇਸ ਕੰਮ ਪਿੱਛੇ ਕੋਈ ਕੋਟ ਨਹੀਂ, ਇਸ ਲਈ ਇਹ ਤਬਦੀਲੀਆਂ ਜੋੜਨ ਲਈ ਠੇਕੇ ਦੀ ਕੋਈ ਕੀਮਤ ਨਹੀਂ। ਤਬਦੀਲੀਆਂ ਦੀ ਰਕਮ ਫਿਰ ਵੀ ਬਕਾਇਆ ਹੈ।",
   "app.jobCosting.profit": "ਲਾਗਤਾਂ ਤੋਂ ਬਾਅਦ ਬਚਿਆ",
@@ -102266,6 +102291,11 @@ const tl = {
   "app.jobCosting.quotedTotal": "Na-quote",
   "app.jobCosting.approvedChanges": "Mga aprubadong pagbabago",
   "app.jobCosting.contractValue": "Halaga ng kontrata ngayon",
+  "app.jobCosting.invoiced": "Na-invoice",
+  "app.jobCosting.basisInvoiced":
+    "Nakabatay sa invoice na ipinadala mo ({invoiced}), hindi sa quote ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "Hindi kasama ang {amount} na buwis — kinokolekta mo ito para sa gobyerno, kaya hindi ito naging sa iyo kailanman.",
   "app.jobCosting.noQuote": "Walang quote",
   "app.jobCosting.noQuoteNote": "Walang quote sa likod ng trabahong ito, kaya walang halaga ng kontrata na mapagdadagdagan ng mga pagbabagong ito. Utang pa rin ang mga pagbabago mismo.",
   "app.jobCosting.profit": "Natira pagkatapos ng gastos",
@@ -121623,6 +121653,11 @@ const de = {
   "app.jobCosting.quotedTotal": "Angeboten",
   "app.jobCosting.approvedChanges": "Freigegebene Nachträge",
   "app.jobCosting.contractValue": "Auftragswert jetzt",
+  "app.jobCosting.invoiced": "Berechnet",
+  "app.jobCosting.basisInvoiced":
+    "Gemessen an der gesendeten Rechnung ({invoiced}), nicht am Angebot ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "{amount} Umsatzsteuer bleibt außen vor — Sie ziehen sie für den Staat ein, sie hat Ihnen nie gehört.",
   "app.jobCosting.noQuote": "Kein Angebot",
   "app.jobCosting.noQuoteNote": "Hinter diesem Auftrag steht kein Angebot, es gibt also keinen Auftragswert, zu dem diese Nachträge addiert werden könnten. Die Nachträge selbst sind trotzdem geschuldet.",
   "app.jobCosting.profit": "Nach Kosten übrig",
@@ -141105,6 +141140,11 @@ const zh = {
   "app.jobCosting.quotedTotal": "报价金额",
   "app.jobCosting.approvedChanges": "已批准的变更",
   "app.jobCosting.contractValue": "当前合同金额",
+  "app.jobCosting.invoiced": "已开票金额",
+  "app.jobCosting.basisInvoiced":
+    "这里按你发出的发票（{invoiced}）计算，不是按报价单（{quoted}）。",
+  "app.jobCosting.taxExcludedNote":
+    "其中 {amount} 的销售税没有算进来——这笔钱是替政府代收的，从来都不是你的。",
   "app.jobCosting.noQuote": "没有报价单",
   "app.jobCosting.noQuoteNote": "这个工程背后没有报价单，所以没有合同金额可以把这些变更加上去。变更的钱客户照样要付。",
   "app.jobCosting.profit": "扣完成本剩下",
@@ -160461,6 +160501,11 @@ const it = {
   "app.jobCosting.quotedTotal": "Preventivato",
   "app.jobCosting.approvedChanges": "Varianti approvate",
   "app.jobCosting.contractValue": "Valore del contratto ora",
+  "app.jobCosting.invoiced": "Fatturato",
+  "app.jobCosting.basisInvoiced":
+    "Calcolato sulla fattura inviata ({invoiced}), non sul preventivo ({quoted}).",
+  "app.jobCosting.taxExcludedNote":
+    "Sono esclusi {amount} di imposte — le incassi per lo Stato, quel denaro non è mai stato tuo.",
   "app.jobCosting.noQuote": "Nessun preventivo",
   "app.jobCosting.noQuoteNote": "Dietro questo lavoro non c'è un preventivo, quindi non esiste un valore di contratto a cui sommare queste varianti. Le varianti restano comunque dovute.",
   "app.jobCosting.profit": "Resta dopo i costi",

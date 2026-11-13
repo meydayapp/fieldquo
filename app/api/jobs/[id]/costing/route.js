@@ -19,6 +19,7 @@ import { loadJobSubcontracts } from "@/lib/costing/jobCostInputs";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { unattributedLabourForJob } from "@/lib/costing/unattributedHours";
 import { contractValue } from "@/lib/jobs/changeOrderValue";
+import { jobRevenue } from "@/lib/costing/jobRevenue";
 import { shouldAskRevision, normaliseThresholdPct, DEFAULT_REVISION_THRESHOLD_PCT } from "@/lib/costing/costRevision";
 import { reconcileJobPurchases } from "@/lib/receipts/reconcileJobPurchases";
 
@@ -58,10 +59,14 @@ export async function GET(request, { params }) {
     },
     select: {
       id: true,
-      // `id` so quotedCostFor can be asked about it; `total` is the revenue
-      // the variance is measured against. The cost itself is no longer read
-      // here — see the note below.
-      quote: { select: { id: true, total: true } },
+      // The quote the job came from, needed in two different shapes:
+      // `id` so quotedCostFor can be asked about it, `total` for the GROSS
+      // quoted figure the contract-value trio still shows, and
+      // subtotal/discount because revenue is measured NET of tax — see
+      // lib/costing/jobRevenue.js. The cost itself is no longer read here —
+      // see the note below.
+      quoteId: true,
+      quote: { select: { id: true, total: true, subtotal: true, discount: true } },
       // ── Why revenue is no longer just the quote ──────────────────────────
       //
       // This route used to compute `revenue: job.quote?.total` and nothing
@@ -250,10 +255,73 @@ export async function GET(request, { params }) {
     changeOrders: job.changeOrders,
   });
 
+  // ── Every invoice billing this job, all versions ─────────────────────────
+  //
+  // Two queries, not one, and not a join. The candidate pass mirrors
+  // lib/invoices/jobLink.js's resolution order exactly — an explicit Job link
+  // first, then the invoice raised from the job's quote, with the `jobId:
+  // null` guard so an invoice deliberately linked to a DIFFERENT job is not
+  // dragged in by a shared quote. The expansion pass then pulls the whole
+  // family by root id, because amending an invoice creates a version row that
+  // copies `quoteId` but NOT `jobId` (app/api/invoices/[id]/route.js): a
+  // single-query version of this would see v1 and miss v2 on any invoice that
+  // was linked by job rather than by quote, and silently report the superseded
+  // figure. jobRevenue() collapses the family; this only has to find it.
+  const invoiceCandidates = await db.invoice.findMany({
+    where: {
+      companyId: member.companyId,
+      OR: [
+        { jobId: job.id },
+        ...(job.quoteId ? [{ jobId: null, quoteId: job.quoteId }] : []),
+      ],
+    },
+    select: { id: true, parentInvoiceId: true },
+  });
+  const invoiceRootIds = [
+    ...new Set(invoiceCandidates.map((r) => r.parentInvoiceId || r.id)),
+  ];
+  const jobInvoices = invoiceRootIds.length
+    ? await db.invoice.findMany({
+        where: {
+          companyId: member.companyId,
+          OR: [{ id: { in: invoiceRootIds } }, { parentInvoiceId: { in: invoiceRootIds } }],
+        },
+        select: {
+          id: true,
+          parentInvoiceId: true,
+          version: true,
+          status: true,
+          subtotal: true,
+          discount: true,
+          total: true,
+        },
+      })
+    : [];
+
+  // ── What the job is actually worth ───────────────────────────────────────
+  //
+  // Not `contract.currentContractValue`. That figure is the QUOTE plus agreed
+  // changes, gross of tax, and it was the revenue this route fed the margin
+  // with — so a contractor who amended his invoice (dropped a line, waived
+  // the tax after a complaint) went on being shown the quote, and the tax he
+  // collects for a government was counted as his profit. One function answers
+  // "what is this job worth" for this panel and for the dashboard's margin
+  // roll-up, so they cannot give two answers. See lib/costing/jobRevenue.js.
+  //
+  // The contract trio above is kept and still rendered: quoted, agreed
+  // changes and their sum are all still true, and they are the breakdown that
+  // tells a contractor the job GREW. They are a different sentence from "what
+  // is this worth net of tax", not a competing answer to it.
+  const revenue = jobRevenue({
+    quote: job.quote || null,
+    invoices: jobInvoices,
+    changeOrders: job.changeOrders,
+  });
+
   const comparison = compareJobCost({
     estimatedCost,
     actualCost: actual.total,
-    revenue: contract.currentContractValue,
+    revenue: revenue.revenue,
   });
 
   // ── Should the close-out ask "update your costing?" ──────────────────────
@@ -303,6 +371,9 @@ export async function GET(request, { params }) {
     unattributed,
     comparison,
     contract,
+    // Which document the margin above was measured against, and both figures
+    // so the panel can show the difference rather than quietly pick one.
+    revenue,
     estimatedHours,
     revision,
     // When the estimate was taken. A variance against a figure snapshotted

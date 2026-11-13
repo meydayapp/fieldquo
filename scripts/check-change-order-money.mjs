@@ -623,16 +623,39 @@ section("11. The wiring, read from source (comments stripped, per function)");
   const body = functionBody(src, "GET");
   if (ok("costing route: GET body found", body !== null)) {
     ok("costing GET calls contractValue", body.includes("contractValue({"));
-    ok("costing GET passes the CONTRACT value as revenue, not the quote",
-      body.includes("revenue: contract.currentContractValue"));
+    // ── Revenue moved on, and this assertion moved with it ───────────────
+    //
+    // It used to require `revenue: contract.currentContractValue` — quote +
+    // approved changes, gross of tax. That was right against the bug it was
+    // written for (the bare quote total) and wrong against the one reported
+    // afterwards: the contractor's invoice said $4,972.50 and the panel kept
+    // showing the quote's $5,717.13, tax included. lib/costing/jobRevenue.js
+    // is the single rule now — it prefers what was invoiced and strips the
+    // tax — and scripts/check-job-revenue.mjs executes it. What this file
+    // still has to guarantee is that the route feeds compareJobCost from
+    // THAT function and not from the quote, and that the contract split the
+    // panel renders survives beside it.
+    ok("costing GET passes jobRevenue()'s answer as revenue",
+      body.includes("revenue: revenue.revenue"));
     ok("costing GET no longer passes the bare quote total as revenue",
       !body.includes("revenue: job.quote?.total"));
+    ok("costing GET no longer passes the gross contract value as revenue",
+      !body.includes("revenue: contract.currentContractValue"));
     ok("costing GET loads change orders WITH their status",
       body.includes("changeOrders: { select:") && body.includes("status: true"));
+    // Both arguments, named: jobRevenue cannot tell a billed change order
+    // from an unbilled one without the invoices, and would add the billed
+    // one a second time.
+    ok("costing GET hands jobRevenue the job's invoices",
+      body.includes("invoices: jobInvoices"));
+    ok("costing GET hands jobRevenue the same change orders",
+      body.split("jobRevenue({")[1]?.includes("changeOrders: job.changeOrders"));
     ok("costing GET returns the split for the panel to render",
       body.includes("contract,"));
     ok("contractValue is computed BEFORE compareJobCost consumes it",
       orderedIn(body, "contractValue({", "compareJobCost({"));
+    ok("jobRevenue is computed BEFORE compareJobCost consumes it",
+      orderedIn(body, "jobRevenue({", "compareJobCost({"));
   }
 }
 
