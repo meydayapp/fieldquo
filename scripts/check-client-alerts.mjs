@@ -36,6 +36,10 @@
 //      alerted about it, adds a recipient and removes none, is offered only
 //      from people the alert can reach, and degrades to nobody when they
 //      leave — with no history import and no booking-made lead assigned;
+//      a ONE-MAN company that never touched the setting gets its one member
+//      (2026-11-14), the picker names him rather than saying "Nobody", a
+//      deliberate "Nobody" is stamped and kept, and a company whose named
+//      setter left is not re-pointed at whoever remains;
 //  12. mutations of the shipped code are caught.
 //
 //   node --import ./scripts/alias-loader.mjs scripts/check-client-alerts.mjs
@@ -1357,6 +1361,98 @@ await pickOwner(PEOPLE.olivia, "m_olivia");
   ok(withOwner.length === 1 && withOwner[0].id === "m_adam", "every other event is handed back untouched");
 }
 
+// ── A one-man company (owner, 2026-11-14) ─────────────────────────────────
+//
+// "if it's a one man company then have it automatically assigned to them."
+// Company B IS one man: Bob, its owner, and nobody else. Company A is six
+// people, five of whom the alert reaches.
+//
+// The whole difficulty is that a null leadOwnerId used to mean two things —
+// never configured, and "Nobody — leave them unassigned", which the picker
+// offers and saves as the same null. These assert the default fills the
+// first and keeps its hands off the second.
+
+reset();
+await optIns();
+{
+  ok((await leadOwnerMember(globalThis.__DB, B))?.id === "m_bob", "a one-man company that never touched the setting: its one member IS the enquiry owner");
+  ok((await leadOwnerMember(globalThis.__DB, A)) === null, "a six-person company is not filled in for — FieldQuo does not pick between people");
+
+  const solo = await createScoredLead({ companyId: B, name: "Driveway Quote", source: "self_quote" });
+  await drain(() => table("notificationEvent").length > 0, 200);
+  ok(solo.assignedToId === PEOPLE.bob.userId, "…so the one man's enquiry lands on him instead of sitting unassigned forever", solo.assignedToId);
+
+  const crowd = await createScoredLead({ companyId: A, name: "Still Nobody", source: "self_quote" });
+  await drain(() => table("notificationEvent").filter((e) => e.companyId === A).length > 0, 200);
+  ok(crowd.assignedToId == null, "…and company A's arrives unassigned, exactly as before this existed", crowd.assignedToId);
+}
+
+reset();
+{
+  // The screen and the behaviour must say the same thing. A picker reading
+  // "Nobody" while every enquiry lands on him is the drift this codebase
+  // keeps finding — so the GET resolves the owner the same way the creator
+  // does, through the one module.
+  globalThis.__SESSION = { id: PEOPLE.bob.id, userId: PEOPLE.bob.userId, companyId: B, role: "owner" };
+  const screen = await leadOwnerRoute.GET(jsonRequest(null));
+  globalThis.__SESSION = null;
+  ok(screen.body.memberId === "m_bob", 'the picker names him rather than saying "Nobody" while every lead lands on him', screen.body.memberId);
+  ok(screen.body.options.length === 1 && screen.body.options[0].memberId === "m_bob", "…and he is the only person it can offer", screen.body.options);
+  ok(table("company").find((c) => c.id === B).leadOwnerId === undefined, "…and reading the screen stored nothing: a default is not a save", table("company").find((c) => c.id === B).leadOwnerId);
+}
+
+reset();
+await optIns();
+{
+  // The one man picks Nobody on purpose. An assignee is the lead board's
+  // owner column and the chase task's assignee, so handing it back to him
+  // would be a destructive change wearing a cosmetic label.
+  const chose = await pickOwner(PEOPLE.bob, null);
+  ok(chose.status === 200 && chose.body.memberId === null, 'the one man may still choose "Nobody — leave them unassigned"', chose.body);
+  const row = table("company").find((c) => c.id === B);
+  ok(row.leadOwnerId === null && row.leadOwnerChosenAt instanceof Date, "…and the SAVE is stamped, which is the only thing telling that choice from an untouched setting", { id: row.leadOwnerId, at: row.leadOwnerChosenAt });
+  ok((await leadOwnerMember(globalThis.__DB, B)) === null, "…so it is respected rather than silently overridden by the default");
+  const lead = await createScoredLead({ companyId: B, name: "Left Alone", source: "self_quote" });
+  await drain(() => table("notificationEvent").length > 0, 200);
+  ok(lead.assignedToId == null, "…and his enquiries stay unassigned, which is what he asked for", lead.assignedToId);
+}
+
+reset();
+{
+  // Picking a person stamps it too, so a later change of mind back to Nobody
+  // is not the untouched state.
+  const named = await pickOwner(PEOPLE.bob, "m_bob");
+  ok(named.status === 200 && table("company").find((c) => c.id === B).leadOwnerChosenAt instanceof Date, "naming somebody is stamped as well as stored", named.body);
+}
+
+reset();
+{
+  // The three exclusions in createLead.js are deliberate and documented.
+  // They are gated BEFORE the owner is read, so the one-man default cannot
+  // reach past them.
+  const imported = await createScoredLead({ companyId: B, name: "July Enquiry", source: "meta_lead_ads", importedAt: new Date("2026-07-02T10:00:00Z") });
+  const booked = await createScoredLead({ companyId: B, name: "From A Booking", source: "booking", notify: false });
+  const stated = await createScoredLead({ companyId: B, name: "Already Owned", source: "manual", assignedToId: "u_stated" });
+  await drain(() => table("notificationEvent").filter((e) => e.type === "lead.created").length > 0, 200);
+  ok(imported.assignedToId == null, "the one-man default does not sweep a history backfill into his queue", imported.assignedToId);
+  ok(booked.assignedToId == null, "…nor a lead made from a booking, which already has its own owner", booked.assignedToId);
+  ok(stated.assignedToId === "u_stated", "…and a caller that already decided still wins", stated.assignedToId);
+  ok(table("notificationEvent").filter((e) => e.type === "lead.created").length === 1, "…and only the one that notifies alerted anybody", table("notificationEvent").length);
+}
+
+reset();
+{
+  // A company that named somebody, and then that somebody left, until only
+  // one person remains. It is a one-man company now — but not an
+  // unconfigured one. A default fills silence, not a dead answer, and the
+  // stale choice degrades to nobody exactly as it did before.
+  await pickOwner(PEOPLE.olivia, "m_mia");
+  for (const id of ["m_adam", "m_esme", "m_ned", "m_mia", "m_carl"]) table("member").find((m) => m.id === id).active = false;
+  const left = await leadOwnerCandidates(globalThis.__DB, A);
+  ok(left.length === 1 && left[0].id === "m_olivia", "only the owner is left — company A is one person now", left.map((m) => m.id));
+  ok((await leadOwnerMember(globalThis.__DB, A)) === null, "a company whose named setter left is not quietly re-pointed at whoever remains");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Mutations — each must make this check fail
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1462,6 +1558,31 @@ const MUTATIONS = [
     label: "anybody can be named the enquiry owner",
     from: "    if (!candidates.some((m) => m.id === memberId)) {",
     to: "    if (false) {",
+  },
+  // ── The one-man company (owner, 2026-11-14) ─────────────────────────────
+  {
+    file: "lib/notifications/leadOwner.js",
+    label: "a one-man company's leads sit unassigned forever again",
+    from: "    if (!id) return company?.leadOwnerChosenAt ? null : await soleLeadOwner(prisma, companyId);",
+    to: "    if (!id) return null;",
+  },
+  {
+    file: "lib/notifications/leadOwner.js",
+    label: 'a deliberate "Nobody" overridden by the one-man default',
+    from: "    if (!id) return company?.leadOwnerChosenAt ? null : await soleLeadOwner(prisma, companyId);",
+    to: "    if (!id) return soleLeadOwner(prisma, companyId);",
+  },
+  {
+    file: "lib/notifications/leadOwner.js",
+    label: "the default picks the first of several people instead of only a sole one",
+    from: "  return candidates.length === 1 ? candidates[0] : null;",
+    to: "  return candidates[0] || null;",
+  },
+  {
+    file: "app/api/settings/lead-owner/route.js",
+    label: 'a saved choice is not stamped, so "Nobody" is handed straight back to the default',
+    from: "    data: { leadOwnerId: memberId, leadOwnerChosenAt: new Date() },",
+    to: "    data: { leadOwnerId: memberId },",
   },
   // ── The silent dead box (owner, 2026-11-14) ─────────────────────────────
   {

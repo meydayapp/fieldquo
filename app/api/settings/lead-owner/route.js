@@ -35,7 +35,10 @@ async function state(companyId) {
   return {
     // The member who is CURRENTLY in force, which is not always the stored
     // id: a setter who left or was deactivated reads as nobody, and the
-    // screen must say nobody rather than name a dead account.
+    // screen must say nobody rather than name a dead account. The other way
+    // round too — a one-man company that never touched this reads as its
+    // sole member, so the picker shows that person rather than saying
+    // "Nobody" while every enquiry lands on them.
     memberId: owner?.id || null,
     options: candidates.map((m) => ({
       memberId: m.id,
@@ -81,6 +84,14 @@ export async function PUT(request) {
     }
   }
 
-  await db.company.update({ where: { id: member.companyId }, data: { leadOwnerId: memberId } });
+  // The timestamp is stamped on EVERY save, memberId null included: it is
+  // what tells "nobody ever touched this" apart from "somebody picked Nobody
+  // — leave them unassigned", and a one-man company's default only fills the
+  // first (lib/notifications/leadOwner.js). Saving Nobody without stamping
+  // it would hand the choice straight back to the default.
+  await db.company.update({
+    where: { id: member.companyId },
+    data: { leadOwnerId: memberId, leadOwnerChosenAt: new Date() },
+  });
   return NextResponse.json(await state(member.companyId));
 }

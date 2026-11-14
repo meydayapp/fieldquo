@@ -2444,9 +2444,32 @@ model Company {
   /// member as active on every use. Nothing is cleaned up on a schedule —
   /// a cleanup job is a second place the rule could disagree with itself.
   ///
-  /// Null means what it has always meant: no default assignee, and a new
-  /// enquiry lands on the board unassigned.
+  /// Null is NOT self-explanatory, which is why leadOwnerChosenAt exists
+  /// below: it is either "nobody has ever touched the setting" or "somebody
+  /// deliberately picked Nobody — leave them unassigned". Read the pair,
+  /// never this column alone.
   leadOwnerId            String?
+
+  /// When a human last SAVED a choice of enquiry owner — including a choice
+  /// of "Nobody". The only thing it is read for (lib/notifications/
+  /// leadOwner.js) is telling the two meanings of a null leadOwnerId apart.
+  ///
+  /// The owner, 2026-11-14: "if it's a one man company then have it
+  /// automatically assigned to them." A company with exactly one member the
+  /// new-enquiry alert can reach has nobody else the lead could go to, so
+  /// leaving it unassigned is a setting nobody ever asked for. But "nobody
+  /// configured it" and "the one person configured it to nobody" are
+  /// different facts, and auto-filling the second would be a destructive
+  /// operation wearing a cosmetic label (AGENTS.md failure class 7): an
+  /// assignee is the lead board's owner column and the chase task's
+  /// assignee, so a solo contractor who chose to keep enquiries out of their
+  /// queue would silently get them back. A default fills what was never
+  /// said; it does not overwrite what was.
+  ///
+  /// A timestamp rather than a boolean because it answers the same question
+  /// plus "when", at the same cost, and because a column named
+  /// leadOwnerChosen = false reads as "chose false" to the next reader.
+  leadOwnerChosenAt      DateTime?
 
   /// The company's PRE-QUOTE video — what a homeowner watches before the
   /// estimator turns up, linked from the enquiry follow-ups.

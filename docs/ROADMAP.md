@@ -30690,8 +30690,38 @@ A setter who leaves, is deactivated, or loses Requests access degrades to
 there is deliberately no cleanup job, since the stale weekend in between is
 exactly the window that matters.
 
+**A one-man company is filled in (14 November 2026).** The owner: "if it's a
+one man company then have it automatically assigned to them." Nothing ever set
+`leadOwnerId` by itself, so a solo contractor's enquiries sat unassigned
+forever — there was nobody else they could have gone to. A company with
+exactly one member the alert can *reach* (`leadOwnerCandidates`, so a crew
+member who cannot see Requests does not make it a two-man company) now gets
+that member as the owner.
+
+The hard part was that a null `leadOwnerId` meant two different things: never
+configured, and "Nobody — leave them unassigned", which the picker offers and
+saves as the same null. Auto-filling the second would have been a destructive
+change wearing a cosmetic label — an assignee is the board's owner column and
+the chase task's assignee, so a solo contractor who chose to keep enquiries
+out of their queue would silently have got them back. So `Company.leadOwnerChosenAt`
+was added and the picker stamps it on **every** save, a save of Nobody
+included; the default fills only the never-touched case. A company that named
+somebody who then left is *not* re-pointed at whoever remains: it did
+configure this, and the choice died with the account.
+
+Decided in `leadOwnerMember`, not in `createScoredLead`, so the picker reads
+the same answer and the screen shows the solo person instead of saying
+"Nobody" while every lead lands on them. The three exclusions are untouched,
+because they gate before the owner is read: no history import, no
+booking-made lead, never over a stated assignee. The column was applied by
+the `ALTER TABLE "Company" ADD COLUMN "leadOwnerChosenAt" TIMESTAMP(3)` that
+`prisma migrate diff` generated for it, **not** by `prisma db push`: the live
+database holds ten `Community*` tables and three enums that are not in the
+model, and a push would have dropped them.
+
 **Checks.** `check:client-alerts` went from 230 assertions to 397 (428 with
-its 31 mutations). It executes the real `createScoredLead` for every case, so
+its 31 mutations), and stands at 559 with the one-man-company work. It
+executes the real `createScoredLead` for every case, so
 all eight inbound channels are covered by the one hook: the five bell
 recipients and no crew, the text's every line, the company switch silencing
 everything while the lead is still captured, a lead holding nothing but a name
