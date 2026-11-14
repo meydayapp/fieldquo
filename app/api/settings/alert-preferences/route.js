@@ -39,6 +39,7 @@ import {
   validateAlertPatch,
 } from "@/lib/notifications/clientAlerts";
 import { toE164 } from "@/lib/sms/twilioClient";
+import { clientSmsFrom } from "@/lib/sms/clientLine";
 import { maySms } from "@/lib/sms/optOut";
 import { verifiedPhonesFor, staffPhoneFor } from "@/lib/notifications/staffPhone";
 
@@ -50,7 +51,7 @@ function eligibleFor(member, event) {
 
 async function state(member) {
   const enforceable = await loadEnforceableMember(db, member.id);
-  const [rules, prefs, me] = await Promise.all([
+  const [rules, prefs, me, company] = await Promise.all([
     db.notificationRule.findMany({
       where: { companyId: member.companyId, type: { in: CLIENT_ALERT_EVENTS.map((e) => CLIENT_ALERTS[e].rule) } },
       select: { type: true, active: true },
@@ -60,6 +61,10 @@ async function state(member) {
       select: { event: true, inApp: true, email: true, sms: true },
     }),
     db.member.findFirst({ where: { id: member.id, companyId: member.companyId }, select: { phone: true } }),
+    // smsFromNumber, because the note under the phone box states who pays
+    // for these texts and the answer is decided by that column alone —
+    // see smsFrom below.
+    db.company.findUnique({ where: { id: member.companyId }, select: { smsFromNumber: true } }),
   ]);
   const ruleBy = new Map(rules.map((r) => [r.type, r]));
   const prefBy = new Map(prefs.map((p) => [p.event, p]));
@@ -121,6 +126,19 @@ async function state(member) {
     phoneSource: resolved.source,
     textsGoTo: e164 ? `••• ••• ${e164.slice(-4)}` : null,
     smsOptedOut,
+    // ── Which number these texts leave from (and therefore who pays) ──────
+    //
+    // clientSmsFrom(), the SAME call sendStaffTexts makes for its `from`
+    // (lib/notifications/staffTexts.js), so the screen cannot claim one
+    // thing while the sender does another. A company that brought its own
+    // number sends from it, is charged for it by meterOutboundIfBrought,
+    // and skips STAFF_TEXT_DAILY_CAP entirely — the cap sits inside
+    // `if (fieldquoPays)`. The old note said "from FieldQuo's number", "costs
+    // you nothing" and "at most 20 a day", all three false in that case.
+    //
+    // Null means FieldQuo's shared line, which is what dailyCap below is
+    // about: it is the cap only while FieldQuo is buying the text.
+    smsFrom: clientSmsFrom(company) || null,
     dailyCap: STAFF_TEXT_DAILY_CAP,
     canManageCompany: unrestricted,
   };

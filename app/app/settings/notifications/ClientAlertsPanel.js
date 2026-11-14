@@ -20,14 +20,40 @@
 // Every switch auto-saves and rolls back on a refusal, the shape the page's
 // other toggles use. A switch is never drawn live for an alert that cannot
 // reach this person (wrong access, company switch off, no phone for a text):
-// it is drawn disabled with the reason beside it, never as a box that saves
-// and then does nothing.
+// it is drawn disabled, never as a box that saves and then does nothing.
+//
+// ══ And the reason is drawn WITH it (owner, 2026-11-14) ═══════════════════
+//
+// The owner tapped "Text me" on "A new enquiry arrives" and nothing happened
+// — no error, no banner, no reason — and concluded the feature was broken.
+// It was not: his Member.phone is null, so the box was disabled, and a
+// disabled checkbox fires no onChange, so the tap was silently inert. The
+// sentence above used to claim "with the reason beside it" and that was
+// false: `hint` branched on access and the company switch only, and the one
+// mention of a missing number sat far below the table under the phone input,
+// worded as generic help rather than as the reason THAT box will not move.
+//
+// So every cell that is dead now says why, in the cell:
+//
+//   · a text with no usable number, or a number that replied STOP —
+//     smsBlockedReason() in lib/notifications/clientAlerts.js, the same two
+//     facts the `disabled` expression is built from, so the gate and the
+//     explanation cannot drift apart;
+//   · a channel this event has no sender for — the dash keeps its title and
+//     aria-label AND carries visible text, because there is no hover on the
+//     phone the owner reads this on.
+//
+// An existing "on" stays switchable OFF whatever the phone's state. That is
+// deliberate — somebody whose number is gone must still be able to stop the
+// texts — so smsBlockedReason returns null for it: nothing is blocked, and
+// there is nothing to explain.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Check, MessageSquare } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
+import { smsBlockedReason, smsNoteKind } from "@/lib/notifications/clientAlerts";
 
 const CHANNELS = ["inApp", "email", "sms"];
 
@@ -201,24 +227,49 @@ export default function ClientAlertsPanel({ readOnly = false }) {
                         // an existing "on" stays visible and can be switched
                         // OFF whatever the phone's state.
                         const disabled = off || noChannel || busy === key || (c === "sms" && !smsReady && !e.channels.sms);
+                        // Why the text box will not move, said in this cell.
+                        // The row-level reasons (access, company switch) are
+                        // already in the hint column, so this only speaks for
+                        // the phone — and only while the event itself is
+                        // live, or it would shout a second reason over the
+                        // first one.
+                        const smsBlocked =
+                          c === "sms" && !off && !noChannel
+                            ? smsBlockedReason({ phoneValid: data.phoneValid, smsOptedOut: data.smsOptedOut, on: Boolean(e.channels.sms) })
+                            : null;
                         return (
                           <td key={c} className="px-2 py-3 text-center">
                             {noChannel ? (
-                              <span
-                                className="text-xs text-muted-foreground"
-                                title={t("app.clientAlerts.noChannel")}
-                                aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}: ${t("app.clientAlerts.noChannel")}`}
-                              >
-                                —
-                              </span>
+                              <>
+                                <span
+                                  className="text-xs text-muted-foreground"
+                                  title={t("app.clientAlerts.noChannel")}
+                                  aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}: ${t("app.clientAlerts.noChannel")}`}
+                                >
+                                  —
+                                </span>
+                                {/* The same sentence the tooltip carries, visible: a
+                                    phone has no hover, and the dash alone explains
+                                    nothing to the person holding one. */}
+                                <div className="text-[11px] leading-snug text-muted-foreground mt-0.5 mx-auto max-w-[8rem]">
+                                  {t("app.clientAlerts.noChannel")}
+                                </div>
+                              </>
                             ) : (
-                              <input
-                                type="checkbox"
-                                aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}`}
-                                checked={!off && Boolean(e.channels[c])}
-                                disabled={readOnly || disabled}
-                                onChange={(ev) => setChannel(e.event, c, ev.target.checked)}
-                              />
+                              <>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`${t(`app.clientAlerts.event.${e.event}`)} — ${t(`app.clientAlerts.col.${c}`)}${smsBlocked ? `: ${t(`app.clientAlerts.smsBlocked.${smsBlocked}`)}` : ""}`}
+                                  checked={!off && Boolean(e.channels[c])}
+                                  disabled={readOnly || disabled}
+                                  onChange={(ev) => setChannel(e.event, c, ev.target.checked)}
+                                />
+                                {smsBlocked && (
+                                  <div className="text-[11px] leading-snug text-amber-800 dark:text-amber-300 mt-0.5 mx-auto max-w-[8rem]">
+                                    {t(`app.clientAlerts.smsBlocked.${smsBlocked}`)}
+                                  </div>
+                                )}
+                              </>
                             )}
                           </td>
                         );
@@ -262,7 +313,16 @@ export default function ClientAlertsPanel({ readOnly = false }) {
             </div>
             {!data.phoneValid && <p className="text-xs text-muted-foreground">{t("app.clientAlerts.phoneNeeded")}</p>}
             {data.smsOptedOut && <p className="text-xs text-amber-800 dark:text-amber-300">{t("app.clientAlerts.optedOut")}</p>}
-            <p className="text-xs text-muted-foreground">{t("app.clientAlerts.smsNote", { cap: data.dailyCap })}</p>
+            {/* Who pays, truthfully. A company that brought its own number
+                sends from it, is billed for it, and has no daily cap — the
+                cap lives inside `if (fieldquoPays)` in staffTexts.js. The
+                note is keyed off the number the server resolved with the
+                sender's own function, never off a guess here. */}
+            {smsNoteKind(data.smsFrom) === "ownNumber" ? (
+              <p className="text-xs text-muted-foreground">{t("app.clientAlerts.smsNoteOwnNumber", { number: data.smsFrom })}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("app.clientAlerts.smsNote", { cap: data.dailyCap })}</p>
+            )}
           </div>
 
           {data.canManageCompany && (

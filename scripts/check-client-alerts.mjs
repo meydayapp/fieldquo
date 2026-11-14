@@ -328,6 +328,8 @@ const {
   viewAlertDue,
   amountForReader,
   validateAlertPatch,
+  smsBlockedReason,
+  smsNoteKind,
 } = await import("@/lib/notifications/clientAlerts.js");
 const leadOwnerRoute = await import("@/app/api/settings/lead-owner/route.js");
 const { createScoredLead } = await import("@/lib/leads/createLead.js");
@@ -1461,6 +1463,43 @@ const MUTATIONS = [
     from: "    if (!candidates.some((m) => m.id === memberId)) {",
     to: "    if (false) {",
   },
+  // ── The silent dead box (owner, 2026-11-14) ─────────────────────────────
+  {
+    file: "lib/notifications/clientAlerts.js",
+    label: "a text box dead for want of a number says nothing again",
+    from: '  if (!phoneValid) return "phoneNeeded";',
+    to: "  if (!phoneValid) return null;",
+  },
+  {
+    file: "lib/notifications/clientAlerts.js",
+    label: "a STOPped number given the 'add a number' reason instead of its own",
+    from: '  if (smsOptedOut) return "optedOut";',
+    to: '  if (smsOptedOut) return "phoneNeeded";',
+  },
+  {
+    file: "lib/notifications/clientAlerts.js",
+    label: "an alert already ON is reported as blocked, so its OFF switch grows a reason it does not need",
+    from: "  if (on) return null;\n",
+    to: "",
+  },
+  {
+    file: "lib/notifications/clientAlerts.js",
+    label: "the free-and-capped note shown to a company that pays for its own texts",
+    from: '  return String(smsFrom || "").trim() ? "ownNumber" : "fieldquo";',
+    to: '  return "fieldquo";',
+  },
+  {
+    file: "app/api/settings/alert-preferences/route.js",
+    label: "the screen is not told which number the texts leave from",
+    from: "    smsFrom: clientSmsFrom(company) || null,",
+    to: "    smsFrom: null,",
+  },
+  {
+    file: "app/app/settings/notifications/ClientAlertsPanel.js",
+    label: "the reason is computed and never drawn",
+    from: "                                {smsBlocked && (",
+    to: "                                {false && (",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1473,7 +1512,7 @@ section("14. The number an alert leaves from, and who pays (owner, 2026-11-08)")
 // sendStaffTexts takes an injectable `send` at all.
 
 const { staffPhoneFor, verifiedPhonesFor } = await import("@/lib/notifications/staffPhone.js");
-const { isStaffOnlyPhone } = await import("@/lib/sms/clientLine.js");
+const { isStaffOnlyPhone, clientSmsFrom } = await import("@/lib/sms/clientLine.js");
 
 const alertOnce = async (member, companyRow) =>
   sendStaffTexts({
@@ -1607,8 +1646,107 @@ reset();
   ok((await isStaffOnlyPhone(A, "514-555-0101", { $queryRaw: async () => [] })) === false, "an empty result is not a yes");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("15. Why a dead box is dead, and who pays (owner, 2026-11-14)");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner tapped "Text me" on "A new enquiry arrives" and nothing happened.
+// Nothing was broken: his Member.phone is null, so the box was drawn disabled
+// — and a disabled checkbox fires no onChange, so there was no error, no
+// banner and no reason. The gate was right and silent, which to the person
+// holding the phone is the same as broken.
+//
+// These assert the two halves of the fix: that the reason EXISTS wherever the
+// box is dead for a phone reason, and that the money note matches the number
+// the texts actually leave from.
+
+// ── (a) The reason, every branch, pure ────────────────────────────────────
+{
+  ok(smsBlockedReason({ phoneValid: false, smsOptedOut: false, on: false }) === "phoneNeeded", "no usable number: the cell says to add one", smsBlockedReason({ phoneValid: false }));
+  ok(smsBlockedReason({ phoneValid: true, smsOptedOut: true, on: false }) === "optedOut", "a number that replied STOP gets its OWN reason, not the same one", smsBlockedReason({ phoneValid: true, smsOptedOut: true }));
+  ok(smsBlockedReason({ phoneValid: true, smsOptedOut: false, on: false }) === null, "a usable number: nothing to explain, the box is live");
+  // The behaviour that must survive: an existing "on" can always be switched
+  // OFF, whatever the phone's state — so there is nothing blocked to explain.
+  ok(smsBlockedReason({ phoneValid: false, smsOptedOut: false, on: true }) === null, "an alert already ON is not blocked — it must stay switchable OFF with no number");
+  ok(smsBlockedReason({ phoneValid: true, smsOptedOut: true, on: true }) === null, "…and after a STOP too");
+  ok(smsBlockedReason({}) === "phoneNeeded" && smsBlockedReason() === "phoneNeeded", "an empty or missing state is 'no number', never silence");
+  // The whole point: wherever the screen's own `disabled` expression kills the
+  // box for a phone reason, a reason comes back. Stated as the same boolean
+  // the panel computes, over every combination.
+  for (const phoneValid of [true, false]) {
+    for (const smsOptedOut of [true, false]) {
+      for (const on of [true, false]) {
+        const smsReady = phoneValid && !smsOptedOut;
+        const deadForPhone = !smsReady && !on;
+        const reason = smsBlockedReason({ phoneValid, smsOptedOut, on });
+        ok(deadForPhone === (reason !== null), `the reason exists exactly when the box is dead for a phone reason (${phoneValid}/${smsOptedOut}/${on})`, { deadForPhone, reason });
+        if (reason) ok(typeof APP_MESSAGES.en[`app.clientAlerts.smsBlocked.${reason}`] === "string" && APP_MESSAGES.en[`app.clientAlerts.smsBlocked.${reason}`].length > 0, `…and "${reason}" has non-empty copy to show`, reason);
+      }
+    }
+  }
+}
+
+// ── (b) Which note, and that it is derived from the sender's own function ──
+{
+  ok(smsNoteKind(null) === "fieldquo" && smsNoteKind("") === "fieldquo" && smsNoteKind("   ") === "fieldquo", "no number of its own: FieldQuo's note (free, capped) — the one that is true there");
+  ok(smsNoteKind("+13437000309") === "ownNumber", "its own number: the note that says who is billed instead");
+  ok(smsNoteKind(clientSmsFrom({ smsFromNumber: "+13437000309" })) === "ownNumber", "…keyed off clientSmsFrom, the same call sendStaffTexts makes for its `from`");
+  ok(smsNoteKind(clientSmsFrom({})) === "fieldquo", "…and a company with the column empty falls to FieldQuo's line");
+  // The FieldQuo note states the cap and the other states the number: a
+  // placeholder missing in one language is a sentence with a hole in it.
+  for (const l of Object.keys(APP_MESSAGES)) {
+    ok(APP_MESSAGES[l]["app.clientAlerts.smsNote"].includes("{cap}"), `${l}: FieldQuo's note still names the daily cap`);
+    ok(APP_MESSAGES[l]["app.clientAlerts.smsNoteOwnNumber"].includes("{number}"), `${l}: the own-number note names the number`);
+    ok(!/FieldQuo/.test(APP_MESSAGES[l]["app.clientAlerts.smsNoteOwnNumber"]), `${l}: …and does not claim the text comes from FieldQuo's line`);
+    ok(!/\{cap\}/.test(APP_MESSAGES[l]["app.clientAlerts.smsNoteOwnNumber"]), `${l}: …nor a daily cap, which is skipped when the company pays`);
+  }
+}
+
+// ── (c) The route says which number, and the sender agrees ────────────────
+reset();
+{
+  globalThis.__SESSION = { id: PEOPLE.olivia.id, userId: PEOPLE.olivia.userId, companyId: A, role: "owner" };
+  const shared = await prefsRoute.GET(jsonRequest(null));
+  globalThis.__SESSION = null;
+  ok(shared.body.smsFrom === null, "a company with no number of its own: the screen is told so, not left to guess", shared.body.smsFrom);
+  ok(smsNoteKind(shared.body.smsFrom) === "fieldquo" && shared.body.dailyCap === STAFF_TEXT_DAILY_CAP, "…so it draws the free-and-capped note, with the real cap", shared.body.dailyCap);
+
+  const co = table("company").find((c) => c.id === A);
+  co.smsFromNumber = "+13437000309";
+  globalThis.__SESSION = { id: PEOPLE.olivia.id, userId: PEOPLE.olivia.userId, companyId: A, role: "owner" };
+  const own = await prefsRoute.GET(jsonRequest(null));
+  globalThis.__SESSION = null;
+  ok(own.body.smsFrom === "+13437000309", "a company that brought a number: the screen is told WHICH number", own.body.smsFrom);
+  ok(smsNoteKind(own.body.smsFrom) === "ownNumber", "…so it draws the charged-to-your-balance note instead");
+  // The claim and the deed, in one assertion: the number the screen prints is
+  // the number the text actually left from.
+  await alertOnce(PEOPLE.olivia, co);
+  ok(globalThis.__SMS.at(-1)?.from === own.body.smsFrom, "the number the screen names is the number the text left from", { screen: own.body.smsFrom, sent: globalThis.__SMS.at(-1)?.from });
+
+  // Company B owns nothing: A's number must not leak into its note.
+  globalThis.__SESSION = { id: PEOPLE.bob.id, userId: PEOPLE.bob.userId, companyId: B, role: "owner" };
+  const other = await prefsRoute.GET(jsonRequest(null));
+  globalThis.__SESSION = null;
+  ok(other.body.smsFrom === null, "another company's number is never this company's note", other.body.smsFrom);
+}
+
+// ── (d) The screen draws the reason, in the row ───────────────────────────
+{
+  const panel = read("app/app/settings/notifications/ClientAlertsPanel.js");
+  ok(/smsBlockedReason\(\{ phoneValid: data\.phoneValid, smsOptedOut: data\.smsOptedOut, on: Boolean\(e\.channels\.sms\) \}\)/.test(panel), "the panel asks the same helper these assertions do — not a second copy of the rule");
+  ok(/\{t\(`app\.clientAlerts\.smsBlocked\.\$\{smsBlocked\}`\)\}/.test(panel), "…and renders that reason as text, in the cell the dead box is in");
+  ok(panel.indexOf("smsBlocked &&") > panel.indexOf("type=\"checkbox\""), "…beside the checkbox rather than only in the hint column far left");
+  // A phone has no hover: the dash's tooltip is unreachable on the device the
+  // owner reads this on, so the same sentence is also drawn.
+  ok(/\n\s*\{t\("app\.clientAlerts\.noChannel"\)\}\n/.test(panel), "the dash for a channel with no sender carries VISIBLE text, not only a title");
+  ok(/title=\{t\("app\.clientAlerts\.noChannel"\)\}/.test(panel) && /aria-label=\{`\$\{t\(`app\.clientAlerts\.event/.test(panel), "…and keeps its title and aria-label");
+  ok(/smsNoteKind\(data\.smsFrom\) === "ownNumber"/.test(panel) && panel.includes("app.clientAlerts.smsNoteOwnNumber"), "the money note is chosen by the number the server resolved");
+  // The claim the header comment used to make, which was false.
+  ok(!panel.includes("it is drawn disabled with the reason beside it, never as a box"), "the header comment no longer claims a reason the code did not draw");
+}
+
 if (!process.argv.includes("--no-mutate")) {
-  section("15. Mutations");
+  section("16. Mutations");
   const dir = mkdtempSync(join(tmpdir(), "fq-client-alerts-mut-"));
   for (const [i, m] of MUTATIONS.entries()) {
     const path = new URL(`../${m.file}`, import.meta.url);
