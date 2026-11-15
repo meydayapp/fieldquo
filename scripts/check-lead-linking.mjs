@@ -638,5 +638,249 @@ res = await docsRoute.GET(req(null), ctx("lead_bare"));
 ok("a schedule value the editor cannot produce is denied, not silently allowed",
   res.body.appointments?.restricted === true, res.body.appointments);
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("5. One person, two intake paths, 5.5 seconds apart");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// TrueFinish, 2026-11-14: Larry Kincade filled in ONE Facebook lead form and
+// landed on the board twice — `agency_funnel` at 01:04:28.163 (Forward Media
+// Marketing POSTing /api/v1/marketing/leads) and `meta_messenger` at
+// 01:04:33.688 (the same form text arriving in the Page's inbox). Same email,
+// same phone, same postal code. The Messenger row's
+// conversationEvidence.possibleDuplicates was `[]`: the duplicate scan had
+// run and found nothing, because it ran at ~01:04:26 — before the model read
+// the thread and before the records review scanned the client list — and the
+// agency row landed inside that ~7.9-second gap.
+//
+// The matcher was never wrong. It read the table too early. So what is
+// EXECUTED here is the sequence, not the matcher: a prisma whose
+// leadRequest.findMany answers `[]` first and the agency row second, which is
+// precisely what production did.
+const { captureLeadFromConversation, LEAD_DEDUPE_DAYS } = await import("@/lib/leads/conversationLead.js");
+
+const CAP_AT = new Date("2026-11-14T01:04:33.688Z");
+const CAP_SAID = new Date("2026-11-14T01:04:25.758Z");
+const inMsg = (id, body) => ({ id, direction: "in", body, sentAt: CAP_SAID, attachments: null, private: false, imported: false });
+
+const agencyRow = (over = {}) => ({
+  id: "lead_agency",
+  companyId: COMPANY,
+  name: "Larry kincade",
+  email: "ldk_47@hotmail.com",
+  phone: "+16132637621",
+  categoryId: null,
+  timeline: null,
+  intake: { area: "K7C 4R3" },
+  source: "agency_funnel",
+  status: "new",
+  createdAt: new Date("2026-11-14T01:04:28.163Z"),
+  metaCampaignId: null,
+  metaCampaignName: null,
+  conversationEvidence: null,
+  language: null,
+  ...over,
+});
+
+// `scans` is the answer to each successive leadRequest.findMany, in order —
+// the last one repeats if the code asks more times than were scripted.
+function captureDb({ leadId = null, scans = [[]] } = {}) {
+  const state = {
+    thread: {
+      id: "T_kincade",
+      companyId: COMPANY,
+      leadId,
+      participantName: "Larry D. Kincade",
+      participantExternalId: "PSID_LK",
+      assignedToId: null,
+      routingIntent: null,
+      adReferral: null,
+      leadCapture: null,
+      createdAt: CAP_SAID,
+      clientId: null,
+      quoteId: null,
+      channel: { platform: "facebook" },
+      messages: [],
+    },
+    leads: [],
+  };
+  const scanWheres = [];
+  let scanAt = 0;
+  const db = {
+    state,
+    scanWheres,
+    messageThread: {
+      async findFirst(args) {
+        if (args.where.id !== state.thread.id || args.where.companyId !== state.thread.companyId) return null;
+        return { ...state.thread };
+      },
+      async update(args) { Object.assign(state.thread, args.data); return { ...state.thread }; },
+      async updateMany(args) {
+        const w = args.where;
+        if (w.id !== state.thread.id || w.companyId !== state.thread.companyId) return { count: 0 };
+        if (w.leadId === null && state.thread.leadId) return { count: 0 };
+        if (w.clientId === null && state.thread.clientId) return { count: 0 };
+        Object.assign(state.thread, args.data);
+        return { count: 1 };
+      },
+    },
+    leadRequest: {
+      async findFirst(args) {
+        return state.leads.find((l) => l.id === args.where.id && l.companyId === args.where.companyId) || null;
+      },
+      async findMany(args) {
+        scanWheres.push(args.where);
+        const rows = scans[Math.min(scanAt, scans.length - 1)] || [];
+        scanAt += 1;
+        for (const r of rows) if (!state.leads.some((l) => l.id === r.id)) state.leads.push(r);
+        const floor = args.where.createdAt?.gte ? new Date(args.where.createdAt.gte).getTime() : null;
+        return rows
+          .filter((l) => l.companyId === args.where.companyId)
+          .filter((l) => !args.where.status?.in || args.where.status.in.includes(l.status))
+          .filter((l) => floor === null || new Date(l.createdAt).getTime() >= floor)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      },
+      async update(args) {
+        const l = state.leads.find((x) => x.id === args.where.id);
+        if (l) Object.assign(l, args.data);
+        return { id: args.where.id };
+      },
+    },
+  };
+  return db;
+}
+
+// No model and no records: this bug needs neither, and the deterministic
+// patterns that found Larry's email and phone run before either of them.
+function captureDeps(db) {
+  const made = [];
+  return {
+    made,
+    deps: {
+      aiConfigured: () => false,
+      extract: async () => ({ ok: false, reason: "unconfigured", metered: false }),
+      rescore: async () => null,
+      resolveCampaign: async () => null,
+      reviewRecords: async () => null,
+      rejected: async () => new Set(),
+      linkThread: async () => null,
+      linkClient: async () => null,
+      templates: async () => new Map(),
+      servicesFor: async () => [],
+      followUp: async () => null,
+      createLead: async (input) => {
+        made.push(input);
+        const row = {
+          id: `lead_made_${made.length}`,
+          companyId: input.companyId,
+          name: input.name,
+          email: input.email || null,
+          phone: input.phone || null,
+          categoryId: input.categoryId || null,
+          timeline: input.timeline || null,
+          intake: input.intake || null,
+          source: input.source,
+          status: "new",
+          createdAt: CAP_AT,
+          metaCampaignId: null,
+          conversationEvidence: null,
+          language: null,
+        };
+        db.state.leads.push(row);
+        return row;
+      },
+    },
+  };
+}
+
+const runCapture = async (db, messages) => {
+  db.state.thread.messages = messages;
+  const d = captureDeps(db);
+  const out = await captureLeadFromConversation({ companyId: COMPANY, threadId: "T_kincade", prisma: db, deps: d.deps, now: CAP_AT });
+  return { out, made: d.made };
+};
+
+// Larry's own words: a buying signal plus the details the form carried.
+const KINCADE = [
+  inMsg("k1", "Hi, I'd like a quote to have my kitchen cabinets refinished."),
+  inMsg("k2", "ldk_47@hotmail.com, (613) 263-7621, postal code K7C 4R3"),
+];
+
+// ── The race itself ────────────────────────────────────────────────────────
+{
+  const db = captureDb({ scans: [[], [agencyRow()]] });
+  const { out, made } = await runCapture(db, KINCADE);
+  ok("the table is read a SECOND time before the pass may create a lead",
+    db.scanWheres.length === 2, db.scanWheres.length);
+  ok("a row that landed inside the window is joined, not duplicated",
+    made.length === 0 && out.created === false && out.leadId === "lead_agency", { made: made.length, out });
+  ok("…so exactly one lead exists afterwards",
+    db.state.leads.length === 1 && db.state.leads[0].id === "lead_agency", db.state.leads.map((l) => l.id));
+  const ev = db.state.leads[0].conversationEvidence;
+  ok("…the evidence records WHAT it joined on, so the drawer can show it",
+    Array.isArray(ev?.joinedOn) && (ev.joinedOn.includes("email") || ev.joinedOn.includes("phone")), ev?.joinedOn);
+  ok("…the agency row's own name, email and phone are not overwritten — the late join runs the ordinary skip rules",
+    db.state.leads[0].name === "Larry kincade" && db.state.leads[0].email === "ldk_47@hotmail.com" && db.state.leads[0].phone === "+16132637621", db.state.leads[0]);
+  ok("…and the thread is pointed at the lead that already existed",
+    db.state.thread.leadId === "lead_agency", db.state.thread.leadId);
+  ok("both reads ask the same question — same tenant, same statuses, same window",
+    db.scanWheres[0]?.companyId === COMPANY && db.scanWheres[1]?.companyId === COMPANY
+      && JSON.stringify(db.scanWheres[0]?.status) === JSON.stringify(db.scanWheres[1]?.status)
+      && JSON.stringify(db.scanWheres[0]?.createdAt) === JSON.stringify(db.scanWheres[1]?.createdAt), db.scanWheres);
+}
+
+// ── Phone only, written two ways ───────────────────────────────────────────
+//
+// The agency stored "+16132637621"; Larry typed "(613) 263-7621". contactKeys
+// normalises both through toE164, so this is a join and not a near-miss.
+{
+  const db = captureDb({ scans: [[], [agencyRow({ email: null })]] });
+  const { out, made } = await runCapture(db, [
+    inMsg("p1", "Hi, can I get a quote for refinishing my kitchen cabinets?"),
+    inMsg("p2", "You can reach me at (613) 263-7621"),
+  ]);
+  ok("'(613) 263-7621' joins a row stored as '+16132637621'",
+    made.length === 0 && out.leadId === "lead_agency", { made: made.length, out });
+  ok("…and the evidence says it was the phone",
+    (db.state.leads[0].conversationEvidence?.joinedOn || []).includes("phone"), db.state.leads[0].conversationEvidence?.joinedOn);
+}
+
+// ── The gates: asserted on the query count, not on the outcome ─────────────
+{
+  const linked = captureDb({ leadId: "lead_agency", scans: [[agencyRow()]] });
+  linked.state.leads.push(agencyRow());
+  const r1 = await runCapture(linked, KINCADE);
+  ok("a pass that already holds the thread's own lead asks the table nothing — it cannot duplicate anything",
+    linked.scanWheres.length === 0 && r1.out.leadId === "lead_agency", { scans: linked.scanWheres.length, out: r1.out });
+
+  const notALead = captureDb({ scans: [[], [agencyRow()]] });
+  const r2 = await runCapture(notALead, [inMsg("n1", "👍")]);
+  ok("a thread that is not a lead pays for one read, never a second",
+    notALead.scanWheres.length === 1 && r2.made.length === 0, { scans: notALead.scanWheres.length, out: r2.out });
+
+  const noIdentity = captureDb({ scans: [[], [agencyRow()]] });
+  const r3 = await runCapture(noIdentity, [
+    inMsg("i1", "I want a quote to refinish 22 doors and 15 drawers in my kitchen."),
+  ]);
+  ok("a lead with no email and no phone has nothing to match on, so there is no second read",
+    noIdentity.scanWheres.length === 1, { scans: noIdentity.scanWheres.length, out: r3.out });
+}
+
+// ── A repeat customer is a second lead, not a collapsed one ────────────────
+//
+// Why a unique index was the wrong fix: the same homeowner coming back next
+// season is a NEW enquiry, and the database cannot tell that from this race.
+{
+  const stale = agencyRow({
+    id: "lead_last_year",
+    createdAt: new Date(CAP_AT.getTime() - (LEAD_DEDUPE_DAYS + 30) * 86400000),
+  });
+  const db = captureDb({ scans: [[stale], [stale]] });
+  const { out, made } = await runCapture(db, KINCADE);
+  ok("the same person enquiring again outside the dedupe window gets their own lead",
+    made.length === 1 && out.created === true && out.leadId !== "lead_last_year", { made, out });
+  ok("…and last year's lead is left exactly as it was",
+    db.state.leads.find((l) => l.id === "lead_last_year").conversationEvidence === null, db.state.leads.find((l) => l.id === "lead_last_year"));
+}
+
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);
