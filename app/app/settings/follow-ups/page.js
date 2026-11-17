@@ -43,7 +43,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, X, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { TRIGGER_META, FOLLOW_UP_CHANNELS, followUpChannel, triggerMaySms } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
-import { BUILT_IN_LANGUAGES, builtInCopyTable } from "@/lib/followUps/defaultCopy";
+import { BUILT_IN_LANGUAGES, builtInCopyTable, builtInCopyKind } from "@/lib/followUps/defaultCopy";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { stopKeysFor, TRIGGER_LABEL_KEYS, TRIGGER_DESCRIPTION_KEYS, CHANNEL_OPTION_KEYS } from "@/lib/followUps/flow";
@@ -85,16 +85,19 @@ function Switch({ checked, onChange, disabled, label }) {
 // the same table the cron renders from, so this cannot describe an email
 // other than the one that goes out.
 //
-// Two tables now (lib/followUps/defaultCopy.js): the quote chase's subject
+// Three tables now (lib/followUps/defaultCopy.js): the quote chase's subject
 // takes a quote number, the enquiry chase's takes only the company and its
-// body takes the service. builtInCopyTable picks by key rather than this
+// body takes the service, the change-order chase's takes the addendum's
+// label. builtInCopyTable and builtInCopyKind pick by key rather than this
 // component guessing, because guessing wrong would print "Q-1042" where a
-// service name belongs.
+// service name or a "CO-2" belongs — which is exactly what a `startsWith`
+// test on the key did the day a third table existed.
 function BuiltInWording({ ruleKey, language }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const table = builtInCopyTable(ruleKey);
-  const lead = ruleKey?.startsWith("lead_");
+  const kind = builtInCopyKind(ruleKey);
+  const lead = kind === "lead";
   const langs = [language, ...BUILT_IN_LANGUAGES.filter((l) => l !== language)].filter((l) =>
     BUILT_IN_LANGUAGES.includes(l),
   );
@@ -119,7 +122,9 @@ function BuiltInWording({ ruleKey, language }) {
               <div key={lang} className="text-xs bg-muted/60 rounded-lg px-3 py-2">
                 <div className="font-semibold text-foreground uppercase tracking-wide">{lang}</div>
                 <div className="text-foreground mt-1">
-                  {lead ? w.subject(company) : w.subject(company, "Q-1042")}
+                  {lead
+                    ? w.subject(company)
+                    : w.subject(company, kind === "change_order" ? "CO-2" : "Q-1042")}
                 </div>
                 {(lead ? w.body(company, t("app.setFollowUps.sampleService")) : w.body(company)).map((p, i) => (
                   <p key={i} className="text-muted-foreground mt-1">

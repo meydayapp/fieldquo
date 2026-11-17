@@ -52,6 +52,7 @@ import { TRIGGER_META, followUpChannel } from "@/lib/followUps/triggers";
 import {
   buildBuiltInFollowUpEmail,
   buildBuiltInLeadEmail,
+  buildBuiltInChangeOrderEmail,
   builtInEntityType,
 } from "@/lib/followUps/defaults";
 // The second channel (2026-11-02). lib/followUps/triggers.js used to end with
@@ -678,11 +679,13 @@ export async function GET(request) {
         // homeowner filled the form in (LeadRequest.language) — the only
         // language this person has ever stated to the company.
         //
-        // Two builders because the two chases are two letters: the quote one
-        // is built around the button that opens the quote, the enquiry one
-        // has no document to link to and asks for a time instead. One
-        // builder taking an entity type would have had to decide what an
-        // enquiry's "url" is, and the honest answer is that there isn't one.
+        // Three builders because the three chases are three letters: the
+        // quote one is built around the button that opens the quote, the
+        // enquiry one has no document to link to and asks for a time
+        // instead, and the change-order one opens the addendum and asks for
+        // a signature. One builder taking an entity type would have had to
+        // decide what an enquiry's "url" is, and the honest answer is that
+        // there isn't one.
         const built =
           finder.entityType === "lead"
             ? buildBuiltInLeadEmail({
@@ -697,14 +700,31 @@ export async function GET(request) {
                 videoUrl: preQuoteVideoFor(entity.company),
                 language,
               })
-            : buildBuiltInFollowUpEmail({
-                key: rule.builtInKey,
-                quote: entity,
-                client: entity.client,
-                company: entity.company || {},
-                url: mergeData.quoteUrl,
-                language,
-              });
+            : finder.entityType === "change_order"
+              ? buildBuiltInChangeOrderEmail({
+                  key: rule.builtInKey,
+                  // "CO-2" and the /co/<shareToken> page, both from the
+                  // SAME merge data a company's own template would be
+                  // filled with — not recomputed here, or the built-in
+                  // chase and a templated one could number or link the same
+                  // document two different ways. quoteUrl is deliberately
+                  // absent from a change order's merge data, so passing it
+                  // here would render a button with an empty href.
+                  label: mergeData.changeOrderNumber,
+                  client: entity.client,
+                  company: entity.company || {},
+                  quote: entity.quote || null,
+                  url: mergeData.changeOrderUrl,
+                  language,
+                })
+              : buildBuiltInFollowUpEmail({
+                  key: rule.builtInKey,
+                  quote: entity,
+                  client: entity.client,
+                  company: entity.company || {},
+                  url: mergeData.quoteUrl,
+                  language,
+                });
         subject = built.subject;
         html = built.html;
         text = built.text;

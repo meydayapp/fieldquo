@@ -1,8 +1,9 @@
 // scripts/check-follow-up-defaults.mjs
 //
 // FieldQuo's built-in follow-ups — three quote chases at 1, 7 and 14 days
-// (ON) and three enquiry chases at 1, 3 and 7 days (OFF) — and everything
-// that makes each set safe to seed for every company.
+// (ON), three enquiry chases at 1, 3 and 7 days (OFF) and one change-order
+// chase at 2 days (ON) — and everything that makes each set safe to seed for
+// every company.
 //
 // The quote chases are on because they write to somebody who asked this
 // company for a price and is holding it. The enquiry chases are off because
@@ -14,7 +15,7 @@
 //
 // ── What is EXECUTED rather than read ──────────────────────────────────────
 //
-//   * ensureDefaultFollowUps against a fake db: three rows the first time,
+//   * ensureDefaultFollowUps against a fake db: seven rows the first time,
 //     none the second, none for a company whose default is tombstoned.
 //   * quoteChaseBlocker for every stop reason, and for the day-1 case that
 //     must NOT be blocked.
@@ -43,6 +44,9 @@ import {
   LEAD_FOLLOW_UPS,
   LEAD_KEYS,
   LEAD_TRIGGER,
+  CHANGE_ORDER_FOLLOW_UPS,
+  CHANGE_ORDER_KEYS,
+  CHANGE_ORDER_TRIGGER,
   ALL_BUILT_IN_FOLLOW_UPS,
   ALL_BUILT_IN_KEYS,
   builtInEntityType,
@@ -50,11 +54,14 @@ import {
   builtInWording,
   buildBuiltInFollowUpEmail,
   buildBuiltInLeadEmail,
+  buildBuiltInChangeOrderEmail,
   ensureDefaultFollowUps,
   resetBuiltInRule,
 } from "../lib/followUps/defaults.js";
+import { BUILT_IN_COPY, LEAD_COPY, CHANGE_ORDER_COPY, builtInCopyKind, builtInCopyTable } from "../lib/followUps/defaultCopy.js";
 import { quoteChaseBlocker, QUOTE_STOP_REASONS } from "../lib/followUps/stopConditions.js";
-import { SUPPORTED_TRIGGERS } from "../lib/followUps/triggers.js";
+import { SUPPORTED_TRIGGERS, TRIGGER_META, triggerMaySms } from "../lib/followUps/triggers.js";
+import { clientDocCopy, CLIENT_DOC_COPY } from "../lib/i18n/clientDocCopy.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { SUPPORTED_EMAIL_LANGUAGES } from "../lib/i18n/emailCopy.js";
 
@@ -128,7 +135,7 @@ ok(
   "…and on the EMAIL channel, because the follow-up-text switch is off until a company chooses it",
   LEAD_FOLLOW_UPS.every((r) => r.channel === "email"),
 );
-ok("six built-ins in all, quote chases first", ALL_BUILT_IN_FOLLOW_UPS.length === 6 && ALL_BUILT_IN_KEYS.length === 6
+ok("seven built-ins in all, quote chases first", ALL_BUILT_IN_FOLLOW_UPS.length === 7 && ALL_BUILT_IN_KEYS.length === 7
   && ALL_BUILT_IN_KEYS.slice(0, 3).join(",") === BUILT_IN_KEYS.join(","));
 ok("each key knows which trigger it rides", LEAD_KEYS.every((k) => builtInTrigger(k) === LEAD_TRIGGER)
   && BUILT_IN_KEYS.every((k) => builtInTrigger(k) === BUILT_IN_TRIGGER));
@@ -139,14 +146,94 @@ ok("each key knows which entity its wording is written for",
   LEAD_KEYS.every((k) => builtInEntityType(k) === "lead") && BUILT_IN_KEYS.every((k) => builtInEntityType(k) === "quote"));
 ok("a key nobody defined has no entity to guess at", builtInEntityType("made_up") === null);
 
+
+// ── The one change-order chase (2026-11-17) ───────────────────────────────
+//
+// Commit 46174f87f shipped the trigger, the finder, both channels and the
+// SMS wording — and seeded nothing, so FollowUpRule held zero rows on
+// change_order_no_response and no company ever got a chase. These assertions
+// are about the rule that makes it real, and about the one way this could
+// ship green and still send nothing: builtInEntityType.
+console.log("\nThe change-order chase\n");
+
+ok("exactly one change-order chase", CHANGE_ORDER_FOLLOW_UPS.length === 1 && CHANGE_ORDER_KEYS.length === 1);
+ok(
+  "at 2 days — an unsigned change order parks the crew, so it costs a working day, not a sale",
+  CHANGE_ORDER_FOLLOW_UPS.map((r) => `${r.delayValue}${r.delayUnit}`).join(",") === "2days",
+);
+ok(
+  "…the same delay TRIGGER_META already declares for the trigger",
+  TRIGGER_META[CHANGE_ORDER_TRIGGER].defaultDelay.value === CHANGE_ORDER_FOLLOW_UPS[0].delayValue &&
+    TRIGGER_META[CHANGE_ORDER_TRIGGER].defaultDelay.unit === CHANGE_ORDER_FOLLOW_UPS[0].delayUnit,
+);
+ok(
+  "on the change-order trigger the cron supports",
+  SUPPORTED_TRIGGERS.includes(CHANGE_ORDER_TRIGGER) && CHANGE_ORDER_TRIGGER === "change_order_no_response",
+);
+ok("it rides its own trigger, not the quote one", CHANGE_ORDER_KEYS.every((k) => builtInTrigger(k) === CHANGE_ORDER_TRIGGER));
+ok(
+  "it arrives ON — the client hired this company and is holding up their own job",
+  CHANGE_ORDER_FOLLOW_UPS.every((r) => r.active === true),
+);
+// The trigger CAN text (lib/sms/followUpTextRules.js has its wording), so an
+// sms default would save and would fire. It is still email: 45 of the 46
+// live companies have no number of their own, so a seeded text default would
+// put 45 companies' client texts on FieldQuo's shared line, which has no cap
+// on client-facing texts at all. A company that wants the text adds a second
+// rule; a FieldQuo default must not start spending money by arriving.
+ok(
+  "…but on EMAIL, even though the trigger may text",
+  triggerMaySms(CHANGE_ORDER_TRIGGER) === true && CHANGE_ORDER_FOLLOW_UPS.every((r) => r.channel === "email"),
+);
+ok("its key belongs to the change-order copy table", CHANGE_ORDER_KEYS.every((k) => builtInCopyKind(k) === "change_order"
+  && builtInCopyTable(k) === CHANGE_ORDER_COPY));
+ok(
+  "all three copy tables are written in the same languages",
+  [BUILT_IN_COPY, LEAD_COPY, CHANGE_ORDER_COPY].every(
+    (table) => Object.keys(table).sort().join(",") === [...BUILT_IN_LANGUAGES].sort().join(","),
+  ),
+);
+
+// ── The guard that decides whether a seeded rule sends anything ──────────
+//
+// The cron refuses to render a built-in whose wording was written for a
+// different entity: `builtIn && builtInEntityType(rule.builtInKey) !==
+// finder.entityType` → counted as "no template" and skipped. If
+// builtInEntityType returned null — or "quote" — for this key, the seeded
+// rule would be on the page, switched on, with its wording visible, and the
+// cron would skip every change order it ever found. Green build, zero
+// emails. Asserted three ways: the value, the trigger's declared entity, and
+// the cron's own FINDERS entry.
+ok("builtInEntityType of the new key is change_order", builtInEntityType(CHANGE_ORDER_KEYS[0]) === "change_order");
+ok(
+  "…which is what the trigger declares it finds",
+  builtInEntityType(CHANGE_ORDER_KEYS[0]) === TRIGGER_META[CHANGE_ORDER_TRIGGER].entityType,
+);
+{
+  // The cron's own map, read rather than assumed — TRIGGER_META and FINDERS
+  // are two declarations of one fact and check-follow-up-flow.mjs keeps them
+  // in step, but the guard compares against FINDERS, so FINDERS is what this
+  // reads.
+  const cronSrc = code(read("app/api/cron/follow-ups/route.js"));
+  const found = cronSrc.match(/change_order_no_response:\s*\{[\s\S]{0,200}?entityType:\s*"([a-z_]+)"/);
+  ok("…and what the cron's FINDERS entry says", found?.[1] === builtInEntityType(CHANGE_ORDER_KEYS[0]), found?.[1] || "no match");
+  // The guard itself, executed. `true` here means the cron skips the rule.
+  const guardSkips = (key, entityType) => builtInEntityType(key) !== entityType;
+  ok("so the cron's built-in guard does NOT skip the seeded rule", guardSkips(CHANGE_ORDER_KEYS[0], found?.[1]) === false);
+  ok(
+    "…and still DOES skip a quote default somebody re-pointed at the change-order trigger",
+    guardSkips("quote_sent_d1", "change_order") === true,
+  );
+}
+
 console.log("\nSeeding\n");
 
 {
   const db = fakeDb();
   const first = await ensureDefaultFollowUps(db, "c1");
   const second = await ensureDefaultFollowUps(db, "c1");
-  ok("first run creates six", first === 6 && db.rows.length === 6, `created ${first}`);
-  ok("second run creates none (idempotent)", second === 0 && db.rows.length === 6, `created ${second}`);
+  ok("first run creates seven", first === 7 && db.rows.length === 7, `created ${first}`);
+  ok("second run creates none (idempotent)", second === 0 && db.rows.length === 7, `created ${second}`);
   ok("none of them points at a template (built-in wording)", db.rows.every((r) => r.templateId === null));
   ok("the three quote chases arrive on",
     db.rows.filter((r) => BUILT_IN_KEYS.includes(r.builtInKey)).every((r) => r.active === true));
@@ -160,7 +247,24 @@ console.log("\nSeeding\n");
     db.rows.every((r) => r.triggerEvent === builtInTrigger(r.builtInKey))
       && db.rows.filter((r) => r.triggerEvent === LEAD_TRIGGER).length === 3);
   ok("each is seeded on the email channel", db.rows.every((r) => r.channel === "email"));
-  ok("dry run counts without writing", (await ensureDefaultFollowUps(fakeDb(), "c9", { dryRun: true })) === 6);
+  {
+    const co = db.rows.filter((r) => CHANGE_ORDER_KEYS.includes(r.builtInKey));
+    ok(
+      "a company with no rules gets exactly ONE change-order default: 2 days, email, active",
+      co.length === 1 &&
+        co[0].delayValue === 2 &&
+        co[0].delayUnit === "days" &&
+        co[0].channel === "email" &&
+        co[0].active === true &&
+        co[0].triggerEvent === CHANGE_ORDER_TRIGGER &&
+        co[0].templateId === null,
+      `${co.length} row(s)`,
+    );
+    // Idempotence for THIS key specifically: `second === 0` above would also
+    // pass if the second run created one and deleted another.
+    ok("…and the second run did not add a second one", co.length === 1);
+  }
+  ok("dry run counts without writing", (await ensureDefaultFollowUps(fakeDb(), "c9", { dryRun: true })) === 7);
 }
 {
   // A company that deleted the day-7 default keeps it deleted.
@@ -169,8 +273,25 @@ console.log("\nSeeding\n");
     { id: "b", companyId: "c2", builtInKey: "quote_sent_d7", active: false, templateId: null, deletedAt: new Date() },
   ]);
   const created = await ensureDefaultFollowUps(db, "c2");
-  ok("a deleted default is not re-created; only the genuinely missing ones are", created === 4 && db.rows.length === 6);
+  ok("a deleted default is not re-created; only the genuinely missing ones are", created === 5 && db.rows.length === 7);
   ok("the tombstone is untouched", db.rows.find((r) => r.id === "b").deletedAt instanceof Date);
+}
+{
+  // A company that deleted the change-order default keeps it deleted. The
+  // tombstone is the whole mechanism (FollowUpRule.deletedAt, unique on
+  // (companyId, builtInKey)) — without it, the next page load would seed the
+  // rule again and the company's "no" would last until somebody opened the
+  // screen.
+  const db = fakeDb([
+    { id: "co", companyId: "c5", builtInKey: "change_order_sent_d2", active: false, templateId: null, deletedAt: new Date() },
+  ]);
+  const created = await ensureDefaultFollowUps(db, "c5");
+  const rows = db.rows.filter((r) => r.builtInKey === "change_order_sent_d2");
+  ok(
+    "a company that deleted the change-order default does NOT get it back",
+    created === 6 && rows.length === 1 && rows[0].deletedAt instanceof Date && rows[0].active === false,
+    `created ${created}, ${rows.length} change-order row(s)`,
+  );
 }
 
 console.log("\nReset and restore\n");
@@ -199,6 +320,19 @@ console.log("\nReset and restore\n");
     back.active === false && back.delayValue === 3 && back.delayUnit === "days" && back.templateId === null);
   ok("…on its own trigger and back on the email channel",
     back.triggerEvent === "lead_no_response" && back.channel === "email");
+}
+{
+  // "Reset to default" on the change-order chase: back to 2 days, FieldQuo's
+  // wording, its own trigger, the email channel — and back ON, because that
+  // is how FieldQuo ships it, unlike the enquiry ones above.
+  const db = fakeDb([
+    { id: "c", companyId: "c6", builtInKey: "change_order_sent_d2", name: "Mine", delayValue: 9, delayUnit: "hours", templateId: "tpl", channel: "sms", triggerEvent: "quote_no_response", active: false, deletedAt: new Date() },
+  ]);
+  const back = await resetBuiltInRule(db, db.rows[0]);
+  ok("reset restores the change-order default and un-deletes it",
+    back.delayValue === 2 && back.delayUnit === "days" && back.templateId === null && back.active === true && back.deletedAt === null);
+  ok("…on its own trigger and back on the email channel",
+    back.triggerEvent === "change_order_no_response" && back.channel === "email");
 }
 
 console.log("\nThe enquiry chase's email\n");
@@ -241,6 +375,85 @@ console.log("\nThe enquiry chase's email\n");
     ok(`${lang}: falls back to the generic ENQUIRY line in ${lang}`, w.generic && w.subject !== en.subject);
     ok(`${lang}: …and that line never mentions a quote number`, !/Q-|\{number\}/.test(w.subject + w.paragraphs.join(" ")));
   }
+}
+
+
+console.log("\nThe change-order chase's email\n");
+
+{
+  const company = { name: "TrueFinish Cabinets", phone: "819-555-0100", brandColor: "#ffd400" };
+  const client = { name: "Maureen Clarke" };
+  const quote = { quoteNumber: "Q-7" };
+  const url = "https://x.test/co/tok123";
+  const key = CHANGE_ORDER_KEYS[0];
+  const money = /[$€£]|\bCAD\b|\bUSD\b|\bEUR\b/;
+
+  for (const [lang, marker] of [["en", "signature"], ["fr", "signature"], ["es", "firma"]]) {
+    const email = buildBuiltInChangeOrderEmail({ key, label: "CO-2", client, company, quote, url, language: lang });
+    ok(`${lang}: day-specific wording, not the generic fallback`, email.generic === false);
+    ok(
+      `${lang}: the subject names the addendum and asks for a signature`,
+      email.subject.includes("CO-2") && email.subject.toLowerCase().includes(marker),
+      email.subject,
+    );
+    // The one assertion the whole builder exists for. {{quoteUrl}} is
+    // undefined on a change order's merge data, so a chase built by the
+    // quote builder would have rendered a button with an empty href — the
+    // failure this codebase keeps re-finding — and a chase pointed at the
+    // quote would open the wrong document under the contractor's brand.
+    ok(`${lang}: the button href IS the /co/<shareToken> page`, email.html.includes(`href="${url}"`) && email.text.includes(url));
+    ok(`${lang}: nothing in it links to /q/`, !email.html.includes("/q/") && !email.text.includes("/q/"));
+    ok(`${lang}: it states no figure — the amount is on the addendum, one tap away`, !money.test(email.text) && !money.test(email.html));
+    ok(`${lang}: nothing says FieldQuo`, !/fieldquo/i.test(email.html) && !/fieldquo/i.test(email.text));
+    ok(`${lang}: the company's name is on it`, email.html.includes("TrueFinish Cabinets"));
+    ok(
+      `${lang}: the button says what the FIRST send's button said`,
+      email.html.includes(clientDocCopy(lang).changeOrder.emailButton),
+    );
+    // documentEmailHtml upper-cases the strip, the way it does for "QUOTE".
+    ok(
+      `${lang}: the header strip says "change order", not "quote"`,
+      email.html.includes(clientDocCopy(lang).changeOrder.kicker.toUpperCase()),
+    );
+    ok(`${lang}: and the greeting is printed exactly once`, email.text.split("Maureen").length - 1 === 1);
+  }
+
+  // ── A language the day-specific copy is not written in ─────────────────
+  //
+  // The quote chase falls back to emailCopy's generic follow-up line in the
+  // client's own language and never to English (AGENTS.md #6). This falls
+  // back the same way, to clientDocCopy's change-order intro — the sentence
+  // the FIRST send already used, written for every language that table
+  // carries. The loop is over THAT table rather than SUPPORTED_EMAIL_LANGUAGES
+  // because that is where this fallback's words live; a language emailCopy
+  // has and clientDocCopy does not is a gap in the change order's own send
+  // path, not in the chase.
+  const fallbackLanguages = Object.keys(CLIENT_DOC_COPY).filter((l) => !BUILT_IN_LANGUAGES.includes(l));
+  ok("there are languages to fall back for", fallbackLanguages.length > 0, fallbackLanguages.join(","));
+  for (const lang of fallbackLanguages) {
+    const w = builtInWording(key, lang, { companyName: "Acme", changeOrderNumber: "CO-2", clientName: "Maureen", quoteNumber: "Q-7" });
+    const en = builtInWording(key, "en", { companyName: "Acme", changeOrderNumber: "CO-2", clientName: "Maureen", quoteNumber: "Q-7" });
+    ok(
+      `${lang}: falls back to the generic line in ${lang}, not to English`,
+      w.generic && w.subject !== en.subject && w.paragraphs[0] !== en.paragraphs[0],
+    );
+    ok(
+      `${lang}: …and it is the change order's own copy, not the quote chase's`,
+      w.subject === clientDocCopy(lang).changeOrder.emailSubject("CO-2", "Acme") && !/Q-7/.test(w.subject),
+    );
+    const email = buildBuiltInChangeOrderEmail({ key, label: "CO-2", client, company, quote, url, language: lang });
+    // The generic line opens with its own greeting, so the builder must not
+    // print a second one above it.
+    ok(`${lang}: the client is greeted exactly once`, email.text.split("Maureen").length - 1 === 1, email.text.slice(0, 80));
+    ok(`${lang}: still the /co/ link, still no figure`, email.text.includes(url) && !email.text.includes("/q/") && !money.test(email.text));
+  }
+
+  // A change order raised on a job with no originating quote: the sentence
+  // must still read, rather than printing "to quote undefined".
+  const noQuote = buildBuiltInChangeOrderEmail({ key, label: "CO-2", client, company, quote: null, url, language: "en" });
+  ok("a change order with no originating quote still reads as a sentence", !/undefined|null/.test(noQuote.text));
+  const noQuoteFallback = buildBuiltInChangeOrderEmail({ key, label: "CO-2", client, company, quote: null, url, language: fallbackLanguages[0] });
+  ok("…and so does the fallback", !/undefined|null/.test(noQuoteFallback.text));
 }
 
 console.log("\nStop conditions (executed)\n");
@@ -331,6 +544,15 @@ ok("cron renders built-in wording when a default has no template", /buildBuiltIn
   ok("plan gate and tax gate are asked before the claim", planAt > -1 && taxAt > -1 && planAt < claimAt && taxAt < claimAt);
 }
 ok("cron still claims before sending (once per rule per quote)", cron.indexOf("followUpLog.create") < cron.indexOf("sendEmail({"));
+// The change-order branch, and the two values that decide whether its button
+// goes anywhere. mergeData.quoteUrl is undefined for a change order, so a
+// branch that reused the quote builder would render an empty href.
+ok("cron renders the change-order built-in with its own builder",
+  /finder\.entityType === "change_order"/.test(cron) && /buildBuiltInChangeOrderEmail\(\{/.test(cron));
+ok("…linked to the /co/ page and labelled with the addendum's own number",
+  /buildBuiltInChangeOrderEmail\(\{[\s\S]{0,400}?url: mergeData\.changeOrderUrl,/.test(cron)
+    && /buildBuiltInChangeOrderEmail\(\{[\s\S]{0,400}?label: mergeData\.changeOrderNumber,/.test(cron)
+    && !/buildBuiltInChangeOrderEmail\(\{[\s\S]{0,400}?url: mergeData\.quoteUrl,/.test(cron));
 ok("cron reports why quotes were left alone", /stopped\[reason\]/.test(cron) && /stopped,/.test(cron));
 
 console.log("\nSeeding hooks (read)\n");
@@ -377,6 +599,12 @@ ok("a built-in shows what it says, from the table its key belongs to",
   /builtInCopyTable\(ruleKey\)/.test(page) && /table\[lang\]\?\.\[ruleKey\]/.test(page));
 ok("…and an enquiry default's wording is called with the service, not a quote number",
   /w\.body\(company, t\("app\.setFollowUps\.sampleService"\)\)/.test(page));
+// The third table takes an addendum label. The component used to decide with
+// `ruleKey.startsWith("lead_")`, which silently sent "Q-1042" into a
+// change-order subject the day a third table existed; it asks
+// builtInCopyKind now.
+ok("…and a change-order default's wording is previewed with a CO label, not a quote number",
+  /builtInCopyKind\(ruleKey\)/.test(page) && /kind === "change_order" \? "CO-2" : "Q-1042"/.test(page));
 ok("a TEXT rule shows no email wording panel — its words are a message type",
   /channel !== "sms" && \(\n?\s*<BuiltInWording/.test(page) || /!rule\.templateId && channel !== "sms"/.test(page));
 ok("the quote's trail prints automated chases from FollowUpLog", /automatedFollowUps/.test(read("app/app/quotes/[id]/page.js")) && /followUpLog\.findMany/.test(read("app/api/quotes/[id]/route.js")));
