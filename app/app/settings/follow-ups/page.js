@@ -749,6 +749,15 @@ export default function FollowUpsPage() {
                     {t("app.followFlow.leadFields")}
                   </p>
                 )}
+                {/* Same warning, same reason, for the change-order chase: its
+                    link is {{changeOrderUrl}} and the quote chips come out
+                    blank, so a template built around "View your quote" would
+                    reach a homeowner with an empty button. */}
+                {TRIGGER_META[form.triggerEvent]?.entityType === "change_order" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("app.followFlow.changeOrderFields")}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

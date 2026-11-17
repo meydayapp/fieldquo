@@ -96,8 +96,12 @@ console.log("\nEntity types\n");
 
 for (const key of SUPPORTED_TRIGGERS) {
   const declared = TRIGGER_META[key]?.entityType;
+  // [a-z_]+, not [a-z]+: "change_order" has an underscore in it, and the
+  // narrower class silently matched nothing — an assertion that passes by
+  // comparing a declared value against undefined is the kind this file exists
+  // to prevent.
   const inCron = findersBlock?.[1].match(
-    new RegExp(`${key}:\\s*\\{\\s*entityType:\\s*"([a-z]+)"`),
+    new RegExp(`${key}:\\s*\\{\\s*entityType:\\s*"([a-z_]+)"`),
   )?.[1];
   ok(`${key} → ${declared}`, Boolean(declared) && declared === inCron, `cron says ${inCron}`);
 }
@@ -153,8 +157,14 @@ ok("case and padding don't make a text", followUpChannel({ channel: " SMS " }) =
 // Two of the four triggers can text. triggers.js argues the gap; this pins it,
 // because a third one gaining the channel without wording is a rule the cron
 // loads and skips for ever.
-ok("only the enquiry and quote chases may text",
-  SUPPORTED_TRIGGERS.filter(triggerMaySms).join(",") === "lead_no_response,quote_no_response");
+// Three of the five can text. It was two until 2026-11-17, when the owner
+// asked for "a reminder text and email" on an unsigned change order; the
+// assertion moved WITH the feature rather than being deleted. The two that
+// still cannot are argued in triggers.js, and a fourth gaining the channel
+// without wording is a rule the cron loads and skips for ever.
+ok("the enquiry, quote and change-order chases may text — and only those",
+  SUPPORTED_TRIGGERS.filter(triggerMaySms).join(",")
+    === "lead_no_response,quote_no_response,change_order_no_response");
 ok("the cron refuses an sms rule on a trigger with no wording, and counts it",
   /if \(!FOLLOW_UP_TEXT_TYPE\[rule\.triggerEvent\]\)/.test(cron) && /skippedNoSmsWording/.test(cron));
 
@@ -318,6 +328,261 @@ ok("choosing the enquiry trigger tells the user which fields a lead can fill",
   /entityType === "lead"[\s\S]{0,200}?app\.followFlow\.leadFields/.test(page));
 ok("the Meta leads copy's claim still names follow-up rules (the thing this trigger backs)",
   /follow-up rules/.test(APP_MESSAGES.en["app.setMetaLeads.whatHappens"] || ""));
+
+// ── 7c. The change-order trigger, EXECUTED ─────────────────────────────────
+//
+// An unsigned change order parks the plan step it changes
+// (Task.waitingOnChangeOrderId — lib/jobs/changeOrderDecision.js), so the
+// crew stands still while it waits, and until this trigger existed nothing
+// chased one: no cron touched the ChangeOrder model at all.
+//
+// Everything below DRIVES the real finder against a scripted fake Prisma
+// rather than reading its source. The matcher is generic — it interprets
+// whatever `where` the finder passes — so the thing under test is the
+// production clause, not a restatement of it. That matters more here than
+// anywhere else in this file: the clause is the ENTIRE stop condition for
+// this trigger (there is no quoteChaseBlocker equivalent, and the cron says
+// why), so "sent but unsigned" being right IS the feature.
+console.log("\nThe change-order trigger\n");
+
+const { findChangeOrderNoResponse } = await import("../lib/followUps/changeOrderChase.js");
+const { mergeDataFor, followUpLanguage } = await import("../lib/followUps/mergeData.js");
+const { templateBody } = await import("../lib/email/templateBody.js");
+
+ok("change_order_no_response is a supported trigger", SUPPORTED_TRIGGERS.includes("change_order_no_response"));
+ok("its entity is the change order itself", TRIGGER_META.change_order_no_response?.entityType === "change_order");
+ok("it is TRANSACTIONAL — a change to work they already contracted for",
+  TRIGGER_META.change_order_no_response?.commercial === false);
+ok("…so the cron never puts an unsubscribe link on it: only commercial triggers mint a token",
+  /if \(TRIGGER_META\[rule\.triggerEvent\]\?\.commercial\)/.test(cron));
+// Email AND text, on the owner's word (2026-11-17): "a reminder text and
+// email". Both halves asserted, because a channel offered in the dropdown
+// that the save route refuses, or wording that exists with no way to pick
+// it, are each a control that appears to work and doesn't.
+ok("it may send by TEXT as well as email", triggerMaySms("change_order_no_response") === true);
+ok("…and has wording to send, so the save routes will store an sms rule on it",
+  /change_order_no_response: "change_order_follow_up"/.test(read("lib/sms/followUpTextRules.js")));
+ok("…whose purpose is registered, so the SMS health page cannot fold it into 'Other'",
+  /"change_order_follow_up"/.test(read("lib/sms/deliveryStatus.js"))
+    && /change_order_follow_up:/.test(read("app/platform/sms-health/page.js")));
+ok("…and the cron hands the text the /co/ link from the SAME merge data the email's button uses",
+  /changeOrderUrl: merge\.changeOrderUrl \|\| null/.test(cron));
+ok("…and the sender refuses to text without that link rather than saying 'review and sign' at nothing",
+  /type === "change_order_follow_up" && !changeOrderUrl\) return \{ texted: false, reason: "no_link" \}/
+    .test(read("lib/sms/followUpText.js")));
+ok("it chases every 2 days by default — sooner than a quote's 3, because it holds up work",
+  TRIGGER_META.change_order_no_response?.defaultDelay?.value === 2
+    && TRIGGER_META.change_order_no_response?.defaultDelay?.unit === "days");
+ok("it is NOT seeded as a FieldQuo default — the company chooses it and its template",
+  !/change_order_no_response/.test(read("lib/followUps/defaults.js"))
+    && !/change_order/.test(read("lib/followUps/defaultCopy.js")));
+ok("it stops the way the metadata says: a stop sentence and a once sentence",
+  stopKeysFor("change_order_no_response").stopKey === STOP_KEYS.change_order_decided
+    && stopKeysFor("change_order_no_response").onceKey === ONCE_KEYS.change_order);
+ok("choosing it tells the user the quote chips come out blank and which ones don't",
+  /entityType === "change_order"[\s\S]{0,300}?app\.followFlow\.changeOrderFields/.test(page));
+
+// ── The scripted Prisma ────────────────────────────────────────────────────
+//
+// Generic enough to evaluate the clause the finder actually writes:
+// equality, `{ not: null }`, `{ lte }`, `{ notIn }` and a one-level relation
+// filter (`job: { companyId }`). An operator the finder starts using that
+// this does not understand THROWS rather than quietly matching everything —
+// a permissive fake is how a finder that returns the whole table passes.
+function matches(row, where, path = "where") {
+  for (const [field, cond] of Object.entries(where)) {
+    const value = row[field];
+    if (cond === null || typeof cond !== "object") {
+      if (value !== cond) return false;
+      continue;
+    }
+    if (Array.isArray(cond)) throw new Error(`${path}.${field}: array condition not understood`);
+    for (const [op, operand] of Object.entries(cond)) {
+      if (op === "not") {
+        if (operand === null ? value === null || value === undefined : value === operand) return false;
+      } else if (op === "lte") {
+        if (!(value instanceof Date) || !(value.getTime() <= operand.getTime())) return false;
+      } else if (op === "notIn") {
+        if (operand.includes(value)) return false;
+      } else if (op === "in") {
+        if (!operand.includes(value)) return false;
+      } else if (op === "companyId" || op === "historicalImportedAt") {
+        // a relation filter: `job: { companyId: … }`
+        if (!matches(value || {}, cond, `${path}.${field}`)) return false;
+        break;
+      } else {
+        throw new Error(`${path}.${field}: operator "${op}" not understood by this fake`);
+      }
+    }
+  }
+  return true;
+}
+
+const DAY = 86_400_000;
+const CO_COMPANY = { id: "co1", name: "Hallam Joinery", currency: "CAD", defaultLanguage: "en" };
+const CO_CLIENT = { id: "cl1", name: "Maureen Avery", email: "maureen@example.com", phone: null, language: null };
+const CO_JOB = {
+  id: "job1",
+  companyId: "co1",
+  clientId: "cl1",
+  title: "Kitchen refit",
+  client: CO_CLIENT,
+  company: CO_COMPANY,
+  quote: { id: "q1", quoteNumber: "Q-104", language: "fr" },
+  changeOrders: [{ id: "a", seq: 1, createdAt: new Date("2026-10-01") }, { id: "b", seq: 2, createdAt: new Date("2026-10-09") }],
+};
+const co = (over) => ({
+  id: "b",
+  jobId: "job1",
+  seq: 2,
+  createdAt: new Date("2026-10-09"),
+  description: "Soft-close hinges throughout",
+  priceDelta: 450,
+  status: "waiting_client",
+  sentAt: new Date(Date.now() - 3 * DAY),
+  signature: null,
+  shareToken: "tok_abc123",
+  job: CO_JOB,
+  ...over,
+});
+
+function fakeDb(rows, logs = []) {
+  return {
+    followUpLog: { findMany: async () => logs.map((entityId) => ({ entityId })) },
+    changeOrder: { findMany: async ({ where }) => rows.filter((r) => matches(r, where)) },
+  };
+}
+const RULE = { id: "r1", companyId: "co1", delayValue: 2, delayUnit: "days" };
+const CUTOFF = new Date(Date.now() - 2 * DAY);
+const found = async (row, logs = []) =>
+  (await findChangeOrderNoResponse(fakeDb([row], logs), RULE, CUTOFF)).length === 1;
+
+ok("a pending change order sent 3 days ago IS chased", await found(co()));
+ok("one that was never sent is NOT — sentAt null means the client has never seen it",
+  !(await found(co({ sentAt: null }))));
+ok("one the client already signed is NOT", !(await found(co({ signature: { name: "Maureen Avery" } }))));
+ok("an approved one is NOT", !(await found(co({ status: "approved" }))));
+ok("a rejected one is NOT", !(await found(co({ status: "rejected" }))));
+// ── The two faces of "pending", both of which must be left alone ─────────
+//
+// The brief for this feature said the sent-and-unsigned state was `pending`.
+// It is not — it is `waiting_client`, and a census of the live tenant found
+// 21 change orders of which ZERO are pending+sent+unsigned. A finder built
+// on "pending" would have passed every assertion and chased nobody, which
+// is this codebase's defining failure wearing a green tick. Both shapes are
+// pinned here so nobody writes it back.
+ok("a 'pending' change order that was never sent is NOT chased — the staff-side 'jotted down' state",
+  !(await found(co({ status: "pending", sentAt: null, shareToken: null }))));
+ok("one a staff member withdrew back to 'pending' is NOT — the company took it off the table",
+  !(await found(co({ status: "pending" }))));
+ok("one sent an hour ago is NOT — it is inside the delay",
+  !(await found(co({ sentAt: new Date(Date.now() - 3_600_000) }))));
+ok("one with no share token is NOT — there would be no page to send them to",
+  !(await found(co({ shareToken: null }))));
+ok("another tenant's change order is NOT — the scope goes through job.companyId",
+  !(await found(co({ job: { ...CO_JOB, companyId: "other" } }))));
+ok("one this rule already chased is NOT — the FollowUpLog dedupe", !(await found(co(), ["b"])));
+ok("the clock is sentAt, not createdAt — a row CREATED weeks ago but sent an hour ago is left alone",
+  !(await found(co({ createdAt: new Date(Date.now() - 30 * DAY), sentAt: new Date(Date.now() - 3_600_000) }))));
+
+{
+  const [row] = await findChangeOrderNoResponse(fakeDb([co()]), RULE, CUTOFF);
+  ok("the row is shaped into the client/company/companyId contract the shared send code reads",
+    row.client?.email === "maureen@example.com" && row.company?.id === "co1"
+      && row.companyId === "co1" && row.clientId === "cl1");
+  ok("its language is the originating QUOTE's, resolved the way the quote chase resolves it",
+    followUpLanguage("change_order", row) === "fr");
+
+  const request = new Request("https://app.fieldquo.com/api/cron/follow-ups");
+  const merge = mergeDataFor("change_order", row, request, null, "fr");
+  // endsWith rather than an exact string: getAppOrigin honours
+  // NEXT_PUBLIC_APP_URL when one is set, and which origin this process sees
+  // is not what is under test. The path and the token are.
+  ok("the link is the change order's own addendum page, /co/<shareToken>",
+    merge.changeOrderUrl.endsWith("/co/tok_abc123"), merge.changeOrderUrl);
+  ok("…and it is NOT a quote url — no /q/ anywhere, and {{quoteUrl}} is not supplied",
+    !/\/q\//.test(merge.changeOrderUrl) && merge.quoteUrl === undefined);
+  ok("the reference is the change order's own CO- label", merge.changeOrderNumber === "CO-2");
+  ok("the amount is the delta in the document's currency and language",
+    typeof merge.changeOrderAmount === "string" && /450/.test(merge.changeOrderAmount));
+
+  // The RENDERED email, through the real template renderer — a button bound
+  // to the chip the editor offers. This is the assertion that would have
+  // caught a merge branch that filled {{quoteUrl}} instead: the href is what
+  // a homeowner taps.
+  const html = templateBody(
+    { sections: [{ id: "b1", type: "button", label: "Review the change", url: "{{changeOrderUrl}}" }] },
+    merge,
+    { company: CO_COMPANY, language: "fr" },
+  );
+  const href = html.match(/<a[^>]+href="([^"]*)"/)?.[1];
+  ok("the rendered button's href is the /co/ page",
+    Boolean(href) && href.endsWith("/co/tok_abc123"), String(href));
+  ok("…and the rendered email contains no quote link at all", !/\/q\//.test(html));
+}
+// ── The real row, from the live tenant ─────────────────────────────────────
+//
+// TrueFinish CO-1 for Edmond Hetu, $2,000, sent 2026-11-12 01:34:52 UTC by
+// email+sms, opened 2026-11-14 18:41:57 UTC, still unsigned. This is the
+// acceptance case the feature was asked for, written out as the ROW SHAPE
+// production actually holds rather than a tidied-up fixture — `seq` present,
+// `viewedAt` set, `decidedAt` null, status "waiting_client". A chase built
+// against an invented shape is a chase nobody receives.
+{
+  const HETU = {
+    id: "co_hetu",
+    jobId: "job_hetu",
+    seq: 1,
+    createdAt: new Date("2026-11-11T20:10:00.000Z"),
+    description: "Add soft-close to the pantry run",
+    priceDelta: 2000,
+    status: "waiting_client",
+    sentAt: new Date("2026-11-12T01:34:52.000Z"),
+    sentVia: "email+sms",
+    // Opened, and opening is NOT answering. The finder keys off `signature`,
+    // so a client who read it twice and did nothing is still chased — which
+    // is the entire point of the trigger.
+    viewedAt: new Date("2026-11-14T18:41:57.000Z"),
+    decidedAt: null,
+    decidedById: null,
+    signature: null,
+    shareToken: "tok_hetu_live",
+    job: { ...CO_JOB, id: "job_hetu", client: { ...CO_CLIENT, name: "Edmond Hetu" } },
+  };
+  // The rule as a company would save it: 2 days, which is the default.
+  const cutoff2d = new Date(Date.parse("2026-11-17T12:00:00.000Z") - 2 * DAY);
+  const rows = await findChangeOrderNoResponse(fakeDb([HETU]), RULE, cutoff2d);
+  ok("the live TrueFinish CO-1 (Edmond Hetu, $2,000, sent 12 Nov, unsigned) IS picked up at 2 days",
+    rows.length === 1 && rows[0].id === "co_hetu");
+  ok("…having been OPENED on 14 Nov does not count as answering it",
+    rows.length === 1 && rows[0].viewedAt instanceof Date);
+  const hetuMerge = mergeDataFor("change_order", rows[0], new Request("https://www.fieldquo.com/x"), null, "en");
+  ok("…and the link it would send is its own /co/ page, labelled CO-1",
+    hetuMerge.changeOrderUrl.endsWith("/co/tok_hetu_live") && hetuMerge.changeOrderNumber === "CO-1",
+    `${hetuMerge.changeOrderNumber} ${hetuMerge.changeOrderUrl}`);
+  // The TEXT the owner asked for, rendered through the real renderer.
+  const { renderMessage: render } = await import("../lib/sms/renderTemplate.js");
+  const sms = render({
+    type: "change_order_follow_up",
+    templates: null,
+    language: "en",
+    values: { company: "TrueFinish Cabinets", name: "Edmond", number: hetuMerge.changeOrderNumber, link: hetuMerge.changeOrderUrl },
+  });
+  ok("…and the TEXT carries the same /co/ link, names CO-1, keeps STOP and fits two segments' worth",
+    sms.includes(hetuMerge.changeOrderUrl) && sms.includes("CO-1") && /\bSTOP\b/.test(sms) && sms.length <= 320,
+    `${sms.length} chars`);
+  ok("…with no /q/ quote link anywhere in it", !/\/q\//.test(sms));
+}
+
+ok("the finder refuses to be tested by a fake that understands less than it writes",
+  (() => {
+    try {
+      matches({ a: 1 }, { a: { startsWith: "x" } });
+      return false;
+    } catch {
+      return true;
+    }
+  })());
 
 // ── 8. buildFlows against rows nobody wants to be handed ───────────────────
 console.log("\nbuildFlows on hostile input\n");

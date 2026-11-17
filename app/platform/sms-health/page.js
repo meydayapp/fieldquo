@@ -36,6 +36,7 @@ const PURPOSE_LABELS = {
   invoice_sent: "Invoice link",
   lead_follow_up: "Enquiry follow-up (automatic)",
   quote_follow_up: "Quote follow-up (automatic)",
+  change_order_follow_up: "Change order follow-up (automatic)",
   other: "Other",
 };
 

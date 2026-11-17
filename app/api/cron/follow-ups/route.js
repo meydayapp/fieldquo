@@ -21,6 +21,16 @@
 // decided BEFORE the FollowUpLog claim, so the one chase this rule gets at
 // this lead is not spent on a send that never happened.
 //
+// ── The fifth trigger (change_order_no_response) ───────────────────────────
+//
+// A change order sent to the homeowner for signature and still unsigned.
+// Its clock runs from ChangeOrder.sentAt, never createdAt — the delay
+// measures how long the CLIENT has had it, and one that was never sent is
+// never chased. Email only: triggers.js records why a text on it waits on a
+// product decision about the per-company texting allowance. Not seeded as a
+// FieldQuo default either, deliberately — nothing starts emailing homeowners
+// about a running job until the owner chooses the rule and its template.
+//
 // job_completed keys off Job.completedAt, stamped once when the job first
 // flips to completed and cleared if it's reopened. It used to use updatedAt
 // as a proxy, which meant renaming a job three weeks later reset the clock on
@@ -58,6 +68,10 @@ import {
 // stopConditions.js: that one is in the browser bundle (the dashboard's work
 // panel imports quoteChaseBlocker from it), and this reaches pg.
 import { gatherLeadChaseFacts } from "@/lib/followUps/leadChaseFacts";
+// The change-order chase's finder, outside this file for the same reason
+// mergeData.js is: a check script can execute it, and did.
+import { findChangeOrderNoResponse } from "@/lib/followUps/changeOrderChase";
+import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
 // The attempt log. The cron writes a row for a send it ACTUALLY made, which
 // is the only kind of row FieldQuo may claim for itself — a call and a
 // voicemail can only ever come from a person (lib/leads/attempts.js).
@@ -233,6 +247,15 @@ const FINDERS = {
   quote_no_response: { entityType: "quote", find: findQuoteNoResponse },
   invoice_overdue: { entityType: "invoice", find: findInvoiceOverdue },
   job_completed: { entityType: "job", find: findJobCompleted },
+  // The fifth, and the only finder that does not live in this file: a route
+  // module can export nothing but its handler, so a finder written here can
+  // be read by a check and never executed by one. This one takes its Prisma
+  // client as an argument and scripts/check-follow-up-flow.mjs drives it
+  // against a scripted fake — see lib/followUps/changeOrderChase.js.
+  change_order_no_response: {
+    entityType: "change_order",
+    find: (rule) => findChangeOrderNoResponse(db, rule, cutoffFor(rule)),
+  },
 };
 
 export async function GET(request) {
@@ -419,6 +442,27 @@ export async function GET(request) {
         }
       }
 
+      // ── Why the change-order chase has no equivalent block ───────────────
+      //
+      // quoteChaseBlocker asks four questions, and a change order can answer
+      // none of them: it has no validUntil to expire, there is no "a newer
+      // change order supersedes this one" (each one is its own agreement, and
+      // a job commonly has several live at once), and `before_rule` only
+      // applies to a FieldQuo default, which this trigger deliberately is not
+      // (nothing seeds it — the company creates the rule and picks the
+      // template). The fourth, "the client replied", IS worth having and is
+      // NOT built here: gatherQuoteChaseFacts matches a thread to a QUOTE,
+      // and inventing a change-order equivalent without checking what it
+      // actually matches is how two rules for one question drift apart. So
+      // the whole of the stop condition is the finder's `where` — status left
+      // "waiting_client", or signed — which is exactly what stopsWhen
+      // ("change_order_decided") tells the company on screen.
+      //
+      // quoteTaxReady below is quote-only for the same kind of reason: it
+      // resolves the tax line on a quote the send route would refuse. A
+      // change order's figure is a staff-typed delta that the addendum has
+      // already been sent with; there is nothing left to resolve.
+
       // The enquiry equivalent, on the same footing: decided before the
       // claim, counted by reason, and every reason is in the one sentence
       // the settings page prints for this trigger.
@@ -463,7 +507,14 @@ export async function GET(request) {
           clientId: entity.clientId || entity.client?.id || null,
           sender: "follow_up",
           ref: { type: finder.entityType, id: entity.id },
-          refLabel: entity.quoteNumber || entity.invoiceNumber || entity.title || null,
+          // A change order has none of the three columns below — it is
+          // numbered "CO-2" by its own helper, from `seq` or its position
+          // among the job's rows. Without this the held-back chase would
+          // appear on the client page with no name on it.
+          refLabel:
+            finder.entityType === "change_order"
+              ? changeOrderLabel(entity, entity.job?.changeOrders || [])
+              : entity.quoteNumber || entity.invoiceNumber || entity.title || null,
         });
         if (!gate.allowed) {
           stop(gate.reason);
@@ -522,8 +573,20 @@ export async function GET(request) {
             finder.entityType === "lead"
               ? String(entity.assignedTo?.name || "").trim().split(/\s+/)[0] || null
               : null,
-          number: finder.entityType === "quote" ? entity.quoteNumber || null : null,
+          // The reference the text names: a quote's number, or a change
+          // order's own CO- label from the merge data (one labeller, the
+          // same one the addendum and the job page print).
+          number:
+            finder.entityType === "quote"
+              ? entity.quoteNumber || null
+              : finder.entityType === "change_order"
+                ? merge.changeOrderNumber || null
+                : null,
           quoteUrl: merge.quoteUrl || null,
+          // The /co/<shareToken> page, from the SAME merge data the covering
+          // email's button uses — so the text and the email cannot send a
+          // homeowner to two different places.
+          changeOrderUrl: merge.changeOrderUrl || null,
           // The booking link's host, resolved once by the one helper that
           // knows it — never guessed inside the sender.
           origin: getAppOrigin(request),
@@ -717,6 +780,15 @@ export async function GET(request) {
         // The chase as it went, for the History tab on the client and job
         // pages (lib/email/sentEmailHistory.js). Automatic: nobody sent it.
         // A lead's chase has no client page to keep it on, so it is not kept.
+        //
+        // Nor is a change order's, and that is a choice rather than an
+        // oversight: SENT_EMAIL_KINDS is a closed list, and a new kind needs
+        // a permission category (lib/email/sentEmailHistory.js kindCategory),
+        // a label in nine languages and a place in the History tab's filters.
+        // Filing it under an existing kind would put "Quote follow-up" or
+        // "Job follow-up" on an email that is neither. The send is still on
+        // the record — the FollowUpLog row is what makes "once per change
+        // order" true — so nothing is lost except the kept copy.
         const keptKind = { quote: "quote_follow_up", invoice: "reminder", job: "job_follow_up" }[finder.entityType];
         if (keptKind) await recordSentEmail(db, {
           companyId: entity.companyId,

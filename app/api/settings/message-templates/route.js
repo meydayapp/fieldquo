@@ -68,12 +68,15 @@ const SWITCHES = [
     write: (enabled) => ({ documentSmsOn: enabled }),
   },
   {
-    // ── The follow-up texts (2026-11-02) ──────────────────────────────────
+    // ── The follow-up texts (2026-11-02; a third on 2026-11-17) ───────────
     //
-    // The automatic chase on an enquiry or a quote nobody answered, for a
-    // FollowUpRule whose channel is "sms" (lib/sms/followUpText.js). The
-    // enquiry chase carries the switch and the quote chase follows it, the
-    // arrangement the two above already have.
+    // The automatic chase on an enquiry, a quote nobody answered, or a
+    // change order nobody signed, for a FollowUpRule whose channel is "sms"
+    // (lib/sms/followUpText.js). The enquiry chase carries the switch and
+    // the other two follow it, the arrangement the two groups above already
+    // have — which is why the "follows" copy names no document: it is shown
+    // beside every non-owner type in the group, and a sentence saying
+    // "quote follow-up rule" would describe the wrong one.
     //
     // The one difference, and it is the whole reason this switch exists:
     // followUpTextOn defaults OFF. The other two default on. A document text

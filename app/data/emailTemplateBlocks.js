@@ -151,6 +151,13 @@ export const MERGE_FIELDS = [
   { token: "projectEndDate", label: "Project end date" },
   { token: "jobTitle", label: "Job title" },
   { token: "amountPaid", label: "Amount paid" },
+  // Filled by the change-order chase (change_order_no_response) and nothing
+  // else, the way the invoice tokens are filled only by an invoice send.
+  // The link is the addendum page, /co/<shareToken> — NOT {{quoteUrl}}, and
+  // not a second expression for the same URL (lib/followUps/mergeData.js).
+  { token: "changeOrderNumber", label: "Change order number" },
+  { token: "changeOrderAmount", label: "Change order amount" },
+  { token: "changeOrderUrl", label: "Change order link" },
 ];
 
 // Deliberately NOT in MERGE_FIELDS: `progressStage` (a 0-based index that

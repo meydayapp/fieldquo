@@ -7531,8 +7531,17 @@ model ChangeOrder {
   /// would be a truer-looking number standing on a guess.
   priceDelta Decimal @db.Decimal(12, 2)
 
-  /// pending | approved | rejected — the closed set in
+  /// pending | waiting_client | approved | rejected — the closed set in
   /// lib/jobs/changeOrderValue.js's CHANGE_ORDER_STATUSES.
+  ///
+  /// This comment said "pending | approved | rejected" for as long as
+  /// `waiting_client` has existed, which is a lie of exactly the kind that
+  /// costs a day: `waiting_client` is the state a change order is in for the
+  /// whole time it matters — sent to the homeowner and not yet signed,
+  /// written by lib/jobs/changeOrderSend.js only after a channel accepted
+  /// the message — and anything written against the three-value list
+  /// silently matches none of them. `pending` means logged by staff and NOT
+  /// sent, and is also where a staff withdrawal puts a sent one back.
   ///
   /// This model shipped WITHOUT a status, deliberately: the owner's framing
   /// was "a change agreed mid-job", already agreed by the time anyone logs

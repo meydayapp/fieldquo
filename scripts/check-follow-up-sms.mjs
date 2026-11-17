@@ -116,6 +116,21 @@ ok(
   "the invoice and job chases may NOT — triggers.js argues both",
   !triggerMaySms("invoice_overdue") && !triggerMaySms("job_completed"),
 );
+// The change-order chase (2026-11-17) is the third that may not, and the
+// only one held back by an UNSETTLED decision rather than a settled one:
+// how much of a company's texting allowance a chase on a running job may
+// spend has not been answered, and a path that spends the company's money
+// must not ship on an assumption. Pinned here so switching it on is a
+// deliberate edit to this line and to FOLLOW_UP_TEXT_TYPE, not a side
+// effect of adding wording somewhere.
+// The third that may (2026-11-17), on the owner's word: "a reminder text and
+// email" on a change order the client has not signed. Both halves assert the
+// trigger EXISTS as well, because an assertion that would also pass if the
+// trigger were deleted proves nothing about it.
+ok("the change-order chase may — the owner asked for a reminder text as well as the email",
+  SUPPORTED_TRIGGERS.includes("change_order_no_response") && triggerMaySms("change_order_no_response"));
+ok("…and it has wording, so the save routes will store an sms rule rather than refuse one",
+  FOLLOW_UP_TEXT_TYPE.change_order_no_response === "change_order_follow_up");
 ok("a trigger nobody defined may not", !triggerMaySms("made_up") && !triggerMaySms(undefined) && !triggerMaySms(null));
 ok(
   "the type map and triggerMaySms cannot disagree",
@@ -374,9 +389,13 @@ console.log("\nThe wording — eight languages, measured not estimated");
 // between two segments and three is what FieldQuo pays.
 const VIDEO = "https://www.youtube.com/watch?v=" + "x".repeat(11);
 const QUOTE_URL = "https://www.fieldquo.com/q/" + "x".repeat(43);
+// ChangeOrder.shareToken is the same shape as Quote.shareToken — 32 CSPRNG
+// bytes, base64url — so the change-order chase pays the same url cost.
+const CO_URL = "https://www.fieldquo.com/co/" + "x".repeat(43);
 
-ok("every catalogue language has both follow-up texts",
-  SMS_LANGUAGES.every((l) => ["leadFollowUp", "quoteFollowUp"].every((k) => typeof SMS_COPY[l][k] === "function")));
+ok("every catalogue language has all three follow-up texts",
+  SMS_LANGUAGES.every((l) =>
+    ["leadFollowUp", "quoteFollowUp", "changeOrderFollowUp"].every((k) => typeof SMS_COPY[l][k] === "function")));
 
 // ── The enquiry wording lives in scripts/check-lead-chase.mjs ────────────
 //
@@ -413,9 +432,39 @@ for (const lang of SMS_LANGUAGES) {
   });
   ok(`${lang}: a quote with no number still reads as a sentence`,
     !/undefined|null|\s{2,}|\s[,.;।]/.test(noNumber) && noNumber.includes(QUOTE_URL), noNumber);
+
+  // ── The change-order chase, held to exactly the same bar ────────────────
+  //
+  // Same share-token length as a quote's, because that is what decides the
+  // segment count: 32 CSPRNG bytes, base64url, 43 characters.
+  const co = renderMessage({
+    type: "change_order_follow_up",
+    templates: null,
+    language: lang,
+    values: { company: "TrueFinish Cabinets", name: "Edmond", number: "CO-1", link: CO_URL },
+  });
+  ok(`${lang}: the change-order chase names the change order and carries its /co/ link`,
+    co.includes("CO-1") && co.includes(CO_URL), co);
+  ok(`${lang}: …and never the quote's /q/ page — it is asking for a signature on the CHANGE`,
+    !/\/q\//.test(co), co);
+  ok(`${lang}: keeps STOP and fits in two segments' worth`, /\bSTOP\b/.test(co) && co.length <= 320, co.length);
+  ok(`${lang}: is not the English sentence`, lang === "en" || !/waiting for your OK/.test(co), co);
+  // No figure, for the reason the quote chase gives: a phone is read by
+  // whoever holds it, and a change order's delta is money the homeowner has
+  // not yet agreed to.
+  ok(`${lang}: the change-order chase names no figure`, !/\$|€|CAD|USD/.test(co), co);
+  const coNoNumber = renderMessage({
+    type: "change_order_follow_up",
+    templates: null,
+    language: lang,
+    values: { company: "TrueFinish Cabinets", name: "Edmond", number: null, link: CO_URL },
+  });
+  ok(`${lang}: a change order with no number still reads as a sentence`,
+    !/undefined|null|\s{2,}|\s[,.;।]/.test(coNoNumber) && coNoNumber.includes(CO_URL), coNoNumber);
 }
 console.log(`     → "${renderMessage({ type: "lead_follow_up", templates: null, language: "en", values: { company: "TrueFinish Cabinets", name: "Maureen", service: "kitchen cabinet refinishing", video: VIDEO, phone: "819-555-0100" } })}"`);
 console.log(`     → "${renderMessage({ type: "quote_follow_up", templates: null, language: "en", values: { company: "TrueFinish Cabinets", name: "Maureen", number: "Q-2026-0042", link: QUOTE_URL } })}"`);
+console.log(`     → "${renderMessage({ type: "change_order_follow_up", templates: null, language: "en", values: { company: "TrueFinish Cabinets", name: "Edmond", number: "CO-1", link: CO_URL } })}"`);
 
 console.log("\nA company's own wording, and what it may not say");
 

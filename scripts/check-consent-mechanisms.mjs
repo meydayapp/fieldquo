@@ -278,6 +278,18 @@ console.log("\nEvery COMMERCIAL email template carries the link; every TRANSACTI
   ok("quote_no_response is TRANSACTIONAL", TRIGGER_META.quote_no_response.commercial === false);
   ok("invoice_overdue is TRANSACTIONAL", TRIGGER_META.invoice_overdue.commercial === false);
   ok("job_completed is COMMERCIAL", TRIGGER_META.job_completed.commercial === true);
+  // The fifth trigger (2026-11-17). Transactional on quote_no_response's
+  // reasoning: a specific change to work the recipient is already contracted
+  // for, which they are being asked to agree to — CASL's carve-out for
+  // facilitating a transaction already entered into. An unsubscribe here
+  // would let a homeowner switch off "please sign the change to your own
+  // job", which stops the work rather than stopping marketing.
+  ok("change_order_no_response is TRANSACTIONAL", TRIGGER_META.change_order_no_response.commercial === false);
+  ok(
+    "…so it never reaches the unsubscribe machinery: only COMMERCIAL triggers do",
+    TRIGGER_META.change_order_no_response.commercial === false &&
+      SUPPORTED_TRIGGERS.filter((k) => TRIGGER_META[k].commercial).join(",") === "job_completed",
+  );
 }
 
 {
