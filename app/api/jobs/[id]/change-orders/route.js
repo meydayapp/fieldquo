@@ -29,6 +29,7 @@ import {
 import { CHANGE_ORDER_CREATE_STATUSES } from "@/lib/jobs/changeOrderValue";
 import { normaliseChangeOrderInput, snapshotQuoteLine } from "@/lib/jobs/changeOrderAddendum";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
+import { changeOrderChaseStates } from "@/lib/followUps/changeOrderChaseState";
 import { applyChangeOrderDecision } from "@/lib/jobs/changeOrderDecision";
 import { sendChangeOrderToClient } from "@/lib/jobs/changeOrderSend";
 
@@ -52,7 +53,14 @@ export async function GET(request, { params }) {
     include: CHANGE_ORDER_INCLUDE,
   });
 
-  return NextResponse.json(changeOrders.map((co) => presentChangeOrder(co, changeOrders, full)));
+  // What the panel is allowed to say about the automatic chase on each one
+  // that is out for signature — including "nothing will chase this", which is
+  // the answer the job page gave by saying nothing at all until 2026-11-18.
+  const chase = await changeOrderChaseStates(db, { companyId: member.companyId, changeOrders });
+
+  return NextResponse.json(
+    changeOrders.map((co) => ({ ...presentChangeOrder(co, changeOrders, full), chase: chase.get(co.id) || null })),
+  );
 }
 
 export async function POST(request, { params }) {

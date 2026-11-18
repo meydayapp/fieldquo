@@ -309,6 +309,42 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged, newLabel 
                                 </>
                               )}
                             </div>
+                            {/* ── Will anything chase this? ──────────────────
+                                Said out loud, including when the answer is no.
+                                The owner read this panel twice looking for it
+                                and found "Sent · opened · Resend", which says
+                                nothing about what happens next — and a blank
+                                where an automation should be reads as "handled"
+                                to the one person who needs to know it isn't.
+                                Computed server-side (lib/followUps/
+                                changeOrderChaseState.js) from the rules the
+                                cron itself runs, so this cannot promise a
+                                reminder the cron will not send. */}
+                            {co.chase && (
+                              <div className={co.chase.state === "off" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}>
+                                {co.chase.state === "sent" &&
+                                  t("app.changeOrder.chaseSent", "Reminder sent {when} · no further reminders", {
+                                    when: co.chase.at ? formatDate(co.chase.at) : "",
+                                  })}
+                                {co.chase.state === "due" &&
+                                  (new Date(co.chase.at) <= new Date()
+                                    ? t("app.changeOrder.chaseDueNow", "Reminder due — goes out on the next run")
+                                    : t("app.changeOrder.chaseDue", "Reminder {when}, once", { when: formatDate(co.chase.at) }))}
+                                {co.chase.state === "off" && (
+                                  <>
+                                    {t("app.changeOrder.chaseOff", "No automatic reminder")}
+                                    {canLog && (
+                                      <>
+                                        {" · "}
+                                        <a href="/app/settings/follow-ups" className="underline underline-offset-2 hover:text-foreground">
+                                          {t("app.changeOrder.chaseTurnOn", "Turn one on")}
+                                        </a>
+                                      </>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                         {status === "pending" && <span className="text-muted-foreground">{t("app.changeOrder.statusPending", "Not yet agreed — affects nothing")}</span>}

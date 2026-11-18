@@ -35,6 +35,7 @@ import { warrantyLinkVerdict } from "@/lib/equipment/installed";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { syncJobRoom, jobRoomIdFor } from "@/lib/company/chat/store";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
+import { changeOrderChaseStates } from "@/lib/followUps/changeOrderChaseState";
 import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
 import { nudgeAgencyEvents } from "@/lib/agency/nudge";
 import { familyPayments } from "@/lib/invoices/family";
@@ -260,6 +261,16 @@ export async function GET(request, { params }) {
     { quotes: hasLevelFor(full, "quotes", "view_only"), invoices: canSeeInvoicesFor(full) },
   );
 
+  // What the panel may say about the automatic chase on each change order
+  // still out for signature. Read here rather than inside presentChangeOrder
+  // because it needs a query and the presenter is pure — and read from the
+  // same function the change-orders route uses, so a reload and a refresh
+  // cannot disagree about whether a reminder is coming.
+  const chaseStates = await changeOrderChaseStates(db, {
+    companyId: member.companyId,
+    changeOrders: job.changeOrders || [],
+  });
+
   // ── The job is a crew member's door onto the client record ──────────────
   //
   // Jobs are `view_only` for both Worker presets and the job page is where a
@@ -282,7 +293,12 @@ export async function GET(request, { params }) {
       // Labelled (CO-1, CO-2) and redacted — the signature PNG and the share
       // token stay on the server, the price and the invoice by the reader's
       // grid. See lib/jobs/changeOrderPresent.js.
-      changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders, full)),
+      changeOrders: (job.changeOrders || []).map((co) => ({
+        ...presentChangeOrder(co, job.changeOrders, full),
+        // Same chase line as the change-orders route's own list: one reader,
+        // so the panel cannot say one thing on load and another on refresh.
+        chase: chaseStates.get(co.id) || null,
+      })),
       quotedCrew,
       chatRoomId,
       familyAppointments,

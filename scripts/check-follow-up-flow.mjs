@@ -346,6 +346,7 @@ ok("the Meta leads copy's claim still names follow-up rules (the thing this trig
 console.log("\nThe change-order trigger\n");
 
 const { findChangeOrderNoResponse } = await import("../lib/followUps/changeOrderChase.js");
+const { builtInEntityType } = await import("../lib/followUps/defaults.js");
 const { mergeDataFor, followUpLanguage } = await import("../lib/followUps/mergeData.js");
 const { templateBody } = await import("../lib/email/templateBody.js");
 
@@ -373,9 +374,18 @@ ok("…and the sender refuses to text without that link rather than saying 'revi
 ok("it chases every 2 days by default — sooner than a quote's 3, because it holds up work",
   TRIGGER_META.change_order_no_response?.defaultDelay?.value === 2
     && TRIGGER_META.change_order_no_response?.defaultDelay?.unit === "days");
-ok("it is NOT seeded as a FieldQuo default — the company chooses it and its template",
-  !/change_order_no_response/.test(read("lib/followUps/defaults.js"))
-    && !/change_order/.test(read("lib/followUps/defaultCopy.js")));
+// Seeded as a FieldQuo default since 2026-11-17. This asserted the OPPOSITE
+// for a day after that landed — the seeding commit changed defaults.js and
+// left the check describing the world before it. It went unnoticed because
+// `npm run build`, which is what Vercel runs, runs six checks and this is not
+// one of them; only `check:all` reaches it. A check nobody runs is a comment.
+ok("it IS seeded as a FieldQuo default, with built-in wording so an unconfigured company still chases",
+  /change_order_no_response|CHANGE_ORDER_TRIGGER/.test(read("lib/followUps/defaults.js"))
+    && /change_order_sent_d2/.test(read("lib/followUps/defaults.js"))
+    && /change_order/.test(read("lib/followUps/defaultCopy.js")));
+ok("…and builtInEntityType agrees with the cron's finder, or the rule is skipped as 'no template' forever",
+  builtInEntityType("change_order_sent_d2") === "change_order"
+    && /change_order_no_response: \{\s*\n\s*entityType: "change_order"/.test(cron));
 ok("it stops the way the metadata says: a stop sentence and a once sentence",
   stopKeysFor("change_order_no_response").stopKey === STOP_KEYS.change_order_decided
     && stopKeysFor("change_order_no_response").onceKey === ONCE_KEYS.change_order);
@@ -402,6 +412,16 @@ function matches(row, where, path = "where") {
         if (operand === null ? value === null || value === undefined : value === operand) return false;
       } else if (op === "lte") {
         if (!(value instanceof Date) || !(value.getTime() <= operand.getTime())) return false;
+      } else if (op === "equals") {
+        // The Json? null filter: Prisma spells "this column holds no JSON"
+        // as a sentinel object (Prisma.DbNull / JsonNull / AnyNull), never a
+        // bare null — see lib/followUps/changeOrderChase.js. Any of the three
+        // means "unsigned" here, and the fake must agree with the real client
+        // about that or it is back to being more permissive than production.
+        const sentinel = operand && typeof operand === "object" && !(operand instanceof Date);
+        if (sentinel) {
+          if (value !== null && value !== undefined) return false;
+        } else if (value !== operand) return false;
       } else if (op === "notIn") {
         if (operand.includes(value)) return false;
       } else if (op === "in") {
@@ -484,6 +504,45 @@ ok("another tenant's change order is NOT — the scope goes through job.companyI
 ok("one this rule already chased is NOT — the FollowUpLog dedupe", !(await found(co(), ["b"])));
 ok("the clock is sentAt, not createdAt — a row CREATED weeks ago but sent an hour ago is left alone",
   !(await found(co({ createdAt: new Date(Date.now() - 30 * DAY), sentAt: new Date(Date.now() - 3_600_000) }))));
+
+// ── The where clause, through Prisma's OWN validator ───────────────────────
+//
+// Everything above drives the finder against `fakeDb`, whose `matches` is a
+// hand-written reading of a Prisma `where`. That is what let this ship:
+// the finder asked for `signature: null` on a Json? column, the fake happily
+// compared it, and Prisma REFUSES a bare null there — so every real run threw
+// PrismaClientValidationError and not one change order was ever chased. A
+// green tick on a fake that is more permissive than the real client is worth
+// nothing, which is the whole lesson.
+//
+// So the clause also goes through the real client. No database is needed and
+// none is used: Prisma validates the arguments BEFORE it opens a connection,
+// so a client pointed at an unreachable port fails with P1001 when the query
+// is well formed and with a validation error when it is not. P1001 is the
+// pass here. followUpLog stays on the fake, because the dedupe read happens
+// first and a connection error there would mask the clause under test.
+{
+  const { PrismaClient } = await import("@prisma/client");
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const { Pool } = await import("pg");
+  // Port 1 refuses instantly on every platform — this must not hang a build.
+  const pool = new Pool({ connectionString: "postgresql://none:none@127.0.0.1:1/none", max: 1 });
+  const real = new PrismaClient({ adapter: new PrismaPg(pool) });
+  const hybrid = { followUpLog: fakeDb([]).followUpLog, changeOrder: real.changeOrder };
+  let kind = "no error";
+  try {
+    await findChangeOrderNoResponse(hybrid, RULE, CUTOFF);
+  } catch (err) {
+    kind = err?.constructor?.name === "PrismaClientValidationError"
+      ? `rejected by Prisma: ${String(err.message).split("\n").find((l) => l.trim().startsWith("Argument ")) || "invalid where"}`
+      : "validated";
+  }
+  ok("the finder's where clause is one the real Prisma client accepts",
+    kind === "validated",
+    kind === "validated" ? "" : kind);
+  await real.$disconnect().catch(() => {});
+  await pool.end().catch(() => {});
+}
 
 {
   const [row] = await findChangeOrderNoResponse(fakeDb([co()]), RULE, CUTOFF);

@@ -26,10 +26,15 @@
 // A change order sent to the homeowner for signature and still unsigned.
 // Its clock runs from ChangeOrder.sentAt, never createdAt — the delay
 // measures how long the CLIENT has had it, and one that was never sent is
-// never chased. Email only: triggers.js records why a text on it waits on a
-// product decision about the per-company texting allowance. Not seeded as a
-// FieldQuo default either, deliberately — nothing starts emailing homeowners
-// about a running job until the owner chooses the rule and its template.
+// never chased.
+//
+// This paragraph said "Email only" and "Not seeded as a FieldQuo default
+// either, deliberately" until 2026-11-18. Both were overtaken within a day:
+// the trigger has SMS wording in all eight languages (triggerMaySms admits
+// it, lib/sms/followUpTextRules.js carries the type) and it IS seeded, as
+// change_order_sent_d2 — two days, email, on. A load-bearing comment left
+// describing the world before the last commit is the same lie as a dead
+// button, so it is corrected here rather than quietly left.
 //
 // job_completed keys off Job.completedAt, stamped once when the job first
 // flips to completed and cleared if it's reopened. It used to use updatedAt
@@ -316,6 +321,12 @@ export async function GET(request) {
   const stop = (reason) => {
     stopped[reason] = (stopped[reason] || 0) + 1;
   };
+  // Per trigger, the rules whose finder threw — see the catch in the loop.
+  // Reported rather than swallowed: an empty object is the healthy run.
+  const finderErrors = {};
+  const finderFailed = (trigger) => {
+    finderErrors[trigger] = (finderErrors[trigger] || 0) + 1;
+  };
   // One plan-gate answer per company per run — see lib/followUps/readiness.js.
   const planCache = new Map();
   // Each template's approved translations, read once per run.
@@ -372,7 +383,29 @@ export async function GET(request) {
     // The channel reaches the finder because one of them narrows by it: a
     // lead row carries its own email and phone, and asking for an address on
     // a rule that texts would drop exactly the people worth texting.
-    const entities = await finder.find(rule, channel);
+    //
+    // ── Why one finder's failure must not end the run ────────────────────
+    //
+    // This await was bare until 2026-11-18, when the change-order finder
+    // shipped with `signature: null` on a Json column — a filter Prisma
+    // rejects before the query reaches Postgres. One company's one rule
+    // therefore threw out of this loop and ended the WHOLE run: these rules
+    // are read across every tenant in one pass, in no stated order, so every
+    // quote, enquiry, invoice and job chase sitting behind it in the list
+    // silently went unsent, for everyone, every night.
+    //
+    // Caught and counted rather than rethrown. A finder that cannot answer is
+    // a broken rule, not a reason to stop chasing the other ninety — and it
+    // is named in the response and the log, because a failure this run
+    // swallows in silence is how the original bug survived a deploy.
+    let entities;
+    try {
+      entities = await finder.find(rule, channel);
+    } catch (err) {
+      finderFailed(rule.triggerEvent);
+      console.error(`[follow-ups] finder ${rule.triggerEvent} failed for rule ${rule.id}:`, err?.message);
+      continue;
+    }
 
     // ── The enquiry chase's stop conditions ─────────────────────────────
     //
@@ -892,6 +925,7 @@ export async function GET(request) {
     skippedNoSmsWording,
     smsSkipped,
     stopped,
+    finderErrors,
     callbacks,
     priceRequestReminders,
   });
